@@ -1,5 +1,29 @@
-.superpowers/
+# Rust
 target/
+**/*.rs.bk
+
+# cargo-fuzz
+crates/*/fuzz/target/
+crates/*/fuzz/artifacts/
+crates/*/fuzz/coverage/
+
+# criterion benchmark output
+criterion/
+
+# insta: pending snapshots that have not been reviewed
+*.snap.new
+*.pending-snap
+
+# Node / web app (added in a later milestone)
 node_modules/
 dist/
+.vite/
+
+# Agent scratch space — session-local, not part of the project
+.superpowers/
+
+# OS and editors
 .DS_Store
+.idea/
+.vscode/
+*.swp
