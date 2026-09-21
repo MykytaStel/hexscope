@@ -53,6 +53,24 @@ impl<'a> Reader<'a> {
         Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
     }
 
+    /// Reads up to the next occurrence of `delim` and consumes the delimiter.
+    /// Returns `None` when the delimiter is absent, leaving the position
+    /// untouched so the caller can record the damage and move on.
+    pub fn bytes_until(&mut self, delim: u8) -> Option<&'a [u8]> {
+        let offset = self.data[self.pos..].iter().position(|&b| b == delim)?;
+        let out = self.bytes(offset).ok()?;
+        // `position` already proved the delimiter is the next byte.
+        self.pos += 1;
+        Some(out)
+    }
+
+    /// Consumes and returns everything left, which may be empty.
+    pub fn rest(&mut self) -> &'a [u8] {
+        let out = &self.data[self.pos..];
+        self.pos = self.data.len();
+        out
+    }
+
     /// Reads a fixed-size field as an owned array. Parsers use this for things
     /// like a four-byte chunk type so they never index a slice by hand.
     pub fn array<const N: usize>(&mut self) -> Result<[u8; N], ReadError> {
@@ -119,5 +137,40 @@ mod tests {
         // Too few bytes left: reports EOF and stays put, like every other read.
         assert_eq!(r.array::<4>(), Err(ReadError::Eof { needed: 4, available: 2 }));
         assert_eq!(r.pos(), 4);
+    }
+
+    #[test]
+    fn bytes_until_splits_on_the_delimiter() {
+        let data = *b"Author\0Ada";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), Some(&b"Author"[..]));
+        // The delimiter itself is consumed.
+        assert_eq!(r.pos(), 7);
+        assert_eq!(r.rest(), &b"Ada"[..]);
+        assert_eq!(r.remaining(), 0);
+    }
+
+    #[test]
+    fn bytes_until_reports_a_missing_delimiter_without_moving() {
+        let data = *b"no-null-here";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), None);
+        assert_eq!(r.pos(), 0, "a failed search must not consume input");
+    }
+
+    #[test]
+    fn bytes_until_handles_an_empty_leading_field() {
+        let data = [0u8, b'x'];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), Some(&[][..]));
+        assert_eq!(r.rest(), &[b'x'][..]);
+    }
+
+    #[test]
+    fn rest_on_exhausted_input_is_empty() {
+        let data = [1u8];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes(1), Ok(&data[..]));
+        assert_eq!(r.rest(), &[][..]);
     }
 }

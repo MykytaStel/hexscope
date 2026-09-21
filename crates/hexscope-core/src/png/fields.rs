@@ -161,6 +161,19 @@ mod tests {
     }
 
     #[test]
+    fn marks_a_truncated_gama_without_panicking() {
+        let chunk = fake_chunk(b"gAMA", &[0, 0]);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_gama(&chunk, &mut tree, root);
+
+        let child = tree.get(tree.get(root).children[0]);
+        assert_eq!(child.kind, NodeKind::Error);
+        assert_eq!(child.label, "gAMA truncated");
+    }
+
+    #[test]
     fn reads_trns_according_to_color_type() {
         let chunk = fake_chunk(b"tRNS", &[0, 64, 128]);
         let mut tree = ParseTree::new();
@@ -178,6 +191,16 @@ mod tests {
         let orphan_root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
         decode_trns(&chunk, &mut tree, orphan_root, None);
         assert_eq!(tree.get(tree.get(orphan_root).children[0]).kind, NodeKind::Warning);
+
+        // Colour types 4 and 6 already carry an alpha channel, so the PNG spec
+        // forbids tRNS there — the realistic way this warning fires in the wild.
+        for forbidden in [4u8, 6] {
+            let root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+            decode_trns(&chunk, &mut tree, root, Some(forbidden));
+            let child = tree.get(tree.get(root).children[0]);
+            assert_eq!(child.kind, NodeKind::Warning, "colour type {forbidden}");
+            assert_eq!(child.label, "tRNS without a usable colour type");
+        }
     }
 }
 
@@ -302,16 +325,21 @@ pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         Value::U64((chunk.data.len() / 3) as u64),
     );
 
-    for (i, rgb) in chunk.data.chunks_exact(3).enumerate() {
+    // `array::<3>` yields a fixed-size array, so indexing it is checked at
+    // compile time rather than being a raw slice index.
+    let mut r = Reader::new(chunk.data);
+    let mut i = 0u64;
+    while let Ok(rgb) = r.array::<3>() {
         field(
             tree,
             parent,
             &format!("entry {i}"),
             chunk,
-            (i * 3) as u64,
+            i * 3,
             3,
             Value::Text(format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])),
         );
+        i += 1;
     }
 }
 
@@ -380,7 +408,9 @@ pub fn decode_trns(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId, color_ty
 }
 
 pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    let Some(sep) = chunk.data.iter().position(|&b| b == 0) else {
+    let mut r = Reader::new(chunk.data);
+
+    let Some(keyword_bytes) = r.bytes_until(0) else {
         tree.add(
             Some(parent),
             "missing keyword separator",
@@ -390,13 +420,22 @@ pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         );
         return;
     };
+    let text_bytes = r.rest();
 
-    let keyword = String::from_utf8_lossy(&chunk.data[..sep]).into_owned();
-    let text = String::from_utf8_lossy(&chunk.data[sep + 1..]).into_owned();
-    let text_len = (chunk.data.len() - sep - 1) as u64;
+    let sep = keyword_bytes.len() as u64;
+    let keyword = String::from_utf8_lossy(keyword_bytes).into_owned();
+    let text = String::from_utf8_lossy(text_bytes).into_owned();
 
-    field(tree, parent, "keyword", chunk, 0, sep as u64, Value::Text(keyword));
-    field(tree, parent, "text", chunk, sep as u64 + 1, text_len, Value::Text(text));
+    field(tree, parent, "keyword", chunk, 0, sep, Value::Text(keyword));
+    field(
+        tree,
+        parent,
+        "text",
+        chunk,
+        sep + 1,
+        text_bytes.len() as u64,
+        Value::Text(text),
+    );
 }
 
 pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
