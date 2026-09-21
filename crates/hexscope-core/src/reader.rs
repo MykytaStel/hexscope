@@ -27,12 +27,17 @@ impl<'a> Reader<'a> {
 
     /// Clamps to end-of-input rather than failing; subsequent reads report EOF.
     pub fn seek(&mut self, pos: u64) {
-        self.pos = usize::try_from(pos).unwrap_or(usize::MAX).min(self.data.len());
+        self.pos = usize::try_from(pos)
+            .unwrap_or(usize::MAX)
+            .min(self.data.len());
     }
 
     pub fn bytes(&mut self, n: usize) -> Result<&'a [u8], ReadError> {
         if self.remaining() < n {
-            return Err(ReadError::Eof { needed: n, available: self.remaining() });
+            return Err(ReadError::Eof {
+                needed: n,
+                available: self.remaining(),
+            });
         }
         let out = &self.data[self.pos..self.pos + n];
         self.pos += n;
@@ -79,9 +84,10 @@ impl<'a> Reader<'a> {
         // `bytes` already guaranteed exactly N bytes, so this conversion cannot
         // fail; writing it as a fallible conversion keeps the function total
         // and leaves no panicking path in the crate's read layer.
-        slice
-            .try_into()
-            .map_err(|_| ReadError::Eof { needed: N, available })
+        slice.try_into().map_err(|_| ReadError::Eof {
+            needed: N,
+            available,
+        })
     }
 }
 
@@ -104,7 +110,10 @@ mod tests {
         let mut r = Reader::new(&data);
         assert_eq!(
             r.u32_be(),
-            Err(ReadError::Eof { needed: 4, available: 2 })
+            Err(ReadError::Eof {
+                needed: 4,
+                available: 2
+            })
         );
         // A failed read must not consume anything.
         assert_eq!(r.pos(), 0);
@@ -117,7 +126,13 @@ mod tests {
         let mut r = Reader::new(&data);
         r.seek(9999);
         assert_eq!(r.remaining(), 0);
-        assert_eq!(r.u8(), Err(ReadError::Eof { needed: 1, available: 0 }));
+        assert_eq!(
+            r.u8(),
+            Err(ReadError::Eof {
+                needed: 1,
+                available: 0
+            })
+        );
     }
 
     #[test]
@@ -135,7 +150,13 @@ mod tests {
         assert_eq!(r.array::<4>(), Ok(*b"IHDR"));
         assert_eq!(r.pos(), 4);
         // Too few bytes left: reports EOF and stays put, like every other read.
-        assert_eq!(r.array::<4>(), Err(ReadError::Eof { needed: 4, available: 2 }));
+        assert_eq!(
+            r.array::<4>(),
+            Err(ReadError::Eof {
+                needed: 4,
+                available: 2
+            })
+        );
         assert_eq!(r.pos(), 4);
     }
 

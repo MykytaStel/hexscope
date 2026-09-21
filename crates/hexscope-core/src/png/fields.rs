@@ -31,15 +31,38 @@ mod tests {
         assert_eq!(ihdr.color_type, 6);
         assert_eq!(ihdr.bytes_per_pixel(), 4);
 
-        let labels: Vec<&str> = tree.get(root).children.iter()
+        let labels: Vec<&str> = tree
+            .get(root)
+            .children
+            .iter()
             .map(|&id| tree.get(id).label.as_str())
             .collect();
-        assert_eq!(labels, ["width", "height", "bitDepth", "colorType", "compression", "filter", "interlace"]);
+        assert_eq!(
+            labels,
+            [
+                "width",
+                "height",
+                "bitDepth",
+                "colorType",
+                "compression",
+                "filter",
+                "interlace"
+            ]
+        );
 
         let color_node = tree.get(tree.get(root).children[3]);
-        assert_eq!(color_node.value, Some(Value::Enum { raw: 6, name: "RGBA" }));
+        assert_eq!(
+            color_node.value,
+            Some(Value::Enum {
+                raw: 6,
+                name: "RGBA"
+            })
+        );
         // Field ranges point at the real file offsets, not at chunk-local ones.
-        assert_eq!(tree.get(tree.get(root).children[0]).range, ByteRange::new(8, 4));
+        assert_eq!(
+            tree.get(tree.get(root).children[0]).range,
+            ByteRange::new(8, 4)
+        );
     }
 
     #[test]
@@ -58,12 +81,21 @@ mod tests {
     fn decodes_text_keyword_and_value() {
         let chunk = fake_chunk(b"tEXt", b"Author\0Ada");
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "tEXt", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "tEXt",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_text(&chunk, &mut tree, root);
 
         let children = &tree.get(root).children;
-        assert_eq!(tree.get(children[0]).value, Some(Value::Text("Author".into())));
+        assert_eq!(
+            tree.get(children[0]).value,
+            Some(Value::Text("Author".into()))
+        );
         assert_eq!(tree.get(children[1]).value, Some(Value::Text("Ada".into())));
     }
 
@@ -71,7 +103,13 @@ mod tests {
     fn flags_text_with_no_separator() {
         let chunk = fake_chunk(b"tEXt", b"no-null-here");
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "tEXt", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "tEXt",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_text(&chunk, &mut tree, root);
 
@@ -85,14 +123,26 @@ mod tests {
         let data = [0xFF, 0x00, 0x00, 0x00, 0x80, 0xFF];
         let chunk = fake_chunk(b"PLTE", &data);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "PLTE", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "PLTE",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_plte(&chunk, &mut tree, root);
 
         let children = &tree.get(root).children;
         assert_eq!(tree.get(children[0]).value, Some(Value::U64(2)));
-        assert_eq!(tree.get(children[1]).value, Some(Value::Text("#FF0000".into())));
-        assert_eq!(tree.get(children[2]).value, Some(Value::Text("#0080FF".into())));
+        assert_eq!(
+            tree.get(children[1]).value,
+            Some(Value::Text("#FF0000".into()))
+        );
+        assert_eq!(
+            tree.get(children[2]).value,
+            Some(Value::Text("#0080FF".into()))
+        );
         // Second entry starts three bytes into the payload, which begins at 8.
         assert_eq!(tree.get(children[2]).range, ByteRange::new(11, 3));
     }
@@ -101,7 +151,13 @@ mod tests {
     fn warns_on_a_palette_length_that_is_not_a_multiple_of_three() {
         let chunk = fake_chunk(b"PLTE", &[1, 2, 3, 4]);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "PLTE", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "PLTE",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_plte(&chunk, &mut tree, root);
 
@@ -117,7 +173,13 @@ mod tests {
         data.push(1);
         let chunk = fake_chunk(b"pHYs", &data);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "pHYs",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_phys(&chunk, &mut tree, root);
 
@@ -126,7 +188,10 @@ mod tests {
         assert_eq!(tree.get(children[1]).value, Some(Value::U64(2835)));
         assert_eq!(
             tree.get(children[2]).value,
-            Some(Value::Enum { raw: 1, name: "metre" })
+            Some(Value::Enum {
+                raw: 1,
+                name: "metre"
+            })
         );
         // The unit byte sits 8 bytes into a payload that starts at file offset 8.
         assert_eq!(tree.get(children[2]).range, ByteRange::new(16, 1));
@@ -136,7 +201,13 @@ mod tests {
     fn marks_a_truncated_phys_without_panicking() {
         let chunk = fake_chunk(b"pHYs", &[0, 0]);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "pHYs",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_phys(&chunk, &mut tree, root);
 
@@ -151,20 +222,35 @@ mod tests {
         let data = 45455u32.to_be_bytes();
         let chunk = fake_chunk(b"gAMA", &data);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "gAMA",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_gama(&chunk, &mut tree, root);
 
         let children = &tree.get(root).children;
         assert_eq!(tree.get(children[0]).value, Some(Value::U64(45455)));
-        assert_eq!(tree.get(children[1]).value, Some(Value::Text("0.45455".into())));
+        assert_eq!(
+            tree.get(children[1]).value,
+            Some(Value::Text("0.45455".into()))
+        );
     }
 
     #[test]
     fn marks_a_truncated_gama_without_panicking() {
         let chunk = fake_chunk(b"gAMA", &[0, 0]);
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "gAMA",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
 
         decode_gama(&chunk, &mut tree, root);
 
@@ -178,24 +264,54 @@ mod tests {
         let chunk = fake_chunk(b"tRNS", &[0, 64, 128]);
         let mut tree = ParseTree::new();
 
-        let palette_root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+        let palette_root = tree.add(
+            None,
+            "tRNS",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
         decode_trns(&chunk, &mut tree, palette_root, Some(3));
         let child = tree.get(tree.get(palette_root).children[0]);
         assert_eq!(child.label, "paletteAlphaCount");
         assert_eq!(child.value, Some(Value::U64(3)));
 
-        let rgb_root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+        let rgb_root = tree.add(
+            None,
+            "tRNS",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
         decode_trns(&chunk, &mut tree, rgb_root, Some(2));
-        assert_eq!(tree.get(tree.get(rgb_root).children[0]).label, "transparentColor");
+        assert_eq!(
+            tree.get(tree.get(rgb_root).children[0]).label,
+            "transparentColor"
+        );
 
-        let orphan_root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+        let orphan_root = tree.add(
+            None,
+            "tRNS",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
         decode_trns(&chunk, &mut tree, orphan_root, None);
-        assert_eq!(tree.get(tree.get(orphan_root).children[0]).kind, NodeKind::Warning);
+        assert_eq!(
+            tree.get(tree.get(orphan_root).children[0]).kind,
+            NodeKind::Warning
+        );
 
         // Colour types 4 and 6 already carry an alpha channel, so the PNG spec
         // forbids tRNS there — the realistic way this warning fires in the wild.
         for forbidden in [4u8, 6] {
-            let root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+            let root = tree.add(
+                None,
+                "tRNS",
+                ByteRange::new(0, 0),
+                NodeKind::Container,
+                None,
+            );
             decode_trns(&chunk, &mut tree, root, Some(forbidden));
             let child = tree.get(tree.get(root).children[0]);
             assert_eq!(child.kind, NodeKind::Warning, "colour type {forbidden}");
@@ -263,7 +379,15 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 
     // All thirteen bytes are read up front; if any read fails the chunk is
     // damaged and we record one Error node rather than a half-filled tree.
-    let (Ok(width), Ok(height), Ok(bit_depth), Ok(color_type), Ok(compression), Ok(filter), Ok(interlace)) = (
+    let (
+        Ok(width),
+        Ok(height),
+        Ok(bit_depth),
+        Ok(color_type),
+        Ok(compression),
+        Ok(filter),
+        Ok(interlace),
+    ) = (
         r.u32_be(),
         r.u32_be(),
         r.u8(),
@@ -271,7 +395,8 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         r.u8(),
         r.u8(),
         r.u8(),
-    ) else {
+    )
+    else {
         tree.add(
             Some(parent),
             "IHDR truncated",
@@ -283,8 +408,24 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
     };
 
     field(tree, parent, "width", chunk, 0, 4, Value::U64(width as u64));
-    field(tree, parent, "height", chunk, 4, 4, Value::U64(height as u64));
-    field(tree, parent, "bitDepth", chunk, 8, 1, Value::U64(bit_depth as u64));
+    field(
+        tree,
+        parent,
+        "height",
+        chunk,
+        4,
+        4,
+        Value::U64(height as u64),
+    );
+    field(
+        tree,
+        parent,
+        "bitDepth",
+        chunk,
+        8,
+        1,
+        Value::U64(bit_depth as u64),
+    );
     field(
         tree,
         parent,
@@ -292,13 +433,46 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         chunk,
         9,
         1,
-        Value::Enum { raw: color_type as u64, name: color_type_name(color_type) },
+        Value::Enum {
+            raw: color_type as u64,
+            name: color_type_name(color_type),
+        },
     );
-    field(tree, parent, "compression", chunk, 10, 1, Value::U64(compression as u64));
-    field(tree, parent, "filter", chunk, 11, 1, Value::U64(filter as u64));
-    field(tree, parent, "interlace", chunk, 12, 1, Value::U64(interlace as u64));
+    field(
+        tree,
+        parent,
+        "compression",
+        chunk,
+        10,
+        1,
+        Value::U64(compression as u64),
+    );
+    field(
+        tree,
+        parent,
+        "filter",
+        chunk,
+        11,
+        1,
+        Value::U64(filter as u64),
+    );
+    field(
+        tree,
+        parent,
+        "interlace",
+        chunk,
+        12,
+        1,
+        Value::U64(interlace as u64),
+    );
 
-    Some(Ihdr { width, height, bit_depth, color_type, interlace })
+    Some(Ihdr {
+        width,
+        height,
+        bit_depth,
+        color_type,
+        interlace,
+    })
 }
 
 /// PLTE is a flat array of RGB triples. Each entry becomes a field so hovering
@@ -451,8 +625,24 @@ pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         return;
     };
 
-    field(tree, parent, "pixelsPerUnitX", chunk, 0, 4, Value::U64(x as u64));
-    field(tree, parent, "pixelsPerUnitY", chunk, 4, 4, Value::U64(y as u64));
+    field(
+        tree,
+        parent,
+        "pixelsPerUnitX",
+        chunk,
+        0,
+        4,
+        Value::U64(x as u64),
+    );
+    field(
+        tree,
+        parent,
+        "pixelsPerUnitY",
+        chunk,
+        4,
+        4,
+        Value::U64(y as u64),
+    );
     field(
         tree,
         parent,
@@ -460,6 +650,9 @@ pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         chunk,
         8,
         1,
-        Value::Enum { raw: unit as u64, name: if unit == 1 { "metre" } else { "unknown" } },
+        Value::Enum {
+            raw: unit as u64,
+            name: if unit == 1 { "metre" } else { "unknown" },
+        },
     );
 }

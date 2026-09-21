@@ -27,7 +27,10 @@ pub enum Value {
     /// Length in bytes of an opaque payload.
     Bytes(u64),
     /// A numeric value with a known meaning, e.g. color type 6 = "RGBA".
-    Enum { raw: u64, name: &'static str },
+    Enum {
+        raw: u64,
+        name: &'static str,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,7 +120,13 @@ mod tests {
     #[test]
     fn builds_a_parent_child_tree() {
         let mut tree = ParseTree::new();
-        let root = tree.add(None, "PNG", ByteRange::new(0, 100), NodeKind::Container, None);
+        let root = tree.add(
+            None,
+            "PNG",
+            ByteRange::new(0, 100),
+            NodeKind::Container,
+            None,
+        );
         let field = tree.add(
             Some(root),
             "width",
