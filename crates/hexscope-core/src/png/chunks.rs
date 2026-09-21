@@ -39,35 +39,43 @@ impl Chunk<'_> {
 /// Reads the next chunk. Returns `None` at a clean end of input, and
 /// `Some(Err(..))` when the file is damaged — in both cases the caller keeps
 /// control and decides what to record.
+///
+/// **Damage ends the walk.** Every error path seeks to end-of-input before
+/// returning, so a caller that keeps looping receives `None` on the next call
+/// rather than the same error forever. Without this, a file ending in one to
+/// three stray bytes would fail the length read without consuming them — a
+/// failed read deliberately leaves the position untouched — and spin any naive
+/// loop indefinitely. The no-infinite-loop guarantee belongs here, not in the
+/// memory of every future caller.
 pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError>> {
     if r.remaining() == 0 {
         return None;
     }
     let start = r.pos();
 
-    let len = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(len) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
     if len > MAX_CHUNK_LEN {
+        r.seek(u64::MAX);
         return Some(Err(ChunkError::LengthTooLarge));
     }
 
-    let kind_bytes = match r.bytes(4) {
-        Ok(b) => b,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(kind) = r.array::<4>() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
-    let kind = [kind_bytes[0], kind_bytes[1], kind_bytes[2], kind_bytes[3]];
 
     let data_start = r.pos();
-    let data = match r.bytes(len as usize) {
-        Ok(d) => d,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(data) = r.bytes(len as usize) else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
-    let declared_crc = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(declared_crc) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
     let mut crc_input = Vec::with_capacity(4 + data.len());
@@ -86,7 +94,7 @@ pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError
 
 #[cfg(test)]
 mod tests {
-    use super::{next_chunk, ChunkError};
+    use super::*;
     use crate::crc32::crc32;
     use crate::reader::Reader;
 
@@ -136,6 +144,18 @@ mod tests {
         let full = chunk(b"IDAT", &[9; 20]);
         let mut r = Reader::new(&full[..12]);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
+    }
+
+    #[test]
+    fn a_truncated_length_field_ends_the_walk() {
+        // Three stray trailing bytes: not even enough for the length field.
+        // A failed read leaves the position untouched, so unless the walker
+        // consumes them itself a looping caller would spin forever here.
+        let bytes = [0u8, 0, 0];
+        let mut r = Reader::new(&bytes);
+        assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "the same error must not repeat");
     }
 
     #[test]
@@ -145,5 +165,6 @@ mod tests {
         bytes.extend_from_slice(b"IDAT");
         let mut r = Reader::new(&bytes);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::LengthTooLarge)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
     }
 }

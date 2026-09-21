@@ -52,6 +52,19 @@ impl<'a> Reader<'a> {
         let b = self.bytes(4)?;
         Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
     }
+
+    /// Reads a fixed-size field as an owned array. Parsers use this for things
+    /// like a four-byte chunk type so they never index a slice by hand.
+    pub fn array<const N: usize>(&mut self) -> Result<[u8; N], ReadError> {
+        let available = self.remaining();
+        let slice = self.bytes(N)?;
+        // `bytes` already guaranteed exactly N bytes, so this conversion cannot
+        // fail; writing it as a fallible conversion keeps the function total
+        // and leaves no panicking path in the crate's read layer.
+        slice
+            .try_into()
+            .map_err(|_| ReadError::Eof { needed: N, available })
+    }
 }
 
 #[cfg(test)]
@@ -95,5 +108,16 @@ mod tests {
         let mut r = Reader::new(&data);
         assert_eq!(r.bytes(3), Ok(&data[0..3]));
         assert_eq!(r.remaining(), 2);
+    }
+
+    #[test]
+    fn array_reads_a_fixed_size_field() {
+        let data = *b"IHDRxx";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.array::<4>(), Ok(*b"IHDR"));
+        assert_eq!(r.pos(), 4);
+        // Too few bytes left: reports EOF and stays put, like every other read.
+        assert_eq!(r.array::<4>(), Err(ReadError::Eof { needed: 4, available: 2 }));
+        assert_eq!(r.pos(), 4);
     }
 }
