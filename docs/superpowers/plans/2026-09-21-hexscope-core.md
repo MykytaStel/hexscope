@@ -1978,7 +1978,7 @@ pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core engine`
-Expected: PASS — `test result: ok. 10 passed`.
+Expected: PASS — `test result: ok. 9 passed`.
 
 - [ ] **Step 6: Commit**
 
