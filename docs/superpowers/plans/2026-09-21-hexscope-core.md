@@ -841,9 +841,48 @@ mod tests {
     }
 
     #[test]
+    fn decodes_physical_pixel_dimensions() {
+        // 2835 pixels per metre is 72 dpi — what most editors write.
+        let mut data = Vec::new();
+        data.extend_from_slice(&2835u32.to_be_bytes());
+        data.extend_from_slice(&2835u32.to_be_bytes());
+        data.push(1);
+        let chunk = fake_chunk(b"pHYs", &data);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_phys(&chunk, &mut tree, root);
+
+        let children = &tree.get(root).children;
+        assert_eq!(tree.get(children[0]).value, Some(Value::U64(2835)));
+        assert_eq!(tree.get(children[1]).value, Some(Value::U64(2835)));
+        assert_eq!(
+            tree.get(children[2]).value,
+            Some(Value::Enum { raw: 1, name: "metre" })
+        );
+        // The unit byte sits 8 bytes into a payload that starts at file offset 8.
+        assert_eq!(tree.get(children[2]).range, ByteRange::new(16, 1));
+    }
+
+    #[test]
+    fn marks_a_truncated_phys_without_panicking() {
+        let chunk = fake_chunk(b"pHYs", &[0, 0]);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_phys(&chunk, &mut tree, root);
+
+        let child = tree.get(tree.get(root).children[0]);
+        assert_eq!(child.kind, NodeKind::Error);
+        assert_eq!(child.label, "pHYs truncated");
+    }
+
+    #[test]
     fn decodes_gamma_as_raw_and_decimal() {
         // 45455 is the value nearly every PNG writes: gamma 1/2.2.
-        let chunk = fake_chunk(b"gAMA", &45455u32.to_be_bytes());
+        // Bound to a variable: a temporary would not outlive the borrow.
+        let gamma = 45455u32.to_be_bytes();
+        let chunk = fake_chunk(b"gAMA", &gamma);
         let mut tree = ParseTree::new();
         let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
 
@@ -986,7 +1025,7 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 /// PLTE is a flat array of RGB triples. Each entry becomes a field so hovering
 /// a palette index in the hex view lights up the exact three bytes.
 pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    if chunk.data.len() % 3 != 0 {
+    if !chunk.data.len().is_multiple_of(3) {
         tree.add(
             Some(parent),
             "PLTE length is not a multiple of 3",
@@ -1142,7 +1181,7 @@ pub mod fields;
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core fields`
-Expected: PASS — `test result: ok. 9 passed`.
+Expected: PASS — `test result: ok. 10 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -1939,7 +1978,7 @@ pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core engine`
-Expected: PASS — `test result: ok. 9 passed`.
+Expected: PASS — `test result: ok. 10 passed`.
 
 - [ ] **Step 6: Commit**
 
