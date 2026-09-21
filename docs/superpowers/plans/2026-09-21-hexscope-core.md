@@ -272,7 +272,7 @@ git commit -m "feat(core): add workspace and parse tree model"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `ReadError`, `Reader<'a>` with `new(&'a [u8])`, `pos() -> u64`, `remaining() -> usize`, `seek(u64)`, `u8() -> Result<u8, ReadError>`, `u16_be()`, `u32_be()`, `bytes(usize) -> Result<&'a [u8], ReadError>`.
+- Produces: `ReadError`, `Reader<'a>` with `new(&'a [u8])`, `pos() -> u64`, `remaining() -> usize`, `seek(u64)`, `u8() -> Result<u8, ReadError>`, `u16_be()`, `u32_be()`, `bytes(usize) -> Result<&'a [u8], ReadError>`, `array::<N>() -> Result<[u8; N], ReadError>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -320,6 +320,17 @@ mod tests {
         let mut r = Reader::new(&data);
         assert_eq!(r.bytes(3), Ok(&data[0..3]));
         assert_eq!(r.remaining(), 2);
+    }
+
+    #[test]
+    fn array_reads_a_fixed_size_field() {
+        let data = *b"IHDRxx";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.array::<4>(), Ok(*b"IHDR"));
+        assert_eq!(r.pos(), 4);
+        // Too few bytes left: reports EOF and stays put, like every other read.
+        assert_eq!(r.array::<4>(), Err(ReadError::Eof { needed: 4, available: 2 }));
+        assert_eq!(r.pos(), 4);
     }
 }
 ```
@@ -388,6 +399,19 @@ impl<'a> Reader<'a> {
         let b = self.bytes(4)?;
         Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
     }
+
+    /// Reads a fixed-size field as an owned array. Parsers use this for things
+    /// like a four-byte chunk type so they never index a slice by hand.
+    pub fn array<const N: usize>(&mut self) -> Result<[u8; N], ReadError> {
+        let available = self.remaining();
+        let slice = self.bytes(N)?;
+        // `bytes` already guaranteed exactly N bytes, so this conversion cannot
+        // fail; writing it as a fallible conversion keeps the function total
+        // and leaves no panicking path in the crate's read layer.
+        slice
+            .try_into()
+            .map_err(|_| ReadError::Eof { needed: N, available })
+    }
 }
 ```
 
@@ -402,7 +426,7 @@ pub use reader::{ReadError, Reader};
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core reader`
-Expected: PASS — `test result: ok. 4 passed`.
+Expected: PASS — `test result: ok. 5 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -531,6 +555,18 @@ mod tests {
         let full = chunk(b"IDAT", &[9; 20]);
         let mut r = Reader::new(&full[..12]);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
+    }
+
+    #[test]
+    fn a_truncated_length_field_ends_the_walk() {
+        // Three stray trailing bytes: not even enough for the length field.
+        // A failed read leaves the position untouched, so unless the walker
+        // consumes them itself a looping caller would spin forever here.
+        let bytes = [0u8, 0, 0];
+        let mut r = Reader::new(&bytes);
+        assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "the same error must not repeat");
     }
 
     #[test]
@@ -540,6 +576,7 @@ mod tests {
         bytes.extend_from_slice(b"IDAT");
         let mut r = Reader::new(&bytes);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::LengthTooLarge)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
     }
 }
 ```
@@ -595,35 +632,43 @@ impl Chunk<'_> {
 /// Reads the next chunk. Returns `None` at a clean end of input, and
 /// `Some(Err(..))` when the file is damaged — in both cases the caller keeps
 /// control and decides what to record.
+///
+/// **Damage ends the walk.** Every error path seeks to end-of-input before
+/// returning, so a caller that keeps looping receives `None` on the next call
+/// rather than the same error forever. Without this, a file ending in one to
+/// three stray bytes would fail the length read without consuming them — a
+/// failed read deliberately leaves the position untouched — and spin any naive
+/// loop indefinitely. The no-infinite-loop guarantee belongs here, not in the
+/// memory of every future caller.
 pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError>> {
     if r.remaining() == 0 {
         return None;
     }
     let start = r.pos();
 
-    let len = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(len) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
     if len > MAX_CHUNK_LEN {
+        r.seek(u64::MAX);
         return Some(Err(ChunkError::LengthTooLarge));
     }
 
-    let kind_bytes = match r.bytes(4) {
-        Ok(b) => b,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(kind) = r.array::<4>() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
-    let kind = [kind_bytes[0], kind_bytes[1], kind_bytes[2], kind_bytes[3]];
 
     let data_start = r.pos();
-    let data = match r.bytes(len as usize) {
-        Ok(d) => d,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(data) = r.bytes(len as usize) else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
-    let declared_crc = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(declared_crc) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
     let mut crc_input = Vec::with_capacity(4 + data.len());
@@ -657,7 +702,7 @@ pub mod png;
 - [ ] **Step 8: Run all tests to verify they pass**
 
 Run: `cargo test -p hexscope-core`
-Expected: PASS — `test result: ok. 11 passed`.
+Expected: PASS — `test result: ok. 14 passed`.
 
 - [ ] **Step 9: Commit**
 
