@@ -1,0 +1,99 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadError {
+    Eof { needed: usize, available: usize },
+}
+
+/// A cursor over a byte slice. Every read is bounds-checked and a failed read
+/// leaves the position untouched, so a caller can recover and try something
+/// smaller.
+#[derive(Debug, Clone)]
+pub struct Reader<'a> {
+    data: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> Reader<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Self { data, pos: 0 }
+    }
+
+    pub fn pos(&self) -> u64 {
+        self.pos as u64
+    }
+
+    pub fn remaining(&self) -> usize {
+        self.data.len() - self.pos
+    }
+
+    /// Clamps to end-of-input rather than failing; subsequent reads report EOF.
+    pub fn seek(&mut self, pos: u64) {
+        self.pos = usize::try_from(pos).unwrap_or(usize::MAX).min(self.data.len());
+    }
+
+    pub fn bytes(&mut self, n: usize) -> Result<&'a [u8], ReadError> {
+        if self.remaining() < n {
+            return Err(ReadError::Eof { needed: n, available: self.remaining() });
+        }
+        let out = &self.data[self.pos..self.pos + n];
+        self.pos += n;
+        Ok(out)
+    }
+
+    pub fn u8(&mut self) -> Result<u8, ReadError> {
+        Ok(self.bytes(1)?[0])
+    }
+
+    pub fn u16_be(&mut self) -> Result<u16, ReadError> {
+        let b = self.bytes(2)?;
+        Ok(u16::from_be_bytes([b[0], b[1]]))
+    }
+
+    pub fn u32_be(&mut self) -> Result<u32, ReadError> {
+        let b = self.bytes(4)?;
+        Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_big_endian_integers() {
+        let data = [0x00, 0x00, 0x07, 0x80, 0x12, 0x34];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.u32_be(), Ok(1920));
+        assert_eq!(r.u16_be(), Ok(0x1234));
+        assert_eq!(r.pos(), 6);
+    }
+
+    #[test]
+    fn reports_eof_instead_of_panicking() {
+        let data = [0x01, 0x02];
+        let mut r = Reader::new(&data);
+        assert_eq!(
+            r.u32_be(),
+            Err(ReadError::Eof { needed: 4, available: 2 })
+        );
+        // A failed read must not consume anything.
+        assert_eq!(r.pos(), 0);
+        assert_eq!(r.u8(), Ok(0x01));
+    }
+
+    #[test]
+    fn seek_past_end_clamps_and_reports_eof() {
+        let data = [0x01, 0x02];
+        let mut r = Reader::new(&data);
+        r.seek(9999);
+        assert_eq!(r.remaining(), 0);
+        assert_eq!(r.u8(), Err(ReadError::Eof { needed: 1, available: 0 }));
+    }
+
+    #[test]
+    fn bytes_borrows_without_copying() {
+        let data = [1, 2, 3, 4, 5];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes(3), Ok(&data[0..3]));
+        assert_eq!(r.remaining(), 2);
+    }
+}
