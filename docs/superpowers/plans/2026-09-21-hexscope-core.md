@@ -45,7 +45,7 @@ resolver = "3"
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/hexscope/hexscope"
+repository = "https://github.com/MykytaStel/hexscope"
 
 [profile.release]
 opt-level = 3
@@ -272,7 +272,9 @@ git commit -m "feat(core): add workspace and parse tree model"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `ReadError`, `Reader<'a>` with `new(&'a [u8])`, `pos() -> u64`, `remaining() -> usize`, `seek(u64)`, `u8() -> Result<u8, ReadError>`, `u16_be()`, `u32_be()`, `bytes(usize) -> Result<&'a [u8], ReadError>`.
+- Produces: `ReadError`, `Reader<'a>` with `new(&'a [u8])`, `pos() -> u64`, `remaining() -> usize`, `seek(u64)`, `u8() -> Result<u8, ReadError>`, `u16_be()`, `u32_be()`, `bytes(usize) -> Result<&'a [u8], ReadError>`, `array::<N>() -> Result<[u8; N], ReadError>`, `bytes_until(u8) -> Option<&'a [u8]>`, `rest() -> &'a [u8]`.
+
+`Reader` is the crate's single bounds-checked chokepoint: slicing lives here so that no parser above it ever indexes a byte slice by hand.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -320,6 +322,52 @@ mod tests {
         let mut r = Reader::new(&data);
         assert_eq!(r.bytes(3), Ok(&data[0..3]));
         assert_eq!(r.remaining(), 2);
+    }
+
+    #[test]
+    fn array_reads_a_fixed_size_field() {
+        let data = *b"IHDRxx";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.array::<4>(), Ok(*b"IHDR"));
+        assert_eq!(r.pos(), 4);
+        // Too few bytes left: reports EOF and stays put, like every other read.
+        assert_eq!(r.array::<4>(), Err(ReadError::Eof { needed: 4, available: 2 }));
+        assert_eq!(r.pos(), 4);
+    }
+
+    #[test]
+    fn bytes_until_splits_on_the_delimiter() {
+        let data = *b"Author\0Ada";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), Some(&b"Author"[..]));
+        // The delimiter itself is consumed.
+        assert_eq!(r.pos(), 7);
+        assert_eq!(r.rest(), &b"Ada"[..]);
+        assert_eq!(r.remaining(), 0);
+    }
+
+    #[test]
+    fn bytes_until_reports_a_missing_delimiter_without_moving() {
+        let data = *b"no-null-here";
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), None);
+        assert_eq!(r.pos(), 0, "a failed search must not consume input");
+    }
+
+    #[test]
+    fn bytes_until_handles_an_empty_leading_field() {
+        let data = [0u8, b'x'];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes_until(0), Some(&[][..]));
+        assert_eq!(r.rest(), &[b'x'][..]);
+    }
+
+    #[test]
+    fn rest_on_exhausted_input_is_empty() {
+        let data = [1u8];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.bytes(1), Ok(&data[..]));
+        assert_eq!(r.rest(), &[][..]);
     }
 }
 ```
@@ -388,6 +436,37 @@ impl<'a> Reader<'a> {
         let b = self.bytes(4)?;
         Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
     }
+
+    /// Reads up to the next occurrence of `delim` and consumes the delimiter.
+    /// Returns `None` when the delimiter is absent, leaving the position
+    /// untouched so the caller can record the damage and move on.
+    pub fn bytes_until(&mut self, delim: u8) -> Option<&'a [u8]> {
+        let offset = self.data[self.pos..].iter().position(|&b| b == delim)?;
+        let out = self.bytes(offset).ok()?;
+        // `position` already proved the delimiter is the next byte.
+        self.pos += 1;
+        Some(out)
+    }
+
+    /// Consumes and returns everything left, which may be empty.
+    pub fn rest(&mut self) -> &'a [u8] {
+        let out = &self.data[self.pos..];
+        self.pos = self.data.len();
+        out
+    }
+
+    /// Reads a fixed-size field as an owned array. Parsers use this for things
+    /// like a four-byte chunk type so they never index a slice by hand.
+    pub fn array<const N: usize>(&mut self) -> Result<[u8; N], ReadError> {
+        let available = self.remaining();
+        let slice = self.bytes(N)?;
+        // `bytes` already guaranteed exactly N bytes, so this conversion cannot
+        // fail; writing it as a fallible conversion keeps the function total
+        // and leaves no panicking path in the crate's read layer.
+        slice
+            .try_into()
+            .map_err(|_| ReadError::Eof { needed: N, available })
+    }
 }
 ```
 
@@ -402,7 +481,7 @@ pub use reader::{ReadError, Reader};
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core reader`
-Expected: PASS — `test result: ok. 4 passed`.
+Expected: PASS — `test result: ok. 9 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -531,6 +610,18 @@ mod tests {
         let full = chunk(b"IDAT", &[9; 20]);
         let mut r = Reader::new(&full[..12]);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
+    }
+
+    #[test]
+    fn a_truncated_length_field_ends_the_walk() {
+        // Three stray trailing bytes: not even enough for the length field.
+        // A failed read leaves the position untouched, so unless the walker
+        // consumes them itself a looping caller would spin forever here.
+        let bytes = [0u8, 0, 0];
+        let mut r = Reader::new(&bytes);
+        assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::Truncated)));
+        assert_eq!(next_chunk(&mut r), None, "the same error must not repeat");
     }
 
     #[test]
@@ -540,6 +631,7 @@ mod tests {
         bytes.extend_from_slice(b"IDAT");
         let mut r = Reader::new(&bytes);
         assert_eq!(next_chunk(&mut r), Some(Err(ChunkError::LengthTooLarge)));
+        assert_eq!(next_chunk(&mut r), None, "damage must end the walk");
     }
 }
 ```
@@ -595,35 +687,43 @@ impl Chunk<'_> {
 /// Reads the next chunk. Returns `None` at a clean end of input, and
 /// `Some(Err(..))` when the file is damaged — in both cases the caller keeps
 /// control and decides what to record.
+///
+/// **Damage ends the walk.** Every error path seeks to end-of-input before
+/// returning, so a caller that keeps looping receives `None` on the next call
+/// rather than the same error forever. Without this, a file ending in one to
+/// three stray bytes would fail the length read without consuming them — a
+/// failed read deliberately leaves the position untouched — and spin any naive
+/// loop indefinitely. The no-infinite-loop guarantee belongs here, not in the
+/// memory of every future caller.
 pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError>> {
     if r.remaining() == 0 {
         return None;
     }
     let start = r.pos();
 
-    let len = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(len) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
     if len > MAX_CHUNK_LEN {
+        r.seek(u64::MAX);
         return Some(Err(ChunkError::LengthTooLarge));
     }
 
-    let kind_bytes = match r.bytes(4) {
-        Ok(b) => b,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(kind) = r.array::<4>() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
-    let kind = [kind_bytes[0], kind_bytes[1], kind_bytes[2], kind_bytes[3]];
 
     let data_start = r.pos();
-    let data = match r.bytes(len as usize) {
-        Ok(d) => d,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(data) = r.bytes(len as usize) else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
-    let declared_crc = match r.u32_be() {
-        Ok(v) => v,
-        Err(_) => return Some(Err(ChunkError::Truncated)),
+    let Ok(declared_crc) = r.u32_be() else {
+        r.seek(u64::MAX);
+        return Some(Err(ChunkError::Truncated));
     };
 
     let mut crc_input = Vec::with_capacity(4 + data.len());
@@ -657,7 +757,7 @@ pub mod png;
 - [ ] **Step 8: Run all tests to verify they pass**
 
 Run: `cargo test -p hexscope-core`
-Expected: PASS — `test result: ok. 11 passed`.
+Expected: PASS — `test result: ok. 17 passed`.
 
 - [ ] **Step 9: Commit**
 
@@ -796,9 +896,48 @@ mod tests {
     }
 
     #[test]
+    fn decodes_physical_pixel_dimensions() {
+        // 2835 pixels per metre is 72 dpi — what most editors write.
+        let mut data = Vec::new();
+        data.extend_from_slice(&2835u32.to_be_bytes());
+        data.extend_from_slice(&2835u32.to_be_bytes());
+        data.push(1);
+        let chunk = fake_chunk(b"pHYs", &data);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_phys(&chunk, &mut tree, root);
+
+        let children = &tree.get(root).children;
+        assert_eq!(tree.get(children[0]).value, Some(Value::U64(2835)));
+        assert_eq!(tree.get(children[1]).value, Some(Value::U64(2835)));
+        assert_eq!(
+            tree.get(children[2]).value,
+            Some(Value::Enum { raw: 1, name: "metre" })
+        );
+        // The unit byte sits 8 bytes into a payload that starts at file offset 8.
+        assert_eq!(tree.get(children[2]).range, ByteRange::new(16, 1));
+    }
+
+    #[test]
+    fn marks_a_truncated_phys_without_panicking() {
+        let chunk = fake_chunk(b"pHYs", &[0, 0]);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "pHYs", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_phys(&chunk, &mut tree, root);
+
+        let child = tree.get(tree.get(root).children[0]);
+        assert_eq!(child.kind, NodeKind::Error);
+        assert_eq!(child.label, "pHYs truncated");
+    }
+
+    #[test]
     fn decodes_gamma_as_raw_and_decimal() {
         // 45455 is the value nearly every PNG writes: gamma 1/2.2.
-        let chunk = fake_chunk(b"gAMA", &45455u32.to_be_bytes());
+        // Bound to a variable: a temporary would not outlive the borrow.
+        let gamma = 45455u32.to_be_bytes();
+        let chunk = fake_chunk(b"gAMA", &gamma);
         let mut tree = ParseTree::new();
         let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
 
@@ -807,6 +946,19 @@ mod tests {
         let children = &tree.get(root).children;
         assert_eq!(tree.get(children[0]).value, Some(Value::U64(45455)));
         assert_eq!(tree.get(children[1]).value, Some(Value::Text("0.45455".into())));
+    }
+
+    #[test]
+    fn marks_a_truncated_gama_without_panicking() {
+        let chunk = fake_chunk(b"gAMA", &[0, 0]);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "gAMA", ByteRange::new(0, 0), NodeKind::Container, None);
+
+        decode_gama(&chunk, &mut tree, root);
+
+        let child = tree.get(tree.get(root).children[0]);
+        assert_eq!(child.kind, NodeKind::Error);
+        assert_eq!(child.label, "gAMA truncated");
     }
 
     #[test]
@@ -827,6 +979,16 @@ mod tests {
         let orphan_root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
         decode_trns(&chunk, &mut tree, orphan_root, None);
         assert_eq!(tree.get(tree.get(orphan_root).children[0]).kind, NodeKind::Warning);
+
+        // Colour types 4 and 6 already carry an alpha channel, so the PNG spec
+        // forbids tRNS there — the realistic way this warning fires in the wild.
+        for forbidden in [4u8, 6] {
+            let root = tree.add(None, "tRNS", ByteRange::new(0, 0), NodeKind::Container, None);
+            decode_trns(&chunk, &mut tree, root, Some(forbidden));
+            let child = tree.get(tree.get(root).children[0]);
+            assert_eq!(child.kind, NodeKind::Warning, "colour type {forbidden}");
+            assert_eq!(child.label, "tRNS without a usable colour type");
+        }
     }
 }
 ```
@@ -941,7 +1103,7 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 /// PLTE is a flat array of RGB triples. Each entry becomes a field so hovering
 /// a palette index in the hex view lights up the exact three bytes.
 pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    if chunk.data.len() % 3 != 0 {
+    if !chunk.data.len().is_multiple_of(3) {
         tree.add(
             Some(parent),
             "PLTE length is not a multiple of 3",
@@ -962,16 +1124,21 @@ pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         Value::U64((chunk.data.len() / 3) as u64),
     );
 
-    for (i, rgb) in chunk.data.chunks_exact(3).enumerate() {
+    // `array::<3>` yields a fixed-size array, so indexing it is checked at
+    // compile time rather than being a raw slice index.
+    let mut r = Reader::new(chunk.data);
+    let mut i = 0u64;
+    while let Ok(rgb) = r.array::<3>() {
         field(
             tree,
             parent,
             &format!("entry {i}"),
             chunk,
-            (i * 3) as u64,
+            i * 3,
             3,
             Value::Text(format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])),
         );
+        i += 1;
     }
 }
 
@@ -1040,7 +1207,9 @@ pub fn decode_trns(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId, color_ty
 }
 
 pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    let Some(sep) = chunk.data.iter().position(|&b| b == 0) else {
+    let mut r = Reader::new(chunk.data);
+
+    let Some(keyword_bytes) = r.bytes_until(0) else {
         tree.add(
             Some(parent),
             "missing keyword separator",
@@ -1050,13 +1219,22 @@ pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         );
         return;
     };
+    let text_bytes = r.rest();
 
-    let keyword = String::from_utf8_lossy(&chunk.data[..sep]).into_owned();
-    let text = String::from_utf8_lossy(&chunk.data[sep + 1..]).into_owned();
-    let text_len = (chunk.data.len() - sep - 1) as u64;
+    let sep = keyword_bytes.len() as u64;
+    let keyword = String::from_utf8_lossy(keyword_bytes).into_owned();
+    let text = String::from_utf8_lossy(text_bytes).into_owned();
 
-    field(tree, parent, "keyword", chunk, 0, sep as u64, Value::Text(keyword));
-    field(tree, parent, "text", chunk, sep as u64 + 1, text_len, Value::Text(text));
+    field(tree, parent, "keyword", chunk, 0, sep, Value::Text(keyword));
+    field(
+        tree,
+        parent,
+        "text",
+        chunk,
+        sep + 1,
+        text_bytes.len() as u64,
+        Value::Text(text),
+    );
 }
 
 pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
@@ -1097,7 +1275,7 @@ pub mod fields;
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core fields`
-Expected: PASS — `test result: ok. 9 passed`.
+Expected: PASS — `test result: ok. 11 passed`.
 
 - [ ] **Step 5: Commit**
 

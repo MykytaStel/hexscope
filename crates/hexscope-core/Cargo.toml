@@ -1,0 +1,14 @@
+[package]
+name = "hexscope-core"
+version = "0.1.0"
+description = "Parses binary files into a structure tree with byte ranges"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+flate2 = "1"
+insta = "1"
+proptest = "1"
