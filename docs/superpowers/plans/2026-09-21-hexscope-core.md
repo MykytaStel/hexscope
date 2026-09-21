@@ -702,7 +702,7 @@ pub mod png;
 - [ ] **Step 8: Run all tests to verify they pass**
 
 Run: `cargo test -p hexscope-core`
-Expected: PASS — `test result: ok. 14 passed`.
+Expected: PASS — `test result: ok. 13 passed`.
 
 - [ ] **Step 9: Commit**
 
