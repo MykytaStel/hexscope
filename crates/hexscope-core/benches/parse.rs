@@ -20,7 +20,7 @@ fn big_png() -> Vec<u8> {
             // than the budget is about.
             state = state
                 .wrapping_mul(6364136223846793005)
-                .wrapping_add(x as u64);
+                .wrapping_add((x as u64) ^ ((y as u64) << 32));
             let v = (state >> 33) as u32;
             raw.extend_from_slice(&[v as u8, (v >> 8) as u8, (v >> 16) as u8]);
         }
