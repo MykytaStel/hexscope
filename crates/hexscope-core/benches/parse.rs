@@ -9,13 +9,20 @@ fn big_png() -> Vec<u8> {
     use flate2::write::ZlibEncoder;
     use std::io::Write;
 
-    let (width, height) = (1600u32, 1600u32);
+    let (width, height) = (1900u32, 1900u32);
     let mut raw = Vec::with_capacity(((width * 3 + 1) * height) as usize);
+    let mut state: u64 = 0x2545_F491_4F6C_DD1D;
     for y in 0..height {
         raw.push(0u8); // filter type None
         for x in 0..width {
-            let v = (x ^ y) as u8;
-            raw.extend_from_slice(&[v, v.wrapping_mul(7), v.wrapping_add(31)]);
+            // A cheap LCG rather than `x ^ y`: the xor pattern compresses to a
+            // few hundred KB, so the benchmark would measure a file far smaller
+            // than the budget is about.
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(x as u64);
+            let v = (state >> 33) as u32;
+            raw.extend_from_slice(&[v as u8, (v >> 8) as u8, (v >> 16) as u8]);
         }
     }
 
@@ -42,6 +49,15 @@ fn big_png() -> Vec<u8> {
     png.extend_from_slice(&chunk(b"IHDR", &ihdr));
     png.extend_from_slice(&chunk(b"IDAT", &idat));
     png.extend_from_slice(&chunk(b"IEND", &[]));
+
+    // The budget in the spec is stated for a 10 MB file. If the generator ever
+    // drifts back to producing something highly compressible, fail loudly
+    // rather than quietly benchmarking the wrong thing.
+    assert!(
+        png.len() >= 10 * 1024 * 1024,
+        "benchmark input is only {} bytes; the budget is about 10 MB",
+        png.len()
+    );
     png
 }
 

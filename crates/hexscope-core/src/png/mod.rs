@@ -206,7 +206,18 @@ fn decode_pixels(
     };
     let summary = sink.finish();
 
-    match unfilter(&raw, ihdr.width, ihdr.height, ihdr.bytes_per_pixel()) {
+    let Some(stride) = ihdr.stride() else {
+        tree.add(
+            Some(root),
+            "image dimensions are too large to represent",
+            ByteRange::new(0, 0),
+            NodeKind::Error,
+            None,
+        );
+        return (None, Some(summary));
+    };
+
+    match unfilter(&raw, stride, ihdr.height, ihdr.filter_distance()) {
         Ok(pixels) => (Some(pixels), Some(summary)),
         Err(err) => {
             tree.add(

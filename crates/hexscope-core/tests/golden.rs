@@ -151,3 +151,65 @@ fn a_truncated_chunk_points_at_where_the_damage_starts() {
     );
     assert_eq!(error.range.end(), bytes.len() as u64);
 }
+
+/// The counterpart to the corrupt-file test, and the guard that was missing:
+/// nothing stopped the parser from flagging files that are perfectly fine.
+/// It shipped a bug that reported 44 of these 162 files as truncated, because
+/// every existing test only asserted "a tree came back" or "damage was found".
+#[test]
+fn valid_files_are_never_reported_as_damaged() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pngsuite");
+    let mut checked = 0;
+
+    for entry in fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        if name.starts_with('x') || !name.ends_with(".png") {
+            continue;
+        }
+        checked += 1;
+
+        let doc = parse_png(&fs::read(&path).unwrap());
+        let errors: Vec<&str> = doc
+            .tree
+            .nodes()
+            .iter()
+            .filter(|n| n.kind == NodeKind::Error)
+            .map(|n| n.label.as_str())
+            .collect();
+        assert!(errors.is_empty(), "{name} falsely reported: {errors:?}");
+    }
+
+    assert!(checked > 100, "only checked {checked} valid files");
+}
+
+/// Pixels must actually come out. An Error-free tree with `pixels: None`
+/// would pass the test above while the image silently fails to decode.
+#[test]
+fn every_non_interlaced_valid_file_decodes_to_pixels() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pngsuite");
+    let mut checked = 0;
+
+    for entry in fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        if name.starts_with('x') || !name.ends_with(".png") {
+            continue;
+        }
+
+        let doc = parse_png(&fs::read(&path).unwrap());
+        let Some(ihdr) = doc.ihdr else { continue };
+        if ihdr.interlace != 0 {
+            continue; // seven-pass layout is out of scope for v1
+        }
+        checked += 1;
+
+        let pixels = doc
+            .pixels
+            .unwrap_or_else(|| panic!("{name} produced no pixels"));
+        let expected = ihdr.stride().unwrap() * ihdr.height as usize;
+        assert_eq!(pixels.len(), expected, "{name} decoded to the wrong size");
+    }
+
+    assert!(checked > 80, "only checked {checked} non-interlaced files");
+}

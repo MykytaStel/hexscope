@@ -58,7 +58,10 @@ including all 14 intentionally corrupt ones, every one of which is flagged
 rather than silently accepted.
 
 Fuzzing: 1.3 million executions, zero crashes.
-Benchmark: a 10 MB PNG parses in **~53 ms** against a 300 ms budget.
+Benchmark: a 10.3 MB PNG parses in **~276 ms** against the 300 ms budget — met,
+but with little headroom. The bitwise CRC-32 and the one-bit-at-a-time
+`BitReader` are both deliberately unoptimised and are the obvious first targets
+if that margin needs to grow.
 `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
 `cargo check --target wasm32-unknown-unknown` are all clean.
 
@@ -84,7 +87,7 @@ Three constraints shape the whole crate:
 ```bash
 cargo test --all
 cargo clippy --all-targets -- -D warnings
-cargo bench -p hexscope-core          # the 300 ms budget is enforced here
+cargo bench -p hexscope-core          # reports the 10 MB parse time
 ```
 
 Fuzzing needs a nightly toolchain and `cargo-fuzz`:

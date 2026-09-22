@@ -3437,7 +3437,20 @@ owner or follows a decision they had already made.
 8. **The `Format` trait was deliberately not built.** See "Deliberate
    deviations from the spec" above.
 
-**Final state:** 68 lib tests, 6 golden tests, 3 property tests. Benchmark
-`parse_png/10mb` at ~53 ms against a 300 ms budget. Fuzzer: 1.3 million
+9. **A critical bug survived every per-task review**, found only by the final
+   whole-branch review: `Ihdr::bytes_per_pixel` was used both as the filter
+   distance and as the scanline stride. Those differ at bit depths 1, 2 and 4,
+   so 44 of the 162 valid PngSuite files were reported as truncated. It shipped
+   because no test asserted that a *valid* file is free of Error nodes — every
+   test checked only "a tree came back" or "damage was found". Split into
+   `filter_distance()` and `stride()`, with that missing guard added.
+
+10. **The benchmark measured the wrong file.** Its generator produced a highly
+    compressible `x ^ y` pattern, so `parse_png/10mb` was parsing about 0.3 MB.
+    On a genuine 10.3 MB input the time is ~276 ms, not the ~53 ms first
+    reported — the budget is met, but the margin is thin.
+
+**Final state:** 69 lib tests, 8 golden tests, 3 property tests. Benchmark
+`parse_png/10mb` at ~276 ms against a 300 ms budget. Fuzzer: 1.3 million
 executions, zero crashes. `clippy -D warnings`, `cargo fmt --check` and
 `cargo check --target wasm32-unknown-unknown` all clean.

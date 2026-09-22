@@ -23,17 +23,24 @@ fn paeth(a: u8, b: u8, c: u8) -> u8 {
 
 /// Reverses the per-scanline filters PNG applies before compression. `raw` is
 /// the decompressed IDAT payload: one filter-type byte per row, then the row.
-pub fn unfilter(raw: &[u8], width: u32, height: u32, bpp: usize) -> Result<Vec<u8>, UnfilterError> {
-    if width == 0 || height == 0 || bpp == 0 {
+/// `row_len` is the scanline stride in bytes — `Ihdr::stride()`, NOT
+/// `width * filter_distance`. Those differ at bit depths 1, 2 and 4, where
+/// several pixels share a byte; conflating them silently reports every
+/// sub-byte-depth image as truncated. `bpp` is the filter distance,
+/// `Ihdr::filter_distance()`.
+pub fn unfilter(
+    raw: &[u8],
+    row_len: usize,
+    height: u32,
+    bpp: usize,
+) -> Result<Vec<u8>, UnfilterError> {
+    if row_len == 0 || height == 0 || bpp == 0 {
         return Err(UnfilterError::BadDimensions);
     }
 
-    let row_len = (width as usize)
-        .checked_mul(bpp)
-        .ok_or(UnfilterError::BadDimensions)?;
     // Every step is checked: `usize` is 32 bits on wasm32, the target this
-    // crate compiles to, so a crafted width really can reach the top of the
-    // range. `row_len + 1` is the stride including the filter-type byte.
+    // crate compiles to. `row_len + 1` is the stride including the
+    // filter-type byte.
     let needed = row_len
         .checked_add(1)
         .and_then(|stride| stride.checked_mul(height as usize))
