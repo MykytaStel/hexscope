@@ -1,0 +1,19 @@
+---
+source: crates/hexscope-core/tests/golden.rs
+expression: render(&doc.tree)
+---
+PNG [0..145] Container
+  signature [0..8] Field = Bytes(8)
+  IHDR [8..33] Container = Bytes(13)
+    width [16..20] Field = U64(32)
+    height [20..24] Field = U64(32)
+    bitDepth [24..25] Field = U64(8)
+    colorType [25..26] Field = Enum { raw: 2, name: "RGB" }
+    compression [26..27] Field = U64(0)
+    filter [27..28] Field = U64(0)
+    interlace [28..29] Field = U64(0)
+  gAMA [33..49] Container = Bytes(4)
+    gamma [41..45] Field = U64(100000)
+    gammaDecimal [41..45] Field = Text("1.00000")
+  IDAT [49..133] Container = Bytes(72)
+  IEND [133..145] Container = Bytes(0)
