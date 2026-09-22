@@ -1312,7 +1312,7 @@ mod tests {
         let mut br = BitReader::new(&data);
         assert_eq!(br.bits(1), Ok(1));
         assert_eq!(br.bits(2), Ok(0b10));
-        assert_eq!(br.bits(5), Ok(0b1011_0));
+        assert_eq!(br.bits(5), Ok(0b1_0110));
         assert_eq!(br.bit_pos(), 8);
     }
 
