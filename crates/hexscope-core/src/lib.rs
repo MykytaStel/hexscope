@@ -2,6 +2,7 @@
 
 pub mod bits;
 pub mod crc32;
+pub mod inflate;
 pub mod model;
 pub mod png;
 pub mod reader;
