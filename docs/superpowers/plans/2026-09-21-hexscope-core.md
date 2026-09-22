@@ -1294,7 +1294,7 @@ git commit -m "feat(core): decode IHDR, PLTE, tEXt, pHYs, gAMA and tRNS payloads
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `BitReader<'a>` with `new(&'a [u8])`, `bits(u32) -> Result<u32, BitError>`, `align()`, `bit_pos() -> u64`, `byte_pos() -> usize`, `seek_bits(u64)`, `bytes(usize) -> Result<&'a [u8], BitError>`; `BitError::Eof`.
+- Produces: `BitReader<'a>` with `new(&'a [u8])`, `bits(u32) -> Result<u32, BitError>`, `align()`, `bit_pos() -> u64`, `byte_pos() -> usize`, `seek_bits(u64)`, `bytes(usize) -> Result<&'a [u8], BitError>`, `remaining_bits() -> u64`; `BitError::Eof`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1306,13 +1306,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_failed_read_leaves_the_position_untouched() {
+        // One byte, asking for nine bits: the eight readable bits must not be
+        // consumed, or a caller retrying with a smaller width silently skips them.
+        let data = [0b1010_1010u8];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(9), Err(BitError::Eof));
+        assert_eq!(br.bit_pos(), 0, "a failed read must not consume input");
+        assert_eq!(br.bits(8), Ok(0b1010_1010));
+    }
+
+    #[test]
+    fn bytes_reads_whole_bytes_and_reports_eof_without_consuming() {
+        let data = [0xAAu8, 0xBB, 0xCC];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(3), Ok(0b010));
+        // Skips to the byte boundary, then takes two whole bytes.
+        assert_eq!(br.bytes(2), Ok(&data[1..3]));
+        assert_eq!(br.bit_pos(), 24);
+
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bytes(9), Err(BitError::Eof));
+        assert_eq!(br.bit_pos(), 0, "a failed read must not consume alignment");
+    }
+
+    #[test]
+    fn align_is_a_no_op_on_a_byte_boundary() {
+        let data = [0xFFu8, 0x00];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(8), Ok(0xFF));
+        br.align();
+        assert_eq!(br.bit_pos(), 8, "already aligned: must not skip a byte");
+    }
+
+    #[test]
+    fn seek_bits_clamps_past_the_end() {
+        let data = [1u8, 2];
+        let mut br = BitReader::new(&data);
+        br.seek_bits(u64::MAX);
+        assert_eq!(br.bit_pos(), 16);
+        assert_eq!(br.remaining_bits(), 0);
+        assert_eq!(br.bits(1), Err(BitError::Eof));
+    }
+
+    #[test]
     fn reads_bits_least_significant_first() {
         // 0b1011_0101 — DEFLATE consumes from the low end.
         let data = [0b1011_0101];
         let mut br = BitReader::new(&data);
         assert_eq!(br.bits(1), Ok(1));
         assert_eq!(br.bits(2), Ok(0b10));
-        assert_eq!(br.bits(5), Ok(0b1011_0));
+        assert_eq!(br.bits(5), Ok(0b1_0110));
         assert_eq!(br.bit_pos(), 8);
     }
 
@@ -1391,8 +1435,19 @@ impl<'a> BitReader<'a> {
         self.bit_pos = bit_pos.min(self.data.len() as u64 * 8);
     }
 
+    /// Bits left before end of input.
+    pub fn remaining_bits(&self) -> u64 {
+        self.data.len() as u64 * 8 - self.bit_pos
+    }
+
     pub fn bits(&mut self, n: u32) -> Result<u32, BitError> {
         debug_assert!(n <= 32);
+        // Checked up front so a failed read leaves the position untouched —
+        // the same contract `Reader` gives, letting a caller recover and try
+        // something smaller instead of silently skipping the bits it consumed.
+        if self.remaining_bits() < n as u64 {
+            return Err(BitError::Eof);
+        }
         let mut out = 0u32;
         for i in 0..n {
             let byte = self
@@ -1411,10 +1466,11 @@ impl<'a> BitReader<'a> {
         self.bit_pos = self.bit_pos.div_ceil(8) * 8;
     }
 
-    /// Reads whole bytes from the current (aligned) position.
+    /// Reads whole bytes, starting at the next byte boundary.
     pub fn bytes(&mut self, n: usize) -> Result<&'a [u8], BitError> {
-        self.align();
-        let start = self.byte_pos();
+        // The aligned start is computed without committing to it, so a failed
+        // read does not consume the alignment padding.
+        let start = self.bit_pos.div_ceil(8) as usize;
         let end = start.checked_add(n).ok_or(BitError::Eof)?;
         if end > self.data.len() {
             return Err(BitError::Eof);
@@ -1434,7 +1490,7 @@ pub mod bits;
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cargo test -p hexscope-core bits`
-Expected: PASS — `test result: ok. 5 passed`.
+Expected: PASS — `test result: ok. 9 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -1544,9 +1600,9 @@ impl Huffman {
 
         // Kraft inequality: a code is valid when it is not oversubscribed.
         let mut left = 1i32;
-        for len in 1..=MAX_BITS {
+        for &count in &counts[1..=MAX_BITS] {
             left <<= 1;
-            left -= counts[len] as i32;
+            left -= count as i32;
             if left < 0 {
                 return Err(InflateError::BadCodeLengths);
             }
@@ -2260,7 +2316,7 @@ impl EventSink for CheckpointSink {
         }
 
         self.index += 1;
-        if self.index % self.interval == 0 {
+        if self.index.is_multiple_of(self.interval) {
             self.checkpoints.push(Checkpoint {
                 event_index: self.index,
                 bit_pos: self.last_bit_pos,
@@ -2338,7 +2394,19 @@ mod tests {
 
     #[test]
     fn rejects_a_non_deflate_method() {
-        let bad = [0x79, 0x01, 0x00];
+        // Long enough to get past the length guard, so this really does
+        // exercise the CM-nibble check: 0x79 & 0x0F == 9, not 8.
+        let bad = [0x79, 0x10, 0x00, 0x00, 0x00, 0x00];
+        assert_eq!(
+            zlib_decompress(&bad, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn rejects_a_bad_header_checksum() {
+        // CM is 8 and no preset dictionary, but 0x7800 is not a multiple of 31.
+        let bad = [0x78, 0x00, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(
             zlib_decompress(&bad, u64::MAX, &mut NoTrace),
             Err(InflateError::BadZlibHeader)
@@ -2405,7 +2473,7 @@ pub fn zlib_decompress(
     let flg = data[1];
 
     // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
-    if cmf & 0x0F != 8 || (((cmf as u16) << 8) | flg as u16) % 31 != 0 {
+    if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
         return Err(InflateError::BadZlibHeader);
     }
     // A preset dictionary is legal zlib but never appears in PNG.
@@ -2568,14 +2636,21 @@ pub fn unfilter(
     let row_len = (width as usize)
         .checked_mul(bpp)
         .ok_or(UnfilterError::BadDimensions)?;
-    let needed = (row_len + 1)
-        .checked_mul(height as usize)
+    // Every step is checked: `usize` is 32 bits on wasm32, the target this
+    // crate compiles to, so a crafted width really can reach the top of the
+    // range. `row_len + 1` is the stride including the filter-type byte.
+    let needed = row_len
+        .checked_add(1)
+        .and_then(|stride| stride.checked_mul(height as usize))
         .ok_or(UnfilterError::BadDimensions)?;
     if raw.len() < needed {
         return Err(UnfilterError::ShortData);
     }
 
-    let mut out = vec![0u8; row_len * height as usize];
+    let out_len = row_len
+        .checked_mul(height as usize)
+        .ok_or(UnfilterError::BadDimensions)?;
+    let mut out = vec![0u8; out_len];
 
     for y in 0..height as usize {
         let filter = raw[y * (row_len + 1)];
@@ -3313,3 +3388,69 @@ This plan covers §10 items 1, 2, 3, 4 and 6 and the parse-time budget.
 ## What comes next
 
 Plan 2 (`hexscope-wasm` + web shell) consumes exactly three things from this crate: `parse_png`, `ParseTree::nodes()` for flattening, and `TraceSummary` for the animation scrubber. Nothing else crosses the boundary.
+
+---
+
+## Changes made during execution
+
+The plan above is the design as written. Review found real defects in it;
+these are what actually shipped, and why. Each was decided by the project
+owner or follows a decision they had already made.
+
+1. **`Reader` became the single bounds-checked chokepoint.** The plan let
+   parsing code index byte slices directly in three places (the chunk type in
+   `next_chunk`, and `decode_text`/`decode_plte`). `Reader` gained
+   `array::<N>()`, `bytes_until(delim)` and `rest()`, and every one of those
+   sites now goes through it.
+
+2. **`next_chunk` self-terminates on damage.** As written it returned
+   `Truncated` without advancing the reader when a file ended inside the length
+   field, so any caller looping without a `break` would spin forever. Every
+   error path now seeks to end-of-input.
+
+3. **`BitReader::bits` preserves position on failure.** It advanced past the
+   bits it had already consumed before reporting `Eof`, unlike the sibling
+   `Reader`. It now checks `remaining_bits()` up front.
+
+4. **`unfilter` checks every multiplication and addition.** `row_len + 1` was
+   an unchecked add. `usize` is 32 bits on `wasm32-unknown-unknown` — the
+   target this crate exists for — so a crafted IHDR width really could reach
+   the top of the range. Not theoretical.
+
+5. **Truncated-chunk errors point at the damage.** Because of change 2, the
+   reader is always at EOF by the time `parse_png` records the error, so the
+   node's range was always `(len, 0)`. The chunk's start is now captured before
+   the call.
+
+6. **IHDR values and required chunks are validated.** Tightening the
+   corrupt-fixture assertion from "at least half flagged" to an exact count
+   exposed two PngSuite files parsing silently: `xc1n0g08.png` (colour type 1,
+   undefined in PNG) and `xdtn0g01.png` (valid header, no IDAT). Bit-depth and
+   colour-type validation per RFC 2083 §4.1.1 and presence checks for IDAT and
+   IEND were added.
+
+7. **Test counts in this document were wrong repeatedly** and were corrected
+   against the actual `#[test]` count each time. `rejects_a_non_deflate_method`
+   also used a 3-byte input that the length guard rejected before the check it
+   was named for ever ran.
+
+8. **The `Format` trait was deliberately not built.** See "Deliberate
+   deviations from the spec" above.
+
+9. **A critical bug survived every per-task review**, found only by the final
+   whole-branch review: `Ihdr::bytes_per_pixel` was used both as the filter
+   distance and as the scanline stride. Those differ at bit depths 1, 2 and 4,
+   so 44 of the 162 valid PngSuite files were reported as truncated. It shipped
+   because no test asserted that a *valid* file is free of Error nodes — every
+   test checked only "a tree came back" or "damage was found". Split into
+   `filter_distance()` and `stride()`, with that missing guard added.
+
+10. **The benchmark measured the wrong file.** Its generator produced a highly
+    compressible `x ^ y` pattern, so `parse_png/10mb` was parsing about 0.3 MB.
+    On a genuine 10.3 MB input the time is ~276 ms, not the ~53 ms first
+    reported — the budget is met, but the margin is thin.
+
+**Final state:** 69 lib tests, 8 golden tests, 3 property tests. Benchmark
+`parse_png/10mb` at ~276 ms against a 300 ms budget. Fuzzer: 1.3 million
+executions, zero crashes. `clippy -D warnings`, `cargo fmt --check` and
+`cargo check --target wasm32-unknown-unknown` all clean.

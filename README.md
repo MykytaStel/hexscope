@@ -8,9 +8,10 @@ bytes each field occupies, and — the part no other tool does — the compressi
 algorithm running step by step, with arrows from each back-reference to the
 bytes it copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Status: early. Not usable yet.**
-> The Rust parsing core is under construction and there is no user interface.
-> See [Where this actually is](#where-this-actually-is) before trying it.
+> **Status: the parsing core is complete. There is no user interface yet.**
+> `hexscope-core` parses PNG end to end — structure, damage, decoded pixels and
+> a step-by-step DEFLATE trace — but nothing renders it. See
+> [Where this actually is](#where-this-actually-is).
 
 ## Why
 
@@ -43,13 +44,29 @@ Implemented and tested:
 | `Reader` — the crate's single bounds-checked byte accessor | done |
 | CRC-32 and the PNG chunk walker | done |
 | Chunk decoders: IHDR, PLTE, tEXt, pHYs, gAMA, tRNS | done |
-| DEFLATE / inflate with a step trace | not started |
-| Scanline unfiltering, pixel output | not started |
-| `parse_png` end-to-end + PngSuite golden tests | not started |
-| Fuzzing, benchmarks, CI | not started |
+| IHDR validation and required-chunk checks | done |
+| DEFLATE / inflate written from scratch, with a step trace | done |
+| Checkpointing so a long trace can be scrubbed | done |
+| zlib wrapper, scanline unfiltering, pixel output | done |
+| `parse_png` end-to-end + PngSuite golden tests | done |
+| Fuzzing, property tests, benchmark, CI | done |
 | WASM bridge and web interface | not started |
 
-28 tests pass; `cargo clippy --all-targets -- -D warnings` is clean.
+**77 tests** (68 unit, 6 golden, 3 property). Validated against the full
+[PngSuite](http://www.schaik.com/pngsuite/) conformance corpus — 176 files,
+including all 14 intentionally corrupt ones, every one of which is flagged
+rather than silently accepted.
+
+Fuzzing: 1.3 million executions, zero crashes.
+Benchmark: a 10.3 MB PNG parses in **~276 ms** against the 300 ms budget — met,
+but with little headroom. The bitwise CRC-32 and the one-bit-at-a-time
+`BitReader` are both deliberately unoptimised and are the obvious first targets
+if that margin needs to grow.
+`cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
+`cargo check --target wasm32-unknown-unknown` are all clean.
+
+Open findings from the final review are tracked in
+[`docs/known-issues.md`](docs/known-issues.md).
 
 The full design is in
 [`docs/superpowers/specs/`](docs/superpowers/specs/) and the implementation
@@ -73,6 +90,13 @@ Three constraints shape the whole crate:
 ```bash
 cargo test --all
 cargo clippy --all-targets -- -D warnings
+cargo bench -p hexscope-core          # reports the 10 MB parse time
+```
+
+Fuzzing needs a nightly toolchain and `cargo-fuzz`:
+
+```bash
+cargo +nightly fuzz run parse_png -- -max_total_time=120
 ```
 
 ## Roadmap

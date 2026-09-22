@@ -29,7 +29,8 @@ mod tests {
         assert_eq!(ihdr.height, 1080);
         assert_eq!(ihdr.bit_depth, 8);
         assert_eq!(ihdr.color_type, 6);
-        assert_eq!(ihdr.bytes_per_pixel(), 4);
+        assert_eq!(ihdr.filter_distance(), 4);
+        assert_eq!(ihdr.stride(), Some(1920 * 4));
 
         let labels: Vec<&str> = tree
             .get(root)
@@ -63,6 +64,44 @@ mod tests {
             tree.get(tree.get(root).children[0]).range,
             ByteRange::new(8, 4)
         );
+    }
+
+    #[test]
+    fn stride_and_filter_distance_differ_below_eight_bits() {
+        // 32 px of 1-bit greyscale is 4 bytes per scanline, not 32. Treating
+        // the filter distance as the stride reported every such file as
+        // truncated.
+        let ihdr = Ihdr {
+            width: 32,
+            height: 32,
+            bit_depth: 1,
+            color_type: 0,
+            interlace: 0,
+        };
+        assert_eq!(ihdr.filter_distance(), 1);
+        assert_eq!(ihdr.stride(), Some(4));
+
+        // 4-bit palette, 33 px: 16.5 bytes rounds up to 17.
+        let palette = Ihdr {
+            width: 33,
+            height: 1,
+            bit_depth: 4,
+            color_type: 3,
+            interlace: 0,
+        };
+        assert_eq!(palette.filter_distance(), 1);
+        assert_eq!(palette.stride(), Some(17));
+
+        // At 8 bits and above the two coincide per pixel.
+        let rgb = Ihdr {
+            width: 10,
+            height: 1,
+            bit_depth: 8,
+            color_type: 2,
+            interlace: 0,
+        };
+        assert_eq!(rgb.filter_distance(), 3);
+        assert_eq!(rgb.stride(), Some(30));
     }
 
     #[test]
@@ -334,18 +373,49 @@ pub struct Ihdr {
 }
 
 impl Ihdr {
-    /// Bytes each pixel occupies once unfiltered. Sub-byte depths round up to
-    /// 1, which is what the filter algorithm needs.
-    pub fn bytes_per_pixel(&self) -> usize {
-        let channels = match self.color_type {
+    /// Samples per pixel for this colour type.
+    pub fn channels(&self) -> usize {
+        match self.color_type {
             0 => 1, // greyscale
             2 => 3, // RGB
             3 => 1, // palette index
             4 => 2, // greyscale + alpha
             6 => 4, // RGBA
             _ => 1,
-        };
-        ((channels * self.bit_depth as usize) / 8).max(1)
+        }
+    }
+
+    /// How far back a filter looks for "the pixel to the left", in bytes.
+    /// PNG defines this as `max(1, floor(channels * bit_depth / 8))`, so at
+    /// sub-byte depths it clamps to one byte.
+    ///
+    /// This is NOT the scanline stride — see [`Ihdr::stride`]. Conflating the
+    /// two silently breaks every image below 8-bit depth.
+    pub fn filter_distance(&self) -> usize {
+        ((self.channels() * self.bit_depth as usize) / 8).max(1)
+    }
+
+    /// Bytes in one unfiltered scanline: `ceil(width * channels * depth / 8)`.
+    /// At 1, 2 and 4 bits per sample several pixels share a byte, so this is
+    /// much smaller than `width * filter_distance`.
+    ///
+    /// Returns `None` if the dimensions overflow `usize`, which a crafted IHDR
+    /// can do on a 32-bit target such as wasm32.
+    pub fn stride(&self) -> Option<usize> {
+        (self.width as usize)
+            .checked_mul(self.channels())?
+            .checked_mul(self.bit_depth as usize)
+            .map(|bits| bits.div_ceil(8))
+    }
+}
+
+/// The bit depths PNG permits for each colour type (RFC 2083 §4.1.1).
+fn bit_depth_allowed(color_type: u8, bit_depth: u8) -> bool {
+    match color_type {
+        0 => matches!(bit_depth, 1 | 2 | 4 | 8 | 16),
+        3 => matches!(bit_depth, 1 | 2 | 4 | 8),
+        2 | 4 | 6 => matches!(bit_depth, 8 | 16),
+        _ => false,
     }
 }
 
@@ -465,6 +535,26 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         1,
         Value::U64(interlace as u64),
     );
+
+    // A structurally fine IHDR can still describe an impossible image. Saying
+    // so is the point of the tool, so these are warnings on the exact byte.
+    if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
+        tree.add(
+            Some(parent),
+            format!("colour type {color_type} is not one of 0, 2, 3, 4, 6"),
+            ByteRange::new(chunk.data_range.start + 9, 1),
+            NodeKind::Warning,
+            None,
+        );
+    } else if !bit_depth_allowed(color_type, bit_depth) {
+        tree.add(
+            Some(parent),
+            format!("bit depth {bit_depth} is not allowed for colour type {color_type}"),
+            ByteRange::new(chunk.data_range.start + 8, 1),
+            NodeKind::Warning,
+            None,
+        );
+    }
 
     Some(Ihdr {
         width,

@@ -1,0 +1,25 @@
+[package]
+name = "hexscope-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.hexscope-core]
+path = ".."
+
+# Excluded from the parent workspace: cargo-fuzz builds this crate on its own
+# with special instrumentation flags, and it should never be picked up by a
+# plain `cargo test --all` / `cargo clippy --all-targets` at the repo root.
+[workspace]
+
+[[bin]]
+name = "parse_png"
+path = "fuzz_targets/parse_png.rs"
+test = false
+doc = false
