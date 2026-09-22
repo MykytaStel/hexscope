@@ -12,3 +12,10 @@ repository.workspace = true
 flate2 = "1"
 insta = "1"
 proptest = "1"
+
+[dev-dependencies.criterion]
+version = "0.5"
+
+[[bench]]
+name = "parse"
+harness = false
