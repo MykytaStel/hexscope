@@ -2,10 +2,12 @@ pub mod engine;
 pub mod huffman;
 pub mod tables;
 pub mod trace;
+pub mod zlib;
 
 pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
 pub use huffman::Huffman;
 pub use trace::{Checkpoint, CheckpointSink, TraceSummary};
+pub use zlib::{adler32, zlib_decompress};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InflateError {

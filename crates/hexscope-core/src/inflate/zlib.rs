@@ -1,0 +1,107 @@
+use crate::inflate::InflateError;
+use crate::inflate::engine::{EventSink, inflate};
+
+const ADLER_MOD: u32 = 65521;
+
+pub fn adler32(data: &[u8]) -> u32 {
+    let mut a: u32 = 1;
+    let mut b: u32 = 0;
+    for &byte in data {
+        a = (a + byte as u32) % ADLER_MOD;
+        b = (b + a) % ADLER_MOD;
+    }
+    (b << 16) | a
+}
+
+/// Unwraps a zlib stream (RFC 1950) and inflates its payload. PNG stores IDAT
+/// data in exactly this form.
+pub fn zlib_decompress(
+    data: &[u8],
+    max_output: u64,
+    sink: &mut dyn EventSink,
+) -> Result<Vec<u8>, InflateError> {
+    if data.len() < 6 {
+        return Err(InflateError::BadZlibHeader);
+    }
+    let cmf = data[0];
+    let flg = data[1];
+
+    // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
+    if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
+        return Err(InflateError::BadZlibHeader);
+    }
+    // A preset dictionary is legal zlib but never appears in PNG.
+    if flg & 0x20 != 0 {
+        return Err(InflateError::BadZlibHeader);
+    }
+
+    let body = &data[2..data.len() - 4];
+    let stored = u32::from_be_bytes([
+        data[data.len() - 4],
+        data[data.len() - 3],
+        data[data.len() - 2],
+        data[data.len() - 1],
+    ]);
+
+    let out = inflate(body, max_output, sink)?;
+    if adler32(&out) != stored {
+        return Err(InflateError::ChecksumMismatch);
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inflate::NoTrace;
+    use flate2::Compression;
+    use flate2::write::ZlibEncoder;
+    use std::io::Write;
+
+    fn zlib(input: &[u8]) -> Vec<u8> {
+        let mut enc = ZlibEncoder::new(Vec::new(), Compression::best());
+        enc.write_all(input).unwrap();
+        enc.finish().unwrap()
+    }
+
+    #[test]
+    fn adler_matches_known_vector() {
+        assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
+        assert_eq!(adler32(b""), 1);
+    }
+
+    #[test]
+    fn decompresses_a_zlib_stream() {
+        let input = b"hexscope zlib wrapper test, repeated repeated repeated";
+        let out = zlib_decompress(&zlib(input), u64::MAX, &mut NoTrace).unwrap();
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn rejects_a_non_deflate_method() {
+        let bad = [0x79, 0x01, 0x00];
+        assert_eq!(
+            zlib_decompress(&bad, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn detects_a_corrupted_checksum() {
+        let mut stream = zlib(b"payload");
+        let last = stream.len() - 1;
+        stream[last] ^= 0xFF;
+        assert_eq!(
+            zlib_decompress(&stream, u64::MAX, &mut NoTrace),
+            Err(InflateError::ChecksumMismatch)
+        );
+    }
+
+    #[test]
+    fn rejects_a_stream_too_short_for_a_header() {
+        assert_eq!(
+            zlib_decompress(&[0x78], u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+}
