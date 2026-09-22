@@ -2461,7 +2461,7 @@ pub fn zlib_decompress(
     let flg = data[1];
 
     // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
-    if cmf & 0x0F != 8 || (((cmf as u16) << 8) | flg as u16) % 31 != 0 {
+    if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
         return Err(InflateError::BadZlibHeader);
     }
     // A preset dictionary is legal zlib but never appears in PNG.
