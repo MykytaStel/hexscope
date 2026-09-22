@@ -70,8 +70,18 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
 
     let mut ihdr: Option<Ihdr> = None;
     let mut idat: Vec<u8> = Vec::new();
+    let mut saw_iend = false;
 
-    while let Some(result) = next_chunk(&mut r) {
+    loop {
+        // Captured before the call: `next_chunk` seeks to end-of-input on any
+        // error so the walk self-terminates, which means the reader's position
+        // afterwards is always EOF and says nothing about where the damage is.
+        // The whole point of this tool is pointing at the broken bytes.
+        let chunk_start = r.pos();
+        let Some(result) = next_chunk(&mut r) else {
+            break;
+        };
+
         let chunk = match result {
             Ok(c) => c,
             Err(err) => {
@@ -82,7 +92,7 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
                 tree.add(
                     Some(root),
                     label,
-                    ByteRange::new(r.pos(), r.remaining() as u64),
+                    ByteRange::new(chunk_start, data.len() as u64 - chunk_start),
                     NodeKind::Error,
                     None,
                 );
@@ -119,8 +129,30 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
             b"gAMA" => decode_gama(&chunk, &mut tree, node),
             b"tRNS" => decode_trns(&chunk, &mut tree, node, ihdr.map(|h| h.color_type)),
             b"IDAT" => idat.extend_from_slice(chunk.data),
+            b"IEND" => saw_iend = true,
             _ => {}
         }
+    }
+
+    // A PNG without image data, or without a terminator, parses cleanly chunk
+    // by chunk and is still not a usable file. Report it rather than shrug.
+    if idat.is_empty() {
+        tree.add(
+            Some(root),
+            "no IDAT chunk: the file carries no image data",
+            ByteRange::new(0, data.len() as u64),
+            NodeKind::Warning,
+            None,
+        );
+    }
+    if !saw_iend {
+        tree.add(
+            Some(root),
+            "no IEND chunk: the file does not end properly",
+            ByteRange::new(data.len() as u64, 0),
+            NodeKind::Warning,
+            None,
+        );
     }
 
     let (pixels, trace) = decode_pixels(&idat, ihdr, &mut tree, root);

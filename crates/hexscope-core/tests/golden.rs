@@ -87,8 +87,11 @@ fn corrupt_files_are_flagged_and_still_produce_a_tree() {
         corrupt_seen >= 10,
         "only found {corrupt_seen} corrupt fixtures"
     );
-    assert!(
-        flagged * 2 >= corrupt_seen,
+    // Every intentionally-corrupt fixture is flagged today. Asserting the exact
+    // count rather than a fraction is what makes this a real regression guard:
+    // surfacing damage instead of hiding it is the crate's whole job.
+    assert_eq!(
+        flagged, corrupt_seen,
         "only {flagged} of {corrupt_seen} corrupt files were flagged"
     );
 }
@@ -125,4 +128,26 @@ fn arbitrary_bytes_still_produce_a_tree() {
         let doc = parse_png(&input);
         assert!(!doc.tree.is_empty(), "empty tree for {input:?}");
     }
+}
+
+#[test]
+fn a_truncated_chunk_points_at_where_the_damage_starts() {
+    let mut bytes = fixture("basn2c08.png");
+    // Cut inside IDAT, which the committed snapshot shows begins at offset 49.
+    bytes.truncate(60);
+
+    let doc = parse_png(&bytes);
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error)
+        .expect("a truncated file must produce an Error node");
+
+    assert_eq!(error.label, "truncated chunk");
+    assert_eq!(
+        error.range.start, 49,
+        "the error must point at the damaged chunk, not at end of file"
+    );
+    assert_eq!(error.range.end(), bytes.len() as u64);
 }

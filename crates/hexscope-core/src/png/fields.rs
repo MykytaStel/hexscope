@@ -349,6 +349,16 @@ impl Ihdr {
     }
 }
 
+/// The bit depths PNG permits for each colour type (RFC 2083 §4.1.1).
+fn bit_depth_allowed(color_type: u8, bit_depth: u8) -> bool {
+    match color_type {
+        0 => matches!(bit_depth, 1 | 2 | 4 | 8 | 16),
+        3 => matches!(bit_depth, 1 | 2 | 4 | 8),
+        2 | 4 | 6 => matches!(bit_depth, 8 | 16),
+        _ => false,
+    }
+}
+
 fn color_type_name(raw: u8) -> &'static str {
     match raw {
         0 => "Greyscale",
@@ -465,6 +475,26 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         1,
         Value::U64(interlace as u64),
     );
+
+    // A structurally fine IHDR can still describe an impossible image. Saying
+    // so is the point of the tool, so these are warnings on the exact byte.
+    if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
+        tree.add(
+            Some(parent),
+            format!("colour type {color_type} is not one of 0, 2, 3, 4, 6"),
+            ByteRange::new(chunk.data_range.start + 9, 1),
+            NodeKind::Warning,
+            None,
+        );
+    } else if !bit_depth_allowed(color_type, bit_depth) {
+        tree.add(
+            Some(parent),
+            format!("bit depth {bit_depth} is not allowed for colour type {color_type}"),
+            ByteRange::new(chunk.data_range.start + 8, 1),
+            NodeKind::Warning,
+            None,
+        );
+    }
 
     Some(Ihdr {
         width,
