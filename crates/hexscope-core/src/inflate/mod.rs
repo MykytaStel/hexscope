@@ -1,5 +1,8 @@
+pub mod engine;
 pub mod huffman;
+pub mod tables;
 
+pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
 pub use huffman::Huffman;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
