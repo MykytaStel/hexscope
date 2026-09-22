@@ -79,7 +79,19 @@ mod tests {
 
     #[test]
     fn rejects_a_non_deflate_method() {
-        let bad = [0x79, 0x01, 0x00];
+        // Long enough to get past the length guard, so this really does
+        // exercise the CM-nibble check: 0x79 & 0x0F == 9, not 8.
+        let bad = [0x79, 0x10, 0x00, 0x00, 0x00, 0x00];
+        assert_eq!(
+            zlib_decompress(&bad, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn rejects_a_bad_header_checksum() {
+        // CM is 8 and no preset dictionary, but 0x7800 is not a multiple of 31.
+        let bad = [0x78, 0x00, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(
             zlib_decompress(&bad, u64::MAX, &mut NoTrace),
             Err(InflateError::BadZlibHeader)

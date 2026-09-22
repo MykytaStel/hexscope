@@ -2394,7 +2394,19 @@ mod tests {
 
     #[test]
     fn rejects_a_non_deflate_method() {
-        let bad = [0x79, 0x01, 0x00];
+        // Long enough to get past the length guard, so this really does
+        // exercise the CM-nibble check: 0x79 & 0x0F == 9, not 8.
+        let bad = [0x79, 0x10, 0x00, 0x00, 0x00, 0x00];
+        assert_eq!(
+            zlib_decompress(&bad, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn rejects_a_bad_header_checksum() {
+        // CM is 8 and no preset dictionary, but 0x7800 is not a multiple of 31.
+        let bad = [0x78, 0x00, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(
             zlib_decompress(&bad, u64::MAX, &mut NoTrace),
             Err(InflateError::BadZlibHeader)
@@ -2624,14 +2636,21 @@ pub fn unfilter(
     let row_len = (width as usize)
         .checked_mul(bpp)
         .ok_or(UnfilterError::BadDimensions)?;
-    let needed = (row_len + 1)
-        .checked_mul(height as usize)
+    // Every step is checked: `usize` is 32 bits on wasm32, the target this
+    // crate compiles to, so a crafted width really can reach the top of the
+    // range. `row_len + 1` is the stride including the filter-type byte.
+    let needed = row_len
+        .checked_add(1)
+        .and_then(|stride| stride.checked_mul(height as usize))
         .ok_or(UnfilterError::BadDimensions)?;
     if raw.len() < needed {
         return Err(UnfilterError::ShortData);
     }
 
-    let mut out = vec![0u8; row_len * height as usize];
+    let out_len = row_len
+        .checked_mul(height as usize)
+        .ok_or(UnfilterError::BadDimensions)?;
+    let mut out = vec![0u8; out_len];
 
     for y in 0..height as usize {
         let filter = raw[y * (row_len + 1)];

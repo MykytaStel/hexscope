@@ -31,14 +31,21 @@ pub fn unfilter(raw: &[u8], width: u32, height: u32, bpp: usize) -> Result<Vec<u
     let row_len = (width as usize)
         .checked_mul(bpp)
         .ok_or(UnfilterError::BadDimensions)?;
-    let needed = (row_len + 1)
-        .checked_mul(height as usize)
+    // Every step is checked: `usize` is 32 bits on wasm32, the target this
+    // crate compiles to, so a crafted width really can reach the top of the
+    // range. `row_len + 1` is the stride including the filter-type byte.
+    let needed = row_len
+        .checked_add(1)
+        .and_then(|stride| stride.checked_mul(height as usize))
         .ok_or(UnfilterError::BadDimensions)?;
     if raw.len() < needed {
         return Err(UnfilterError::ShortData);
     }
 
-    let mut out = vec![0u8; row_len * height as usize];
+    let out_len = row_len
+        .checked_mul(height as usize)
+        .ok_or(UnfilterError::BadDimensions)?;
+    let mut out = vec![0u8; out_len];
 
     for y in 0..height as usize {
         let filter = raw[y * (row_len + 1)];
