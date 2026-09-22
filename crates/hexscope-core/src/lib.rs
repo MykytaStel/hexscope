@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod bits;
 pub mod crc32;
 pub mod model;
 pub mod png;
