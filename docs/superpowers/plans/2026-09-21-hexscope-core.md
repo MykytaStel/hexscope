@@ -2316,7 +2316,7 @@ impl EventSink for CheckpointSink {
         }
 
         self.index += 1;
-        if self.index % self.interval == 0 {
+        if self.index.is_multiple_of(self.interval) {
             self.checkpoints.push(Checkpoint {
                 event_index: self.index,
                 bit_pos: self.last_bit_pos,
