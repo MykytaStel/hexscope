@@ -29,8 +29,19 @@ impl<'a> BitReader<'a> {
         self.bit_pos = bit_pos.min(self.data.len() as u64 * 8);
     }
 
+    /// Bits left before end of input.
+    pub fn remaining_bits(&self) -> u64 {
+        self.data.len() as u64 * 8 - self.bit_pos
+    }
+
     pub fn bits(&mut self, n: u32) -> Result<u32, BitError> {
         debug_assert!(n <= 32);
+        // Checked up front so a failed read leaves the position untouched —
+        // the same contract `Reader` gives, letting a caller recover and try
+        // something smaller instead of silently skipping the bits it consumed.
+        if self.remaining_bits() < n as u64 {
+            return Err(BitError::Eof);
+        }
         let mut out = 0u32;
         for i in 0..n {
             let byte = self
@@ -49,10 +60,11 @@ impl<'a> BitReader<'a> {
         self.bit_pos = self.bit_pos.div_ceil(8) * 8;
     }
 
-    /// Reads whole bytes from the current (aligned) position.
+    /// Reads whole bytes, starting at the next byte boundary.
     pub fn bytes(&mut self, n: usize) -> Result<&'a [u8], BitError> {
-        self.align();
-        let start = self.byte_pos();
+        // The aligned start is computed without committing to it, so a failed
+        // read does not consume the alignment padding.
+        let start = self.bit_pos.div_ceil(8) as usize;
         let end = start.checked_add(n).ok_or(BitError::Eof)?;
         if end > self.data.len() {
             return Err(BitError::Eof);
@@ -65,6 +77,50 @@ impl<'a> BitReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_read_leaves_the_position_untouched() {
+        // One byte, asking for nine bits: the eight readable bits must not be
+        // consumed, or a caller retrying with a smaller width silently skips them.
+        let data = [0b1010_1010u8];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(9), Err(BitError::Eof));
+        assert_eq!(br.bit_pos(), 0, "a failed read must not consume input");
+        assert_eq!(br.bits(8), Ok(0b1010_1010));
+    }
+
+    #[test]
+    fn bytes_reads_whole_bytes_and_reports_eof_without_consuming() {
+        let data = [0xAAu8, 0xBB, 0xCC];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(3), Ok(0b010));
+        // Skips to the byte boundary, then takes two whole bytes.
+        assert_eq!(br.bytes(2), Ok(&data[1..3]));
+        assert_eq!(br.bit_pos(), 24);
+
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bytes(9), Err(BitError::Eof));
+        assert_eq!(br.bit_pos(), 0, "a failed read must not consume alignment");
+    }
+
+    #[test]
+    fn align_is_a_no_op_on_a_byte_boundary() {
+        let data = [0xFFu8, 0x00];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(8), Ok(0xFF));
+        br.align();
+        assert_eq!(br.bit_pos(), 8, "already aligned: must not skip a byte");
+    }
+
+    #[test]
+    fn seek_bits_clamps_past_the_end() {
+        let data = [1u8, 2];
+        let mut br = BitReader::new(&data);
+        br.seek_bits(u64::MAX);
+        assert_eq!(br.bit_pos(), 16);
+        assert_eq!(br.remaining_bits(), 0);
+        assert_eq!(br.bits(1), Err(BitError::Eof));
+    }
 
     #[test]
     fn reads_bits_least_significant_first() {

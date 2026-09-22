@@ -25,10 +25,9 @@ impl Huffman {
 
         // Kraft inequality: a code is valid when it is not oversubscribed.
         let mut left = 1i32;
-        #[allow(clippy::needless_range_loop)]
-        for len in 1..=MAX_BITS {
+        for &count in &counts[1..=MAX_BITS] {
             left <<= 1;
-            left -= counts[len] as i32;
+            left -= count as i32;
             if left < 0 {
                 return Err(InflateError::BadCodeLengths);
             }
