@@ -3388,3 +3388,56 @@ This plan covers §10 items 1, 2, 3, 4 and 6 and the parse-time budget.
 ## What comes next
 
 Plan 2 (`hexscope-wasm` + web shell) consumes exactly three things from this crate: `parse_png`, `ParseTree::nodes()` for flattening, and `TraceSummary` for the animation scrubber. Nothing else crosses the boundary.
+
+---
+
+## Changes made during execution
+
+The plan above is the design as written. Review found real defects in it;
+these are what actually shipped, and why. Each was decided by the project
+owner or follows a decision they had already made.
+
+1. **`Reader` became the single bounds-checked chokepoint.** The plan let
+   parsing code index byte slices directly in three places (the chunk type in
+   `next_chunk`, and `decode_text`/`decode_plte`). `Reader` gained
+   `array::<N>()`, `bytes_until(delim)` and `rest()`, and every one of those
+   sites now goes through it.
+
+2. **`next_chunk` self-terminates on damage.** As written it returned
+   `Truncated` without advancing the reader when a file ended inside the length
+   field, so any caller looping without a `break` would spin forever. Every
+   error path now seeks to end-of-input.
+
+3. **`BitReader::bits` preserves position on failure.** It advanced past the
+   bits it had already consumed before reporting `Eof`, unlike the sibling
+   `Reader`. It now checks `remaining_bits()` up front.
+
+4. **`unfilter` checks every multiplication and addition.** `row_len + 1` was
+   an unchecked add. `usize` is 32 bits on `wasm32-unknown-unknown` — the
+   target this crate exists for — so a crafted IHDR width really could reach
+   the top of the range. Not theoretical.
+
+5. **Truncated-chunk errors point at the damage.** Because of change 2, the
+   reader is always at EOF by the time `parse_png` records the error, so the
+   node's range was always `(len, 0)`. The chunk's start is now captured before
+   the call.
+
+6. **IHDR values and required chunks are validated.** Tightening the
+   corrupt-fixture assertion from "at least half flagged" to an exact count
+   exposed two PngSuite files parsing silently: `xc1n0g08.png` (colour type 1,
+   undefined in PNG) and `xdtn0g01.png` (valid header, no IDAT). Bit-depth and
+   colour-type validation per RFC 2083 §4.1.1 and presence checks for IDAT and
+   IEND were added.
+
+7. **Test counts in this document were wrong repeatedly** and were corrected
+   against the actual `#[test]` count each time. `rejects_a_non_deflate_method`
+   also used a 3-byte input that the length guard rejected before the check it
+   was named for ever ran.
+
+8. **The `Format` trait was deliberately not built.** See "Deliberate
+   deviations from the spec" above.
+
+**Final state:** 68 lib tests, 6 golden tests, 3 property tests. Benchmark
+`parse_png/10mb` at ~53 ms against a 300 ms budget. Fuzzer: 1.3 million
+executions, zero crashes. `clippy -D warnings`, `cargo fmt --check` and
+`cargo check --target wasm32-unknown-unknown` all clean.
