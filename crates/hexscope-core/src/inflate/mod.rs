@@ -1,9 +1,11 @@
 pub mod engine;
 pub mod huffman;
 pub mod tables;
+pub mod trace;
 
 pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
 pub use huffman::Huffman;
+pub use trace::{Checkpoint, CheckpointSink, TraceSummary};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InflateError {
