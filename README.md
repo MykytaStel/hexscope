@@ -65,6 +65,9 @@ if that margin needs to grow.
 `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
 `cargo check --target wasm32-unknown-unknown` are all clean.
 
+Open findings from the final review are tracked in
+[`docs/known-issues.md`](docs/known-issues.md).
+
 The full design is in
 [`docs/superpowers/specs/`](docs/superpowers/specs/) and the implementation
 plan in [`docs/superpowers/plans/`](docs/superpowers/plans/).
