@@ -3,12 +3,21 @@ use crate::inflate::engine::{EventSink, inflate};
 
 const ADLER_MOD: u32 = 65521;
 
+/// Largest run of bytes that can be summed before `b` could overflow a
+/// `u32`: 255 * n * (n + 1) / 2 + (n + 1) * (65521 - 1) <= 2^32 - 1.
+const NMAX: usize = 5552;
+
 pub fn adler32(data: &[u8]) -> u32 {
     let mut a: u32 = 1;
     let mut b: u32 = 0;
-    for &byte in data {
-        a = (a + byte as u32) % ADLER_MOD;
-        b = (b + a) % ADLER_MOD;
+    // Reducing once per NMAX bytes instead of twice per byte.
+    for block in data.chunks(NMAX) {
+        for &byte in block {
+            a += byte as u32;
+            b += a;
+        }
+        a %= ADLER_MOD;
+        b %= ADLER_MOD;
     }
     (b << 16) | a
 }
@@ -68,6 +77,19 @@ mod tests {
     fn adler_matches_known_vector() {
         assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
         assert_eq!(adler32(b""), 1);
+    }
+
+    #[test]
+    fn adler_matches_the_reference_across_block_boundaries() {
+        // Longer than NMAX with every byte at its maximum: the case where a
+        // deferred modulo would overflow if NMAX were wrong.
+        let data = vec![0xFFu8; NMAX * 3 + 17];
+        let (mut a, mut b) = (1u64, 0u64);
+        for &byte in &data {
+            a = (a + byte as u64) % 65521;
+            b = (b + a) % 65521;
+        }
+        assert_eq!(adler32(&data), ((b << 16) | a) as u32);
     }
 
     #[test]
