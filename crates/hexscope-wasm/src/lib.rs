@@ -145,7 +145,10 @@ impl Parsed {
         let wanted = count as usize * STEP_STRIDE;
         let mut decoder = self.decoder_at(body, from);
 
-        let mut out = Vec::with_capacity(wanted);
+        // `count` comes from the caller: reserve for a normal batch, not for
+        // whatever was asked, or a huge count aborts the worker before a
+        // single step is decoded. The vector still grows to fit.
+        let mut out = Vec::with_capacity(wanted.min(4096 * STEP_STRIDE));
         let mut last_end = 0u64;
         while out.len() < wanted {
             match decoder.step() {
@@ -560,6 +563,17 @@ mod tests {
         let steps = every_step(&parsed);
         assert!(!steps.is_empty());
         assert_eq!(rebuild(&steps), parsed.inflated());
+    }
+
+    #[test]
+    fn a_huge_count_is_not_trusted_for_allocation() {
+        // Found on CI: preallocating count * STRIDE for u32::MAX steps asked
+        // for 25 GB and aborted on Linux, where memory is not lazily
+        // committed. The request must cost only what it actually returns.
+        let parsed = parse(&fixture("basn2c08.png"));
+        let steps = parsed.steps(0.0, u32::MAX);
+        assert_eq!(steps.len() / STEP_STRIDE, parsed.trace()[0] as usize);
+        assert!(steps.capacity() < 1 << 20, "capacity {}", steps.capacity());
     }
 
     #[test]
