@@ -8,9 +8,12 @@
 #![forbid(unsafe_code)]
 
 use hexscope_core::exif::PhotoFacts;
-use hexscope_core::inflate::{BlockKind, Checkpoint, Decoder, InflateError, InflateEvent, Step};
+use hexscope_core::inflate::{
+    BlockKind, Checkpoint, CheckpointSink, Decoder, InflateError, InflateEvent, Step, inflate,
+};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
+use hexscope_core::zip::ZipEntry;
 use hexscope_core::{Document, parse as parse_any};
 use wasm_bindgen::prelude::*;
 
@@ -21,6 +24,13 @@ pub const SEPARATOR: char = '\u{1F}';
 
 /// Numbers per step in the array [`Parsed::steps`] returns.
 pub const STEP_STRIDE: usize = 6;
+
+/// Numbers per entry in [`Parsed::entries`]: node, method, flags,
+/// compressed, uncompressed, playable.
+pub const ENTRY_STRIDE: usize = 6;
+
+/// Checkpoints per decoded ZIP entry, as for a PNG's IDAT stream.
+const CHECKPOINT_INTERVAL: u64 = 512;
 
 /// Numbers per part in [`Parsed::explain`]: kind, bit_start, bit_end, value,
 /// code, code_len.
@@ -55,6 +65,22 @@ pub struct Parsed {
     facts: Vec<(&'static str, String, u32)>,
     /// `[latitude, longitude, altitude or NaN, node]`.
     location: Option<[f64; 4]>,
+    /// Bytes of wrapper around the DEFLATE data in `stream`: a zlib header
+    /// and Adler-32 for PNG, nothing for a ZIP entry.
+    header_len: usize,
+    trailer_len: usize,
+    zip: Option<ZipState>,
+}
+
+/// What playing or opening a ZIP entry needs after parsing is done.
+struct ZipState {
+    source: Vec<u8>,
+    entries: Vec<ZipEntry>,
+}
+
+/// Whether the player can decode this entry: deflated, readable, whole.
+fn playable(e: &ZipEntry) -> bool {
+    e.method == 8 && !e.is_encrypted() && e.compressed > 0 && e.data.len == e.compressed
 }
 
 #[wasm_bindgen]
@@ -220,6 +246,80 @@ impl Parsed {
         out
     }
 
+    /// Per ZIP entry, [`ENTRY_STRIDE`] numbers: `[node, method, flags,
+    /// compressed, uncompressed, playable]`. Empty for other formats.
+    #[wasm_bindgen(getter)]
+    pub fn entries(&self) -> Vec<f64> {
+        let Some(zip) = &self.zip else {
+            return Vec::new();
+        };
+        zip.entries
+            .iter()
+            .flat_map(|e| {
+                [
+                    e.node as f64,
+                    e.method as f64,
+                    e.flags as f64,
+                    e.compressed as f64,
+                    e.uncompressed as f64,
+                    if playable(e) { 1.0 } else { 0.0 },
+                ]
+            })
+            .collect()
+    }
+
+    /// Bytes of wrapper before the DEFLATE data in the stream the segments
+    /// describe: compressed bit `b` lives in stream byte `streamHeader + b / 8`.
+    #[wasm_bindgen(getter, js_name = streamHeader)]
+    pub fn stream_header(&self) -> f64 {
+        self.header_len as f64
+    }
+
+    /// Makes ZIP entry `index` the stream the player steps through: its data
+    /// is decoded once, with checkpoints, as a PNG's IDAT stream is at parse
+    /// time. Returns false, changing nothing, if the entry cannot be played.
+    #[wasm_bindgen(js_name = selectEntry)]
+    pub fn select_entry(&mut self, index: u32) -> bool {
+        let Some(zip) = &self.zip else {
+            return false;
+        };
+        let Some(e) = zip.entries.get(index as usize).filter(|e| playable(e)) else {
+            return false;
+        };
+        let (start, end) = (e.data.start as usize, e.data.end() as usize);
+        let Some(data) = zip.source.get(start..end) else {
+            return false;
+        };
+        let data = data.to_vec();
+        let segment = [e.data.start as f64, e.data.len as f64];
+
+        let mut sink = CheckpointSink::new(CHECKPOINT_INTERVAL);
+        let result = inflate(&data, MAX_PIXEL_BYTES, &mut sink);
+        let summary = sink.finish();
+        self.output = match result {
+            Ok(out) => out,
+            // Replay to the failure so the player has real bytes to draw.
+            Err(_) => {
+                let mut d = Decoder::new(&data, MAX_PIXEL_BYTES);
+                while let Some(Ok(_)) = d.step() {}
+                d.into_output()
+            }
+        };
+        self.trace = Some([
+            summary.total_events as f64,
+            summary.literals as f64,
+            summary.matches as f64,
+            summary.output_bytes as f64,
+        ]);
+        self.checkpoints = summary.checkpoints;
+        self.segments = segment.to_vec();
+        self.idat_bytes = segment[1];
+        self.stream = data;
+        self.header_len = 0;
+        self.trailer_len = 0;
+        true
+    }
+
     /// What step `index` read, part by part. Layout: `[block_start, error,
     /// n, then n × (kind, bit_start, bit_end, value, code, code_len)]`,
     /// `error` -1 when the step decoded. Empty when there is no such step.
@@ -301,8 +401,8 @@ impl Parsed {
     /// The DEFLATE data: the zlib stream minus its 2-byte header and 4-byte
     /// Adler-32 trailer — exactly what the core decompressed.
     fn body(&self) -> Option<&[u8]> {
-        let end = self.stream.len().checked_sub(4)?;
-        self.stream.get(2..end)
+        let end = self.stream.len().checked_sub(self.trailer_len)?;
+        self.stream.get(self.header_len..end)
     }
 
     /// A decoder positioned at or shortly before step `from`, resumed from the
@@ -376,6 +476,10 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         Document::Zip(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
+            parsed.zip = Some(ZipState {
+                source: bytes.to_vec(),
+                entries: doc.entries,
+            });
             parsed
         }
         Document::Unknown(tree) => flatten(&tree),
@@ -385,6 +489,8 @@ pub fn parse(bytes: &[u8]) -> Parsed {
 fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
     let mut parsed = flatten(&doc.tree);
     parsed.format = "png";
+    parsed.header_len = 2;
+    parsed.trailer_len = 4;
     parsed.ihdr = doc.ihdr.map(|h| {
         [
             h.width,
@@ -529,6 +635,9 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         dimensions: None,
         facts: Vec::new(),
         location: None,
+        header_len: 0,
+        trailer_len: 0,
+        zip: None,
     }
 }
 
@@ -873,5 +982,49 @@ mod tests {
             assert!(parsed.explain(index).is_empty(), "{index}");
             assert!(parsed.tables(index).is_empty(), "{index}");
         }
+    }
+
+    fn docx(path: &str) -> Vec<u8> {
+        let p = Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+        std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))
+    }
+
+    #[test]
+    fn every_deflated_entry_plays_back_to_its_bytes() {
+        let bytes = docx("../hexscope-core/tests/fixtures/report.docx");
+        let mut parsed = parse(&bytes);
+        assert_eq!(parsed.format(), "zip");
+        let doc = hexscope_core::zip::parse_zip(&bytes);
+        let entries = parsed.entries();
+        assert_eq!(entries.len(), doc.entries.len() * ENTRY_STRIDE);
+
+        for (i, e) in doc.entries.iter().enumerate() {
+            assert_eq!(entries[i * ENTRY_STRIDE + 5], 1.0, "{} is playable", e.name);
+            assert!(parsed.select_entry(i as u32), "{}", e.name);
+            assert_eq!(parsed.stream_header(), 0.0);
+            assert_eq!(parsed.segments(), [e.data.start as f64, e.data.len as f64]);
+            let want = hexscope_core::zip::extract(&bytes, e, u64::MAX).unwrap();
+            assert_eq!(rebuild(&every_step(&parsed)), want, "{}", e.name);
+            assert_eq!(parsed.inflated(), want);
+        }
+    }
+
+    #[test]
+    fn what_cannot_be_played_is_refused() {
+        let bytes = docx("../../apps/web/public/samples/report.docx");
+        let mut parsed = parse(&bytes);
+        let entries = parsed.entries();
+        let n = entries.len() / ENTRY_STRIDE;
+        let stored = (0..n)
+            .find(|&i| entries[i * ENTRY_STRIDE + 1] == 0.0)
+            .expect("the sample stores its photo");
+        assert_eq!(entries[stored * ENTRY_STRIDE + 5], 0.0);
+        assert!(!parsed.select_entry(stored as u32));
+        assert!(!parsed.select_entry(n as u32));
+        assert!(parsed.trace().is_empty(), "a refused entry changes nothing");
+
+        let png = parse(&fixture("basn2c08.png"));
+        assert_eq!(png.stream_header(), 2.0);
+        assert!(png.entries().is_empty());
     }
 }
