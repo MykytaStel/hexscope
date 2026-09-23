@@ -492,3 +492,47 @@ fn blocks_split_across_chunks_cover_the_stream_exactly() {
         .collect();
     assert!(blocks.len() > 1, "several blocks: {blocks:?}");
 }
+
+#[test]
+fn every_pngsuite_step_explains_its_bits_exactly() {
+    use hexscope_core::inflate::Decoder;
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pngsuite");
+    let mut explained = 0u64;
+    for entry in fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("png") {
+            continue;
+        }
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let bytes = fs::read(&path).unwrap();
+        let doc = parse_png(&bytes);
+        let stream: Vec<u8> = doc
+            .idat
+            .iter()
+            .flat_map(|r| bytes[r.start as usize..r.end() as usize].iter().copied())
+            .collect();
+        if stream.len() < 6 {
+            continue;
+        }
+        let body = &stream[2..stream.len() - 4];
+        let mut plain = Decoder::new(body, u64::MAX);
+        let mut explaining = Decoder::new(body, u64::MAX);
+        while let Some(e) = explaining.explain_next() {
+            let Some(Ok(step)) = plain.step() else {
+                assert!(e.error.is_some(), "{name}: both fail together");
+                break;
+            };
+            assert_eq!(e.step, Some(step), "{name}");
+            let mut at = step.bit_start;
+            for p in &e.parts {
+                assert_eq!(p.bit_start, at, "{name}: step {}", step.index);
+                at = p.bit_end;
+            }
+            if !e.parts.is_empty() {
+                assert_eq!(at, step.bit_end, "{name}: step {}", step.index);
+            }
+            explained += 1;
+        }
+    }
+    assert!(explained > 10_000, "only {explained} steps explained");
+}
