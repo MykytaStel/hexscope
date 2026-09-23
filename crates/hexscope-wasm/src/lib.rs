@@ -9,7 +9,7 @@
 
 use hexscope_core::inflate::{BlockKind, Checkpoint, Decoder, InflateEvent, Step};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
-use hexscope_core::png::{PngDocument, parse_png};
+use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument, parse_png};
 use wasm_bindgen::prelude::*;
 
 /// Separates entries in the joined label and value strings. It is a control
@@ -39,7 +39,9 @@ pub struct Parsed {
     /// IDAT payloads concatenated: the zlib stream, header and trailer included.
     stream: Vec<u8>,
     segments: Vec<f64>,
-    inflated: Option<Vec<u8>>,
+    /// Decompressed output. For a stream that failed, the part decoded before
+    /// the failure — still exactly what the steps up to there produce.
+    output: Vec<u8>,
     checkpoints: Vec<Checkpoint>,
 }
 
@@ -111,10 +113,11 @@ impl Parsed {
         self.segments.clone()
     }
 
-    /// The decompressed stream (filtered scanlines), or empty if it failed.
+    /// The decompressed stream (filtered scanlines). If decoding failed, the
+    /// output produced before the failure.
     #[wasm_bindgen(getter)]
     pub fn inflated(&self) -> Vec<u8> {
-        self.inflated.clone().unwrap_or_default()
+        self.output.clone()
     }
 
     /// Up to `count` DEFLATE steps starting at step `from`, flattened with
@@ -179,21 +182,18 @@ impl Parsed {
         self.stream.get(2..end)
     }
 
-    /// A decoder positioned at or shortly before step `from`: resumed from the
-    /// nearest checkpoint when the stream decoded cleanly, so seeking anywhere
-    /// in a large file replays at most one checkpoint interval. A stream that
-    /// failed has no complete output to resume against, so it replays from
-    /// the start.
+    /// A decoder positioned at or shortly before step `from`, resumed from the
+    /// nearest checkpoint so seeking anywhere in a large file replays at most
+    /// one checkpoint interval. Checkpoints recorded before a failure are
+    /// still valid, since the partial output backs them.
     fn decoder_at<'a>(&'a self, body: &'a [u8], from: u64) -> Decoder<'a> {
-        if let Some(inflated) = &self.inflated {
-            let nearest = self.checkpoints.partition_point(|c| c.event_index <= from);
-            if let Some(cp) = nearest.checked_sub(1).and_then(|i| self.checkpoints.get(i))
-                && let Ok(d) = Decoder::resume(body, u64::MAX, inflated, cp)
-            {
-                return d;
-            }
+        let nearest = self.checkpoints.partition_point(|c| c.event_index <= from);
+        if let Some(cp) = nearest.checked_sub(1).and_then(|i| self.checkpoints.get(i))
+            && let Ok(d) = Decoder::resume(body, MAX_PIXEL_BYTES, &self.output, cp)
+        {
+            return d;
         }
-        Decoder::new(body, u64::MAX)
+        Decoder::new(body, MAX_PIXEL_BYTES)
     }
 }
 
@@ -237,7 +237,18 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             .extend_from_slice(&[r.start as f64, r.len as f64]);
     }
     parsed.checkpoints = doc.trace.map(|t| t.checkpoints).unwrap_or_default();
-    parsed.inflated = doc.inflated;
+    parsed.output = match doc.inflated {
+        Some(output) => output,
+        // Replay to the failure so the player has real bytes to draw.
+        None => match parsed.body() {
+            Some(body) => {
+                let mut d = Decoder::new(body, MAX_PIXEL_BYTES);
+                while let Some(Ok(_)) = d.step() {}
+                d.into_output()
+            }
+            None => Vec::new(),
+        },
+    };
     parsed
 }
 
@@ -322,7 +333,7 @@ pub fn flatten(doc: &PngDocument) -> Parsed {
         idat_bytes: idat_payload_bytes(&doc.tree),
         stream: Vec::new(),
         segments: Vec::new(),
-        inflated: None,
+        output: Vec::new(),
         checkpoints: Vec::new(),
     }
 }
@@ -387,21 +398,7 @@ mod tests {
 
         // Replaying literals and back-references must rebuild the inflated
         // stream byte for byte: that is what the player draws.
-        let mut out: Vec<u8> = Vec::new();
-        for s in steps.chunks(STEP_STRIDE) {
-            match s[0] as u8 {
-                1 => out.push(s[1] as u8),
-                2 => {
-                    let start = out.len() - s[1] as usize;
-                    for i in 0..s[2] as usize {
-                        let b = out[start + i];
-                        out.push(b);
-                    }
-                }
-                _ => {}
-            }
-        }
-        assert_eq!(out, parsed.inflated());
+        assert_eq!(rebuild(&steps), parsed.inflated());
     }
 
     #[test]
@@ -418,10 +415,9 @@ mod tests {
         }
     }
 
-    /// A PNG big enough to span many checkpoints and several IDAT chunks.
-    fn big_png() -> Vec<u8> {
+    /// A zlib stream long enough to span many checkpoints.
+    fn big_zlib() -> Vec<u8> {
         use flate2::{Compression, write::ZlibEncoder};
-        use hexscope_core::crc32::crc32;
         use std::io::Write;
 
         let (w, h) = (300u32, 200u32);
@@ -434,7 +430,12 @@ mod tests {
         }
         let mut enc = ZlibEncoder::new(Vec::new(), Compression::best());
         enc.write_all(&raw).unwrap();
-        let z = enc.finish().unwrap();
+        enc.finish().unwrap()
+    }
+
+    /// A 300x200 RGB PNG around `zlib`, split across 4 KB IDAT chunks.
+    fn png_around(zlib: &[u8]) -> Vec<u8> {
+        use hexscope_core::crc32::crc32;
 
         let chunk = |kind: &[u8; 4], data: &[u8]| {
             let mut out = (data.len() as u32).to_be_bytes().to_vec();
@@ -445,17 +446,40 @@ mod tests {
             out.extend_from_slice(&crc32(&c).to_be_bytes());
             out
         };
-        let mut ihdr = w.to_be_bytes().to_vec();
-        ihdr.extend_from_slice(&h.to_be_bytes());
+        let mut ihdr = 300u32.to_be_bytes().to_vec();
+        ihdr.extend_from_slice(&200u32.to_be_bytes());
         ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
 
         let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
         png.extend(chunk(b"IHDR", &ihdr));
-        for part in z.chunks(4096) {
+        for part in zlib.chunks(4096) {
             png.extend(chunk(b"IDAT", part));
         }
         png.extend(chunk(b"IEND", &[]));
         png
+    }
+
+    fn big_png() -> Vec<u8> {
+        png_around(&big_zlib())
+    }
+
+    /// Replays literal and back-reference steps into the bytes they produce.
+    fn rebuild(steps: &[f64]) -> Vec<u8> {
+        let mut out: Vec<u8> = Vec::new();
+        for s in steps.chunks(STEP_STRIDE) {
+            match s[0] as u8 {
+                1 => out.push(s[1] as u8),
+                2 => {
+                    let start = out.len() - s[1] as usize;
+                    for i in 0..s[2] as usize {
+                        let b = out[start + i];
+                        out.push(b);
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
     }
 
     #[test]
@@ -489,30 +513,53 @@ mod tests {
     }
 
     #[test]
-    fn a_corrupt_stream_plays_up_to_where_it_breaks() {
+    fn a_truncated_stream_plays_up_to_where_it_breaks() {
+        // Cut the compressed data in half: decoding produces real output, then
+        // runs out of bits partway through a block. A fake trailer keeps the
+        // stream long enough to have a body at all.
+        let z = big_zlib();
+        let mut cut = z[..z.len() / 2].to_vec();
+        cut.extend_from_slice(&[0, 0, 0, 0]);
+        let parsed = parse(&png_around(&cut));
+
+        let steps = every_step(&parsed);
+        let last = &steps[steps.len() - STEP_STRIDE..];
+        assert_eq!(last[0] as u8, 4, "the final step reports the failure");
+        assert!(last[4] >= last[3]);
+
+        let output = parsed.inflated();
+        assert!(
+            output.len() > 10_000,
+            "real output before the break, got {}",
+            output.len()
+        );
+        // The partial output is exactly what the steps before the break
+        // produce: the player draws one from the other.
+        assert_eq!(rebuild(&steps), output);
+
+        // Seeking into the middle still resumes from checkpoints recorded
+        // before the failure, and agrees with the straight pass.
+        let n = steps.len() / STEP_STRIDE;
+        let from = n / 2;
+        assert_eq!(
+            parsed.steps(from as f64, 5),
+            &steps[from * STEP_STRIDE..(from + 5) * STEP_STRIDE]
+        );
+    }
+
+    #[test]
+    fn a_corrupt_stream_still_rebuilds_its_output() {
+        // Corruption early in the stream: whatever happens, the steps and the
+        // output the player is handed must agree.
         let mut bytes = fixture("basn2c08.png");
-        let seg = parse(&bytes).segments();
-        let start = seg[0] as usize;
+        let start = parse(&bytes).segments()[0] as usize;
         for b in &mut bytes[start + 10..start + 20] {
             *b ^= 0x5A;
         }
         let parsed = parse(&bytes);
         let steps = every_step(&parsed);
-        let last = &steps[steps.len() - STEP_STRIDE..];
-        // Either the DEFLATE data itself fails (kind 4), or it decodes to
-        // garbage the Adler-32 check rejects — in which case steps still play,
-        // they just produce the wrong bytes.
         assert!(!steps.is_empty());
-        assert!(
-            parsed.inflated().is_empty(),
-            "a failed stream has no trusted output"
-        );
-        if last[0] as u8 == 4 {
-            assert!(
-                last[4] >= last[3],
-                "failure position is not before the last good bit"
-            );
-        }
+        assert_eq!(rebuild(&steps), parsed.inflated());
     }
 
     #[test]
