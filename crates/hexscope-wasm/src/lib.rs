@@ -7,9 +7,11 @@
 
 #![forbid(unsafe_code)]
 
+use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{BlockKind, Checkpoint, Decoder, InflateEvent, Step};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
-use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument, parse_png};
+use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
+use hexscope_core::{Document, parse as parse_any};
 use wasm_bindgen::prelude::*;
 
 /// Separates entries in the joined label and value strings. It is a control
@@ -43,6 +45,12 @@ pub struct Parsed {
     /// the failure — still exactly what the steps up to there produce.
     output: Vec<u8>,
     checkpoints: Vec<Checkpoint>,
+    format: &'static str,
+    dimensions: Option<[u32; 2]>,
+    /// Photo facts as (kind, text, node).
+    facts: Vec<(&'static str, String, u32)>,
+    /// `[latitude, longitude, altitude or NaN, node]`.
+    location: Option<[f64; 4]>,
 }
 
 #[wasm_bindgen]
@@ -111,6 +119,38 @@ impl Parsed {
     #[wasm_bindgen(getter)]
     pub fn segments(&self) -> Vec<f64> {
         self.segments.clone()
+    }
+
+    /// `png`, `jpeg` or `unknown`.
+    #[wasm_bindgen(getter)]
+    pub fn format(&self) -> String {
+        self.format.to_string()
+    }
+
+    /// `[width, height]`, or empty when the file does not say.
+    #[wasm_bindgen(getter)]
+    pub fn dimensions(&self) -> Vec<u32> {
+        self.dimensions.map(|d| d.to_vec()).unwrap_or_default()
+    }
+
+    /// What a photo's metadata reveals, as `kind, text, node` triples joined
+    /// by U+001F. Kinds: camera, lens, serial, owner, software, taken,
+    /// thumbnail. Empty for files without EXIF.
+    #[wasm_bindgen(getter)]
+    pub fn facts(&self) -> String {
+        let sep = SEPARATOR.to_string();
+        self.facts
+            .iter()
+            .flat_map(|(kind, text, node)| [kind.to_string(), text.clone(), node.to_string()])
+            .collect::<Vec<_>>()
+            .join(&sep)
+    }
+
+    /// `[latitude, longitude, altitude, node]` in decimal degrees and metres,
+    /// altitude NaN when unknown; empty when the photo carries no location.
+    #[wasm_bindgen(getter)]
+    pub fn location(&self) -> Vec<f64> {
+        self.location.map(|l| l.to_vec()).unwrap_or_default()
     }
 
     /// The decompressed stream (filtered scanlines). If decoding failed, the
@@ -224,11 +264,45 @@ fn encode(step: &Step, out: &mut Vec<f64>) {
     ]);
 }
 
-/// Parses a file. Never throws: damage is reported as warning and error nodes.
+/// Parses a file of any supported format. Never throws: damage is reported
+/// as warning and error nodes, and an unsupported format still gets a tree.
 #[wasm_bindgen]
 pub fn parse(bytes: &[u8]) -> Parsed {
-    let doc = parse_png(bytes);
-    let mut parsed = flatten(&doc);
+    match parse_any(bytes) {
+        Document::Png(doc) => with_png(bytes, doc),
+        Document::Jpeg(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "jpeg";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w as u32, h as u32]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
+        Document::Unknown(tree) => flatten(&tree),
+    }
+}
+
+fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
+    let mut parsed = flatten(&doc.tree);
+    parsed.format = "png";
+    parsed.ihdr = doc.ihdr.map(|h| {
+        [
+            h.width,
+            h.height,
+            h.bit_depth as u32,
+            h.color_type as u32,
+            h.interlace as u32,
+        ]
+    });
+    parsed.dimensions = doc.ihdr.map(|h| [h.width, h.height]);
+    parsed.trace = doc.trace.as_ref().map(|t| {
+        [
+            t.total_events as f64,
+            t.literals as f64,
+            t.matches as f64,
+            t.output_bytes as f64,
+        ]
+    });
+    parsed.idat_bytes = idat_payload_bytes(&doc.tree);
 
     for r in &doc.idat {
         let (start, end) = (r.start as usize, r.end() as usize);
@@ -253,6 +327,31 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         },
     };
     parsed
+}
+
+fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
+    let listed = [
+        ("camera", &facts.camera),
+        ("lens", &facts.lens),
+        ("serial", &facts.serial),
+        ("owner", &facts.owner),
+        ("taken", &facts.taken),
+        ("software", &facts.software),
+        ("thumbnail", &facts.thumbnail),
+    ];
+    for (kind, fact) in listed {
+        if let Some(f) = fact {
+            parsed.facts.push((kind, sanitise(&f.text), f.node));
+        }
+    }
+    parsed.location = facts.location.map(|l| {
+        [
+            l.latitude,
+            l.longitude,
+            l.altitude.unwrap_or(f64::NAN),
+            l.node as f64,
+        ]
+    });
 }
 
 /// Replaces control characters so a corrupt chunk type or text payload cannot
@@ -294,8 +393,10 @@ fn idat_payload_bytes(tree: &ParseTree) -> f64 {
         .sum()
 }
 
-pub fn flatten(doc: &PngDocument) -> Parsed {
-    let nodes = doc.tree.nodes();
+/// The tree as parallel arrays. Format-specific extras are filled in by the
+/// caller; for an unrecognised file this is everything there is.
+pub fn flatten(tree: &ParseTree) -> Parsed {
+    let nodes = tree.nodes();
     let sep = SEPARATOR.to_string();
 
     Parsed {
@@ -316,28 +417,17 @@ pub fn flatten(doc: &PngDocument) -> Parsed {
             .map(|n| display(&n.value))
             .collect::<Vec<_>>()
             .join(&sep),
-        ihdr: doc.ihdr.map(|h| {
-            [
-                h.width,
-                h.height,
-                h.bit_depth as u32,
-                h.color_type as u32,
-                h.interlace as u32,
-            ]
-        }),
-        trace: doc.trace.as_ref().map(|t| {
-            [
-                t.total_events as f64,
-                t.literals as f64,
-                t.matches as f64,
-                t.output_bytes as f64,
-            ]
-        }),
-        idat_bytes: idat_payload_bytes(&doc.tree),
+        ihdr: None,
+        trace: None,
+        idat_bytes: 0.0,
         stream: Vec::new(),
         segments: Vec::new(),
         output: Vec::new(),
         checkpoints: Vec::new(),
+        format: "unknown",
+        dimensions: None,
+        facts: Vec::new(),
+        location: None,
     }
 }
 
@@ -574,6 +664,57 @@ mod tests {
         let steps = parsed.steps(0.0, u32::MAX);
         assert_eq!(steps.len() / STEP_STRIDE, parsed.trace()[0] as usize);
         assert!(steps.capacity() < 1 << 20, "capacity {}", steps.capacity());
+    }
+
+    #[test]
+    fn a_photo_reports_its_format_facts_and_location() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../hexscope-core/tests/fixtures/photo.jpg");
+        let parsed = parse(&std::fs::read(path).unwrap());
+        assert_eq!(parsed.format(), "jpeg");
+        assert_eq!(parsed.dimensions(), vec![640, 480]);
+        assert!(
+            parsed.trace().is_empty(),
+            "JPEG has no DEFLATE stream to play"
+        );
+
+        let facts: Vec<String> = parsed
+            .facts()
+            .split(SEPARATOR)
+            .map(str::to_string)
+            .collect();
+        assert_eq!(facts.len() % 3, 0);
+        let find = |kind: &str| {
+            facts
+                .chunks(3)
+                .find(|t| t[0] == kind)
+                .map(|t| t[1].clone())
+                .unwrap_or_else(|| panic!("no {kind}"))
+        };
+        assert_eq!(find("serial"), "HX-000042");
+        assert_eq!(find("camera"), "hexscope Sample Camera X1");
+
+        let loc = parsed.location();
+        assert!((loc[0] - 48.8584).abs() < 1e-4 && (loc[1] - 2.2945).abs() < 1e-4);
+        // The node index points at the GPS IFD in the flattened tree.
+        let labels: Vec<&str> = parsed.labels.split(SEPARATOR).collect();
+        assert_eq!(labels[loc[3] as usize], "GPS IFD");
+    }
+
+    #[test]
+    fn an_unknown_file_is_named_not_ignored() {
+        let parsed = parse(b"%PDF-1.7 not an image");
+        assert_eq!(parsed.format(), "unknown");
+        assert!(parsed.labels.contains("PDF"));
+        assert!(parsed.facts().is_empty() && parsed.location().is_empty());
+    }
+
+    #[test]
+    fn a_png_still_carries_its_deflate_stream() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        assert_eq!(parsed.format(), "png");
+        assert_eq!(parsed.dimensions(), vec![32, 32]);
+        assert!(!parsed.trace().is_empty() && !parsed.segments().is_empty());
     }
 
     #[test]
