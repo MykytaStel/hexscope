@@ -140,7 +140,9 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         tree.add(
             Some(root),
             "no IDAT chunk: the file carries no image data",
-            ByteRange::new(0, data.len() as u64),
+            // Zero-length: something absent has no bytes to point at, and a
+            // whole-file range would swallow every hover in the hex view.
+            ByteRange::new(0, 0),
             NodeKind::Warning,
             None,
         );
