@@ -1,3 +1,4 @@
+import { HEX, MONO, themeColors } from "./canvas";
 import { FileModel, Kind, type Tint } from "./model";
 
 export interface HexCallbacks {
@@ -11,9 +12,6 @@ const PAD_X = 20;
 const PAD_Y = 14;
 /** Browsers cap element height; past this the scrollbar maps proportionally. */
 const MAX_SCROLL_PX = 8_000_000;
-const MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
-
-const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase());
 const TINTS: Tint[] = ["sig", "ihdr", "plte", "idat", "iend", "text", "anc", "gps", "warning", "error"];
 
 /** Fill styles per tint at each emphasis level, precomputed once per theme. */
@@ -28,13 +26,8 @@ interface Palette {
 }
 
 function readPalette(): Palette {
-  const css = getComputedStyle(document.documentElement);
-  const v = (name: string) => css.getPropertyValue(name).trim();
+  const { v, rgba } = themeColors();
   const alpha = (name: string) => parseFloat(v(name));
-  const rgba = (hex: string, a: number) => {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-  };
 
   const fill = {} as Palette["fill"];
   for (const t of TINTS) {

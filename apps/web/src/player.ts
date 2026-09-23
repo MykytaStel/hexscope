@@ -1,3 +1,4 @@
+import { HEX, MONO, themeColors } from "./canvas";
 import type { FileModel } from "./model";
 
 /** Numbers per step in a batch from the worker; see `Parsed::steps`. */
@@ -5,8 +6,6 @@ const STRIDE = 6;
 /** Steps fetched per request. */
 const BATCH = 256;
 const FONT_PX = 13;
-const MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
-const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase());
 
 const StepKind = { BlockStart: 0, Literal: 1, Match: 2, BlockEnd: 3, Failure: 4 } as const;
 const BLOCK_NAMES = ["stored", "fixed Huffman", "dynamic Huffman"];
@@ -58,12 +57,7 @@ interface StripPalette {
 }
 
 function readStripPalette(): StripPalette {
-  const css = getComputedStyle(document.documentElement);
-  const v = (n: string) => css.getPropertyValue(n).trim();
-  const rgba = (hex: string, a: number) => {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-  };
+  const { v, rgba } = themeColors();
   const lit = v("--tint-sig");
   const mat = v("--tint-idat");
   return {
@@ -77,6 +71,82 @@ function readStripPalette(): StripPalette {
     sourceFill: rgba(mat, 0.14),
     error: v("--tint-error"),
   };
+}
+
+/** What a step wrote, and for a back-reference where it copied from. */
+interface Span {
+  outEnd: number;
+  isMatch: boolean;
+  /** The copy overlaps itself: it repeats the last `distance` bytes. */
+  overlap: boolean;
+  srcStart: number;
+  srcEnd: number;
+}
+
+function spanOf(step: Step): Span {
+  const isMatch = step.kind === StepKind.Match;
+  const produced = step.kind === StepKind.Literal ? 1 : isMatch ? step.b : 0;
+  // A copy shorter-sourced than it is long overlaps itself. Only that period
+  // is really "the source".
+  const overlap = isMatch && step.a < step.b;
+  const srcStart = isMatch ? step.outStart - step.a : -1;
+  return {
+    outEnd: step.outStart + produced,
+    isMatch,
+    overlap,
+    srcStart,
+    srcEnd: isMatch ? (overlap ? step.outStart : srcStart + step.b) : -1,
+  };
+}
+
+/** A run of output offsets `[from, to)` drawn from x onwards. */
+interface Seg {
+  from: number;
+  to: number;
+  x: number;
+}
+
+/**
+ * Which output bytes the strip shows: one window, or source | gap |
+ * destination when the source is further back than the strip is wide.
+ */
+function stripLayout(step: Step, span: Span, capacity: number, cellW: number, padX: number) {
+  const { outEnd, isMatch, overlap, srcStart, srcEnd } = span;
+  const segs: Seg[] = [];
+  let gap: { x: number; skipped: number } | null = null;
+  const patternFrom = Math.max(0, srcStart - 2);
+  if (overlap && step.outStart < patternFrom + capacity) {
+    // The pattern, then as much of the repetition as fits.
+    const from = patternFrom;
+    segs.push({ from, to: Math.min(outEnd, from + capacity), x: padX });
+  } else if (!isMatch || srcStart >= outEnd - capacity) {
+    const from = Math.max(0, outEnd - capacity);
+    segs.push({ from, to: outEnd, x: padX + (capacity - (outEnd - from)) * cellW });
+  } else {
+    const leftCells = Math.min(srcEnd - srcStart, Math.floor(capacity * 0.34));
+    const gapCells = 3;
+    const rightCells = capacity - leftCells - gapCells;
+    // Show where the copy lands, with a little context before it.
+    const rightFrom = Math.max(srcStart + leftCells, step.outStart - 2);
+    segs.push({ from: srcStart, to: srcStart + leftCells, x: padX });
+    gap = { x: padX + leftCells * cellW, skipped: rightFrom - (srcStart + leftCells) };
+    segs.push({
+      from: rightFrom,
+      to: Math.min(outEnd, rightFrom + rightCells),
+      x: padX + (leftCells + gapCells) * cellW,
+    });
+  }
+  return { segs, gap };
+}
+
+/** A small filled arrowhead with its tip at (x, y), pointing down. */
+function arrowDown(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 5, y - 8);
+  ctx.lineTo(x + 5, y - 8);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /**
@@ -460,41 +530,9 @@ export class Player {
     const padX = 16;
     const capacity = Math.max(8, Math.floor((this.viewW - padX * 2) / cellW));
 
-    const produced = step.kind === StepKind.Literal ? 1 : step.kind === StepKind.Match ? step.b : 0;
-    const outEnd = step.outStart + produced;
-    const isMatch = step.kind === StepKind.Match;
-    // A copy shorter-sourced than it is long overlaps itself: it repeats the
-    // last `distance` bytes. Only that period is really "the source".
-    const overlap = isMatch && step.a < step.b;
-    const srcStart = isMatch ? step.outStart - step.a : -1;
-    const srcEnd = isMatch ? (overlap ? step.outStart : srcStart + step.b) : -1;
-
-    // Layout: one window, or source | gap | destination when the source is
-    // further back than the strip is wide.
-    type Seg = { from: number; to: number; x: number };
-    const segs: Seg[] = [];
-    let gap: { x: number; skipped: number } | null = null;
-    if (overlap) {
-      // The pattern, then as much of the repetition as fits.
-      const from = Math.max(0, srcStart - 2);
-      segs.push({ from, to: Math.min(outEnd, from + capacity), x: padX });
-    } else if (!isMatch || srcStart >= outEnd - capacity) {
-      const from = Math.max(0, outEnd - capacity);
-      segs.push({ from, to: outEnd, x: padX + (capacity - (outEnd - from)) * cellW });
-    } else {
-      const leftCells = Math.min(step.b, Math.floor(capacity * 0.34));
-      const gapCells = 3;
-      const rightCells = capacity - leftCells - gapCells;
-      // Show where the copy lands, with a little context before it.
-      const rightFrom = Math.max(srcStart + leftCells, step.outStart - 2);
-      segs.push({ from: srcStart, to: srcStart + leftCells, x: padX });
-      gap = { x: padX + leftCells * cellW, skipped: rightFrom - (srcStart + leftCells) };
-      segs.push({
-        from: rightFrom,
-        to: Math.min(outEnd, rightFrom + rightCells),
-        x: padX + (leftCells + gapCells) * cellW,
-      });
-    }
+    const span = spanOf(step);
+    const { outEnd, isMatch, overlap, srcStart, srcEnd } = span;
+    const { segs, gap } = stripLayout(step, span, capacity, cellW, padX);
 
     const segOf = (offset: number) => segs.find((s) => offset >= s.from && offset < s.to);
     const cellX = (offset: number): number | null => {
@@ -570,14 +608,8 @@ export class Player {
         ctx.moveTo(sx, top - 3);
         ctx.quadraticCurveTo((sx + dx) / 2, peak - lift * 0.35, dx, top - 3);
         ctx.stroke();
-        // Arrowhead pointing down into the destination.
         ctx.fillStyle = p.match;
-        ctx.beginPath();
-        ctx.moveTo(dx, top - 1);
-        ctx.lineTo(dx - 5, top - 9);
-        ctx.lineTo(dx + 5, top - 9);
-        ctx.closePath();
-        ctx.fill();
+        arrowDown(ctx, dx, top - 1);
         // Outline the source so the eye finds both ends.
         ctx.lineWidth = 1.5;
         ctx.strokeRect(sx0 + 1.5, top + 0.75, sLast - sx0 + cellW - 3, cellH - 1.5);
@@ -602,12 +634,7 @@ export class Player {
         ctx.moveTo(cx, top - 26);
         ctx.lineTo(cx, top - 4);
         ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx, top - 1);
-        ctx.lineTo(cx - 5, top - 9);
-        ctx.lineTo(cx + 5, top - 9);
-        ctx.closePath();
-        ctx.fill();
+        arrowDown(ctx, cx, top - 1);
       }
     } else if (step.kind === StepKind.Failure) {
       const x = padX + capacity * cellW;
