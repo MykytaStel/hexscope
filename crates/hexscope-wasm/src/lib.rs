@@ -8,7 +8,7 @@
 #![forbid(unsafe_code)]
 
 use hexscope_core::exif::PhotoFacts;
-use hexscope_core::inflate::{BlockKind, Checkpoint, Decoder, InflateEvent, Step};
+use hexscope_core::inflate::{BlockKind, Checkpoint, Decoder, InflateError, InflateEvent, Step};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
 use hexscope_core::{Document, parse as parse_any};
@@ -21,6 +21,10 @@ pub const SEPARATOR: char = '\u{1F}';
 
 /// Numbers per step in the array [`Parsed::steps`] returns.
 pub const STEP_STRIDE: usize = 6;
+
+/// Numbers per part in [`Parsed::explain`]: kind, bit_start, bit_end, value,
+/// code, code_len.
+pub const PART_STRIDE: usize = 6;
 
 /// A parsed file, flattened. Index `i` in every node array describes node `i`.
 ///
@@ -215,9 +219,85 @@ impl Parsed {
         }
         out
     }
+
+    /// What step `index` read, part by part. Layout: `[block_start, error,
+    /// n, then n × (kind, bit_start, bit_end, value, code, code_len)]`,
+    /// `error` -1 when the step decoded. Empty when there is no such step.
+    pub fn explain(&self, index: f64) -> Vec<f64> {
+        let Some(e) = self
+            .decoder_before(index)
+            .and_then(|mut d| d.explain_next())
+        else {
+            return Vec::new();
+        };
+        let mut out = Vec::with_capacity(3 + e.parts.len() * PART_STRIDE);
+        out.push(e.block_start as f64);
+        out.push(e.error.map_or(-1.0, error_code));
+        out.push(e.parts.len() as f64);
+        for p in &e.parts {
+            out.extend_from_slice(&[
+                p.kind as u8 as f64,
+                p.bit_start as f64,
+                p.bit_end as f64,
+                p.value as f64,
+                p.code as f64,
+                p.code_len as f64,
+            ]);
+        }
+        out
+    }
+
+    /// The code tables of the block holding step `index`. Layout: `[kind,
+    /// hlit, hdist, hclen, then for literal/length and for distance: groups,
+    /// then per group len, first_code, count, symbols…]`. Empty for a stored
+    /// block or when there is no such step.
+    pub fn tables(&self, index: f64) -> Vec<f64> {
+        let Some(mut d) = self.decoder_before(index) else {
+            return Vec::new();
+        };
+        // A block's codes are in place before its steps; a header step builds
+        // them, so for it they appear only after.
+        let tables = d.tables().or_else(|| {
+            d.step();
+            d.tables()
+        });
+        let Some(t) = tables else {
+            return Vec::new();
+        };
+        let h = t.header;
+        let mut out = vec![
+            block_kind_code(t.kind),
+            h.map_or(0.0, |h| h.hlit as f64),
+            h.map_or(0.0, |h| h.hdist as f64),
+            h.map_or(0.0, |h| h.hclen as f64),
+        ];
+        for groups in [&t.lit_len, &t.distance] {
+            out.push(groups.len() as f64);
+            for g in groups {
+                out.extend_from_slice(&[g.len as f64, g.first_code as f64, g.symbols.len() as f64]);
+                out.extend(g.symbols.iter().map(|&s| s as f64));
+            }
+        }
+        out
+    }
 }
 
 impl Parsed {
+    /// A decoder whose next step is `index`, or `None` when decoding stops
+    /// before reaching it.
+    fn decoder_before(&self, index: f64) -> Option<Decoder<'_>> {
+        let body = self.body()?;
+        if !(index.is_finite() && index >= 0.0) {
+            return None;
+        }
+        let index = index as u64;
+        let mut d = self.decoder_at(body, index);
+        while d.next_index() < index {
+            d.step()?.ok()?;
+        }
+        Some(d)
+    }
+
     /// The DEFLATE data: the zlib stream minus its 2-byte header and 4-byte
     /// Adler-32 trailer — exactly what the core decompressed.
     fn body(&self) -> Option<&[u8]> {
@@ -240,16 +320,32 @@ impl Parsed {
     }
 }
 
+fn block_kind_code(kind: BlockKind) -> f64 {
+    match kind {
+        BlockKind::Stored => 0.0,
+        BlockKind::Fixed => 1.0,
+        BlockKind::Dynamic => 2.0,
+    }
+}
+
+/// The error's number on the JS side, where `codes.ts` words it.
+fn error_code(err: InflateError) -> f64 {
+    match err {
+        InflateError::Bits => 0.0,
+        InflateError::BadHuffmanCode => 1.0,
+        InflateError::BadCodeLengths => 2.0,
+        InflateError::BadDistance => 3.0,
+        InflateError::BadSymbol => 4.0,
+        InflateError::BadZlibHeader => 5.0,
+        InflateError::ChecksumMismatch => 6.0,
+        InflateError::OutputTooLarge => 7.0,
+        InflateError::BadCheckpoint => 8.0,
+    }
+}
+
 fn encode(step: &Step, out: &mut Vec<f64>) {
     let (kind, a, b) = match step.event {
-        InflateEvent::BlockStart { kind, .. } => {
-            let k = match kind {
-                BlockKind::Stored => 0.0,
-                BlockKind::Fixed => 1.0,
-                BlockKind::Dynamic => 2.0,
-            };
-            (0.0, k, 0.0)
-        }
+        InflateEvent::BlockStart { kind, .. } => (0.0, block_kind_code(kind), 0.0),
         InflateEvent::Literal { byte } => (1.0, byte as f64, 0.0),
         InflateEvent::Match { distance, length } => (2.0, distance as f64, length as f64),
         InflateEvent::BlockEnd => (3.0, 0.0, 0.0),
@@ -735,5 +831,42 @@ mod tests {
             "6 (RGBA)"
         );
         assert_eq!(display(&None), "");
+    }
+
+    #[test]
+    fn explain_agrees_with_steps() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        let steps = every_step(&parsed);
+        for (i, s) in steps.chunks(STEP_STRIDE).enumerate() {
+            let e = parsed.explain(i as f64);
+            assert_eq!(e[1], -1.0, "step {i} decodes");
+            let n = e[2] as usize;
+            assert_eq!(e.len(), 3 + n * PART_STRIDE);
+            if n > 0 {
+                assert_eq!(e[3 + 1], s[3], "step {i}: first part starts with the step");
+                assert_eq!(
+                    e[3 + (n - 1) * PART_STRIDE + 2],
+                    s[4],
+                    "step {i}: last part ends with it"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tables_follow_the_block() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        let t = parsed.tables(0.0);
+        assert!(t[0] == 1.0 || t[0] == 2.0, "a coded block: {}", t[0]);
+        assert!(t[4] > 0.0, "the literal/length table has groups");
+    }
+
+    #[test]
+    fn explaining_nothing_is_empty() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        for index in [-1.0, f64::NAN, 1e12] {
+            assert!(parsed.explain(index).is_empty(), "{index}");
+            assert!(parsed.tables(index).is_empty(), "{index}");
+        }
     }
 }

@@ -36,6 +36,11 @@ panel into a player for the PNG's DEFLATE stream:
 
 - each step in plain words — a literal written as is, N bytes copied from M
   bytes back, a new block and its kind — and how many bits it read;
+- those bits split into what they meant: the Huffman code as the decoder
+  assembled it, its extra bits, and for a block header BFINAL, BTYPE, HLIT,
+  HDIST and HCLEN;
+- the block's code tables grouped by code length, with the path the current
+  code took: past every shorter range, into its own;
 - the output as it grows, with an arc from each back-reference's source to
   where the copy lands; a copy that overlaps itself is drawn as the repeating
   pattern it is;

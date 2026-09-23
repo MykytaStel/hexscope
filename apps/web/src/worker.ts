@@ -7,12 +7,14 @@ import type { ParsedFile } from "./model";
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
   | { id: number; type: "steps"; from: number; count: number }
-  | { id: number; type: "inflated" };
+  | { id: number; type: "inflated" }
+  | { id: number; type: "explain"; index: number; knownBlock: number };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "inflated"; bytes: Uint8Array }
+  | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "error"; message: string };
 
 const SEPARATOR = "\u001f";
@@ -88,6 +90,11 @@ async function handle(req: WorkerRequest): Promise<void> {
   if (req.type === "steps") {
     const steps = current.steps(req.from, req.count);
     post({ id: req.id, type: "steps", steps }, [steps.buffer]);
+  } else if (req.type === "explain") {
+    const parts = current.explain(req.index);
+    // Tables change once per block: send them only when the page's are stale.
+    const tables = parts.length > 0 && parts[0] !== req.knownBlock ? current.tables(req.index) : null;
+    post({ id: req.id, type: "explain", parts, tables }, tables ? [parts.buffer, tables.buffer] : [parts.buffer]);
   } else {
     const bytes = current.inflated;
     post({ id: req.id, type: "inflated", bytes }, [bytes.buffer]);

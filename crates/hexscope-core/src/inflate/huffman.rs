@@ -1,5 +1,6 @@
 use crate::bits::BitReader;
 use crate::inflate::InflateError;
+use crate::inflate::explain::CodeGroup;
 
 pub const MAX_BITS: usize = 15;
 
@@ -53,6 +54,12 @@ impl Huffman {
     }
 
     pub fn decode(&self, br: &mut BitReader) -> Result<u16, InflateError> {
+        self.decode_traced(br).map(|(symbol, _, _)| symbol)
+    }
+
+    /// Like [`decode`](Self::decode), also returning the code as the loop
+    /// assembled it — most significant bit first — and its length.
+    pub fn decode_traced(&self, br: &mut BitReader) -> Result<(u16, u16, u8), InflateError> {
         // Walks lengths shortest-first: `first` is the smallest code of this
         // length, `index` the offset of that length's symbols in `symbols`.
         let mut code = 0i32;
@@ -63,7 +70,8 @@ impl Huffman {
             code |= br.bits(1).map_err(|_| InflateError::Bits)? as i32;
             let count = self.counts[len] as i32;
             if code - first < count {
-                return Ok(self.symbols[(index + (code - first)) as usize]);
+                let symbol = self.symbols[(index + (code - first)) as usize];
+                return Ok((symbol, code as u16, len as u8));
             }
             index += count;
             first = (first + count) << 1;
@@ -72,11 +80,106 @@ impl Huffman {
 
         Err(InflateError::BadHuffmanCode)
     }
+
+    /// The code grouped by length, each with its first canonical code — the
+    /// same ranges `decode` walks, so what is shown is what decoding does.
+    pub fn groups(&self) -> Vec<CodeGroup> {
+        let mut out = Vec::new();
+        let mut code = 0u32;
+        let mut index = 0usize;
+        for len in 1..=MAX_BITS {
+            code = (code + self.counts[len - 1] as u32) << 1;
+            let n = self.counts[len] as usize;
+            if n > 0 {
+                out.push(CodeGroup {
+                    len: len as u8,
+                    first_code: code as u16,
+                    symbols: self.symbols[index..index + n].to_vec(),
+                });
+            }
+            index += n;
+        }
+        out
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::inflate::tables::fixed_literal_lengths;
+
+    /// Packs Huffman codes, each most significant bit first, into DEFLATE's
+    /// least-significant-bit-first byte order.
+    fn pack(codes: &[(u16, u8)]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut n = 0usize;
+        for &(code, len) in codes {
+            for i in (0..len).rev() {
+                if n.is_multiple_of(8) {
+                    out.push(0);
+                }
+                let bit = ((code >> i) & 1) as u8;
+                *out.last_mut().unwrap() |= bit << (n % 8);
+                n += 1;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn groups_reproduce_the_rfc_example() {
+        // RFC 1951 §3.2.2: A..H with lengths 3,3,3,3,3,2,4,4 give
+        // F=00, A=010, B=011, C=100, D=101, E=110, G=1110, H=1111.
+        let h = Huffman::from_lengths(&[3, 3, 3, 3, 3, 2, 4, 4]).unwrap();
+        let groups: Vec<_> = h
+            .groups()
+            .into_iter()
+            .map(|g| (g.len, g.first_code, g.symbols))
+            .collect();
+        assert_eq!(
+            groups,
+            vec![
+                (2, 0b00, vec![5]),
+                (3, 0b010, vec![0, 1, 2, 3, 4]),
+                (4, 0b1110, vec![6, 7])
+            ]
+        );
+    }
+
+    #[test]
+    fn groups_of_the_fixed_literal_table() {
+        let h = Huffman::from_lengths(&fixed_literal_lengths()).unwrap();
+        let g = h.groups();
+        let shape: Vec<_> = g
+            .iter()
+            .map(|g| (g.len, g.first_code, g.symbols.len()))
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                (7, 0b000_0000, 24),
+                (8, 0b0011_0000, 152),
+                (9, 0b1_1001_0000, 112)
+            ]
+        );
+        // Within a length, symbols keep their order: 0..=143, then 280..=287.
+        assert_eq!(g[1].symbols[0], 0);
+        assert_eq!(g[1].symbols[144], 280);
+    }
+
+    #[test]
+    fn a_traced_code_sits_at_its_symbol_in_its_group() {
+        let h = Huffman::from_lengths(&fixed_literal_lengths()).unwrap();
+        for g in h.groups() {
+            for (k, &symbol) in g.symbols.iter().enumerate() {
+                let code = g.first_code + k as u16;
+                let data = pack(&[(code, g.len)]);
+                let mut br = BitReader::new(&data);
+                assert_eq!(h.decode_traced(&mut br), Ok((symbol, code, g.len)));
+            }
+        }
+    }
 
     #[test]
     fn decodes_a_three_symbol_canonical_code() {

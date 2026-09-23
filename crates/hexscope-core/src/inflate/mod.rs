@@ -1,10 +1,12 @@
 pub mod engine;
+pub mod explain;
 pub mod huffman;
 pub mod tables;
 pub mod trace;
 pub mod zlib;
 
 pub use engine::{BlockKind, Checkpoint, Decoder, EventSink, InflateEvent, NoTrace, Step, inflate};
+pub use explain::{BlockTables, CodeGroup, DynamicHeader, Explained, Part, PartKind};
 pub use huffman::Huffman;
 pub use trace::{BlockSpan, CheckpointSink, TraceSummary};
 pub use zlib::{adler32, zlib_decompress};

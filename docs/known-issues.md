@@ -19,10 +19,6 @@ opaque byte range.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
 
-**Huffman codes in the player.** The DEFLATE player shows how many bits each
-step read and where, but not the code itself or the tables a dynamic block
-builds.
-
 ## Limits by design
 
 **The interface is built for pointing devices.** Below 900 px the panes stack

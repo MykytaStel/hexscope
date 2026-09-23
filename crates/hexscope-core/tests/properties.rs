@@ -1,4 +1,4 @@
-use hexscope_core::inflate::{NoTrace, inflate};
+use hexscope_core::inflate::{Decoder, NoTrace, inflate};
 use hexscope_core::parse;
 use hexscope_core::png::parse_png;
 use proptest::prelude::*;
@@ -52,5 +52,16 @@ proptest! {
     #[test]
     fn inflate_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let _ = inflate(&bytes, 1 << 20, &mut NoTrace);
+    }
+
+    #[test]
+    fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
+        let mut d = Decoder::new(&bytes, 1 << 20);
+        while let Some(e) = d.explain_next() {
+            let _ = d.tables();
+            if e.error.is_some() {
+                break;
+            }
+        }
     }
 }

@@ -1,28 +1,18 @@
 import { HEX, MONO, themeColors } from "./canvas";
+import { CodesView, readExplained, readTables, type BlockTables } from "./codes";
+import { BLOCK_NAMES, STRIDE, StepKind, type Step } from "./deflate";
 import type { FileModel } from "./model";
 
-/** Numbers per step in a batch from the worker; see `Parsed::steps`. */
-const STRIDE = 6;
 /** Steps fetched per request. */
 const BATCH = 256;
 const FONT_PX = 13;
 
-const StepKind = { BlockStart: 0, Literal: 1, Match: 2, BlockEnd: 3, Failure: 4 } as const;
-const BLOCK_NAMES = ["stored", "fixed Huffman", "dynamic Huffman"];
-
-interface Step {
-  index: number;
-  kind: number;
-  a: number;
-  b: number;
-  bitStart: number;
-  bitEnd: number;
-  outStart: number;
-}
 
 export interface PlayerSource {
   steps(from: number, count: number): Promise<Float64Array>;
   inflated(): Promise<Uint8Array>;
+  /** Step `index` part by part; the block's tables unless `knownBlock` is its block. */
+  explain(index: number, knownBlock: number): Promise<{ parts: Float64Array; tables: Float64Array | null }>;
 }
 
 export interface PlayerCallbacks {
@@ -185,6 +175,11 @@ export class Player {
   private palette = readStripPalette();
   private viewW = 0;
   private ch = 8;
+  private readonly codes = new CodesView();
+  /** The tables of the block last explained; the worker resends them only on a new block. */
+  private tables: { block: number; tables: BlockTables | null } = { block: -1, tables: null };
+  private explaining = false;
+  private wanted = -1;
 
   constructor(
     host: HTMLElement,
@@ -211,9 +206,11 @@ export class Player {
       </div>
       <p class="player-sentence"></p>
       <p class="player-meta"></p>
-      <canvas class="player-strip"></canvas>
+      <div class="player-stage"><canvas class="player-strip"></canvas></div>
       <div class="player-progress" title="Click to jump"><div></div></div>`;
     host.append(this.root);
+    this.root.querySelector(".player-meta")!.after(this.codes.bits);
+    this.root.querySelector(".player-stage")!.append(this.codes.panel);
 
     const q = <T extends Element>(sel: string) => this.root.querySelector(sel) as T;
     this.canvas = q("canvas");
@@ -286,6 +283,9 @@ export class Player {
     this.output = new Uint8Array(0);
     this.model = null;
     this.source = null;
+    this.codes.clear();
+    this.tables = { block: -1, tables: null };
+    this.wanted = -1;
     this.root.hidden = true;
   }
 
@@ -412,6 +412,36 @@ export class Player {
     });
   }
 
+  /**
+   * Asks for the breakdown of the step on screen. One request is in flight at
+   * a time; when it returns and the player has moved on, the newest step is
+   * asked for next, so fast playback costs one request per round trip.
+   */
+  private explain(step: Step): void {
+    this.wanted = step.index;
+    const source = this.source;
+    if (this.explaining || !source) return;
+    this.explaining = true;
+    const gen = this.generation;
+    void source
+      .explain(step.index, this.tables.block)
+      .then(({ parts, tables }) => {
+        if (gen !== this.generation) return;
+        const ex = readExplained(parts);
+        if (ex && tables) this.tables = { block: ex.blockStart, tables: readTables(tables) };
+        if (this.wanted === step.index) {
+          const current = ex && ex.blockStart === this.tables.block ? this.tables.tables : null;
+          this.codes.show(step, ex, current);
+        }
+      })
+      .finally(() => {
+        this.explaining = false;
+        if (gen !== this.generation || this.wanted === step.index) return;
+        const next = this.stepAt(this.wanted);
+        if (next) this.explain(next);
+      });
+  }
+
   // --- rendering --------------------------------------------------------------
 
   private showSpeed(): void {
@@ -444,6 +474,7 @@ export class Player {
     const [start, end] = m.bitsToFile(step.bitStart, Math.max(step.bitEnd, step.bitStart + 1));
     this.cb.onHead(start, end, true);
     this.draw();
+    this.explain(step);
   }
 
   private describe(step: Step): Node[] {

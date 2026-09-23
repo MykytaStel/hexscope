@@ -599,7 +599,7 @@ body.is-playing .btn-play {
 }
 
 body.is-playing .layout {
-  grid-template-rows: minmax(0, 1fr) 272px;
+  grid-template-rows: minmax(0, 1fr) 400px;
 }
 
 body.is-playing .pane-drawer {
@@ -613,7 +613,7 @@ body.is-playing .drawer-file {
 
 .drawer-player {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   gap: 6px;
   min-height: 0;
   padding: 12px 20px 14px;
@@ -741,6 +741,123 @@ body.is-playing .drawer-file {
   background: var(--accent);
 }
 
+.player-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
+  gap: 16px;
+  min-height: 0;
+}
+
+.player-bits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  min-height: 38px;
+}
+
+.bits-part {
+  display: grid;
+  gap: 1px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--part) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--part) 35%, transparent);
+}
+
+.bits-part code {
+  font: 600 12.5px var(--mono);
+  color: var(--part);
+  letter-spacing: 0.04em;
+}
+
+.bits-part small {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bits-part.is-code { --part: var(--tint-idat); }
+.bits-part.is-extra { --part: var(--tint-sig); }
+.bits-part.is-header { --part: var(--tint-ihdr); }
+.bits-part.is-byte { --part: var(--tint-anc); }
+.bits-part.is-bad { --part: var(--tint-error); }
+
+.bits-error {
+  align-self: center;
+  font-size: 12.5px;
+  color: var(--tint-error);
+}
+
+.player-codes {
+  min-height: 0;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.codes-table + .codes-table {
+  margin-top: 10px;
+}
+
+.codes-table h4 {
+  display: inline;
+  margin: 0 8px 0 0;
+  font-size: 12px;
+}
+
+.codes-hint {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.codes-note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.codes-row {
+  display: grid;
+  grid-template-columns: 44px 40px auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-family: var(--mono);
+}
+
+.codes-len { color: var(--muted); }
+.codes-count { color: var(--faint); }
+.codes-range { color: var(--text); }
+
+.codes-symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  color: var(--muted);
+}
+
+.codes-gap { color: var(--faint); }
+
+.codes-why {
+  grid-column: 3 / -1;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.codes-row.is-passed { opacity: 0.55; }
+.codes-row.is-passed .codes-why::before { content: "✗ "; color: var(--tint-error); }
+.codes-row.is-after { opacity: 0.35; }
+.codes-row.is-hit { background: color-mix(in srgb, var(--tint-idat) 12%, transparent); }
+.codes-row.is-hit .codes-why::before { content: "✓ "; color: var(--tint-sig); }
+
+.codes-sym.is-hit {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--tint-idat);
+  color: var(--bg);
+  font-weight: 600;
+}
+
 /* --- photo metadata --------------------------------------------------------- */
 
 .location-badge {
@@ -838,6 +955,28 @@ body:has(.reveals) .layout {
 /* --- narrow windows ----------------------------------------------------------- */
 
 @media (max-width: 900px) {
+  .player-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 110px auto;
+  }
+
+  .player-codes {
+    max-height: 240px;
+  }
+
+  /* Rows size to their content; the drawer scrolls instead of squeezing them. */
+  .drawer-player {
+    grid-template-rows: none;
+  }
+
+  /* Playing, the player is what the user came for: give it the room. */
+  body.is-playing .pane-drawer {
+    /* Block, not grid: a grid track would shrink the player to fit, where
+       the drawer should scroll it. */
+    display: block;
+    max-height: 62vh;
+  }
+
   .layout,
   body.is-playing .layout,
   body:has(.reveals) .layout {

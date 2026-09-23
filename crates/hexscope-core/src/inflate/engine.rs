@@ -1,5 +1,6 @@
 use crate::bits::{BitError, BitReader};
 use crate::inflate::InflateError;
+use crate::inflate::explain::{BlockTables, DynamicHeader, Explained, Part, PartKind};
 use crate::inflate::huffman::Huffman;
 use crate::inflate::tables::{
     CODE_LENGTH_ORDER, DIST_BASE, DIST_EXTRA, LENGTH_BASE, LENGTH_EXTRA, fixed_distance_lengths,
@@ -91,6 +92,13 @@ fn bit_err(_: BitError) -> InflateError {
     InflateError::Bits
 }
 
+/// Notes a part while a step is being explained; only a branch otherwise.
+fn note(record: &mut Option<Vec<Part>>, part: impl FnOnce() -> Part) {
+    if let Some(parts) = record {
+        parts.push(part());
+    }
+}
+
 enum Block {
     /// The next thing to read is a block header.
     Header,
@@ -98,8 +106,10 @@ enum Block {
         remaining: usize,
     },
     Coded {
+        kind: BlockKind,
         lit: Huffman,
         dist: Huffman,
+        header: Option<DynamicHeader>,
     },
     /// The final block has ended, or decoding failed.
     Done,
@@ -118,6 +128,8 @@ pub struct Decoder<'a> {
     is_final: bool,
     block_start: u64,
     index: u64,
+    /// Parts of the current step, collected only while explaining.
+    record: Option<Vec<Part>>,
 }
 
 impl<'a> Decoder<'a> {
@@ -131,6 +143,7 @@ impl<'a> Decoder<'a> {
             is_final: false,
             block_start: 0,
             index: 0,
+            record: None,
         }
     }
 
@@ -157,6 +170,7 @@ impl<'a> Decoder<'a> {
             is_final: false,
             block_start: cp.block_start,
             index: cp.event_index,
+            record: None,
         };
         d.br.seek_bits(cp.block_start);
 
@@ -195,6 +209,62 @@ impl<'a> Decoder<'a> {
 
     pub fn into_output(self) -> Vec<u8> {
         self.out
+    }
+
+    /// The index the next step will have.
+    pub fn next_index(&self) -> u64 {
+        self.index
+    }
+
+    /// Decodes one step like [`step`](Self::step), also recording what each
+    /// run of bits it read meant. `None` once decoding has finished.
+    pub fn explain_next(&mut self) -> Option<Explained> {
+        let start = self.br.bit_pos();
+        self.record = Some(Vec::new());
+        let result = self.step();
+        let mut parts = self.record.take().unwrap_or_default();
+        let (step, error) = match result? {
+            Ok(step) => (Some(step), None),
+            Err(err) => {
+                let from = parts.last().map_or(start, |p| p.bit_end);
+                let mut to = self.br.bit_pos();
+                // A read that ran out of input consumed nothing: blame the
+                // bits that were left, since they were too few.
+                if to == from && err == InflateError::Bits {
+                    to = from + self.br.remaining_bits();
+                }
+                if to > from {
+                    parts.push(Part::plain(PartKind::Unreadable, from, to, 0));
+                }
+                (None, Some(err))
+            }
+        };
+        Some(Explained {
+            step,
+            error,
+            parts,
+            block_start: self.block_start,
+        })
+    }
+
+    /// The code tables of the block being decoded: `None` for a stored block
+    /// and between blocks.
+    pub fn tables(&self) -> Option<BlockTables> {
+        let Block::Coded {
+            kind,
+            lit,
+            dist,
+            header,
+        } = &self.block
+        else {
+            return None;
+        };
+        Some(BlockTables {
+            kind: *kind,
+            header: *header,
+            lit_len: lit.groups(),
+            distance: dist.groups(),
+        })
     }
 
     /// Decodes one step. `None` once the final block has ended; after an
@@ -247,6 +317,10 @@ impl<'a> Decoder<'a> {
                 let &[byte] = self.br.bytes(1).map_err(bit_err)? else {
                     return Err(InflateError::Bits);
                 };
+                let end = self.br.bit_pos();
+                note(&mut self.record, || {
+                    Part::plain(PartKind::StoredByte, end - 8, end, byte as u32)
+                });
                 self.out.push(byte);
                 self.block = Block::Stored {
                     remaining: remaining - 1,
@@ -261,8 +335,17 @@ impl<'a> Decoder<'a> {
     /// Reads a block header and prepares the block's state. Returns its kind
     /// and the bit position just past BFINAL and BTYPE.
     fn open_block(&mut self) -> Result<(BlockKind, u64), InflateError> {
+        let start = self.br.bit_pos();
         self.is_final = self.br.bits(1).map_err(bit_err)? == 1;
-        let kind = match self.br.bits(2).map_err(bit_err)? {
+        let is_final = self.is_final as u32;
+        note(&mut self.record, || {
+            Part::plain(PartKind::Final, start, start + 1, is_final)
+        });
+        let btype = self.br.bits(2).map_err(bit_err)?;
+        note(&mut self.record, || {
+            Part::plain(PartKind::BlockType, start + 1, start + 3, btype)
+        });
+        let kind = match btype {
             0 => BlockKind::Stored,
             1 => BlockKind::Fixed,
             2 => BlockKind::Dynamic,
@@ -276,7 +359,21 @@ impl<'a> Decoder<'a> {
                     return Err(InflateError::Bits);
                 };
                 let len = u16::from_le_bytes([l0, l1]);
-                if u16::from_le_bytes([n0, n1]) != !len {
+                let nlen = u16::from_le_bytes([n0, n1]);
+                let end = self.br.bit_pos();
+                let fields = end - 32;
+                if fields > after_type {
+                    note(&mut self.record, || {
+                        Part::plain(PartKind::Padding, after_type, fields, 0)
+                    });
+                }
+                note(&mut self.record, || {
+                    Part::plain(PartKind::StoredLen, fields, fields + 16, len as u32)
+                });
+                note(&mut self.record, || {
+                    Part::plain(PartKind::StoredNLen, fields + 16, end, nlen as u32)
+                });
+                if nlen != !len {
                     return Err(InflateError::BadSymbol);
                 }
                 Block::Stored {
@@ -284,12 +381,19 @@ impl<'a> Decoder<'a> {
                 }
             }
             BlockKind::Fixed => Block::Coded {
+                kind,
                 lit: Huffman::from_lengths(&fixed_literal_lengths())?,
                 dist: Huffman::from_lengths(&fixed_distance_lengths())?,
+                header: None,
             },
             BlockKind::Dynamic => {
-                let (lit, dist) = read_dynamic_tables(&mut self.br)?;
-                Block::Coded { lit, dist }
+                let (lit, dist, header) = read_dynamic_tables(&mut self.br, &mut self.record)?;
+                Block::Coded {
+                    kind,
+                    lit,
+                    dist,
+                    header: Some(header),
+                }
             }
         };
         Ok((kind, after_type))
@@ -305,10 +409,15 @@ impl<'a> Decoder<'a> {
     }
 
     fn coded_symbol(&mut self) -> Result<InflateEvent, InflateError> {
-        let Block::Coded { lit, dist } = &self.block else {
+        let Block::Coded { lit, dist, .. } = &self.block else {
             return Err(InflateError::Bits);
         };
-        let symbol = lit.decode(&mut self.br)?;
+        let s = self.br.bit_pos();
+        let (symbol, code, code_len) = lit.decode_traced(&mut self.br)?;
+        let e = self.br.bit_pos();
+        note(&mut self.record, || {
+            Part::code(PartKind::LitLen, s, e, symbol, code, code_len)
+        });
         match symbol {
             0..=255 => {
                 if self.out.len() as u64 + 1 > self.max_output {
@@ -321,18 +430,38 @@ impl<'a> Decoder<'a> {
             256 => Ok(self.close_block()),
             257..=285 => {
                 let idx = symbol as usize - 257;
-                let length = LENGTH_BASE[idx] as u32
-                    + self.br.bits(LENGTH_EXTRA[idx] as u32).map_err(bit_err)?;
+                let s = self.br.bit_pos();
+                let extra = self.br.bits(LENGTH_EXTRA[idx] as u32).map_err(bit_err)?;
+                let e = self.br.bit_pos();
+                if e > s {
+                    note(&mut self.record, || {
+                        Part::plain(PartKind::LengthExtra, s, e, extra)
+                    });
+                }
+                let length = LENGTH_BASE[idx] as u32 + extra;
 
-                let dist_symbol = dist.decode(&mut self.br)? as usize;
+                let s = self.br.bit_pos();
+                let (dist_symbol, code, code_len) = dist.decode_traced(&mut self.br)?;
+                let e = self.br.bit_pos();
+                note(&mut self.record, || {
+                    Part::code(PartKind::Distance, s, e, dist_symbol, code, code_len)
+                });
+                let dist_symbol = dist_symbol as usize;
                 if dist_symbol >= DIST_BASE.len() {
                     return Err(InflateError::BadSymbol);
                 }
-                let distance = DIST_BASE[dist_symbol] as u32
-                    + self
-                        .br
-                        .bits(DIST_EXTRA[dist_symbol] as u32)
-                        .map_err(bit_err)?;
+                let s = self.br.bit_pos();
+                let extra = self
+                    .br
+                    .bits(DIST_EXTRA[dist_symbol] as u32)
+                    .map_err(bit_err)?;
+                let e = self.br.bit_pos();
+                if e > s {
+                    note(&mut self.record, || {
+                        Part::plain(PartKind::DistanceExtra, s, e, extra)
+                    });
+                }
+                let distance = DIST_BASE[dist_symbol] as u32 + extra;
 
                 if distance as usize > self.out.len() {
                     return Err(InflateError::BadDistance);
@@ -380,15 +509,37 @@ pub fn inflate(
     Ok(decoder.into_output())
 }
 
-fn read_dynamic_tables(br: &mut BitReader) -> Result<(Huffman, Huffman), InflateError> {
+fn read_dynamic_tables(
+    br: &mut BitReader,
+    record: &mut Option<Vec<Part>>,
+) -> Result<(Huffman, Huffman, DynamicHeader), InflateError> {
+    let start = br.bit_pos();
     let hlit = br.bits(5).map_err(bit_err)? as usize + 257;
+    note(record, || {
+        Part::plain(PartKind::HLit, start, start + 5, hlit as u32)
+    });
     let hdist = br.bits(5).map_err(bit_err)? as usize + 1;
+    note(record, || {
+        Part::plain(PartKind::HDist, start + 5, start + 10, hdist as u32)
+    });
     let hclen = br.bits(4).map_err(bit_err)? as usize + 4;
+    note(record, || {
+        Part::plain(PartKind::HClen, start + 10, start + 14, hclen as u32)
+    });
 
     let mut code_lengths = [0u8; 19];
     for &slot in CODE_LENGTH_ORDER.iter().take(hclen) {
         code_lengths[slot] = br.bits(3).map_err(bit_err)? as u8;
     }
+    let lengths_start = br.bit_pos();
+    note(record, || {
+        Part::plain(
+            PartKind::CodeLengthCode,
+            start + 14,
+            lengths_start,
+            hclen as u32,
+        )
+    });
     let code_huff = Huffman::from_lengths(&code_lengths)?;
 
     let total = hlit + hdist;
@@ -431,9 +582,19 @@ fn read_dynamic_tables(br: &mut BitReader) -> Result<(Huffman, Huffman), Inflate
         }
     }
 
+    let end = br.bit_pos();
+    note(record, || {
+        Part::plain(PartKind::CodeLengths, lengths_start, end, total as u32)
+    });
+
     let lit = Huffman::from_lengths(&lengths[..hlit])?;
     let dist = Huffman::from_lengths(&lengths[hlit..])?;
-    Ok((lit, dist))
+    let header = DynamicHeader {
+        hlit: hlit as u16,
+        hdist: hdist as u8,
+        hclen: hclen as u8,
+    };
+    Ok((lit, dist, header))
 }
 
 #[cfg(test)]
@@ -447,6 +608,61 @@ mod tests {
         let mut enc = DeflateEncoder::new(Vec::new(), level);
         enc.write_all(input).unwrap();
         enc.finish().unwrap()
+    }
+
+    use crate::inflate::explain::{Explained, PartKind};
+
+    /// Bit fields packed in DEFLATE order. Header fields are numbers, read
+    /// least significant bit first; Huffman codes go most significant first.
+    fn pack_fields(fields: &[(u32, u8, bool)]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut n = 0usize;
+        for &(value, len, msb_first) in fields {
+            for i in 0..len {
+                let bit = if msb_first {
+                    (value >> (len - 1 - i)) & 1
+                } else {
+                    (value >> i) & 1
+                };
+                if n.is_multiple_of(8) {
+                    out.push(0);
+                }
+                *out.last_mut().unwrap() |= (bit as u8) << (n % 8);
+                n += 1;
+            }
+        }
+        out
+    }
+
+    type Pair = (Option<Result<Step, InflateError>>, Explained);
+
+    /// Walks a plain and an explaining decoder side by side.
+    fn explain_all(data: &[u8]) -> Vec<Pair> {
+        let mut plain = Decoder::new(data, u64::MAX);
+        let mut explaining = Decoder::new(data, u64::MAX);
+        let mut out = Vec::new();
+        while let Some(e) = explaining.explain_next() {
+            out.push((plain.step(), e));
+        }
+        assert!(plain.step().is_none(), "both decoders end together");
+        out
+    }
+
+    fn assert_partitions(e: &Explained, start: u64, end: u64) {
+        let mut at = start;
+        for p in &e.parts {
+            assert_eq!(p.bit_start, at, "parts are contiguous: {e:?}");
+            assert!(p.bit_end > p.bit_start, "no empty parts: {e:?}");
+            at = p.bit_end;
+        }
+        let expected = if e.parts.is_empty() { start } else { end };
+        assert_eq!(at, expected, "{e:?}");
+    }
+
+    fn sample_input() -> Vec<u8> {
+        let mut input = b"hexscope hexscope hexscope! ".repeat(40);
+        input.extend((0..3000u32).map(|i| (i * 7 % 251) as u8));
+        input
     }
 
     fn roundtrip(input: &[u8], level: Compression) {
@@ -677,5 +893,134 @@ mod tests {
         fn emit(&mut self, step: &Step) {
             self.events.push(step.event);
         }
+    }
+
+    #[test]
+    fn explained_parts_partition_every_step() {
+        let input = sample_input();
+        let mut seen = std::collections::HashSet::new();
+        for level in [
+            Compression::none(),
+            Compression::fast(),
+            Compression::best(),
+        ] {
+            for (plain, e) in explain_all(&deflate(&input, level)) {
+                let step = plain.unwrap().unwrap();
+                assert_eq!(e.step, Some(step), "explaining changes nothing");
+                assert_eq!(e.error, None);
+                assert_eq!(e.block_start, step.block_start);
+                assert_partitions(&e, step.bit_start, step.bit_end);
+                seen.extend(e.parts.iter().map(|p| p.kind));
+            }
+        }
+        for kind in [
+            PartKind::Final,
+            PartKind::BlockType,
+            PartKind::StoredLen,
+            PartKind::StoredNLen,
+            PartKind::StoredByte,
+            PartKind::HLit,
+            PartKind::HDist,
+            PartKind::HClen,
+            PartKind::CodeLengthCode,
+            PartKind::CodeLengths,
+            PartKind::LitLen,
+            PartKind::LengthExtra,
+            PartKind::Distance,
+            PartKind::DistanceExtra,
+        ] {
+            assert!(seen.contains(&kind), "{kind:?} never appeared");
+        }
+    }
+
+    #[test]
+    fn explained_codes_sit_in_their_tables() {
+        let data = deflate(&sample_input(), Compression::best());
+        let mut d = Decoder::new(&data, u64::MAX);
+        let mut checked = 0;
+        loop {
+            // Tables before the step: a block's end code is read with them,
+            // and afterwards the block is gone.
+            let before = d.tables();
+            let Some(e) = d.explain_next() else { break };
+            let Some(tables) = before.or_else(|| d.tables()) else {
+                continue;
+            };
+            for p in &e.parts {
+                let groups = match p.kind {
+                    PartKind::LitLen => &tables.lit_len,
+                    PartKind::Distance => &tables.distance,
+                    _ => continue,
+                };
+                let g = groups
+                    .iter()
+                    .find(|g| g.len == p.code_len)
+                    .expect("a group of that length");
+                let k = (p.code - g.first_code) as usize;
+                assert_eq!(g.symbols[k], p.value as u16, "{p:?}");
+                checked += 1;
+            }
+        }
+        assert!(checked > 100, "only {checked} codes checked");
+    }
+
+    #[test]
+    fn tables_describe_the_block_being_decoded() {
+        // A fixed block holding only its end code (256 = 0000000).
+        let fixed = pack_fields(&[(1, 1, false), (1, 2, false), (0, 7, true)]);
+        let mut d = Decoder::new(&fixed, u64::MAX);
+        assert_eq!(d.tables(), None, "no block before its header");
+        d.explain_next();
+        let t = d.tables().expect("fixed tables");
+        assert_eq!(t.kind, BlockKind::Fixed);
+        assert_eq!(t.header, None);
+        let lens: Vec<_> = t.lit_len.iter().map(|g| g.len).collect();
+        assert_eq!(lens, [7, 8, 9]);
+        assert_eq!(d.next_index(), 1);
+
+        let dynamic = deflate(&sample_input(), Compression::best());
+        let mut d = Decoder::new(&dynamic, u64::MAX);
+        d.explain_next();
+        let t = d.tables().expect("dynamic tables");
+        assert_eq!(t.kind, BlockKind::Dynamic);
+        let h = t.header.expect("dynamic header");
+        let lit_symbols: usize = t.lit_len.iter().map(|g| g.symbols.len()).sum();
+        assert!(lit_symbols <= h.hlit as usize && h.hlit >= 257);
+
+        let stored = deflate(b"abc", Compression::none());
+        let mut d = Decoder::new(&stored, u64::MAX);
+        d.explain_next();
+        assert_eq!(d.tables(), None, "stored blocks have no codes");
+    }
+
+    #[test]
+    fn a_truncated_stream_explains_where_it_ran_out() {
+        let data = deflate(&sample_input(), Compression::best());
+        let cut = &data[..data.len() / 2];
+        let steps = explain_all(cut);
+        let (_, last) = steps.last().unwrap();
+        assert_eq!(last.error, Some(InflateError::Bits));
+        let p = last.parts.last().expect("an unreadable part");
+        assert_eq!(p.kind, PartKind::Unreadable);
+        assert_eq!(
+            p.bit_end,
+            cut.len() as u64 * 8,
+            "blames the bits that were left"
+        );
+    }
+
+    #[test]
+    fn an_undefined_symbol_is_named_by_its_code() {
+        // Fixed block, then code 286 (11000110): valid bits, undefined symbol.
+        let data = pack_fields(&[(1, 1, false), (1, 2, false), (0b1100_0110, 8, true)]);
+        let steps = explain_all(&data);
+        let (_, e) = &steps[1];
+        assert_eq!(e.error, Some(InflateError::BadSymbol));
+        let kinds: Vec<_> = e.parts.iter().map(|p| (p.kind, p.value)).collect();
+        assert_eq!(
+            kinds,
+            [(PartKind::LitLen, 286)],
+            "every bit read was understood"
+        );
     }
 }
