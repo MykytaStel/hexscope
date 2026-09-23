@@ -68,6 +68,10 @@ impl<'a> Reader<'a> {
         Ok(u32::from_le_bytes(self.array::<4>()?))
     }
 
+    pub fn u64_le(&mut self) -> Result<u64, ReadError> {
+        Ok(u64::from_le_bytes(self.array::<8>()?))
+    }
+
     /// Reads up to the next occurrence of `delim` and consumes the delimiter.
     /// Returns `None` when the delimiter is absent, leaving the position
     /// untouched so the caller can record the damage and move on.
@@ -112,6 +116,22 @@ mod tests {
         assert_eq!(r.u32_be(), Ok(1920));
         assert_eq!(r.u16_be(), Ok(0x1234));
         assert_eq!(r.pos(), 6);
+    }
+
+    #[test]
+    fn reads_little_endian_integers_up_to_64_bits() {
+        let data = [0x34, 0x12, 0x80, 0x07, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.u16_le(), Ok(0x1234));
+        assert_eq!(r.u32_le(), Ok(0x0000_0780));
+        assert_eq!(r.u64_le(), Ok(0x0807_0605_0403_0201));
+        assert_eq!(
+            r.u64_le(),
+            Err(ReadError::Eof {
+                needed: 8,
+                available: 0
+            })
+        );
     }
 
     #[test]

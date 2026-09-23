@@ -3,11 +3,13 @@
 use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::png::{PngDocument, parse_png};
+use crate::zip::{self, ZipDocument, parse_zip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     Png,
     Jpeg,
+    Zip,
     Unknown,
 }
 
@@ -17,6 +19,7 @@ pub enum Format {
 pub enum Document {
     Png(PngDocument),
     Jpeg(JpegDocument),
+    Zip(ZipDocument),
     Unknown(ParseTree),
 }
 
@@ -25,6 +28,7 @@ impl Document {
         match self {
             Document::Png(d) => &d.tree,
             Document::Jpeg(d) => &d.tree,
+            Document::Zip(d) => &d.tree,
             Document::Unknown(t) => t,
         }
     }
@@ -33,6 +37,7 @@ impl Document {
         match self {
             Document::Png(_) => Format::Png,
             Document::Jpeg(_) => Format::Jpeg,
+            Document::Zip(_) => Format::Zip,
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -49,18 +54,19 @@ pub fn parse(data: &[u8]) -> Document {
     if data.starts_with(&jpeg::MAGIC) {
         return Document::Jpeg(parse_jpeg(data));
     }
+    // After PNG and JPEG, whose files may carry a ZIP on their end: an
+    // archive is what the file is only when nothing earlier claimed it.
+    if zip::is_zip(data) {
+        return Document::Zip(parse_zip(data));
+    }
     Document::Unknown(unknown(data))
 }
 
 /// Signatures of formats people are likely to drop in, so the answer can be
 /// "that is a PDF" rather than "unrecognised".
-fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
-    const SIGNATURES: [(&[u8], &str); 12] = [
+pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
+    const SIGNATURES: [(&[u8], &str); 11] = [
         (b"%PDF", "a PDF document"),
-        (
-            b"PK\x03\x04",
-            "a ZIP archive (also .docx, .apk, .jar, .epub)",
-        ),
         (b"GIF87a", "a GIF image"),
         (b"GIF89a", "a GIF image"),
         (b"\0asm", "a WebAssembly module"),
@@ -108,7 +114,7 @@ fn unknown(data: &[u8]) -> ParseTree {
         (true, _) => ("empty file".to_string(), 0),
         (false, Some((name, len))) => (format!("this looks like {name} — not supported yet"), len),
         (false, None) => (
-            "format not recognised: not a PNG or a JPEG".to_string(),
+            "format not recognised: not a PNG, a JPEG or a ZIP".to_string(),
             data.len().min(8) as u64,
         ),
     };
@@ -126,6 +132,8 @@ mod tests {
         assert_eq!(parse(&png).format(), Format::Png);
         assert_eq!(parse(&[0xFF, 0xD8, 0xFF, 0xE0]).format(), Format::Jpeg);
         assert_eq!(parse(b"hello").format(), Format::Unknown);
+        assert_eq!(parse(b"PK\x03\x04 and the rest").format(), Format::Zip);
+        assert_eq!(parse(b"PK\x05\x06").format(), Format::Zip);
     }
 
     #[test]
@@ -143,7 +151,7 @@ mod tests {
             tree.get(tree.get(0).children[0]).label.clone()
         };
         assert!(label(b"%PDF-1.7 ...").contains("PDF"));
-        assert!(label(b"PK\x03\x04....").contains("ZIP"));
+        assert!(label(b"\x1F\x8B\x08....").contains("gzip"));
         assert!(label(b"\0\0\0\x18ftypheic....").contains("HEIC"));
         assert!(label(b"").contains("empty"));
         assert!(label(b"just some text").contains("not recognised"));

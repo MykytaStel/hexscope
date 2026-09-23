@@ -96,13 +96,6 @@ impl ParseTree {
         id
     }
 
-    /// The node with this id.
-    ///
-    /// # Panics
-    ///
-    /// If `id` was not returned by [`ParseTree::add`] on this tree — the same
-    /// contract as indexing a `Vec`. Use [`ParseTree::try_get`] for ids from
-    /// outside, such as ones round-tripped through JavaScript.
     /// Records damage: bytes that could not be read as what they claim to be.
     pub fn error(&mut self, parent: NodeId, label: impl Into<String>, range: ByteRange) -> NodeId {
         self.add(Some(parent), label, range, NodeKind::Error, None)
@@ -118,6 +111,21 @@ impl ParseTree {
         self.add(Some(parent), label, range, NodeKind::Warning, None)
     }
 
+    /// Sets a node's value after the fact, for a summary known only once its
+    /// children are read. An id not from this tree is ignored.
+    pub fn set_value(&mut self, id: NodeId, value: Option<Value>) {
+        if let Some(n) = self.nodes.get_mut(id as usize) {
+            n.value = value;
+        }
+    }
+
+    /// The node with this id.
+    ///
+    /// # Panics
+    ///
+    /// If `id` was not returned by [`ParseTree::add`] on this tree — the same
+    /// contract as indexing a `Vec`. Use [`ParseTree::try_get`] for ids from
+    /// outside, such as ones round-tripped through JavaScript.
     pub fn get(&self, id: NodeId) -> &Node {
         &self.nodes[id as usize]
     }

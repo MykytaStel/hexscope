@@ -536,3 +536,53 @@ fn every_pngsuite_step_explains_its_bits_exactly() {
     }
     assert!(explained > 10_000, "only {explained} steps explained");
 }
+
+#[test]
+fn a_real_word_document_reads_cleanly_and_every_entry_extracts() {
+    use hexscope_core::zip::{extract, parse_zip};
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    // The fixture as `textutil` wrote it, and the site's sample, which adds
+    // a stored image with Python's zipfile.
+    for (path, entries) in [
+        (dir.join("tests/fixtures/report.docx"), 8),
+        (dir.join("../../apps/web/public/samples/report.docx"), 9),
+    ] {
+        let bytes = fs::read(&path).unwrap();
+        let doc = parse_zip(&bytes);
+        let problems: Vec<_> = doc
+            .tree
+            .nodes()
+            .iter()
+            .filter(|n| matches!(n.kind, NodeKind::Warning | NodeKind::Error))
+            .map(|n| n.label.clone())
+            .collect();
+        assert!(problems.is_empty(), "{}: {problems:?}", path.display());
+        assert_eq!(doc.entries.len(), entries, "{}", path.display());
+        let facts: Vec<_> = doc
+            .facts
+            .iter()
+            .map(|f| (f.kind, f.text.as_str()))
+            .collect();
+        for want in [
+            ("title", "Quarterly report"),
+            ("author", "Olena Koval"),
+            ("editor", "o.koval"),
+            ("company", "Hexscope Test Co"),
+        ] {
+            assert!(facts.contains(&want), "{}: {facts:?}", path.display());
+        }
+
+        for e in &doc.entries {
+            let out =
+                extract(&bytes, e, 1 << 20).unwrap_or_else(|err| panic!("{}: {err:?}", e.name));
+            assert_eq!(out.len() as u64, e.uncompressed);
+            if e.name == "docProps/core.xml" {
+                let xml = String::from_utf8_lossy(&out);
+                assert!(
+                    xml.contains("<dc:creator>Olena Koval</dc:creator>"),
+                    "{xml}"
+                );
+            }
+        }
+    }
+}

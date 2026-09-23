@@ -14,16 +14,34 @@ export interface ParsedFile {
   ihdr: number[] | null;
   /** [totalEvents, literals, matches, outputBytes], or null. */
   trace: number[] | null;
+  /** Compressed bytes of the stream the player steps through. */
   idatBytes: number;
-  /** IDAT payloads in the file as [start, len, start, len, ...]. */
+  /** That stream's pieces in the file as [start, len, start, len, ...]. */
   segments: Float64Array;
-  format: "png" | "jpeg" | "unknown";
+  /** Bytes of wrapper before its DEFLATE data: 2 for zlib, 0 for a ZIP entry. */
+  streamHeader: number;
+  /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable, openable. */
+  entries: Float64Array;
+  format: "png" | "jpeg" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
   location: PhotoLocation | null;
   parseMs: number;
+}
+
+/** Numbers per entry in `ParsedFile.entries`. */
+const ENTRY_STRIDE = 7;
+
+export interface ZipEntryInfo {
+  node: number;
+  method: number;
+  flags: number;
+  compressed: number;
+  uncompressed: number;
+  playable: boolean;
+  openable: boolean;
 }
 
 export interface PhotoFact {
@@ -75,6 +93,13 @@ const CHUNK_TINTS: Record<string, Tint> = {
 };
 
 /** "APP1 · EXIF" is keyed by "APP1"; every SOFn is a frame header. */
+/** An archive's top level: its entries, then its directory and end records. */
+function zipTint(label: string): Tint {
+  if (label === "central directory") return "ihdr";
+  if (label.includes("end of central directory") || label === "ZIP64 locator") return "iend";
+  return "text";
+}
+
 function chunkTint(label: string): Tint {
   const key = label.split(" · ")[0];
   if (/^SOF\d+$/.test(key)) return "ihdr";
@@ -100,7 +125,9 @@ export class FileModel {
   /** Children with a non-empty range, sorted by start: the descent index. */
   private readonly spatial: Int32Array[];
   /** Offset of each IDAT segment within the reassembled zlib stream. */
-  private readonly segmentStreamStart: number[];
+  private segmentStreamStart: number[] = [];
+  /** Entry index by entry node, for finding the entry a node sits in. */
+  private readonly entryByNode = new Map<number, number>();
 
   constructor(
     readonly file: ParsedFile,
@@ -156,6 +183,7 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
+    const topTint = file.format === "zip" ? zipTint : chunkTint;
     for (let i = 0; i < n; i++) {
       const kind = kinds[i];
       const p = parents[i];
@@ -163,16 +191,43 @@ export class FileModel {
       else if (kind === Kind.Warning) this.tints[i] = "warning";
       else if (file.labels[i].startsWith("GPS") || (p > 0 && this.tints[p] === "gps")) this.tints[i] = "gps";
       else if (i === 0) this.tints[i] = "anc";
-      else if (p === 0) this.tints[i] = chunkTint(file.labels[i]);
-      else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? chunkTint(file.labels[this.top[i]]) : this.tints[p];
+      else if (p === 0) this.tints[i] = topTint(file.labels[i]);
+      else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? topTint(file.labels[this.top[i]]) : this.tints[p];
     }
 
+    this.indexSegments();
+    for (let i = 0; i * ENTRY_STRIDE < file.entries.length; i++) {
+      this.entryByNode.set(file.entries[i * ENTRY_STRIDE], i);
+    }
+  }
+
+  private indexSegments(): void {
     this.segmentStreamStart = [];
     let acc = 0;
-    for (let i = 0; i < file.segments.length; i += 2) {
+    for (let i = 0; i < this.file.segments.length; i += 2) {
       this.segmentStreamStart.push(acc);
-      acc += file.segments[i + 1];
+      acc += this.file.segments[i + 1];
     }
+  }
+
+  /** Points the player's stream at a ZIP entry the worker has just decoded. */
+  setStream(segments: Float64Array, trace: number[] | null, compressed: number): void {
+    this.file.segments = segments;
+    this.file.trace = trace;
+    this.file.idatBytes = compressed;
+    this.file.streamHeader = 0;
+    this.indexSegments();
+  }
+
+  /** The ZIP entry node `id` sits in, as an index into the entries, or -1. */
+  entryOf(id: number): number {
+    if (id < 0) return -1;
+    return this.entryByNode.get(this.top[id]) ?? -1;
+  }
+
+  entry(i: number): ZipEntryInfo {
+    const e = this.file.entries.subarray(i * ENTRY_STRIDE, (i + 1) * ENTRY_STRIDE);
+    return { node: e[0], method: e[1], flags: e[2], compressed: e[3], uncompressed: e[4], playable: e[5] === 1, openable: e[6] === 1 };
   }
 
   /** Whether the file has a compressed stream the player can step through. */
@@ -203,12 +258,14 @@ export class FileModel {
 
   /**
    * File range `[start, end)` holding DEFLATE bits `[bitStart, bitEnd)`. The
-   * DEFLATE data begins after the 2-byte zlib header. A range that crosses from
-   * one IDAT chunk into the next also spans the chunk framing between them.
+   * DEFLATE data begins after the stream's wrapper header, if it has one. A
+   * range that crosses from one IDAT chunk into the next also spans the chunk
+   * framing between them.
    */
   bitsToFile(bitStart: number, bitEnd: number): [number, number] {
-    const first = this.streamToFile(2 + Math.floor(bitStart / 8));
-    const last = this.streamToFile(2 + Math.max(Math.ceil(bitEnd / 8), Math.floor(bitStart / 8) + 1) - 1);
+    const h = this.file.streamHeader;
+    const first = this.streamToFile(h + Math.floor(bitStart / 8));
+    const last = this.streamToFile(h + Math.max(Math.ceil(bitEnd / 8), Math.floor(bitStart / 8) + 1) - 1);
     if (first < 0 || last < 0) return [-1, -1];
     return [first, last + 1];
   }

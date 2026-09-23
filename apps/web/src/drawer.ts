@@ -1,4 +1,4 @@
-import { FileModel, Kind } from "./model";
+import { FileModel, Kind, type ZipEntryInfo } from "./model";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -40,7 +40,40 @@ const FACT_LABELS: Record<string, string> = {
   taken: "Taken",
   software: "Software",
   thumbnail: "Thumbnail",
+  title: "Title",
+  author: "Author",
+  editor: "Last saved by",
+  created: "Created",
+  modified: "Modified",
+  revisions: "Revisions",
+  editing: "Editing time",
+  company: "Company",
+  application: "Application",
+  template: "Template",
 };
+
+/** Why an entry cannot be played, or null when it can. */
+function playReason(e: ZipEntryInfo): string | null {
+  if (e.playable) return null;
+  if (e.flags & 1) return "Encrypted: its bytes cannot be decompressed without the password.";
+  if (e.method === 0) return "Stored: its bytes are the file itself, with nothing to decompress.";
+  if (e.method !== 8) return "Compressed with a method this tool does not decompress.";
+  if (e.compressed === 0) return "Empty: there is nothing to decompress.";
+  return "Its data runs past the end of the file.";
+}
+
+/** How deep archives may nest on screen, matching the worker's limit. */
+const MAX_NESTING = 4;
+
+/** Why an entry cannot be opened as a file of its own, or null when it can. */
+function openReason(e: ZipEntryInfo, nested: number): string | null {
+  if (nested >= MAX_NESTING) return `Files nest at most ${MAX_NESTING} deep here.`;
+  if (e.openable) return null;
+  if (e.flags & 1) return "Encrypted: its bytes cannot be read without the password.";
+  if (e.method !== 0 && e.method !== 8) return "Compressed with a method this tool does not decompress.";
+  if (e.uncompressed === 0) return "Empty: there is nothing to open.";
+  return "Its data runs past the end of the file.";
+}
 
 const degrees = (v: number, pos: string, neg: string) =>
   `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
@@ -49,10 +82,14 @@ const degrees = (v: number, pos: string, neg: string) =>
 export class Drawer {
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
+  /** How many archives the document on screen sits inside. */
+  nested = 0;
 
   constructor(
     host: HTMLElement,
     private readonly onSelect: (id: number) => void,
+    private readonly onPlay: (entry: number) => void,
+    private readonly onOpen: (entry: number) => void,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -78,9 +115,12 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
-    if (f.format === "jpeg") this.file.append(this.reveals(m));
+    // A photo always gets the card, if only to say it gives nothing away; an
+    // archive only when it is a document with properties to show.
+    if (f.format === "jpeg" || f.facts.length > 0) this.file.append(this.reveals(m));
 
-    if (f.trace) {
+    // For a ZIP, the stream is whichever entry was last played: not the file's.
+    if (f.trace && f.format === "png") {
       const [events, literals, matches, output] = f.trace;
       const deflate = el("div", "group");
       deflate.append(el("h3", undefined, "DEFLATE"));
@@ -113,13 +153,13 @@ export class Drawer {
   }
 
   /**
-   * What the photo's metadata gives away. Each fact is a link to the bytes
+   * What the file's metadata gives away. Each fact is a link to the bytes
    * that hold it; the map link sends the coordinates nowhere unless clicked.
    */
   private reveals(m: FileModel): HTMLElement {
     const f = m.file;
     const group = el("div", "group reveals");
-    group.append(el("h3", undefined, "What this photo reveals"));
+    group.append(el("h3", undefined, f.format === "zip" ? "What this document reveals" : "What this photo reveals"));
     if (!f.location && f.facts.length === 0) {
       group.append(el("p", "hint", "No EXIF metadata: nothing about the camera, the time or the place."));
       return group;
@@ -152,6 +192,11 @@ export class Drawer {
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
     group.append(list);
     return group;
+  }
+
+  /** A message in place of node details, such as why something did not open. */
+  showNote(text: string): void {
+    this.node.replaceChildren(el("p", "problem is-error", text));
   }
 
   showNode(m: FileModel | null, id: number, pinned: boolean): void {
@@ -192,5 +237,38 @@ export class Drawer {
     fact(grid, "Kind", KIND_NAMES[kind]);
     if (m.value(id)) fact(grid, "Value", m.value(id), true);
     this.node.append(grid);
+
+    const entry = m.entryOf(id);
+    if (entry >= 0) this.node.append(this.entry(m, entry));
+  }
+
+  /** The ZIP entry a node sits in: what it holds, and a way to watch it unpack. */
+  private entry(m: FileModel, i: number): HTMLElement {
+    const e = m.entry(i);
+    const group = el("div", "group entry");
+    group.append(el("h3", undefined, "Entry"));
+    const grid = el("dl", "facts");
+    fact(grid, "Name", m.label(e.node));
+    fact(grid, "Data", m.value(e.node));
+    if (e.method !== 0 && e.compressed > 0) {
+      fact(grid, "Ratio", `${(e.uncompressed / e.compressed).toFixed(2)}×`);
+    }
+    group.append(grid);
+
+    const actions = el("div", "entry-actions");
+    const button = (text: string, reason: string | null, title: string, act: () => void) => {
+      const b = el("button", "btn", text);
+      b.disabled = reason !== null;
+      b.title = reason ?? title;
+      b.addEventListener("click", act);
+      actions.append(b);
+    };
+    const playWhy = playReason(e);
+    const openWhy = openReason(e, this.nested);
+    button("Watch it decompress", playWhy, "Step through this entry's DEFLATE data (P)", () => this.onPlay(i));
+    button("Open", openWhy, "Open this entry as a file of its own", () => this.onOpen(i));
+    group.append(actions);
+    for (const why of new Set([playWhy, openWhy])) if (why) group.append(el("p", "hint", why));
+    return group;
   }
 }
