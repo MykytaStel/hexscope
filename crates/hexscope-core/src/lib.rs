@@ -9,6 +9,7 @@ pub mod jpeg;
 pub mod model;
 pub mod png;
 pub mod reader;
+pub mod zip;
 
 pub use document::{Document, Format, parse};
 pub use model::{ByteRange, Node, NodeId, NodeKind, ParseTree, Value};

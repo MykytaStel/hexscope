@@ -54,7 +54,7 @@ pub fn parse(data: &[u8]) -> Document {
 
 /// Signatures of formats people are likely to drop in, so the answer can be
 /// "that is a PDF" rather than "unrecognised".
-fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
+pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
     const SIGNATURES: [(&[u8], &str); 12] = [
         (b"%PDF", "a PDF document"),
         (
