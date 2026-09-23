@@ -47,7 +47,7 @@ const hex = new HexView($("hex"), {
   onSelect: select,
 });
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
-const drawer = new Drawer($("drawer"), select);
+const drawer = new Drawer($("drawer"), select, (entry) => void openPlayer(entry));
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {
@@ -57,8 +57,30 @@ const player = new Player($("drawer"), {
   onClose: closePlayer,
 });
 
-async function openPlayer(): Promise<void> {
-  if (!model?.playable) return;
+/** The ZIP entry holding the selection, or -1. */
+function selectedEntry(): number {
+  return model ? model.entryOf(selected) : -1;
+}
+
+/** Whether there is a stream to play: a PNG's, or the selected ZIP entry's. */
+function canPlay(): boolean {
+  if (!model) return false;
+  if (model.file.format !== "zip") return model.playable;
+  const i = selectedEntry();
+  return i >= 0 && model.entry(i).playable;
+}
+
+async function openPlayer(entry = selectedEntry()): Promise<void> {
+  if (!model) return;
+  if (model.file.format === "zip") {
+    if (entry < 0 || !model.entry(entry).playable) return;
+    const m = model;
+    closePlayer();
+    const r = await call({ type: "selectEntry", index: entry });
+    if (m !== model || r.type !== "stream" || !r.playable) return;
+    m.setStream(r.segments, r.trace, r.idatBytes);
+  }
+  if (!model.playable) return;
   document.body.classList.add("is-playing");
   await player.open(model, {
     steps: async (from, count) => {
@@ -106,6 +128,8 @@ function select(id: number): void {
   tree.setSelected(id);
   if (id >= 0) hex.reveal(id);
   drawer.showNode(model, id, id >= 0);
+  // While playing, the button is also how the player closes: keep it.
+  playBtn.hidden = !canPlay() && !player.isOpen;
 }
 
 function updateProblems(): void {
@@ -188,7 +212,7 @@ async function load(file: File): Promise<void> {
   drawer.showNode(model, -1, false);
   showFileInfo(model);
   updateProblems();
-  playBtn.hidden = !model.playable;
+  playBtn.hidden = !canPlay();
 
   // Open on the answer to the question the person came with: a damaged file
   // on its damage, a photo that records a place on that place.
@@ -248,7 +272,7 @@ window.addEventListener("keydown", (e) => {
     else select(-1);
   }
   if (e.key === "n" || e.key === "N") nextProblem();
-  if ((e.key === "p" || e.key === "P") && model?.playable && !player.isOpen) void openPlayer();
+  if ((e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
 });
 
 document.body.dataset.state = "empty";

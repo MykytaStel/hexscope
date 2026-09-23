@@ -1,4 +1,4 @@
-import { FileModel, Kind } from "./model";
+import { FileModel, Kind, type ZipEntryInfo } from "./model";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -42,6 +42,16 @@ const FACT_LABELS: Record<string, string> = {
   thumbnail: "Thumbnail",
 };
 
+/** Why an entry cannot be played, or null when it can. */
+function playReason(e: ZipEntryInfo): string | null {
+  if (e.playable) return null;
+  if (e.flags & 1) return "Encrypted: its bytes cannot be decompressed without the password.";
+  if (e.method === 0) return "Stored: its bytes are the file itself, with nothing to decompress.";
+  if (e.method !== 8) return "Compressed with a method this tool does not decompress.";
+  if (e.compressed === 0) return "Empty: there is nothing to decompress.";
+  return "Its data runs past the end of the file.";
+}
+
 const degrees = (v: number, pos: string, neg: string) =>
   `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
 
@@ -53,6 +63,7 @@ export class Drawer {
   constructor(
     host: HTMLElement,
     private readonly onSelect: (id: number) => void,
+    private readonly onPlay: (entry: number) => void,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -80,7 +91,8 @@ export class Drawer {
     this.file.append(fileGroup);
     if (f.format === "jpeg") this.file.append(this.reveals(m));
 
-    if (f.trace) {
+    // For a ZIP, the stream is whichever entry was last played: not the file's.
+    if (f.trace && f.format === "png") {
       const [events, literals, matches, output] = f.trace;
       const deflate = el("div", "group");
       deflate.append(el("h3", undefined, "DEFLATE"));
@@ -192,5 +204,31 @@ export class Drawer {
     fact(grid, "Kind", KIND_NAMES[kind]);
     if (m.value(id)) fact(grid, "Value", m.value(id), true);
     this.node.append(grid);
+
+    const entry = m.entryOf(id);
+    if (entry >= 0) this.node.append(this.entry(m, entry));
+  }
+
+  /** The ZIP entry a node sits in: what it holds, and a way to watch it unpack. */
+  private entry(m: FileModel, i: number): HTMLElement {
+    const e = m.entry(i);
+    const group = el("div", "group entry");
+    group.append(el("h3", undefined, "Entry"));
+    const grid = el("dl", "facts");
+    fact(grid, "Name", m.label(e.node));
+    fact(grid, "Data", m.value(e.node));
+    if (e.method !== 0 && e.compressed > 0) {
+      fact(grid, "Ratio", `${(e.uncompressed / e.compressed).toFixed(2)}×`);
+    }
+    group.append(grid);
+
+    const reason = playReason(e);
+    const play = el("button", "btn btn-play", "Watch it decompress");
+    play.disabled = reason !== null;
+    play.title = reason ?? "Step through this entry's DEFLATE data (P)";
+    play.addEventListener("click", () => this.onPlay(i));
+    group.append(play);
+    if (reason) group.append(el("p", "hint", reason));
+    return group;
   }
 }

@@ -8,13 +8,15 @@ export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
   | { id: number; type: "steps"; from: number; count: number }
   | { id: number; type: "inflated" }
-  | { id: number; type: "explain"; index: number; knownBlock: number };
+  | { id: number; type: "explain"; index: number; knownBlock: number }
+  | { id: number; type: "selectEntry"; index: number };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "inflated"; bytes: Uint8Array }
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
+  | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
   | { id: number; type: "error"; message: string };
 
 const SEPARATOR = "\u001f";
@@ -47,6 +49,8 @@ async function handle(req: WorkerRequest): Promise<void> {
       trace: null,
       idatBytes: parsed.idatBytes,
       segments: parsed.segments,
+      streamHeader: parsed.streamHeader,
+      entries: parsed.entries,
       format: parsed.format as ParsedFile["format"],
       dimensions: null,
       facts: [],
@@ -82,6 +86,7 @@ async function handle(req: WorkerRequest): Promise<void> {
       result.parents.buffer,
       result.kinds.buffer,
       result.segments.buffer,
+      result.entries.buffer,
     ]);
     return;
   }
@@ -90,6 +95,13 @@ async function handle(req: WorkerRequest): Promise<void> {
   if (req.type === "steps") {
     const steps = current.steps(req.from, req.count);
     post({ id: req.id, type: "steps", steps }, [steps.buffer]);
+  } else if (req.type === "selectEntry") {
+    const playable = current.selectEntry(req.index);
+    const trace = Array.from(current.trace);
+    const segments = current.segments;
+    post({ id: req.id, type: "stream", playable, trace: trace.length ? trace : null, segments, idatBytes: current.idatBytes }, [
+      segments.buffer,
+    ]);
   } else if (req.type === "explain") {
     const parts = current.explain(req.index);
     // Tables change once per block: send them only when the page's are stale.
