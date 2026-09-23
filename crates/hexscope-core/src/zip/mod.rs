@@ -1035,4 +1035,172 @@ mod tests {
             Some(Value::Text("0 entries".into()))
         );
     }
+
+    fn warnings_and_errors(doc: &ZipDocument) -> Vec<String> {
+        problems(&doc.tree).into_iter().map(|(_, l)| l).collect()
+    }
+
+    fn patch_u32(bytes: &mut [u8], at: u64, v: u32) {
+        bytes[at as usize..at as usize + 4].copy_from_slice(&v.to_le_bytes());
+    }
+
+    #[test]
+    fn names_data_before_the_archive() {
+        let mut a = two();
+        a.prefix = b"MZ".iter().copied().chain([0u8; 98]).collect();
+        let b = build(&a);
+        let doc = parse_zip(&b.bytes);
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["data before the archive — it looks like a Windows executable"]
+        );
+        assert_eq!(doc.entries.len(), 2, "offsets are shifted by the prefix");
+        assert_eq!(doc.entries[0].data.start, b.local[0] + 30 + 9);
+        let first = doc.tree.get(doc.tree.root().unwrap()).children[0];
+        assert_eq!(doc.tree.get(first).range, ByteRange::new(0, 100));
+    }
+
+    #[test]
+    fn a_local_name_that_disagrees_is_a_warning_on_the_name() {
+        let mut b = build(&two());
+        b.bytes[b.local[0] as usize + 30] = b'H';
+        let doc = parse_zip(&b.bytes);
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["name differs from the central directory's: hello.txt"]
+        );
+        let w = find(
+            &doc.tree,
+            "name differs from the central directory's: hello.txt",
+        );
+        assert_eq!(w.range, ByteRange::new(b.local[0] + 30, 9));
+    }
+
+    #[test]
+    fn overlapping_entries_and_unreferenced_bytes_are_named() {
+        // The second record points at the first entry's local header: its
+        // bytes are read twice, and the second entry's own bytes by nobody.
+        let mut b = build(&two());
+        patch_u32(&mut b.bytes, b.central[1] + 42, 0);
+        let doc = parse_zip(&b.bytes);
+        let found = warnings_and_errors(&doc);
+        assert!(
+            found.iter().any(|l| l.starts_with("overlaps hello.txt")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|l| l.ends_with("bytes nothing points at")),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn data_after_the_archive_is_named() {
+        let mut b = build(&two());
+        b.bytes.extend_from_slice(b"trailing");
+        let doc = parse_zip(&b.bytes);
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["8 bytes after the end of the archive"]
+        );
+    }
+
+    #[test]
+    fn a_wrong_entry_count_is_a_warning_on_the_count() {
+        let mut b = build(&two());
+        b.bytes[b.eocd as usize + 10] = 3;
+        let doc = parse_zip(&b.bytes);
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["counts 3 entries; the central directory holds 2"]
+        );
+        let w = find(&doc.tree, "counts 3 entries; the central directory holds 2");
+        assert_eq!(w.range, ByteRange::new(b.eocd + 10, 2));
+    }
+
+    #[test]
+    fn a_record_pointing_nowhere_is_an_error_on_its_offset() {
+        let mut b = build(&two());
+        patch_u32(&mut b.bytes, b.central[1] + 42, 0xFFFF_0000);
+        let doc = parse_zip(&b.bytes);
+        let label = format!(
+            "points at offset {}, where there is no local header",
+            0xFFFF_0000u32
+        );
+        // Its entry's own bytes are then read by nobody.
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["71 bytes nothing points at".to_string(), label.clone()]
+        );
+        assert_eq!(
+            find(&doc.tree, &label).range,
+            ByteRange::new(b.central[1] + 42, 4)
+        );
+        assert_eq!(doc.entries.len(), 1);
+    }
+
+    #[test]
+    fn without_an_end_record_local_headers_are_read_in_turn() {
+        let b = build(&two());
+        let cut = &b.bytes[..b.central[0] as usize];
+        let doc = parse_zip(cut);
+        assert_eq!(
+            warnings_and_errors(&doc),
+            ["no end of central directory: the archive is incomplete"]
+        );
+        assert_eq!(doc.entries.len(), 2);
+        assert_eq!(doc.entries[1].crc32, crc32(&sample()));
+
+        // Sizes deferred to a descriptor: the walk cannot know where it ends.
+        let mut a = two();
+        a.entries[1].descriptor = Descriptor::NoSignature;
+        let b = build(&a);
+        let doc = parse_zip(&b.bytes[..b.central[0] as usize]);
+        assert_eq!(doc.entries.len(), 1);
+        let found = warnings_and_errors(&doc);
+        assert!(
+            found[1].starts_with("its sizes are in a data descriptor"),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn every_truncation_is_survivable() {
+        let mut a = two();
+        a.entries[1].zip64 = true;
+        a.entries[0].descriptor = Descriptor::WithSignature;
+        a.zip64_eocd = true;
+        a.comment = b"note".to_vec();
+        let b = build(&a);
+        for n in 0..=b.bytes.len() {
+            let doc = parse_zip(&b.bytes[..n]);
+            assert!(doc.tree.root().is_some());
+            for e in &doc.entries {
+                assert!(e.data.end() <= n as u64, "data range clipped at {n}");
+            }
+        }
+    }
+
+    #[test]
+    fn large_archives_stay_small_in_the_tree() {
+        // Detailed entries cost about 34 nodes each; past the limit, 3.
+        let entries = (0..5000)
+            .map(|i| Entry::new(&format!("f{i}"), b"x", 0))
+            .collect();
+        let b = build(&Archive {
+            entries,
+            ..Default::default()
+        });
+        let doc = parse_zip(&b.bytes);
+        assert_eq!(doc.entries.len(), 5000);
+        assert_eq!(warnings_and_errors(&doc), Vec::<String>::new());
+        assert!(
+            doc.tree.len() < 20 * 5000,
+            "{} nodes for 5000 entries",
+            doc.tree.len()
+        );
+        // Past the detail limit, an entry is its data node alone.
+        let last = doc.entries.last().unwrap();
+        assert_eq!(children(&doc.tree, last.node), ["data"]);
+    }
 }
