@@ -8,9 +8,9 @@ bytes each field occupies, and — the part no other tool does — the compressi
 algorithm running step by step, with arrows from each back-reference to the
 bytes it copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Status: first working slice.** Drop a PNG into the browser and explore its
-> structure, bytes and damage. The step-by-step DEFLATE animation — the part
-> no other tool has — is next. See [Where this actually is](#where-this-actually-is).
+> **Status: PNG support is feature-complete; not yet deployed.** Drop a PNG into
+> the browser, explore its structure, bytes and damage, and watch its DEFLATE
+> stream decompress step by step. See [Where this actually is](#where-this-actually-is).
 
 ## Why
 
@@ -51,32 +51,32 @@ Implemented and tested:
 | Fuzzing, property tests, benchmark, CI | done |
 | WASM bridge (parsing in a Web Worker) | done |
 | Web interface: tree, hex canvas, details, hover linking, problem navigation | done |
-| DEFLATE step animation | not started |
+| DEFLATE player: step, play, seek, reading head over the input | done |
 
-**80 tests** (69 unit, 8 golden, 3 property). Validated against the full
+**101 Rust tests** across the parser, the WASM bridge and the golden corpus. Validated against the full
 [PngSuite](http://www.schaik.com/pngsuite/) conformance corpus — 176 files,
 including all 14 intentionally corrupt ones, every one of which is flagged
 rather than silently accepted.
 
 Fuzzing: 1.3 million executions, zero crashes.
-Benchmark: a 10.3 MB PNG parses in **~276 ms** against the 300 ms budget — met,
-but with little headroom. The bitwise CRC-32 and the one-bit-at-a-time
-`BitReader` are both deliberately unoptimised and are the obvious first targets
-if that margin needs to grow.
+Benchmark: a 10.3 MB PNG parses natively in **~188 ms** against the 300 ms
+budget.
 `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
 `cargo check --target wasm32-unknown-unknown` are all clean.
 
-In the browser, measured on the same 10.3 MB file:
+In the browser, on a 10.9 MB PNG of incompressible noise — the worst case,
+since every byte is its own step:
 
 | | Measured | Budget |
 |---|---|---|
-| Parse (WASM, in a worker) | ~247 ms | 300 ms |
-| Drop to first frame | ~344 ms | 1 s |
-| Scrolling | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
+| Parse (WASM, in a worker) | 160–190 ms | 300 ms |
+| Drop to first frame | 180–280 ms | 1 s |
+| Scrolling the hex view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
-| Whole app, gzipped | ~47 KB | — |
+| Seek to step 7.9 million of 10.8 million | 12 ms | — |
+| Whole app, gzipped | ~56 KB | — |
 
-Open findings from the final review are tracked in
+Open findings are tracked in
 [`docs/known-issues.md`](docs/known-issues.md).
 
 The full design is in
