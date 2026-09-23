@@ -64,10 +64,12 @@ pub struct Explained {
 
 pub struct CodeGroup { pub len: u8, pub first_code: u16, pub symbols: Vec<u16> }
 
+pub struct DynamicHeader { pub hlit: u16, pub hdist: u8, pub hclen: u8 }
+
 pub struct BlockTables {
     pub kind: BlockKind,
     /// HLIT, HDIST, HCLEN for a dynamic block.
-    pub header: Option<(u16, u8, u8)>,
+    pub header: Option<DynamicHeader>,
     pub lit_len: Vec<CodeGroup>,
     pub distance: Vec<CodeGroup>,
 }
@@ -75,7 +77,9 @@ pub struct BlockTables {
 
 **`Decoder`** gains:
 
-- `explain_next(&mut self) -> Explained`: decodes one step with recording on.
+- `explain_next(&mut self) -> Option<Explained>`: decodes one step with
+  recording on; `None` once decoding has finished.
+- `next_index(&self) -> u64`: the index the next step will have.
 - `tables(&self) -> Option<BlockTables>`: the current block's tables, `None`
   for stored blocks or between blocks.
 
@@ -101,8 +105,10 @@ common kind of damage, and this names exactly its bits.
   `[kind, hlit, hdist, hclen, then per table: groups, then per group: len,
   first_code, count, symbols…]`. Empty for stored blocks.
 
-The worker adds both as messages. Stale replies are dropped, so the newest
-request wins.
+The worker answers one `explain` message with both: the parts, and the tables
+only when the block differs from the one the page already holds. One request
+is in flight at a time; when it returns, the newest wanted step is asked for
+next.
 
 ### Web (`apps/web/src`)
 
@@ -148,8 +154,10 @@ keeps the new code out of the file that draws the strip.
 - **Canonical codes:** `groups()` reproduces the RFC 1951 §3.2.2 example
   (lengths 3,3,3,3,3,2,4,4 give F=00, A=010 … H=1111) and the fixed table
   (7 bits from 0000000, 8 bits from 00110000, 9 bits from 110010000).
-- **Damage:** a truncated stream and a stream with a corrupted code explain
-  the failing step with an `Unreadable` part ending where decoding stopped.
+- **Damage:** a truncated stream explains its failing step with an
+  `Unreadable` part ending at the end of the input. An undefined symbol
+  (fixed-Huffman code 286) is named by its `LitLen` part, with no
+  `Unreadable` part after it, because every bit it read was understood.
 - **Bridge:** `explain(i)` agrees with `steps(i, 1)` on bit range and kind.
 - **Properties/fuzz:** `explain` never panics on arbitrary bytes. It joins the
   existing proptest suite.
