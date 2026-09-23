@@ -3,7 +3,7 @@
 //! Pixels are not decoded. What matters here is the structure, the image
 //! dimensions, and the EXIF block most cameras and phones write into APP1.
 
-use crate::exif::{PhotoFacts, parse_tiff};
+use crate::exif::{PhotoFacts, parse_tiff_at};
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 
@@ -92,6 +92,11 @@ fn next_segment(data: &[u8], from: u64) -> Option<u64> {
 
 /// Parses a JPEG. Never fails: damage becomes error nodes on the bytes.
 pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
+    parse_jpeg_at(data, 0)
+}
+
+/// `depth` is how many files deep this JPEG is embedded; see `parse_tiff_at`.
+pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
     let mut tree = ParseTree::new();
     let root = tree.add(
         None,
@@ -276,7 +281,15 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
             Some(Value::U64(len as u64)),
         );
 
-        decode_segment(&mut tree, node, marker, payload, payload_start, &mut doc);
+        decode_segment(
+            &mut tree,
+            node,
+            marker,
+            payload,
+            payload_start,
+            &mut doc,
+            depth,
+        );
 
         if marker == 0xDA {
             // Scan data follows SOS, unframed: it ends at the first marker
@@ -340,6 +353,7 @@ fn decode_segment(
     payload: &[u8],
     at: u64,
     doc: &mut JpegDocument,
+    depth: u8,
 ) {
     let mut p = Reader::new(payload);
     if is_sof(marker) {
@@ -412,11 +426,30 @@ fn decode_segment(
             field(tree, node, "identifier", at, 6, Value::Text("Exif".into()));
             let _ = p.bytes(6);
             let tiff = p.rest();
-            let facts = parse_tiff(tree, node, tiff, at + 6);
-            if !doc.has_exif {
-                doc.facts = facts;
-                doc.has_exif = true;
-            }
+            let facts = parse_tiff_at(tree, node, tiff, at + 6, depth);
+            doc.facts.fill_from(facts);
+            doc.has_exif = true;
+        }
+        0xE1 if app_kind(payload) == Some("XMP") => {
+            // XMP is XML: show it as text rather than an opaque blob.
+            const ID: u64 = 29;
+            let _ = p.bytes(ID as usize);
+            let xml = String::from_utf8_lossy(p.rest());
+            let text: String = xml.trim().chars().take(4000).collect();
+            let shown = if xml.trim().chars().count() > 4000 {
+                format!("{text}…")
+            } else {
+                text
+            };
+            field(tree, node, "identifier", at, ID, Value::Text("XMP".into()));
+            field(
+                tree,
+                node,
+                "packet",
+                at + ID,
+                payload.len() as u64 - ID,
+                Value::Text(shown),
+            );
         }
         0xFE => {
             let text = String::from_utf8_lossy(p.rest()).trim().to_string();
@@ -634,6 +667,62 @@ mod tests {
                 .iter()
                 .any(|n| n.label.starts_with("DQT segment length"))
         );
+    }
+
+    #[test]
+    fn a_second_exif_segment_fills_what_the_first_lacks() {
+        let mut first = Spec::new(ByteOrder::Big);
+        first.ifd0 = vec![(0x0110, V::Ascii("Camera One"))];
+        let with_gps = tiff();
+
+        let mut data = jpeg_with_exif(Some(&build(first)));
+        // Insert a second APP1 EXIF right after the first one.
+        let sof = data.windows(2).position(|w| w == [0xFF, 0xDB]).unwrap();
+        let mut app1 = vec![0xFF, 0xE1];
+        app1.extend_from_slice(&((with_gps.len() + 8) as u16).to_be_bytes());
+        app1.extend_from_slice(b"Exif\0\0");
+        app1.extend_from_slice(&with_gps);
+        data.splice(sof..sof, app1);
+
+        let doc = parse_jpeg(&data);
+        assert_eq!(
+            doc.facts.camera.as_ref().unwrap().text,
+            "Camera One",
+            "the first segment wins"
+        );
+        assert!(
+            doc.facts.location.is_some(),
+            "the location comes from the second"
+        );
+    }
+
+    #[test]
+    fn an_xmp_packet_is_shown_as_text() {
+        let seg = |payload: &[u8]| {
+            let mut out = vec![0xFF, 0xE1];
+            out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+            out.extend_from_slice(payload);
+            out
+        };
+        let mut xmp = b"http://ns.adobe.com/xap/1.0/\0".to_vec();
+        xmp.extend_from_slice(b"<x:xmpmeta><rdf:RDF/></x:xmpmeta>");
+        let mut data = vec![0xFF, 0xD8];
+        data.extend(seg(&xmp));
+        data.extend_from_slice(&[0xFF, 0xD9]);
+
+        let doc = parse_jpeg(&data);
+        let packet = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.label == "packet")
+            .unwrap();
+        assert_eq!(
+            packet.value,
+            Some(Value::Text("<x:xmpmeta><rdf:RDF/></x:xmpmeta>".into()))
+        );
+        // SOI, then APP1 marker and length, then the 29-byte identifier.
+        assert_eq!(packet.range.start, 2 + 4 + 29);
     }
 
     #[test]

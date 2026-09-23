@@ -118,6 +118,31 @@ impl ParseTree {
         self.nodes.is_empty()
     }
 
+    /// Copies every node below `other`'s root under `parent`, shifting ranges
+    /// by `offset`: a file embedded in this one, parsed on its own, placed
+    /// where its bytes actually are.
+    pub fn graft(&mut self, parent: NodeId, other: &ParseTree, offset: u64) {
+        let Some(root) = other.root() else { return };
+        let mut stack: Vec<(NodeId, NodeId)> = other
+            .get(root)
+            .children
+            .iter()
+            .rev()
+            .map(|&c| (c, parent))
+            .collect();
+        while let Some((id, into)) = stack.pop() {
+            let n = other.get(id);
+            let copy = self.add(
+                Some(into),
+                n.label.clone(),
+                ByteRange::new(n.range.start + offset, n.range.len),
+                n.kind,
+                n.value.clone(),
+            );
+            stack.extend(n.children.iter().rev().map(|&c| (c, copy)));
+        }
+    }
+
     /// Nodes in insertion order. Used by the WASM bridge to flatten the tree.
     pub fn nodes(&self) -> &[Node] {
         &self.nodes
@@ -151,6 +176,50 @@ mod tests {
         assert_eq!(tree.get(field).parent, Some(root));
         assert_eq!(tree.get(field).value, Some(Value::U64(1920)));
         assert_eq!(tree.len(), 2);
+    }
+
+    #[test]
+    fn graft_copies_a_subtree_with_shifted_ranges_in_order() {
+        let mut inner = ParseTree::new();
+        let r = inner.add(
+            None,
+            "JPEG",
+            ByteRange::new(0, 10),
+            NodeKind::Container,
+            None,
+        );
+        let a = inner.add(Some(r), "SOI", ByteRange::new(0, 2), NodeKind::Field, None);
+        let b = inner.add(
+            Some(r),
+            "APP0",
+            ByteRange::new(2, 8),
+            NodeKind::Container,
+            None,
+        );
+        inner.add(
+            Some(b),
+            "length",
+            ByteRange::new(4, 2),
+            NodeKind::Field,
+            None,
+        );
+        let _ = a;
+
+        let mut outer = ParseTree::new();
+        let root = outer.add(
+            None,
+            "thumbnail",
+            ByteRange::new(100, 10),
+            NodeKind::Container,
+            None,
+        );
+        outer.graft(root, &inner, 100);
+
+        let labels: Vec<&str> = outer.nodes().iter().map(|n| n.label.as_str()).collect();
+        assert_eq!(labels, ["thumbnail", "SOI", "APP0", "length"]);
+        let length = &outer.nodes()[3];
+        assert_eq!(length.range, ByteRange::new(104, 2));
+        assert_eq!(outer.get(length.parent.unwrap()).label, "APP0");
     }
 
     #[test]

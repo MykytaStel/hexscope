@@ -307,6 +307,20 @@ fn the_sample_photo_reveals_what_an_independent_reader_sees() {
     assert_eq!(loc.altitude, Some(35.0));
     assert!(f.thumbnail.is_some(), "the embedded thumbnail is found");
 
+    // The thumbnail is parsed as a JPEG of its own, placed on its real bytes.
+    let thumb = jpeg.tree.get(f.thumbnail.as_ref().unwrap().node);
+    let inside: Vec<&str> = thumb
+        .children
+        .iter()
+        .map(|&c| jpeg.tree.get(c).label.as_str())
+        .collect();
+    assert_eq!(inside.first(), Some(&"SOI"), "{inside:?}");
+    assert_eq!(inside.last(), Some(&"EOI"), "{inside:?}");
+    for &c in &thumb.children {
+        let r = jpeg.tree.get(c).range;
+        assert!(r.start >= thumb.range.start && r.end() <= thumb.range.end());
+    }
+
     let errors: Vec<&str> = jpeg
         .tree
         .nodes()

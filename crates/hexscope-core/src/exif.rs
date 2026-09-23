@@ -36,6 +36,21 @@ pub struct PhotoFacts {
     pub thumbnail: Option<Fact>,
 }
 
+impl PhotoFacts {
+    /// Takes whatever this set lacks from `other`, keeping what it already
+    /// has: some tools write a second EXIF segment of their own.
+    pub fn fill_from(&mut self, other: PhotoFacts) {
+        self.camera = self.camera.take().or(other.camera);
+        self.lens = self.lens.take().or(other.lens);
+        self.serial = self.serial.take().or(other.serial);
+        self.owner = self.owner.take().or(other.owner);
+        self.software = self.software.take().or(other.software);
+        self.taken = self.taken.take().or(other.taken);
+        self.location = self.location.take().or(other.location);
+        self.thumbnail = self.thumbnail.take().or(other.thumbnail);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fact {
     pub text: String,
@@ -635,6 +650,18 @@ fn list(values: &[f64], count: u32) -> String {
 /// file offset `base`, adding nodes under `parent`. Never panics: a damaged
 /// block yields as much as can be read plus error nodes on the damage.
 pub fn parse_tiff(tree: &mut ParseTree, parent: NodeId, data: &[u8], base: u64) -> PhotoFacts {
+    parse_tiff_at(tree, parent, data, base, 0)
+}
+
+/// `depth` counts how many files deep this one is embedded, so a thumbnail
+/// carrying its own thumbnail cannot recurse without end.
+pub(crate) fn parse_tiff_at(
+    tree: &mut ParseTree,
+    parent: NodeId,
+    data: &[u8],
+    base: u64,
+    depth: u8,
+) -> PhotoFacts {
     let mut r = Reader::new(data);
     let order = match r.array::<2>() {
         Ok(ref b) if b == b"II" => ByteOrder::Little,
@@ -750,7 +777,9 @@ pub fn parse_tiff(tree: &mut ParseTree, parent: NodeId, data: &[u8], base: u64) 
             continue;
         }
         visited.push(off);
-        walk_ifd(tree, parent, &t, off, kind, pointer, &mut queue, &mut found);
+        walk_ifd(
+            tree, parent, &t, off, kind, pointer, &mut queue, &mut found, depth,
+        );
     }
 
     found.facts()
@@ -766,6 +795,7 @@ fn walk_ifd(
     pointer: ByteRange,
     queue: &mut Vec<(u64, Ifd, ByteRange)>,
     found: &mut Found,
+    depth: u8,
 ) {
     let mut r = t.at(off);
     let Some(declared) = t.u16(&mut r).filter(|_| t.fits(off, 2)) else {
@@ -930,6 +960,16 @@ fn walk_ifd(
                 NodeKind::Container,
                 Some(Value::Bytes(len)),
             );
+            // A thumbnail is a JPEG in its own right, and sometimes keeps what
+            // an edit removed from the main image: parse it, one level deep.
+            let mut r = t.at(o);
+            if depth == 0
+                && let Ok(bytes) = r.bytes(len as usize)
+                && bytes.starts_with(&crate::jpeg::MAGIC)
+            {
+                let inner = crate::jpeg::parse_jpeg_at(bytes, depth + 1);
+                tree.graft(thumb, &inner.tree, t.base + o);
+            }
             found.thumbnail = Some(Fact {
                 text: format!("embedded JPEG, {len} bytes"),
                 node: thumb,
