@@ -99,9 +99,18 @@ read, Warning means they were read but break the format.
 | EOCD counts disagree with the records read | Warning | the count field |
 | Encrypted entry (flag bit 0) | none; the entry's value says "encrypted" | |
 
-**Limits.** At most 65,535 entries are read, or 1,000,000 with ZIP64. Past
-that, a Warning says where reading stopped. Names are capped at 1 KB for
-display. `extract` stops at the caller's limit: 512 MB for the player and
+**Limits.** At most 100,000 entries are read. Past that, a Warning says
+where reading stopped. The first 2,000 entries get a node for every header
+field; later ones get their entry, data and central record nodes only. Every
+field of every entry would come to about 36 nodes each: millions for a large
+archive, and hundreds of megabytes in a browser tab. Names are capped at 1 KB
+for display.
+
+**No EOCD.** A truncated archive, such as a partial download, has no end
+record. Local headers are then read one after another from the start. Each
+entry whose sizes are in its local header (flag bit 3 clear) is listed and
+can be extracted. Reading stops at the first entry whose end cannot be known
+from its local header. `extract` stops at the caller's limit: 512 MB for the player and
 for opening, the same limit PNG pixels use.
 
 ## Bridge and worker
