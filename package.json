@@ -1,0 +1,10 @@
+{
+  "name": "hexscope",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "wasm": "cargo build -p hexscope-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/hexscope_wasm.wasm --out-dir apps/web/src/wasm --target web",
+    "dev": "pnpm wasm && pnpm --filter web dev",
+    "build": "pnpm wasm && pnpm --filter web build"
+  }
+}
