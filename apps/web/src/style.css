@@ -147,6 +147,31 @@ input {
   overflow: hidden;
 }
 
+.crumb-back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.crumb-back:hover {
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  margin: 0 6px;
+  color: var(--faint);
+}
+
+.entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .filename {
   color: var(--text);
   font-weight: 600;

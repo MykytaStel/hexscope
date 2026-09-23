@@ -29,6 +29,8 @@ function call(req: Req): Promise<WorkerResponse> {
 }
 
 let model: FileModel | null = null;
+/** The documents above the one on screen: the file, then each entry opened. */
+let levels: { model: FileModel; selected: number }[] = [];
 let hover = -1;
 let selected = -1;
 let problemCursor = -1;
@@ -47,7 +49,12 @@ const hex = new HexView($("hex"), {
   onSelect: select,
 });
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
-const drawer = new Drawer($("drawer"), select, (entry) => void openPlayer(entry));
+const drawer = new Drawer(
+  $("drawer"),
+  select,
+  (entry) => void openPlayer(entry),
+  (entry) => void openEntry(entry),
+);
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {
@@ -169,9 +176,21 @@ function showFileInfo(m: FileModel): void {
   }
   chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
 
+  // The way back up: each archive above this document, then this one.
   const name = document.createElement("span");
   name.className = "filename";
-  name.textContent = m.name;
+  levels.forEach((level, depth) => {
+    const crumb = document.createElement("button");
+    crumb.className = "crumb-back";
+    crumb.textContent = level.model.name;
+    crumb.title = "Back to this file (Backspace goes up one)";
+    crumb.addEventListener("click", () => void back(depth));
+    const sep = document.createElement("span");
+    sep.className = "crumb-sep";
+    sep.textContent = "›";
+    name.append(crumb, sep);
+  });
+  name.append(m.name);
   const meta = document.createElement("span");
   meta.className = "meta";
   meta.textContent = chips.join("  ·  ");
@@ -200,24 +219,63 @@ async function load(file: File): Promise<void> {
     return;
   }
 
-  model = new FileModel(response.result, new Uint8Array(buffer), file.name);
+  levels = [];
+  show(new FileModel(response.result, new Uint8Array(buffer), file.name));
+  arrive();
+}
+
+/** Puts a document on screen, with nothing selected. */
+function show(m: FileModel): void {
+  model = m;
   hover = -1;
   selected = -1;
   problemCursor = -1;
   document.body.dataset.state = "ready";
+  drawer.nested = levels.length;
 
-  hex.setModel(model);
-  tree.setModel(model);
-  drawer.showFile(model);
-  drawer.showNode(model, -1, false);
-  showFileInfo(model);
+  hex.setModel(m);
+  tree.setModel(m);
+  drawer.showFile(m);
+  drawer.showNode(m, -1, false);
+  showFileInfo(m);
   updateProblems();
   playBtn.hidden = !canPlay();
+}
 
-  // Open on the answer to the question the person came with: a damaged file
-  // on its damage, a photo that records a place on that place.
+/** Opens on the answer to the question the person came with: a damaged file
+ * on its damage, a photo that records a place on that place. */
+function arrive(): void {
+  if (!model) return;
   if (model.problems.length > 0) nextProblem();
   else if (model.file.location) select(model.file.location.node);
+}
+
+/** Opens a ZIP entry as a document of its own, one level down. */
+async function openEntry(entry: number): Promise<void> {
+  const parent = model;
+  if (!parent) return;
+  const name = parent.label(parent.entry(entry).node);
+  closePlayer();
+  const r = await call({ type: "open", index: entry });
+  if (model !== parent) return;
+  if (r.type !== "opened") {
+    drawer.showNote(r.type === "error" ? r.message : "The entry could not be opened.");
+    return;
+  }
+  levels.push({ model: parent, selected });
+  show(new FileModel(r.result, r.bytes, name));
+  arrive();
+}
+
+/** Returns to the document at `depth` in the breadcrumbs, as it was left. */
+async function back(depth: number): Promise<void> {
+  if (depth >= levels.length) return;
+  closePlayer();
+  await call({ type: "back", depth });
+  const level = levels[depth];
+  levels = levels.slice(0, depth);
+  show(level.model);
+  if (level.selected >= 0) select(level.selected);
 }
 
 async function loadSample(path: string, name: string): Promise<void> {
@@ -272,6 +330,10 @@ window.addEventListener("keydown", (e) => {
     else select(-1);
   }
   if (e.key === "n" || e.key === "N") nextProblem();
+  if (e.key === "Backspace" && levels.length > 0) {
+    e.preventDefault();
+    void back(levels.length - 1);
+  }
   if ((e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
 });
 

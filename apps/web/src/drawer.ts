@@ -52,6 +52,19 @@ function playReason(e: ZipEntryInfo): string | null {
   return "Its data runs past the end of the file.";
 }
 
+/** How deep archives may nest on screen, matching the worker's limit. */
+const MAX_NESTING = 4;
+
+/** Why an entry cannot be opened as a file of its own, or null when it can. */
+function openReason(e: ZipEntryInfo, nested: number): string | null {
+  if (nested >= MAX_NESTING) return `Files nest at most ${MAX_NESTING} deep here.`;
+  if (e.openable) return null;
+  if (e.flags & 1) return "Encrypted: its bytes cannot be read without the password.";
+  if (e.method !== 0 && e.method !== 8) return "Compressed with a method this tool does not decompress.";
+  if (e.uncompressed === 0) return "Empty: there is nothing to open.";
+  return "Its data runs past the end of the file.";
+}
+
 const degrees = (v: number, pos: string, neg: string) =>
   `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
 
@@ -59,11 +72,14 @@ const degrees = (v: number, pos: string, neg: string) =>
 export class Drawer {
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
+  /** How many archives the document on screen sits inside. */
+  nested = 0;
 
   constructor(
     host: HTMLElement,
     private readonly onSelect: (id: number) => void,
     private readonly onPlay: (entry: number) => void,
+    private readonly onOpen: (entry: number) => void,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -166,6 +182,11 @@ export class Drawer {
     return group;
   }
 
+  /** A message in place of node details, such as why something did not open. */
+  showNote(text: string): void {
+    this.node.replaceChildren(el("p", "problem is-error", text));
+  }
+
   showNode(m: FileModel | null, id: number, pinned: boolean): void {
     this.node.replaceChildren();
     if (!m) return;
@@ -222,13 +243,20 @@ export class Drawer {
     }
     group.append(grid);
 
-    const reason = playReason(e);
-    const play = el("button", "btn btn-play", "Watch it decompress");
-    play.disabled = reason !== null;
-    play.title = reason ?? "Step through this entry's DEFLATE data (P)";
-    play.addEventListener("click", () => this.onPlay(i));
-    group.append(play);
-    if (reason) group.append(el("p", "hint", reason));
+    const actions = el("div", "entry-actions");
+    const button = (text: string, reason: string | null, title: string, act: () => void) => {
+      const b = el("button", "btn", text);
+      b.disabled = reason !== null;
+      b.title = reason ?? title;
+      b.addEventListener("click", act);
+      actions.append(b);
+    };
+    const playWhy = playReason(e);
+    const openWhy = openReason(e, this.nested);
+    button("Watch it decompress", playWhy, "Step through this entry's DEFLATE data (P)", () => this.onPlay(i));
+    button("Open", openWhy, "Open this entry as a file of its own", () => this.onOpen(i));
+    group.append(actions);
+    for (const why of new Set([playWhy, openWhy])) if (why) group.append(el("p", "hint", why));
     return group;
   }
 }

@@ -20,7 +20,7 @@ export interface ParsedFile {
   segments: Float64Array;
   /** Bytes of wrapper before its DEFLATE data: 2 for zlib, 0 for a ZIP entry. */
   streamHeader: number;
-  /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable. */
+  /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable, openable. */
   entries: Float64Array;
   format: "png" | "jpeg" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
@@ -32,7 +32,7 @@ export interface ParsedFile {
 }
 
 /** Numbers per entry in `ParsedFile.entries`. */
-const ENTRY_STRIDE = 6;
+const ENTRY_STRIDE = 7;
 
 export interface ZipEntryInfo {
   node: number;
@@ -41,6 +41,7 @@ export interface ZipEntryInfo {
   compressed: number;
   uncompressed: number;
   playable: boolean;
+  openable: boolean;
 }
 
 export interface PhotoFact {
@@ -226,7 +227,7 @@ export class FileModel {
 
   entry(i: number): ZipEntryInfo {
     const e = this.file.entries.subarray(i * ENTRY_STRIDE, (i + 1) * ENTRY_STRIDE);
-    return { node: e[0], method: e[1], flags: e[2], compressed: e[3], uncompressed: e[4], playable: e[5] === 1 };
+    return { node: e[0], method: e[1], flags: e[2], compressed: e[3], uncompressed: e[4], playable: e[5] === 1, openable: e[6] === 1 };
   }
 
   /** Whether the file has a compressed stream the player can step through. */
