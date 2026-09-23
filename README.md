@@ -52,7 +52,7 @@ Implemented and tested:
 | Fuzzing, property tests, benchmark, CI | done |
 | WASM bridge and web interface | not started |
 
-**77 tests** (68 unit, 6 golden, 3 property). Validated against the full
+**80 tests** (69 unit, 8 golden, 3 property). Validated against the full
 [PngSuite](http://www.schaik.com/pngsuite/) conformance corpus — 176 files,
 including all 14 intentionally corrupt ones, every one of which is flagged
 rather than silently accepted.
