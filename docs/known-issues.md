@@ -65,10 +65,9 @@ to extend the header parsing has no local signal that the guard is load-bearing.
 
 - **Warning/Error drift.** A malformed tEXt or PLTE is a `Warning`; a truncated
   IHDR, gAMA or pHYs is an `Error`. All five are the same class of damage.
-- **Three conventions for "about the whole file".** `no IDAT` uses
-  `(0, len)`, `no IEND` uses `(len, 0)`, pipeline errors use `(0, 0)`. Once the
-  interval index exists, the first makes every byte in such a file hover into a
-  warning.
+- ~~**Three conventions for "about the whole file".**~~ Fixed for the harmful
+  case: `no IDAT` was `(0, len)`, which would have made every byte hover into
+  the warning. It is now zero-length. `no IEND` still sits at `(len, 0)`.
 - **`gamma` and `gammaDecimal` share a byte range**, which makes a
   byte-to-node lookup arbitrary. The decimal form belongs in the value, not as
   a sibling node.
@@ -83,9 +82,17 @@ to extend the header parsing has no local signal that the guard is load-bearing.
   first.
 - **`next_chunk` copies every payload to compute its CRC**, a 10 MB
   allocation and copy for a large IDAT, on the path the budget measures.
-- **`Chunk::kind_str` maps bytes through `as char`**, so a corrupt chunk type
-  becomes a label containing control characters that goes straight to the UI.
+- **`Chunk::kind_str` maps bytes through `as char`.** Mitigated: the WASM
+  bridge replaces every control character before labels reach the UI. The
+  core's own labels are still raw.
 - **`fuzz/Cargo.toml` has no `license` field.**
 - **Performance headroom is thin.** 276 ms against a 300 ms budget. The
   bitwise CRC-32 and the one-bit-at-a-time `BitReader` are both deliberately
   unoptimised and are the first places to look.
+- **IDAT has no children, so hovering any IDAT byte selects the whole chunk.**
+  Same root cause as the item above about IDAT structure; visible now that the
+  UI exists.
+- **The structure tree is not virtualised.** 1,334 rows for the 10 MB test file
+  render fine; a file with tens of thousands of chunks would not.
+- **Deploying the web app.** GitHub Pages on a private repository needs a paid
+  plan; the app is a static build, so any static host works.

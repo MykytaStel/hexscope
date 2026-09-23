@@ -8,10 +8,9 @@ bytes each field occupies, and — the part no other tool does — the compressi
 algorithm running step by step, with arrows from each back-reference to the
 bytes it copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Status: the parsing core is complete. There is no user interface yet.**
-> `hexscope-core` parses PNG end to end — structure, damage, decoded pixels and
-> a step-by-step DEFLATE trace — but nothing renders it. See
-> [Where this actually is](#where-this-actually-is).
+> **Status: first working slice.** Drop a PNG into the browser and explore its
+> structure, bytes and damage. The step-by-step DEFLATE animation — the part
+> no other tool has — is next. See [Where this actually is](#where-this-actually-is).
 
 ## Why
 
@@ -50,7 +49,9 @@ Implemented and tested:
 | zlib wrapper, scanline unfiltering, pixel output | done |
 | `parse_png` end-to-end + PngSuite golden tests | done |
 | Fuzzing, property tests, benchmark, CI | done |
-| WASM bridge and web interface | not started |
+| WASM bridge (parsing in a Web Worker) | done |
+| Web interface: tree, hex canvas, details, hover linking, problem navigation | done |
+| DEFLATE step animation | not started |
 
 **80 tests** (69 unit, 8 golden, 3 property). Validated against the full
 [PngSuite](http://www.schaik.com/pngsuite/) conformance corpus — 176 files,
@@ -64,6 +65,16 @@ but with little headroom. The bitwise CRC-32 and the one-bit-at-a-time
 if that margin needs to grow.
 `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
 `cargo check --target wasm32-unknown-unknown` are all clean.
+
+In the browser, measured on the same 10.3 MB file:
+
+| | Measured | Budget |
+|---|---|---|
+| Parse (WASM, in a worker) | ~247 ms | 300 ms |
+| Drop to first frame | ~344 ms | 1 s |
+| Scrolling | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
+| Hover to highlight | ~0.09 ms | 16 ms |
+| Whole app, gzipped | ~47 KB | — |
 
 Open findings from the final review are tracked in
 [`docs/known-issues.md`](docs/known-issues.md).
@@ -85,7 +96,19 @@ Three constraints shape the whole crate:
 - **No runtime dependencies for parsing.** `flate2` is a dev-dependency only,
   used as an oracle to check our own inflate against a reference.
 
-## Build
+## Run it
+
+Needs Rust with the `wasm32-unknown-unknown` target, Node, pnpm, and the
+wasm-bindgen CLI at the exact version the crate pins:
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.128 --locked
+pnpm install
+pnpm dev
+```
+
+## Build and test
 
 ```bash
 cargo test --all
