@@ -9,16 +9,29 @@ about whoever took it, and — the part no other tool does — a PNG's compressi
 running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Status:** PNG and JPEG are supported. Not deployed yet — see
+> **Status:** PNG, JPEG and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
+> `.epub`) are supported. Not deployed yet — see
 > [Deploying](#deploying).
 
 ## What it does
 
-**Opens any PNG or JPEG, broken or not.** A damaged file is the normal case,
-not the error case: hexscope always shows the full structure, with every
+**Opens any PNG, JPEG or ZIP, broken or not.** A damaged file is the normal
+case, not the error case: hexscope always shows the full structure, with every
 problem marked on the exact bytes. A broken file opens on its first problem;
 **N** steps through the rest. Anything else is named when its signature is
-familiar — a PDF, a ZIP, an iPhone's HEIC photo — rather than just refused.
+familiar — a PDF, a gzip, an iPhone's HEIC photo — rather than just refused.
+
+**Takes archives apart, and what is inside them.** A ZIP — and so a Word
+document, a spreadsheet, an Android app, a Java archive, an e-book — is read
+the way `unzip` reads it, in file order. The tree names what an archive can
+hide: data before it (a self-extractor, or a file that is two formats at
+once), local headers that disagree with the central directory (the trick
+behind APK signature bypasses), entries whose bytes overlap (a zip-bomb
+technique), bytes nothing points at. A truncated download still lists every
+entry it can. Any deflated entry plays in the DEFLATE player; *Open* shows an
+entry as a file of its own — a photo inside a Word document gets its own EXIF
+card — with breadcrumbs back (**Backspace** goes up one). An Office document
+shows who wrote it, who saved it last, when, with what, for which company.
 
 **Shows what a photo reveals.** Drop a JPEG and hexscope reads its EXIF:
 where it was taken, the camera and lens, their serial numbers, the owner's
@@ -32,7 +45,7 @@ details panel says what it is, and the status bar shows its offset and path.
 Hover a tree row and its bytes light up. Click to pin.
 
 **Plays the decompression.** *Watch it decompress* (or **P**) turns the bottom
-panel into a player for the PNG's DEFLATE stream:
+panel into a player for a PNG's DEFLATE stream, or a ZIP entry's:
 
 - each step in plain words — a literal written as is, N bytes copied from M
   bytes back, a new block and its kind — and how many bits it read;
@@ -53,9 +66,10 @@ panel into a player for the PNG's DEFLATE stream:
 | **Space** | play / pause |
 | **←** **→** | one step (with **Shift**, ten) |
 | **Home** **End** | first / last step |
-| **P** | open the player |
+| **P** | open the player (for a ZIP, on the selected entry) |
 | **N** | next problem |
 | **Esc** | close the player, or clear the selection |
+| **Backspace** | back out of a file opened inside an archive |
 
 ## Why
 
@@ -169,7 +183,7 @@ so a deploy is one step added to the `web` job once a host is chosen.
 1. **PNG** — structure, damage, pixels, the DEFLATE player. *Done.*
 2. **EXIF from JPEG** — what a photo reveals, on its bytes. *Done.*
 3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
-   recursion into nested files.
+   recursion into nested files. *Done.*
 4. **WebAssembly binaries.**
 5. **Full JPEG decoding.**
 

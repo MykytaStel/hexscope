@@ -19,7 +19,17 @@ opaque byte range.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
 
+**Other ZIP compression methods.** Stored and deflated entries open and play;
+Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed, and
+encrypted entries are marked but not read. Multi-disk archives are named and
+read no further.
+
 ## Limits by design
+
+**Large archives.** Up to 100,000 entries are read. Past the first 2,000,
+entries get no field-level nodes, only their entry, data and central record:
+every field of every entry would be millions of nodes, which a browser tab
+cannot hold comfortably. Opened files nest at most four deep.
 
 **The interface is built for pointing devices.** Below 900 px the panes stack
 and the byte view drops to 8 bytes per row, so it works on a phone, but hover
