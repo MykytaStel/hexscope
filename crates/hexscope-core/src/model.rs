@@ -39,9 +39,14 @@ pub enum NodeKind {
     Container,
     /// A decoded leaf value.
     Field,
-    /// File is readable but suspicious, e.g. a CRC mismatch.
+    /// The bytes were read, but they break a rule of the format or look
+    /// wrong: a CRC mismatch, an undefined enum value, a damaged signature.
+    /// Nothing is lost.
     Warning,
-    /// This region could not be read; parsing continued elsewhere.
+    /// These bytes could not be read as what they claim to be — truncated,
+    /// out of range, undecodable. Parsing continued elsewhere.
+    ///
+    /// A tool limitation is neither: it is not a problem with the file.
     Error,
 }
 

@@ -766,12 +766,13 @@ pub(crate) fn parse_tiff_at(
         }
         if visited.contains(&off) {
             // A chain that leads back to an IFD already read would otherwise
-            // be followed forever.
+            // be followed forever. Nothing is lost — that IFD was read — so
+            // this is a warning, not an error.
             tree.add(
                 Some(parent),
                 format!("{} points back to an IFD already read", kind.label()),
                 pointer,
-                NodeKind::Error,
+                NodeKind::Warning,
                 None,
             );
             continue;
@@ -1258,7 +1259,7 @@ mod tests {
         assert!(
             tree.nodes()
                 .iter()
-                .any(|n| n.kind == NodeKind::Error && n.label.contains("points back"))
+                .any(|n| n.kind == NodeKind::Warning && n.label.contains("points back"))
         );
     }
 

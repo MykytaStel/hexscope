@@ -170,14 +170,17 @@ fn valid_files_are_never_reported_as_damaged() {
         checked += 1;
 
         let doc = parse_png(&fs::read(&path).unwrap());
-        let errors: Vec<&str> = doc
+        // Warnings count too: the interface shows both as problems, and a
+        // valid file has none. This once missed an 'interlaced image' warning
+        // that made every valid interlaced PNG open on a phantom problem.
+        let problems: Vec<&str> = doc
             .tree
             .nodes()
             .iter()
-            .filter(|n| n.kind == NodeKind::Error)
+            .filter(|n| matches!(n.kind, NodeKind::Warning | NodeKind::Error))
             .map(|n| n.label.as_str())
             .collect();
-        assert!(errors.is_empty(), "{name} falsely reported: {errors:?}");
+        assert!(problems.is_empty(), "{name} falsely reported: {problems:?}");
     }
 
     assert!(checked > 100, "only checked {checked} valid files");

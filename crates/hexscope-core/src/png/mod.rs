@@ -61,11 +61,13 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         // "PNG" intact but the rest damaged — the classic result of a
         // text-mode transfer. Worth reporting, and worth reading on.
         Ok(sig) if sig.get(1..4) == Some(b"PNG") => {
+            // Read fine, just wrong — a warning under the NodeKind rule, and
+            // parsing carries on.
             tree.add(
                 Some(root),
                 "damaged PNG signature",
                 ByteRange::new(0, 8),
-                NodeKind::Error,
+                NodeKind::Warning,
                 None,
             );
         }
@@ -413,16 +415,10 @@ fn decode_pixels(
     };
     let trace = Some(summary);
 
-    // Interlaced images use a seven-pass layout; v1 decompresses them, so the
-    // DEFLATE trace still works, but does not reassemble the pixels.
+    // Interlaced images use a seven-pass layout that v1 does not reassemble.
+    // That is a limit of this tool, not a problem with the file, so it adds
+    // no node: the file summary already says the image is interlaced.
     if ihdr.interlace != 0 {
-        tree.add(
-            Some(root),
-            "interlaced image: pixel preview unavailable",
-            ByteRange::new(0, 0),
-            NodeKind::Warning,
-            None,
-        );
         return Decoded {
             trace,
             inflated: Some(raw),
