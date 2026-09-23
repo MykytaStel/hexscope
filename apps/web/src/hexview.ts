@@ -1,3 +1,4 @@
+import { HEX, MONO, themeColors } from "./canvas";
 import { FileModel, Kind, type Tint } from "./model";
 
 export interface HexCallbacks {
@@ -5,16 +6,12 @@ export interface HexCallbacks {
   onSelect(id: number): void;
 }
 
-const BYTES_PER_ROW = 16;
 const ROW_H = 22;
 const FONT_PX = 13;
 const PAD_X = 20;
 const PAD_Y = 14;
 /** Browsers cap element height; past this the scrollbar maps proportionally. */
 const MAX_SCROLL_PX = 8_000_000;
-const MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
-
-const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase());
 const TINTS: Tint[] = ["sig", "ihdr", "plte", "idat", "iend", "text", "anc", "gps", "warning", "error"];
 
 /** Fill styles per tint at each emphasis level, precomputed once per theme. */
@@ -29,13 +26,8 @@ interface Palette {
 }
 
 function readPalette(): Palette {
-  const css = getComputedStyle(document.documentElement);
-  const v = (name: string) => css.getPropertyValue(name).trim();
+  const { v, rgba } = themeColors();
   const alpha = (name: string) => parseFloat(v(name));
-  const rgba = (hex: string, a: number) => {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-  };
 
   const fill = {} as Palette["fill"];
   for (const t of TINTS) {
@@ -79,6 +71,10 @@ export class HexView {
   private viewW = 0;
   private viewH = 0;
   private ch = 8;
+  /** 16 bytes per row, or 8 when 16 would not fit the width. */
+  private perRow = 16;
+  /** Hex digits in the offset column: enough for the file, at least six. */
+  private offsetDigits = 8;
 
   constructor(
     host: HTMLElement,
@@ -112,6 +108,7 @@ export class HexView {
     this.hover = -1;
     this.selected = -1;
     this.head = [-1, -1];
+    this.offsetDigits = Math.max(6, (model?.bytes.length ?? 0).toString(16).length);
     this.scroller.scrollTop = 0;
     this.resize();
   }
@@ -144,7 +141,7 @@ export class HexView {
   /** Brings a byte into view unless it is already visible. */
   revealOffset(offset: number, smooth: boolean): void {
     if (!this.model || offset < 0) return;
-    const row = Math.floor(offset / BYTES_PER_ROW);
+    const row = Math.floor(offset / this.perRow);
     const top = this.contentTop();
     const rowY = PAD_Y + row * ROW_H;
     if (rowY >= top + ROW_H && rowY + ROW_H * 2 <= top + this.viewH) return;
@@ -160,7 +157,7 @@ export class HexView {
   // --- geometry ---------------------------------------------------------
 
   private get rows(): number {
-    return this.model ? Math.ceil(this.model.bytes.length / BYTES_PER_ROW) : 0;
+    return this.model ? Math.ceil(this.model.bytes.length / this.perRow) : 0;
   }
 
   private get contentH(): number {
@@ -185,12 +182,17 @@ export class HexView {
   }
 
   private hexX(i: number): number {
-    const base = PAD_X + this.ch * 11;
+    const base = PAD_X + this.ch * (this.offsetDigits + 3);
     return base + i * this.ch * 3 + (i >= 8 ? this.ch : 0);
   }
 
   private asciiX(i: number): number {
-    return this.hexX(16) + this.ch * 2 + i * this.ch;
+    return this.hexX(this.perRow) + this.ch * 2 + i * this.ch;
+  }
+
+  /** Width the grid needs at a given number of bytes per row. */
+  private widthFor(perRow: number): number {
+    return PAD_X * 2 + this.ch * (this.offsetDigits + 3 + perRow * 3 + (perRow > 8 ? 1 : 0) + 2 + perRow);
   }
 
   private resize(): void {
@@ -204,9 +206,21 @@ export class HexView {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.font = `${FONT_PX}px ${MONO}`;
     this.ch = this.ctx.measureText("0").width;
+    const perRow = this.viewW >= this.widthFor(16) ? 16 : 8;
+    // Keep the same byte at the top of the view if the row width changes.
+    const keepByte =
+      perRow !== this.perRow
+        ? Math.max(0, Math.floor((this.contentTop() - PAD_Y) / ROW_H)) * this.perRow
+        : -1;
+    this.perRow = perRow;
 
     const virtualH = this.scaled ? MAX_SCROLL_PX : this.contentH;
     this.spacer.style.height = `${Math.max(0, virtualH - this.viewH)}px`;
+    // Only now that the scroll height matches the new rows can the position
+    // be restored without the browser clamping it.
+    if (keepByte >= 0) {
+      this.scroller.scrollTop = this.toScrollTop(PAD_Y + Math.floor(keepByte / perRow) * ROW_H);
+    }
     this.schedule();
   }
 
@@ -219,7 +233,7 @@ export class HexView {
 
     const row = Math.floor((this.contentTop() + y - PAD_Y) / ROW_H);
     let col = -1;
-    for (let i = 0; i < BYTES_PER_ROW; i++) {
+    for (let i = 0; i < this.perRow; i++) {
       const hx = this.hexX(i);
       const ax = this.asciiX(i);
       if ((x >= hx - this.ch * 0.5 && x < hx + this.ch * 2.5) || (x >= ax && x < ax + this.ch)) {
@@ -228,7 +242,7 @@ export class HexView {
       }
     }
 
-    const offset = col < 0 || row < 0 ? -1 : row * BYTES_PER_ROW + col;
+    const offset = col < 0 || row < 0 ? -1 : row * this.perRow + col;
     const id = offset >= 0 ? m.nodeAt(offset) : -1;
     this.canvas.style.cursor = id >= 0 ? "pointer" : "default";
     if (click) {
@@ -269,19 +283,19 @@ export class HexView {
     const ss = this.selected >= 0 ? m.start(this.selected) : -1;
     const se = this.selected >= 0 ? m.end(this.selected) : -1;
 
-    const ids = new Int32Array(BYTES_PER_ROW);
-    const levels = new Uint8Array(BYTES_PER_ROW);
+    const ids = new Int32Array(this.perRow);
+    const levels = new Uint8Array(this.perRow);
 
     for (let r = 0; r < visible; r++) {
       const row = firstRow + r;
       if (row >= this.rows) break;
       const y = yBase + r * ROW_H;
       const cy = y + ROW_H / 2;
-      const base = row * BYTES_PER_ROW;
-      const count = Math.min(BYTES_PER_ROW, bytes.length - base);
+      const base = row * this.perRow;
+      const count = Math.min(this.perRow, bytes.length - base);
 
       ctx.fillStyle = p.offset;
-      ctx.fillText(base.toString(16).padStart(8, "0").toUpperCase(), PAD_X, cy);
+      ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), PAD_X, cy);
 
       // Pass 1: owner and emphasis for each byte in the row.
       for (let i = 0; i < count; i++) {

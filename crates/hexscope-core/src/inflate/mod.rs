@@ -6,7 +6,7 @@ pub mod zlib;
 
 pub use engine::{BlockKind, Checkpoint, Decoder, EventSink, InflateEvent, NoTrace, Step, inflate};
 pub use huffman::Huffman;
-pub use trace::{CheckpointSink, TraceSummary};
+pub use trace::{BlockSpan, CheckpointSink, TraceSummary};
 pub use zlib::{adler32, zlib_decompress};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

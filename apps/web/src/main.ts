@@ -85,7 +85,7 @@ function describeOffset(offset: number): string {
     .slice(1)
     .map((id) => model!.label(id))
     .join(" › ");
-  return `0x${offset.toString(16).toUpperCase().padStart(8, "0")} · ${where || "PNG"}`;
+  return `0x${offset.toString(16).toUpperCase().padStart(8, "0")} · ${where || model.label(0)}`;
 }
 
 function setHover(id: number): void {

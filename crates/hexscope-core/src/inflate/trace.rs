@@ -1,4 +1,4 @@
-use crate::inflate::engine::{Checkpoint, EventSink, InflateEvent, Step};
+use crate::inflate::engine::{BlockKind, Checkpoint, EventSink, InflateEvent, Step};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraceSummary {
@@ -9,6 +9,21 @@ pub struct TraceSummary {
     /// to show a ratio.
     pub output_bytes: u64,
     pub checkpoints: Vec<Checkpoint>,
+    /// Every block the stream opened, in order.
+    pub blocks: Vec<BlockSpan>,
+    /// Where the last successful step ended. After a failure, the damage lies
+    /// here or just after.
+    pub last_bit: u64,
+}
+
+/// Where one DEFLATE block lies in the compressed stream, in bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockSpan {
+    pub kind: BlockKind,
+    /// The block header's first bit.
+    pub start_bit: u64,
+    /// Just past the end-of-block code; `None` if decoding stopped inside it.
+    pub end_bit: Option<u64>,
 }
 
 impl TraceSummary {
@@ -27,18 +42,22 @@ pub struct CheckpointSink {
     literals: u64,
     matches: u64,
     checkpoints: Vec<Checkpoint>,
+    blocks: Vec<BlockSpan>,
+    last_bit: u64,
 }
 
 impl CheckpointSink {
+    /// A checkpoint every `interval` steps; an interval of 0 is taken as 1.
     pub fn new(interval: u64) -> Self {
-        assert!(interval > 0, "checkpoint interval must be positive");
         Self {
-            interval,
+            interval: interval.max(1),
             index: 0,
             out_pos: 0,
             literals: 0,
             matches: 0,
             checkpoints: Vec::new(),
+            blocks: Vec::new(),
+            last_bit: 0,
         }
     }
 
@@ -49,6 +68,8 @@ impl CheckpointSink {
             matches: self.matches,
             output_bytes: self.out_pos,
             checkpoints: self.checkpoints,
+            blocks: self.blocks,
+            last_bit: self.last_bit,
         }
     }
 }
@@ -71,8 +92,18 @@ impl EventSink for CheckpointSink {
                 self.matches += 1;
                 self.out_pos += length as u64;
             }
-            InflateEvent::BlockStart { .. } | InflateEvent::BlockEnd => {}
+            InflateEvent::BlockStart { kind, .. } => self.blocks.push(BlockSpan {
+                kind,
+                start_bit: step.bit_start,
+                end_bit: None,
+            }),
+            InflateEvent::BlockEnd => {
+                if let Some(block) = self.blocks.last_mut() {
+                    block.end_bit = Some(step.bit_end);
+                }
+            }
         }
+        self.last_bit = step.bit_end;
         self.index += 1;
     }
 }

@@ -1,27 +1,22 @@
 pub mod chunks;
 pub mod fields;
+mod idat;
 pub mod unfilter;
 
-use crate::inflate::trace::{CheckpointSink, TraceSummary};
-use crate::inflate::zlib::zlib_decompress;
-use crate::inflate::{Decoder, InflateError};
+use crate::inflate::trace::TraceSummary;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::png::chunks::{ChunkError, PNG_SIGNATURE, next_chunk};
+use crate::png::chunks::{ChunkError, PNG_SIGNATURE, next_chunk, resync};
 use crate::png::fields::{
     Ihdr, decode_gama, decode_ihdr, decode_phys, decode_plte, decode_text, decode_trns,
 };
-use crate::png::unfilter::unfilter;
+use crate::png::idat::{IdatChunks, decode_pixels};
 use crate::reader::Reader;
 
 /// Caps decompressed IDAT output at 512 MB so a compression bomb cannot
 /// exhaust memory.
 pub const MAX_PIXEL_BYTES: u64 = 512 * 1024 * 1024;
 
-/// One checkpoint per 512 events keeps the list small while staying fine
-/// enough for a scrubber.
-const CHECKPOINT_INTERVAL: u64 = 512;
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PngDocument {
     pub tree: ParseTree,
     pub ihdr: Option<Ihdr>,
@@ -61,29 +56,19 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         // "PNG" intact but the rest damaged — the classic result of a
         // text-mode transfer. Worth reporting, and worth reading on.
         Ok(sig) if sig.get(1..4) == Some(b"PNG") => {
-            tree.add(
-                Some(root),
-                "damaged PNG signature",
-                ByteRange::new(0, 8),
-                NodeKind::Error,
-                None,
-            );
+            // Read fine, just wrong — a warning under the NodeKind rule, and
+            // parsing carries on.
+            tree.warning(root, "damaged PNG signature", ByteRange::new(0, 8));
         }
         _ => {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 "not a PNG signature",
                 ByteRange::new(0, data.len().min(8) as u64),
-                NodeKind::Error,
-                None,
             );
             return PngDocument {
                 tree,
-                ihdr: None,
-                pixels: None,
-                trace: None,
-                idat: Vec::new(),
-                inflated: None,
+                ..PngDocument::default()
             };
         }
     }
@@ -111,12 +96,21 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
                     ChunkError::Truncated => "truncated chunk",
                     ChunkError::LengthTooLarge => "chunk length out of range",
                 };
-                tree.add(
-                    Some(root),
+                // A corrupt length usually damages one chunk, not the file:
+                // resume at the next intact chunk if there is one.
+                if let Some(next) = resync(data, chunk_start + 1) {
+                    tree.error(
+                        root,
+                        format!("{label}: skipped to the next intact chunk"),
+                        ByteRange::new(chunk_start, next - chunk_start),
+                    );
+                    r.seek(next);
+                    continue;
+                }
+                tree.error(
+                    root,
                     label,
                     ByteRange::new(chunk_start, data.len() as u64 - chunk_start),
-                    NodeKind::Error,
-                    None,
                 );
                 break;
             }
@@ -130,16 +124,22 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
             Some(Value::Bytes(chunk.data.len() as u64)),
         );
 
+        if !chunk.kind_is_valid() {
+            tree.warning(
+                node,
+                "chunk type is not four ASCII letters",
+                ByteRange::new(chunk.range.start + 4, 4),
+            );
+        }
+
         if !chunk.crc_ok() {
-            tree.add(
-                Some(node),
+            tree.warning(
+                node,
                 format!(
                     "CRC mismatch: stored {:08X}, computed {:08X}",
                     chunk.declared_crc, chunk.actual_crc
                 ),
                 ByteRange::new(chunk.range.end() - 4, 4),
-                NodeKind::Warning,
-                None,
             );
         }
 
@@ -163,23 +163,19 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
     // A PNG without image data, or without a terminator, parses cleanly chunk
     // by chunk and is still not a usable file. Report it rather than shrug.
     if idat.is_empty() {
-        tree.add(
-            Some(root),
+        tree.warning(
+            root,
             "no IDAT chunk: the file carries no image data",
             // Zero-length: something absent has no bytes to point at, and a
             // whole-file range would swallow every hover in the hex view.
             ByteRange::new(0, 0),
-            NodeKind::Warning,
-            None,
         );
     }
     if !saw_iend {
-        tree.add(
-            Some(root),
+        tree.warning(
+            root,
             "no IEND chunk: the file does not end properly",
             ByteRange::new(data.len() as u64, 0),
-            NodeKind::Warning,
-            None,
         );
     }
 
@@ -196,162 +192,5 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         trace: decoded.trace,
         idat: idat_ranges,
         inflated: decoded.inflated,
-    }
-}
-
-#[derive(Default)]
-struct Decoded {
-    pixels: Option<Vec<u8>>,
-    trace: Option<TraceSummary>,
-    inflated: Option<Vec<u8>>,
-}
-
-/// The IDAT chunks, in file order: their tree nodes and payload ranges.
-struct IdatChunks<'a> {
-    nodes: &'a [NodeId],
-    ranges: &'a [ByteRange],
-}
-
-impl IdatChunks<'_> {
-    /// The chunk holding byte `n` of the reassembled zlib stream, and that
-    /// byte's file offset. Past the end, the last byte of the last chunk.
-    fn locate(&self, n: u64) -> Option<(NodeId, u64, ByteRange)> {
-        let mut before = 0u64;
-        for (&node, &range) in self.nodes.iter().zip(self.ranges) {
-            if n < before + range.len {
-                return Some((node, range.start + (n - before), range));
-            }
-            before += range.len;
-        }
-        let (&node, &range) = self.nodes.last().zip(self.ranges.last())?;
-        Some((node, range.end().saturating_sub(1).max(range.start), range))
-    }
-}
-
-/// Where in the zlib stream decompression went wrong, as a stream byte.
-fn failure_byte(stream: &[u8], err: InflateError) -> u64 {
-    match err {
-        InflateError::BadZlibHeader => 0,
-        // The DEFLATE data decoded; only the Adler-32 trailer disagrees.
-        InflateError::ChecksumMismatch => stream.len().saturating_sub(4) as u64,
-        _ => {
-            // Replay to find the first bit of the step that could not decode:
-            // the damage lies there or just after.
-            let Some(body) = stream.get(2..stream.len().saturating_sub(4)) else {
-                return 0;
-            };
-            let mut decoder = Decoder::new(body, MAX_PIXEL_BYTES);
-            let mut last_good = 0;
-            while let Some(Ok(step)) = decoder.step() {
-                last_good = step.bit_end;
-            }
-            2 + last_good / 8
-        }
-    }
-}
-
-fn decode_pixels(
-    idat: &[u8],
-    chunks: &IdatChunks,
-    ihdr: Option<Ihdr>,
-    tree: &mut ParseTree,
-    root: crate::model::NodeId,
-) -> Decoded {
-    let Some(ihdr) = ihdr else {
-        return Decoded::default();
-    };
-    if idat.is_empty() {
-        return Decoded::default();
-    }
-
-    let mut sink = CheckpointSink::new(CHECKPOINT_INTERVAL);
-    let raw = match zlib_decompress(idat, MAX_PIXEL_BYTES, &mut sink) {
-        Ok(raw) => raw,
-        Err(err) => {
-            // Point at the byte where decoding broke, inside the chunk that
-            // holds it: from there to the end of that chunk's data is what
-            // could not be read. Nested under the chunk, it never overlaps a
-            // sibling in the tree.
-            let at = failure_byte(idat, err);
-            let (parent, range) = match chunks.locate(at) {
-                Some((node, offset, chunk)) => {
-                    let len = if err == InflateError::ChecksumMismatch {
-                        4.min(chunk.end() - offset)
-                    } else {
-                        chunk.end() - offset
-                    };
-                    (node, ByteRange::new(offset, len))
-                }
-                None => (root, ByteRange::new(0, 0)),
-            };
-            tree.add(
-                Some(parent),
-                format!("IDAT decompression failed: {err:?}"),
-                range,
-                NodeKind::Error,
-                None,
-            );
-            return Decoded {
-                trace: Some(sink.finish()),
-                ..Decoded::default()
-            };
-        }
-    };
-    let trace = Some(sink.finish());
-
-    // Interlaced images use a seven-pass layout; v1 decompresses them, so the
-    // DEFLATE trace still works, but does not reassemble the pixels.
-    if ihdr.interlace != 0 {
-        tree.add(
-            Some(root),
-            "interlaced image: pixel preview unavailable",
-            ByteRange::new(0, 0),
-            NodeKind::Warning,
-            None,
-        );
-        return Decoded {
-            trace,
-            inflated: Some(raw),
-            ..Decoded::default()
-        };
-    }
-
-    let Some(stride) = ihdr.stride() else {
-        tree.add(
-            Some(root),
-            "image dimensions are too large to represent",
-            ByteRange::new(0, 0),
-            NodeKind::Error,
-            None,
-        );
-        return Decoded {
-            trace,
-            inflated: Some(raw),
-            ..Decoded::default()
-        };
-    };
-
-    match unfilter(&raw, stride, ihdr.height, ihdr.filter_distance()) {
-        Ok(pixels) => Decoded {
-            pixels: Some(pixels),
-            trace,
-            inflated: Some(raw),
-        },
-        Err(err) => {
-            // Unfiltering works on decompressed scanlines, which have no
-            // position in the file, so there are no bytes to point at.
-            tree.add(
-                Some(root),
-                format!("unfiltering failed: {err:?}"),
-                ByteRange::new(0, 0),
-                NodeKind::Error,
-                None,
-            );
-            Decoded {
-                trace,
-                inflated: Some(raw),
-                ..Decoded::default()
-            }
-        }
     }
 }

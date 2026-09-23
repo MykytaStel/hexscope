@@ -112,13 +112,7 @@ fn unknown(data: &[u8]) -> ParseTree {
             data.len().min(8) as u64,
         ),
     };
-    tree.add(
-        Some(root),
-        label,
-        ByteRange::new(0, len),
-        NodeKind::Error,
-        None,
-    );
+    tree.error(root, label, ByteRange::new(0, len));
     tree
 }
 

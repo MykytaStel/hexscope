@@ -3,7 +3,7 @@
 //! Pixels are not decoded. What matters here is the structure, the image
 //! dimensions, and the EXIF block most cameras and phones write into APP1.
 
-use crate::exif::{PhotoFacts, parse_tiff};
+use crate::exif::{PhotoFacts, parse_tiff_at};
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 
@@ -63,8 +63,40 @@ fn app_kind(payload: &[u8]) -> Option<&'static str> {
         .map(|(_, name)| *name)
 }
 
+/// The first position at or after `from` where a segment plausibly begins: a
+/// marker that can start one, followed by a length that fits in the file — or
+/// EOI. Used to resume after damage instead of abandoning the rest of the file.
+fn next_segment(data: &[u8], from: u64) -> Option<u64> {
+    let end = data.len() as u64;
+    let mut p = from;
+    while p + 2 <= end {
+        let mut r = Reader::new(data);
+        r.seek(p);
+        if let (Ok(0xFF), Ok(m)) = (r.u8(), r.u8()) {
+            if m == 0xD9 {
+                return Some(p);
+            }
+            if matches!(m, 0xC0..=0xFE)
+                && !matches!(m, 0xD0..=0xD8)
+                && let Ok(len) = r.u16_be()
+                && len >= 2
+                && p + 2 + len as u64 <= end
+            {
+                return Some(p);
+            }
+        }
+        p += 1;
+    }
+    None
+}
+
 /// Parses a JPEG. Never fails: damage becomes error nodes on the bytes.
 pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
+    parse_jpeg_at(data, 0)
+}
+
+/// `depth` is how many files deep this JPEG is embedded; see `parse_tiff_at`.
+pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
     let mut tree = ParseTree::new();
     let root = tree.add(
         None,
@@ -93,12 +125,10 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
             );
         }
         _ => {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 "not a JPEG: it must start with FF D8",
                 ByteRange::new(0, data.len().min(2) as u64),
-                NodeKind::Error,
-                None,
             );
             doc.tree = tree;
             return doc;
@@ -110,14 +140,21 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
         let start = r.pos();
         let Ok(first) = r.u8() else { break };
         if first != 0xFF {
-            // Without a marker there is no length to skip by, so the rest of
-            // the file cannot be walked.
-            tree.add(
-                Some(root),
+            // No marker, so no length to skip by: look for the next segment
+            // rather than give up on the rest of the file.
+            if let Some(next) = next_segment(data, start + 1) {
+                tree.error(
+                    root,
+                    format!("expected a marker, found 0x{first:02X}: skipped to the next segment"),
+                    ByteRange::new(start, next - start),
+                );
+                r.seek(next);
+                continue;
+            }
+            tree.error(
+                root,
                 format!("expected a marker, found 0x{first:02X}"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
@@ -130,12 +167,10 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
             }
         }
         if marker == 0xFF {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 "the file ends inside a marker",
                 ByteRange::new(start, r.pos() - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
@@ -168,33 +203,38 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
 
         let name = marker_name(marker);
         let Ok(len) = r.u16_be() else {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("{name} segment truncated before its length"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         };
         if len < 2 {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("{name} segment length {len} is less than 2"),
                 ByteRange::new(start, r.pos() - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
         let payload_start = r.pos();
         let Ok(payload) = r.bytes(len as usize - 2) else {
-            tree.add(
-                Some(root),
+            // Either the file is truncated or the length is corrupt. A later
+            // segment that fits tells them apart.
+            if let Some(next) = next_segment(data, start + 2) {
+                tree.error(
+                    root,
+                    format!("{name} segment length {len} is wrong: skipped to the next segment"),
+                    ByteRange::new(start, next - start),
+                );
+                r.seek(next);
+                continue;
+            }
+            tree.error(
+                root,
                 format!("{name} segment runs past the end of the file"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         };
@@ -225,7 +265,15 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
             Some(Value::U64(len as u64)),
         );
 
-        decode_segment(&mut tree, node, marker, payload, payload_start, &mut doc);
+        decode_segment(
+            &mut tree,
+            node,
+            marker,
+            payload,
+            payload_start,
+            &mut doc,
+            depth,
+        );
 
         if marker == 0xDA {
             // Scan data follows SOS, unframed: it ends at the first marker
@@ -248,12 +296,10 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
     }
 
     if !saw_eoi {
-        tree.add(
-            Some(root),
+        tree.warning(
+            root,
             "no EOI marker: the image never ends",
             ByteRange::new(data.len() as u64, 0),
-            NodeKind::Warning,
-            None,
         );
     } else if r.remaining() > 0 {
         // Some phones append data after EOI; so do files crafted to be two
@@ -289,18 +335,17 @@ fn decode_segment(
     payload: &[u8],
     at: u64,
     doc: &mut JpegDocument,
+    depth: u8,
 ) {
     let mut p = Reader::new(payload);
     if is_sof(marker) {
         let (Ok(precision), Ok(height), Ok(width), Ok(components)) =
             (p.u8(), p.u16_be(), p.u16_be(), p.u8())
         else {
-            tree.add(
-                Some(node),
+            tree.error(
+                node,
                 "SOF segment truncated",
                 ByteRange::new(at, payload.len() as u64),
-                NodeKind::Error,
-                None,
             );
             return;
         };
@@ -361,11 +406,30 @@ fn decode_segment(
             field(tree, node, "identifier", at, 6, Value::Text("Exif".into()));
             let _ = p.bytes(6);
             let tiff = p.rest();
-            let facts = parse_tiff(tree, node, tiff, at + 6);
-            if !doc.has_exif {
-                doc.facts = facts;
-                doc.has_exif = true;
-            }
+            let facts = parse_tiff_at(tree, node, tiff, at + 6, depth);
+            doc.facts.fill_from(facts);
+            doc.has_exif = true;
+        }
+        0xE1 if app_kind(payload) == Some("XMP") => {
+            // XMP is XML: show it as text rather than an opaque blob.
+            const ID: u64 = 29;
+            let _ = p.bytes(ID as usize);
+            let xml = String::from_utf8_lossy(p.rest());
+            let text: String = xml.trim().chars().take(4000).collect();
+            let shown = if xml.trim().chars().count() > 4000 {
+                format!("{text}…")
+            } else {
+                text
+            };
+            field(tree, node, "identifier", at, ID, Value::Text("XMP".into()));
+            field(
+                tree,
+                node,
+                "packet",
+                at + ID,
+                payload.len() as u64 - ID,
+                Value::Text(shown),
+            );
         }
         0xFE => {
             let text = String::from_utf8_lossy(p.rest()).trim().to_string();
@@ -538,6 +602,107 @@ mod tests {
             .unwrap();
         assert_eq!(extra.kind, NodeKind::Warning);
         assert_eq!(extra.range.len, appended.len() as u64);
+    }
+
+    #[test]
+    fn garbage_between_segments_is_skipped_not_fatal() {
+        let clean = jpeg_with_exif(None);
+        // Insert junk just before SOF0.
+        let sof = clean.windows(2).position(|w| w == [0xFF, 0xC0]).unwrap();
+        let mut data = clean[..sof].to_vec();
+        data.extend_from_slice(b"junk");
+        data.extend_from_slice(&clean[sof..]);
+
+        let doc = parse_jpeg(&data);
+        let l = labels(&doc);
+        assert!(
+            l.contains(&"SOF0".to_string()) && l.contains(&"EOI".to_string()),
+            "{l:?}"
+        );
+        let err = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.kind == NodeKind::Error)
+            .unwrap();
+        assert_eq!((err.range.start, err.range.len), (sof as u64, 4));
+        assert_eq!(doc.width, Some(640), "the frame header is still read");
+    }
+
+    #[test]
+    fn a_corrupt_segment_length_costs_one_segment() {
+        let mut data = jpeg_with_exif(None);
+        // DQT's length, made far too large.
+        let dqt = data.windows(2).position(|w| w == [0xFF, 0xDB]).unwrap();
+        data[dqt + 2] = 0x7F;
+        let doc = parse_jpeg(&data);
+        let l = labels(&doc);
+        assert!(
+            l.contains(&"SOF0".to_string()) && l.contains(&"EOI".to_string()),
+            "{l:?}"
+        );
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .any(|n| n.label.starts_with("DQT segment length"))
+        );
+    }
+
+    #[test]
+    fn a_second_exif_segment_fills_what_the_first_lacks() {
+        let mut first = Spec::new(ByteOrder::Big);
+        first.ifd0 = vec![(0x0110, V::Ascii("Camera One"))];
+        let with_gps = tiff();
+
+        let mut data = jpeg_with_exif(Some(&build(first)));
+        // Insert a second APP1 EXIF right after the first one.
+        let sof = data.windows(2).position(|w| w == [0xFF, 0xDB]).unwrap();
+        let mut app1 = vec![0xFF, 0xE1];
+        app1.extend_from_slice(&((with_gps.len() + 8) as u16).to_be_bytes());
+        app1.extend_from_slice(b"Exif\0\0");
+        app1.extend_from_slice(&with_gps);
+        data.splice(sof..sof, app1);
+
+        let doc = parse_jpeg(&data);
+        assert_eq!(
+            doc.facts.camera.as_ref().unwrap().text,
+            "Camera One",
+            "the first segment wins"
+        );
+        assert!(
+            doc.facts.location.is_some(),
+            "the location comes from the second"
+        );
+    }
+
+    #[test]
+    fn an_xmp_packet_is_shown_as_text() {
+        let seg = |payload: &[u8]| {
+            let mut out = vec![0xFF, 0xE1];
+            out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+            out.extend_from_slice(payload);
+            out
+        };
+        let mut xmp = b"http://ns.adobe.com/xap/1.0/\0".to_vec();
+        xmp.extend_from_slice(b"<x:xmpmeta><rdf:RDF/></x:xmpmeta>");
+        let mut data = vec![0xFF, 0xD8];
+        data.extend(seg(&xmp));
+        data.extend_from_slice(&[0xFF, 0xD9]);
+
+        let doc = parse_jpeg(&data);
+        let packet = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.label == "packet")
+            .unwrap();
+        assert_eq!(
+            packet.value,
+            Some(Value::Text("<x:xmpmeta><rdf:RDF/></x:xmpmeta>".into()))
+        );
+        // SOI, then APP1 marker and length, then the 29-byte identifier.
+        assert_eq!(packet.range.start, 2 + 4 + 29);
     }
 
     #[test]

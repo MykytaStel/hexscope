@@ -295,19 +295,22 @@ input {
 
 /* --- tree ----------------------------------------------------------------- */
 
+/* Rows are absolutely placed by the virtualised list; see tree.ts. */
 .tree {
-  padding: 8px 0;
+  position: relative;
   font: 12.5px/1 var(--mono);
 }
 
 .row {
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 6px;
   height: 26px;
   padding: 0 12px 0 calc(var(--depth) * 14px + 8px);
   cursor: pointer;
-  position: relative;
   white-space: nowrap;
 }
 
@@ -830,4 +833,56 @@ body.is-playing .drawer-file {
 
 body:has(.reveals) .layout {
   grid-template-rows: minmax(0, 1fr) 236px;
+}
+
+/* --- narrow windows ----------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .layout,
+  body.is-playing .layout,
+  body:has(.reveals) .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 22vh minmax(0, 1fr) auto;
+  }
+
+  .pane-tree {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pane-drawer,
+  .pane-drawer:has(.reveals),
+  .drawer-file:has(.reveals) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pane-drawer {
+    max-height: 32vh;
+    overflow: auto;
+  }
+
+  .drawer-file {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .topbar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+
+  .fileinfo .meta,
+  .btn-play .btn-label,
+  .location-badge .badge-label {
+    display: none;
+  }
+
+  .player-bar {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .player-speed input {
+    width: 90px;
+  }
 }
