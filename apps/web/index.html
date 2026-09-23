@@ -15,6 +15,10 @@
       </div>
       <div class="fileinfo" id="fileinfo"></div>
       <div class="actions">
+        <button id="location" class="location-badge" hidden title="This photo records where it was taken — click to see the bytes">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 8 1.5Zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4Z" /></svg>
+          Contains location
+        </button>
         <button id="problems" class="problems" hidden></button>
         <button id="play" class="btn btn-play" hidden title="Step through the DEFLATE decompression (P)">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 13.5 8 4 13.5z" /></svg>
@@ -38,14 +42,15 @@
     <div class="empty">
       <div class="empty-card">
         <svg class="empty-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
-        <h1>Drop a PNG to look inside it</h1>
-        <p>Every byte, what it means, and where the file is broken.<br />Nothing is uploaded — the file never leaves this tab.</p>
+        <h1>Drop a PNG or a JPEG to look inside it</h1>
+        <p>Every byte, what it means, where the file is broken — and what a photo says about who took it.<br />Nothing is uploaded: the file never leaves this tab.</p>
         <div class="empty-actions">
           <label class="btn btn-primary">
             Choose a file
             <input type="file" id="picker-empty" hidden />
           </label>
           <button class="btn" data-sample="samples/sample.png" data-name="sample.png">Try a sample</button>
+          <button class="btn" data-sample="samples/photo.jpg" data-name="photo.jpg">Try a photo</button>
           <button class="btn" data-sample="samples/broken.png" data-name="broken.png">Try a broken one</button>
         </div>
       </div>

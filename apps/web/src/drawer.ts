@@ -32,12 +32,28 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
   grid.append(el("dt", undefined, key), el("dd", mono ? "mono" : undefined, value));
 }
 
+const FACT_LABELS: Record<string, string> = {
+  camera: "Camera",
+  lens: "Lens",
+  serial: "Serial number",
+  owner: "Owner",
+  taken: "Taken",
+  software: "Software",
+  thumbnail: "Thumbnail",
+};
+
+const degrees = (v: number, pos: string, neg: string) =>
+  `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
+
 /** Details for one node on the left, facts about the whole file on the right. */
 export class Drawer {
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
 
-  constructor(host: HTMLElement) {
+  constructor(
+    host: HTMLElement,
+    private readonly onSelect: (id: number) => void,
+  ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
     host.append(this.node, this.file);
@@ -52,6 +68,7 @@ export class Drawer {
     fileGroup.append(el("h3", undefined, "File"));
     const grid = el("dl", "facts");
     fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
+    if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
     if (f.ihdr) {
       const [w, h, depth, color, interlace] = f.ihdr;
       fact(grid, "Image", `${w} × ${h}`);
@@ -61,6 +78,7 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
+    if (f.format === "jpeg") this.file.append(this.reveals(m));
 
     if (f.trace) {
       const [events, literals, matches, output] = f.trace;
@@ -92,6 +110,48 @@ export class Drawer {
         deflate.append(bar, legend);
       }
     }
+  }
+
+  /**
+   * What the photo's metadata gives away. Each fact is a link to the bytes
+   * that hold it; the map link sends the coordinates nowhere unless clicked.
+   */
+  private reveals(m: FileModel): HTMLElement {
+    const f = m.file;
+    const group = el("div", "group reveals");
+    group.append(el("h3", undefined, "What this photo reveals"));
+    if (!f.location && f.facts.length === 0) {
+      group.append(el("p", "hint", "No EXIF metadata: nothing about the camera, the time or the place."));
+      return group;
+    }
+
+    const list = el("dl", "reveal-list");
+    const row = (label: string, text: string, node: number, strong = false) => {
+      const dd = el("dd");
+      const link = el("button", strong ? "reveal-link is-strong" : "reveal-link", text);
+      link.title = "Show where in the file this is";
+      link.addEventListener("click", () => this.onSelect(node));
+      dd.append(link);
+      list.append(el("dt", strong ? "is-strong" : undefined, label), dd);
+      return dd;
+    };
+
+    if (f.location) {
+      const { latitude, longitude, altitude, node } = f.location;
+      const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}${
+        altitude !== null ? ` · ${Math.round(altitude)} m` : ""
+      }`;
+      const dd = row("Location", where, node, true);
+      const map = el("a", "map-link", "Open in OpenStreetMap ↗");
+      map.href = `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=17/${latitude.toFixed(6)}/${longitude.toFixed(6)}`;
+      map.target = "_blank";
+      map.rel = "noopener noreferrer";
+      map.title = "Opens openstreetmap.org in a new tab. The coordinates leave this page only if you click.";
+      dd.append(map);
+    }
+    for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
+    group.append(list);
+    return group;
   }
 
   showNode(m: FileModel | null, id: number, pinned: boolean): void {

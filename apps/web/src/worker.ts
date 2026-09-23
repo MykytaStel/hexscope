@@ -45,8 +45,27 @@ async function handle(req: WorkerRequest): Promise<void> {
       trace: null,
       idatBytes: parsed.idatBytes,
       segments: parsed.segments,
+      format: parsed.format as ParsedFile["format"],
+      dimensions: null,
+      facts: [],
+      location: null,
       parseMs: 0,
     };
+    const dims = Array.from(parsed.dimensions);
+    result.dimensions = dims.length === 2 ? [dims[0], dims[1]] : null;
+    const facts = parsed.facts ? parsed.facts.split(SEPARATOR) : [];
+    for (let i = 0; i + 2 < facts.length; i += 3) {
+      result.facts.push({ kind: facts[i], text: facts[i + 1], node: Number(facts[i + 2]) });
+    }
+    const loc = Array.from(parsed.location);
+    if (loc.length === 4) {
+      result.location = {
+        latitude: loc[0],
+        longitude: loc[1],
+        altitude: Number.isNaN(loc[2]) ? null : loc[2],
+        node: loc[3],
+      };
+    }
     const ihdr = Array.from(parsed.ihdr);
     const trace = Array.from(parsed.trace);
     result.ihdr = ihdr.length ? ihdr : null;
