@@ -236,7 +236,7 @@ fn idat_ranges_reassemble_the_zlib_stream() {
 }
 
 #[test]
-fn a_corrupt_idat_is_reported_at_the_idat_bytes() {
+fn a_corrupt_idat_is_reported_where_decoding_breaks() {
     let mut bytes = fixture("basn2c08.png");
     let idat = parse_png(&bytes).idat[0];
     for b in &mut bytes[idat.start as usize + 10..idat.start as usize + 20] {
@@ -250,6 +250,37 @@ fn a_corrupt_idat_is_reported_at_the_idat_bytes() {
         .iter()
         .find(|n| n.kind == NodeKind::Error && n.label.starts_with("IDAT decompression failed"))
         .expect("corrupt compressed data is reported");
-    // Previously this pointed at byte 0 with zero length.
-    assert_eq!(error.range, idat);
+
+    // Nested inside the IDAT chunk that holds the damage, never overlapping
+    // a sibling: the hex view's byte-to-node index relies on that.
+    let parent = doc.tree.get(error.parent.expect("has a parent"));
+    assert_eq!(parent.label, "IDAT");
+    assert!(error.range.start >= idat.start && error.range.end() <= idat.end());
+    // It ends where the chunk's data ends: everything from the break on is
+    // unreadable.
+    assert_eq!(error.range.end(), idat.end());
+    // And it starts no later than the corrupted bytes themselves.
+    assert!(
+        error.range.start <= idat.start + 20,
+        "error starts at {}",
+        error.range.start
+    );
+}
+
+#[test]
+fn a_bad_adler_checksum_points_at_the_trailer() {
+    let mut bytes = fixture("basn2c08.png");
+    let idat = parse_png(&bytes).idat[0];
+    // The last byte of the only IDAT payload is the last Adler-32 byte.
+    bytes[idat.end() as usize - 1] ^= 0xFF;
+
+    let doc = parse_png(&bytes);
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error && n.label.contains("ChecksumMismatch"))
+        .expect("checksum mismatch is reported");
+    assert_eq!(error.range.start, idat.end() - 4);
+    assert_eq!(error.range.len, 4);
 }
