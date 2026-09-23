@@ -213,3 +213,43 @@ fn every_non_interlaced_valid_file_decodes_to_pixels() {
 
     assert!(checked > 80, "only checked {checked} non-interlaced files");
 }
+
+#[test]
+fn idat_ranges_reassemble_the_zlib_stream() {
+    // The animation maps a bit in the zlib stream back to a byte in the file
+    // through these ranges, so they must be exactly the stream, in order.
+    let bytes = fixture("basn2c08.png");
+    let doc = parse_png(&bytes);
+    assert!(!doc.idat.is_empty());
+
+    let mut stream = Vec::new();
+    for r in &doc.idat {
+        stream.extend_from_slice(&bytes[r.start as usize..r.end() as usize]);
+    }
+    let out = hexscope_core::inflate::zlib_decompress(
+        &stream,
+        u64::MAX,
+        &mut hexscope_core::inflate::NoTrace,
+    )
+    .expect("reassembled stream decompresses");
+    assert_eq!(Some(out), doc.inflated);
+}
+
+#[test]
+fn a_corrupt_idat_is_reported_at_the_idat_bytes() {
+    let mut bytes = fixture("basn2c08.png");
+    let idat = parse_png(&bytes).idat[0];
+    for b in &mut bytes[idat.start as usize + 10..idat.start as usize + 20] {
+        *b ^= 0x5A;
+    }
+
+    let doc = parse_png(&bytes);
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error && n.label.starts_with("IDAT decompression failed"))
+        .expect("corrupt compressed data is reported");
+    // Previously this pointed at byte 0 with zero length.
+    assert_eq!(error.range, idat);
+}

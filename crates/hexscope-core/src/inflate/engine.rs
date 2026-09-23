@@ -182,6 +182,12 @@ impl<'a> Decoder<'a> {
         Ok(d)
     }
 
+    /// Current position in the compressed stream. After an error, this is
+    /// where decoding stopped.
+    pub fn bit_pos(&self) -> u64 {
+        self.br.bit_pos()
+    }
+
     /// Output decoded so far.
     pub fn output(&self) -> &[u8] {
         &self.out

@@ -336,6 +336,7 @@ dependencies = [
 name = "hexscope-wasm"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "hexscope-core",
  "wasm-bindgen",
 ]
