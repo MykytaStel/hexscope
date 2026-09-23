@@ -1,91 +1,61 @@
 # Known issues
 
-Findings from the final whole-branch review of the PNG core that were not
-fixed before merge, with why. Nothing here breaks the crate's three
-guarantees — the parser does not panic, always returns a tree, and has no
-runtime dependencies — but several affect how useful that tree is.
+What is known to be missing or wrong, and why it has not been fixed yet.
+None of it breaks the crate's guarantees — the parser does not panic, always
+returns a tree, and has no runtime dependencies.
 
-## Open: byte ranges in the pixel pipeline are placeholders
+## Open
 
-`png/mod.rs` — three nodes report damage at `ByteRange::new(0, 0)`:
-"IDAT decompression failed", "unfiltering failed", and the interlaced warning.
+**IDAT has no children.** No node for the zlib header, the Adler-32 trailer or
+the DEFLATE block structure, so hovering any IDAT byte selects the whole chunk.
+The player now shows the stream step by step, which covers most of the need,
+but the tree itself still says only "IDAT". Blocks would be the natural first
+children: the decoder already knows where each one starts.
 
-The first is the worst: it is the flagship node for the product's main
-scenario — a file is broken and you need to know where — and it points at
-nothing. The cause is that `decode_pixels` receives `idat: &[u8]`, a buffer
-concatenated from possibly many IDAT chunks, which has already discarded every
-file coordinate.
+**One bad chunk length ends the walk.** `ChunkError::LengthTooLarge` stops at
+the damaged chunk and marks everything after it unreadable. For a truncated
+file that is right. For a single corrupt length byte in an otherwise intact
+file, every later chunk disappears. The spec asks for a red node and a resync
+to the next plausible chunk header.
 
-**Fix when the UI exists:** carry a `Vec<ByteRange>` of the IDAT segments
-alongside the concatenated bytes, and map a failure offset back through it.
-`inflate` would need to return the failing bit offset in its error. Deferred
-because the right shape is clearer once there is a consumer that renders it.
+**`inflate/zlib.rs` indexes untrusted bytes by hand.** Five raw indexes rest on
+one exact `len < 6` guard. Correct today, but it is the only place where the
+rule that `Reader` is the single bounds-checked accessor does not hold.
 
-The interlaced warning is cheaper and independent: emit it inside
-`decode_ihdr`, where the interlace byte's file offset is in hand.
+**The player shows positions, not codes.** It says how many bits a step read
+and where, but not the Huffman code itself or the tables a dynamic block
+builds. That is the natural next depth for the animation.
 
-## Open: `Checkpoint.bit_pos` is a block position, not an event position
+**Warning and error severity drift.** A malformed tEXt or PLTE is a warning; a
+truncated IHDR, gAMA or pHYs is an error. All are the same class of damage.
 
-`inflate/trace.rs` — `CheckpointSink` only updates `last_bit_pos` on
-`BlockStart`, so every checkpoint in a typical one- or two-block PNG carries
-the same bit position while `event_index` and `out_pos` advance normally. The
-three fields therefore describe different moments and cannot be used together
-to resume decoding, which is the entire purpose of the type. `Checkpoint` also
-does not record `BlockKind`, so a replayer cannot tell whether to read a
-dynamic table.
+**Smaller items.**
+- `gamma` and `gammaDecimal` share a byte range; the decimal is a rendering
+  of the same field and belongs in its value, not in a sibling node.
+- `BitReader::bits` guards `n <= 32` with `debug_assert!` only;
+  `CheckpointSink::new` and `ParseTree::get` assert. None is reachable from
+  file bytes.
+- IHDR does not validate the compression and filter method bytes, both of
+  which must be 0.
+- `Chunk::kind_str` maps bytes through `as char`. The WASM bridge sanitises
+  labels before they reach the UI; the core's own labels are still raw.
+- `fuzz/Cargo.toml` has no `license` field.
+- The structure tree is not virtualised. Fine for the 1,334 rows of a 10 MB
+  test file, not for tens of thousands of chunks.
+- The layout is designed for windows at least 1,024 px wide.
 
-`checkpoints_record_increasing_positions` looks like it guards this but asserts
-only on `event_index` and `out_pos`.
+## Fixed
 
-**Fix:** decide what a checkpoint is — either pass the current bit position
-with every event, or redefine it as an honest block-resume record — then assert
-on `bit_pos` in that test. Needed before the scrubber in the next milestone.
-
-## Open: one bad chunk length ends the walk
-
-`png/chunks.rs`, `png/mod.rs` — `ChunkError::LengthTooLarge` seeks to
-end-of-input, and the error node claims every remaining byte is damaged. For a
-genuinely truncated file that is right. For a single corrupt length byte in the
-middle of an intact file, every later chunk disappears from the tree.
-
-The spec asks for the opposite at this severity: a red node with a range, then
-skip to the next chunk. **Fix:** scan forward for the next plausible chunk
-header and resume.
-
-## Open: `inflate/zlib.rs` indexes untrusted bytes by hand
-
-Five raw indexes into caller-supplied bytes rest on a single exact `len < 6`
-guard. Correct today, but it is the one place where the README's claim that
-`Reader` is the single bounds-checked chokepoint is untrue, and the next person
-to extend the header parsing has no local signal that the guard is load-bearing.
-
-**Fix:** route it through `Reader`.
-
-## Smaller items
-
-- **Warning/Error drift.** A malformed tEXt or PLTE is a `Warning`; a truncated
-  IHDR, gAMA or pHYs is an `Error`. All five are the same class of damage.
-- **Three conventions for "about the whole file".** `no IDAT` uses
-  `(0, len)`, `no IEND` uses `(len, 0)`, pipeline errors use `(0, 0)`. Once the
-  interval index exists, the first makes every byte in such a file hover into a
-  warning.
-- **`gamma` and `gammaDecimal` share a byte range**, which makes a
-  byte-to-node lookup arbitrary. The decimal form belongs in the value, not as
-  a sibling node.
-- **Public API panic paths.** `BitReader::bits` guards `n <= 32` with
-  `debug_assert!` only; `CheckpointSink::new` and `ParseTree::get` assert.
-  None is reachable from file bytes, all are reachable by a future caller.
-- **IHDR validation is partial.** Compression and filter method bytes are
-  decoded but not validated though both must be 0; `width == 0` surfaces later
-  as an unfilter error rather than at the header.
-- **IDAT has no children.** No node for the zlib header, the Adler-32 trailer
-  or the block structure — for the chunk that is the reason PNG was chosen
-  first.
-- **`next_chunk` copies every payload to compute its CRC**, a 10 MB
-  allocation and copy for a large IDAT, on the path the budget measures.
-- **`Chunk::kind_str` maps bytes through `as char`**, so a corrupt chunk type
-  becomes a label containing control characters that goes straight to the UI.
-- **`fuzz/Cargo.toml` has no `license` field.**
-- **Performance headroom is thin.** 276 ms against a 300 ms budget. The
-  bitwise CRC-32 and the one-bit-at-a-time `BitReader` are both deliberately
-  unoptimised and are the first places to look.
+- **Decompression failures pointed at nothing, then at everything.** They
+  first used range `(0, 0)`, then a range across every IDAT chunk that
+  straddled its sibling chunks and split hover between them. The failing byte
+  is now located exactly and the node nested under the chunk that holds it.
+- **Checkpoints could not be resumed.** `bit_pos` was the enclosing block's,
+  so every checkpoint in a one-block stream carried the same value. The
+  decoder is now a resumable step machine and checkpoints are proven to
+  reproduce the same steps.
+- **Scanline stride was confused with filter distance**, reporting 44 of 162
+  valid PngSuite files as truncated.
+- **Every chunk payload was copied to compute its CRC**, and CRC-32 and
+  Adler-32 were both computed the slow way. 10 MB parse: 288 ms to 188 ms.
+- **A whole-file range on "no IDAT chunk"** would have captured every hover.

@@ -333,6 +333,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hexscope-wasm"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "hexscope-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "insta"
 version = "1.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

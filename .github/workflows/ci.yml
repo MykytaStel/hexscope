@@ -1,8 +1,10 @@
 name: CI
 
+# Every branch, not only main: a failure on main went unnoticed for days
+# because all the work happened on branches that never triggered a run.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 env:
@@ -12,10 +14,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - uses: actions/checkout@v5
+      # Installs exactly the toolchain, components and targets that
+      # rust-toolchain.toml pins, so CI and local builds cannot drift.
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - name: Format
         run: cargo fmt --all --check
@@ -23,15 +25,44 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all
+      - name: Builds for the browser target
+        run: cargo check -p hexscope-core -p hexscope-wasm --target wasm32-unknown-unknown
 
   fuzz:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install nightly --profile minimal
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/hexscope-core/fuzz
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+        run: cargo +nightly install cargo-fuzz --locked
       - name: Fuzz smoke run
-        run: cargo fuzz run parse_png -- -max_total_time=60
+        run: cargo +nightly fuzz run parse_png -- -max_total_time=60
         working-directory: crates/hexscope-core
+
+  # Builds the static site. The output runs on any static host; deploying is
+  # one extra step once a host is chosen. Until then the build is kept as a
+  # downloadable artifact on every run.
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-bindgen CLI (must match the pinned crate)
+        run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build (WASM, typecheck, bundle)
+        run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hexscope-site
+          path: apps/web/dist
+          if-no-files-found: error

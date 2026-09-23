@@ -1,4 +1,4 @@
-use crate::crc32::crc32;
+use crate::crc32::crc32_update;
 use crate::model::ByteRange;
 use crate::reader::Reader;
 
@@ -78,17 +78,15 @@ pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError
         return Some(Err(ChunkError::Truncated));
     };
 
-    let mut crc_input = Vec::with_capacity(4 + data.len());
-    crc_input.extend_from_slice(&kind);
-    crc_input.extend_from_slice(data);
-
     Some(Ok(Chunk {
         range: ByteRange::new(start, r.pos() - start),
         kind,
         data,
         data_range: ByteRange::new(data_start, len as u64),
         declared_crc,
-        actual_crc: crc32(&crc_input),
+        // The CRC covers type then data; streaming it avoids copying a payload
+        // that can be megabytes long.
+        actual_crc: !crc32_update(crc32_update(0xFFFF_FFFF, &kind), data),
     }))
 }
 

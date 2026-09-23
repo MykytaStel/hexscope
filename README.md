@@ -4,111 +4,155 @@ A microscope for binary files — drop one in and watch it take itself apart,
 entirely in your browser.
 
 hexscope shows you what is actually inside a file: the structure tree, the
-bytes each field occupies, and — the part no other tool does — the compression
-algorithm running step by step, with arrows from each back-reference to the
-bytes it copies. Nothing is uploaded anywhere. The file never leaves the tab.
+bytes each field occupies, where the file is damaged, and — the part no other
+tool does — its compression running step by step, with an arc from each
+back-reference to the bytes it copies. Nothing is uploaded anywhere. The file
+never leaves the tab.
 
-> **Status: the parsing core is complete. There is no user interface yet.**
-> `hexscope-core` parses PNG end to end — structure, damage, decoded pixels and
-> a step-by-step DEFLATE trace — but nothing renders it. See
-> [Where this actually is](#where-this-actually-is).
+> **Status:** PNG support is complete. Not deployed yet — see
+> [Deploying](#deploying).
+
+## What it does
+
+**Opens any PNG, broken or not.** A damaged file is the normal case, not the
+error case: hexscope always shows the full structure, with every problem
+marked on the exact bytes. A broken file opens on its first problem; **N** steps
+through the rest.
+
+**Links every view.** Hover a byte and its field lights up in the tree, the
+details panel says what it is, and the status bar shows its offset and path.
+Hover a tree row and its bytes light up. Click to pin.
+
+**Plays the decompression.** *Watch it decompress* (or **P**) turns the bottom
+panel into a player for the PNG's DEFLATE stream:
+
+- each step in plain words — a literal written as is, N bytes copied from M
+  bytes back, a new block and its kind — and how many bits it read;
+- the output as it grows, with an arc from each back-reference's source to
+  where the copy lands; a copy that overlaps itself is drawn as the repeating
+  pattern it is;
+- a reading head on the hex view outlining the exact file bytes whose bits the
+  current step consumed;
+- a damaged stream plays up to the step where it breaks, and says so.
+
+| Key | Action |
+|---|---|
+| **Space** | play / pause |
+| **←** **→** | one step (with **Shift**, ten) |
+| **Home** **End** | first / last step |
+| **P** | open the player |
+| **N** | next problem |
+| **Esc** | close the player, or clear the selection |
 
 ## Why
 
 To see inside a file today you either read the spec with `xxd` open in another
 window, or install a desktop hex editor. Both are fine for people who already
-know what they are looking for. Neither helps when you just want to know why
-this PNG will not open, where your parser is reading the wrong offset, or what
-your phone wrote into that photo's metadata.
+know what they are looking for. Neither helps when you just want to know why a
+PNG will not open, where your parser reads the wrong offset, or how DEFLATE
+actually works.
 
-Five things hexscope is meant to be good at, roughly in order:
+It is built for:
 
-1. **A file is broken and you need to know where.** A damaged file is the
-   normal case, not the error case — hexscope always renders a tree, with the
-   damage marked in place.
-2. **You are writing a parser** and need to see which bytes hold the field you
-   are decoding.
-3. **You are learning** how a format works and want to look at one rather than
-   read about one.
+1. **A file is broken and you need to know where.**
+2. **You are writing a parser** and need to see which bytes hold a field.
+3. **You are learning** a format or a compression algorithm and want to look at
+   one rather than read about one.
 4. **Reverse engineering, CTF, security triage** — inspect a suspicious file
    without executing it. Everything runs locally, which is the point.
-5. **Photo privacy** — see the GPS coordinates your camera wrote into a JPEG.
 
-## Where this actually is
+## How fast
 
-Implemented and tested:
+Measured in the browser on a 10.9 MB PNG of incompressible noise — the worst
+case, since every byte becomes its own decoding step:
 
-| Piece | State |
-|---|---|
-| Parse tree model (nodes, byte ranges, values) | done |
-| `Reader` — the crate's single bounds-checked byte accessor | done |
-| CRC-32 and the PNG chunk walker | done |
-| Chunk decoders: IHDR, PLTE, tEXt, pHYs, gAMA, tRNS | done |
-| IHDR validation and required-chunk checks | done |
-| DEFLATE / inflate written from scratch, with a step trace | done |
-| Checkpointing so a long trace can be scrubbed | done |
-| zlib wrapper, scanline unfiltering, pixel output | done |
-| `parse_png` end-to-end + PngSuite golden tests | done |
-| Fuzzing, property tests, benchmark, CI | done |
-| WASM bridge and web interface | not started |
+| | Measured | Budget |
+|---|---|---|
+| Parse (WebAssembly, in a worker) | 160–190 ms | 300 ms |
+| Drop to first frame | 180–280 ms | 1 s |
+| Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
+| Hover to highlight | ~0.09 ms | 16 ms |
+| Seek to step 7.9 million of 10.8 million | 12 ms | — |
+| The whole app, gzipped | ~56 KB | — |
 
-**80 tests** (69 unit, 8 golden, 3 property). Validated against the full
-[PngSuite](http://www.schaik.com/pngsuite/) conformance corpus — 176 files,
-including all 14 intentionally corrupt ones, every one of which is flagged
-rather than silently accepted.
+The byte view draws only the rows on screen, so file size does not affect
+scrolling. The player never holds the stream's steps in memory: it asks for
+them in small batches, and the decoder resumes from the nearest checkpoint.
 
-Fuzzing: 1.3 million executions, zero crashes.
-Benchmark: a 10.3 MB PNG parses in **~276 ms** against the 300 ms budget — met,
-but with little headroom. The bitwise CRC-32 and the one-bit-at-a-time
-`BitReader` are both deliberately unoptimised and are the obvious first targets
-if that margin needs to grow.
-`cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` and
-`cargo check --target wasm32-unknown-unknown` are all clean.
+## How it is built
 
-Open findings from the final review are tracked in
-[`docs/known-issues.md`](docs/known-issues.md).
+- **`crates/hexscope-core`** — the parser, in Rust with no runtime
+  dependencies. It includes its own DEFLATE decoder, written to be paused and
+  resumed one step at a time; a reference implementation is used only in tests
+  to check it.
+- **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree
+  crosses as a handful of typed arrays rather than one object per node.
+- **`apps/web`** — the interface: TypeScript, Vite, Canvas 2D, no UI
+  framework.
 
-The full design is in
-[`docs/superpowers/specs/`](docs/superpowers/specs/) and the implementation
-plan in [`docs/superpowers/plans/`](docs/superpowers/plans/).
+Three rules hold across the parser:
 
-## Design rules
+- **It never panics and never loops forever**, on any input. Every read goes
+  through one bounds-checked accessor; parsing code never indexes a slice by
+  hand. Fuzzed for 1.3 million executions with no crash.
+- **Every input returns a tree.** There is no error return: damage becomes a
+  node with its own byte range, so a broken file is still fully explorable.
+- **It is checked against real files.** All 176 files of the
+  [PngSuite](http://www.schaik.com/pngsuite/) conformance corpus: every one of
+  the 14 intentionally corrupt files is flagged, and none of the 162 valid ones
+  is.
 
-Three constraints shape the whole crate:
+Open problems are listed in [`docs/known-issues.md`](docs/known-issues.md).
+The original design and plan are in [`docs/superpowers/`](docs/superpowers/).
 
-- **The parser never panics and never loops forever.** Every byte read goes
-  through `Reader`, which returns a `Result`. Parsing code never indexes a
-  slice by hand — `Reader` is the single bounds-checked chokepoint.
-- **Every input returns a tree.** `parse_png` has no error return. Damage
-  becomes `Warning` and `Error` nodes with their own byte ranges, so a broken
-  file is still fully explorable.
-- **No runtime dependencies for parsing.** `flate2` is a dev-dependency only,
-  used as an oracle to check our own inflate against a reference.
+## Developing
 
-## Build
+You need rustup, Node 24+, pnpm, and the wasm-bindgen CLI at the exact version
+the bridge pins. The Rust version, its components and the WebAssembly target
+are pinned in `rust-toolchain.toml`; one command installs them.
 
 ```bash
-cargo test --all
+rustup toolchain install          # reads rust-toolchain.toml
+cargo install wasm-bindgen-cli --version 0.2.128 --locked
+pnpm install
+pnpm dev            # builds the WebAssembly, then serves the app
+```
+
+Checks, as CI runs them:
+
+```bash
+cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
-cargo bench -p hexscope-core          # reports the 10 MB parse time
+cargo test --all
+cargo bench -p hexscope-core                                  # 10 MB parse time
+cargo +nightly fuzz run parse_png -- -max_total_time=120      # needs cargo-fuzz
 ```
 
-Fuzzing needs a nightly toolchain and `cargo-fuzz`:
+## Deploying
+
+The app is a static site: no server, no backend, nothing to configure.
 
 ```bash
-cargo +nightly fuzz run parse_png -- -max_total_time=120
+pnpm build          # output: apps/web/dist
 ```
+
+Upload `apps/web/dist` to any static host — Cloudflare Pages, Netlify, Vercel,
+GitHub Pages, or any web server. Asset paths are relative, so it also works
+from a subpath. It must be served over HTTP(S), not opened from disk, because
+the parser runs in a module worker.
+
+CI builds the site on every push and keeps it as the `hexscope-site` artifact,
+so a deploy is one step added to the `web` job once a host is chosen.
 
 ## Roadmap
 
-1. **v1** — PNG: full structure, CRC validation, decoded pixels, and the
-   DEFLATE step animation.
-2. **v1.1** — EXIF from JPEG (metadata only, no image decoding). This is where
-   the "what does my photo know about me" hook lands.
-3. **v2** — ZIP, which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
+1. **PNG** — structure, damage, pixels, the DEFLATE player. *Done.*
+2. **EXIF from JPEG** — metadata only, no image decoding: see what your phone
+   wrote into a photo, including where it was taken.
+3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
    recursion into nested files.
-4. **v3** — WebAssembly binaries.
-5. **v4** — full JPEG decoding.
+4. **WebAssembly binaries.**
+5. **Full JPEG decoding.**
 
 No analytics, ever. A tool people use to look at suspicious files has no
 business watching them.

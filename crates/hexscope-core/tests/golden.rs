@@ -213,3 +213,74 @@ fn every_non_interlaced_valid_file_decodes_to_pixels() {
 
     assert!(checked > 80, "only checked {checked} non-interlaced files");
 }
+
+#[test]
+fn idat_ranges_reassemble_the_zlib_stream() {
+    // The animation maps a bit in the zlib stream back to a byte in the file
+    // through these ranges, so they must be exactly the stream, in order.
+    let bytes = fixture("basn2c08.png");
+    let doc = parse_png(&bytes);
+    assert!(!doc.idat.is_empty());
+
+    let mut stream = Vec::new();
+    for r in &doc.idat {
+        stream.extend_from_slice(&bytes[r.start as usize..r.end() as usize]);
+    }
+    let out = hexscope_core::inflate::zlib_decompress(
+        &stream,
+        u64::MAX,
+        &mut hexscope_core::inflate::NoTrace,
+    )
+    .expect("reassembled stream decompresses");
+    assert_eq!(Some(out), doc.inflated);
+}
+
+#[test]
+fn a_corrupt_idat_is_reported_where_decoding_breaks() {
+    let mut bytes = fixture("basn2c08.png");
+    let idat = parse_png(&bytes).idat[0];
+    for b in &mut bytes[idat.start as usize + 10..idat.start as usize + 20] {
+        *b ^= 0x5A;
+    }
+
+    let doc = parse_png(&bytes);
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error && n.label.starts_with("IDAT decompression failed"))
+        .expect("corrupt compressed data is reported");
+
+    // Nested inside the IDAT chunk that holds the damage, never overlapping
+    // a sibling: the hex view's byte-to-node index relies on that.
+    let parent = doc.tree.get(error.parent.expect("has a parent"));
+    assert_eq!(parent.label, "IDAT");
+    assert!(error.range.start >= idat.start && error.range.end() <= idat.end());
+    // It ends where the chunk's data ends: everything from the break on is
+    // unreadable.
+    assert_eq!(error.range.end(), idat.end());
+    // And it starts no later than the corrupted bytes themselves.
+    assert!(
+        error.range.start <= idat.start + 20,
+        "error starts at {}",
+        error.range.start
+    );
+}
+
+#[test]
+fn a_bad_adler_checksum_points_at_the_trailer() {
+    let mut bytes = fixture("basn2c08.png");
+    let idat = parse_png(&bytes).idat[0];
+    // The last byte of the only IDAT payload is the last Adler-32 byte.
+    bytes[idat.end() as usize - 1] ^= 0xFF;
+
+    let doc = parse_png(&bytes);
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error && n.label.contains("ChecksumMismatch"))
+        .expect("checksum mismatch is reported");
+    assert_eq!(error.range.start, idat.end() - 4);
+    assert_eq!(error.range.len, 4);
+}

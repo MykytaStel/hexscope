@@ -1,0 +1,20 @@
+[package]
+name = "hexscope-wasm"
+version = "0.1.0"
+description = "WebAssembly bridge exposing hexscope-core to the browser"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+# cdylib for the browser, rlib so the flattening logic is testable natively.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hexscope-core = { path = "../hexscope-core" }
+# Pinned exactly: the generated JS glue must match the wasm-bindgen CLI version.
+wasm-bindgen = "=0.2.128"
+
+[dev-dependencies]
+flate2 = "1"

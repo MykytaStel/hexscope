@@ -184,7 +184,7 @@ mod tests {
         let data = [0u8, b'x'];
         let mut r = Reader::new(&data);
         assert_eq!(r.bytes_until(0), Some(&[][..]));
-        assert_eq!(r.rest(), &[b'x'][..]);
+        assert_eq!(r.rest(), b"x");
     }
 
     #[test]

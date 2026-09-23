@@ -27,3 +27,8 @@ dist/
 .idea/
 .vscode/
 *.swp
+
+# Generated WASM bindings (rebuilt by `pnpm wasm`)
+apps/web/src/wasm/
+
+apps/web/.local/
