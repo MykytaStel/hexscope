@@ -7,12 +7,14 @@
 //! before the entries it describes. It is read into a tree of its own and
 //! grafted in at the end, together with the end records.
 
+mod extract;
 mod fields;
 #[cfg(test)]
 pub(crate) mod testing;
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
+pub use extract::{ExtractError, extract};
 use fields::{Fields, Zip64Need, display, method_name};
 
 pub const MAGIC: [u8; 4] = *b"PK\x03\x04";
