@@ -1,13 +1,4 @@
-use crate::inflate::engine::{EventSink, InflateEvent};
-
-/// A resume point. Replaying from here needs the output produced so far, which
-/// the caller already holds, plus the bit position in the compressed stream.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Checkpoint {
-    pub event_index: u64,
-    pub bit_pos: u64,
-    pub out_pos: u64,
-}
+use crate::inflate::engine::{Checkpoint, EventSink, InflateEvent, Step};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraceSummary {
@@ -33,7 +24,6 @@ pub struct CheckpointSink {
     interval: u64,
     index: u64,
     out_pos: u64,
-    last_bit_pos: u64,
     literals: u64,
     matches: u64,
     checkpoints: Vec<Checkpoint>,
@@ -46,7 +36,6 @@ impl CheckpointSink {
             interval,
             index: 0,
             out_pos: 0,
-            last_bit_pos: 0,
             literals: 0,
             matches: 0,
             checkpoints: Vec::new(),
@@ -65,9 +54,15 @@ impl CheckpointSink {
 }
 
 impl EventSink for CheckpointSink {
-    fn emit(&mut self, event: InflateEvent) {
-        match event {
-            InflateEvent::BlockStart { bit_pos, .. } => self.last_bit_pos = bit_pos,
+    fn emit(&mut self, step: &Step) {
+        // Each checkpoint is the state just before a step, taken straight from
+        // the decoder, so its bit and output positions describe one moment.
+        // The start of the stream is implicit and not recorded.
+        if step.index > 0 && step.index.is_multiple_of(self.interval) {
+            self.checkpoints.push(step.checkpoint());
+        }
+
+        match step.event {
             InflateEvent::Literal { .. } => {
                 self.literals += 1;
                 self.out_pos += 1;
@@ -76,17 +71,9 @@ impl EventSink for CheckpointSink {
                 self.matches += 1;
                 self.out_pos += length as u64;
             }
-            InflateEvent::BlockEnd => {}
+            InflateEvent::BlockStart { .. } | InflateEvent::BlockEnd => {}
         }
-
         self.index += 1;
-        if self.index.is_multiple_of(self.interval) {
-            self.checkpoints.push(Checkpoint {
-                event_index: self.index,
-                bit_pos: self.last_bit_pos,
-                out_pos: self.out_pos,
-            });
-        }
     }
 }
 
@@ -129,15 +116,18 @@ mod tests {
             "a repetitive corpus must produce matches"
         );
 
-        // One checkpoint per interval, give or take the final partial one.
-        let expected = summary.total_events / 512;
-        assert!(
-            summary.checkpoints.len() as u64 >= expected
-                && summary.checkpoints.len() as u64 <= expected + 1,
+        // One checkpoint before each of steps 512, 1024, ... that exists.
+        let expected = (summary.total_events - 1) / 512;
+        assert_eq!(
+            summary.checkpoints.len() as u64,
+            expected,
             "{} checkpoints for {} events",
             summary.checkpoints.len(),
             summary.total_events
         );
+        for (i, cp) in summary.checkpoints.iter().enumerate() {
+            assert_eq!(cp.event_index, (i as u64 + 1) * 512);
+        }
     }
 
     #[test]
@@ -147,9 +137,37 @@ mod tests {
         inflate(&compressed, u64::MAX, &mut sink).unwrap();
         let summary = sink.finish();
 
+        assert!(summary.checkpoints.len() > 5);
         for pair in summary.checkpoints.windows(2) {
             assert!(pair[1].event_index > pair[0].event_index);
-            assert!(pair[1].out_pos >= pair[0].out_pos);
+            assert!(pair[1].out_pos > pair[0].out_pos);
+            // The defect this guards against: bit_pos used to be the enclosing
+            // block's start, so every checkpoint in a one-block stream carried
+            // the same value and none could be resumed from.
+            assert!(
+                pair[1].bit_pos > pair[0].bit_pos,
+                "bit_pos stalled at {} between events {} and {}",
+                pair[0].bit_pos,
+                pair[0].event_index,
+                pair[1].event_index
+            );
+        }
+    }
+
+    #[test]
+    fn every_recorded_checkpoint_can_be_resumed() {
+        let input = corpus();
+        let compressed = deflate(&input);
+        let mut sink = CheckpointSink::new(300);
+        let out = inflate(&compressed, u64::MAX, &mut sink).unwrap();
+
+        for cp in sink.finish().checkpoints {
+            let mut d = crate::inflate::Decoder::resume(&compressed, u64::MAX, &out, &cp)
+                .unwrap_or_else(|e| panic!("checkpoint {cp:?} failed: {e:?}"));
+            while let Some(step) = d.step() {
+                step.unwrap();
+            }
+            assert_eq!(d.into_output(), out, "resume from {cp:?} diverged");
         }
     }
 

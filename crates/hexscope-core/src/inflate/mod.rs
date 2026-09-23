@@ -4,9 +4,9 @@ pub mod tables;
 pub mod trace;
 pub mod zlib;
 
-pub use engine::{BlockKind, EventSink, InflateEvent, NoTrace, inflate};
+pub use engine::{BlockKind, Checkpoint, Decoder, EventSink, InflateEvent, NoTrace, Step, inflate};
 pub use huffman::Huffman;
-pub use trace::{Checkpoint, CheckpointSink, TraceSummary};
+pub use trace::{CheckpointSink, TraceSummary};
 pub use zlib::{adler32, zlib_decompress};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,4 +27,7 @@ pub enum InflateError {
     ChecksumMismatch,
     /// Output exceeded the caller's limit.
     OutputTooLarge,
+    /// A checkpoint does not describe a valid position in this stream, or the
+    /// caller did not supply the output it depends on.
+    BadCheckpoint,
 }
