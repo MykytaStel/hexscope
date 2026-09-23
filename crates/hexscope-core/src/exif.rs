@@ -459,7 +459,7 @@ impl Found {
         ) {
             (Some((make, _)), Some((model, node))) => Some(Fact {
                 // Many cameras repeat the make inside the model.
-                text: if model.to_lowercase().starts_with(&make.to_lowercase()) {
+                text: if model.to_ascii_lowercase().starts_with(&make.to_ascii_lowercase()) {
                     model.to_string()
                 } else {
                     format!("{make} {model}")
@@ -827,6 +827,7 @@ fn walk_ifd(
             Some(Value::Text(rendered.clone())),
         );
 
+        let mut value_node = None;
         if type_size(e.typ).is_none() {
             tree.add(
                 Some(entry),
@@ -840,13 +841,13 @@ fn walk_ifd(
                 // A sibling of the IFDs rather than a child of the entry: the
                 // value's bytes lie outside the entry, and nodes must nest
                 // inside their parents for byte lookup to reach them.
-                tree.add(
+                value_node = Some(tree.add(
                     Some(parent),
                     format!("{label} value"),
                     t.range(e.value_off, e.size),
                     NodeKind::Field,
                     Some(Value::Text(rendered.clone())),
-                );
+                ));
             } else {
                 tree.add(
                     Some(entry),
@@ -890,7 +891,11 @@ fn walk_ifd(
             _ => {}
         }
         if e.typ == 2 {
-            found.text.push((e.tag, kind, rendered, entry));
+            // Point a fact at the bytes that spell it out, not at the entry
+            // that merely says where they are.
+            found
+                .text
+                .push((e.tag, kind, rendered, value_node.unwrap_or(entry)));
         }
     }
 
@@ -1164,8 +1169,8 @@ mod tests {
                 Some(Value::Text("6 (rotated 90° clockwise)".into()))
             );
             assert_eq!(value("ExifVersion"), Some(Value::Text("2.32".into())));
-            // The fact links to the node that holds it.
-            assert_eq!(tree.get(facts.camera.unwrap().node).label, "Model");
+            // The fact links to the bytes that spell it out.
+            assert_eq!(tree.get(facts.camera.unwrap().node).label, "Model value");
         }
     }
 
