@@ -69,6 +69,10 @@ async function openPlayer(): Promise<void> {
       const r = await call({ type: "inflated" });
       return r.type === "inflated" ? r.bytes : new Uint8Array(0);
     },
+    explain: async (index, knownBlock) => {
+      const r = await call({ type: "explain", index, knownBlock });
+      return r.type === "explain" ? { parts: r.parts, tables: r.tables } : { parts: new Float64Array(0), tables: null };
+    },
   });
 }
 
