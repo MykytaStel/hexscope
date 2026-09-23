@@ -23,6 +23,8 @@ interface Palette {
   text: string;
   zero: string;
   offset: string;
+  head: string;
+  headFill: string;
   fill: Record<Tint, { base: string; selected: string; hover: string; solid: string }>;
 }
 
@@ -45,7 +47,16 @@ function readPalette(): Palette {
       solid: hex,
     };
   }
-  return { bg: v("--hex-bg"), text: v("--hex-text"), zero: v("--hex-zero"), offset: v("--hex-offset"), fill };
+  const accent = v("--accent");
+  return {
+    bg: v("--hex-bg"),
+    text: v("--hex-text"),
+    zero: v("--hex-zero"),
+    offset: v("--hex-offset"),
+    head: accent,
+    headFill: rgba(accent, 0.22),
+    fill,
+  };
 }
 
 /**
@@ -62,6 +73,8 @@ export class HexView {
   private palette = readPalette();
   private hover = -1;
   private selected = -1;
+  /** Bytes the DEFLATE player is reading right now, as [start, end). */
+  private head: [number, number] = [-1, -1];
   private frame = 0;
   private viewW = 0;
   private viewH = 0;
@@ -98,6 +111,7 @@ export class HexView {
     this.model = model;
     this.hover = -1;
     this.selected = -1;
+    this.head = [-1, -1];
     this.scroller.scrollTop = 0;
     this.resize();
   }
@@ -113,19 +127,34 @@ export class HexView {
     this.schedule();
   }
 
+  /** Marks the bytes the DEFLATE player is reading; `-1` clears it. */
+  setHead(start: number, end: number): void {
+    if (start === this.head[0] && end === this.head[1]) return;
+    this.head = [start, end];
+    this.schedule();
+  }
+
   /** Brings a node into view unless it is already visible. */
   reveal(id: number): void {
     const m = this.model;
     if (!m || m.len(id) === 0) return;
-    const row = Math.floor(m.start(id) / BYTES_PER_ROW);
+    this.revealOffset(m.start(id), true);
+  }
+
+  /** Brings a byte into view unless it is already visible. */
+  revealOffset(offset: number, smooth: boolean): void {
+    if (!this.model || offset < 0) return;
+    const row = Math.floor(offset / BYTES_PER_ROW);
     const top = this.contentTop();
     const rowY = PAD_Y + row * ROW_H;
-    if (rowY >= top && rowY + ROW_H <= top + this.viewH) return;
+    if (rowY >= top + ROW_H && rowY + ROW_H * 2 <= top + this.viewH) return;
 
     const target = Math.max(0, rowY - this.viewH / 3);
-    const scrollTop = this.toScrollTop(target);
     const far = Math.abs(rowY - top) > this.viewH * 3;
-    this.scroller.scrollTo({ top: scrollTop, behavior: far ? "auto" : "smooth" });
+    this.scroller.scrollTo({
+      top: this.toScrollTop(target),
+      behavior: smooth && !far ? "smooth" : "auto",
+    });
   }
 
   // --- geometry ---------------------------------------------------------
@@ -300,6 +329,25 @@ export class HexView {
         const ax0 = this.asciiX(a);
         const ax1 = this.asciiX(b) + ch;
         ctx.strokeRect(ax0 + 0.75, y + 1.75, ax1 - ax0 - 1.5, ROW_H - 3.5);
+      }
+
+      // Pass 5: the player's reading head, drawn last so it sits on top.
+      const [hs0, he0] = this.head;
+      if (he0 > base && hs0 < base + count) {
+        const a = Math.max(hs0, base) - base;
+        const b = Math.min(he0, base + count) - base - 1;
+        const x0 = this.hexX(a) - ch * 0.5;
+        const x1 = this.hexX(b) + ch * 2.5;
+        ctx.fillStyle = p.headFill;
+        ctx.fillRect(x0, y + 1, x1 - x0, ROW_H - 2);
+        ctx.strokeStyle = p.head;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x0 + 1, y + 2, x1 - x0 - 2, ROW_H - 4);
+        for (let i = a; i <= b; i++) {
+          const byte = bytes[base + i];
+          ctx.fillStyle = p.text;
+          ctx.fillText(HEX[byte], this.hexX(i), cy);
+        }
       }
     }
   }

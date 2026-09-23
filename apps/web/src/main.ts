@@ -2,6 +2,7 @@ import "./style.css";
 import { Drawer, formatBytes } from "./drawer";
 import { HexView } from "./hexview";
 import { FileModel, Kind } from "./model";
+import { Player } from "./player";
 import { TreeView } from "./tree";
 import type { WorkerRequest, WorkerResponse } from "./worker";
 
@@ -9,11 +10,29 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
 
+// One outstanding promise per request id; responses can arrive in any order.
+let nextId = 0;
+const waiting = new Map<number, (r: WorkerResponse) => void>();
+worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => {
+  waiting.get(e.data.id)?.(e.data);
+  waiting.delete(e.data.id);
+});
+
+type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
+
+function call(req: Req): Promise<WorkerResponse> {
+  const id = ++nextId;
+  return new Promise((resolve) => {
+    waiting.set(id, resolve);
+    worker.postMessage({ ...req, id } as WorkerRequest);
+  });
+}
+
 let model: FileModel | null = null;
 let hover = -1;
 let selected = -1;
 let problemCursor = -1;
-let requestId = 0;
+let loadId = 0;
 
 const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
@@ -28,6 +47,35 @@ const hex = new HexView($("hex"), {
 });
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
 const drawer = new Drawer($("drawer"));
+const playBtn = $<HTMLButtonElement>("play");
+const player = new Player($("drawer"), {
+  onHead: (start, end, follow) => {
+    hex.setHead(start, end);
+    if (follow) hex.revealOffset(start, false);
+  },
+  onClose: closePlayer,
+});
+
+async function openPlayer(): Promise<void> {
+  if (!model?.playable) return;
+  document.body.classList.add("is-playing");
+  await player.open(model, {
+    steps: async (from, count) => {
+      const r = await call({ type: "steps", from, count });
+      return r.type === "steps" ? r.steps : new Float64Array(0);
+    },
+    inflated: async () => {
+      const r = await call({ type: "inflated" });
+      return r.type === "inflated" ? r.bytes : new Uint8Array(0);
+    },
+  });
+}
+
+function closePlayer(): void {
+  player.close();
+  hex.setHead(-1, -1);
+  document.body.classList.remove("is-playing");
+}
 
 function describeOffset(offset: number): string {
   if (!model) return "";
@@ -94,27 +142,20 @@ function showFileInfo(m: FileModel): void {
 }
 
 async function load(file: File): Promise<void> {
-  const id = ++requestId;
+  const id = ++loadId;
+  closePlayer();
   document.body.dataset.state = "loading";
   $("fileinfo").textContent = `Parsing ${file.name}…`;
 
-  const parsed = new Promise<WorkerResponse>((resolve) => {
-    const onMessage = (e: MessageEvent<WorkerResponse>) => {
-      if (e.data.id !== id) return;
-      worker.removeEventListener("message", onMessage);
-      resolve(e.data);
-    };
-    worker.addEventListener("message", onMessage);
-    worker.postMessage({ id, file } satisfies WorkerRequest);
-  });
   // The main thread keeps its own view of the bytes for drawing; parsing
   // happens entirely in the worker.
-  const [response, buffer] = await Promise.all([parsed, file.arrayBuffer()]);
-  if (id !== requestId) return; // a newer file was dropped meanwhile
+  const [response, buffer] = await Promise.all([call({ type: "parse", file }), file.arrayBuffer()]);
+  if (id !== loadId) return; // a newer file was dropped meanwhile
 
-  if (!response.ok) {
+  if (response.type !== "parsed") {
     document.body.dataset.state = model ? "ready" : "empty";
-    $("fileinfo").textContent = `Could not read ${file.name}: ${response.message}`;
+    const message = response.type === "error" ? response.message : "unexpected reply";
+    $("fileinfo").textContent = `Could not read ${file.name}: ${message}`;
     return;
   }
 
@@ -130,6 +171,7 @@ async function load(file: File): Promise<void> {
   drawer.showNode(model, -1, false);
   showFileInfo(model);
   updateProblems();
+  playBtn.hidden = !model.playable;
 
   // A damaged file opens on its damage: that is the question the user came with.
   if (model.problems.length > 0) nextProblem();
@@ -154,6 +196,7 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]"))
   btn.addEventListener("click", () => void loadSample(btn.dataset.sample!, btn.dataset.name!));
 }
 problemsBtn.addEventListener("click", nextProblem);
+playBtn.addEventListener("click", () => (player.isOpen ? closePlayer() : void openPlayer()));
 
 let dragDepth = 0;
 window.addEventListener("dragenter", (e) => {
@@ -173,9 +216,17 @@ window.addEventListener("drop", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement) return;
-  if (e.key === "Escape") select(-1);
+  if (e.target instanceof HTMLInputElement && e.target.type !== "range") return;
+  if (player.handleKey(e)) {
+    e.preventDefault();
+    return;
+  }
+  if (e.key === "Escape") {
+    if (player.isOpen) closePlayer();
+    else select(-1);
+  }
   if (e.key === "n" || e.key === "N") nextProblem();
+  if ((e.key === "p" || e.key === "P") && model?.playable && !player.isOpen) void openPlayer();
 });
 
 document.body.dataset.state = "empty";
