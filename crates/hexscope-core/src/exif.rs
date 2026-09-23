@@ -459,7 +459,10 @@ impl Found {
         ) {
             (Some((make, _)), Some((model, node))) => Some(Fact {
                 // Many cameras repeat the make inside the model.
-                text: if model.to_ascii_lowercase().starts_with(&make.to_ascii_lowercase()) {
+                text: if model
+                    .to_ascii_lowercase()
+                    .starts_with(&make.to_ascii_lowercase())
+                {
                     model.to_string()
                 } else {
                     format!("{make} {model}")
