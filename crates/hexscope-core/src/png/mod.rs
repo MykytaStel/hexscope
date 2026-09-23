@@ -58,6 +58,17 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
                 Some(Value::Bytes(8)),
             );
         }
+        // "PNG" intact but the rest damaged — the classic result of a
+        // text-mode transfer. Worth reporting, and worth reading on.
+        Ok(sig) if sig.get(1..4) == Some(b"PNG") => {
+            tree.add(
+                Some(root),
+                "damaged PNG signature",
+                ByteRange::new(0, 8),
+                NodeKind::Error,
+                None,
+            );
+        }
         _ => {
             tree.add(
                 Some(root),

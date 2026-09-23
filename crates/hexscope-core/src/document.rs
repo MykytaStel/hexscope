@@ -1,0 +1,171 @@
+//! Recognising a file's format and parsing it with the right module.
+
+use crate::jpeg::{self, JpegDocument, parse_jpeg};
+use crate::model::{ByteRange, NodeKind, ParseTree};
+use crate::png::{PngDocument, parse_png};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    Png,
+    Jpeg,
+    Unknown,
+}
+
+/// A parsed file of any supported format. Every variant carries a tree;
+/// what else it carries depends on what the format has to show.
+#[derive(Debug)]
+pub enum Document {
+    Png(PngDocument),
+    Jpeg(JpegDocument),
+    Unknown(ParseTree),
+}
+
+impl Document {
+    pub fn tree(&self) -> &ParseTree {
+        match self {
+            Document::Png(d) => &d.tree,
+            Document::Jpeg(d) => &d.tree,
+            Document::Unknown(t) => t,
+        }
+    }
+
+    pub fn format(&self) -> Format {
+        match self {
+            Document::Png(_) => Format::Png,
+            Document::Jpeg(_) => Format::Jpeg,
+            Document::Unknown(_) => Format::Unknown,
+        }
+    }
+}
+
+/// Parses any file. Never fails: an unrecognised format still yields a tree
+/// that says so, and names the format when its signature is familiar.
+pub fn parse(data: &[u8]) -> Document {
+    // "PNG" in bytes 1-3 is enough: a signature damaged elsewhere — by a
+    // text-mode transfer, say — is a broken PNG, not an unknown file.
+    if data.get(1..4) == Some(b"PNG") {
+        return Document::Png(parse_png(data));
+    }
+    if data.starts_with(&jpeg::MAGIC) {
+        return Document::Jpeg(parse_jpeg(data));
+    }
+    Document::Unknown(unknown(data))
+}
+
+/// Signatures of formats people are likely to drop in, so the answer can be
+/// "that is a PDF" rather than "unrecognised".
+fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
+    const SIGNATURES: [(&[u8], &str); 12] = [
+        (b"%PDF", "a PDF document"),
+        (
+            b"PK\x03\x04",
+            "a ZIP archive (also .docx, .apk, .jar, .epub)",
+        ),
+        (b"GIF87a", "a GIF image"),
+        (b"GIF89a", "a GIF image"),
+        (b"\0asm", "a WebAssembly module"),
+        (b"\x7FELF", "an ELF executable"),
+        (b"\xCF\xFA\xED\xFE", "a Mach-O executable"),
+        (b"MZ", "a Windows executable"),
+        (b"\x1F\x8B", "a gzip archive"),
+        (b"7z\xBC\xAF\x27\x1C", "a 7-Zip archive"),
+        (b"Rar!", "a RAR archive"),
+        (b"OggS", "an Ogg media file"),
+    ];
+    if let Some((sig, name)) = SIGNATURES.iter().find(|(sig, _)| data.starts_with(sig)) {
+        return Some((name, sig.len() as u64));
+    }
+    if data.starts_with(b"RIFF") && data.get(8..12) == Some(b"WEBP") {
+        return Some(("a WebP image", 12));
+    }
+    if data.get(4..8) == Some(b"ftyp") {
+        let brand = data.get(8..12).unwrap_or_default();
+        let heif = [b"heic", b"heix", b"mif1", b"msf1", b"hevc"]
+            .iter()
+            .any(|b| brand == b.as_slice());
+        return Some(if heif {
+            (
+                "a HEIC photo — export it as JPEG to inspect its metadata here",
+                12,
+            )
+        } else {
+            ("an MP4 or QuickTime video", 12)
+        });
+    }
+    None
+}
+
+fn unknown(data: &[u8]) -> ParseTree {
+    let mut tree = ParseTree::new();
+    let root = tree.add(
+        None,
+        "File",
+        ByteRange::new(0, data.len() as u64),
+        NodeKind::Container,
+        None,
+    );
+    let (label, len) = match (data.is_empty(), identify(data)) {
+        (true, _) => ("empty file".to_string(), 0),
+        (false, Some((name, len))) => (format!("this looks like {name} — not supported yet"), len),
+        (false, None) => (
+            "format not recognised: not a PNG or a JPEG".to_string(),
+            data.len().min(8) as u64,
+        ),
+    };
+    tree.add(
+        Some(root),
+        label,
+        ByteRange::new(0, len),
+        NodeKind::Error,
+        None,
+    );
+    tree
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dispatches_by_signature() {
+        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        assert_eq!(parse(&png).format(), Format::Png);
+        assert_eq!(parse(&[0xFF, 0xD8, 0xFF, 0xE0]).format(), Format::Jpeg);
+        assert_eq!(parse(b"hello").format(), Format::Unknown);
+    }
+
+    #[test]
+    fn a_png_with_a_damaged_signature_is_still_a_png() {
+        // What an 8-bit-stripping transfer does to the first byte.
+        let damaged = [0x09, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        assert_eq!(parse(&damaged).format(), Format::Png);
+    }
+
+    #[test]
+    fn familiar_formats_are_named() {
+        let label = |data: &[u8]| {
+            let doc = parse(data);
+            let tree = doc.tree();
+            tree.get(tree.get(0).children[0]).label.clone()
+        };
+        assert!(label(b"%PDF-1.7 ...").contains("PDF"));
+        assert!(label(b"PK\x03\x04....").contains("ZIP"));
+        assert!(label(b"\0\0\0\x18ftypheic....").contains("HEIC"));
+        assert!(label(b"").contains("empty"));
+        assert!(label(b"just some text").contains("not recognised"));
+    }
+
+    #[test]
+    fn every_input_returns_a_tree() {
+        for data in [
+            &b""[..],
+            b"\xFF",
+            b"\xFF\xD8",
+            b"\xFF\xD8\xFF",
+            b"xPNG",
+            b"RIFF",
+        ] {
+            assert!(!parse(data).tree().is_empty());
+        }
+    }
+}
