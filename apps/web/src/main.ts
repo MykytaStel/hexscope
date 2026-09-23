@@ -36,6 +36,7 @@ let loadId = 0;
 
 const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
+const locationBtn = $<HTMLButtonElement>("location");
 
 const hex = new HexView($("hex"), {
   onHover: (id, offset) => {
@@ -46,7 +47,7 @@ const hex = new HexView($("hex"), {
   onSelect: select,
 });
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
-const drawer = new Drawer($("drawer"));
+const drawer = new Drawer($("drawer"), select);
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {
@@ -123,12 +124,18 @@ function showFileInfo(m: FileModel): void {
   const info = $("fileinfo");
   const chips: string[] = [];
   const f = m.file;
-  if (f.ihdr) {
+  if (f.format === "png" && f.ihdr) {
     const [w, h, depth, color] = f.ihdr;
     const names: Record<number, string> = { 0: "Grey", 2: "RGB", 3: "Palette", 4: "Grey+α", 6: "RGBA" };
-    chips.push(`PNG`, `${w}×${h}`, `${names[color] ?? `type ${color}`} ${depth}-bit`);
+    chips.push("PNG", `${w}×${h}`, `${names[color] ?? `type ${color}`} ${depth}-bit`);
+  } else if (f.format === "png") {
+    chips.push("PNG");
+  } else if (f.format === "jpeg") {
+    chips.push("JPEG");
+    if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
+    if (f.facts.length > 0 || f.location) chips.push("EXIF");
   } else {
-    chips.push(m.kind(1) === Kind.Error ? "Unknown format" : "PNG");
+    chips.push("Unrecognised format");
   }
   chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
 
@@ -139,6 +146,10 @@ function showFileInfo(m: FileModel): void {
   meta.className = "meta";
   meta.textContent = chips.join("  ·  ");
   info.replaceChildren(name, meta);
+
+  // A location is not damage, so it gets its own badge rather than joining
+  // the problems count — but it is the first thing a person should see.
+  locationBtn.hidden = !f.location;
 }
 
 async function load(file: File): Promise<void> {
@@ -173,13 +184,15 @@ async function load(file: File): Promise<void> {
   updateProblems();
   playBtn.hidden = !model.playable;
 
-  // A damaged file opens on its damage: that is the question the user came with.
+  // Open on the answer to the question the person came with: a damaged file
+  // on its damage, a photo that records a place on that place.
   if (model.problems.length > 0) nextProblem();
+  else if (model.file.location) select(model.file.location.node);
 }
 
 async function loadSample(path: string, name: string): Promise<void> {
   const res = await fetch(path);
-  await load(new File([await res.blob()], name, { type: "image/png" }));
+  await load(new File([await res.blob()], name));
 }
 
 // --- inputs -------------------------------------------------------------
@@ -196,6 +209,9 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]"))
   btn.addEventListener("click", () => void loadSample(btn.dataset.sample!, btn.dataset.name!));
 }
 problemsBtn.addEventListener("click", nextProblem);
+locationBtn.addEventListener("click", () => {
+  if (model?.file.location) select(model.file.location.node);
+});
 playBtn.addEventListener("click", () => (player.isOpen ? closePlayer() : void openPlayer()));
 
 let dragDepth = 0;

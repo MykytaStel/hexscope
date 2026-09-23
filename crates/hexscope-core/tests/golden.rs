@@ -284,3 +284,38 @@ fn a_bad_adler_checksum_points_at_the_trailer() {
     assert_eq!(error.range.start, idat.end() - 4);
     assert_eq!(error.range.len, 4);
 }
+
+/// The sample photo, checked against values Apple's ImageIO reads from the
+/// same file — an independent EXIF reader, not our own parser agreeing with
+/// our own generator.
+#[test]
+fn the_sample_photo_reveals_what_an_independent_reader_sees() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/photo.jpg");
+    let doc = hexscope_core::parse(&fs::read(path).unwrap());
+    let hexscope_core::Document::Jpeg(jpeg) = doc else {
+        panic!("the sample must parse as a JPEG");
+    };
+
+    assert_eq!((jpeg.width, jpeg.height), (Some(640), Some(480)));
+    let f = &jpeg.facts;
+    assert_eq!(f.camera.as_ref().unwrap().text, "hexscope Sample Camera X1");
+    assert_eq!(f.serial.as_ref().unwrap().text, "HX-000042");
+    assert_eq!(f.taken.as_ref().unwrap().text, "2026-06-14 18:32:07 +02:00");
+    assert_eq!(f.owner.as_ref().unwrap().text, "Sample Owner");
+    let loc = f.location.expect("GPS");
+    assert!((loc.latitude - 48.8584).abs() < 1e-4 && (loc.longitude - 2.2945).abs() < 1e-4);
+    assert_eq!(loc.altitude, Some(35.0));
+    assert!(f.thumbnail.is_some(), "the embedded thumbnail is found");
+
+    let errors: Vec<&str> = jpeg
+        .tree
+        .nodes()
+        .iter()
+        .filter(|n| n.kind == NodeKind::Error)
+        .map(|n| n.label.as_str())
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "a valid photo reported damage: {errors:?}"
+    );
+}

@@ -15,7 +15,7 @@ const MAX_SCROLL_PX = 8_000_000;
 const MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
 
 const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase());
-const TINTS: Tint[] = ["sig", "ihdr", "plte", "idat", "iend", "text", "anc", "warning", "error"];
+const TINTS: Tint[] = ["sig", "ihdr", "plte", "idat", "iend", "text", "anc", "gps", "warning", "error"];
 
 /** Fill styles per tint at each emphasis level, precomputed once per theme. */
 interface Palette {

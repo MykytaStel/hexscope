@@ -32,3 +32,4 @@ dist/
 apps/web/src/wasm/
 
 apps/web/.local/
+crates/*/fuzz/corpus/

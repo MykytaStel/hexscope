@@ -17,7 +17,27 @@ export interface ParsedFile {
   idatBytes: number;
   /** IDAT payloads in the file as [start, len, start, len, ...]. */
   segments: Float64Array;
+  format: "png" | "jpeg" | "unknown";
+  /** [width, height], or null when the file does not say. */
+  dimensions: [number, number] | null;
+  /** What a photo's metadata reveals; empty for anything else. */
+  facts: PhotoFact[];
+  location: PhotoLocation | null;
   parseMs: number;
+}
+
+export interface PhotoFact {
+  kind: string;
+  text: string;
+  node: number;
+}
+
+export interface PhotoLocation {
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+  /** The GPS IFD. */
+  node: number;
 }
 
 /** Colour families for the hex view, keyed by the top-level chunk. */
@@ -29,9 +49,11 @@ export type Tint =
   | "iend"
   | "text"
   | "anc"
+  | "gps"
   | "warning"
   | "error";
 
+/** Colour by top-level node: PNG chunks and JPEG segments. */
 const CHUNK_TINTS: Record<string, Tint> = {
   signature: "sig",
   IHDR: "ihdr",
@@ -42,7 +64,22 @@ const CHUNK_TINTS: Record<string, Tint> = {
   tEXt: "text",
   zTXt: "text",
   iTXt: "text",
+  SOI: "sig",
+  EOI: "iend",
+  APP1: "text",
+  COM: "text",
+  DQT: "plte",
+  DHT: "plte",
+  SOS: "idat",
+  "scan data": "idat",
 };
+
+/** "APP1 · EXIF" is keyed by "APP1"; every SOFn is a frame header. */
+function chunkTint(label: string): Tint {
+  const key = label.split(" · ")[0];
+  if (/^SOF\d+$/.test(key)) return "ihdr";
+  return CHUNK_TINTS[key] ?? "anc";
+}
 
 /**
  * The parse tree plus the indexes the UI needs to stay fast: children in
@@ -56,6 +93,7 @@ export class FileModel {
   /** Top-level ancestor of each node (a direct child of the root). */
   readonly top: Int32Array;
   readonly problems: number[];
+  private readonly tints: Tint[];
 
   private readonly childOffsets: Uint32Array;
   private readonly childIds: Int32Array;
@@ -113,6 +151,21 @@ export class FileModel {
 
     this.problems = [];
     for (let i = 0; i < n; i++) if (kinds[i] >= Kind.Warning) this.problems.push(i);
+
+    // Colour depends only on the node, so work it out once rather than for
+    // every byte on every frame. Anything under a GPS node gets the GPS
+    // colour: that is the part of a photo people most need to see.
+    this.tints = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const kind = kinds[i];
+      const p = parents[i];
+      if (kind === Kind.Error) this.tints[i] = "error";
+      else if (kind === Kind.Warning) this.tints[i] = "warning";
+      else if (file.labels[i].startsWith("GPS") || (p > 0 && this.tints[p] === "gps")) this.tints[i] = "gps";
+      else if (i === 0) this.tints[i] = "anc";
+      else if (p === 0) this.tints[i] = chunkTint(file.labels[i]);
+      else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? chunkTint(file.labels[this.top[i]]) : this.tints[p];
+    }
 
     this.segmentStreamStart = [];
     let acc = 0;
@@ -227,14 +280,8 @@ export class FileModel {
     }
   }
 
-  /** Colour family for a node, from its own kind or its top-level chunk. */
+  /** Colour family for a node, from its own kind, GPS, or its top-level chunk. */
   tint(id: number): Tint {
-    const kind = this.kind(id);
-    if (kind === Kind.Error) return "error";
-    if (kind === Kind.Warning) return "warning";
-    const top = this.top[id];
-    if (top <= 0) return "anc";
-    if (this.kind(top) === Kind.Error) return "error";
-    return CHUNK_TINTS[this.label(top)] ?? "anc";
+    return this.tints[id] ?? "anc";
   }
 }

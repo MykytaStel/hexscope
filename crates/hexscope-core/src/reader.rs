@@ -58,6 +58,16 @@ impl<'a> Reader<'a> {
         Ok(u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
     }
 
+    /// Little-endian reads, for formats such as TIFF that declare their byte
+    /// order per file.
+    pub fn u16_le(&mut self) -> Result<u16, ReadError> {
+        Ok(u16::from_le_bytes(self.array::<2>()?))
+    }
+
+    pub fn u32_le(&mut self) -> Result<u32, ReadError> {
+        Ok(u32::from_le_bytes(self.array::<4>()?))
+    }
+
     /// Reads up to the next occurrence of `delim` and consumes the delimiter.
     /// Returns `None` when the delimiter is absent, leaving the position
     /// untouched so the caller can record the damage and move on.
@@ -158,6 +168,21 @@ mod tests {
             })
         );
         assert_eq!(r.pos(), 4);
+    }
+
+    #[test]
+    fn reads_little_endian_integers() {
+        let data = [0x80, 0x07, 0x00, 0x00, 0x34, 0x12];
+        let mut r = Reader::new(&data);
+        assert_eq!(r.u32_le(), Ok(1920));
+        assert_eq!(r.u16_le(), Ok(0x1234));
+        assert_eq!(
+            r.u16_le(),
+            Err(ReadError::Eof {
+                needed: 2,
+                available: 0
+            })
+        );
     }
 
     #[test]

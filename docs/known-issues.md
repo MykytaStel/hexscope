@@ -44,6 +44,28 @@ truncated IHDR, gAMA or pHYs is an error. All are the same class of damage.
   test file, not for tens of thousands of chunks.
 - The layout is designed for windows at least 1,024 px wide.
 
+## JPEG and EXIF
+
+**Only EXIF is read.** XMP, IPTC and camera makers' MakerNotes are shown as
+opaque byte ranges. MakerNotes in particular often hold more serial numbers.
+
+**Only the first EXIF segment counts.** Some tools add a second one — Apple's
+`sips` does — and its facts are not merged in.
+
+**The embedded thumbnail is not opened.** It is a JPEG in its own right and
+could be parsed recursively; thumbnails sometimes survive edits that removed
+something from the main image.
+
+**HEIC is not supported**, only recognised. It is the default on iPhones, so
+many photos people have to hand will be refused with a hint to export as JPEG.
+
+**An unexpected byte where a marker should be ends the JPEG walk**, the same
+limitation PNG has with a corrupt chunk length.
+
+**The WebAssembly grew from 36 KB to 59 KB gzipped** with EXIF support, mostly
+number formatting and the new code itself. A size-optimised build saved under
+2 KB and was not worth slower parsing; `wasm-opt` has not been tried.
+
 ## Fixed
 
 - **Decompression failures pointed at nothing, then at everything.** They
