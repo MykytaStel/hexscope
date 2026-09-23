@@ -9,6 +9,7 @@
 
 mod extract;
 mod fields;
+mod office;
 #[cfg(test)]
 pub(crate) mod testing;
 
@@ -16,6 +17,7 @@ use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 pub use extract::{ExtractError, extract};
 use fields::{Fields, Zip64Need, display, method_name};
+pub use office::DocumentFact;
 
 pub const MAGIC: [u8; 4] = *b"PK\x03\x04";
 /// An archive with no entries is only its end record.
@@ -48,6 +50,8 @@ const DETAIL: usize = 2_000;
 pub struct ZipDocument {
     pub tree: ParseTree,
     pub entries: Vec<ZipEntry>,
+    /// What an Office document's properties reveal; empty for other archives.
+    pub facts: Vec<DocumentFact>,
 }
 
 /// One entry, as the central directory describes it and the local header
@@ -108,7 +112,12 @@ pub fn parse_zip(data: &[u8]) -> ZipDocument {
     let n = entries.len();
     let count = format!("{n} {}", if n == 1 { "entry" } else { "entries" });
     tree.set_value(root, Some(Value::Text(count)));
-    ZipDocument { tree, entries }
+    let facts = office::document_facts(data, &entries);
+    ZipDocument {
+        tree,
+        entries,
+        facts,
+    }
 }
 
 fn reader_at(data: &[u8], pos: u64) -> Reader<'_> {

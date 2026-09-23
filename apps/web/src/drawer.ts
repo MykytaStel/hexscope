@@ -40,6 +40,16 @@ const FACT_LABELS: Record<string, string> = {
   taken: "Taken",
   software: "Software",
   thumbnail: "Thumbnail",
+  title: "Title",
+  author: "Author",
+  editor: "Last saved by",
+  created: "Created",
+  modified: "Modified",
+  revisions: "Revisions",
+  editing: "Editing time",
+  company: "Company",
+  application: "Application",
+  template: "Template",
 };
 
 /** Why an entry cannot be played, or null when it can. */
@@ -105,7 +115,9 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
-    if (f.format === "jpeg") this.file.append(this.reveals(m));
+    // A photo always gets the card, if only to say it gives nothing away; an
+    // archive only when it is a document with properties to show.
+    if (f.format === "jpeg" || f.facts.length > 0) this.file.append(this.reveals(m));
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -141,13 +153,13 @@ export class Drawer {
   }
 
   /**
-   * What the photo's metadata gives away. Each fact is a link to the bytes
+   * What the file's metadata gives away. Each fact is a link to the bytes
    * that hold it; the map link sends the coordinates nowhere unless clicked.
    */
   private reveals(m: FileModel): HTMLElement {
     const f = m.file;
     const group = el("div", "group reveals");
-    group.append(el("h3", undefined, "What this photo reveals"));
+    group.append(el("h3", undefined, f.format === "zip" ? "What this document reveals" : "What this photo reveals"));
     if (!f.location && f.facts.length === 0) {
       group.append(el("p", "hint", "No EXIF metadata: nothing about the camera, the time or the place."));
       return group;

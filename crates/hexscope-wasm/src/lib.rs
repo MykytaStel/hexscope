@@ -190,9 +190,10 @@ impl Parsed {
         self.dimensions.map(|d| d.to_vec()).unwrap_or_default()
     }
 
-    /// What a photo's metadata reveals, as `kind, text, node` triples joined
-    /// by U+001F. Kinds: camera, lens, serial, owner, software, taken,
-    /// thumbnail. Empty for files without EXIF.
+    /// What a file's metadata reveals, as `kind, text, node` triples joined
+    /// by U+001F. For a photo: camera, lens, serial, owner, software, taken,
+    /// thumbnail. For an Office document: title, author, editor, created,
+    /// modified, revisions, editing, company, application, template.
     #[wasm_bindgen(getter)]
     pub fn facts(&self) -> String {
         let sep = SEPARATOR.to_string();
@@ -528,6 +529,9 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         Document::Zip(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
             parsed.zip = Some(ZipState {
                 source: bytes.to_vec(),
                 entries: doc.entries,
@@ -1105,6 +1109,9 @@ mod tests {
             !inner.location().is_empty(),
             "the photo inside knows where it was taken"
         );
+
+        let facts = parsed.facts();
+        assert!(facts.contains("author\u{1F}Olena Koval"), "{facts}");
 
         assert!(parsed.extract_entry(n as u32).is_empty());
         assert_eq!(parsed.extract_error(), format!("there is no entry {n}"));

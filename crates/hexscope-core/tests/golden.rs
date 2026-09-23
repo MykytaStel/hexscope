@@ -558,6 +558,19 @@ fn a_real_word_document_reads_cleanly_and_every_entry_extracts() {
             .collect();
         assert!(problems.is_empty(), "{}: {problems:?}", path.display());
         assert_eq!(doc.entries.len(), entries, "{}", path.display());
+        let facts: Vec<_> = doc
+            .facts
+            .iter()
+            .map(|f| (f.kind, f.text.as_str()))
+            .collect();
+        for want in [
+            ("title", "Quarterly report"),
+            ("author", "Olena Koval"),
+            ("editor", "o.koval"),
+            ("company", "Hexscope Test Co"),
+        ] {
+            assert!(facts.contains(&want), "{}: {facts:?}", path.display());
+        }
 
         for e in &doc.entries {
             let out =
