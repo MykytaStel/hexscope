@@ -17,7 +17,7 @@ export interface ParsedFile {
   idatBytes: number;
   /** IDAT payloads in the file as [start, len, start, len, ...]. */
   segments: Float64Array;
-  format: "png" | "jpeg" | "unknown";
+  format: "png" | "jpeg" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
   /** What a photo's metadata reveals; empty for anything else. */
@@ -75,6 +75,13 @@ const CHUNK_TINTS: Record<string, Tint> = {
 };
 
 /** "APP1 · EXIF" is keyed by "APP1"; every SOFn is a frame header. */
+/** An archive's top level: its entries, then its directory and end records. */
+function zipTint(label: string): Tint {
+  if (label === "central directory") return "ihdr";
+  if (label.includes("end of central directory") || label === "ZIP64 locator") return "iend";
+  return "text";
+}
+
 function chunkTint(label: string): Tint {
   const key = label.split(" · ")[0];
   if (/^SOF\d+$/.test(key)) return "ihdr";
@@ -156,6 +163,7 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
+    const topTint = file.format === "zip" ? zipTint : chunkTint;
     for (let i = 0; i < n; i++) {
       const kind = kinds[i];
       const p = parents[i];
@@ -163,8 +171,8 @@ export class FileModel {
       else if (kind === Kind.Warning) this.tints[i] = "warning";
       else if (file.labels[i].startsWith("GPS") || (p > 0 && this.tints[p] === "gps")) this.tints[i] = "gps";
       else if (i === 0) this.tints[i] = "anc";
-      else if (p === 0) this.tints[i] = chunkTint(file.labels[i]);
-      else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? chunkTint(file.labels[this.top[i]]) : this.tints[p];
+      else if (p === 0) this.tints[i] = topTint(file.labels[i]);
+      else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? topTint(file.labels[this.top[i]]) : this.tints[p];
     }
 
     this.segmentStreamStart = [];

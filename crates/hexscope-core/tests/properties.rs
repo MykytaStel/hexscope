@@ -55,6 +55,20 @@ proptest! {
     }
 
     #[test]
+    fn zip_start_plus_garbage_is_survivable(
+        rest in proptest::collection::vec(any::<u8>(), 0..4096)
+    ) {
+        let mut bytes = b"PK\x03\x04".to_vec();
+        bytes.extend(rest);
+        let doc = hexscope_core::zip::parse_zip(&bytes);
+        prop_assert!(doc.tree.root().is_some());
+        for e in &doc.entries {
+            prop_assert!(e.data.end() <= bytes.len() as u64);
+            let _ = hexscope_core::zip::extract(&bytes, e, 1 << 20);
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

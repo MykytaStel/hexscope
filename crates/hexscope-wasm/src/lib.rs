@@ -373,6 +373,11 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Zip(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "zip";
+            parsed
+        }
         Document::Unknown(tree) => flatten(&tree),
     }
 }
