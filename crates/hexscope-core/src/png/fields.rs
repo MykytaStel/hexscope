@@ -105,6 +105,24 @@ mod tests {
     }
 
     #[test]
+    fn flags_undefined_method_bytes() {
+        // Compression 1, filter 2, interlace 7: none of them defined.
+        let data = [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 1, 2, 7];
+        let chunk = fake_chunk(b"IHDR", &data);
+        let mut tree = ParseTree::new();
+        let root = tree.add(None, "PNG", ByteRange::new(0, 0), NodeKind::Container, None);
+        decode_ihdr(&chunk, &mut tree, root);
+
+        let warnings: Vec<u64> = tree
+            .nodes()
+            .iter()
+            .filter(|n| n.kind == NodeKind::Warning)
+            .map(|n| n.range.start - 8)
+            .collect();
+        assert_eq!(warnings, [10, 11, 12], "one warning on each method byte");
+    }
+
+    #[test]
     fn marks_a_truncated_ihdr_without_panicking() {
         let chunk = fake_chunk(b"IHDR", &[0, 0, 7]);
         let mut tree = ParseTree::new();
@@ -256,10 +274,11 @@ mod tests {
     }
 
     #[test]
-    fn decodes_gamma_as_raw_and_decimal() {
+    fn decodes_gamma_as_one_field() {
         // 45455 is the value nearly every PNG writes: gamma 1/2.2.
-        let data = 45455u32.to_be_bytes();
-        let chunk = fake_chunk(b"gAMA", &data);
+        // Bound to a variable: a temporary would not outlive the borrow.
+        let gamma = 45455u32.to_be_bytes();
+        let chunk = fake_chunk(b"gAMA", &gamma);
         let mut tree = ParseTree::new();
         let root = tree.add(
             None,
@@ -272,10 +291,10 @@ mod tests {
         decode_gama(&chunk, &mut tree, root);
 
         let children = &tree.get(root).children;
-        assert_eq!(tree.get(children[0]).value, Some(Value::U64(45455)));
+        assert_eq!(children.len(), 1, "no second node on the same bytes");
         assert_eq!(
-            tree.get(children[1]).value,
-            Some(Value::Text("0.45455".into()))
+            tree.get(children[0]).value,
+            Some(Value::Text("0.45455 (stored as 45455)".into()))
         );
     }
 
@@ -538,6 +557,34 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 
     // A structurally fine IHDR can still describe an impossible image. Saying
     // so is the point of the tool, so these are warnings on the exact byte.
+    let at = chunk.data_range.start;
+    if compression != 0 {
+        tree.add(
+            Some(parent),
+            format!("compression method {compression}: only 0 is defined"),
+            ByteRange::new(at + 10, 1),
+            NodeKind::Warning,
+            None,
+        );
+    }
+    if filter != 0 {
+        tree.add(
+            Some(parent),
+            format!("filter method {filter}: only 0 is defined"),
+            ByteRange::new(at + 11, 1),
+            NodeKind::Warning,
+            None,
+        );
+    }
+    if interlace > 1 {
+        tree.add(
+            Some(parent),
+            format!("interlace method {interlace}: only 0 and 1 are defined"),
+            ByteRange::new(at + 12, 1),
+            NodeKind::Warning,
+            None,
+        );
+    }
     if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
         tree.add(
             Some(parent),
@@ -621,15 +668,16 @@ pub fn decode_gama(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         return;
     };
 
-    field(tree, parent, "gamma", chunk, 0, 4, Value::U64(raw as u64));
+    // One field, one range: the decimal is how the stored integer reads, not
+    // a second field on the same four bytes.
     field(
         tree,
         parent,
-        "gammaDecimal",
+        "gamma",
         chunk,
         0,
         4,
-        Value::Text(format!("{:.5}", raw as f64 / 100_000.0)),
+        Value::Text(format!("{:.5} (stored as {raw})", raw as f64 / 100_000.0)),
     );
 }
 

@@ -27,8 +27,20 @@ pub struct Chunk<'a> {
 }
 
 impl Chunk<'_> {
+    /// The type as text. A PNG chunk type is four ASCII letters; anything else
+    /// is shown in hex, so a corrupt type cannot put control characters into a
+    /// label.
     pub fn kind_str(&self) -> String {
-        self.kind.iter().map(|&b| b as char).collect()
+        if self.kind_is_valid() {
+            self.kind.iter().map(|&b| b as char).collect()
+        } else {
+            let [a, b, c, d] = self.kind;
+            format!("0x{a:02X}{b:02X}{c:02X}{d:02X}")
+        }
+    }
+
+    pub fn kind_is_valid(&self) -> bool {
+        self.kind.iter().all(u8::is_ascii_alphabetic)
     }
 
     pub fn crc_ok(&self) -> bool {
@@ -47,6 +59,31 @@ impl Chunk<'_> {
 /// failed read deliberately leaves the position untouched — and spin any naive
 /// loop indefinitely. The no-infinite-loop guarantee belongs here, not in the
 /// memory of every future caller.
+/// The first position at or after `from` where a complete chunk with a correct
+/// CRC begins, if any. After a damaged chunk header this is where reading can
+/// resume: requiring a matching CRC makes a false match vanishingly unlikely,
+/// so one bad length costs one chunk rather than the rest of the file.
+pub fn resync(data: &[u8], from: u64) -> Option<u64> {
+    let end = data.len() as u64;
+    let mut p = from;
+    while p + 12 <= end {
+        let mut r = Reader::new(data);
+        r.seek(p);
+        // Cheap filters first; the CRC runs only on plausible candidates.
+        if let (Ok(len), Ok(kind)) = (r.u32_be(), r.array::<4>())
+            && len <= MAX_CHUNK_LEN
+            && kind.iter().all(u8::is_ascii_alphabetic)
+            && let Ok(body) = r.bytes(len as usize)
+            && let Ok(crc) = r.u32_be()
+            && crc == !crc32_update(crc32_update(0xFFFF_FFFF, &kind), body)
+        {
+            return Some(p);
+        }
+        p += 1;
+    }
+    None
+}
+
 pub fn next_chunk<'a>(r: &mut Reader<'a>) -> Option<Result<Chunk<'a>, ChunkError>> {
     if r.remaining() == 0 {
         return None;
@@ -106,6 +143,26 @@ mod tests {
         crc_input.extend_from_slice(data);
         out.extend_from_slice(&crc32(&crc_input).to_be_bytes());
         out
+    }
+
+    #[test]
+    fn resync_finds_the_next_intact_chunk() {
+        let mut bytes = chunk(b"gAMA", &[0, 0, 177, 143]);
+        let second = bytes.len() as u64;
+        bytes.extend(chunk(b"IDAT", &[1, 2, 3, 4, 5]));
+        // Garbage before the first chunk, then damage its length.
+        bytes[0] = 0xFF;
+        assert_eq!(resync(&bytes, 1), Some(second));
+        assert_eq!(resync(&bytes, second + 1), None);
+    }
+
+    #[test]
+    fn a_non_letter_type_is_shown_in_hex() {
+        let bytes = chunk(&[0x00, b'A', 0x1B, b'Z'], &[]);
+        let mut r = Reader::new(&bytes);
+        let c = next_chunk(&mut r).unwrap().unwrap();
+        assert!(!c.kind_is_valid());
+        assert_eq!(c.kind_str(), "0x00411B5A");
     }
 
     #[test]

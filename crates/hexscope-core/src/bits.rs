@@ -1,6 +1,8 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BitError {
     Eof,
+    /// More than 32 bits asked for at once; they would not fit the result.
+    TooWide,
 }
 
 /// Reads bits low-to-high within each byte, which is the order DEFLATE uses.
@@ -35,7 +37,9 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn bits(&mut self, n: u32) -> Result<u32, BitError> {
-        debug_assert!(n <= 32);
+        if n > 32 {
+            return Err(BitError::TooWide);
+        }
         // Checked up front so a failed read leaves the position untouched —
         // the same contract `Reader` gives, letting a caller recover and try
         // something smaller instead of silently skipping the bits it consumed.
@@ -77,6 +81,15 @@ impl<'a> BitReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn asking_for_more_than_32_bits_is_an_error() {
+        let data = [0xFFu8; 8];
+        let mut br = BitReader::new(&data);
+        assert_eq!(br.bits(33), Err(BitError::TooWide));
+        assert_eq!(br.bit_pos(), 0);
+        assert_eq!(br.bits(32), Ok(u32::MAX));
+    }
 
     #[test]
     fn a_failed_read_leaves_the_position_untouched() {

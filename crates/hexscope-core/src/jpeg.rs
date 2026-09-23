@@ -63,6 +63,33 @@ fn app_kind(payload: &[u8]) -> Option<&'static str> {
         .map(|(_, name)| *name)
 }
 
+/// The first position at or after `from` where a segment plausibly begins: a
+/// marker that can start one, followed by a length that fits in the file — or
+/// EOI. Used to resume after damage instead of abandoning the rest of the file.
+fn next_segment(data: &[u8], from: u64) -> Option<u64> {
+    let end = data.len() as u64;
+    let mut p = from;
+    while p + 2 <= end {
+        let mut r = Reader::new(data);
+        r.seek(p);
+        if let (Ok(0xFF), Ok(m)) = (r.u8(), r.u8()) {
+            if m == 0xD9 {
+                return Some(p);
+            }
+            if matches!(m, 0xC0..=0xFE)
+                && !matches!(m, 0xD0..=0xD8)
+                && let Ok(len) = r.u16_be()
+                && len >= 2
+                && p + 2 + len as u64 <= end
+            {
+                return Some(p);
+            }
+        }
+        p += 1;
+    }
+    None
+}
+
 /// Parses a JPEG. Never fails: damage becomes error nodes on the bytes.
 pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
     let mut tree = ParseTree::new();
@@ -110,8 +137,19 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
         let start = r.pos();
         let Ok(first) = r.u8() else { break };
         if first != 0xFF {
-            // Without a marker there is no length to skip by, so the rest of
-            // the file cannot be walked.
+            // No marker, so no length to skip by: look for the next segment
+            // rather than give up on the rest of the file.
+            if let Some(next) = next_segment(data, start + 1) {
+                tree.add(
+                    Some(root),
+                    format!("expected a marker, found 0x{first:02X}: skipped to the next segment"),
+                    ByteRange::new(start, next - start),
+                    NodeKind::Error,
+                    None,
+                );
+                r.seek(next);
+                continue;
+            }
             tree.add(
                 Some(root),
                 format!("expected a marker, found 0x{first:02X}"),
@@ -189,6 +227,19 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
         }
         let payload_start = r.pos();
         let Ok(payload) = r.bytes(len as usize - 2) else {
+            // Either the file is truncated or the length is corrupt. A later
+            // segment that fits tells them apart.
+            if let Some(next) = next_segment(data, start + 2) {
+                tree.add(
+                    Some(root),
+                    format!("{name} segment length {len} is wrong: skipped to the next segment"),
+                    ByteRange::new(start, next - start),
+                    NodeKind::Error,
+                    None,
+                );
+                r.seek(next);
+                continue;
+            }
             tree.add(
                 Some(root),
                 format!("{name} segment runs past the end of the file"),
@@ -538,6 +589,51 @@ mod tests {
             .unwrap();
         assert_eq!(extra.kind, NodeKind::Warning);
         assert_eq!(extra.range.len, appended.len() as u64);
+    }
+
+    #[test]
+    fn garbage_between_segments_is_skipped_not_fatal() {
+        let clean = jpeg_with_exif(None);
+        // Insert junk just before SOF0.
+        let sof = clean.windows(2).position(|w| w == [0xFF, 0xC0]).unwrap();
+        let mut data = clean[..sof].to_vec();
+        data.extend_from_slice(b"junk");
+        data.extend_from_slice(&clean[sof..]);
+
+        let doc = parse_jpeg(&data);
+        let l = labels(&doc);
+        assert!(
+            l.contains(&"SOF0".to_string()) && l.contains(&"EOI".to_string()),
+            "{l:?}"
+        );
+        let err = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.kind == NodeKind::Error)
+            .unwrap();
+        assert_eq!((err.range.start, err.range.len), (sof as u64, 4));
+        assert_eq!(doc.width, Some(640), "the frame header is still read");
+    }
+
+    #[test]
+    fn a_corrupt_segment_length_costs_one_segment() {
+        let mut data = jpeg_with_exif(None);
+        // DQT's length, made far too large.
+        let dqt = data.windows(2).position(|w| w == [0xFF, 0xDB]).unwrap();
+        data[dqt + 2] = 0x7F;
+        let doc = parse_jpeg(&data);
+        let l = labels(&doc);
+        assert!(
+            l.contains(&"SOF0".to_string()) && l.contains(&"EOI".to_string()),
+            "{l:?}"
+        );
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .any(|n| n.label.starts_with("DQT segment length"))
+        );
     }
 
     #[test]

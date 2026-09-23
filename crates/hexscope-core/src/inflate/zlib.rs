@@ -1,5 +1,6 @@
 use crate::inflate::InflateError;
 use crate::inflate::engine::{EventSink, inflate};
+use crate::reader::Reader;
 
 const ADLER_MOD: u32 = 65521;
 
@@ -29,11 +30,15 @@ pub fn zlib_decompress(
     max_output: u64,
     sink: &mut dyn EventSink,
 ) -> Result<Vec<u8>, InflateError> {
-    if data.len() < 6 {
+    // Two header bytes, the DEFLATE body, a four-byte Adler-32 trailer.
+    let body_len = data
+        .len()
+        .checked_sub(6)
+        .ok_or(InflateError::BadZlibHeader)?;
+    let mut r = Reader::new(data);
+    let (Ok(cmf), Ok(flg)) = (r.u8(), r.u8()) else {
         return Err(InflateError::BadZlibHeader);
-    }
-    let cmf = data[0];
-    let flg = data[1];
+    };
 
     // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
     if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
@@ -44,13 +49,9 @@ pub fn zlib_decompress(
         return Err(InflateError::BadZlibHeader);
     }
 
-    let body = &data[2..data.len() - 4];
-    let stored = u32::from_be_bytes([
-        data[data.len() - 4],
-        data[data.len() - 3],
-        data[data.len() - 2],
-        data[data.len() - 1],
-    ]);
+    let (Ok(body), Ok(stored)) = (r.bytes(body_len), r.u32_be()) else {
+        return Err(InflateError::BadZlibHeader);
+    };
 
     let out = inflate(body, max_output, sink)?;
     if adler32(&out) != stored {

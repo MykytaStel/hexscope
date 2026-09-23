@@ -319,3 +319,159 @@ fn the_sample_photo_reveals_what_an_independent_reader_sees() {
         "a valid photo reported damage: {errors:?}"
     );
 }
+
+#[test]
+fn one_corrupt_chunk_length_costs_one_chunk_not_the_file() {
+    let mut bytes = fixture("basn2c08.png");
+    // gAMA starts at 33 (see the snapshot); make its length absurd.
+    bytes[33] = 0x7F;
+
+    let doc = parse_png(&bytes);
+    let labels: Vec<&str> = doc
+        .tree
+        .get(0)
+        .children
+        .iter()
+        .map(|&c| doc.tree.get(c).label.as_str())
+        .collect();
+    assert!(labels.contains(&"IDAT"), "IDAT survives: {labels:?}");
+    assert!(labels.contains(&"IEND"), "IEND survives: {labels:?}");
+    assert!(doc.pixels.is_some(), "the image still decodes");
+
+    let error = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.kind == NodeKind::Error)
+        .expect("the damage is reported");
+    // Exactly the damaged gAMA chunk: 33 up to IDAT at 49.
+    assert_eq!((error.range.start, error.range.end()), (33, 49));
+}
+
+/// Children of every IDAT chunk, as (label, start, end), in file order.
+fn idat_children(doc: &PngDocument) -> Vec<Vec<(String, u64, u64)>> {
+    let tree = &doc.tree;
+    tree.get(0)
+        .children
+        .iter()
+        .map(|&c| tree.get(c))
+        .filter(|n| n.label == "IDAT")
+        .map(|chunk| {
+            let mut kids: Vec<(String, u64, u64)> = chunk
+                .children
+                .iter()
+                .map(|&k| tree.get(k))
+                .filter(|k| k.kind == NodeKind::Field)
+                .map(|k| (k.label.clone(), k.range.start, k.range.end()))
+                .collect();
+            kids.sort_by_key(|k| k.1);
+            kids
+        })
+        .collect()
+}
+
+#[test]
+fn idat_children_name_the_stream_and_never_overlap() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pngsuite");
+    for entry in fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        if name.starts_with('x') || !name.ends_with(".png") {
+            continue;
+        }
+        let doc = parse_png(&fs::read(&path).unwrap());
+        let chunks = idat_children(&doc);
+        assert!(!chunks.is_empty(), "{name}: no IDAT");
+        assert_eq!(chunks[0][0].0, "zlib header", "{name}");
+        // Starts with: in oi9n2c16.png every IDAT is one byte long, so the
+        // trailer is spread over four chunks.
+        assert!(
+            chunks
+                .last()
+                .unwrap()
+                .last()
+                .unwrap()
+                .0
+                .starts_with("Adler-32"),
+            "{name}"
+        );
+        for kids in &chunks {
+            for pair in kids.windows(2) {
+                assert!(
+                    pair[0].2 <= pair[1].1,
+                    "{name}: {:?} overlaps {:?}",
+                    pair[0],
+                    pair[1]
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn blocks_split_across_chunks_cover_the_stream_exactly() {
+    use flate2::{Compression, write::ZlibEncoder};
+    use hexscope_core::crc32::crc32;
+    use std::io::Write;
+
+    // Mixed content so the encoder emits several blocks, then 97-byte IDAT
+    // chunks so nearly every block crosses a chunk boundary.
+    let (w, h) = (200u32, 150u32);
+    let mut raw = Vec::new();
+    for y in 0..h {
+        raw.push(0);
+        for x in 0..w {
+            let noise = (x.wrapping_mul(2654435761) ^ y.wrapping_mul(40503)) >> 13;
+            raw.extend_from_slice(&[
+                (x ^ y) as u8,
+                noise as u8,
+                if x < 100 { 0 } else { y as u8 },
+            ]);
+        }
+    }
+    let mut enc = ZlibEncoder::new(Vec::new(), Compression::best());
+    enc.write_all(&raw).unwrap();
+    let z = enc.finish().unwrap();
+    let chunk = |kind: &[u8; 4], data: &[u8]| {
+        let mut out = (data.len() as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(data);
+        let mut c = kind.to_vec();
+        c.extend_from_slice(data);
+        out.extend_from_slice(&crc32(&c).to_be_bytes());
+        out
+    };
+    let mut ihdr = w.to_be_bytes().to_vec();
+    ihdr.extend_from_slice(&h.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    png.extend(chunk(b"IHDR", &ihdr));
+    for part in z.chunks(97) {
+        png.extend(chunk(b"IDAT", part));
+    }
+    png.extend(chunk(b"IEND", &[]));
+
+    let doc = parse_png(&png);
+    assert!(doc.pixels.is_some());
+    let chunks = idat_children(&doc);
+    let covered: u64 = chunks.iter().flatten().map(|(_, s, e)| e - s).sum();
+    assert_eq!(
+        covered,
+        z.len() as u64,
+        "every stream byte belongs to exactly one child"
+    );
+    assert!(
+        chunks
+            .iter()
+            .flatten()
+            .any(|(l, _, _)| l.ends_with("(continued)")),
+        "blocks cross chunk boundaries here"
+    );
+    let blocks: std::collections::BTreeSet<&str> = chunks
+        .iter()
+        .flatten()
+        .filter(|(l, _, _)| l.starts_with("block "))
+        .map(|(l, _, _)| l.split(" · ").next().unwrap())
+        .collect();
+    assert!(blocks.len() > 1, "several blocks: {blocks:?}");
+}

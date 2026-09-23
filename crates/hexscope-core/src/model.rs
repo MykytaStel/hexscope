@@ -91,8 +91,19 @@ impl ParseTree {
         id
     }
 
+    /// The node with this id.
+    ///
+    /// # Panics
+    ///
+    /// If `id` was not returned by [`ParseTree::add`] on this tree — the same
+    /// contract as indexing a `Vec`. Use [`ParseTree::try_get`] for ids from
+    /// outside, such as ones round-tripped through JavaScript.
     pub fn get(&self, id: NodeId) -> &Node {
         &self.nodes[id as usize]
+    }
+
+    pub fn try_get(&self, id: NodeId) -> Option<&Node> {
+        self.nodes.get(id as usize)
     }
 
     pub fn root(&self) -> Option<NodeId> {
