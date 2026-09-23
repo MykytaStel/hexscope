@@ -4,70 +4,59 @@ What is known to be missing or wrong, and why it has not been fixed yet.
 None of it breaks the crate's guarantees — the parser does not panic, always
 returns a tree, and has no runtime dependencies.
 
-## Open
+## Not yet built
 
-**IDAT has no children.** No node for the zlib header, the Adler-32 trailer or
-the DEFLATE block structure, so hovering any IDAT byte selects the whole chunk.
-The player now shows the stream step by step, which covers most of the need,
-but the tree itself still says only "IDAT". Blocks would be the natural first
-children: the decoder already knows where each one starts.
+These are features in their own right rather than defects, each worth its own
+milestone.
 
-**One bad chunk length ends the walk.** `ChunkError::LengthTooLarge` stops at
-the damaged chunk and marks everything after it unreadable. For a truncated
-file that is right. For a single corrupt length byte in an otherwise intact
-file, every later chunk disappears. The spec asks for a red node and a resync
-to the next plausible chunk header.
+**HEIC.** The default photo format on iPhones is recognised and named, with a
+hint to export as JPEG, but not read. Its EXIF lives in an ISO base media
+file; reading it means parsing that container.
 
-**`inflate/zlib.rs` indexes untrusted bytes by hand.** Five raw indexes rest on
-one exact `len < 6` guard. Correct today, but it is the only place where the
-rule that `Reader` is the single bounds-checked accessor does not hold.
+**Vendor MakerNotes.** Camera makers store extra metadata — often more serial
+numbers — in a MakerNote whose format differs per vendor. It is shown as an
+opaque byte range.
 
-**The player shows positions, not codes.** It says how many bits a step read
-and where, but not the Huffman code itself or the tables a dynamic block
-builds. That is the natural next depth for the animation.
+**IPTC.** Photoshop's APP13 segment is named but not decoded.
 
-**Warning and error severity drift.** A malformed tEXt or PLTE is a warning; a
-truncated IHDR, gAMA or pHYs is an error. All are the same class of damage.
+**Huffman codes in the player.** The DEFLATE player shows how many bits each
+step read and where, but not the code itself or the tables a dynamic block
+builds.
 
-**Smaller items.**
-- `gamma` and `gammaDecimal` share a byte range; the decimal is a rendering
-  of the same field and belongs in its value, not in a sibling node.
-- `BitReader::bits` guards `n <= 32` with `debug_assert!` only;
-  `CheckpointSink::new` and `ParseTree::get` assert. None is reachable from
-  file bytes.
-- IHDR does not validate the compression and filter method bytes, both of
-  which must be 0.
-- `Chunk::kind_str` maps bytes through `as char`. The WASM bridge sanitises
-  labels before they reach the UI; the core's own labels are still raw.
-- `fuzz/Cargo.toml` has no `license` field.
-- The structure tree is not virtualised. Fine for the 1,334 rows of a 10 MB
-  test file, not for tens of thousands of chunks.
-- The layout is designed for windows at least 1,024 px wide.
+## Limits by design
 
-## JPEG and EXIF
+**The interface is built for pointing devices.** Below 900 px the panes stack
+and the byte view drops to 8 bytes per row, so it works on a phone, but hover
+is the main way to explore and touch has none.
 
-**Only EXIF is read.** XMP, IPTC and camera makers' MakerNotes are shown as
-opaque byte ranges. MakerNotes in particular often hold more serial numbers.
-
-**Only the first EXIF segment counts.** Some tools add a second one — Apple's
-`sips` does — and its facts are not merged in.
-
-**The embedded thumbnail is not opened.** It is a JPEG in its own right and
-could be parsed recursively; thumbnails sometimes survive edits that removed
-something from the main image.
-
-**HEIC is not supported**, only recognised. It is the default on iPhones, so
-many photos people have to hand will be refused with a hint to export as JPEG.
-
-**An unexpected byte where a marker should be ends the JPEG walk**, the same
-limitation PNG has with a corrupt chunk length.
-
-**The WebAssembly grew from 36 KB to 59 KB gzipped** with EXIF support, mostly
-number formatting and the new code itself. A size-optimised build saved under
-2 KB and was not worth slower parsing; `wasm-opt` has not been tried.
+**WebAssembly size.** About 58 KB gzipped. A size-optimised Rust build saved
+under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
+10 MB PNG five to six times slower in the browser (950–1,500 ms against
+165–266 ms, measured side by side). Neither was kept.
 
 ## Fixed
 
+- **One corrupt chunk length or JPEG segment length ended the walk.** Both
+  formats now resume at the next intact chunk or plausible segment, so one bad
+  byte costs one chunk. PNG requires a matching CRC before resuming.
+- **IDAT had no children.** It now shows the zlib header, every DEFLATE block
+  and its kind, and the Adler-32 trailer, split at chunk boundaries.
+- **Severity drifted between warning and error.** Every site was audited
+  against the rule on `NodeKind`; two were wrong. A third put a phantom
+  "problem" on every valid interlaced PNG.
+- **Only the first EXIF segment counted**; a second now fills the gaps.
+- **The EXIF thumbnail was an opaque blob**; it is parsed as a JPEG in place.
+- **XMP was an opaque blob**; it is shown as text.
+- **The structure tree put every row in the DOM**; it is virtualised.
+- **`zlib.rs` indexed untrusted bytes by hand**; it reads through `Reader`.
+- **`gamma` and `gammaDecimal` shared a byte range**; they are one field.
+- **IHDR did not check its method bytes**; undefined values are warnings.
+- **Corrupt chunk types could put control characters in labels**; they are
+  shown in hex.
+- **Public functions could panic**: `BitReader::bits` above 32 bits and
+  `CheckpointSink::new(0)` no longer do; `ParseTree::try_get` exists for ids
+  from outside.
+- **The fuzz crate had no license field.**
 - **Decompression failures pointed at nothing, then at everything.** They
   first used range `(0, 0)`, then a range across every IDAT chunk that
   straddled its sibling chunks and split hover between them. The failing byte
