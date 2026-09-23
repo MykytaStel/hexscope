@@ -48,6 +48,9 @@ under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
 - **The EXIF thumbnail was an opaque blob**; it is parsed as a JPEG in place.
 - **XMP was an opaque blob**; it is shown as text.
 - **The structure tree put every row in the DOM**; it is virtualised.
+- **The player lost long repeating copies.** A copy that repeats a pattern
+  further back than the strip is wide showed neither where it landed nor
+  the arc; it now uses the source | gap | destination layout.
 - **`zlib.rs` indexed untrusted bytes by hand**; it reads through `Reader`.
 - **`gamma` and `gammaDecimal` shared a byte range**; they are one field.
 - **IHDR did not check its method bytes**; undefined values are warnings.

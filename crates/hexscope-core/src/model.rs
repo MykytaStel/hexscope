@@ -103,6 +103,21 @@ impl ParseTree {
     /// If `id` was not returned by [`ParseTree::add`] on this tree — the same
     /// contract as indexing a `Vec`. Use [`ParseTree::try_get`] for ids from
     /// outside, such as ones round-tripped through JavaScript.
+    /// Records damage: bytes that could not be read as what they claim to be.
+    pub fn error(&mut self, parent: NodeId, label: impl Into<String>, range: ByteRange) -> NodeId {
+        self.add(Some(parent), label, range, NodeKind::Error, None)
+    }
+
+    /// Records bytes that were read but break a rule of the format.
+    pub fn warning(
+        &mut self,
+        parent: NodeId,
+        label: impl Into<String>,
+        range: ByteRange,
+    ) -> NodeId {
+        self.add(Some(parent), label, range, NodeKind::Warning, None)
+    }
+
     pub fn get(&self, id: NodeId) -> &Node {
         &self.nodes[id as usize]
     }

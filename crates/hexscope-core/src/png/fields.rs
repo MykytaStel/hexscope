@@ -1,3 +1,382 @@
+use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
+use crate::png::chunks::Chunk;
+use crate::reader::Reader;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ihdr {
+    pub width: u32,
+    pub height: u32,
+    pub bit_depth: u8,
+    pub color_type: u8,
+    pub interlace: u8,
+}
+
+impl Ihdr {
+    /// Samples per pixel for this colour type.
+    pub fn channels(&self) -> usize {
+        match self.color_type {
+            0 => 1, // greyscale
+            2 => 3, // RGB
+            3 => 1, // palette index
+            4 => 2, // greyscale + alpha
+            6 => 4, // RGBA
+            _ => 1,
+        }
+    }
+
+    /// How far back a filter looks for "the pixel to the left", in bytes.
+    /// PNG defines this as `max(1, floor(channels * bit_depth / 8))`, so at
+    /// sub-byte depths it clamps to one byte.
+    ///
+    /// This is NOT the scanline stride — see [`Ihdr::stride`]. Conflating the
+    /// two silently breaks every image below 8-bit depth.
+    pub fn filter_distance(&self) -> usize {
+        ((self.channels() * self.bit_depth as usize) / 8).max(1)
+    }
+
+    /// Bytes in one unfiltered scanline: `ceil(width * channels * depth / 8)`.
+    /// At 1, 2 and 4 bits per sample several pixels share a byte, so this is
+    /// much smaller than `width * filter_distance`.
+    ///
+    /// Returns `None` if the dimensions overflow `usize`, which a crafted IHDR
+    /// can do on a 32-bit target such as wasm32.
+    pub fn stride(&self) -> Option<usize> {
+        (self.width as usize)
+            .checked_mul(self.channels())?
+            .checked_mul(self.bit_depth as usize)
+            .map(|bits| bits.div_ceil(8))
+    }
+}
+
+/// The bit depths PNG permits for each colour type (RFC 2083 §4.1.1).
+fn bit_depth_allowed(color_type: u8, bit_depth: u8) -> bool {
+    match color_type {
+        0 => matches!(bit_depth, 1 | 2 | 4 | 8 | 16),
+        3 => matches!(bit_depth, 1 | 2 | 4 | 8),
+        2 | 4 | 6 => matches!(bit_depth, 8 | 16),
+        _ => false,
+    }
+}
+
+fn color_type_name(raw: u8) -> &'static str {
+    match raw {
+        0 => "Greyscale",
+        2 => "RGB",
+        3 => "Palette",
+        4 => "Greyscale+Alpha",
+        6 => "RGBA",
+        _ => "unknown",
+    }
+}
+
+/// Adds one field node whose range is expressed in file coordinates.
+fn field(
+    tree: &mut ParseTree,
+    parent: NodeId,
+    label: &str,
+    chunk: &Chunk,
+    offset: u64,
+    len: u64,
+    value: Value,
+) {
+    let range = ByteRange::new(chunk.data_range.start + offset, len);
+    tree.add(Some(parent), label, range, NodeKind::Field, Some(value));
+}
+
+pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<Ihdr> {
+    let mut r = Reader::new(chunk.data);
+
+    // All thirteen bytes are read up front; if any read fails the chunk is
+    // damaged and we record one Error node rather than a half-filled tree.
+    let (
+        Ok(width),
+        Ok(height),
+        Ok(bit_depth),
+        Ok(color_type),
+        Ok(compression),
+        Ok(filter),
+        Ok(interlace),
+    ) = (
+        r.u32_be(),
+        r.u32_be(),
+        r.u8(),
+        r.u8(),
+        r.u8(),
+        r.u8(),
+        r.u8(),
+    )
+    else {
+        tree.error(parent, "IHDR truncated", chunk.data_range);
+        return None;
+    };
+
+    field(tree, parent, "width", chunk, 0, 4, Value::U64(width as u64));
+    field(
+        tree,
+        parent,
+        "height",
+        chunk,
+        4,
+        4,
+        Value::U64(height as u64),
+    );
+    field(
+        tree,
+        parent,
+        "bitDepth",
+        chunk,
+        8,
+        1,
+        Value::U64(bit_depth as u64),
+    );
+    field(
+        tree,
+        parent,
+        "colorType",
+        chunk,
+        9,
+        1,
+        Value::Enum {
+            raw: color_type as u64,
+            name: color_type_name(color_type),
+        },
+    );
+    field(
+        tree,
+        parent,
+        "compression",
+        chunk,
+        10,
+        1,
+        Value::U64(compression as u64),
+    );
+    field(
+        tree,
+        parent,
+        "filter",
+        chunk,
+        11,
+        1,
+        Value::U64(filter as u64),
+    );
+    field(
+        tree,
+        parent,
+        "interlace",
+        chunk,
+        12,
+        1,
+        Value::U64(interlace as u64),
+    );
+
+    // A structurally fine IHDR can still describe an impossible image. Saying
+    // so is the point of the tool, so these are warnings on the exact byte.
+    let at = chunk.data_range.start;
+    if compression != 0 {
+        tree.warning(
+            parent,
+            format!("compression method {compression}: only 0 is defined"),
+            ByteRange::new(at + 10, 1),
+        );
+    }
+    if filter != 0 {
+        tree.warning(
+            parent,
+            format!("filter method {filter}: only 0 is defined"),
+            ByteRange::new(at + 11, 1),
+        );
+    }
+    if interlace > 1 {
+        tree.warning(
+            parent,
+            format!("interlace method {interlace}: only 0 and 1 are defined"),
+            ByteRange::new(at + 12, 1),
+        );
+    }
+    if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
+        tree.warning(
+            parent,
+            format!("colour type {color_type} is not one of 0, 2, 3, 4, 6"),
+            ByteRange::new(chunk.data_range.start + 9, 1),
+        );
+    } else if !bit_depth_allowed(color_type, bit_depth) {
+        tree.warning(
+            parent,
+            format!("bit depth {bit_depth} is not allowed for colour type {color_type}"),
+            ByteRange::new(chunk.data_range.start + 8, 1),
+        );
+    }
+
+    Some(Ihdr {
+        width,
+        height,
+        bit_depth,
+        color_type,
+        interlace,
+    })
+}
+
+/// PLTE is a flat array of RGB triples. Each entry becomes a field so hovering
+/// a palette index in the hex view lights up the exact three bytes.
+pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
+    if !chunk.data.len().is_multiple_of(3) {
+        tree.warning(
+            parent,
+            "PLTE length is not a multiple of 3",
+            chunk.data_range,
+        );
+        return;
+    }
+
+    field(
+        tree,
+        parent,
+        "entries",
+        chunk,
+        0,
+        chunk.data.len() as u64,
+        Value::U64((chunk.data.len() / 3) as u64),
+    );
+
+    // `array::<3>` yields a fixed-size array, so indexing it is checked at
+    // compile time rather than being a raw slice index.
+    let mut r = Reader::new(chunk.data);
+    let mut i = 0u64;
+    while let Ok(rgb) = r.array::<3>() {
+        field(
+            tree,
+            parent,
+            &format!("entry {i}"),
+            chunk,
+            i * 3,
+            3,
+            Value::Text(format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])),
+        );
+        i += 1;
+    }
+}
+
+/// gAMA stores gamma × 100000 as a big-endian u32.
+pub fn decode_gama(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
+    let mut r = Reader::new(chunk.data);
+    let Ok(raw) = r.u32_be() else {
+        tree.error(parent, "gAMA truncated", chunk.data_range);
+        return;
+    };
+
+    // One field, one range: the decimal is how the stored integer reads, not
+    // a second field on the same four bytes.
+    field(
+        tree,
+        parent,
+        "gamma",
+        chunk,
+        0,
+        4,
+        Value::Text(format!("{:.5} (stored as {raw})", raw as f64 / 100_000.0)),
+    );
+}
+
+/// tRNS means different things per colour type, so the label says which
+/// reading applies instead of silently guessing.
+pub fn decode_trns(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId, color_type: Option<u8>) {
+    match color_type {
+        Some(3) => {
+            field(
+                tree,
+                parent,
+                "paletteAlphaCount",
+                chunk,
+                0,
+                chunk.data.len() as u64,
+                Value::U64(chunk.data.len() as u64),
+            );
+        }
+        Some(0) | Some(2) => {
+            field(
+                tree,
+                parent,
+                "transparentColor",
+                chunk,
+                0,
+                chunk.data.len() as u64,
+                Value::Bytes(chunk.data.len() as u64),
+            );
+        }
+        _ => {
+            tree.warning(
+                parent,
+                "tRNS without a usable colour type",
+                chunk.data_range,
+            );
+        }
+    }
+}
+
+pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
+    let mut r = Reader::new(chunk.data);
+
+    let Some(keyword_bytes) = r.bytes_until(0) else {
+        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        return;
+    };
+    let text_bytes = r.rest();
+
+    let sep = keyword_bytes.len() as u64;
+    let keyword = String::from_utf8_lossy(keyword_bytes).into_owned();
+    let text = String::from_utf8_lossy(text_bytes).into_owned();
+
+    field(tree, parent, "keyword", chunk, 0, sep, Value::Text(keyword));
+    field(
+        tree,
+        parent,
+        "text",
+        chunk,
+        sep + 1,
+        text_bytes.len() as u64,
+        Value::Text(text),
+    );
+}
+
+pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
+    let mut r = Reader::new(chunk.data);
+    let (Ok(x), Ok(y), Ok(unit)) = (r.u32_be(), r.u32_be(), r.u8()) else {
+        tree.error(parent, "pHYs truncated", chunk.data_range);
+        return;
+    };
+
+    field(
+        tree,
+        parent,
+        "pixelsPerUnitX",
+        chunk,
+        0,
+        4,
+        Value::U64(x as u64),
+    );
+    field(
+        tree,
+        parent,
+        "pixelsPerUnitY",
+        chunk,
+        4,
+        4,
+        Value::U64(y as u64),
+    );
+    field(
+        tree,
+        parent,
+        "unit",
+        chunk,
+        8,
+        1,
+        Value::Enum {
+            raw: unit as u64,
+            name: if unit == 1 { "metre" } else { "unknown" },
+        },
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -376,421 +755,4 @@ mod tests {
             assert_eq!(child.label, "tRNS without a usable colour type");
         }
     }
-}
-
-use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::png::chunks::Chunk;
-use crate::reader::Reader;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Ihdr {
-    pub width: u32,
-    pub height: u32,
-    pub bit_depth: u8,
-    pub color_type: u8,
-    pub interlace: u8,
-}
-
-impl Ihdr {
-    /// Samples per pixel for this colour type.
-    pub fn channels(&self) -> usize {
-        match self.color_type {
-            0 => 1, // greyscale
-            2 => 3, // RGB
-            3 => 1, // palette index
-            4 => 2, // greyscale + alpha
-            6 => 4, // RGBA
-            _ => 1,
-        }
-    }
-
-    /// How far back a filter looks for "the pixel to the left", in bytes.
-    /// PNG defines this as `max(1, floor(channels * bit_depth / 8))`, so at
-    /// sub-byte depths it clamps to one byte.
-    ///
-    /// This is NOT the scanline stride — see [`Ihdr::stride`]. Conflating the
-    /// two silently breaks every image below 8-bit depth.
-    pub fn filter_distance(&self) -> usize {
-        ((self.channels() * self.bit_depth as usize) / 8).max(1)
-    }
-
-    /// Bytes in one unfiltered scanline: `ceil(width * channels * depth / 8)`.
-    /// At 1, 2 and 4 bits per sample several pixels share a byte, so this is
-    /// much smaller than `width * filter_distance`.
-    ///
-    /// Returns `None` if the dimensions overflow `usize`, which a crafted IHDR
-    /// can do on a 32-bit target such as wasm32.
-    pub fn stride(&self) -> Option<usize> {
-        (self.width as usize)
-            .checked_mul(self.channels())?
-            .checked_mul(self.bit_depth as usize)
-            .map(|bits| bits.div_ceil(8))
-    }
-}
-
-/// The bit depths PNG permits for each colour type (RFC 2083 §4.1.1).
-fn bit_depth_allowed(color_type: u8, bit_depth: u8) -> bool {
-    match color_type {
-        0 => matches!(bit_depth, 1 | 2 | 4 | 8 | 16),
-        3 => matches!(bit_depth, 1 | 2 | 4 | 8),
-        2 | 4 | 6 => matches!(bit_depth, 8 | 16),
-        _ => false,
-    }
-}
-
-fn color_type_name(raw: u8) -> &'static str {
-    match raw {
-        0 => "Greyscale",
-        2 => "RGB",
-        3 => "Palette",
-        4 => "Greyscale+Alpha",
-        6 => "RGBA",
-        _ => "unknown",
-    }
-}
-
-/// Adds one field node whose range is expressed in file coordinates.
-fn field(
-    tree: &mut ParseTree,
-    parent: NodeId,
-    label: &str,
-    chunk: &Chunk,
-    offset: u64,
-    len: u64,
-    value: Value,
-) {
-    let range = ByteRange::new(chunk.data_range.start + offset, len);
-    tree.add(Some(parent), label, range, NodeKind::Field, Some(value));
-}
-
-pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<Ihdr> {
-    let mut r = Reader::new(chunk.data);
-
-    // All thirteen bytes are read up front; if any read fails the chunk is
-    // damaged and we record one Error node rather than a half-filled tree.
-    let (
-        Ok(width),
-        Ok(height),
-        Ok(bit_depth),
-        Ok(color_type),
-        Ok(compression),
-        Ok(filter),
-        Ok(interlace),
-    ) = (
-        r.u32_be(),
-        r.u32_be(),
-        r.u8(),
-        r.u8(),
-        r.u8(),
-        r.u8(),
-        r.u8(),
-    )
-    else {
-        tree.add(
-            Some(parent),
-            "IHDR truncated",
-            chunk.data_range,
-            NodeKind::Error,
-            None,
-        );
-        return None;
-    };
-
-    field(tree, parent, "width", chunk, 0, 4, Value::U64(width as u64));
-    field(
-        tree,
-        parent,
-        "height",
-        chunk,
-        4,
-        4,
-        Value::U64(height as u64),
-    );
-    field(
-        tree,
-        parent,
-        "bitDepth",
-        chunk,
-        8,
-        1,
-        Value::U64(bit_depth as u64),
-    );
-    field(
-        tree,
-        parent,
-        "colorType",
-        chunk,
-        9,
-        1,
-        Value::Enum {
-            raw: color_type as u64,
-            name: color_type_name(color_type),
-        },
-    );
-    field(
-        tree,
-        parent,
-        "compression",
-        chunk,
-        10,
-        1,
-        Value::U64(compression as u64),
-    );
-    field(
-        tree,
-        parent,
-        "filter",
-        chunk,
-        11,
-        1,
-        Value::U64(filter as u64),
-    );
-    field(
-        tree,
-        parent,
-        "interlace",
-        chunk,
-        12,
-        1,
-        Value::U64(interlace as u64),
-    );
-
-    // A structurally fine IHDR can still describe an impossible image. Saying
-    // so is the point of the tool, so these are warnings on the exact byte.
-    let at = chunk.data_range.start;
-    if compression != 0 {
-        tree.add(
-            Some(parent),
-            format!("compression method {compression}: only 0 is defined"),
-            ByteRange::new(at + 10, 1),
-            NodeKind::Warning,
-            None,
-        );
-    }
-    if filter != 0 {
-        tree.add(
-            Some(parent),
-            format!("filter method {filter}: only 0 is defined"),
-            ByteRange::new(at + 11, 1),
-            NodeKind::Warning,
-            None,
-        );
-    }
-    if interlace > 1 {
-        tree.add(
-            Some(parent),
-            format!("interlace method {interlace}: only 0 and 1 are defined"),
-            ByteRange::new(at + 12, 1),
-            NodeKind::Warning,
-            None,
-        );
-    }
-    if !matches!(color_type, 0 | 2 | 3 | 4 | 6) {
-        tree.add(
-            Some(parent),
-            format!("colour type {color_type} is not one of 0, 2, 3, 4, 6"),
-            ByteRange::new(chunk.data_range.start + 9, 1),
-            NodeKind::Warning,
-            None,
-        );
-    } else if !bit_depth_allowed(color_type, bit_depth) {
-        tree.add(
-            Some(parent),
-            format!("bit depth {bit_depth} is not allowed for colour type {color_type}"),
-            ByteRange::new(chunk.data_range.start + 8, 1),
-            NodeKind::Warning,
-            None,
-        );
-    }
-
-    Some(Ihdr {
-        width,
-        height,
-        bit_depth,
-        color_type,
-        interlace,
-    })
-}
-
-/// PLTE is a flat array of RGB triples. Each entry becomes a field so hovering
-/// a palette index in the hex view lights up the exact three bytes.
-pub fn decode_plte(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    if !chunk.data.len().is_multiple_of(3) {
-        tree.add(
-            Some(parent),
-            "PLTE length is not a multiple of 3",
-            chunk.data_range,
-            NodeKind::Warning,
-            None,
-        );
-        return;
-    }
-
-    field(
-        tree,
-        parent,
-        "entries",
-        chunk,
-        0,
-        chunk.data.len() as u64,
-        Value::U64((chunk.data.len() / 3) as u64),
-    );
-
-    // `array::<3>` yields a fixed-size array, so indexing it is checked at
-    // compile time rather than being a raw slice index.
-    let mut r = Reader::new(chunk.data);
-    let mut i = 0u64;
-    while let Ok(rgb) = r.array::<3>() {
-        field(
-            tree,
-            parent,
-            &format!("entry {i}"),
-            chunk,
-            i * 3,
-            3,
-            Value::Text(format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])),
-        );
-        i += 1;
-    }
-}
-
-/// gAMA stores gamma × 100000 as a big-endian u32.
-pub fn decode_gama(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    let mut r = Reader::new(chunk.data);
-    let Ok(raw) = r.u32_be() else {
-        tree.add(
-            Some(parent),
-            "gAMA truncated",
-            chunk.data_range,
-            NodeKind::Error,
-            None,
-        );
-        return;
-    };
-
-    // One field, one range: the decimal is how the stored integer reads, not
-    // a second field on the same four bytes.
-    field(
-        tree,
-        parent,
-        "gamma",
-        chunk,
-        0,
-        4,
-        Value::Text(format!("{:.5} (stored as {raw})", raw as f64 / 100_000.0)),
-    );
-}
-
-/// tRNS means different things per colour type, so the label says which
-/// reading applies instead of silently guessing.
-pub fn decode_trns(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId, color_type: Option<u8>) {
-    match color_type {
-        Some(3) => {
-            field(
-                tree,
-                parent,
-                "paletteAlphaCount",
-                chunk,
-                0,
-                chunk.data.len() as u64,
-                Value::U64(chunk.data.len() as u64),
-            );
-        }
-        Some(0) | Some(2) => {
-            field(
-                tree,
-                parent,
-                "transparentColor",
-                chunk,
-                0,
-                chunk.data.len() as u64,
-                Value::Bytes(chunk.data.len() as u64),
-            );
-        }
-        _ => {
-            tree.add(
-                Some(parent),
-                "tRNS without a usable colour type",
-                chunk.data_range,
-                NodeKind::Warning,
-                None,
-            );
-        }
-    }
-}
-
-pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    let mut r = Reader::new(chunk.data);
-
-    let Some(keyword_bytes) = r.bytes_until(0) else {
-        tree.add(
-            Some(parent),
-            "missing keyword separator",
-            chunk.data_range,
-            NodeKind::Warning,
-            None,
-        );
-        return;
-    };
-    let text_bytes = r.rest();
-
-    let sep = keyword_bytes.len() as u64;
-    let keyword = String::from_utf8_lossy(keyword_bytes).into_owned();
-    let text = String::from_utf8_lossy(text_bytes).into_owned();
-
-    field(tree, parent, "keyword", chunk, 0, sep, Value::Text(keyword));
-    field(
-        tree,
-        parent,
-        "text",
-        chunk,
-        sep + 1,
-        text_bytes.len() as u64,
-        Value::Text(text),
-    );
-}
-
-pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
-    let mut r = Reader::new(chunk.data);
-    let (Ok(x), Ok(y), Ok(unit)) = (r.u32_be(), r.u32_be(), r.u8()) else {
-        tree.add(
-            Some(parent),
-            "pHYs truncated",
-            chunk.data_range,
-            NodeKind::Error,
-            None,
-        );
-        return;
-    };
-
-    field(
-        tree,
-        parent,
-        "pixelsPerUnitX",
-        chunk,
-        0,
-        4,
-        Value::U64(x as u64),
-    );
-    field(
-        tree,
-        parent,
-        "pixelsPerUnitY",
-        chunk,
-        4,
-        4,
-        Value::U64(y as u64),
-    );
-    field(
-        tree,
-        parent,
-        "unit",
-        chunk,
-        8,
-        1,
-        Value::Enum {
-            raw: unit as u64,
-            name: if unit == 1 { "metre" } else { "unknown" },
-        },
-    );
 }

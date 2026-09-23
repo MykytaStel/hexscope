@@ -125,12 +125,10 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
             );
         }
         _ => {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 "not a JPEG: it must start with FF D8",
                 ByteRange::new(0, data.len().min(2) as u64),
-                NodeKind::Error,
-                None,
             );
             doc.tree = tree;
             return doc;
@@ -145,22 +143,18 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
             // No marker, so no length to skip by: look for the next segment
             // rather than give up on the rest of the file.
             if let Some(next) = next_segment(data, start + 1) {
-                tree.add(
-                    Some(root),
+                tree.error(
+                    root,
                     format!("expected a marker, found 0x{first:02X}: skipped to the next segment"),
                     ByteRange::new(start, next - start),
-                    NodeKind::Error,
-                    None,
                 );
                 r.seek(next);
                 continue;
             }
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("expected a marker, found 0x{first:02X}"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
@@ -173,12 +167,10 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
             }
         }
         if marker == 0xFF {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 "the file ends inside a marker",
                 ByteRange::new(start, r.pos() - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
@@ -211,22 +203,18 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
 
         let name = marker_name(marker);
         let Ok(len) = r.u16_be() else {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("{name} segment truncated before its length"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         };
         if len < 2 {
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("{name} segment length {len} is less than 2"),
                 ByteRange::new(start, r.pos() - start),
-                NodeKind::Error,
-                None,
             );
             break;
         }
@@ -235,22 +223,18 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
             // Either the file is truncated or the length is corrupt. A later
             // segment that fits tells them apart.
             if let Some(next) = next_segment(data, start + 2) {
-                tree.add(
-                    Some(root),
+                tree.error(
+                    root,
                     format!("{name} segment length {len} is wrong: skipped to the next segment"),
                     ByteRange::new(start, next - start),
-                    NodeKind::Error,
-                    None,
                 );
                 r.seek(next);
                 continue;
             }
-            tree.add(
-                Some(root),
+            tree.error(
+                root,
                 format!("{name} segment runs past the end of the file"),
                 ByteRange::new(start, data.len() as u64 - start),
-                NodeKind::Error,
-                None,
             );
             break;
         };
@@ -312,12 +296,10 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
     }
 
     if !saw_eoi {
-        tree.add(
-            Some(root),
+        tree.warning(
+            root,
             "no EOI marker: the image never ends",
             ByteRange::new(data.len() as u64, 0),
-            NodeKind::Warning,
-            None,
         );
     } else if r.remaining() > 0 {
         // Some phones append data after EOI; so do files crafted to be two
@@ -360,12 +342,10 @@ fn decode_segment(
         let (Ok(precision), Ok(height), Ok(width), Ok(components)) =
             (p.u8(), p.u16_be(), p.u16_be(), p.u8())
         else {
-            tree.add(
-                Some(node),
+            tree.error(
+                node,
                 "SOF segment truncated",
                 ByteRange::new(at, payload.len() as u64),
-                NodeKind::Error,
-                None,
             );
             return;
         };

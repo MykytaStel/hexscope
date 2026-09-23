@@ -7,6 +7,9 @@
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
+use tags::tag_name;
+
+mod tags;
 
 /// IFDs followed before giving up: real files have five at most
 /// (0, 1, Exif, GPS, Interop).
@@ -266,139 +269,6 @@ fn type_size(typ: u16) -> Option<u64> {
     }
 }
 
-fn tag_name(ifd: Ifd, tag: u16) -> Option<&'static str> {
-    if ifd == Ifd::Gps {
-        return Some(match tag {
-            0x00 => "GPSVersionID",
-            0x01 => "GPSLatitudeRef",
-            0x02 => "GPSLatitude",
-            0x03 => "GPSLongitudeRef",
-            0x04 => "GPSLongitude",
-            0x05 => "GPSAltitudeRef",
-            0x06 => "GPSAltitude",
-            0x07 => "GPSTimeStamp",
-            0x08 => "GPSSatellites",
-            0x09 => "GPSStatus",
-            0x0A => "GPSMeasureMode",
-            0x0B => "GPSDOP",
-            0x0C => "GPSSpeedRef",
-            0x0D => "GPSSpeed",
-            0x0E => "GPSTrackRef",
-            0x0F => "GPSTrack",
-            0x10 => "GPSImgDirectionRef",
-            0x11 => "GPSImgDirection",
-            0x12 => "GPSMapDatum",
-            0x13 => "GPSDestLatitudeRef",
-            0x14 => "GPSDestLatitude",
-            0x15 => "GPSDestLongitudeRef",
-            0x16 => "GPSDestLongitude",
-            0x17 => "GPSDestBearingRef",
-            0x18 => "GPSDestBearing",
-            0x19 => "GPSDestDistanceRef",
-            0x1A => "GPSDestDistance",
-            0x1B => "GPSProcessingMethod",
-            0x1C => "GPSAreaInformation",
-            0x1D => "GPSDateStamp",
-            0x1E => "GPSDifferential",
-            0x1F => "GPSHPositioningError",
-            _ => return None,
-        });
-    }
-    if ifd == Ifd::Interop {
-        return match tag {
-            0x0001 => Some("InteroperabilityIndex"),
-            0x0002 => Some("InteroperabilityVersion"),
-            _ => None,
-        };
-    }
-    Some(match tag {
-        0x0100 => "ImageWidth",
-        0x0101 => "ImageLength",
-        0x0102 => "BitsPerSample",
-        0x0103 => "Compression",
-        0x0106 => "PhotometricInterpretation",
-        0x010E => "ImageDescription",
-        0x010F => "Make",
-        0x0110 => "Model",
-        0x0111 => "StripOffsets",
-        0x0112 => "Orientation",
-        0x0115 => "SamplesPerPixel",
-        0x011A => "XResolution",
-        0x011B => "YResolution",
-        0x0128 => "ResolutionUnit",
-        0x0131 => "Software",
-        0x0132 => "DateTime",
-        0x013B => "Artist",
-        0x013E => "WhitePoint",
-        0x013F => "PrimaryChromaticities",
-        0x0201 => "JPEGInterchangeFormat",
-        0x0202 => "JPEGInterchangeFormatLength",
-        0x0211 => "YCbCrCoefficients",
-        0x0213 => "YCbCrPositioning",
-        0x0214 => "ReferenceBlackWhite",
-        0x8298 => "Copyright",
-        0x829A => "ExposureTime",
-        0x829D => "FNumber",
-        0x8769 => "ExifIFDPointer",
-        0x8822 => "ExposureProgram",
-        0x8825 => "GPSInfoIFDPointer",
-        0x8827 => "ISOSpeedRatings",
-        0x8830 => "SensitivityType",
-        0x9000 => "ExifVersion",
-        0x9003 => "DateTimeOriginal",
-        0x9004 => "DateTimeDigitized",
-        0x9010 => "OffsetTime",
-        0x9011 => "OffsetTimeOriginal",
-        0x9012 => "OffsetTimeDigitized",
-        0x9101 => "ComponentsConfiguration",
-        0x9102 => "CompressedBitsPerPixel",
-        0x9201 => "ShutterSpeedValue",
-        0x9202 => "ApertureValue",
-        0x9203 => "BrightnessValue",
-        0x9204 => "ExposureBiasValue",
-        0x9205 => "MaxApertureValue",
-        0x9206 => "SubjectDistance",
-        0x9207 => "MeteringMode",
-        0x9208 => "LightSource",
-        0x9209 => "Flash",
-        0x920A => "FocalLength",
-        0x9214 => "SubjectArea",
-        0x927C => "MakerNote",
-        0x9286 => "UserComment",
-        0x9290 => "SubSecTime",
-        0x9291 => "SubSecTimeOriginal",
-        0x9292 => "SubSecTimeDigitized",
-        0xA000 => "FlashpixVersion",
-        0xA001 => "ColorSpace",
-        0xA002 => "PixelXDimension",
-        0xA003 => "PixelYDimension",
-        0xA004 => "RelatedSoundFile",
-        0xA005 => "InteroperabilityIFDPointer",
-        0xA20E => "FocalPlaneXResolution",
-        0xA20F => "FocalPlaneYResolution",
-        0xA210 => "FocalPlaneResolutionUnit",
-        0xA217 => "SensingMethod",
-        0xA300 => "FileSource",
-        0xA301 => "SceneType",
-        0xA401 => "CustomRendered",
-        0xA402 => "ExposureMode",
-        0xA403 => "WhiteBalance",
-        0xA404 => "DigitalZoomRatio",
-        0xA405 => "FocalLengthIn35mmFilm",
-        0xA406 => "SceneCaptureType",
-        0xA430 => "CameraOwnerName",
-        0xA431 => "BodySerialNumber",
-        0xA432 => "LensSpecification",
-        0xA433 => "LensMake",
-        0xA434 => "LensModel",
-        0xA435 => "LensSerialNumber",
-        0xA460 => "CompositeImage",
-        0xC4A5 => "PrintImageMatching",
-        0xEA1C => "Padding",
-        _ => return None,
-    })
-}
-
 /// Formats a number without trailing noise: `35`, `2.8`, `0.0125`.
 fn num(v: f64) -> String {
     if !v.is_finite() {
@@ -429,10 +299,19 @@ fn render_dms(v: &[f64]) -> String {
     }
 }
 
+/// A text entry, kept until every IFD is read and the facts can be assembled.
+struct TextEntry {
+    ifd: Ifd,
+    tag: u16,
+    text: String,
+    /// The bytes that spell the text out.
+    node: NodeId,
+}
+
 /// Everything collected while walking, turned into [`PhotoFacts`] at the end.
 #[derive(Default)]
 struct Found {
-    text: Vec<(u16, Ifd, String, NodeId)>,
+    text: Vec<TextEntry>,
     lat: Option<(Vec<f64>, NodeId)>,
     lon: Option<Vec<f64>>,
     lat_ref: Option<String>,
@@ -446,18 +325,19 @@ struct Found {
 }
 
 impl Found {
-    fn text_of(&self, ifd: Ifd, tag: u16) -> Option<(&str, NodeId)> {
+    fn find_text(&self, hit: impl Fn(&TextEntry) -> bool) -> Option<(&str, NodeId)> {
         self.text
             .iter()
-            .find(|(t, i, s, _)| *t == tag && *i == ifd && !s.is_empty())
-            .map(|(_, _, s, n)| (s.as_str(), *n))
+            .find(|e| !e.text.is_empty() && hit(e))
+            .map(|e| (e.text.as_str(), e.node))
+    }
+
+    fn text_of(&self, ifd: Ifd, tag: u16) -> Option<(&str, NodeId)> {
+        self.find_text(|e| e.tag == tag && e.ifd == ifd)
     }
 
     fn any_text(&self, tag: u16) -> Option<(&str, NodeId)> {
-        self.text
-            .iter()
-            .find(|(t, _, s, _)| *t == tag && !s.is_empty())
-            .map(|(_, _, s, n)| (s.as_str(), *n))
+        self.find_text(|e| e.tag == tag)
     }
 
     fn facts(self) -> PhotoFacts {
@@ -667,12 +547,10 @@ pub(crate) fn parse_tiff_at(
         Ok(ref b) if b == b"II" => ByteOrder::Little,
         Ok(ref b) if b == b"MM" => ByteOrder::Big,
         _ => {
-            tree.add(
-                Some(parent),
+            tree.error(
+                parent,
                 "not a TIFF header: byte order must be II or MM",
                 ByteRange::new(base, data.len().min(2) as u64),
-                NodeKind::Error,
-                None,
             );
             return PhotoFacts::default();
         }
@@ -705,13 +583,7 @@ pub(crate) fn parse_tiff_at(
         }),
     );
     let Some(magic) = t.u16(&mut r) else {
-        tree.add(
-            Some(header),
-            "TIFF header truncated",
-            t.range(2, t.len() - 2),
-            NodeKind::Error,
-            None,
-        );
+        tree.error(header, "TIFF header truncated", t.range(2, t.len() - 2));
         return PhotoFacts::default();
     };
     tree.add(
@@ -722,22 +594,14 @@ pub(crate) fn parse_tiff_at(
         Some(Value::U64(magic as u64)),
     );
     if magic != 42 {
-        tree.add(
-            Some(header),
+        tree.warning(
+            header,
             format!("TIFF magic is {magic}, expected 42"),
             t.range(2, 2),
-            NodeKind::Warning,
-            None,
         );
     }
     let Some(ifd0) = t.u32(&mut r) else {
-        tree.add(
-            Some(header),
-            "TIFF header truncated",
-            t.range(4, t.len() - 4),
-            NodeKind::Error,
-            None,
-        );
+        tree.error(header, "TIFF header truncated", t.range(4, t.len() - 4));
         return PhotoFacts::default();
     };
     tree.add(
@@ -748,385 +612,271 @@ pub(crate) fn parse_tiff_at(
         Some(Value::U64(ifd0 as u64)),
     );
 
-    let mut found = Found::default();
-    let mut queue: Vec<(u64, Ifd, ByteRange)> = vec![(ifd0 as u64, Ifd::Zero, t.range(4, 4))];
-    let mut visited: Vec<u64> = Vec::new();
-    let mut i = 0;
-    while let Some(&(off, kind, pointer)) = queue.get(i) {
-        i += 1;
-        if i > MAX_IFDS {
-            tree.add(
-                Some(parent),
-                format!("stopped after {MAX_IFDS} IFDs"),
-                pointer,
-                NodeKind::Warning,
-                None,
-            );
-            break;
-        }
-        if visited.contains(&off) {
-            // A chain that leads back to an IFD already read would otherwise
-            // be followed forever. Nothing is lost — that IFD was read — so
-            // this is a warning, not an error.
-            tree.add(
-                Some(parent),
-                format!("{} points back to an IFD already read", kind.label()),
-                pointer,
-                NodeKind::Warning,
-                None,
-            );
-            continue;
-        }
-        visited.push(off);
-        walk_ifd(
-            tree, parent, &t, off, kind, pointer, &mut queue, &mut found, depth,
-        );
-    }
-
-    found.facts()
+    let first = Pending {
+        off: ifd0 as u64,
+        kind: Ifd::Zero,
+        pointer: t.range(4, 4),
+    };
+    let mut walk = Walk {
+        tree,
+        parent,
+        t,
+        depth,
+        queue: vec![first],
+        found: Found::default(),
+    };
+    walk.run();
+    walk.found.facts()
 }
 
-#[allow(clippy::too_many_arguments)]
-fn walk_ifd(
-    tree: &mut ParseTree,
-    parent: NodeId,
-    t: &Tiff,
+/// An IFD that some pointer leads to, waiting its turn.
+#[derive(Clone, Copy)]
+struct Pending {
     off: u64,
     kind: Ifd,
+    /// The bytes of the pointer, blamed if the IFD cannot be read.
     pointer: ByteRange,
-    queue: &mut Vec<(u64, Ifd, ByteRange)>,
-    found: &mut Found,
+}
+
+/// One pass over the IFDs of a TIFF block, following pointers breadth-first.
+struct Walk<'w, 'a> {
+    tree: &'w mut ParseTree,
+    parent: NodeId,
+    t: Tiff<'a>,
     depth: u8,
-) {
-    let mut r = t.at(off);
-    let Some(declared) = t.u16(&mut r).filter(|_| t.fits(off, 2)) else {
-        tree.add(
+    queue: Vec<Pending>,
+    found: Found,
+}
+
+impl Walk<'_, '_> {
+    fn run(&mut self) {
+        let mut visited: Vec<u64> = Vec::new();
+        let mut i = 0;
+        while let Some(&next) = self.queue.get(i) {
+            i += 1;
+            if i > MAX_IFDS {
+                let label = format!("stopped after {MAX_IFDS} IFDs");
+                self.tree.warning(self.parent, label, next.pointer);
+                break;
+            }
+            if visited.contains(&next.off) {
+                // A chain that leads back to an IFD already read would
+                // otherwise be followed forever. Nothing is lost — that IFD
+                // was read — so this is a warning, not an error.
+                let label = format!("{} points back to an IFD already read", next.kind.label());
+                self.tree.warning(self.parent, label, next.pointer);
+                continue;
+            }
+            visited.push(next.off);
+            self.ifd(next);
+        }
+    }
+
+    fn ifd(&mut self, at: Pending) {
+        let Pending { off, kind, pointer } = at;
+        let (tree, t, parent, depth) = (&mut *self.tree, &self.t, self.parent, self.depth);
+        let (queue, found) = (&mut self.queue, &mut self.found);
+        let mut r = t.at(off);
+        let Some(declared) = t.u16(&mut r).filter(|_| t.fits(off, 2)) else {
+            tree.error(
+                parent,
+                format!(
+                    "{} offset {off} is past the end of the EXIF data",
+                    kind.label()
+                ),
+                pointer,
+            );
+            return;
+        };
+
+        // The count comes from the file; trust only as many entries as fit.
+        let room = (t.len().saturating_sub(off + 2)) / 12;
+        let count = (declared as u64).min(room);
+        let has_next = t.fits(off + 2 + 12 * count, 4);
+        let node = tree.add(
             Some(parent),
-            format!(
-                "{} offset {off} is past the end of the EXIF data",
-                kind.label()
-            ),
-            pointer,
-            NodeKind::Error,
-            None,
+            kind.label(),
+            t.range(off, 2 + 12 * count + if has_next { 4 } else { 0 }),
+            NodeKind::Container,
+            Some(Value::Text(format!(
+                "{count} {}",
+                if count == 1 { "entry" } else { "entries" }
+            ))),
         );
-        return;
-    };
-
-    // The count comes from the file; trust only as many entries as fit.
-    let room = (t.len().saturating_sub(off + 2)) / 12;
-    let count = (declared as u64).min(room);
-    let has_next = t.fits(off + 2 + 12 * count, 4);
-    let node = tree.add(
-        Some(parent),
-        kind.label(),
-        t.range(off, 2 + 12 * count + if has_next { 4 } else { 0 }),
-        NodeKind::Container,
-        Some(Value::Text(format!(
-            "{count} {}",
-            if count == 1 { "entry" } else { "entries" }
-        ))),
-    );
-    if kind == Ifd::Gps {
-        found.gps_node = Some(node);
-    }
-    tree.add(
-        Some(node),
-        "entryCount",
-        t.range(off, 2),
-        NodeKind::Field,
-        Some(Value::U64(declared as u64)),
-    );
-    if count < declared as u64 {
+        if kind == Ifd::Gps {
+            found.gps_node = Some(node);
+        }
         tree.add(
             Some(node),
-            format!("claims {declared} entries, only {count} fit in the EXIF data"),
+            "entryCount",
             t.range(off, 2),
-            NodeKind::Error,
-            None,
-        );
-    }
-
-    for n in 0..count {
-        let eoff = off + 2 + 12 * n;
-        let Some(e) = t.entry(eoff) else { break };
-        let name = tag_name(kind, e.tag);
-        let label = name.map_or_else(|| format!("tag 0x{:04X}", e.tag), str::to_string);
-        let rendered = render(t, kind, &e);
-        let entry = tree.add(
-            Some(node),
-            label.clone(),
-            t.range(eoff, 12),
             NodeKind::Field,
-            Some(Value::Text(rendered.clone())),
+            Some(Value::U64(declared as u64)),
         );
-
-        let mut value_node = None;
-        if type_size(e.typ).is_none() {
-            tree.add(
-                Some(entry),
-                format!("unknown value type {}", e.typ),
-                t.range(eoff + 2, 2),
-                NodeKind::Warning,
-                None,
+        if count < declared as u64 {
+            tree.error(
+                node,
+                format!("claims {declared} entries, only {count} fit in the EXIF data"),
+                t.range(off, 2),
             );
-        } else if !e.inline {
-            if t.fits(e.value_off, e.size) {
-                // A sibling of the IFDs rather than a child of the entry: the
-                // value's bytes lie outside the entry, and nodes must nest
-                // inside their parents for byte lookup to reach them.
-                value_node = Some(tree.add(
-                    Some(parent),
-                    format!("{label} value"),
-                    t.range(e.value_off, e.size),
-                    NodeKind::Field,
-                    Some(Value::Text(rendered.clone())),
-                ));
-            } else {
-                tree.add(
-                    Some(entry),
-                    format!(
-                        "value at offset {} runs past the end of the EXIF data",
-                        e.value_off
-                    ),
-                    t.range(eoff + 8, 4),
-                    NodeKind::Error,
-                    None,
+        }
+
+        for n in 0..count {
+            let eoff = off + 2 + 12 * n;
+            let Some(e) = t.entry(eoff) else { break };
+            let name = tag_name(kind, e.tag);
+            let label = name.map_or_else(|| format!("tag 0x{:04X}", e.tag), str::to_string);
+            let rendered = render(t, kind, &e);
+            let entry = tree.add(
+                Some(node),
+                label.clone(),
+                t.range(eoff, 12),
+                NodeKind::Field,
+                Some(Value::Text(rendered.clone())),
+            );
+
+            let mut value_node = None;
+            if type_size(e.typ).is_none() {
+                tree.warning(
+                    entry,
+                    format!("unknown value type {}", e.typ),
+                    t.range(eoff + 2, 2),
                 );
+            } else if !e.inline {
+                if t.fits(e.value_off, e.size) {
+                    // A sibling of the IFDs rather than a child of the entry: the
+                    // value's bytes lie outside the entry, and nodes must nest
+                    // inside their parents for byte lookup to reach them.
+                    value_node = Some(tree.add(
+                        Some(parent),
+                        format!("{label} value"),
+                        t.range(e.value_off, e.size),
+                        NodeKind::Field,
+                        Some(Value::Text(rendered.clone())),
+                    ));
+                } else {
+                    tree.error(
+                        entry,
+                        format!(
+                            "value at offset {} runs past the end of the EXIF data",
+                            e.value_off
+                        ),
+                        t.range(eoff + 8, 4),
+                    );
+                }
+            }
+
+            let value_field = t.range(eoff + 8, 4);
+            let target = || t.numbers(&e, 1).first().map(|v| *v as u64);
+            match (kind, e.tag) {
+                (Ifd::Zero, 0x8769) => {
+                    if let Some(o) = target() {
+                        queue.push(Pending {
+                            off: o,
+                            kind: Ifd::Exif,
+                            pointer: value_field,
+                        });
+                    }
+                }
+                (Ifd::Zero, 0x8825) => {
+                    if let Some(o) = target() {
+                        queue.push(Pending {
+                            off: o,
+                            kind: Ifd::Gps,
+                            pointer: value_field,
+                        });
+                    }
+                }
+                (Ifd::Exif, 0xA005) => {
+                    if let Some(o) = target() {
+                        queue.push(Pending {
+                            off: o,
+                            kind: Ifd::Interop,
+                            pointer: value_field,
+                        });
+                    }
+                }
+                (Ifd::One, 0x0201) => found.thumb_off = target(),
+                (Ifd::One, 0x0202) => found.thumb_len = target(),
+                (Ifd::Gps, 0x01) => found.lat_ref = t.text(&e),
+                (Ifd::Gps, 0x02) => found.lat = Some((t.numbers(&e, 3), entry)),
+                (Ifd::Gps, 0x03) => found.lon_ref = t.text(&e),
+                (Ifd::Gps, 0x04) => found.lon = Some(t.numbers(&e, 3)),
+                (Ifd::Gps, 0x05) => found.alt_below = t.raw(&e, 1).first() == Some(&1),
+                (Ifd::Gps, 0x06) => found.alt = t.numbers(&e, 1).first().copied(),
+                _ => {}
+            }
+            if e.typ == 2 {
+                // Point a fact at the bytes that spell it out, not at the entry
+                // that merely says where they are.
+                found.text.push(TextEntry {
+                    ifd: kind,
+                    tag: e.tag,
+                    text: rendered,
+                    node: value_node.unwrap_or(entry),
+                });
             }
         }
 
-        let value_field = t.range(eoff + 8, 4);
-        let target = || t.numbers(&e, 1).first().map(|v| *v as u64);
-        match (kind, e.tag) {
-            (Ifd::Zero, 0x8769) => {
-                if let Some(o) = target() {
-                    queue.push((o, Ifd::Exif, value_field));
-                }
-            }
-            (Ifd::Zero, 0x8825) => {
-                if let Some(o) = target() {
-                    queue.push((o, Ifd::Gps, value_field));
-                }
-            }
-            (Ifd::Exif, 0xA005) => {
-                if let Some(o) = target() {
-                    queue.push((o, Ifd::Interop, value_field));
-                }
-            }
-            (Ifd::One, 0x0201) => found.thumb_off = target(),
-            (Ifd::One, 0x0202) => found.thumb_len = target(),
-            (Ifd::Gps, 0x01) => found.lat_ref = t.text(&e),
-            (Ifd::Gps, 0x02) => found.lat = Some((t.numbers(&e, 3), entry)),
-            (Ifd::Gps, 0x03) => found.lon_ref = t.text(&e),
-            (Ifd::Gps, 0x04) => found.lon = Some(t.numbers(&e, 3)),
-            (Ifd::Gps, 0x05) => found.alt_below = t.raw(&e, 1).first() == Some(&1),
-            (Ifd::Gps, 0x06) => found.alt = t.numbers(&e, 1).first().copied(),
-            _ => {}
-        }
-        if e.typ == 2 {
-            // Point a fact at the bytes that spell it out, not at the entry
-            // that merely says where they are.
-            found
-                .text
-                .push((e.tag, kind, rendered, value_node.unwrap_or(entry)));
-        }
-    }
-
-    if has_next {
-        let noff = off + 2 + 12 * count;
-        let mut nr = t.at(noff);
-        let next = t.u32(&mut nr).unwrap_or(0);
-        tree.add(
-            Some(node),
-            "nextIFDOffset",
-            t.range(noff, 4),
-            NodeKind::Field,
-            Some(Value::U64(next as u64)),
-        );
-        // EXIF uses exactly one link: IFD0 to the thumbnail's IFD1.
-        if kind == Ifd::Zero && next != 0 {
-            queue.push((next as u64, Ifd::One, t.range(noff, 4)));
-        }
-    }
-
-    if kind == Ifd::One
-        && let (Some(o), Some(len)) = (found.thumb_off, found.thumb_len)
-    {
-        if t.fits(o, len) && len > 0 {
-            let thumb = tree.add(
-                Some(parent),
-                "thumbnail",
-                t.range(o, len),
-                NodeKind::Container,
-                Some(Value::Bytes(len)),
-            );
-            // A thumbnail is a JPEG in its own right, and sometimes keeps what
-            // an edit removed from the main image: parse it, one level deep.
-            let mut r = t.at(o);
-            if depth == 0
-                && let Ok(bytes) = r.bytes(len as usize)
-                && bytes.starts_with(&crate::jpeg::MAGIC)
-            {
-                let inner = crate::jpeg::parse_jpeg_at(bytes, depth + 1);
-                tree.graft(thumb, &inner.tree, t.base + o);
-            }
-            found.thumbnail = Some(Fact {
-                text: format!("embedded JPEG, {len} bytes"),
-                node: thumb,
-            });
-        } else {
+        if has_next {
+            let noff = off + 2 + 12 * count;
+            let mut nr = t.at(noff);
+            let next = t.u32(&mut nr).unwrap_or(0);
             tree.add(
                 Some(node),
-                "thumbnail runs past the end of the EXIF data",
-                t.range(off, 2),
-                NodeKind::Error,
-                None,
+                "nextIFDOffset",
+                t.range(noff, 4),
+                NodeKind::Field,
+                Some(Value::U64(next as u64)),
             );
+            // EXIF uses exactly one link: IFD0 to the thumbnail's IFD1.
+            if kind == Ifd::Zero && next != 0 {
+                queue.push(Pending {
+                    off: next as u64,
+                    kind: Ifd::One,
+                    pointer: t.range(noff, 4),
+                });
+            }
+        }
+
+        if kind == Ifd::One
+            && let (Some(o), Some(len)) = (found.thumb_off, found.thumb_len)
+        {
+            if t.fits(o, len) && len > 0 {
+                let thumb = tree.add(
+                    Some(parent),
+                    "thumbnail",
+                    t.range(o, len),
+                    NodeKind::Container,
+                    Some(Value::Bytes(len)),
+                );
+                // A thumbnail is a JPEG in its own right, and sometimes keeps what
+                // an edit removed from the main image: parse it, one level deep.
+                let mut r = t.at(o);
+                if depth == 0
+                    && let Ok(bytes) = r.bytes(len as usize)
+                    && bytes.starts_with(&crate::jpeg::MAGIC)
+                {
+                    let inner = crate::jpeg::parse_jpeg_at(bytes, depth + 1);
+                    tree.graft(thumb, &inner.tree, t.base + o);
+                }
+                found.thumbnail = Some(Fact {
+                    text: format!("embedded JPEG, {len} bytes"),
+                    node: thumb,
+                });
+            } else {
+                tree.error(
+                    node,
+                    "thumbnail runs past the end of the EXIF data",
+                    t.range(off, 2),
+                );
+            }
         }
     }
 }
 
 #[cfg(test)]
-pub(crate) mod testing {
-    //! Builds TIFF blocks byte by byte, in either byte order, so tests can
-    //! state exactly what a camera wrote.
-    use super::ByteOrder;
-
-    pub enum V {
-        Ascii(&'static str),
-        Byte(Vec<u8>),
-        Short(Vec<u16>),
-        Long(Vec<u32>),
-        Rational(Vec<(u32, u32)>),
-        Undefined(Vec<u8>),
-    }
-
-    pub struct Spec {
-        pub order: ByteOrder,
-        pub ifd0: Vec<(u16, V)>,
-        pub exif: Vec<(u16, V)>,
-        pub gps: Vec<(u16, V)>,
-        /// Overrides IFD0's next-IFD pointer, for building loops.
-        pub ifd0_next: u32,
-    }
-
-    impl Spec {
-        pub fn new(order: ByteOrder) -> Self {
-            Self {
-                order,
-                ifd0: Vec::new(),
-                exif: Vec::new(),
-                gps: Vec::new(),
-                ifd0_next: 0,
-            }
-        }
-    }
-
-    fn u16b(o: ByteOrder, v: u16) -> [u8; 2] {
-        match o {
-            ByteOrder::Little => v.to_le_bytes(),
-            ByteOrder::Big => v.to_be_bytes(),
-        }
-    }
-
-    fn u32b(o: ByteOrder, v: u32) -> [u8; 4] {
-        match o {
-            ByteOrder::Little => v.to_le_bytes(),
-            ByteOrder::Big => v.to_be_bytes(),
-        }
-    }
-
-    fn encode(o: ByteOrder, v: &V) -> (u16, u32, Vec<u8>) {
-        match v {
-            V::Ascii(s) => {
-                let mut b = s.as_bytes().to_vec();
-                b.push(0);
-                (2, b.len() as u32, b)
-            }
-            V::Byte(b) => (1, b.len() as u32, b.clone()),
-            V::Undefined(b) => (7, b.len() as u32, b.clone()),
-            V::Short(x) => (
-                3,
-                x.len() as u32,
-                x.iter().flat_map(|v| u16b(o, *v)).collect(),
-            ),
-            V::Long(x) => (
-                4,
-                x.len() as u32,
-                x.iter().flat_map(|v| u32b(o, *v)).collect(),
-            ),
-            V::Rational(x) => (
-                5,
-                x.len() as u32,
-                x.iter()
-                    .flat_map(|(n, d)| u32b(o, *n).into_iter().chain(u32b(o, *d)))
-                    .collect(),
-            ),
-        }
-    }
-
-    /// Layout: header, IFD0, Exif IFD, GPS IFD, then every out-of-line value.
-    pub fn build(spec: Spec) -> Vec<u8> {
-        let o = spec.order;
-        let mut ifd0: Vec<(u16, V)> = spec.ifd0;
-        let has_exif = !spec.exif.is_empty();
-        let has_gps = !spec.gps.is_empty();
-        if has_exif {
-            ifd0.push((0x8769, V::Long(vec![0])));
-        }
-        if has_gps {
-            ifd0.push((0x8825, V::Long(vec![0])));
-        }
-        let size = |n: usize| 2 + 12 * n as u32 + 4;
-        let off0 = 8u32;
-        let off_exif = off0 + size(ifd0.len());
-        let off_gps = off_exif + if has_exif { size(spec.exif.len()) } else { 0 };
-        let mut values_at = off_gps + if has_gps { size(spec.gps.len()) } else { 0 };
-        for (tag, v) in &mut ifd0 {
-            match tag {
-                0x8769 => *v = V::Long(vec![off_exif]),
-                0x8825 => *v = V::Long(vec![off_gps]),
-                _ => {}
-            }
-        }
-
-        let mut out = Vec::new();
-        out.extend_from_slice(if o == ByteOrder::Little { b"II" } else { b"MM" });
-        out.extend_from_slice(&u16b(o, 42));
-        out.extend_from_slice(&u32b(o, off0));
-        let mut values = Vec::new();
-
-        let mut write_ifd = |out: &mut Vec<u8>, entries: &[(u16, V)], next: u32| {
-            out.extend_from_slice(&u16b(o, entries.len() as u16));
-            for (tag, v) in entries {
-                let (typ, count, bytes) = encode(o, v);
-                out.extend_from_slice(&u16b(o, *tag));
-                out.extend_from_slice(&u16b(o, typ));
-                out.extend_from_slice(&u32b(o, count));
-                if bytes.len() <= 4 {
-                    let mut inline = bytes.clone();
-                    inline.resize(4, 0);
-                    out.extend_from_slice(&inline);
-                } else {
-                    out.extend_from_slice(&u32b(o, values_at));
-                    values_at += bytes.len() as u32;
-                    values.extend_from_slice(&bytes);
-                }
-            }
-            out.extend_from_slice(&u32b(o, next));
-        };
-        write_ifd(&mut out, &ifd0, spec.ifd0_next);
-        if has_exif {
-            write_ifd(&mut out, &spec.exif, 0);
-        }
-        if has_gps {
-            write_ifd(&mut out, &spec.gps, 0);
-        }
-        out.extend_from_slice(&values);
-        out
-    }
-}
+pub(crate) mod testing;
 
 #[cfg(test)]
 mod tests {
