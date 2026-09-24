@@ -19,8 +19,9 @@ node_modules/
 dist/
 .vite/
 
-# Agent scratch space — session-local, not part of the project
+# Agent scratch space and local tool settings — not part of the project
 .superpowers/
+.claude/
 
 # OS and editors
 .DS_Store
