@@ -237,6 +237,6 @@ mod tests {
         let data = [1u8];
         let mut r = Reader::new(&data);
         assert_eq!(r.bytes(1), Ok(&data[..]));
-        assert_eq!(r.rest(), &[][..]);
+        assert_eq!(r.rest(), &[] as &[u8]);
     }
 }

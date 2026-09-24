@@ -2,6 +2,7 @@
 
 pub mod bits;
 pub mod crc32;
+pub mod docs;
 pub mod document;
 pub mod exif;
 pub mod inflate;
