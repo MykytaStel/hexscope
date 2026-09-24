@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+use hexscope_core::clean::clean;
 use hexscope_core::docs::{Doc, describe};
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
@@ -637,6 +638,67 @@ pub fn parse(bytes: &[u8]) -> Parsed {
     parsed.docs = docs;
     parsed.composition = slices;
     parsed
+}
+
+/// A copy of a file without what it reveals, or why there is none.
+#[wasm_bindgen]
+pub struct CleanCopy {
+    bytes: Vec<u8>,
+    removed: Vec<(String, u64)>,
+    error: String,
+    orientation: u16,
+}
+
+#[wasm_bindgen]
+impl CleanCopy {
+    /// The clean copy; empty when none was made.
+    #[wasm_bindgen(getter)]
+    pub fn bytes(&self) -> Vec<u8> {
+        self.bytes.clone()
+    }
+
+    /// What was removed, as `what, bytes` pairs joined by U+001F.
+    #[wasm_bindgen(getter)]
+    pub fn removed(&self) -> String {
+        let sep = SEPARATOR.to_string();
+        self.removed
+            .iter()
+            .flat_map(|(what, n)| [sanitise(what), n.to_string()])
+            .collect::<Vec<_>>()
+            .join(&sep)
+    }
+
+    /// Why no copy was made; empty when one was.
+    #[wasm_bindgen(getter)]
+    pub fn error(&self) -> String {
+        self.error.clone()
+    }
+
+    /// The orientation kept in a minimal EXIF block, or 0 when none was needed.
+    #[wasm_bindgen(getter, js_name = orientationKept)]
+    pub fn orientation_kept(&self) -> u16 {
+        self.orientation
+    }
+}
+
+/// Makes a copy of `bytes` without what it reveals about the people behind
+/// it: see `hexscope_core::clean`.
+#[wasm_bindgen(js_name = cleanCopy)]
+pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
+    match clean(bytes) {
+        Ok(c) => CleanCopy {
+            bytes: c.bytes,
+            removed: c.removed.into_iter().map(|r| (r.what, r.bytes)).collect(),
+            error: String::new(),
+            orientation: c.orientation_kept.unwrap_or(0),
+        },
+        Err(e) => CleanCopy {
+            bytes: Vec::new(),
+            removed: Vec::new(),
+            error: e.reason().to_string(),
+            orientation: 0,
+        },
+    }
 }
 
 /// Shannon entropy, 0 to 8 bits per byte, of up to `bins` windows covering
@@ -1288,5 +1350,23 @@ mod tests {
         let h = entropy(&bytes, 1024);
         assert_eq!(h.len(), (bytes.len() / 256).max(1));
         assert!(h.iter().all(|&x| (0.0..=8.0).contains(&x)));
+    }
+
+    #[test]
+    fn a_clean_copy_of_the_sample_photo_reveals_nothing() {
+        let photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        let c = clean_copy(&photo);
+        assert_eq!(c.error(), "");
+        assert!(c.removed().starts_with("EXIF"));
+        let again = parse(&c.bytes());
+        assert!(again.facts().is_empty());
+        assert!(again.location().is_empty());
+
+        let refused = clean_copy(&fixture("basn2c08.png"));
+        assert!(refused.bytes().is_empty());
+        assert!(refused.error().contains("JPEG photos and Office documents"));
     }
 }
