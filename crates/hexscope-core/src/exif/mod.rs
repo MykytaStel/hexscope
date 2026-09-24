@@ -9,6 +9,7 @@ use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 use tags::tag_name;
 
+pub(crate) mod docs;
 mod tags;
 
 /// IFDs followed before giving up: real files have five at most
@@ -73,7 +74,7 @@ pub struct Location {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Ifd {
+pub(crate) enum Ifd {
     Zero,
     One,
     Exif,
@@ -877,6 +878,12 @@ impl Walk<'_, '_> {
 
 #[cfg(test)]
 pub(crate) mod testing;
+
+/// The parser's tag table, for the test that checks every tag is explained.
+#[cfg(test)]
+pub(crate) fn tag_name_for_tests(ifd: Ifd, tag: u16) -> Option<&'static str> {
+    tags::tag_name(ifd, tag)
+}
 
 #[cfg(test)]
 mod tests {

@@ -258,7 +258,7 @@ input {
 .layout {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 200px;
+  grid-template-rows: minmax(0, 1fr) 250px;
   min-height: 0;
 }
 
@@ -481,6 +481,92 @@ input {
 .problem.is-warning {
   color: color-mix(in srgb, var(--tint-warning) 80%, var(--text));
   background: color-mix(in srgb, var(--tint-warning) 13%, transparent);
+}
+
+.problem.is-hidden {
+  color: color-mix(in srgb, var(--tint-plte) 85%, var(--text));
+  background: color-mix(in srgb, var(--tint-plte) 12%, transparent);
+}
+
+/* What a node is, in plain words: read before the technical facts. */
+.explain {
+  margin: -4px 0 12px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.spec-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.spec-link:hover {
+  text-decoration: underline;
+}
+
+/* --- verdict ---------------------------------------------------------------- */
+
+/* The answer people came for: across the whole panel, above the details. */
+.drawer-file .verdict {
+  grid-column: 1 / -1;
+  margin-bottom: 14px;
+}
+
+
+.verdict-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.verdict-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+  --tone: var(--muted);
+  background: color-mix(in srgb, var(--tone) 11%, transparent);
+}
+
+.verdict-line::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  transform: translateY(-1px);
+}
+
+.verdict-line.is-damage { --tone: var(--tint-error); }
+.verdict-line.is-hidden { --tone: var(--tint-plte); }
+.verdict-line.is-reveals { --tone: var(--tint-gps); }
+.verdict-line.is-oddity { --tone: var(--tint-warning); }
+.verdict-line.is-healthy { --tone: var(--tint-sig); }
+.verdict-line.is-unknown { --tone: var(--tint-iend); }
+
+.verdict-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.verdict-show {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.verdict-show:hover {
+  text-decoration: underline;
 }
 
 .facts {
@@ -974,7 +1060,7 @@ body.is-playing .drawer-file {
 }
 
 body:has(.reveals) .layout {
-  grid-template-rows: minmax(0, 1fr) 236px;
+  grid-template-rows: minmax(0, 1fr) 300px;
 }
 
 /* --- narrow windows ----------------------------------------------------------- */

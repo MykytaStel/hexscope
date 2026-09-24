@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+use hexscope_core::docs::{Doc, describe};
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
     BlockKind, Checkpoint, CheckpointSink, Decoder, InflateError, InflateEvent, Step, inflate,
@@ -14,7 +15,7 @@ use hexscope_core::inflate::{
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
 use hexscope_core::zip::{ExtractError, ZipEntry, extract};
-use hexscope_core::{Document, parse as parse_any};
+use hexscope_core::{Document, Format, parse as parse_any};
 use wasm_bindgen::prelude::*;
 
 /// Separates entries in the joined label and value strings. It is a control
@@ -72,6 +73,39 @@ pub struct Parsed {
     zip: Option<ZipState>,
     /// Why the last `extract_entry` returned nothing.
     extract_error: String,
+    docs: DocTables,
+}
+
+/// What each node is, deduplicated: thousands of nodes share a few hundred
+/// explanations, so each is sent once with a per-node index into it.
+#[derive(Default)]
+struct DocTables {
+    ids: Vec<i32>,
+    texts: Vec<&'static str>,
+    cites: Vec<&'static str>,
+    urls: Vec<&'static str>,
+    concerns: Vec<u8>,
+}
+
+impl DocTables {
+    fn build(tree: &ParseTree, format: Format) -> Self {
+        let mut t = DocTables::default();
+        let mut seen: std::collections::HashMap<Doc, i32> = std::collections::HashMap::new();
+        for n in tree.nodes() {
+            let id = match describe(tree, n.id, format) {
+                None => -1,
+                Some(doc) => *seen.entry(doc).or_insert_with(|| {
+                    t.texts.push(doc.text);
+                    t.cites.push(doc.spec.map_or("", |s| s.cite));
+                    t.urls.push(doc.spec.map_or("", |s| s.url));
+                    t.concerns.push(doc.concern.map_or(0, |c| c as u8));
+                    t.texts.len() as i32 - 1
+                }),
+            };
+            t.ids.push(id);
+        }
+        t
+    }
 }
 
 /// What playing or opening a ZIP entry needs after parsing is done.
@@ -272,6 +306,38 @@ impl Parsed {
             }
         }
         out
+    }
+
+    /// Per node, an index into the explanation tables below, or -1.
+    #[wasm_bindgen(getter, js_name = docIds)]
+    pub fn doc_ids(&self) -> Vec<i32> {
+        self.docs.ids.clone()
+    }
+
+    /// Explanations, one sentence each, joined by U+001F.
+    #[wasm_bindgen(getter, js_name = docTexts)]
+    pub fn doc_texts(&self) -> String {
+        self.docs.texts.join(&SEPARATOR.to_string())
+    }
+
+    /// Where each explanation's subject is defined, e.g. "PNG §11.2.1";
+    /// empty where none is cited. Joined by U+001F.
+    #[wasm_bindgen(getter, js_name = docCites)]
+    pub fn doc_cites(&self) -> String {
+        self.docs.cites.join(&SEPARATOR.to_string())
+    }
+
+    /// The link for each citation, empty where none. Joined by U+001F.
+    #[wasm_bindgen(getter, js_name = docUrls)]
+    pub fn doc_urls(&self) -> String {
+        self.docs.urls.join(&SEPARATOR.to_string())
+    }
+
+    /// Per explanation: 0 not a problem, 1 damage, 2 something hidden,
+    /// 3 an oddity.
+    #[wasm_bindgen(getter, js_name = docConcerns)]
+    pub fn doc_concerns(&self) -> Vec<u8> {
+        self.docs.concerns.clone()
     }
 
     /// Per ZIP entry, [`ENTRY_STRIDE`] numbers: `[node, method, flags,
@@ -517,7 +583,9 @@ fn encode(step: &Step, out: &mut Vec<f64>) {
 /// as warning and error nodes, and an unsupported format still gets a tree.
 #[wasm_bindgen]
 pub fn parse(bytes: &[u8]) -> Parsed {
-    match parse_any(bytes) {
+    let doc = parse_any(bytes);
+    let docs = DocTables::build(doc.tree(), doc.format());
+    let mut parsed = match doc {
         Document::Png(doc) => with_png(bytes, doc),
         Document::Jpeg(doc) => {
             let mut parsed = flatten(&doc.tree);
@@ -539,7 +607,9 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             parsed
         }
         Document::Unknown(tree) => flatten(&tree),
-    }
+    };
+    parsed.docs = docs;
+    parsed
 }
 
 fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
@@ -695,6 +765,7 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         trailer_len: 0,
         zip: None,
         extract_error: String::new(),
+        docs: DocTables::default(),
     }
 }
 
@@ -1115,5 +1186,53 @@ mod tests {
 
         assert!(parsed.extract_entry(n as u32).is_empty());
         assert_eq!(parsed.extract_error(), format!("there is no entry {n}"));
+    }
+
+    #[test]
+    fn every_node_carries_its_explanation() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        let ids = parsed.doc_ids();
+        assert_eq!(ids.len(), parsed.labels().split(SEPARATOR).count());
+        let texts: Vec<String> = parsed
+            .doc_texts()
+            .split(SEPARATOR)
+            .map(str::to_string)
+            .collect();
+        let labels: Vec<String> = parsed
+            .labels()
+            .split(SEPARATOR)
+            .map(str::to_string)
+            .collect();
+        let ihdr = labels.iter().position(|l| l == "IHDR").unwrap();
+        assert!(texts[ids[ihdr] as usize].starts_with("The image header"));
+        assert!(ids.iter().all(|&i| i >= 0), "every PNG node is explained");
+        // A palette of 256 colours is 256 nodes and one explanation.
+        let palette = parse(&fixture("basn3p08.png"));
+        let shared = palette.doc_texts().split(SEPARATOR).count();
+        assert!(
+            shared * 4 < palette.doc_ids().len(),
+            "explanations are shared, not repeated"
+        );
+
+        // A damaged CRC: a problem that is damage.
+        let mut bytes = fixture("basn2c08.png");
+        bytes[29] ^= 0xFF;
+        let parsed = parse(&bytes);
+        let labels: Vec<String> = parsed
+            .labels()
+            .split(SEPARATOR)
+            .map(str::to_string)
+            .collect();
+        let crc = labels
+            .iter()
+            .position(|l| l.starts_with("CRC mismatch"))
+            .unwrap();
+        assert_eq!(parsed.doc_concerns()[parsed.doc_ids()[crc] as usize], 1);
+        let cites: Vec<String> = parsed
+            .doc_cites()
+            .split(SEPARATOR)
+            .map(str::to_string)
+            .collect();
+        assert_eq!(cites.len(), parsed.doc_concerns().len());
     }
 }

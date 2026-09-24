@@ -122,6 +122,39 @@ fn unknown(data: &[u8]) -> ParseTree {
     tree
 }
 
+/// What the parts of a file hexscope does not read are.
+pub(crate) fn docs(label: &str) -> Option<crate::docs::Doc> {
+    use crate::docs::{Concern, Doc, Table};
+    const TABLE: Table = &[
+        (
+            "File",
+            Doc::new("A file in a format hexscope does not take apart; its bytes are still shown."),
+        ),
+        (
+            "empty file",
+            Doc::new("The file has no bytes at all.").concern(Concern::Damage),
+        ),
+        (
+            "this looks like *",
+            Doc::new(
+                "The file starts the way this other format does, one hexscope does not read yet.",
+            ),
+        ),
+        (
+            "format not recognised*",
+            Doc::new(
+                "The first bytes match no format hexscope knows, so what the file is cannot be told from them.",
+            ),
+        ),
+    ];
+    // Unknown files are described whatever the node's kind: their only
+    // nodes are the root and the message saying what the file is not.
+    TABLE
+        .iter()
+        .find(|(p, _)| crate::docs::glob(p, label))
+        .map(|(_, d)| *d)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

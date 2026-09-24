@@ -49,6 +49,11 @@ function describe(parsed: Parsed): ParsedFile {
     segments: parsed.segments,
     streamHeader: parsed.streamHeader,
     entries: parsed.entries,
+    docIds: parsed.docIds,
+    docTexts: parsed.docTexts.split(SEPARATOR),
+    docCites: parsed.docCites.split(SEPARATOR),
+    docUrls: parsed.docUrls.split(SEPARATOR),
+    docConcerns: parsed.docConcerns,
     format: parsed.format as ParsedFile["format"],
     dimensions: null,
     facts: [],
@@ -84,6 +89,8 @@ const transfers = (r: ParsedFile): Transferable[] => [
   r.kinds.buffer,
   r.segments.buffer,
   r.entries.buffer,
+  r.docIds.buffer,
+  r.docConcerns.buffer,
 ];
 
 /** Nested documents opened from archives are kept for the way back. */

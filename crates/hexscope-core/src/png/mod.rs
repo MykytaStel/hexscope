@@ -1,4 +1,5 @@
 pub mod chunks;
+pub(crate) mod docs;
 pub mod fields;
 mod idat;
 pub mod unfilter;

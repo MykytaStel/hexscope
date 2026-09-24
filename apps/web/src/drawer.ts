@@ -1,4 +1,5 @@
-import { FileModel, Kind, type ZipEntryInfo } from "./model";
+import { Concern, FileModel, Kind, type ZipEntryInfo } from "./model";
+import { verdict } from "./verdict";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -101,6 +102,8 @@ export class Drawer {
     if (!m) return;
     const f = m.file;
 
+    this.file.append(this.verdict(m));
+
     const fileGroup = el("div", "group");
     fileGroup.append(el("h3", undefined, "File"));
     const grid = el("dl", "facts");
@@ -150,6 +153,25 @@ export class Drawer {
         deflate.append(bar, legend);
       }
     }
+  }
+
+  /** The answer to the question people arrive with: is it all right, and what does it say? */
+  private verdict(m: FileModel): HTMLElement {
+    const group = el("div", "group verdict");
+    group.append(el("h3", undefined, "What hexscope found"));
+    const list = el("ul", "verdict-lines");
+    for (const line of verdict(m)) {
+      const li = el("li", `verdict-line is-${line.kind}`);
+      li.append(el("span", "verdict-text", line.text));
+      if (line.node >= 0) {
+        const show = el("button", "verdict-show", "Show me");
+        show.addEventListener("click", () => this.onSelect(line.node));
+        li.append(show);
+      }
+      list.append(li);
+    }
+    group.append(list, el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    return group;
   }
 
   /**
@@ -218,11 +240,15 @@ export class Drawer {
     if (pinned) crumbs.append(el("span", "pin", "pinned"));
     this.node.append(crumbs);
 
+    // First what it is, in plain words; the technical detail follows below.
     const kind = m.kind(id);
+    const doc = m.doc(id);
     if (kind >= Kind.Warning) {
-      const note = el("p", kind === Kind.Error ? "problem is-error" : "problem is-warning");
-      note.textContent = kind === Kind.Error ? "Damage — this region could not be read." : "Suspicious — readable, but not what the format requires.";
-      this.node.append(note);
+      const tone =
+        doc?.concern === Concern.Hidden ? "is-hidden" : doc?.concern === Concern.Oddity ? "is-warning" : "is-error";
+      this.node.append(el("p", `problem ${tone}`, doc?.text ?? "These bytes break a rule of the format."));
+    } else if (doc) {
+      this.node.append(el("p", "explain", doc.text));
     }
 
     const grid = el("dl", "facts");
@@ -236,6 +262,20 @@ export class Drawer {
     }
     fact(grid, "Kind", KIND_NAMES[kind]);
     if (m.value(id)) fact(grid, "Value", m.value(id), true);
+    if (doc?.cite) {
+      const dd = el("dd");
+      if (doc.url) {
+        const link = el("a", "spec-link", `${doc.cite} ↗`);
+        link.href = doc.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.title = "The specification that defines this, in a new tab";
+        dd.append(link);
+      } else {
+        dd.textContent = doc.cite;
+      }
+      grid.append(el("dt", undefined, "Spec"), dd);
+    }
     this.node.append(grid);
 
     const entry = m.entryOf(id);

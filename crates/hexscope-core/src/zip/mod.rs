@@ -7,6 +7,7 @@
 //! before the entries it describes. It is read into a tree of its own and
 //! grafted in at the end, together with the end records.
 
+pub(crate) mod docs;
 mod extract;
 mod fields;
 mod office;
