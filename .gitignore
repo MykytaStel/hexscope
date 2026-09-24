@@ -32,4 +32,7 @@ dist/
 apps/web/src/wasm/
 
 apps/web/.local/
+
+# Wrangler's local state (pages dev, login cache)
+.wrangler/
 crates/*/fuzz/corpus/

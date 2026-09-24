@@ -66,3 +66,29 @@ jobs:
           name: hexscope-site
           path: apps/web/dist
           if-no-files-found: error
+
+  # Production from main, a preview URL for every other branch; never from a
+  # pull request. Until the CLOUDFLARE_API_TOKEN secret exists (a token with
+  # Account → Cloudflare Pages → Edit), the job says so and deploys nothing.
+  deploy:
+    needs: [test, web]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # An account id is not a credential: it names the account, the token
+      # is what grants access to it.
+      CLOUDFLARE_ACCOUNT_ID: 1b0f2bd63f1bc3ea8a7d401a7efa857b
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hexscope-site
+          path: dist
+      - name: Deploy to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: >
+          npx --yes wrangler@4 pages deploy dist --project-name hexscope
+          --branch "$GITHUB_REF_NAME" --commit-hash "$GITHUB_SHA"
+      - name: Nothing to deploy with
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::CLOUDFLARE_API_TOKEN is not set, so nothing was deployed."
