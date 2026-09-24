@@ -13,7 +13,7 @@ use crate::model::{NodeId, NodeKind, ParseTree};
 mod tests;
 
 /// Where a format defines something: a citation to show, and a link.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Spec {
     /// e.g. "PNG §11.2.2" or "RFC 1951 §3.2.5".
     pub cite: &'static str,
@@ -35,7 +35,7 @@ pub enum Concern {
 }
 
 /// One part of a file, explained.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Doc {
     /// One sentence in plain words.
     pub text: &'static str,
