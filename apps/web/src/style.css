@@ -591,6 +591,41 @@ input {
   color: var(--faint);
 }
 
+/* --- clean copy ---------------------------------------------------------------- */
+
+.cleaner {
+  margin-top: 10px;
+}
+
+.btn-clean {
+  border-color: color-mix(in srgb, var(--tint-gps) 45%, transparent);
+  color: var(--tint-gps);
+}
+
+.clean-done {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--tint-sig);
+}
+
+.clean-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+
+.clean-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clean-size {
+  flex: none;
+  font-family: var(--mono);
+  color: var(--faint);
+}
+
 /* --- verdict ---------------------------------------------------------------- */
 
 /* The answer people came for: across the whole panel, above the details. */

@@ -94,6 +94,21 @@ function openReason(e: ZipEntryInfo, nested: number): string | null {
   return "Its data runs past the end of the file.";
 }
 
+/** What cleaning produced, as the page needs it. */
+export interface CleanResult {
+  bytes: Uint8Array;
+  removed: { what: string; bytes: number }[];
+  orientation: number;
+  error: string;
+}
+
+export interface CleanActions {
+  /** Makes the copy and saves it; resolves with what was done. */
+  clean(): Promise<CleanResult>;
+  /** Opens the copy in hexscope, to check it. */
+  open(bytes: Uint8Array): void;
+}
+
 const degrees = (v: number, pos: string, neg: string) =>
   `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
 
@@ -110,6 +125,7 @@ export class Drawer {
     private readonly onPlay: (entry: number) => void,
     private readonly onOpen: (entry: number) => void,
     private readonly onHover: (id: number) => void,
+    private readonly cleaning: CleanActions,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -283,8 +299,46 @@ export class Drawer {
       dd.append(map);
     }
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
-    group.append(list);
+    group.append(list, this.cleaner(f.format));
     return group;
+  }
+
+  /** One button that saves a copy without all of the above, then says what went. */
+  private cleaner(format: string): HTMLElement {
+    const box = el("div", "cleaner");
+    const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
+    button.title = "Makes the copy in this tab: nothing is uploaded";
+    const note =
+      format === "zip"
+        ? "Removes the document's properties. Comments and tracked changes inside the text keep their authors."
+        : "Removes the camera data, location, serial numbers, thumbnail and comments. The picture itself is copied unchanged.";
+    box.append(button, el("p", "hint", note));
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Making the copy…";
+      const r = await this.cleaning.clean();
+      box.replaceChildren();
+      if (r.error) {
+        box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
+        return;
+      }
+      box.append(el("p", "clean-done", "Saved a clean copy. Removed:"));
+      const ul = el("ul", "clean-list");
+      for (const item of r.removed) {
+        const li = el("li");
+        li.append(el("span", undefined, item.what), el("span", "clean-size", formatBytes(item.bytes)));
+        ul.append(li);
+      }
+      box.append(ul);
+      if (r.orientation > 1) {
+        box.append(el("p", "hint", "Kept only the orientation, so the picture stays the right way up."));
+      }
+      const open = el("button", "btn", "Open the clean copy");
+      open.title = "Check it yourself: the card should now be empty";
+      open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      box.append(open);
+    });
+    return box;
   }
 
   /** A message in place of node details, such as why something did not open. */
