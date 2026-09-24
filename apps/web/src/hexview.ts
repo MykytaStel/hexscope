@@ -75,6 +75,8 @@ export class HexView {
   private perRow = 16;
   /** Hex digits in the offset column: enough for the file, at least six. */
   private offsetDigits = 8;
+  /** Told the byte range on screen after every draw, e.g. by the minimap. */
+  onView: ((start: number, end: number) => void) | null = null;
 
   constructor(
     host: HTMLElement,
@@ -152,6 +154,23 @@ export class HexView {
       top: this.toScrollTop(target),
       behavior: smooth && !far ? "smooth" : "auto",
     });
+  }
+
+  /** Bytes on screen, as [start, end). */
+  visibleRange(): [number, number] {
+    const m = this.model;
+    if (!m) return [0, 0];
+    const top = this.contentTop();
+    const first = Math.max(0, Math.floor((top - PAD_Y) / ROW_H));
+    const last = Math.max(first, Math.ceil((top + this.viewH - PAD_Y) / ROW_H));
+    return [Math.min(first * this.perRow, m.bytes.length), Math.min(last * this.perRow, m.bytes.length)];
+  }
+
+  /** Scrolls so that byte `offset` sits a third of the way down the view. */
+  scrollToOffset(offset: number): void {
+    if (!this.model) return;
+    const rowY = PAD_Y + Math.floor(Math.max(0, offset) / this.perRow) * ROW_H;
+    this.scroller.scrollTop = this.toScrollTop(Math.max(0, rowY - this.viewH / 3));
   }
 
   // --- geometry ---------------------------------------------------------
@@ -268,6 +287,7 @@ export class HexView {
     ctx.fillRect(0, 0, this.viewW, this.viewH);
     const m = this.model;
     if (!m) return;
+    this.onView?.(...this.visibleRange());
 
     ctx.font = `${FONT_PX}px ${MONO}`;
     ctx.textBaseline = "middle";

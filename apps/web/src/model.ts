@@ -29,6 +29,11 @@ export interface ParsedFile {
   docUrls: string[];
   /** Per doc: 0 not a problem, 1 damage, 2 something hidden, 3 an oddity. */
   docConcerns: Uint8Array;
+  /** What the file is made of: [start, len, role, node or -1] per slice, every byte once. */
+  composition: Float64Array;
+  /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
+  entropy: Float32Array;
+  entropyWindow: number;
   format: "png" | "jpeg" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
@@ -47,6 +52,17 @@ export interface NodeDoc {
   cite: string;
   url: string;
   concern: number;
+}
+
+/** What a stretch of bytes is for; numbered as `map::Role` in the core. */
+export const Role = { Content: 0, Metadata: 1, Thumbnail: 2, Structure: 3, Hidden: 4, Damaged: 5 } as const;
+
+export interface Slice {
+  start: number;
+  len: number;
+  role: number;
+  /** -1 for bytes no node covers. */
+  node: number;
 }
 
 /** Numbers per entry in `ParsedFile.entries`. */
@@ -241,6 +257,14 @@ export class FileModel {
   entryOf(id: number): number {
     if (id < 0) return -1;
     return this.entryByNode.get(this.top[id]) ?? -1;
+  }
+
+  /** Every byte of the file in one slice, in order. */
+  slices(): Slice[] {
+    const c = this.file.composition;
+    const out: Slice[] = [];
+    for (let i = 0; i + 3 < c.length; i += 4) out.push({ start: c[i], len: c[i + 1], role: c[i + 2], node: c[i + 3] });
+    return out;
   }
 
   /** What node `id` is, or null when nothing explains it. */

@@ -1,4 +1,4 @@
-import { Concern, FileModel, Kind, type ZipEntryInfo } from "./model";
+import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
@@ -63,6 +63,24 @@ function playReason(e: ZipEntryInfo): string | null {
   return "Its data runs past the end of the file.";
 }
 
+/** Role names in plain words; "content" depends on what the file holds. */
+function roleName(role: number, format: string): string {
+  switch (role) {
+    case Role.Content:
+      return format === "zip" ? "Files" : "Picture";
+    case Role.Metadata:
+      return "Metadata";
+    case Role.Thumbnail:
+      return "Thumbnail";
+    case Role.Structure:
+      return "Structure";
+    case Role.Hidden:
+      return "Hidden or unaccounted";
+    default:
+      return "Damaged";
+  }
+}
+
 /** How deep archives may nest on screen, matching the worker's limit. */
 const MAX_NESTING = 4;
 
@@ -91,6 +109,7 @@ export class Drawer {
     private readonly onSelect: (id: number) => void,
     private readonly onPlay: (entry: number) => void,
     private readonly onOpen: (entry: number) => void,
+    private readonly onHover: (id: number) => void,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -102,7 +121,7 @@ export class Drawer {
     if (!m) return;
     const f = m.file;
 
-    this.file.append(this.verdict(m));
+    this.file.append(this.verdict(m), this.makeup(m));
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h3", undefined, "File"));
@@ -171,6 +190,58 @@ export class Drawer {
       list.append(li);
     }
     group.append(list, el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    return group;
+  }
+
+  /** What the file is made of: a bar in file order and a legend by size. */
+  private makeup(m: FileModel): HTMLElement {
+    const group = el("div", "group makeup");
+    group.append(el("h3", undefined, "What it's made of"));
+    const slices = m.slices();
+    const total = slices.reduce((n, s) => n + s.len, 0);
+    if (total === 0) return group;
+
+    const bar = el("div", "makeup-bar");
+    for (const s of slices) {
+      const part = el("span", `makeup-part role-${s.role}`);
+      part.style.flexGrow = String(s.len);
+      part.title = `${roleName(s.role, m.file.format)}${s.node >= 0 ? ` · ${m.label(s.node)}` : ""} · ${formatBytes(s.len)}`;
+      if (s.node >= 0) {
+        part.addEventListener("click", () => this.onSelect(s.node));
+        part.addEventListener("mouseenter", () => this.onHover(s.node));
+        part.addEventListener("mouseleave", () => this.onHover(-1));
+      }
+      bar.append(part);
+    }
+
+    // Per role: bytes, and the largest slice to jump to.
+    const byRole = new Map<number, { bytes: number; biggest: (typeof slices)[number] }>();
+    for (const s of slices) {
+      const r = byRole.get(s.role);
+      if (!r) byRole.set(s.role, { bytes: s.len, biggest: s });
+      else {
+        r.bytes += s.len;
+        if (s.len > r.biggest.len) r.biggest = s;
+      }
+    }
+    const legend = el("ul", "makeup-legend");
+    for (const [role, r] of [...byRole].sort((a, b) => b[1].bytes - a[1].bytes)) {
+      const pct = (r.bytes / total) * 100;
+      const li = el("li", "makeup-row");
+      li.append(
+        el("span", `makeup-swatch role-${role}`),
+        el("span", "makeup-name", roleName(role, m.file.format)),
+        el("span", "makeup-pct", pct < 1 ? "<1%" : `${Math.round(pct)}%`),
+        el("span", "makeup-size", formatBytes(r.bytes)),
+      );
+      if (r.biggest.node >= 0) {
+        li.classList.add("is-link");
+        li.title = "Show the largest part";
+        li.addEventListener("click", () => this.onSelect(r.biggest.node));
+      }
+      legend.append(li);
+    }
+    group.append(bar, legend);
     return group;
   }
 
