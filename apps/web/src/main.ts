@@ -1,5 +1,5 @@
 import "./style.css";
-import { Drawer, formatBytes } from "./drawer";
+import { Drawer, formatBytes, type CleanResult } from "./drawer";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
@@ -58,7 +58,40 @@ const drawer = new Drawer(
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
   setHover,
+  {
+    clean: cleanCopy,
+    open: (bytes) => {
+      const name = cleanName(model?.name ?? "file");
+      void load(new File([bytes as BlobPart], name));
+    },
+  },
 );
+
+/** "photo.jpg" → "photo-clean.jpg" */
+function cleanName(name: string): string {
+  const base = name.split("/").pop() ?? name;
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? `${base.slice(0, dot)}-clean${base.slice(dot)}` : `${base}-clean`;
+}
+
+/** Makes the copy in the worker and hands it to the browser as a download. */
+async function cleanCopy(): Promise<CleanResult> {
+  const m = model;
+  if (!m) return { bytes: new Uint8Array(0), removed: [], orientation: 0, error: "no file is open" };
+  const r = await call({ type: "clean", bytes: m.bytes.slice() });
+  if (r.type !== "cleaned") {
+    return { bytes: new Uint8Array(0), removed: [], orientation: 0, error: r.type === "error" ? r.message : "unexpected reply" };
+  }
+  if (!r.error) {
+    const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = cleanName(m.name);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+  return { bytes: r.bytes, removed: r.removed, orientation: r.orientation, error: r.error };
+}
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {

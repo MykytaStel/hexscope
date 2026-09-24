@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import init, { entropy, parse, type Parsed } from "./wasm/hexscope_wasm.js";
+import init, { cleanCopy, entropy, parse, type Parsed } from "./wasm/hexscope_wasm.js";
 import type { ParsedFile } from "./model";
 
 export type WorkerRequest =
@@ -11,12 +11,14 @@ export type WorkerRequest =
   | { id: number; type: "explain"; index: number; knownBlock: number }
   | { id: number; type: "selectEntry"; index: number }
   | { id: number; type: "open"; index: number }
-  | { id: number; type: "back"; depth: number };
+  | { id: number; type: "back"; depth: number }
+  | { id: number; type: "clean"; bytes: Uint8Array };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
+  | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "inflated"; bytes: Uint8Array }
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
@@ -126,6 +128,17 @@ async function handle(req: WorkerRequest): Promise<void> {
     for (const p of stack) p.free();
     stack = [parsed];
     post({ id: req.id, type: "parsed", result }, transfers(result));
+    return;
+  }
+
+  if (req.type === "clean") {
+    const c = cleanCopy(req.bytes);
+    const parts = c.removed ? c.removed.split(SEPARATOR) : [];
+    const removed = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
+    const bytes = c.bytes;
+    post({ id: req.id, type: "cleaned", bytes, removed, orientation: c.orientationKept, error: c.error }, [bytes.buffer]);
+    c.free();
     return;
   }
 

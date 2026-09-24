@@ -57,6 +57,15 @@ thumbnail. Each fact links to the bytes that spell it out, so you can see
 exactly which part of the file gives you away. A photo with a location opens
 on it. The map link sends the coordinates nowhere unless you click it.
 
+**Removes it, if you want.** Under what a photo or a document reveals, one
+button saves a copy without it, made in the tab and never uploaded. A photo
+loses its camera data, location, serial numbers, thumbnail and comments;
+its picture is copied byte for byte, and a photo taken sideways keeps only
+its orientation. A Word, Excel or PowerPoint file loses its document
+properties (comments and tracked changes keep their authors, and the page
+says so). The page lists what went, and *Open the clean copy* shows it in
+hexscope, so you can see the card is empty.
+
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
 Hover a tree row and its bytes light up. Click to pin.
