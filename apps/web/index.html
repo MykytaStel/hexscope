@@ -3,8 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="A microscope for binary files. Drop one in and watch it take itself apart — entirely in your browser." />
-    <title>hexscope</title>
+    <meta name="description" content="See what your photos and documents reveal about you, find exactly where a broken file breaks, and watch compression work byte by byte. Nothing is uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>hexscope — see what your files say about you</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://hexscope.pages.dev/" />
+    <meta property="og:title" content="hexscope — see what your files say about you" />
+    <meta property="og:description" content="Where your photo was taken, who wrote your document, why a file won't open — shown byte by byte, in your browser. Nothing is uploaded." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="hexscope: a photo taken apart, with its location, camera serial number and owner highlighted in its bytes." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14l-12 7-12-7V9z' fill='%232563eb'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='white' stroke-width='2.5'/%3E%3C/svg%3E" />
   </head>
   <body>
@@ -42,18 +54,32 @@
     <div class="empty">
       <div class="empty-card">
         <svg class="empty-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
-        <h1>Drop a PNG, a JPEG or a ZIP to look inside it</h1>
-        <p>Every byte, what it means, where the file is broken — and what a photo says about who took it.<br />Nothing is uploaded: the file never leaves this tab.</p>
-        <div class="empty-actions">
-          <label class="btn btn-primary">
-            Choose a file
-            <input type="file" id="picker-empty" hidden />
-          </label>
-          <button class="btn" data-sample="samples/sample.png" data-name="sample.png">Try a sample</button>
-          <button class="btn" data-sample="samples/photo.jpg" data-name="photo.jpg">Try a photo</button>
-          <button class="btn" data-sample="samples/broken.png" data-name="broken.png">Try a broken one</button>
-          <button class="btn" data-sample="samples/report.docx" data-name="report.docx">Try a document</button>
+        <h1>See what your files say about you</h1>
+        <p class="lede">Drop a photo, a document, or any PNG, JPEG or ZIP. hexscope takes it apart right here: what it reveals about you, where it is broken, and how it works, byte by byte.</p>
+        <label class="btn btn-primary btn-big">
+          Choose a file
+          <input type="file" id="picker-empty" hidden />
+        </label>
+        <p class="promise">Nothing is uploaded: the file never leaves this tab.</p>
+
+        <div class="doors">
+          <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
+            <span class="door-title">Check a photo</span>
+            <span class="door-text">Where it was taken, the camera's serial number, the owner's name — and how to remove them.</span>
+            <span class="door-go">Try a sample photo →</span>
+          </button>
+          <button class="door" data-sample="samples/broken.png" data-name="broken.png">
+            <span class="door-title">Why won't it open?</span>
+            <span class="door-text">The exact bytes that break a file, and what they should have been.</span>
+            <span class="door-go">Try a broken image →</span>
+          </button>
+          <button class="door" data-sample="samples/sample.png" data-name="sample.png" data-then="play">
+            <span class="door-title">Watch compression work</span>
+            <span class="door-text">Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.</span>
+            <span class="door-go">Play it →</span>
+          </button>
         </div>
+        <p class="more">Or look inside <button class="link" data-sample="samples/report.docx" data-name="report.docx">a Word document</button> — who wrote it, and what else it holds.</p>
       </div>
     </div>
 

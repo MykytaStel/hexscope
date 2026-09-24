@@ -351,7 +351,13 @@ export class Drawer {
     if (!m) return;
     if (id < 0) {
       this.node.append(
-        el("p", "hint", "Hover any byte or tree row to see what it is. Click to pin it here."),
+        el(
+          "p",
+          "hint",
+          matchMedia("(hover: none)").matches
+            ? "Tap any byte or tree row to see what it is."
+            : "Hover any byte or tree row to see what it is. Click to pin it here.",
+        ),
       );
       return;
     }
