@@ -7,6 +7,7 @@
 
 use crate::crc32::crc32;
 use crate::document::{Document, parse};
+use crate::heif::HeifDocument;
 use crate::jpeg::JpegDocument;
 use crate::model::{ByteRange, NodeKind};
 use crate::zip::ZipDocument;
@@ -54,7 +55,9 @@ impl CleanError {
             }
             CleanError::Zip64 => "it is too large an archive for hexscope to rewrite",
             CleanError::Damaged => "parts of it are damaged, and a copy could lose more",
-            CleanError::Unsupported => "hexscope cleans JPEG photos and Office documents only",
+            CleanError::Unsupported => {
+                "hexscope cleans JPEG, HEIC and AVIF photos and Office documents only"
+            }
         }
     }
 }
@@ -62,6 +65,7 @@ impl CleanError {
 pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
     match parse(data) {
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
+        Document::Heif(doc) => clean_heif(data, &doc),
         Document::Zip(doc) => clean_zip(data, &doc),
         _ => Err(CleanError::Unsupported),
     }
@@ -195,6 +199,82 @@ fn orientation_segment(orientation: u16) -> Vec<u8> {
     s.extend_from_slice(&[0x00, 0x00]);
     s.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // no next IFD
     s
+}
+
+// --- HEIF (HEIC, AVIF) -------------------------------------------------------
+
+/// A minimal big-endian TIFF block: IFD0 with Orientation when there is one,
+/// otherwise with no entries.
+fn minimal_tiff(orientation: Option<u16>) -> Vec<u8> {
+    let mut t = b"MM\x00\x2A\x00\x00\x00\x08".to_vec();
+    match orientation {
+        Some(o) => {
+            t.extend_from_slice(&[0x00, 0x01, 0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
+            t.extend_from_slice(&o.to_be_bytes());
+            t.extend_from_slice(&[0x00, 0x00]);
+        }
+        None => t.extend_from_slice(&[0x00, 0x00]),
+    }
+    t.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+    t
+}
+
+/// An XMP packet with nothing in it, exactly `len` bytes long: the padding
+/// goes inside the packet, where XMP expects it.
+fn empty_xmp(len: usize) -> Option<Vec<u8>> {
+    let head = "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>";
+    let tail = "<?xpacket end=\"w\"?>";
+    let pad = len.checked_sub(head.len() + tail.len())?;
+    let mut out = head.as_bytes().to_vec();
+    out.resize(out.len() + pad, b' ');
+    out.extend_from_slice(tail.as_bytes());
+    Some(out)
+}
+
+/// HEIF points at items by absolute offset, so the copy changes bytes in
+/// place and keeps every length: no offset anywhere has to move.
+fn clean_heif(data: &[u8], doc: &HeifDocument) -> Result<Cleaned, CleanError> {
+    if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    if doc.exif.is_none() && doc.xmp.is_none() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut out = data.to_vec();
+    let mut removed = Vec::new();
+    let orientation = doc.facts.orientation.filter(|&o| (2..=8).contains(&o));
+    if let Some(exif) = doc.exif {
+        let (start, end) = (exif.tiff_start as usize, exif.data.end() as usize);
+        let tiff = minimal_tiff(orientation);
+        let room = out.get_mut(start..end).ok_or(CleanError::Damaged)?;
+        if room.len() < tiff.len() {
+            return Err(CleanError::Damaged);
+        }
+        room.fill(0);
+        room[..tiff.len()].copy_from_slice(&tiff);
+        removed.push(Removed {
+            what: "EXIF: camera, time, location, serial numbers".into(),
+            bytes: exif.data.len,
+        });
+    }
+    if let Some(xmp) = doc.xmp {
+        let (start, end) = (xmp.start as usize, xmp.end() as usize);
+        let room = out.get_mut(start..end).ok_or(CleanError::Damaged)?;
+        match empty_xmp(room.len()) {
+            Some(packet) => room.copy_from_slice(&packet),
+            // Too small for even an empty packet: blank it instead.
+            None => room.fill(b' '),
+        }
+        removed.push(Removed {
+            what: "XMP: editing history and author".into(),
+            bytes: xmp.len,
+        });
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: orientation.filter(|_| doc.exif.is_some()),
+    })
 }
 
 // --- Office documents --------------------------------------------------------
@@ -502,6 +582,32 @@ mod tests {
             }
         }
         assert!(cleaned.removed[0].what.starts_with("docProps/core.xml"));
+    }
+
+    #[test]
+    fn a_heif_photo_is_cleaned_in_place() {
+        for name in ["photo.heic", "photo-grid.heic", "photo.avif"] {
+            let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+            let original = std::fs::read(path).unwrap();
+            let cleaned = clean(&original).unwrap();
+            assert_eq!(
+                cleaned.bytes.len(),
+                original.len(),
+                "{name}: every length kept"
+            );
+            let doc = crate::heif::parse_heif(&cleaned.bytes);
+            assert_eq!(problems(&doc.tree), Vec::<String>::new(), "{name}");
+            assert_eq!(doc.facts.camera, None, "{name}");
+            assert_eq!(doc.facts.location, None, "{name}");
+            assert_eq!(doc.facts.serial, None, "{name}");
+            let xmp = doc.xmp.unwrap();
+            let text =
+                String::from_utf8_lossy(&cleaned.bytes[xmp.start as usize..xmp.end() as usize]);
+            assert!(
+                text.starts_with("<?xpacket begin") && text.ends_with("<?xpacket end=\"w\"?>"),
+                "{name}"
+            );
+        }
     }
 
     #[test]

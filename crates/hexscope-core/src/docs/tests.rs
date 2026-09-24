@@ -32,10 +32,8 @@ pub(crate) fn damaged() -> Vec<(String, Vec<u8>)> {
     use crate::zip::testing::{Archive, Descriptor, Entry, build};
     let mut out = Vec::new();
     for (name, bytes) in fixtures() {
-        if !(name.ends_with("basn2c08.png")
-            || name.ends_with("photo.jpg")
-            || name.ends_with("report.docx"))
-        {
+        let kinds = ["basn2c08.png", "photo.jpg", "report.docx", "photo.heic"];
+        if !kinds.iter().any(|k| name.ends_with(k)) {
             continue;
         }
         for cut in [9, 20, 40, bytes.len() / 3, bytes.len() / 2, bytes.len() - 5] {
@@ -155,12 +153,13 @@ fn every_exif_tag_is_explained() {
 
 #[test]
 fn explanations_are_one_plain_sentence_and_links_are_https() {
-    let tables: [(&str, Table); 5] = [
+    let tables: [(&str, Table); 6] = [
         ("png", crate::png::docs::ALL),
         ("exif tags", crate::exif::docs::TAGS),
         ("exif", crate::exif::docs::ALL),
         ("jpeg", crate::jpeg::docs::ALL),
         ("zip", crate::zip::docs::ALL),
+        ("heif", crate::heif::docs::ALL),
     ];
     for (name, table) in tables {
         for (pattern, d) in table.iter().copied() {
