@@ -35,7 +35,7 @@ const TABLE: Table = &[
     ("APP* · JFIF", jfif("The JFIF header: the version and the pixel density, for printing.")),
     ("APP* · JFXX", jfif("A JFIF extension, usually a thumbnail.")),
     ("APP* · EXIF", Doc::new("EXIF metadata: the camera, its settings, the time, and often where the picture was taken.").cite("EXIF 2.32, file structure", "https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf")),
-    ("APP* · XMP", Doc::new("XMP metadata: Adobe's XML record of the picture's history, author and edits.").cite("XMP, part 3", "https://www.adobe.com/devnet/xmp.html")),
+    ("APP* · XMP", Doc::new("XMP metadata: Adobe's XML record of the picture's history, author and edits.").cite("XMP, part 3", "https://github.com/adobe/XMP-Toolkit-SDK/blob/main/docs/XMPSpecificationPart3.pdf")),
     ("APP* · ICC", t81("A colour profile: how the picture's colours should look on any screen.", "T.81 §B.2.4.6")),
     ("APP* · MPF", t81("Multi-picture format: this file holds more pictures, such as a depth map or a second exposure.", "T.81 §B.2.4.6")),
     ("APP* · Photoshop", t81("Photoshop's data: captions, keywords and settings it saved.", "T.81 §B.2.4.6")),
@@ -54,7 +54,7 @@ const TABLE: Table = &[
     ("units", jfif("The unit of the density: none, dots per inch or dots per centimetre.")),
     ("xDensity", jfif("Pixels per unit across, for printing.")),
     ("yDensity", jfif("Pixels per unit down, for printing.")),
-    ("packet", Doc::new("The XMP record itself, as XML.").cite("XMP, part 3", "https://www.adobe.com/devnet/xmp.html")),
+    ("packet", Doc::new("The XMP record itself, as XML.").cite("XMP, part 3", "https://github.com/adobe/XMP-Toolkit-SDK/blob/main/docs/XMPSpecificationPart3.pdf")),
     ("comment", t81("The comment's text.", "T.81 §B.2.4.5")),
     // Problems.
     ("not a JPEG*", damage("The file does not start with the two bytes every JPEG must: it may be another format under a .jpg name.")),

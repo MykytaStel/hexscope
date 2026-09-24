@@ -196,7 +196,8 @@ export class TreeView {
     value.textContent = m.value(id);
 
     row.append(twisty, swatch, label, value);
-    row.title = `${m.label(id)}${m.value(id) ? ` = ${m.value(id)}` : ""}`;
+    const doc = m.doc(id);
+    row.title = `${m.label(id)}${m.value(id) ? ` = ${m.value(id)}` : ""}${doc ? `\n${doc.text}` : ""}`;
     this.rows.set(id, row);
     return row;
   }

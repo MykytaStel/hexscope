@@ -20,6 +20,16 @@ problem marked on the exact bytes. A broken file opens on its first problem;
 **N** steps through the rest. Anything else is named when its signature is
 familiar — a PDF, a gzip, an iPhone's HEIC photo — rather than just refused.
 
+**Says what it found, then explains.** A file opens on a short verdict:
+damaged, something hidden or disguised, what it reveals, or healthy — each
+line a link to the bytes behind it. Every part of every file then explains
+itself at two depths, both always shown: one plain sentence first ("The
+location directory: where the picture was taken"), and below it the offset,
+the raw value and the section of the specification that defines it (PNG,
+RFC 1950/1951, ITU T.81, JFIF, EXIF 2.32, PKWARE APPNOTE), linked. Problems
+say how worried to be. The verdict is what reading the structure finds; it
+is not a virus scan, and says so.
+
 **Takes archives apart, and what is inside them.** A ZIP — and so a Word
 document, a spreadsheet, an Android app, a Java archive, an e-book — is read
 the way `unzip` reads it, in file order. The tree names what an archive can
@@ -146,6 +156,14 @@ rustup toolchain install          # reads rust-toolchain.toml
 cargo install wasm-bindgen-cli --version 0.2.128 --locked
 pnpm install
 pnpm dev            # builds the WebAssembly, then serves the app
+```
+
+Every part a parser can name must have an explanation: the coverage test in
+`crates/hexscope-core/src/docs/tests.rs` fails otherwise. Specification links
+are checked by hand, since it needs the network:
+
+```bash
+python3 scripts/check-spec-links.py
 ```
 
 Checks, as CI runs them:

@@ -22,6 +22,13 @@ export interface ParsedFile {
   streamHeader: number;
   /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable, openable. */
   entries: Float64Array;
+  /** Per node, an index into the doc tables, or -1. */
+  docIds: Int32Array;
+  docTexts: string[];
+  docCites: string[];
+  docUrls: string[];
+  /** Per doc: 0 not a problem, 1 damage, 2 something hidden, 3 an oddity. */
+  docConcerns: Uint8Array;
   format: "png" | "jpeg" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
@@ -29,6 +36,17 @@ export interface ParsedFile {
   facts: PhotoFact[];
   location: PhotoLocation | null;
   parseMs: number;
+}
+
+/** How worried to be about a problem, as the core classifies it. */
+export const Concern = { None: 0, Damage: 1, Hidden: 2, Oddity: 3 } as const;
+
+/** What a node is, in one sentence, and where its format defines it. */
+export interface NodeDoc {
+  text: string;
+  cite: string;
+  url: string;
+  concern: number;
 }
 
 /** Numbers per entry in `ParsedFile.entries`. */
@@ -223,6 +241,14 @@ export class FileModel {
   entryOf(id: number): number {
     if (id < 0) return -1;
     return this.entryByNode.get(this.top[id]) ?? -1;
+  }
+
+  /** What node `id` is, or null when nothing explains it. */
+  doc(id: number): NodeDoc | null {
+    const f = this.file;
+    const d = id >= 0 ? f.docIds[id] : -1;
+    if (d === undefined || d < 0) return null;
+    return { text: f.docTexts[d], cite: f.docCites[d], url: f.docUrls[d], concern: f.docConcerns[d] };
   }
 
   entry(i: number): ZipEntryInfo {

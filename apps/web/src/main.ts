@@ -1,7 +1,7 @@
 import "./style.css";
 import { Drawer, formatBytes } from "./drawer";
 import { HexView } from "./hexview";
-import { FileModel, Kind } from "./model";
+import { Concern, FileModel, Kind } from "./model";
 import { Player } from "./player";
 import { TreeView } from "./tree";
 import type { WorkerRequest, WorkerResponse } from "./worker";
@@ -143,8 +143,12 @@ function updateProblems(): void {
   const n = model?.problems.length ?? 0;
   problemsBtn.hidden = n === 0;
   if (!model || n === 0) return;
-  const errors = model.problems.filter((id) => model!.kind(id) === Kind.Error).length;
-  problemsBtn.dataset.severity = errors > 0 ? "error" : "warning";
+  // Coloured by how worried to be, as the verdict is: a corrupt checksum is
+  // read fine but still damage.
+  const damaged = model.problems.some(
+    (id) => model!.kind(id) === Kind.Error || model!.doc(id)?.concern === Concern.Damage,
+  );
+  problemsBtn.dataset.severity = damaged ? "error" : "warning";
   problemsBtn.textContent = `${n} ${n === 1 ? "problem" : "problems"}`;
   problemsBtn.title = "Jump to the next problem (N)";
 }
