@@ -7,7 +7,7 @@ use crate::document::parse;
 use crate::model::NodeKind;
 use std::path::Path;
 
-fn fixtures() -> Vec<(String, Vec<u8>)> {
+pub(crate) fn fixtures() -> Vec<(String, Vec<u8>)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
     for dir in [
@@ -28,7 +28,7 @@ fn fixtures() -> Vec<(String, Vec<u8>)> {
 
 /// Damage the fixtures do not have: cut, flipped and padded variants of a
 /// few files, so problem nodes of every kind appear.
-fn damaged() -> Vec<(String, Vec<u8>)> {
+pub(crate) fn damaged() -> Vec<(String, Vec<u8>)> {
     use crate::zip::testing::{Archive, Descriptor, Entry, build};
     let mut out = Vec::new();
     for (name, bytes) in fixtures() {
