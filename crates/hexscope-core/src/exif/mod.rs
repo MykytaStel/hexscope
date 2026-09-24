@@ -38,6 +38,9 @@ pub struct PhotoFacts {
     pub taken: Option<Fact>,
     pub location: Option<Location>,
     pub thumbnail: Option<Fact>,
+    /// IFD0's Orientation, 1 to 8: how to turn the picture upright. Not a
+    /// fact about anyone, but a clean copy must keep it.
+    pub orientation: Option<u16>,
 }
 
 impl PhotoFacts {
@@ -52,6 +55,7 @@ impl PhotoFacts {
         self.taken = self.taken.take().or(other.taken);
         self.location = self.location.take().or(other.location);
         self.thumbnail = self.thumbnail.take().or(other.thumbnail);
+        self.orientation = self.orientation.take().or(other.orientation);
     }
 }
 
@@ -323,6 +327,7 @@ struct Found {
     thumb_off: Option<u64>,
     thumb_len: Option<u64>,
     thumbnail: Option<Fact>,
+    orientation: Option<u16>,
 }
 
 impl Found {
@@ -425,6 +430,7 @@ impl Found {
             taken,
             location,
             thumbnail: self.thumbnail,
+            orientation: self.orientation,
         }
     }
 }
@@ -805,6 +811,9 @@ impl Walk<'_, '_> {
                 (Ifd::Gps, 0x04) => found.lon = Some(t.numbers(&e, 3)),
                 (Ifd::Gps, 0x05) => found.alt_below = t.raw(&e, 1).first() == Some(&1),
                 (Ifd::Gps, 0x06) => found.alt = t.numbers(&e, 1).first().copied(),
+                (Ifd::Zero, 0x0112) => {
+                    found.orientation = t.numbers(&e, 1).first().map(|&v| v as u16);
+                }
                 _ => {}
             }
             if e.typ == 2 {
