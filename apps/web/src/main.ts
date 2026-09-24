@@ -5,29 +5,9 @@ import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
 import { Player } from "./player";
 import { TreeView } from "./tree";
-import type { WorkerRequest, WorkerResponse } from "./worker";
+import { call, playerSource } from "./rpc";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
-const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-
-// One outstanding promise per request id; responses can arrive in any order.
-let nextId = 0;
-const waiting = new Map<number, (r: WorkerResponse) => void>();
-worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => {
-  waiting.get(e.data.id)?.(e.data);
-  waiting.delete(e.data.id);
-});
-
-type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
-
-function call(req: Req): Promise<WorkerResponse> {
-  const id = ++nextId;
-  return new Promise((resolve) => {
-    waiting.set(id, resolve);
-    worker.postMessage({ ...req, id } as WorkerRequest);
-  });
-}
 
 let model: FileModel | null = null;
 /** The documents above the one on screen: the file, then each entry opened. */
@@ -126,20 +106,7 @@ async function openPlayer(entry = selectedEntry()): Promise<void> {
   }
   if (!model.playable) return;
   document.body.classList.add("is-playing");
-  await player.open(model, {
-    steps: async (from, count) => {
-      const r = await call({ type: "steps", from, count });
-      return r.type === "steps" ? r.steps : new Float64Array(0);
-    },
-    inflated: async () => {
-      const r = await call({ type: "inflated" });
-      return r.type === "inflated" ? r.bytes : new Uint8Array(0);
-    },
-    explain: async (index, knownBlock) => {
-      const r = await call({ type: "explain", index, knownBlock });
-      return r.type === "explain" ? { parts: r.parts, tables: r.tables } : { parts: new Float64Array(0), tables: null };
-    },
-  });
+  await player.open(model, playerSource);
 }
 
 function closePlayer(): void {

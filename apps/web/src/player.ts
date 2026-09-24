@@ -184,6 +184,8 @@ export class Player {
   constructor(
     host: HTMLElement,
     private readonly cb: PlayerCallbacks,
+    /** Show output bytes as the characters they spell, for text. */
+    private readonly asText = false,
   ) {
     this.root = document.createElement("section");
     this.root.className = "drawer-player";
@@ -337,6 +339,20 @@ export class Player {
   private stepBy(delta: number): void {
     this.pause();
     this.seek(this.index + delta);
+  }
+
+  /** Goes to step `index` and pauses there, for a page telling a story. */
+  jump(index: number): void {
+    this.pause();
+    this.seek(index);
+  }
+
+  /** A byte as the strip shows it: its hex, or in text mode the character. */
+  private cellText(b: number): string {
+    if (!this.asText) return HEX[b];
+    if (b === 0x20) return "␣";
+    if (b === 0x0a) return "⏎";
+    return b > 0x20 && b < 0x7f ? ` ${String.fromCharCode(b)}` : HEX[b];
   }
 
   private seek(index: number): void {
@@ -595,7 +611,7 @@ export class Player {
             : p.cell;
         ctx.fillRect(x + 1, top, cellW - 2, cellH);
         ctx.fillStyle = isNew || isSrc ? p.text : p.faint;
-        ctx.fillText(HEX[this.output[off] ?? 0], x + ch * 0.5, top + cellH / 2);
+        ctx.fillText(this.cellText(this.output[off] ?? 0), x + ch * 0.5, top + cellH / 2);
       }
     }
 
