@@ -621,6 +621,13 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Heif(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "heif";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
         Document::Zip(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
@@ -1367,6 +1374,6 @@ mod tests {
 
         let refused = clean_copy(&fixture("basn2c08.png"));
         assert!(refused.bytes().is_empty());
-        assert!(refused.error().contains("JPEG photos and Office documents"));
+        assert!(refused.error().contains("photos and Office documents only"));
     }
 }

@@ -34,7 +34,7 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
-  format: "png" | "jpeg" | "zip" | "unknown";
+  format: "png" | "jpeg" | "heif" | "zip" | "unknown";
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
   /** What a photo's metadata reveals; empty for anything else. */
@@ -134,6 +134,18 @@ function zipTint(label: string): Tint {
   return "text";
 }
 
+/** A HEIF's boxes: the file type, the metadata box, the media data. */
+const BOX_TINTS: Record<string, Tint> = { ftyp: "sig", meta: "ihdr", mdat: "idat" };
+
+function boxTint(label: string): Tint {
+  return BOX_TINTS[label] ?? "anc";
+}
+
+/** Inside a HEIF, EXIF and XMP items stand out from the picture around them. */
+function isHeifMetadata(label: string): boolean {
+  return /^item \d+ · (Exif|mime)/.test(label);
+}
+
 function chunkTint(label: string): Tint {
   const key = label.split(" · ")[0];
   if (/^SOF\d+$/.test(key)) return "ihdr";
@@ -217,7 +229,7 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
-    const topTint = file.format === "zip" ? zipTint : chunkTint;
+    const topTint = file.format === "zip" ? zipTint : file.format === "heif" ? boxTint : chunkTint;
     for (let i = 0; i < n; i++) {
       const kind = kinds[i];
       const p = parents[i];
@@ -225,6 +237,7 @@ export class FileModel {
       else if (kind === Kind.Warning) this.tints[i] = "warning";
       else if (file.labels[i].startsWith("GPS") || (p > 0 && this.tints[p] === "gps")) this.tints[i] = "gps";
       else if (i === 0) this.tints[i] = "anc";
+      else if (file.format === "heif" && isHeifMetadata(file.labels[i])) this.tints[i] = "text";
       else if (p === 0) this.tints[i] = topTint(file.labels[i]);
       else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? topTint(file.labels[this.top[i]]) : this.tints[p];
     }

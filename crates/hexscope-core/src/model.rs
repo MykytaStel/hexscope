@@ -111,6 +111,15 @@ impl ParseTree {
         self.add(Some(parent), label, range, NodeKind::Warning, None)
     }
 
+    /// Renames a node and sets its range, for a container whose extent is
+    /// known only once its fields are read. An id not from this tree is ignored.
+    pub fn relabel(&mut self, id: NodeId, label: impl Into<String>, range: ByteRange) {
+        if let Some(n) = self.nodes.get_mut(id as usize) {
+            n.label = label.into();
+            n.range = range;
+        }
+    }
+
     /// Sets a node's value after the fact, for a summary known only once its
     /// children are read. An id not from this tree is ignored.
     pub fn set_value(&mut self, id: NodeId, value: Option<Value>) {

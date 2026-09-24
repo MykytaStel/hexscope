@@ -9,15 +9,15 @@ returns a tree, and has no runtime dependencies.
 These are features in their own right rather than defects, each worth its own
 milestone.
 
-**HEIC.** The default photo format on iPhones is recognised and named, with a
-hint to export as JPEG, but not read. Its EXIF lives in an ISO base media
-file; reading it means parsing that container.
-
 **Vendor MakerNotes.** Camera makers store extra metadata — often more serial
 numbers — in a MakerNote whose format differs per vendor. It is shown as an
 opaque byte range.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
+
+**HEIF items built from other items.** An item stored by construction
+method 2 is assembled from other items' bytes; it is named, not assembled.
+HEIF sequences (Live Photo videos, bursts) are read as boxes only.
 
 **Other ZIP compression methods.** Stored and deflated entries open and play;
 Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed, and
@@ -35,8 +35,9 @@ cannot hold comfortably. Opened files nest at most four deep.
 and the byte view drops to 8 bytes per row, so it works on a phone, but hover
 is the main way to explore and touch has none.
 
-**WebAssembly size.** About 117 KB gzipped, grown from 58 KB as ZIP, the
-explanations, the file map and the clean copy arrived. The explanations'
+**WebAssembly size.** About 137 KB gzipped, grown from 58 KB as ZIP, the
+explanations, the file map, the clean copy and HEIF arrived; HEIF alone
+added 17 KB. The explanations'
 text is under 10 KB of that; where the rest went has not been measured. A size-optimised Rust build saved
 under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
 10 MB PNG five to six times slower in the browser (950–1,500 ms against

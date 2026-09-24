@@ -6,6 +6,7 @@ pub mod crc32;
 pub mod docs;
 pub mod document;
 pub mod exif;
+pub mod heif;
 pub mod inflate;
 pub mod jpeg;
 pub mod map;

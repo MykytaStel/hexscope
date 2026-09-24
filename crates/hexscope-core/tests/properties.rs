@@ -69,6 +69,34 @@ proptest! {
     }
 
     #[test]
+    fn heif_start_plus_garbage_is_survivable(
+        rest in proptest::collection::vec(any::<u8>(), 0..4096)
+    ) {
+        let mut bytes = b"\0\0\0\x10ftypheic\0\0\0\0".to_vec();
+        bytes.extend(rest);
+        let doc = hexscope_core::heif::parse_heif(&bytes);
+        prop_assert!(doc.tree.root().is_some());
+        let _ = hexscope_core::clean::clean(&bytes);
+    }
+
+    #[test]
+    fn a_damaged_heic_is_survivable(
+        edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16)
+    ) {
+        // Garbage rarely forms boxes; damage to a real photo reaches deeper.
+        let mut bytes = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/photo-grid.heic")).unwrap();
+        let len = bytes.len();
+        for (at, b) in edits {
+            bytes[at % len] = b;
+        }
+        let doc = hexscope_core::heif::parse_heif(&bytes);
+        prop_assert!(doc.tree.root().is_some());
+        if let Ok(c) = hexscope_core::clean::clean(&bytes) {
+            prop_assert_eq!(c.bytes.len(), len);
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

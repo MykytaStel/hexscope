@@ -162,6 +162,23 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             l if l.starts_with("APP") && !l.ends_with("· JFIF") => Role::Metadata,
             _ => Role::Structure,
         }),
+        Format::Heif
+            if label.starts_with("item ")
+                && label.contains(" · ")
+                && !label.ends_with("location") =>
+        {
+            let what = match &node.value {
+                Some(crate::model::Value::Text(t)) => t.as_str(),
+                _ => "",
+            };
+            Some(match what {
+                "EXIF metadata" | "XMP metadata" => Role::Metadata,
+                "thumbnail" => Role::Thumbnail,
+                _ if label.contains("· Exif") || label.contains("· mime") => Role::Metadata,
+                _ => Role::Content,
+            })
+        }
+        Format::Heif if depth == 1 => Some(Role::Structure),
         Format::Zip if depth == 1 => Some(Role::Structure),
         Format::Zip if label == "data" && depth == 2 => {
             let entry = tree.try_get(node.parent?)?;

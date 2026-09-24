@@ -155,7 +155,7 @@ export class Drawer {
     this.file.append(fileGroup);
     // A photo always gets the card, if only to say it gives nothing away; an
     // archive only when it is a document with properties to show.
-    if (f.format === "jpeg" || f.facts.length > 0) this.file.append(this.reveals(m));
+    if (f.format === "jpeg" || f.format === "heif" || f.facts.length > 0) this.file.append(this.reveals(m));
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -308,10 +308,13 @@ export class Drawer {
     const box = el("div", "cleaner");
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
     button.title = "Makes the copy in this tab: nothing is uploaded";
+    const notes: Record<string, string> = {
+      zip: "Removes the document's properties. Comments and tracked changes inside the text keep their authors.",
+      heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
+    };
     const note =
-      format === "zip"
-        ? "Removes the document's properties. Comments and tracked changes inside the text keep their authors."
-        : "Removes the camera data, location, serial numbers, thumbnail and comments. The picture itself is copied unchanged.";
+      notes[format] ??
+      "Removes the camera data, location, serial numbers, thumbnail and comments. The picture itself is copied unchanged.";
     box.append(button, el("p", "hint", note));
     button.addEventListener("click", async () => {
       button.disabled = true;

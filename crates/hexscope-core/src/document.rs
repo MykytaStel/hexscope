@@ -1,5 +1,6 @@
 //! Recognising a file's format and parsing it with the right module.
 
+use crate::heif::{self, HeifDocument, parse_heif};
 use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::png::{PngDocument, parse_png};
@@ -9,6 +10,7 @@ use crate::zip::{self, ZipDocument, parse_zip};
 pub enum Format {
     Png,
     Jpeg,
+    Heif,
     Zip,
     Unknown,
 }
@@ -19,6 +21,7 @@ pub enum Format {
 pub enum Document {
     Png(PngDocument),
     Jpeg(JpegDocument),
+    Heif(HeifDocument),
     Zip(ZipDocument),
     Unknown(ParseTree),
 }
@@ -28,6 +31,7 @@ impl Document {
         match self {
             Document::Png(d) => &d.tree,
             Document::Jpeg(d) => &d.tree,
+            Document::Heif(d) => &d.tree,
             Document::Zip(d) => &d.tree,
             Document::Unknown(t) => t,
         }
@@ -37,6 +41,7 @@ impl Document {
         match self {
             Document::Png(_) => Format::Png,
             Document::Jpeg(_) => Format::Jpeg,
+            Document::Heif(_) => Format::Heif,
             Document::Zip(_) => Format::Zip,
             Document::Unknown(_) => Format::Unknown,
         }
@@ -54,7 +59,10 @@ pub fn parse(data: &[u8]) -> Document {
     if data.starts_with(&jpeg::MAGIC) {
         return Document::Jpeg(parse_jpeg(data));
     }
-    // After PNG and JPEG, whose files may carry a ZIP on their end: an
+    if heif::is_heif(data) {
+        return Document::Heif(parse_heif(data));
+    }
+    // After the images, whose files may carry a ZIP on their end: an
     // archive is what the file is only when nothing earlier claimed it.
     if zip::is_zip(data) {
         return Document::Zip(parse_zip(data));
@@ -84,19 +92,9 @@ pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
     if data.starts_with(b"RIFF") && data.get(8..12) == Some(b"WEBP") {
         return Some(("a WebP image", 12));
     }
+    // HEIF brands were read as HEIF before this; what is left is video.
     if data.get(4..8) == Some(b"ftyp") {
-        let brand = data.get(8..12).unwrap_or_default();
-        let heif = [b"heic", b"heix", b"mif1", b"msf1", b"hevc"]
-            .iter()
-            .any(|b| brand == b.as_slice());
-        return Some(if heif {
-            (
-                "a HEIC photo — export it as JPEG to inspect its metadata here",
-                12,
-            )
-        } else {
-            ("an MP4 or QuickTime video", 12)
-        });
+        return Some(("an MP4 or QuickTime video", 12));
     }
     None
 }
@@ -167,6 +165,7 @@ mod tests {
         assert_eq!(parse(b"hello").format(), Format::Unknown);
         assert_eq!(parse(b"PK\x03\x04 and the rest").format(), Format::Zip);
         assert_eq!(parse(b"PK\x05\x06").format(), Format::Zip);
+        assert_eq!(parse(b"\0\0\0\x10ftypheic\0\0\0\0").format(), Format::Heif);
     }
 
     #[test]
@@ -185,7 +184,7 @@ mod tests {
         };
         assert!(label(b"%PDF-1.7 ...").contains("PDF"));
         assert!(label(b"\x1F\x8B\x08....").contains("gzip"));
-        assert!(label(b"\0\0\0\x18ftypheic....").contains("HEIC"));
+        assert!(label(b"\0\0\0\x18ftypisom....").contains("MP4"));
         assert!(label(b"").contains("empty"));
         assert!(label(b"just some text").contains("not recognised"));
     }
