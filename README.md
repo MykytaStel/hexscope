@@ -215,6 +215,13 @@ job uploads it: `main` to production, every other branch to a preview URL.
 The job needs a `CLOUDFLARE_API_TOKEN` repository secret — an API token with
 *Account → Cloudflare Pages → Edit* — and deploys nothing until it exists.
 
+It installs as an app and works offline after the first visit: a service
+worker (`apps/web/public/sw.js`) caches the page and its hashed assets, and
+fetches nothing the page does not ask for. On Android, the installed app
+appears in the share sheet; a shared file waits in a cache for the page to
+open it, and never touches the network. The link preview and icons are
+rendered from `scripts/brand/*.html` by `sh scripts/make-brand-images.sh`.
+
 `apps/web/public/_headers` sets the response headers: a CSP that lets the page
 run only its own code and send nothing anywhere, and long caching for hashed
 assets. To try them locally:

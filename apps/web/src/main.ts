@@ -337,7 +337,31 @@ for (const id of ["picker", "picker-empty"]) {
   });
 }
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]")) {
-  btn.addEventListener("click", () => void loadSample(btn.dataset.sample!, btn.dataset.name!));
+  btn.addEventListener("click", async () => {
+    await loadSample(btn.dataset.sample!, btn.dataset.name!);
+    // "Watch compression work" goes straight to the player.
+    if (btn.dataset.then === "play" && canPlay()) void openPlayer();
+  });
+}
+
+// A file shared to the installed app (Android's share sheet) arrives through
+// the service worker, which keeps it in a cache for this page to pick up.
+async function openShared(): Promise<void> {
+  if (!new URLSearchParams(location.search).has("shared") || !("caches" in window)) return;
+  history.replaceState(null, "", location.pathname);
+  const cache = await caches.open("hexscope-shared");
+  const res = await cache.match("shared-file");
+  if (!res) return;
+  const name = decodeURIComponent(res.headers.get("x-file-name") ?? "shared file");
+  await cache.delete("shared-file");
+  await load(new File([await res.blob()], name));
+}
+void openShared();
+
+// Offline after the first visit, and installable. Only in production: in
+// development the cache would serve stale modules.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.register("./sw.js");
 }
 problemsBtn.addEventListener("click", nextProblem);
 locationBtn.addEventListener("click", () => {

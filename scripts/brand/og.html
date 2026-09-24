@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #16171a; color: #ecedf0;
+         font: 16px/1.4 -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif; display: grid;
+         grid-template-columns: 560px 1fr; }
+  .left { padding: 64px 0 64px 72px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand svg { width: 44px; height: 44px; }
+  h1 { font-size: 58px; line-height: 1.05; letter-spacing: -0.03em; margin: 56px 0 22px; }
+  p { font-size: 22px; color: #a6a9b3; margin: 0; }
+  .foot { margin-top: auto; font-size: 18px; color: #7c808c; }
+  .right { position: relative; padding: 56px 56px 56px 20px; }
+  .hex { font: 17px/31px "SF Mono", Menlo, monospace; color: #7c808c; }
+  .hex b { font-weight: 400; color: #ecedf0; }
+  .row { white-space: pre; }
+  .gps { background: rgba(255,95,150,.22); color: #ff8fb4 !important; border-radius: 3px; }
+  .card { position: absolute; right: 56px; bottom: 60px; width: 420px; padding: 22px 24px; border-radius: 14px;
+          background: #22242a; border: 1px solid #34363e; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .card h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #7c808c; }
+  .fact { display: grid; grid-template-columns: 120px 1fr; font-size: 18px; margin: 6px 0; }
+  .fact i { font-style: normal; color: #a6a9b3; }
+  .fact.loc { color: #ff8fb4; font-weight: 600; }
+</style></head><body>
+  <div class="left">
+    <div class="brand"><svg viewBox="0 0 32 32"><path d="M16 2 28 9v14l-12 7-12-7V9z" fill="#3b82f6"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>hexscope</div>
+    <h1>See what your files say about you</h1>
+    <p>Where a photo was taken. Who wrote a document. Why a file won't open. Byte by byte, in your browser.</p>
+    <div class="foot">Nothing is uploaded · hexscope.pages.dev</div>
+  </div>
+  <div class="right">
+    <div class="hex">
+      <div class="row"><b>FF D8 FF E1 1A 8A 45 78 69 66 00 00 4D 4D</b></div>
+      <div class="row">00 2A 00 00 00 08 00 0B 01 0F 00 02</div>
+      <div class="row">00 00 00 08 00 00 00 92 01 10 00 02</div>
+      <div class="row"><b>48 58 2D 30 30 30 30 34 32</b> 00 88 25</div>
+      <div class="row">00 04 00 00 00 01 <span class="gps">00 00 01 1E</span> 00 00</div>
+      <div class="row"><span class="gps">00 30 00 00 00 01</span> 00 33 00 00</div>
+      <div class="row">00 01 <span class="gps">00 00 0B E8</span> 00 00 00 64</div>
+      <div class="row">00 00 00 02 00 00 00 01 00 00 00 11</div>
+      <div class="row">00 00 00 01 00 00 01 8D 00 00 00 0A</div>
+    </div>
+    <div class="card">
+      <h2>What this photo reveals</h2>
+      <div class="fact loc"><i>Location</i>48.8584° N, 2.2945° E</div>
+      <div class="fact"><i>Serial</i>HX-000042</div>
+      <div class="fact"><i>Owner</i>Sample Owner</div>
+      <div class="fact"><i>Taken</i>2026-06-14 18:32</div>
+    </div>
+  </div>
+</body></html>
