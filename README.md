@@ -9,9 +9,8 @@ about whoever took it, and — the part no other tool does — a PNG's compressi
 running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Status:** PNG, JPEG and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`) are supported. Not deployed yet — see
-> [Deploying](#deploying).
+> **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG and
+> ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`, `.epub`) are supported.
 
 ## What it does
 
@@ -175,8 +174,25 @@ GitHub Pages, or any web server. Asset paths are relative, so it also works
 from a subpath. It must be served over HTTP(S), not opened from disk, because
 the parser runs in a module worker.
 
-CI builds the site on every push and keeps it as the `hexscope-site` artifact,
-so a deploy is one step added to the `web` job once a host is chosen.
+It is deployed on Cloudflare Pages as the project `hexscope`. CI builds the
+site on every push, keeps it as the `hexscope-site` artifact, and the `deploy`
+job uploads it: `main` to production, every other branch to a preview URL.
+The job needs a `CLOUDFLARE_API_TOKEN` repository secret — an API token with
+*Account → Cloudflare Pages → Edit* — and deploys nothing until it exists.
+
+`apps/web/public/_headers` sets the response headers: a CSP that lets the page
+run only its own code and send nothing anywhere, and long caching for hashed
+assets. To try them locally:
+
+```bash
+pnpm build && npx wrangler pages dev apps/web/dist
+```
+
+A manual deploy, after `npx wrangler login`:
+
+```bash
+npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
+```
 
 ## Roadmap
 
