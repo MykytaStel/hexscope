@@ -291,10 +291,23 @@ input {
 
 .hex-scroller {
   position: absolute;
-  inset: 0;
+  inset: 0 14px 0 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+}
+
+/* The whole file by entropy, beside the hex view; also a way to jump. */
+.minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* A canvas is a replaced element: top and bottom alone do not stretch it. */
+  height: 100%;
+  width: 14px;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  touch-action: none;
 }
 
 .hex-canvas {
@@ -305,7 +318,7 @@ input {
 
 .status {
   position: absolute;
-  right: 16px;
+  right: 30px;
   bottom: 12px;
   z-index: 1;
   padding: 4px 10px;
@@ -502,6 +515,80 @@ input {
 
 .spec-link:hover {
   text-decoration: underline;
+}
+
+/* --- what it's made of -------------------------------------------------------- */
+
+.role-0 { --role: var(--tint-idat); }
+.role-1 { --role: var(--tint-text); }
+.role-2 { --role: var(--tint-gps); }
+.role-3 { --role: var(--tint-ihdr); }
+.role-4 { --role: var(--tint-plte); }
+.role-5 { --role: var(--tint-error); }
+
+.drawer-file .makeup {
+  grid-column: 1 / -1;
+  margin-bottom: 14px;
+}
+
+.makeup-bar {
+  display: flex;
+  height: 10px;
+  margin-bottom: 8px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.makeup-part {
+  min-width: 1px;
+  background: var(--role);
+  cursor: pointer;
+}
+
+.makeup-part:hover {
+  filter: brightness(1.2);
+}
+
+.makeup-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.makeup-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.makeup-row.is-link {
+  cursor: pointer;
+}
+
+.makeup-row.is-link:hover .makeup-name {
+  text-decoration: underline;
+}
+
+.makeup-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--role);
+}
+
+.makeup-pct {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.makeup-size {
+  font-family: var(--mono);
+  color: var(--faint);
 }
 
 /* --- verdict ---------------------------------------------------------------- */

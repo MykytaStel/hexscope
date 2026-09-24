@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import init, { parse, type Parsed } from "./wasm/hexscope_wasm.js";
+import init, { entropy, parse, type Parsed } from "./wasm/hexscope_wasm.js";
 import type { ParsedFile } from "./model";
 
 export type WorkerRequest =
@@ -54,6 +54,9 @@ function describe(parsed: Parsed): ParsedFile {
     docCites: parsed.docCites.split(SEPARATOR),
     docUrls: parsed.docUrls.split(SEPARATOR),
     docConcerns: parsed.docConcerns,
+    composition: parsed.composition,
+    entropy: new Float32Array(0),
+    entropyWindow: 0,
     format: parsed.format as ParsedFile["format"],
     dimensions: null,
     facts: [],
@@ -91,7 +94,19 @@ const transfers = (r: ParsedFile): Transferable[] => [
   r.entries.buffer,
   r.docIds.buffer,
   r.docConcerns.buffer,
+  r.composition.buffer,
+  r.entropy.buffer,
 ];
+
+/** Bins the entropy minimap is drawn from; the page draws at most one per pixel row. */
+const ENTROPY_BINS = 1024;
+
+/** Entropy for the minimap, outside the timed parse. The window matches the core's: never under 256 bytes. */
+function addEntropy(result: ParsedFile, bytes: Uint8Array): void {
+  result.entropy = entropy(bytes, ENTROPY_BINS);
+  const bins = Math.max(1, Math.min(ENTROPY_BINS, Math.floor(bytes.length / 256)));
+  result.entropyWindow = Math.ceil(bytes.length / bins);
+}
 
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
@@ -107,6 +122,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     const parsed = parse(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
+    addEntropy(result, bytes);
     for (const p of stack) p.free();
     stack = [parsed];
     post({ id: req.id, type: "parsed", result }, transfers(result));
@@ -123,6 +139,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     const parsed = parse(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
+    addEntropy(result, bytes);
     stack.push(parsed);
     post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
     return;

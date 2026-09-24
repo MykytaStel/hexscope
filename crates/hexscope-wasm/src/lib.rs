@@ -12,6 +12,7 @@ use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
     BlockKind, Checkpoint, CheckpointSink, Decoder, InflateError, InflateEvent, Step, inflate,
 };
+use hexscope_core::map::{composition, entropy as window_entropy};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
 use hexscope_core::zip::{ExtractError, ZipEntry, extract};
@@ -29,6 +30,9 @@ pub const STEP_STRIDE: usize = 6;
 /// Numbers per entry in [`Parsed::entries`]: node, method, flags,
 /// compressed, uncompressed, playable, openable.
 pub const ENTRY_STRIDE: usize = 7;
+
+/// Numbers per slice in [`Parsed::composition`].
+pub const SLICE_STRIDE: usize = 4;
 
 /// Checkpoints per decoded ZIP entry, as for a PNG's IDAT stream.
 const CHECKPOINT_INTERVAL: u64 = 512;
@@ -74,6 +78,8 @@ pub struct Parsed {
     /// Why the last `extract_entry` returned nothing.
     extract_error: String,
     docs: DocTables,
+    /// `[start, len, role, node or -1] × n`: what the file is made of.
+    composition: Vec<f64>,
 }
 
 /// What each node is, deduplicated: thousands of nodes share a few hundred
@@ -306,6 +312,15 @@ impl Parsed {
             }
         }
         out
+    }
+
+    /// What the file is made of: [`SLICE_STRIDE`] numbers per slice,
+    /// `[start, len, role, node]`, covering every byte in order. Roles: 0
+    /// content, 1 metadata, 2 thumbnail, 3 structure, 4 hidden, 5 damaged;
+    /// node -1 where no node covers the bytes.
+    #[wasm_bindgen(getter)]
+    pub fn composition(&self) -> Vec<f64> {
+        self.composition.clone()
     }
 
     /// Per node, an index into the explanation tables below, or -1.
@@ -585,6 +600,17 @@ fn encode(step: &Step, out: &mut Vec<f64>) {
 pub fn parse(bytes: &[u8]) -> Parsed {
     let doc = parse_any(bytes);
     let docs = DocTables::build(doc.tree(), doc.format());
+    let slices: Vec<f64> = composition(doc.tree(), doc.format(), bytes.len() as u64)
+        .iter()
+        .flat_map(|s| {
+            [
+                s.start as f64,
+                s.len as f64,
+                s.role as u8 as f64,
+                s.node.map_or(-1.0, |n| n as f64),
+            ]
+        })
+        .collect();
     let mut parsed = match doc {
         Document::Png(doc) => with_png(bytes, doc),
         Document::Jpeg(doc) => {
@@ -609,7 +635,16 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         Document::Unknown(tree) => flatten(&tree),
     };
     parsed.docs = docs;
+    parsed.composition = slices;
     parsed
+}
+
+/// Shannon entropy, 0 to 8 bits per byte, of up to `bins` windows covering
+/// `bytes`, each at least 256 bytes. Separate from `parse` so the time shown
+/// for parsing is the parse alone.
+#[wasm_bindgen]
+pub fn entropy(bytes: &[u8], bins: u32) -> Vec<f32> {
+    window_entropy(bytes, bins as usize)
 }
 
 fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
@@ -766,6 +801,7 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         zip: None,
         extract_error: String::new(),
         docs: DocTables::default(),
+        composition: Vec::new(),
     }
 }
 
@@ -1234,5 +1270,23 @@ mod tests {
             .map(str::to_string)
             .collect();
         assert_eq!(cites.len(), parsed.doc_concerns().len());
+    }
+
+    #[test]
+    fn composition_covers_the_file_and_entropy_is_bounded() {
+        let bytes = fixture("basn2c08.png");
+        let parsed = parse(&bytes);
+        let c = parsed.composition();
+        assert_eq!(c.len() % SLICE_STRIDE, 0);
+        let covered: f64 = c.chunks(SLICE_STRIDE).map(|s| s[1]).sum();
+        assert_eq!(covered, bytes.len() as f64);
+        assert!(
+            c.chunks(SLICE_STRIDE).any(|s| s[2] == 0.0),
+            "a PNG has picture bytes"
+        );
+
+        let h = entropy(&bytes, 1024);
+        assert_eq!(h.len(), (bytes.len() / 256).max(1));
+        assert!(h.iter().all(|&x| (0.0..=8.0).contains(&x)));
     }
 }

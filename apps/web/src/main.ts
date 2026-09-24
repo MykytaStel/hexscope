@@ -1,6 +1,7 @@
 import "./style.css";
 import { Drawer, formatBytes } from "./drawer";
 import { HexView } from "./hexview";
+import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
 import { Player } from "./player";
 import { TreeView } from "./tree";
@@ -48,12 +49,15 @@ const hex = new HexView($("hex"), {
   },
   onSelect: select,
 });
+const minimap = new Minimap($("hex"), { onJump: (offset) => hex.scrollToOffset(offset) });
+hex.onView = (start, end) => minimap.setView(start, end);
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
 const drawer = new Drawer(
   $("drawer"),
   select,
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
+  setHover,
 );
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
@@ -132,6 +136,7 @@ function setHover(id: number): void {
 function select(id: number): void {
   selected = id;
   hex.setSelected(id);
+  minimap.setSelected(id);
   tree.setSelected(id);
   if (id >= 0) hex.reveal(id);
   drawer.showNode(model, id, id >= 0);
@@ -238,6 +243,7 @@ function show(m: FileModel): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
+  minimap.setModel(m);
   tree.setModel(m);
   drawer.showFile(m);
   drawer.showNode(m, -1, false);

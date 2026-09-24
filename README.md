@@ -30,6 +30,14 @@ RFC 1950/1951, ITU T.81, JFIF, EXIF 2.32, PKWARE APPNOTE), linked. Problems
 say how worried to be. The verdict is what reading the structure finds; it
 is not a virus scan, and says so.
 
+**Shows the whole file at once.** "What it's made of" splits every byte into
+picture (or files), metadata, thumbnail, structure, hidden and damaged, with
+a bar in file order and the share of each. Beside the hex view, a minimap of
+the whole file colours each stretch by entropy — zeros and padding, text and
+structure, compressed or encrypted — marks the problems, outlines what is on
+screen, and jumps where you click. An encrypted blob in a text file, or data
+tacked onto the end of an image, stands out at a glance.
+
 **Takes archives apart, and what is inside them.** A ZIP — and so a Word
 document, a spreadsheet, an Android app, a Java archive, an e-book — is read
 the way `unzip` reads it, in file order. The tree names what an archive can

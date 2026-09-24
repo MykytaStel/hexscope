@@ -10,7 +10,7 @@ use crate::document::Format;
 use crate::model::{NodeId, NodeKind, ParseTree};
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 /// Where a format defines something: a citation to show, and a link.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
