@@ -22,8 +22,8 @@ not the repo; the site links the code.
 **Text:**
 
 > hexscope takes a file apart in your browser: every byte, what it means,
-> where the file is broken, and what it says about you. PNG, JPEG and ZIP
-> (so also .docx, .apk, .epub) for now.
+> where the file is broken, and what it says about you. PNG, JPEG, HEIC,
+> AVIF and ZIP (so also .docx, .apk, .epub) for now.
 >
 > The part I most wanted to exist: a step-by-step DEFLATE player. For any
 > PNG or ZIP entry you can step through the decompression one decision at
@@ -60,7 +60,7 @@ not the repo; the site links the code.
 *How DEFLATE works, visually — step through a real decompression in the
 browser*.
 
-**r/privacy** (later, once HEIC is in) — *Check what your photos reveal,
+**r/privacy** — *Check what your photos reveal,
 and remove it, without uploading them anywhere.*
 
 ## Answering

@@ -9,16 +9,17 @@ about whoever took it, and — the part no other tool does — a PNG's compressi
 running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
-> **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG and
-> ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`, `.epub`) are supported.
+> **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
+> HEIC and AVIF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`, `.epub`) are
+> supported.
 
 ## What it does
 
-**Opens any PNG, JPEG or ZIP, broken or not.** A damaged file is the normal
+**Opens any PNG, JPEG, HEIC, AVIF or ZIP, broken or not.** A damaged file is the normal
 case, not the error case: hexscope always shows the full structure, with every
 problem marked on the exact bytes. A broken file opens on its first problem;
 **N** steps through the rest. Anything else is named when its signature is
-familiar — a PDF, a gzip, an iPhone's HEIC photo — rather than just refused.
+familiar — a PDF, a gzip, an MP4 video — rather than just refused.
 
 **Says what it found, then explains.** A file opens on a short verdict:
 damaged, something hidden or disguised, what it reveals, or healthy — each
@@ -50,7 +51,8 @@ entry as a file of its own — a photo inside a Word document gets its own EXIF
 card — with breadcrumbs back (**Backspace** goes up one). An Office document
 shows who wrote it, who saved it last, when, with what, for which company.
 
-**Shows what a photo reveals.** Drop a JPEG and hexscope reads its EXIF:
+**Shows what a photo reveals.** Drop a JPEG, or an iPhone's HEIC, and
+hexscope reads its EXIF:
 where it was taken, the camera and lens, their serial numbers, the owner's
 name if the camera recorded one, the time, the software, an embedded
 thumbnail. Each fact links to the bytes that spell it out, so you can see
@@ -59,12 +61,14 @@ on it. The map link sends the coordinates nowhere unless you click it.
 
 **Removes it, if you want.** Under what a photo or a document reveals, one
 button saves a copy without it, made in the tab and never uploaded. A photo
-loses its camera data, location, serial numbers, thumbnail and comments;
-its picture is copied byte for byte, and a photo taken sideways keeps only
-its orientation. A Word, Excel or PowerPoint file loses its document
-properties (comments and tracked changes keep their authors, and the page
-says so). The page lists what went, and *Open the clean copy* shows it in
-hexscope, so you can see the card is empty.
+loses its camera data, location, serial numbers, thumbnail and comments; its
+picture is copied byte for byte, and a photo taken sideways keeps only its
+orientation. A HEIC or AVIF keeps its size: its EXIF and XMP are blanked
+where they lie, because everything else in it is found by offset. A Word,
+Excel or PowerPoint file loses its document properties (comments and tracked
+changes keep their authors, and the page says so). The page lists what went,
+and *Open the clean copy* shows it in hexscope, so you can see the card is
+empty.
 
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
@@ -130,7 +134,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~145 KB (WebAssembly 117 KB) | — |
+| The whole app, gzipped | ~167 KB (WebAssembly 137 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for
