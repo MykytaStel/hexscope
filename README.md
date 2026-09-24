@@ -87,6 +87,10 @@ panel into a player for a PNG's DEFLATE stream, or a ZIP entry's:
   current step consumed;
 - a damaged stream plays up to the step where it breaks, and says so.
 
+[How DEFLATE works, visually](https://hexscope.pages.dev/deflate) tells the
+story on a short text, with the same player beside it: each section moves
+the player to the step it describes.
+
 | Key | Action |
 |---|---|
 | **Space** | play / pause |
@@ -126,7 +130,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~76 KB | — |
+| The whole app, gzipped | ~145 KB (WebAssembly 117 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for

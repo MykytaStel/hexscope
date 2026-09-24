@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="How DEFLATE — the compression in every PNG, ZIP and Word document — works, one decision at a time, on a real file running in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>How DEFLATE works, visually — hexscope</title>
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/deflate" />
+    <meta property="og:title" content="How DEFLATE works, visually" />
+    <meta property="og:description" content="The compression inside every PNG, ZIP and Word document, one decision at a time, on a real file in your browser." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="story-layout">
+      <article class="story-text">
+        <p class="story-kicker">Compression, one decision at a time</p>
+        <h1>How DEFLATE works, visually</h1>
+        <p class="story-lede">
+          Every PNG image, every ZIP archive, every Word document and most of the web is squeezed by the same
+          algorithm, DEFLATE, from 1996. It does two simple things, over and over. The player
+          <span class="only-wide">on the right</span><span class="only-narrow">below</span> is decompressing a real file
+          — <span id="stat-size">a short text</span> — right here in your browser, and every step of the way
+          below it can show you.
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Say it once, then point back</h2>
+          <p>
+            Text repeats itself. So do images, where a row of sky looks like the row above it. DEFLATE keeps the
+            last 32 KB it has written, and when something comes up again it writes, instead of the bytes, two
+            numbers: <em>how far back</em> the earlier copy is, and <em>how long</em> it is.
+          </p>
+          <svg class="story-diagram" id="copy-diagram" viewBox="0 0 560 110" role="img" aria-label="The word 'byte' written once, then a back-reference pointing ten bytes back instead of writing it again.">
+            <path class="d-arc" />
+            <path class="d-arrow" />
+            <text class="d-label" x="0" y="22" text-anchor="middle">back 10, copy 4</text>
+            <rect class="d-src" rx="5" />
+            <rect class="d-dst" rx="5" />
+            <text class="d-text" x="10" y="84">Eight bits make a byte, and bytes make a file.</text>
+          </svg>
+          <p>
+            A copy can even overlap itself: "go back 1, copy 50" writes the last byte fifty more times. That is how
+            long runs of the same colour shrink to almost nothing.
+          </p>
+          <button class="btn story-jump" data-jump="copy">Show me a copy</button>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Short codes for common things</h2>
+          <p>
+            What is left — single letters, and the numbers of each copy — is written in a Huffman code: symbols
+            that come up often get short codes, rare ones get long codes. In this text a space, and the letters
+            e, a, o and t, cost 4 bits each; a capital S costs 8.
+          </p>
+          <p>
+            The codes are <em>canonical</em>: sorted by length, then by symbol. So a decoder needs only each
+            symbol's code length to rebuild the whole table, and reads one bit at a time until the code it has is
+            in the range for its length. The panel under the player shows exactly that walk.
+          </p>
+          <button class="btn story-jump" data-jump="codes">Show me the codes</button>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Each block brings its own codes</h2>
+          <p>
+            The stream is cut into blocks. A block can be stored as it is, use a fixed code the standard defines,
+            or — usually — bring its own, tuned to its data. That custom table is itself compressed: a small code
+            for the code lengths, and run-lengths for the stretches of symbols that never appear.
+          </p>
+          <button class="btn story-jump" data-jump="header">Show me the header</button>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> What it adds up to</h2>
+          <p id="stat-summary">
+            Put together, these two ideas are all there is. The text in the player shrinks to well under half its
+            size.
+          </p>
+          <button class="btn story-jump" data-jump="end">Show me the last step</button>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Where you have met it</h2>
+          <p>
+            Inside every PNG (its IDAT chunks), every ZIP archive — which includes Word, Excel and PowerPoint files,
+            Android apps and e-books — gzip files, and much of what your browser downloads. hexscope can play any of
+            them.
+          </p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Open a PNG or a ZIP</a>
+            <span>and press <em>Watch it decompress</em>.</span>
+          </p>
+          <p class="story-foot">
+            The standard is <a href="https://www.rfc-editor.org/rfc/rfc1951" target="_blank" rel="noopener noreferrer">RFC 1951</a>,
+            nine pages long. hexscope's decoder, the one running here, is
+            <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>.
+          </p>
+        </section>
+      </article>
+
+      <aside class="story-player" id="story-player" aria-label="The DEFLATE player">
+        <p class="story-loading">Loading the demo…</p>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/story.ts"></script>
+  </body>
+</html>

@@ -831,6 +831,7 @@ body[data-state="empty"] .layout {
   font-size: 13px;
 }
 
+.empty-card .more a,
 .empty-card .promise a {
   color: var(--accent);
 }
