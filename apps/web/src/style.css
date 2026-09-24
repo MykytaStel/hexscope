@@ -831,6 +831,10 @@ body[data-state="empty"] .layout {
   font-size: 13px;
 }
 
+.empty-card .promise a {
+  color: var(--accent);
+}
+
 .link {
   padding: 0;
   border: 0;
