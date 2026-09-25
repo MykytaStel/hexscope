@@ -83,6 +83,14 @@ pub struct Parsed {
     composition: Vec<f64>,
     /// The picture, scaled to fit: `(width, height, rgba)`.
     preview: Option<(u32, u32, Vec<u8>)>,
+    /// A JPEG's bytes, for finding its blocks when asked.
+    source: Vec<u8>,
+    /// Its blocks, once found: the layout of [`Parsed::block_map`].
+    blocks: Option<Vec<f64>>,
+    /// Why the blocks were not found, or stop short.
+    blocks_note: String,
+    /// A photo's EXIF orientation, 1 to 8; 1 when it has none.
+    orientation: u16,
 }
 
 /// The preview's longer side, in pixels: sharp on a 2× screen at the width
@@ -231,6 +239,13 @@ impl Parsed {
         self.format.to_string()
     }
 
+    /// A photo's EXIF orientation, 1 to 8: how to turn the stored picture
+    /// to show it the right way up. 1 when it says nothing.
+    #[wasm_bindgen(getter)]
+    pub fn orientation(&self) -> u16 {
+        self.orientation
+    }
+
     /// `[width, height]`, or empty when the file does not say.
     #[wasm_bindgen(getter)]
     pub fn dimensions(&self) -> Vec<u32> {
@@ -263,6 +278,40 @@ impl Parsed {
     #[wasm_bindgen(getter)]
     pub fn inflated(&self) -> Vec<u8> {
         self.output.clone()
+    }
+
+    /// Where a JPEG's blocks are: `[mcuWidth, mcuHeight, columns, rows,
+    /// blocksPerMcu, then each MCU's first file bit, then the bit after the
+    /// last]`. Empty when they cannot be found; [`Parsed::blocks_note`] says
+    /// why. Found on first asking, since a large photo takes a moment.
+    #[wasm_bindgen(js_name = blockMap)]
+    pub fn block_map(&mut self) -> Vec<f64> {
+        if self.blocks.is_none() {
+            let found = hexscope_core::jpeg::blocks::block_map(&self.source);
+            let (map, note) = match found {
+                Ok(m) => {
+                    let mut out = vec![
+                        m.mcu_width as f64,
+                        m.mcu_height as f64,
+                        m.columns as f64,
+                        m.rows as f64,
+                        m.blocks_per_mcu as f64,
+                    ];
+                    out.extend(m.starts.iter().map(|&s| s as f64));
+                    (out, m.stopped.unwrap_or("").to_string())
+                }
+                Err(e) => (Vec::new(), e.reason().to_string()),
+            };
+            self.blocks = Some(map);
+            self.blocks_note = note;
+        }
+        self.blocks.clone().unwrap_or_default()
+    }
+
+    /// Why the last [`Parsed::block_map`] is empty or stops short; empty when it is whole.
+    #[wasm_bindgen(getter, js_name = blocksNote)]
+    pub fn blocks_note(&self) -> String {
+        self.blocks_note.clone()
     }
 
     /// The picture's preview size, `[width, height]`; empty when there is none.
@@ -712,6 +761,12 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         Document::Jpeg(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "jpeg";
+            parsed.source = bytes.to_vec();
+            parsed.orientation = doc
+                .facts
+                .orientation
+                .filter(|o| (1..=8).contains(o))
+                .unwrap_or(1);
             parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w as u32, h as u32]);
             add_facts(&mut parsed, &doc.facts);
             parsed
@@ -985,6 +1040,10 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         docs: DocTables::default(),
         composition: Vec::new(),
         preview: None,
+        source: Vec::new(),
+        blocks: None,
+        blocks_note: String::new(),
+        orientation: 1,
     }
 }
 
@@ -1285,6 +1344,36 @@ mod tests {
         }
         assert!(parsed.locate(0, 1e9).is_empty());
         assert!(parsed.locate(1, f64::NAN).is_empty());
+    }
+
+    #[test]
+    fn a_photo_says_where_its_blocks_are() {
+        let photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        let mut parsed = parse(&photo);
+        let map = parsed.block_map();
+        assert_eq!(&map[..5], &[16.0, 16.0, 40.0, 30.0, 6.0]);
+        assert_eq!(map.len(), 5 + 40 * 30 + 1);
+        assert_eq!(parsed.blocks_note(), "");
+        assert_eq!(parsed.block_map(), map, "found once, then kept");
+        assert!(parse(b"\x89PNG\r\n\x1a\n").block_map().is_empty());
+    }
+
+    #[test]
+    fn a_photo_says_which_way_up_it_is() {
+        let mut photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        assert_eq!(parse(&photo).orientation(), 1);
+        // Its Orientation entry, turned to "rotate 90° clockwise".
+        let entry: &[u8] = &[0x01, 0x12, 0x00, 0x03, 0, 0, 0, 1, 0, 1];
+        let at = photo.windows(entry.len()).position(|w| w == entry).unwrap();
+        photo[at + 9] = 6;
+        assert_eq!(parse(&photo).orientation(), 6);
+        assert_eq!(parse(b"\x89PNG\r\n\x1a\n").orientation(), 1);
     }
 
     #[test]

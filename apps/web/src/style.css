@@ -715,6 +715,30 @@ input {
   min-height: 3.2em;
 }
 
+/* A JPEG's tools under its picture: the bits layer. */
+.picture-tools {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.btn-small {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* --- share ------------------------------------------------------------------------ */
 
 .sharer {

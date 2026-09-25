@@ -3,6 +3,7 @@
 // by one DEFLATE step, which read a few bits of the file. This view follows
 // that chain both ways: point at a pixel to see the step and the file bytes
 // behind it, point at a byte of IDAT to see which pixels it became.
+import { BlockView } from "./blocks";
 import type { FileModel } from "./model";
 
 /** Numbers per located step: index, kind, a, b, bitStart, bitEnd, outStart. */
@@ -10,6 +11,8 @@ type Located = Float64Array;
 
 export interface PictureHooks {
   locate(by: 0 | 1, pos: number): Promise<Located>;
+  /** A JPEG's block map; see `BlockView`. */
+  blocks(): Promise<{ map: Float64Array; note: string }>;
   /** Marks file bytes `[start, end)`; `-1, -1` clears. */
   onBytes(start: number, end: number): void;
   /** Opens the DEFLATE player at a step. */
@@ -82,13 +85,19 @@ export class PictureView {
   private busy = false;
   private next: (() => Promise<void>) | null = null;
 
-  constructor(private readonly hooks: PictureHooks) {}
+  /** A JPEG's picture has blocks, not scanlines: it has a view of its own. */
+  private readonly jpeg: BlockView;
+
+  constructor(private readonly hooks: PictureHooks) {
+    this.jpeg = new BlockView(hooks);
+  }
 
   /** The panel for this file, or null when it has no picture to show. */
   element(m: FileModel): HTMLElement | null {
     this.m = null;
     this.overlay = null;
     const f = m.file;
+    if (f.format === "jpeg") return this.jpeg.element(m);
     if (f.format !== "png" || !f.ihdr) return null;
     const group = el("div", "group picture");
     group.append(el("h3", undefined, "Picture"));
@@ -140,6 +149,7 @@ export class PictureView {
 
   /** From the hex view: the pixels a byte of the file became. */
   fromByte(offset: number): void {
+    this.jpeg.fromByte(offset);
     const m = this.m;
     if (!m || !this.overlay?.isConnected) return;
     if (offset < 0) {

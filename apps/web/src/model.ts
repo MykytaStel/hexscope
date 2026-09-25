@@ -41,6 +41,8 @@ export interface ParsedFile {
   rowFilters: Uint8Array;
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
+  /** A photo's EXIF orientation, 1 to 8; 1 when it says nothing. */
+  orientation: number;
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
   location: PhotoLocation | null;
