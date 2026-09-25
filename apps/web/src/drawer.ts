@@ -1,4 +1,5 @@
 import { advice } from "./advice";
+import { checkThumbnail, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
@@ -365,8 +366,10 @@ export class Drawer {
       map.title = "Opens openstreetmap.org in a new tab. The coordinates leave this page only if you click.";
       dd.append(map);
     }
+    let thumbRow: HTMLElement | null = null;
     for (const fact of f.facts) {
       const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
+      if (fact.kind === "thumbnail") thumbRow = dd;
       // What the clean copy cannot take out stays unstruck.
       if (KEPT[f.format]?.includes(fact.kind)) {
         dd.dataset.kept = "";
@@ -374,6 +377,7 @@ export class Drawer {
       }
     }
     group.append(list);
+    if (thumbRow) group.append(this.thumbnailCheck(m, thumbRow));
     // The one thing to do first, then when it matters and how to stop it
     // next time, then telling others.
     // An encrypted PDF is not rewritten: the copy would drop its protection.
@@ -393,6 +397,63 @@ export class Drawer {
     }
     if (categories(m).length > 0) group.append(this.sharer(m));
     return group;
+  }
+
+  /**
+   * Whether the photo's thumbnail is the photo: filled in once both are
+   * decoded. A thumbnail that is not gets shown beside the picture, and a
+   * line in the verdict; one that is says so quietly in its row.
+   */
+  private thumbnailCheck(m: FileModel, row: HTMLElement): HTMLElement {
+    const box = el("div", "thumbcheck");
+    box.hidden = true;
+    void checkThumbnail(m).then((c) => {
+      if (!c || !box.isConnected) return;
+      const orientation = m.file.orientation;
+      if (!c.differs) {
+        row.append(el("span", "thumb-ok", " · matches the picture"));
+      } else {
+        const pair = el("div", "thumb-pair");
+        for (const [b, caption] of [
+          [c.thumbnail, "Thumbnail inside the file"],
+          [c.picture, "The picture"],
+        ] as const) {
+          const fig = el("figure");
+          fig.append(drawn(b, orientation, 160), el("figcaption", undefined, caption));
+          pair.append(fig);
+        }
+        const what = c.differs === "shape" ? "cropped" : "edited";
+        box.append(
+          el("p", "thumb-title", "The thumbnail is not this picture"),
+          pair,
+          el(
+            "p",
+            "hint",
+            `The photo was ${what} after the camera made its small copy, and the copy was left as it was: it still shows what was taken out, to anyone who opens it. The clean copy removes it.`,
+          ),
+        );
+        box.hidden = false;
+        this.addVerdict("hidden", `Something is hidden: the thumbnail inside the file shows the photo before it was ${what}.`, c.node);
+      }
+      c.thumbnail.close();
+      c.picture.close();
+    });
+    return box;
+  }
+
+  /** A finding that arrives after the verdict is drawn, placed by how much it matters. */
+  private addVerdict(kind: "hidden", text: string, node: number): void {
+    const list = this.file.querySelector(".verdict-lines");
+    if (!list) return;
+    const li = el("li", `verdict-line is-${kind}`);
+    li.append(el("span", "verdict-text", text));
+    const show = el("button", "verdict-show", "Show me");
+    show.addEventListener("click", () => this.onSelect(node));
+    li.append(show);
+    // As the verdict itself does: "looks healthy" only when nothing is hidden.
+    list.querySelector(".is-healthy")?.remove();
+    const after = [...list.children].find((x) => !x.matches(".is-damage, .is-hidden"));
+    list.insertBefore(li, after ?? null);
   }
 
   /** Shares what kinds of thing the file gives away, and nothing of what they are. */
