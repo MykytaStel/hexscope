@@ -287,6 +287,7 @@ async function load(file: File): Promise<void> {
   closePlayer();
   document.body.dataset.state = "loading";
   $("fileinfo").textContent = `Parsing ${file.name}…`;
+  $("load-error").hidden = true;
 
   // The main thread keeps its own view of the bytes for drawing; parsing
   // happens entirely in the worker.
@@ -294,9 +295,8 @@ async function load(file: File): Promise<void> {
   if (id !== loadId) return; // a newer file was dropped meanwhile
 
   if (response.type !== "parsed") {
-    document.body.dataset.state = model ? "ready" : "empty";
     const message = response.type === "error" ? response.message : "unexpected reply";
-    $("fileinfo").textContent = `Could not read ${file.name}: ${message}`;
+    loadFailed(`Could not read ${file.name}: ${message}`);
     return;
   }
 
@@ -362,8 +362,29 @@ async function back(depth: number): Promise<void> {
 }
 
 async function loadSample(path: string, name: string): Promise<void> {
-  const res = await fetch(path);
-  await load(new File([await res.blob()], name));
+  // Loading from the moment it is asked for: the landing demo shares the
+  // worker, and must not parse its own file over this one.
+  document.body.dataset.state = "loading";
+  $("fileinfo").textContent = `Opening ${name}…`;
+  try {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`the sample answered ${res.status}`);
+    await load(new File([await res.blob()], name));
+  } catch (e) {
+    loadFailed(`Could not open ${name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Back to where it was after a file failed to open, saying why. */
+function loadFailed(message: string): void {
+  document.body.dataset.state = model ? "ready" : "empty";
+  $("fileinfo").textContent = message;
+  // On the landing page the top bar is out of the way: say it by the button.
+  const landing = $("load-error");
+  landing.textContent = message;
+  landing.hidden = !!model;
+  // An empty page shows the demo again.
+  if (!model) setTimeout(() => void startDemo($("demo")), 0);
 }
 
 // --- inputs -------------------------------------------------------------
@@ -393,7 +414,6 @@ function openLinkedSample(): void {
   const btn = [...document.querySelectorAll<HTMLButtonElement>("[data-sample]")].find((b) => b.dataset.name === name);
   btn?.click();
 }
-openLinkedSample();
 
 // A file shared to the installed app (Android's share sheet) arrives through
 // the service worker, which keeps it in a cache for this page to pick up.
@@ -404,10 +424,10 @@ async function openShared(): Promise<void> {
   const res = await cache.match("shared-file");
   if (!res) return;
   const name = decodeURIComponent(res.headers.get("x-file-name") ?? "shared file");
+  document.body.dataset.state = "loading";
   await cache.delete("shared-file");
   await load(new File([await res.blob()], name));
 }
-void openShared();
 
 // Offline after the first visit, and installable. Only in production: in
 // development the cache would serve stale modules.
@@ -465,5 +485,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.body.dataset.state = "empty";
-// After anything a link asked to open: only an empty page shows the demo.
+// What a link asked to open goes first; only a page still empty shows the demo.
+openLinkedSample();
+void openShared();
 setTimeout(() => void startDemo($("demo")), 0);

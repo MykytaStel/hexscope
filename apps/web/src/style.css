@@ -1085,6 +1085,19 @@ body[data-state="empty"] .layout {
   font-size: 15px;
 }
 
+.load-error {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tint-error) 14%, transparent);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.load-error[hidden] {
+  display: none;
+}
+
 .empty-card .promise {
   display: flex;
   gap: 10px;
@@ -1664,6 +1677,58 @@ body.is-playing .drawer-file {
 
 body:has(.reveals) .layout {
   grid-template-rows: minmax(0, 1fr) 300px;
+}
+
+/* --- wide windows ------------------------------------------------------------- */
+
+/* The structure and the bytes on the left; on the right, the whole height,
+   what the file is and says — the verdict, what it reveals, its picture —
+   with the part under the pointer below. The player needs the width, so it
+   takes the bottom, as it always has. */
+@media (min-width: 901px) {
+  .layout,
+  body:has(.reveals) .layout {
+    grid-template-columns: 260px minmax(0, 1fr) clamp(340px, 28vw, 420px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .pane-drawer,
+  .pane-drawer:has(.reveals) {
+    grid-column: 3;
+    grid-row: 1;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .drawer-file,
+  .drawer-file:has(.reveals) {
+    flex: 1 1 auto;
+    min-height: 0;
+    border-left: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .drawer-node {
+    order: 1;
+    flex: 0 0 auto;
+    max-height: 45%;
+    border-top: 1px solid var(--border);
+  }
+
+  body.is-playing .layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 400px;
+  }
+
+  body.is-playing .pane-drawer {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    display: grid;
+  }
 }
 
 /* --- narrow windows ----------------------------------------------------------- */
