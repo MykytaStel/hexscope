@@ -5,6 +5,7 @@
 //! the file holds rather than what a viewer draws: every object, including
 //! the ones an incremental update replaced, which are still there.
 
+pub(crate) mod clean;
 pub(crate) mod docs;
 mod facts;
 mod lexer;
@@ -26,6 +27,9 @@ pub struct PdfDocument {
     pub version: Option<String>,
     /// Sections ending in `%%EOF`: the original, then one per update.
     pub revisions: usize,
+    /// Revisions after the first save: a linearized file's first two
+    /// sections are one save.
+    pub edits: usize,
     /// Its strings are encrypted, so none were read as facts.
     pub encrypted: bool,
     pub facts: Vec<DocumentFact>,
@@ -48,7 +52,10 @@ pub(crate) fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
 #[derive(Debug)]
 pub(crate) struct ObjRec {
     pub num: u32,
+    pub gen_: u16,
     pub start: u64,
+    /// The bytes of its value, after `N G obj`.
+    pub value_range: ByteRange,
     pub node: NodeId,
     pub value: Obj,
     /// The node of each top-level key, such as `Author`.
@@ -115,6 +122,11 @@ impl NextOf {
 
 /// Parses a PDF. Never fails: damage is recorded as nodes.
 pub fn parse_pdf(data: &[u8]) -> PdfDocument {
+    parse_with(data).0
+}
+
+/// The document, and what the scan found on the way, for the clean copy.
+pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let mut tree = ParseTree::new();
     let len = data.len();
     let root = tree.add(
@@ -288,13 +300,15 @@ pub fn parse_pdf(data: &[u8]) -> PdfDocument {
     }
     tree.set_value(root, Some(Value::Text(summary)));
 
-    PdfDocument {
+    let doc = PdfDocument {
         tree,
         version,
         revisions: ends.len(),
+        edits,
         encrypted,
         facts,
-    }
+    };
+    (doc, ctx)
 }
 
 /// Where each revision ends: just past every `startxref N %%EOF`. A stream
@@ -513,7 +527,9 @@ fn object(
     }
     ctx.objects.push(ObjRec {
         num,
+        gen_,
         start: start as u64,
+        value_range: item.range,
         node,
         value: item.obj,
         keys,

@@ -40,6 +40,10 @@ pub enum CleanError {
     Zip64,
     /// Parts of the file could not be read, so a copy could lose more.
     Damaged,
+    /// The whole document is encrypted.
+    Locked,
+    /// Parts of it are compressed in a way this does not read.
+    Unreadable,
     /// Not a format this can clean.
     Unsupported,
 }
@@ -55,8 +59,12 @@ impl CleanError {
             }
             CleanError::Zip64 => "it is too large an archive for hexscope to rewrite",
             CleanError::Damaged => "parts of it are damaged, and a copy could lose more",
+            CleanError::Locked => "it is encrypted, so hexscope cannot rewrite it",
+            CleanError::Unreadable => {
+                "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
+            }
             CleanError::Unsupported => {
-                "hexscope cleans JPEG, HEIC and AVIF photos and Office documents only"
+                "hexscope cleans JPEG, HEIC and AVIF photos, PDFs and Office documents only"
             }
         }
     }
@@ -67,6 +75,7 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Zip(doc) => clean_zip(data, &doc),
+        Document::Pdf(_) => crate::pdf::clean::clean_pdf(data),
         _ => Err(CleanError::Unsupported),
     }
 }

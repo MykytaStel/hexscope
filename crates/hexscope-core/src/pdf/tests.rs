@@ -264,3 +264,66 @@ fn every_cut_of_the_fixtures_is_survivable() {
         }
     }
 }
+
+fn contains(hay: &[u8], needle: &[u8]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+#[test]
+fn a_clean_copy_is_one_version_with_nothing_to_tell() {
+    for name in ["report.pdf", "compact.pdf"] {
+        let data = fixture(name);
+        let cleaned = crate::clean::clean(&data).unwrap();
+        let doc = parse_pdf(&cleaned.bytes);
+        assert_eq!(problems(&doc.tree), Vec::<String>::new(), "{name}");
+        assert_eq!(doc.revisions, 1, "{name}");
+        assert_eq!(facts(&doc), [], "{name}");
+        let what: Vec<_> = cleaned.removed.iter().map(|r| r.what.as_str()).collect();
+        assert!(
+            what[0].starts_with("Document information"),
+            "{name}: {what:?}"
+        );
+        assert!(what[1].starts_with("XMP"), "{name}: {what:?}");
+    }
+}
+
+#[test]
+fn a_clean_copy_drops_the_version_an_edit_replaced() {
+    let data = fixture("report.pdf");
+    let (doc, ctx) = parse_with(&data);
+    let pages: Vec<_> = ctx.objects.iter().filter(|o| o.num == 4).collect();
+    let (old, new) = (pages[0].stream.unwrap().0, pages[1].stream.unwrap().0);
+    let bytes = |r: ByteRange| &data[r.start as usize..r.end() as usize];
+    let cleaned = crate::clean::clean(&data).unwrap();
+    assert!(
+        !contains(&cleaned.bytes, bytes(old)),
+        "the salary line is gone"
+    );
+    assert!(
+        contains(&cleaned.bytes, bytes(new)),
+        "the current page stays"
+    );
+    assert!(!contains(&cleaned.bytes, b"Olena"));
+    assert_eq!(doc.edits, 1);
+    assert!(
+        cleaned
+            .removed
+            .iter()
+            .any(|r| r.what.starts_with("Earlier versions") && r.bytes > 0)
+    );
+}
+
+#[test]
+fn an_encrypted_document_is_not_rewritten() {
+    let pdf = b"%PDF-1.4
+1 0 obj << /Type /Catalog >> endobj
+trailer << /Root 1 0 R /Encrypt 2 0 R >>
+startxref
+0
+%%EOF
+";
+    assert_eq!(
+        crate::clean::clean(pdf),
+        Err(crate::clean::CleanError::Locked)
+    );
+}

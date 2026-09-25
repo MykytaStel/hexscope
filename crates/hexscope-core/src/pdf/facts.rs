@@ -12,7 +12,7 @@ use crate::zip::office::element_text;
 const MAX_DECODED: u64 = 16 * 1024 * 1024;
 /// And all of them together at this, so a file of many small streams that
 /// each inflate to the cap costs no more than a few.
-const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
+pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 /// Longest fact kept, in bytes.
 const MAX_TEXT: usize = 512;
 
@@ -111,26 +111,52 @@ fn resolve<'a>(data: &[u8], ctx: &'a Ctx, num: u32, budget: &mut u64) -> Option<
         return Some(Found::Top(rec));
     }
     ctx.objects.iter().rev().find_map(|rec| {
-        if rec.value.get("Type").and_then(Obj::name) != Some("ObjStm") {
-            return None;
-        }
-        let (range, node) = rec.stream?;
-        let bytes = decode(data, &rec.value, range, budget)?;
-        let count = rec.value.get("N").and_then(Obj::int)?;
-        let first = usize::try_from(rec.value.get("First").and_then(Obj::int)?).ok()?;
-        let mut lx = Lexer::new(&bytes, 0);
-        for _ in 0..count {
-            lx.skip_ws();
-            let n = lx.uint()?;
-            lx.skip_ws();
-            let offset = usize::try_from(lx.uint()?).ok()?;
-            if n == u64::from(num) {
-                let mut at = Lexer::new(&bytes, first.checked_add(offset)?);
-                return Some(Found::Packed(at.value()?.obj, node));
-            }
-        }
-        None
+        let (bytes, packed) = unpack(data, rec, budget)?;
+        let &(_, start, end) = packed.iter().find(|&&(n, ..)| n == num)?;
+        let value = Lexer::new(&bytes[..end], start).value()?;
+        Some(Found::Packed(value.obj, rec.stream?.1))
     })
+}
+
+/// One object in an object stream: its number, and the start and end of its
+/// value in the decompressed bytes.
+pub(super) type Packed = (u32, usize, usize);
+
+/// An object stream's decompressed bytes, and where each object in it is:
+/// its number, and the start and end of its value.
+pub(super) fn unpack(
+    data: &[u8],
+    rec: &ObjRec,
+    budget: &mut u64,
+) -> Option<(Vec<u8>, Vec<Packed>)> {
+    if rec.value.get("Type").and_then(Obj::name) != Some("ObjStm") {
+        return None;
+    }
+    let (range, _) = rec.stream?;
+    let bytes = decode(data, &rec.value, range, budget)?;
+    let count = rec.value.get("N").and_then(Obj::int)?;
+    let first = usize::try_from(rec.value.get("First").and_then(Obj::int)?).ok()?;
+    let mut lx = Lexer::new(&bytes, 0);
+    let mut at = Vec::new();
+    for _ in 0..count {
+        lx.skip_ws();
+        let n = u32::try_from(lx.uint()?).ok()?;
+        lx.skip_ws();
+        let offset = usize::try_from(lx.uint()?).ok()?;
+        let start = first.checked_add(offset).filter(|&s| s <= bytes.len())?;
+        at.push((n, start));
+    }
+    // Each value runs to where the next one starts.
+    let mut starts: Vec<usize> = at.iter().map(|&(_, s)| s).collect();
+    starts.sort_unstable();
+    let packed = at
+        .into_iter()
+        .map(|(n, s)| {
+            let i = starts.partition_point(|&x| x <= s);
+            (n, s, starts.get(i).copied().unwrap_or(bytes.len()))
+        })
+        .collect();
+    Some((bytes, packed))
 }
 
 /// A stream's bytes, undone of Flate when that is its only filter.

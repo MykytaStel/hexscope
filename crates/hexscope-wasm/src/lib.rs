@@ -1394,6 +1394,6 @@ mod tests {
 
         let refused = clean_copy(&fixture("basn2c08.png"));
         assert!(refused.bytes().is_empty());
-        assert!(refused.error().contains("photos and Office documents only"));
+        assert!(refused.error().contains("Office documents only"));
     }
 }
