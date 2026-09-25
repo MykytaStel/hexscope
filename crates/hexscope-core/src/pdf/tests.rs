@@ -226,7 +226,13 @@ startxref
 ";
     let doc = parse_pdf(pdf);
     assert!(doc.encrypted);
-    assert!(doc.facts.is_empty());
+    // Its encryption dictionary is missing: nothing can be read, and it
+    // says only that.
+    assert_eq!(doc.lock, Some(crypt::Lock::Unknown));
+    assert_eq!(
+        facts(&doc),
+        [("encryption", "in a way hexscope does not read")]
+    );
 }
 
 #[test]
@@ -326,4 +332,67 @@ startxref
         crate::clean::clean(pdf),
         Err(crate::clean::CleanError::Locked)
     );
+}
+
+#[test]
+fn an_encrypted_document_that_opens_without_a_password_is_read() {
+    for (name, scheme) in [
+        ("encrypted-rc4-40.pdf", "RC4, 40-bit"),
+        ("encrypted-rc4-128.pdf", "RC4"),
+        ("encrypted-aes-128.pdf", "AES-128"),
+        ("encrypted-aes-256.pdf", "AES-256"),
+    ] {
+        let doc = parse_pdf(&fixture(name));
+        assert_eq!(problems(&doc.tree), Vec::<String>::new(), "{name}");
+        assert_eq!(doc.lock, Some(crypt::Lock::Open { scheme }), "{name}");
+        let f = facts(&doc);
+        assert!(f.contains(&("author", "Mariia Bondar")), "{name}: {f:?}");
+        assert!(f.contains(&("title", "Payroll 2026")), "{name}: {f:?}");
+        assert!(
+            f.contains(&("created", "2026-05-12 10:00 UTC")),
+            "{name}: {f:?}"
+        );
+        // From the encrypted XMP.
+        assert!(
+            f.contains(&("application", "Sample Writer 3.1")),
+            "{name}: {f:?}"
+        );
+        assert!(
+            f.last().unwrap().1.contains("opens without a password"),
+            "{name}"
+        );
+        // The tree shows the string decrypted, too.
+        let author = doc.tree.get(doc.facts[0].node);
+        assert_eq!(
+            author.value,
+            Some(Value::Text("“Mariia Bondar”".into())),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn a_document_that_needs_a_password_says_so_and_nothing_more() {
+    let doc = parse_pdf(&fixture("encrypted-password.pdf"));
+    assert_eq!(doc.lock, Some(crypt::Lock::Password { scheme: "AES-256" }));
+    let f = facts(&doc);
+    assert_eq!(f.len(), 1, "{f:?}");
+    assert_eq!(f[0].0, "encryption");
+}
+
+#[test]
+fn the_iso_standard_itself_opens_when_present() {
+    // ISO 32000-1 as Adobe publishes it: 22 MB, RC4 with a 40-bit key. Not
+    // in the repository; run with the file at this path to check a real one.
+    let Ok(data) = std::fs::read("/tmp/PDF32000_2008.pdf") else {
+        return;
+    };
+    let doc = parse_pdf(&data);
+    assert_eq!(
+        doc.lock,
+        Some(crypt::Lock::Open {
+            scheme: "RC4, 40-bit"
+        })
+    );
+    assert!(facts(&doc).contains(&("author", "Jim King")));
 }

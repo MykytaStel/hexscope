@@ -43,7 +43,7 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     let mut current: BTreeMap<u32, (u64, Source)> = BTreeMap::new();
     let mut budget = MAX_DECODED_TOTAL;
     for rec in &ctx.objects {
-        if let Some((bytes, packed)) = unpack(data, rec, &mut budget) {
+        if let Some((bytes, packed)) = unpack(data, rec, ctx.crypt.as_ref(), &mut budget) {
             for (n, start, end) in packed {
                 let Some(value) = Lexer::new(&bytes[..end], start).value() else {
                     return Err(CleanError::Damaged);

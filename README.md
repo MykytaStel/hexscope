@@ -61,8 +61,10 @@ an edit replaced. A PDF changed after it was first saved usually still
 carries the earlier version, and hexscope says so, revision by revision. It
 shows who wrote it, with which programs, when, and its editing history, from
 the document information and the XMP metadata, compressed or not. It marks
-what a PDF can run or hide: JavaScript, actions that start programs, attached
-files, data before the header or after the end.
+what a PDF can run or hide: JavaScript, actions that start programs,
+attached files, data before the header or after the end. An encrypted PDF
+that opens without a password — most of them — is decrypted to read it, as a
+viewer would; one that needs a password is only named as such.
 
 **Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG, and
 hexscope reads its EXIF (and a PNG's text notes and XMP): where it was
@@ -152,7 +154,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~197 KB (WebAssembly 166 KB) | — |
+| The whole app, gzipped | ~219 KB (WebAssembly 191 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for
