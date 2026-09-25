@@ -193,6 +193,15 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         {
             Some(Role::Metadata)
         }
+        // A module's code and data run; custom sections describe it,
+        // except those linkers need.
+        Format::Wasm if depth == 1 => Some(match label {
+            "section · code" | "section · data" => Role::Content,
+            "custom section · dylink.0" | "custom section · linking" => Role::Structure,
+            l if l.starts_with("custom section · reloc.") => Role::Structure,
+            l if l.starts_with("custom section · ") => Role::Metadata,
+            _ => Role::Structure,
+        }),
         Format::Pdf if label.starts_with("object ") => {
             let what = match &node.value {
                 Some(crate::model::Value::Text(t)) => t.as_str(),

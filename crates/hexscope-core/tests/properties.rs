@@ -172,6 +172,26 @@ proptest! {
     }
 
     #[test]
+    fn a_damaged_module_is_survivable(
+        edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16),
+        cut in any::<usize>(),
+    ) {
+        let mut bytes = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/web/public/samples/hello.wasm")).unwrap();
+        let len = bytes.len();
+        for (at, b) in edits {
+            bytes[at % len] = b;
+        }
+        bytes.truncate(cut % (len + 1));
+        let doc = hexscope_core::wasm::parse_wasm(&bytes);
+        prop_assert!(doc.tree.nodes().iter().all(|n| n.range.end() <= bytes.len() as u64));
+        // A copy made at all reads without damage.
+        if let Ok(c) = hexscope_core::clean::clean(&bytes) {
+            let copy = hexscope_core::wasm::parse_wasm(&c.bytes);
+            prop_assert!(copy.tree.nodes().iter().all(|n| n.kind != hexscope_core::NodeKind::Error));
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

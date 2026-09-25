@@ -9,6 +9,11 @@ returns a tree, and has no runtime dependencies.
 These are features in their own right rather than defects, each worth its own
 milestone.
 
+**WebAssembly components and element segments.** A component (the
+component model's format) is listed section by section but not decoded, and
+a module's element segments are shown as one range. Types in the form the
+garbage-collection proposal adds are named, not decoded.
+
 **Arithmetic-coded and lossless JPEGs.** The picture view maps pixels to
 bytes for every PNG, interlaced or not, and blocks to bytes for Huffman-coded
 JPEGs, sequential or progressive. Arithmetic-coded and lossless JPEGs, both

@@ -17,6 +17,7 @@ pub mod pdf;
 pub mod png;
 pub mod reader;
 pub mod video;
+pub mod wasm;
 pub mod zip;
 
 pub use document::{Document, Format, parse};

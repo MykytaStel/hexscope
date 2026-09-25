@@ -249,6 +249,9 @@ function showFileInfo(m: FileModel): void {
     chips.push(...m.value(0).split(" · "));
   } else if (f.format === "zip") {
     chips.push("ZIP", m.value(0));
+  } else if (f.format === "wasm") {
+    // "WebAssembly · 82 functions · “hello”"
+    chips.push(...m.value(0).split(" · "));
   } else {
     chips.push("Unrecognised format");
   }

@@ -10,15 +10,15 @@ running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
-> HEIC and AVIF, MP4 and MOV, PDF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`) are supported. Guides: [removing a photo's
+> HEIC and AVIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
+> `.epub`) and WebAssembly are supported. Guides: [removing a photo's
 > location](https://hexscope.pages.dev/remove-location-from-photo), [what an
 > edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
 > [why a PNG won't open](https://hexscope.pages.dev/png-wont-open).
 
 ## What it does
 
-**Opens any PNG, JPEG, HEIC, AVIF, PDF or ZIP, broken or not.** A damaged
+**Opens any PNG, JPEG, HEIC, AVIF, MP4, PDF, ZIP or WebAssembly module, broken or not.** A damaged
 file is the normal case, not the error case: hexscope always shows the full
 structure, with every problem marked on the exact bytes. A broken file opens
 on its first problem; **N** steps through the rest. Anything else is named
@@ -117,6 +117,13 @@ progressive JPEG writes each block a little at a time, over several scans —
 averages first, then bands of detail — and hexscope maps every scan: a pixel
 lists what each scan spends on it, and a slider shows the picture after each
 one, blurry at 7% of the file and sharp at the end.
+
+**Shows who built a WebAssembly module.** Its custom sections say how it
+was made — the language, the compiler and its version, every function's
+name, a link to its source map, DWARF debug info — and its data often holds
+paths from the computer that built it, with the user's name in them.
+hexscope lists each section and entry, finds those, and saves a copy
+without the custom sections, the code and data copied byte for byte.
 
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
@@ -300,7 +307,8 @@ npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
 2. **EXIF from JPEG** — what a photo reveals, on its bytes. *Done.*
 3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
    recursion into nested files. *Done.*
-4. **WebAssembly binaries.**
+4. **WebAssembly modules** — sections, imports and exports, who built it.
+   *Done; components are listed, not decoded.*
 5. **JPEG blocks** — which bytes draw which part of a photo, scan by scan,
    sequential or progressive. *Done.*
 

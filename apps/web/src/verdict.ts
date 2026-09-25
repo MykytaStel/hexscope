@@ -29,6 +29,11 @@ const REVEALS: Record<string, string> = {
   created: "when it was written",
   editing: "how long it was worked on",
   updates: "earlier versions of itself",
+  paths: "the user name of the computer that built it",
+  names: "its functions' names",
+  toolchain: "the compiler that built it",
+  sourcemap: "where its source is",
+  debug: "debug info from its source",
 };
 
 /**
