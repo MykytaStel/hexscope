@@ -3,6 +3,7 @@
 //! Pixels are not decoded. What matters here is the structure, the image
 //! dimensions, and the EXIF block most cameras and phones write into APP1.
 
+pub mod blocks;
 pub(crate) mod docs;
 
 use crate::exif::{PhotoFacts, parse_tiff_at};
