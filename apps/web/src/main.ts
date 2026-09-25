@@ -3,6 +3,7 @@ import { Drawer, formatBytes, type CleanResult } from "./drawer";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
+import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
@@ -33,7 +34,7 @@ const hex = new HexView($("hex"), {
 });
 const minimap = new Minimap($("hex"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
-const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
+const tree = new TreeView($("tree"), { onHover: setHover, onSelect: (id) => point(id) });
 const picture = new PictureView({
   locate: async (by, pos) => {
     const r = await call({ type: "locate", by, pos });
@@ -46,12 +47,33 @@ const picture = new PictureView({
     if (start >= 0) hex.revealOffset(start, false);
   },
   onStep: (index) => {
+    toBytes();
     void openPlayer().then(() => player.jump(index));
   },
 });
+// On a phone the file opens on its summary; the tree and the bytes are a
+// tap away, and anything that points into the bytes goes there.
+const narrow = matchMedia("(max-width: 900px)");
+function setView(view: "summary" | "bytes"): void {
+  document.body.dataset.view = view;
+  for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.view === view));
+  }
+}
+function toBytes(): void {
+  if (narrow.matches) setView("bytes");
+}
+for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
+  b.addEventListener("click", () => setView(b.dataset.view === "bytes" ? "bytes" : "summary"));
+}
+setView("summary");
+
 const drawer = new Drawer(
   $("drawer"),
-  select,
+  (id) => {
+    toBytes();
+    point(id);
+  },
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
   setHover,
@@ -160,6 +182,12 @@ function select(id: number): void {
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
   playBtn.hidden = !canPlay() && !player.isOpen;
+}
+
+/** Selects a node another view led to, and lights up its bytes. */
+function point(id: number): void {
+  select(id);
+  hex.flash(id);
 }
 
 function updateProblems(): void {
@@ -277,6 +305,7 @@ function show(m: FileModel): void {
   drawer.showFile(m);
   drawer.showNode(m, -1, false);
   showFileInfo(m);
+  setView("summary");
   updateProblems();
   playBtn.hidden = !canPlay();
 }
@@ -370,11 +399,20 @@ void openShared();
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   void navigator.serviceWorker.register("./sw.js");
 }
-problemsBtn.addEventListener("click", nextProblem);
-locationBtn.addEventListener("click", () => {
-  if (model?.file.location) select(model.file.location.node);
+problemsBtn.addEventListener("click", () => {
+  toBytes();
+  nextProblem();
+  hex.flash(selected);
 });
-playBtn.addEventListener("click", () => (player.isOpen ? closePlayer() : void openPlayer()));
+locationBtn.addEventListener("click", () => {
+  toBytes();
+  if (model?.file.location) point(model.file.location.node);
+});
+playBtn.addEventListener("click", () => {
+  if (player.isOpen) return closePlayer();
+  toBytes();
+  void openPlayer();
+});
 
 let dragDepth = 0;
 window.addEventListener("dragenter", (e) => {
@@ -412,3 +450,5 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.body.dataset.state = "empty";
+// After anything a link asked to open: only an empty page shows the demo.
+setTimeout(() => void startDemo($("demo")), 0);

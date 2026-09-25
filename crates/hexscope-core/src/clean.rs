@@ -73,7 +73,7 @@ impl CleanError {
 }
 
 pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
-    match parse(data) {
+    let mut cleaned = match parse(data) {
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
@@ -81,7 +81,17 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
         Document::Pdf(_) => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
         _ => Err(CleanError::Unsupported),
+    }?;
+    // Two blocks of the same kind, such as a second EXIF segment, are one line.
+    let mut merged: Vec<Removed> = Vec::new();
+    for r in cleaned.removed.drain(..) {
+        match merged.iter_mut().find(|m| m.what == r.what) {
+            Some(m) => m.bytes += r.bytes,
+            None => merged.push(r),
+        }
     }
+    cleaned.removed = merged;
+    Ok(cleaned)
 }
 
 // --- JPEG ------------------------------------------------------------------
@@ -357,13 +367,11 @@ fn clean_video(data: &[u8], doc: &VideoDocument) -> Result<Cleaned, CleanError> 
                 (what, range.len)
             }
         };
-        match removed.iter_mut().find(|r| r.what == what) {
-            Some(r) => r.bytes += bytes,
-            None => removed.push(Removed {
-                what: what.into(),
-                bytes,
-            }),
-        }
+        // Lines of the same kind are merged by `clean`.
+        removed.push(Removed {
+            what: what.into(),
+            bytes,
+        });
     }
     // The place first: it is what people most need gone.
     if let Some(i) = removed.iter().position(|r| r.what == "the location") {

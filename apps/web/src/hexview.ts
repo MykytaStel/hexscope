@@ -8,7 +8,13 @@ export interface HexCallbacks {
 
 const ROW_H = 22;
 const FONT_PX = 13;
+/** The smallest the text shrinks to, on a narrow phone. */
+const MIN_FONT_PX = 10;
 const PAD_X = 20;
+const NARROW_PAD_X = 8;
+/** How long a flash takes to fade, in milliseconds. */
+const FLASH_MS = 700;
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const PAD_Y = 14;
 /** Browsers cap element height; past this the scrollbar maps proportionally. */
 const MAX_SCROLL_PX = 8_000_000;
@@ -65,12 +71,17 @@ export class HexView {
   private palette = readPalette();
   private hover = -1;
   private selected = -1;
+  /** Bytes flashing to show where something just led, and when it began. */
+  private flashing: { start: number; end: number; t0: number } | null = null;
   /** Bytes the DEFLATE player is reading right now, as [start, end). */
   private head: [number, number] = [-1, -1];
   private frame = 0;
   private viewW = 0;
   private viewH = 0;
   private ch = 8;
+  /** Font size and side padding: smaller on a screen too narrow for 8 bytes a row. */
+  private fontPx = FONT_PX;
+  private padX = PAD_X;
   /** 16 bytes per row, or 8 when 16 would not fit the width. */
   private perRow = 16;
   /** Hex digits in the offset column: enough for the file, at least six. */
@@ -130,6 +141,17 @@ export class HexView {
   setHead(start: number, end: number): void {
     if (start === this.head[0] && end === this.head[1]) return;
     this.head = [start, end];
+    this.schedule();
+  }
+
+  /**
+   * Briefly lights up a node's bytes, so the eye finds what another view
+   * pointed at. Nothing when motion is to be kept down: the outline stays.
+   */
+  flash(id: number): void {
+    const m = this.model;
+    if (!m || id < 0 || m.len(id) === 0 || reducedMotion.matches) return;
+    this.flashing = { start: m.start(id), end: m.end(id), t0: performance.now() };
     this.schedule();
   }
 
@@ -201,7 +223,7 @@ export class HexView {
   }
 
   private hexX(i: number): number {
-    const base = PAD_X + this.ch * (this.offsetDigits + 3);
+    const base = this.padX + this.ch * (this.offsetDigits + 3);
     return base + i * this.ch * 3 + (i >= 8 ? this.ch : 0);
   }
 
@@ -211,7 +233,12 @@ export class HexView {
 
   /** Width the grid needs at a given number of bytes per row. */
   private widthFor(perRow: number): number {
-    return PAD_X * 2 + this.ch * (this.offsetDigits + 3 + perRow * 3 + (perRow > 8 ? 1 : 0) + 2 + perRow);
+    return this.padX * 2 + this.ch * this.columns(perRow);
+  }
+
+  /** Character columns a row takes: offset, hex, gap, text. */
+  private columns(perRow: number): number {
+    return this.offsetDigits + 3 + perRow * 3 + (perRow > 8 ? 1 : 0) + 2 + perRow;
   }
 
   private resize(): void {
@@ -223,8 +250,19 @@ export class HexView {
     this.canvas.width = Math.round(this.viewW * dpr);
     this.canvas.height = Math.round(this.viewH * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.ctx.font = `${FONT_PX}px ${MONO}`;
+    this.fontPx = FONT_PX;
+    this.padX = PAD_X;
+    this.ctx.font = `${this.fontPx}px ${MONO}`;
     this.ch = this.ctx.measureText("0").width;
+    // Too narrow for 8 bytes a row: tighter margins, then smaller text, so
+    // the text column is never cut off.
+    if (this.viewW < this.widthFor(8)) {
+      this.padX = NARROW_PAD_X;
+      const fit = (this.viewW - this.padX * 2) / this.columns(8);
+      this.fontPx = Math.max(MIN_FONT_PX, Math.floor((FONT_PX * fit) / this.ch * 10) / 10);
+      this.ctx.font = `${this.fontPx}px ${MONO}`;
+      this.ch = this.ctx.measureText("0").width;
+    }
     const perRow = this.viewW >= this.widthFor(16) ? 16 : 8;
     // Keep the same byte at the top of the view if the row width changes.
     const keepByte =
@@ -289,7 +327,7 @@ export class HexView {
     if (!m) return;
     this.onView?.(...this.visibleRange());
 
-    ctx.font = `${FONT_PX}px ${MONO}`;
+    ctx.font = `${this.fontPx}px ${MONO}`;
     ctx.textBaseline = "middle";
 
     const bytes = m.bytes;
@@ -315,7 +353,7 @@ export class HexView {
       const count = Math.min(this.perRow, bytes.length - base);
 
       ctx.fillStyle = p.offset;
-      ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), PAD_X, cy);
+      ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), this.padX, cy);
 
       // Pass 1: owner and emphasis for each byte in the row.
       for (let i = 0; i < count; i++) {
@@ -365,6 +403,21 @@ export class HexView {
         ctx.strokeRect(ax0 + 0.75, y + 1.75, ax1 - ax0 - 1.5, ROW_H - 3.5);
       }
 
+      // Pass 4b: a flash over bytes another view just pointed at, fading out.
+      const fl = this.flashing;
+      if (fl && fl.end > base && fl.start < base + count) {
+        const t = (performance.now() - fl.t0) / FLASH_MS;
+        const a = Math.max(fl.start, base) - base;
+        const b = Math.min(fl.end, base + count) - base - 1;
+        ctx.globalAlpha = Math.max(0, 1 - t) ** 2 * 0.4;
+        ctx.fillStyle = p.head;
+        const x0 = this.hexX(a) - ch * 0.5;
+        const x1 = this.hexX(b) + ch * 2.5;
+        ctx.fillRect(x0, y + 1, x1 - x0, ROW_H - 2);
+        ctx.fillRect(this.asciiX(a), y + 1, this.asciiX(b) + ch - this.asciiX(a), ROW_H - 2);
+        ctx.globalAlpha = 1;
+      }
+
       // Pass 5: the player's reading head, drawn last so it sits on top.
       const [hs0, he0] = this.head;
       if (he0 > base && hs0 < base + count) {
@@ -383,6 +436,10 @@ export class HexView {
           ctx.fillText(HEX[byte], this.hexX(i), cy);
         }
       }
+    }
+    if (this.flashing) {
+      if (performance.now() - this.flashing.t0 < FLASH_MS) this.schedule();
+      else this.flashing = null;
     }
   }
 }
