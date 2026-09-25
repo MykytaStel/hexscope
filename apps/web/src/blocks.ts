@@ -1,8 +1,12 @@
-// Blocks ↔ bytes, for a JPEG. Its picture is cut into minimum coded units —
-// MCUs, usually 16×16 pixels — each written as a run of Huffman-coded bits
-// in the scan. The core finds where each run begins; this view shows it both
-// ways: point at the picture to see its block's bytes, point at a byte of the
-// scan to see its block, and light the picture by what each block costs.
+// Blocks ↔ bytes, for a JPEG. Its picture is cut into blocks of 8×8 samples,
+// grouped in minimum coded units — MCUs, usually 16×16 pixels — each written
+// as a run of Huffman-coded bits in a scan. A progressive JPEG has several
+// scans: first every block's average, then bands of detail, so each part of
+// the picture is written a little at a time. The core finds where each unit
+// of each scan begins; this view shows it both ways — point at the picture
+// to see the bytes that draw it, point at a byte to see its block — lights
+// the picture by what each part costs, and, for several scans, shows the
+// picture as it stands after each one.
 import type { FileModel } from "./model";
 
 export interface BlockHooks {
@@ -20,7 +24,11 @@ const MAX_HEIGHT = 420;
 const MAX_SIDE = 1600;
 /** The smallest a marked block is drawn, in screen pixels, so it can be found in a large photo. */
 const MIN_MARK = 8;
+/** Between scans when the build-up plays. */
+const PLAY_MS = 700;
 const HINT = "Point at the picture, or tap it, to see the bytes that draw it.";
+/** Numbers before each scan's starts in the core's map. */
+const SCAN_HEADER = 12;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const offset = (n: number) => `0x${n.toString(16).toUpperCase().padStart(6, "0")}`;
@@ -39,26 +47,67 @@ export function bytesLink(show: () => void): HTMLButtonElement {
   return b;
 }
 
-interface Grid {
-  mcuWidth: number;
-  mcuHeight: number;
+interface Scan {
+  /** The frame's components it codes, a bit each. */
+  components: number;
+  /** The coefficients it codes, in zig-zag order, and the bits: before, and now down to. */
+  ss: number;
+  se: number;
+  ah: number;
+  al: number;
+  unitWidth: number;
+  unitHeight: number;
   columns: number;
   rows: number;
-  perMcu: number;
-  /** Each MCU's first file bit, then the bit after the last one found. */
+  perUnit: number;
+  /** The byte after its data. */
+  end: number;
+  /** Each unit's first file bit, then the bit after the last one found. */
   starts: Float64Array;
-  /** MCUs found: fewer than columns × rows when the scan stops short. */
+  /** Units found: fewer than columns × rows when the scan stops short. */
   count: number;
-  /** Bits in an average MCU. */
-  mean: number;
 }
 
-function grid(map: Float64Array): Grid | null {
-  if (map.length < 7) return null;
-  const [mcuWidth, mcuHeight, columns, rows, perMcu] = map;
-  const starts = map.subarray(5);
-  const count = starts.length - 1;
-  return { mcuWidth, mcuHeight, columns, rows, perMcu, starts, count, mean: (starts[count] - starts[0]) / count };
+interface Blocks {
+  progressive: boolean;
+  /** Components in the frame. */
+  components: number;
+  scans: Scan[];
+}
+
+/** The core's flat map, read back into scans. */
+export function readBlocks(map: Float64Array): Blocks | null {
+  if (map.length < 3) return null;
+  const scans: Scan[] = [];
+  let at = 3;
+  for (let s = 0; s < map[2]; s++) {
+    if (at + SCAN_HEADER > map.length) return null;
+    const [components, ss, se, ah, al, unitWidth, unitHeight, columns, rows, perUnit, end, n] = map.subarray(
+      at,
+      at + SCAN_HEADER,
+    );
+    const starts = map.subarray(at + SCAN_HEADER, at + SCAN_HEADER + n);
+    at += SCAN_HEADER + n;
+    if (n < 2) break;
+    scans.push({ components, ss, se, ah, al, unitWidth, unitHeight, columns, rows, perUnit, end, starts, count: n - 1 });
+  }
+  return scans.length ? { progressive: map[0] === 1, components: map[1], scans } : null;
+}
+
+/** The frame's components by name: Y, Cb, Cr for a colour photo. */
+function names(frame: number, mask: number): string {
+  const all = frame === 1 ? ["grey"] : frame === 3 ? ["Y", "Cb", "Cr"] : ["C", "M", "Y", "K"];
+  const picked = all.filter((_, i) => mask & (1 << i));
+  return picked.length === frame && frame > 1 ? "every colour" : picked.join(" ");
+}
+
+/** What a scan adds, in a few words. */
+export function describe(s: Scan, frame: number, progressive: boolean): string {
+  const of = names(frame, s.components);
+  if (!progressive) return `all of ${of}`;
+  if (s.ss === 0) return s.ah === 0 ? `averages of ${of}` : `averages of ${of}, one more bit`;
+  const band = s.ss === s.se ? `detail ${s.ss}` : `detail ${s.ss}–${s.se}`;
+  return s.ah === 0 ? `${band} of ${of}` : `${band} of ${of}, one more bit`;
 }
 
 /**
@@ -81,13 +130,14 @@ export function turn(o: number, w: number, h: number): DOMMatrix {
 /**
  * The file without its APP1 segments, so the browser draws the picture as
  * stored instead of turning it by its EXIF orientation: the turning is done
- * here, where the blocks are turned with it.
+ * here, where the blocks are turned with it. With `end`, only the scans
+ * before it are kept, and the file closed there.
  */
-function asStored(b: Uint8Array): Uint8Array {
+function asStored(b: Uint8Array, end = b.length): Uint8Array {
   if (b[0] !== 0xff || b[1] !== 0xd8) return b;
   const parts: Uint8Array[] = [b.subarray(0, 2)];
   let i = 2;
-  while (i + 4 <= b.length && b[i] === 0xff) {
+  while (i + 4 <= end && b[i] === 0xff) {
     const marker = b[i + 1];
     if (marker === 0xff) {
       i++;
@@ -95,11 +145,12 @@ function asStored(b: Uint8Array): Uint8Array {
     }
     // From the scan on, everything is kept.
     if (marker === 0xda || marker === 0xd9) break;
-    const end = i + 2 + ((b[i + 2] << 8) | b[i + 3]);
-    if (marker !== 0xe1) parts.push(b.subarray(i, end));
-    i = end;
+    const next = i + 2 + ((b[i + 2] << 8) | b[i + 3]);
+    if (marker !== 0xe1) parts.push(b.subarray(i, next));
+    i = next;
   }
-  parts.push(b.subarray(Math.min(i, b.length)));
+  parts.push(b.subarray(Math.min(i, end), end));
+  if (end < b.length) parts.push(Uint8Array.of(0xff, 0xd9));
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let at = 0;
   for (const p of parts) {
@@ -109,35 +160,59 @@ function asStored(b: Uint8Array): Uint8Array {
   return out;
 }
 
+/** The last index `i` of `starts[0..count)` with `starts[i] <= bit`. */
+function unitAt(starts: Float64Array, count: number, bit: number): number {
+  let lo = 0;
+  let hi = count - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (starts[mid] <= bit) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
 export class BlockView {
   private m: FileModel | null = null;
-  private g: Grid | null = null;
+  private b: Blocks | null = null;
   /** Stored size, and the turn that stands it up. */
   private w = 0;
   private h = 0;
   private turned = new DOMMatrix();
   private frame: HTMLElement | null = null;
+  private image: HTMLCanvasElement | null = null;
   private heat: HTMLCanvasElement | null = null;
   private mark: HTMLCanvasElement | null = null;
   private caption: HTMLElement | null = null;
   private heatOn = false;
+  /** The scan whose unit is outlined and whose bytes are marked. */
+  private scan = 0;
   /** The pixel last clicked or tapped, stored then shown: what stays when the pointer leaves. */
   private pinned: [number, number, number, number] | null = null;
   /** The pixel the caption is about, so it is not rebuilt under a click on its link. */
   private shown = "";
   /** Why the map stops short of the whole picture, when it does. */
   private note = "";
+  /** Scans drawn, and the drawing in flight and the one waiting. */
+  private drawn = 0;
+  private drawingFor: FileModel | null = null;
+  private wanted = 0;
+  private playing = 0;
 
   constructor(private readonly hooks: BlockHooks) {}
 
   /** The panel for a JPEG, or null for anything else. */
   element(m: FileModel): HTMLElement | null {
     this.m = null;
-    this.g = null;
+    this.b = null;
     this.heatOn = false;
     this.note = "";
     this.pinned = null;
     this.shown = "";
+    this.scan = 0;
+    this.drawn = 0;
+    this.wanted = 0;
+    clearTimeout(this.playing);
     const f = m.file;
     if (f.format !== "jpeg" || !f.dimensions) return null;
     const [w, h] = f.dimensions;
@@ -155,11 +230,15 @@ export class BlockView {
     frame.style.width = `min(100%, ${Math.round((MAX_HEIGHT * dw) / dh)}px)`;
     const image = el("canvas", "picture-image");
     image.style.imageRendering = "auto";
+    const scale = Math.min(1, MAX_SIDE / Math.max(dw, dh));
+    image.width = Math.max(1, Math.round(dw * scale));
+    image.height = Math.max(1, Math.round(dh * scale));
     const heat = el("canvas", "picture-overlay");
     heat.hidden = true;
     const mark = el("canvas", "picture-overlay");
     frame.append(image, heat, mark);
     this.frame = frame;
+    this.image = image;
     this.heat = heat;
     this.mark = mark;
 
@@ -176,20 +255,23 @@ export class BlockView {
       this.idle();
     });
     tools.append(heatBtn);
-    this.caption = el("p", "picture-caption hint", "Finding where each block of the picture is written…");
-    group.append(frame, tools, this.caption);
+    const buildup = el("div", "buildup");
+    buildup.hidden = true;
+    this.caption = el("div", "picture-caption hint", "Finding where each block of the picture is written…");
+    group.append(frame, tools, buildup, this.caption);
 
-    void this.draw(m, image, dw, dh);
+    void this.draw(m, 0);
     void this.hooks.blocks().then(({ map, note }) => {
       if (this.m !== m || !this.caption) return;
-      this.g = grid(map);
-      if (!this.g) {
+      this.b = readBlocks(map);
+      if (!this.b) {
         const why = note || "its blocks could not be found";
         this.caption.textContent = `${why[0].toUpperCase()}${why.slice(1)}.`;
         return;
       }
       tools.hidden = false;
       this.note = note;
+      if (this.b.scans.length > 1) this.buildUp(buildup, this.b);
       this.idle();
     });
 
@@ -230,95 +312,211 @@ export class BlockView {
     return group;
   }
 
-  /** From the hex view: the block a byte of the scan belongs to. */
+  /** From the hex view: the block a byte of a scan belongs to. */
   fromByte(at: number): void {
-    const g = this.g;
-    if (!g || !this.mark?.isConnected) return;
+    const b = this.b;
+    if (!b || !this.mark?.isConnected) return;
     const bit = at * 8;
-    if (at < 0 || bit < g.starts[0] - 7 || bit >= g.starts[g.count]) {
+    const n = at < 0 ? -1 : b.scans.findIndex((s) => bit + 7 >= s.starts[0] && bit < s.starts[s.count]);
+    if (n < 0) {
       this.clear();
       return;
     }
-    // The last MCU starting at or before the byte's last bit.
-    let lo = 0;
-    let hi = g.count - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (g.starts[mid] <= bit + 7) lo = mid;
-      else hi = mid - 1;
-    }
-    const col = lo % g.columns;
-    const row = Math.floor(lo / g.columns);
-    this.show(lo);
+    const s = b.scans[n];
+    const i = unitAt(s.starts, s.count, bit + 7);
+    this.outline(s, i);
     this.shown = "";
-    if (this.caption) {
-      this.caption.textContent =
-        `Byte ${offset(at)} is part of block ${col}, ${row} of the picture — ` +
-        `${g.mcuWidth}×${g.mcuHeight} pixels, written in ${plural(this.bits(lo), "bit")}.`;
-    }
+    if (!this.caption) return;
+    const where = b.scans.length > 1 ? ` in scan ${n + 1} of ${b.scans.length} (${describe(s, b.components, b.progressive)})` : "";
+    const cost = s.starts[i + 1] - s.starts[i];
+    this.caption.textContent =
+      `Byte ${offset(at)} is part of block ${i % s.columns}, ${Math.floor(i / s.columns)}${where} — ` +
+      `${s.unitWidth}×${s.unitHeight} pixels, written in ${plural(cost, "bit")}.`;
   }
 
-  /** Draws the picture as stored, stood up by its orientation. */
-  private async draw(m: FileModel, image: HTMLCanvasElement, dw: number, dh: number): Promise<void> {
-    const scale = Math.min(1, MAX_SIDE / Math.max(dw, dh));
-    image.width = Math.max(1, Math.round(dw * scale));
-    image.height = Math.max(1, Math.round(dh * scale));
-    let bitmap: ImageBitmap;
+  /** The slider that shows the picture after each scan, and a button that plays it. */
+  private buildUp(host: HTMLElement, b: Blocks): void {
+    const m = this.m;
+    if (!m) return;
+    const n = b.scans.length;
+    const label = el("label", "buildup-label");
+    const range = el("input");
+    range.type = "range";
+    range.min = "1";
+    range.max = String(n);
+    range.value = String(n);
+    range.setAttribute("aria-label", "Scans shown");
+    const says = el("span", "buildup-says");
+    const play = el("button", "btn btn-small", "Play");
+    const set = (k: number) => {
+      range.value = String(k);
+      const bytes = k === n ? m.bytes.length : b.scans[k - 1].end;
+      const share = Math.round((bytes / m.bytes.length) * 100);
+      says.textContent =
+        k === n
+          ? `All ${n} scans: the whole picture.`
+          : `After scan ${k} of ${n} (${describe(b.scans[k - 1], b.components, b.progressive)}): ${share}% of the file.`;
+      void this.draw(m, k === n ? 0 : bytes);
+    };
+    range.addEventListener("input", () => {
+      clearTimeout(this.playing);
+      this.playing = 0;
+      play.textContent = "Play";
+      set(Number(range.value));
+    });
+    play.addEventListener("click", () => {
+      if (this.playing) {
+        clearTimeout(this.playing);
+        this.playing = 0;
+        play.textContent = "Play";
+        return;
+      }
+      play.textContent = "Stop";
+      let k = 1;
+      const step = () => {
+        if (this.m !== m) return;
+        set(k);
+        if (k === n) {
+          this.playing = 0;
+          play.textContent = "Play";
+          return;
+        }
+        k++;
+        this.playing = window.setTimeout(step, PLAY_MS);
+      };
+      step();
+    });
+    label.append(range);
+    host.append(
+      el(
+        "p",
+        "hint",
+        b.progressive
+          ? "This JPEG is progressive: it arrives blurry, then sharpens, scan by scan. See it build up:"
+          : "This JPEG comes in one scan per colour. See it build up:",
+      ),
+      label,
+      play,
+      says,
+    );
+    set(n);
+    host.hidden = false;
+  }
+
+  /**
+   * Draws the picture as stored, stood up by its orientation; with `end`,
+   * only the scans before that byte. The newest request waits for the one
+   * being drawn.
+   */
+  private async draw(m: FileModel, end: number): Promise<void> {
+    this.wanted = end;
+    if (this.drawingFor === m) return;
+    this.drawingFor = m;
     try {
-      bitmap = await createImageBitmap(new Blob([asStored(m.bytes) as BlobPart], { type: "image/jpeg" }));
-    } catch {
-      if (this.m === m) this.caption?.before(el("p", "hint", "This browser could not draw the picture; its blocks are still shown."));
-      return;
+      while (this.m === m && this.drawn !== this.wanted + 1) {
+        const upto = this.wanted;
+        const bytes = upto ? asStored(m.bytes, upto) : asStored(m.bytes);
+        let bitmap: ImageBitmap;
+        try {
+          bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
+        } catch {
+          if (this.m === m && !upto) {
+            this.caption?.before(el("p", "hint", "This browser could not draw the picture; its blocks are still shown."));
+          }
+          this.drawn = upto + 1;
+          continue;
+        }
+        const image = this.image;
+        const ctx = image?.getContext("2d");
+        if (image && ctx && this.m === m) {
+          const [dw, dh] = m.file.orientation >= 5 ? [this.h, this.w] : [this.w, this.h];
+          ctx.resetTransform();
+          ctx.clearRect(0, 0, image.width, image.height);
+          ctx.imageSmoothingQuality = "high";
+          ctx.setTransform(new DOMMatrix().scale(image.width / dw, image.height / dh).multiply(this.turned));
+          ctx.drawImage(bitmap, 0, 0, this.w, this.h);
+        }
+        bitmap.close();
+        this.drawn = upto + 1;
+      }
+    } finally {
+      if (this.drawingFor === m) this.drawingFor = null;
     }
-    const ctx = image.getContext("2d");
-    if (ctx && this.m === m) {
-      ctx.imageSmoothingQuality = "high";
-      ctx.setTransform(new DOMMatrix().scale(image.width / dw, image.height / dh).multiply(this.turned));
-      ctx.drawImage(bitmap, 0, 0, this.w, this.h);
-    }
-    bitmap.close();
   }
 
   private fromPixel(x: number, y: number, dx: number, dy: number): void {
-    const g = this.g;
-    const m = this.m;
-    if (!g || !m || !this.caption) return;
-    const key = `${dx},${dy}`;
+    const b = this.b;
+    if (!b || !this.m || !this.caption) return;
+    const key = `${dx},${dy},${this.scan}`;
     if (key === this.shown) return;
     this.shown = key;
-    const col = Math.floor(x / g.mcuWidth);
-    const row = Math.floor(y / g.mcuHeight);
-    const i = row * g.columns + col;
-    if (i >= g.count) {
+    // Each scan's unit under the pixel, when the scan reaches it.
+    const units = b.scans.map((s) => {
+      const i = Math.floor(y / s.unitHeight) * s.columns + Math.floor(x / s.unitWidth);
+      return i < s.count ? i : -1;
+    });
+    const s = b.scans[this.scan];
+    const i = units[this.scan];
+    if (i < 0) {
       this.clear();
+      this.shown = key;
       this.caption.textContent = `Pixel ${dx}, ${dy}: its block comes after where the scan stops.`;
       this.hooks.onBytes(-1, -1);
       return;
     }
-    const bits = this.bits(i);
-    const start = Math.floor(g.starts[i] / 8);
-    const end = Math.ceil(g.starts[i + 1] / 8);
-    this.show(i);
+    const start = Math.floor(s.starts[i] / 8);
+    const end = Math.max(start + 1, Math.ceil(s.starts[i + 1] / 8));
+    this.outline(s, i);
     this.hooks.onBytes(start, end);
-    const ratio = bits / g.mean;
-    const compare =
-      ratio > 1.5
-        ? "more detail than most, so more bits"
-        : ratio < 0.5
-          ? "flatter than most, so fewer bits"
-          : "about as much as most";
+    const link = bytesLink(() => this.hooks.showBytes(start, end));
+    if (b.scans.length === 1) {
+      const bits = s.starts[i + 1] - s.starts[i];
+      const ratio = bits / ((s.starts[s.count] - s.starts[0]) / s.count);
+      const compare =
+        ratio > 1.5 ? "more detail than most, so more bits" : ratio < 0.5 ? "flatter than most, so fewer bits" : "about as much as most";
+      this.caption.replaceChildren(
+        `Pixel ${dx}, ${dy} is in block ${i % s.columns}, ${Math.floor(i / s.columns)}: ${s.unitWidth}×${s.unitHeight} pixels, ` +
+          `${plural(s.perUnit, "block")} of 8×8 samples, written in ${plural(bits, "bit")} — ` +
+          `${plural(end - start, "byte")} from ${offset(start)}. ` +
+          `An average block takes ${plural(Math.round((s.starts[s.count] - s.starts[0]) / s.count), "bit")}; this one has ${compare}. `,
+        link,
+      );
+      return;
+    }
+    // Several scans: each writes a little of this pixel.
+    const total = units.reduce((n, u, k) => (u < 0 ? n : n + b.scans[k].starts[u + 1] - b.scans[k].starts[u]), 0);
+    const list = el("ol", "scan-list");
+    b.scans.forEach((sc, k) => {
+      const u = units[k];
+      const row = el("button", "scan-row");
+      row.setAttribute("aria-pressed", String(k === this.scan));
+      const bits = u < 0 ? null : sc.starts[u + 1] - sc.starts[u];
+      row.append(
+        el("span", "scan-n", String(k + 1)),
+        el("span", "scan-what", describe(sc, b.components, b.progressive)),
+        el("span", "scan-bits", bits === null ? "—" : bits === 0 ? "0 bits*" : plural(bits, "bit")),
+      );
+      row.addEventListener("click", () => {
+        this.scan = k;
+        this.fromPixel(x, y, dx, dy);
+      });
+      const li = el("li");
+      li.append(row);
+      list.append(li);
+    });
+    const zero = units.some((u, k) => u >= 0 && b.scans[k].starts[u + 1] === b.scans[k].starts[u]);
     this.caption.replaceChildren(
-      `Pixel ${dx}, ${dy} is in block ${col}, ${row}: ${g.mcuWidth}×${g.mcuHeight} pixels, ` +
-        `${plural(g.perMcu, "block")} of 8×8 samples, written in ${plural(bits, "bit")} — ` +
-        `${plural(end - start, "byte")} from ${offset(start)}. ` +
-        `An average block takes ${plural(Math.round(g.mean), "bit")}; this one has ${compare}. `,
-      bytesLink(() => this.hooks.showBytes(start, end)),
+      `Pixel ${dx}, ${dy} is written a little in each of ${b.scans.length} scans — ${plural(total, "bit")} in all. ` +
+        `Scan ${this.scan + 1}'s part: block ${i % s.columns}, ${Math.floor(i / s.columns)}, ` +
+        `${s.unitWidth}×${s.unitHeight} pixels, ${plural(end - start, "byte")} from ${offset(start)}. `,
+      link,
+      list,
     );
-  }
-
-  private bits(i: number): number {
-    const g = this.g;
-    return g ? g.starts[i + 1] - g.starts[i] : 0;
+    if (zero) {
+      this.caption.append(
+        el("span", "hint scan-zero", "* No bits of its own: an earlier block's end-of-band code covered it too."),
+      );
+    }
   }
 
   /** A canvas sized to its box on screen, and its context. */
@@ -342,19 +540,16 @@ export class BlockView {
     return new DOMMatrix().scale(c.width / dw, c.height / dh).multiply(this.turned);
   }
 
-  /** Outlines MCU `i`. */
-  private show(i: number): void {
-    const g = this.g;
+  /** Outlines unit `i` of a scan. */
+  private outline(s: Scan, i: number): void {
     const c = this.mark;
-    if (!g || !c) return;
+    if (!c) return;
     const ctx = this.fit(c);
     if (!ctx) return;
-    const col = i % g.columns;
-    const row = Math.floor(i / g.columns);
-    const x0 = col * g.mcuWidth;
-    const y0 = row * g.mcuHeight;
-    const x1 = Math.min(this.w, x0 + g.mcuWidth);
-    const y1 = Math.min(this.h, y0 + g.mcuHeight);
+    const x0 = (i % s.columns) * s.unitWidth;
+    const y0 = Math.floor(i / s.columns) * s.unitHeight;
+    const x1 = Math.min(this.w, x0 + s.unitWidth);
+    const y1 = Math.min(this.h, y0 + s.unitHeight);
     const to = this.onto(c);
     const a = to.transformPoint(new DOMPoint(x0, y0));
     const b = to.transformPoint(new DOMPoint(x1, y1));
@@ -380,38 +575,51 @@ export class BlockView {
   }
 
   /**
-   * Lights the picture by its bits: each block dimmed by how few it takes,
-   * against the costliest few percent. One pixel per block on a small canvas,
-   * scaled up without smoothing, so neighbours meet without seams.
+   * Lights the picture by its bits: each cell dimmed by how few it takes,
+   * against the costliest few percent. Every scan's units add their bits to
+   * the cells they cover, cells as small as the smallest unit. One pixel per
+   * cell on a small canvas, scaled up without smoothing, so neighbours meet
+   * without seams.
    */
   private drawHeat(): void {
-    const g = this.g;
+    const b = this.b;
     const c = this.heat;
-    if (!g || !c) return;
+    if (!b || !c) return;
     const ctx = this.fit(c);
     if (!ctx) return;
-    const costs = new Float64Array(g.count);
-    for (let i = 0; i < g.count; i++) costs[i] = this.bits(i);
+    const cw = Math.min(...b.scans.map((s) => s.unitWidth));
+    const ch = Math.min(...b.scans.map((s) => s.unitHeight));
+    const cols = Math.ceil(this.w / cw);
+    const rows = Math.ceil(this.h / ch);
+    const costs = new Float64Array(cols * rows);
+    for (const s of b.scans) {
+      for (let i = 0; i < s.count; i++) {
+        const x0 = Math.floor(((i % s.columns) * s.unitWidth) / cw);
+        const y0 = Math.floor((Math.floor(i / s.columns) * s.unitHeight) / ch);
+        const x1 = Math.min(cols, x0 + Math.max(1, Math.round(s.unitWidth / cw)));
+        const y1 = Math.min(rows, y0 + Math.max(1, Math.round(s.unitHeight / ch)));
+        const share = (s.starts[i + 1] - s.starts[i]) / ((x1 - x0) * (y1 - y0));
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) costs[y * cols + x] += share;
+      }
+    }
     const sorted = Float64Array.from(costs).sort();
-    const top = Math.max(1, sorted[Math.floor(sorted.length * 0.98)] ?? 1);
-    const small = new ImageData(g.columns, g.rows);
-    for (let i = 0; i < g.columns * g.rows; i++) {
-      // Blocks the scan never reached stay dark.
-      const t = i < g.count ? Math.sqrt(Math.min(1, costs[i] / top)) : 0;
-      small.data[i * 4 + 3] = Math.round(235 * (1 - t));
+    const top = Math.max(1e-9, sorted[Math.floor(sorted.length * 0.98)] ?? 1);
+    const small = new ImageData(cols, rows);
+    for (let i = 0; i < cols * rows; i++) {
+      small.data[i * 4 + 3] = Math.round(235 * (1 - Math.sqrt(Math.min(1, costs[i] / top))));
     }
     const tiles = document.createElement("canvas");
-    tiles.width = g.columns;
-    tiles.height = g.rows;
+    tiles.width = cols;
+    tiles.height = rows;
     tiles.getContext("2d")?.putImageData(small, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(this.onto(c));
-    ctx.drawImage(tiles, 0, 0, g.columns * g.mcuWidth, g.rows * g.mcuHeight);
+    ctx.drawImage(tiles, 0, 0, cols * cw, rows * ch);
   }
 
   private idle(): void {
     this.shown = "";
-    if (!this.caption || !this.g) return;
+    if (!this.caption || !this.b) return;
     this.caption.textContent = this.heatOn
       ? "The brighter a block, the more of the file it takes: detail and noise cost bits, a clear sky almost none. Point at a block to see its bytes."
       : HINT;

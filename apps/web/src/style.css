@@ -739,6 +739,79 @@ input {
   cursor: default;
 }
 
+/* A progressive JPEG, scan by scan. */
+.buildup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 8px;
+}
+
+.buildup > .hint {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
+.buildup-label {
+  flex: 1 1 160px;
+  display: flex;
+}
+
+.buildup-label input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.buildup-says {
+  flex: 1 0 100%;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.scan-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 2ch 1fr auto;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scan-row:hover {
+  background: var(--panel-2);
+}
+
+.scan-row[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+.scan-n,
+.scan-bits {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-zero {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
 /* Links to the bytes, where the bytes are a view away. */
 .only-narrow {
   display: none;

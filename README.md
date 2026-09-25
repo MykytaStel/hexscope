@@ -109,7 +109,11 @@ pixels, each written as a run of Huffman-coded bits. hexscope reads the scan
 to find where each block begins, so pointing at the photo marks the bytes
 that draw that block and says how many bits it took; pointing at a byte of
 the scan outlines its block. **Where the bits go** lights the photo by what
-each block costs: detail and noise take bits, a clear sky almost none.
+each block costs: detail and noise take bits, a clear sky almost none. A
+progressive JPEG writes each block a little at a time, over several scans —
+averages first, then bands of detail — and hexscope maps every scan: a pixel
+lists what each scan spends on it, and a slider shows the picture after each
+one, blurry at 7% of the file and sharp at the end.
 
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
@@ -186,7 +190,8 @@ them in small batches, and the decoder resumes from the nearest checkpoint.
 - **`crates/hexscope-core`** — the parsers, in Rust with no runtime
   dependencies: PNG with its own DEFLATE decoder, written to be paused and
   resumed one step at a time; JPEG segments, and a Huffman scan reader that
-  finds each block's bits without decoding pixels; EXIF in either byte order; and a
+  finds each block's bits in every scan, progressive ones included, without
+  decoding pixels; EXIF in either byte order; and a
   dispatcher that recognises the format. A reference DEFLATE implementation is
   used only in tests, to check ours.
 - **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree
@@ -293,8 +298,8 @@ npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
 3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
    recursion into nested files. *Done.*
 4. **WebAssembly binaries.**
-5. **JPEG blocks** — which bytes draw which part of a photo. *Done for
-   sequential JPEGs; progressive ones next.*
+5. **JPEG blocks** — which bytes draw which part of a photo, scan by scan,
+   sequential or progressive. *Done.*
 
 No analytics, ever. A tool people use to look at suspicious files has no
 business watching them.
