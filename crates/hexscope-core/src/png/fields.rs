@@ -78,9 +78,9 @@ fn field(
     offset: u64,
     len: u64,
     value: Value,
-) {
+) -> NodeId {
     let range = ByteRange::new(chunk.data_range.start + offset, len);
-    tree.add(Some(parent), label, range, NodeKind::Field, Some(value));
+    tree.add(Some(parent), label, range, NodeKind::Field, Some(value))
 }
 
 pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<Ihdr> {
@@ -313,29 +313,227 @@ pub fn decode_trns(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId, color_ty
     }
 }
 
-pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
+/// A text chunk's keyword, its text, and the node that holds the text.
+pub type TextNote = (String, String, NodeId);
+
+/// Compressed text is inflated up to this many bytes.
+const MAX_TEXT: u64 = 1024 * 1024;
+
+/// Latin-1, as tEXt and zTXt are written (PNG §11.3.3.1).
+fn latin1(bytes: &[u8]) -> String {
+    bytes.iter().map(|&b| char::from(b)).collect()
+}
+
+pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<TextNote> {
     let mut r = Reader::new(chunk.data);
 
     let Some(keyword_bytes) = r.bytes_until(0) else {
         tree.warning(parent, "missing keyword separator", chunk.data_range);
-        return;
+        return None;
     };
     let text_bytes = r.rest();
 
     let sep = keyword_bytes.len() as u64;
-    let keyword = String::from_utf8_lossy(keyword_bytes).into_owned();
-    let text = String::from_utf8_lossy(text_bytes).into_owned();
+    let keyword = latin1(keyword_bytes);
+    let text = latin1(text_bytes);
 
-    field(tree, parent, "keyword", chunk, 0, sep, Value::Text(keyword));
     field(
+        tree,
+        parent,
+        "keyword",
+        chunk,
+        0,
+        sep,
+        Value::Text(keyword.clone()),
+    );
+    let node = field(
         tree,
         parent,
         "text",
         chunk,
         sep + 1,
         text_bytes.len() as u64,
-        Value::Text(text),
+        Value::Text(text.clone()),
     );
+    Some((keyword, text, node))
+}
+
+/// zTXt: a keyword, a compression method (0, zlib), and compressed text.
+pub fn decode_ztxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<TextNote> {
+    let mut r = Reader::new(chunk.data);
+    let Some(keyword_bytes) = r.bytes_until(0) else {
+        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        return None;
+    };
+    let keyword = latin1(keyword_bytes);
+    let mut at = keyword_bytes.len() as u64;
+    field(
+        tree,
+        parent,
+        "keyword",
+        chunk,
+        0,
+        at,
+        Value::Text(keyword.clone()),
+    );
+    at += 1;
+    let Ok(method) = r.u8() else {
+        tree.error(parent, "zTXt truncated", chunk.data_range);
+        return None;
+    };
+    field(
+        tree,
+        parent,
+        "compression method",
+        chunk,
+        at,
+        1,
+        Value::U64(method as u64),
+    );
+    at += 1;
+    let compressed = r.rest();
+    inflated_text(chunk, tree, parent, at, compressed, method, latin1).map(|(t, n)| (keyword, t, n))
+}
+
+/// iTXt: a keyword, whether and how the text is compressed, its language,
+/// the keyword translated, and UTF-8 text.
+pub fn decode_itxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<TextNote> {
+    let mut r = Reader::new(chunk.data);
+    let Some(keyword_bytes) = r.bytes_until(0) else {
+        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        return None;
+    };
+    let keyword = latin1(keyword_bytes);
+    let mut at = keyword_bytes.len() as u64;
+    field(
+        tree,
+        parent,
+        "keyword",
+        chunk,
+        0,
+        at,
+        Value::Text(keyword.clone()),
+    );
+    at += 1;
+    let (Ok(flag), Ok(method)) = (r.u8(), r.u8()) else {
+        tree.error(parent, "iTXt truncated", chunk.data_range);
+        return None;
+    };
+    field(
+        tree,
+        parent,
+        "compression flag",
+        chunk,
+        at,
+        1,
+        Value::U64(flag as u64),
+    );
+    field(
+        tree,
+        parent,
+        "compression method",
+        chunk,
+        at + 1,
+        1,
+        Value::U64(method as u64),
+    );
+    at += 2;
+    for label in ["language tag", "translated keyword"] {
+        let Some(bytes) = r.bytes_until(0) else {
+            tree.error(parent, "iTXt truncated", chunk.data_range);
+            return None;
+        };
+        let text = String::from_utf8_lossy(bytes).into_owned();
+        field(
+            tree,
+            parent,
+            label,
+            chunk,
+            at,
+            bytes.len() as u64,
+            Value::Text(text),
+        );
+        at += bytes.len() as u64 + 1;
+    }
+    let rest = r.rest();
+    let utf8 = |b: &[u8]| String::from_utf8_lossy(b).into_owned();
+    if flag == 0 {
+        let text = utf8(rest);
+        let node = field(
+            tree,
+            parent,
+            "text",
+            chunk,
+            at,
+            rest.len() as u64,
+            Value::Text(text.clone()),
+        );
+        return Some((keyword, text, node));
+    }
+    inflated_text(chunk, tree, parent, at, rest, method, utf8).map(|(t, n)| (keyword, t, n))
+}
+
+/// Compressed text, inflated: the node covers the compressed bytes and
+/// shows what they say.
+fn inflated_text(
+    chunk: &Chunk,
+    tree: &mut ParseTree,
+    parent: NodeId,
+    at: u64,
+    compressed: &[u8],
+    method: u8,
+    decode: impl Fn(&[u8]) -> String,
+) -> Option<(String, NodeId)> {
+    let len = compressed.len() as u64;
+    if method != 0 {
+        tree.warning(
+            parent,
+            "unknown text compression method",
+            ByteRange::new(chunk.data_range.start + at, len),
+        );
+        return None;
+    }
+    match crate::inflate::zlib_decompress(compressed, MAX_TEXT, &mut crate::inflate::NoTrace) {
+        Ok(bytes) => {
+            let text = decode(&bytes);
+            let node = field(
+                tree,
+                parent,
+                "text",
+                chunk,
+                at,
+                len,
+                Value::Text(text.clone()),
+            );
+            Some((text, node))
+        }
+        Err(_) => {
+            tree.error(
+                parent,
+                "compressed text cannot be inflated",
+                ByteRange::new(chunk.data_range.start + at, len),
+            );
+            None
+        }
+    }
+}
+
+/// tIME: when the image was last changed, in UTC.
+pub fn decode_time(
+    chunk: &Chunk,
+    tree: &mut ParseTree,
+    parent: NodeId,
+) -> Option<(String, NodeId)> {
+    let mut r = Reader::new(chunk.data);
+    let (Ok(year), Ok(month), Ok(day), Ok(hour), Ok(minute), Ok(second)) =
+        (r.u16_be(), r.u8(), r.u8(), r.u8(), r.u8(), r.u8())
+    else {
+        tree.error(parent, "tIME truncated", chunk.data_range);
+        return None;
+    };
+    let text = format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02} UTC");
+    let node = field(tree, parent, "time", chunk, 0, 7, Value::Text(text.clone()));
+    Some((text, node))
 }
 
 pub fn decode_phys(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {

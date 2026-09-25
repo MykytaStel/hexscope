@@ -260,7 +260,7 @@ fn xmp_facts(xml: &str, node: NodeId, facts: &mut Vec<DocumentFact>) {
 
 /// An XMP property as an element (its first list item, for lists) or as an
 /// attribute of its description.
-fn xmp_text(xml: &str, name: &str) -> Option<String> {
+pub(crate) fn xmp_text(xml: &str, name: &str) -> Option<String> {
     if let Some(t) = element_text(xml, name) {
         if t.contains("<rdf:li") {
             return element_text(&t, "rdf:li");
@@ -352,7 +352,7 @@ fn date(raw: &str) -> String {
 }
 
 /// `2026-03-02T09:14:00+02:00` as `2026-03-02 09:14 +02:00`.
-fn xmp_date(raw: &str) -> String {
+pub(crate) fn xmp_date(raw: &str) -> String {
     let (Some(day), Some('T'), Some(time)) = (raw.get(..10), raw.chars().nth(10), raw.get(11..16))
     else {
         return raw.to_string();

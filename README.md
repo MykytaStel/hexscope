@@ -61,8 +61,8 @@ the document information and the XMP metadata, compressed or not. It marks
 what a PDF can run or hide: JavaScript, actions that start programs, attached
 files, data before the header or after the end.
 
-**Shows what a photo reveals.** Drop a JPEG, or an iPhone's HEIC, and
-hexscope reads its EXIF:
+**Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG,
+and hexscope reads its EXIF (and a PNG's text notes and XMP):
 where it was taken, the camera and lens, their serial numbers, the owner's
 name if the camera recorded one, the time, the software, an embedded
 thumbnail. Each fact links to the bytes that spell it out, so you can see
@@ -73,14 +73,15 @@ on it. The map link sends the coordinates nowhere unless you click it.
 button saves a copy without it, made in the tab and never uploaded. A photo
 loses its camera data, location, serial numbers, thumbnail and comments; its
 picture is copied byte for byte, and a photo taken sideways keeps only its
-orientation. A HEIC or AVIF keeps its size: its EXIF and XMP are blanked
-where they lie, because everything else in it is found by offset. A PDF is
-written anew with only what its pages use: no author, programs or dates, no
-XMP, and none of the earlier versions an edit left behind. A Word, Excel or
-PowerPoint file loses its document properties (comments and tracked changes
-keep their authors, and the page says so). The page lists what went, and
-*Open the clean copy* shows it in hexscope, so you can see the card is
-empty.
+orientation. A PNG loses its text notes, EXIF, XMP, the time it was changed
+and anything after its end; its pixels are copied byte for byte. A HEIC or
+AVIF keeps its size: its EXIF and XMP are blanked where they lie, because
+everything else in it is found by offset. A PDF is written anew with only
+what its pages use: no author, programs or dates, no XMP, and none of the
+earlier versions an edit left behind. A Word, Excel or PowerPoint file loses
+its document properties (comments and tracked changes keep their authors,
+and the page says so). The page lists what went, and *Open the clean copy*
+shows it in hexscope, so you can see the card is empty.
 
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.

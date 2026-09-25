@@ -324,7 +324,9 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
         let in_exif = std::iter::successors(node.parent, |&p| tree.try_get(p)?.parent)
             .any(|p| tree.try_get(p).is_some_and(|n| n.label.contains("· Exif")));
         if in_exif {
+            // A thumbnail inside it is a JPEG of its own.
             crate::exif::docs::describe(label, problem)
+                .or_else(|| crate::jpeg::docs::describe(label, problem))
         } else if !problem
             && node
                 .children

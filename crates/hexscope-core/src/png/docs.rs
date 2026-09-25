@@ -304,10 +304,68 @@ const TABLE: Table = &[
     (
         "text",
         png(
-            "The text itself.",
+            "The text itself, inflated first when it is compressed.",
             "PNG §11.3.3.2",
             "https://www.w3.org/TR/png-3/#11tEXt",
         ),
+    ),
+    (
+        "compression method",
+        png(
+            "How the text is compressed; 0, the only method, is zlib.",
+            "PNG §11.3.3.3",
+            "https://www.w3.org/TR/png-3/#11zTXt",
+        ),
+    ),
+    (
+        "compression flag",
+        png(
+            "Whether the text is compressed: 1 for yes, 0 for plain UTF-8.",
+            "PNG §11.3.3.4",
+            "https://www.w3.org/TR/png-3/#11iTXt",
+        ),
+    ),
+    (
+        "language tag",
+        png(
+            "The language the text is in, such as en or uk.",
+            "PNG §11.3.3.4",
+            "https://www.w3.org/TR/png-3/#11iTXt",
+        ),
+    ),
+    (
+        "translated keyword",
+        png(
+            "The keyword in that language.",
+            "PNG §11.3.3.4",
+            "https://www.w3.org/TR/png-3/#11iTXt",
+        ),
+    ),
+    (
+        "time",
+        png(
+            "When the image was last changed, in UTC.",
+            "PNG §11.3.5.1",
+            "https://www.w3.org/TR/png-3/#11tIME",
+        ),
+    ),
+    (
+        "* truncated",
+        damage("The chunk is too short for the fields it must hold."),
+    ),
+    (
+        "unknown text compression method",
+        oddity("The text is compressed with a method PNG does not define, so it cannot be read."),
+    ),
+    (
+        "data after the end of the image",
+        Doc::new("Bytes after IEND. Viewers ignore them, so files made to be two formats at once, or to carry something unseen, keep it here.")
+            .cite("PNG §5.6", "https://www.w3.org/TR/png-3/#5ChunkOrdering")
+            .concern(Concern::Hidden),
+    ),
+    (
+        "compressed text cannot be inflated",
+        damage("The compressed text is damaged: it does not inflate."),
     ),
     // The compressed stream inside IDAT.
     (
