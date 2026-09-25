@@ -426,7 +426,7 @@ mod tests {
         let data = fixture("photo.jpg");
         let m = block_map(&data).unwrap();
         assert_eq!(m.stopped, None);
-        assert_eq!(m.columns * m.mcu_width >= 640, true);
+        assert!(m.columns * m.mcu_width >= 640);
         assert_eq!((m.columns * m.rows) as usize + 1, m.starts.len());
         assert!(
             m.starts.windows(2).all(|w| w[0] < w[1]),
