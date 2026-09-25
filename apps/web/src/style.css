@@ -739,6 +739,17 @@ input {
   cursor: default;
 }
 
+/* Links to the bytes, where the bytes are a view away. */
+.only-narrow {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .only-narrow {
+    display: inline;
+  }
+}
+
 /* --- share ------------------------------------------------------------------------ */
 
 .sharer {

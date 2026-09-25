@@ -10,6 +10,8 @@ export interface BlockHooks {
   blocks(): Promise<{ map: Float64Array; note: string }>;
   /** Marks file bytes `[start, end)`; `-1, -1` clears. */
   onBytes(start: number, end: number): void;
+  /** Opens the bytes `[start, end)` where they are not on screen: a phone's Bytes view. */
+  showBytes(start: number, end: number): void;
 }
 
 /** The tallest the picture is shown, in CSS pixels. */
@@ -28,6 +30,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
+}
+
+/** "Show in bytes", for where the bytes are a view away: only on narrow screens. */
+export function bytesLink(show: () => void): HTMLButtonElement {
+  const b = el("button", "link only-narrow", "Show in bytes");
+  b.addEventListener("click", show);
+  return b;
 }
 
 interface Grid {
@@ -112,6 +121,10 @@ export class BlockView {
   private mark: HTMLCanvasElement | null = null;
   private caption: HTMLElement | null = null;
   private heatOn = false;
+  /** The pixel last clicked or tapped, stored then shown: what stays when the pointer leaves. */
+  private pinned: [number, number, number, number] | null = null;
+  /** The pixel the caption is about, so it is not rebuilt under a click on its link. */
+  private shown = "";
   /** Why the map stops short of the whole picture, when it does. */
   private note = "";
 
@@ -123,6 +136,8 @@ export class BlockView {
     this.g = null;
     this.heatOn = false;
     this.note = "";
+    this.pinned = null;
+    this.shown = "";
     const f = m.file;
     if (f.format !== "jpeg" || !f.dimensions) return null;
     const [w, h] = f.dimensions;
@@ -178,20 +193,34 @@ export class BlockView {
       this.idle();
     });
 
-    const pick = (e: PointerEvent) => {
+    const at = (e: PointerEvent): [number, number, number, number] => {
       const r = frame.getBoundingClientRect();
       const dx = ((e.clientX - r.left) / r.width) * dw;
       const dy = ((e.clientY - r.top) / r.height) * dh;
       const p = this.turned.inverse().transformPoint(new DOMPoint(dx, dy));
-      const x = Math.min(w - 1, Math.max(0, Math.floor(p.x)));
-      const y = Math.min(h - 1, Math.max(0, Math.floor(p.y)));
-      this.fromPixel(x, y, Math.floor(Math.min(dw - 1, Math.max(0, dx))), Math.floor(Math.min(dh - 1, Math.max(0, dy))));
+      return [
+        Math.min(w - 1, Math.max(0, Math.floor(p.x))),
+        Math.min(h - 1, Math.max(0, Math.floor(p.y))),
+        Math.floor(Math.min(dw - 1, Math.max(0, dx))),
+        Math.floor(Math.min(dh - 1, Math.max(0, dy))),
+      ];
     };
-    frame.addEventListener("pointermove", pick);
-    frame.addEventListener("pointerdown", pick);
-    // A finger lifting also "leaves": keep what it picked.
+    // Hovering shows; a click or a tap also pins, so the caption and its
+    // links stay when the pointer leaves for them.
+    frame.addEventListener("pointermove", (e) => {
+      if (frame.clientWidth) this.fromPixel(...at(e));
+    });
+    frame.addEventListener("pointerdown", (e) => {
+      if (!frame.clientWidth) return;
+      this.pinned = at(e);
+      this.fromPixel(...this.pinned);
+    });
     frame.addEventListener("pointerleave", (e) => {
       if (e.pointerType !== "mouse") return;
+      if (this.pinned) {
+        this.fromPixel(...this.pinned);
+        return;
+      }
       this.clear();
       this.hooks.onBytes(-1, -1);
     });
@@ -221,6 +250,7 @@ export class BlockView {
     const col = lo % g.columns;
     const row = Math.floor(lo / g.columns);
     this.show(lo);
+    this.shown = "";
     if (this.caption) {
       this.caption.textContent =
         `Byte ${offset(at)} is part of block ${col}, ${row} of the picture — ` +
@@ -253,6 +283,9 @@ export class BlockView {
     const g = this.g;
     const m = this.m;
     if (!g || !m || !this.caption) return;
+    const key = `${dx},${dy}`;
+    if (key === this.shown) return;
+    this.shown = key;
     const col = Math.floor(x / g.mcuWidth);
     const row = Math.floor(y / g.mcuHeight);
     const i = row * g.columns + col;
@@ -278,7 +311,8 @@ export class BlockView {
       `Pixel ${dx}, ${dy} is in block ${col}, ${row}: ${g.mcuWidth}×${g.mcuHeight} pixels, ` +
         `${plural(g.perMcu, "block")} of 8×8 samples, written in ${plural(bits, "bit")} — ` +
         `${plural(end - start, "byte")} from ${offset(start)}. ` +
-        `An average block takes ${plural(Math.round(g.mean), "bit")}; this one has ${compare}.`,
+        `An average block takes ${plural(Math.round(g.mean), "bit")}; this one has ${compare}. `,
+      bytesLink(() => this.hooks.showBytes(start, end)),
     );
   }
 
@@ -376,6 +410,7 @@ export class BlockView {
   }
 
   private idle(): void {
+    this.shown = "";
     if (!this.caption || !this.g) return;
     this.caption.textContent = this.heatOn
       ? "The brighter a block, the more of the file it takes: detail and noise cost bits, a clear sky almost none. Point at a block to see its bytes."
