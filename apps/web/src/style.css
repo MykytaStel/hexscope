@@ -839,6 +839,51 @@ input {
   font-size: 12px;
 }
 
+/* A thumbnail that is not the picture, beside it. */
+.thumbcheck {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tint-gps) 9%, transparent);
+}
+
+.thumb-title {
+  margin: 0 0 8px;
+  font-weight: 650;
+}
+
+.thumb-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.thumb-pair figure {
+  margin: 0;
+}
+
+.thumb-pair canvas {
+  display: block;
+  max-width: 160px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.thumb-pair figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thumbcheck .hint {
+  margin: 10px 0 0;
+}
+
+.thumb-ok {
+  color: var(--muted);
+}
+
 /* What to do about what a file reveals. */
 .advice {
   margin: 12px 0;

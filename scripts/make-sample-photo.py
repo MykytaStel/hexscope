@@ -7,6 +7,12 @@ Needs macOS `sips` to encode the JPEGs; everything else is written by hand so
 the exact bytes are known.
 
     python3 scripts/make-sample-photo.py
+
+With `cropped`, it builds cropped.jpg instead: the same photo cropped to its
+left part, the tower gone, with the thumbnail still showing the whole scene
+— what an editor that does not update the thumbnail leaves behind.
+
+    python3 scripts/make-sample-photo.py cropped
 """
 import os
 import struct
@@ -43,10 +49,10 @@ def dusk(w, h):
     return pixel
 
 
-def jpeg(w, h, quality):
+def jpeg(w, h, quality, pixel=None):
     with tempfile.TemporaryDirectory() as d:
         src, dst = os.path.join(d, "in.png"), os.path.join(d, "out.jpg")
-        open(src, "wb").write(png(w, h, dusk(w, h)))
+        open(src, "wb").write(png(w, h, pixel or dusk(w, h)))
         subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(quality), src, "--out", dst],
                        check=True, capture_output=True)
         return open(dst, "rb").read()
@@ -139,16 +145,24 @@ def tiff(thumbnail):
 
 
 def main():
-    photo = jpeg(640, 480, "normal")
+    import sys
+    cropped = sys.argv[1:] == ["cropped"]
+    if cropped:
+        # The left 360 pixels of the 640-wide scene: the tower is at 62%.
+        scene = dusk(640, 480)
+        photo = jpeg(360, 480, "normal", lambda x, y: scene(x, y))
+    else:
+        photo = jpeg(640, 480, "normal")
     thumb = jpeg(160, 120, "low")
     block = b"Exif\0\0" + tiff(thumb)
     app1 = b"\xFF\xE1" + struct.pack(">H", len(block) + 2) + block
     assert photo[:2] == b"\xFF\xD8"
     # EXIF goes straight after SOI, where cameras put it.
     out = photo[:2] + app1 + photo[2:]
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    open(OUT, "wb").write(out)
-    print(f"wrote {os.path.normpath(OUT)}: {len(out)} bytes, EXIF {len(block)} bytes, thumbnail {len(thumb)} bytes")
+    path = OUT.replace("photo.jpg", "cropped.jpg") if cropped else OUT
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "wb").write(out)
+    print(f"wrote {os.path.normpath(path)}: {len(out)} bytes, EXIF {len(block)} bytes, thumbnail {len(thumb)} bytes")
 
 
 if __name__ == "__main__":

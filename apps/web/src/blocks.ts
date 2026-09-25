@@ -132,7 +132,7 @@ export function turn(o: number, w: number, h: number): DOMMatrix {
  * here, where the blocks are turned with it. With `end`, only the scans
  * before it are kept, and the file closed there.
  */
-function asStored(b: Uint8Array, end = b.length): Uint8Array {
+export function asStored(b: Uint8Array, end = b.length): Uint8Array {
   if (b[0] !== 0xff || b[1] !== 0xd8) return b;
   const parts: Uint8Array[] = [b.subarray(0, 2)];
   let i = 2;
