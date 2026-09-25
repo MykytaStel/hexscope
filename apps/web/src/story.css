@@ -120,9 +120,15 @@ body.story {
   font-size: 13.5px;
 }
 
+/* Links in the text, not the buttons that are links too. */
 .story-foot a,
-.story-text p a {
+.story-text p a:not(.btn),
+.story-text li a {
   color: var(--accent);
+}
+
+.story-text a.btn {
+  text-decoration: none;
 }
 
 /* The player stays in view while the story scrolls. */

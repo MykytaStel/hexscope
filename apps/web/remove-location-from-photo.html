@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Your photos may say where they were taken, to within a few metres. How to check a photo, remove its location and camera data without uploading it, and stop your phone adding it." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>How to remove the location from a photo — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/remove-location-from-photo" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/remove-location-from-photo" />
+    <meta property="og:title" content="How to remove the location from a photo" />
+    <meta property="og:description" content="Check what a photo says about where it was taken, and remove it, without uploading the photo anywhere." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Photo privacy</p>
+        <h1>How to remove the location from a photo</h1>
+        <p class="story-lede">
+          Most phones write where a photo was taken into the file itself, often to within a few metres. It is not
+          in the picture, so you cannot see it, but it goes wherever the file goes — unless something takes it out.
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Check the photo first</h2>
+          <p>
+            Open the photo in <a href="./">hexscope</a>. It reads the file in your browser — nothing is uploaded —
+            and says what the photo gives away: where it was taken, the camera and lens, the camera's serial number,
+            the owner's name if the camera recorded one, and the exact time with its time zone. Each line points at
+            the bytes that hold it.
+          </p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a photo</a>
+            <a class="btn" href="./?sample=photo.jpg">Try a sample photo</a>
+          </p>
+          <p>
+            This location data is part of <em>EXIF</em>, the block of camera information that JPEG photos carry.
+            An iPhone's HEIC photos carry the same block, and so do PNG images saved from a photo — sometimes twice,
+            as some programs repeat it in a second block of metadata called XMP.
+          </p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it from one photo</h2>
+          <p>
+            Under <em>What this photo reveals</em>, press <em>Remove it — save a clean copy</em>. hexscope saves a
+            copy without the camera data, the location and the serial numbers — and for a JPEG, without its
+            thumbnail and comments too. The
+            picture itself is copied byte for byte, so nothing is recompressed and nothing loses quality. A photo
+            taken sideways keeps only its orientation, so it still shows the right way up. It works for JPEG, HEIC,
+            AVIF and PNG.
+          </p>
+          <p>
+            Then press <em>Open the clean copy</em> and check it yourself: the card should say there is nothing left.
+          </p>
+          <p>On a phone, for a photo you are about to share:</p>
+          <ul>
+            <li>
+              <strong>iPhone:</strong> in the share sheet, tap <em>Options</em> at the top and turn off
+              <em>Location</em>. To remove it from the photo in your library, open it, swipe up, tap
+              <em>Adjust</em> next to the map and choose <em>No Location</em>.
+            </li>
+            <li>
+              <strong>Android:</strong> in Google Photos, swipe up on a photo to see its details, where the location
+              can be edited or removed. Other gallery apps have a similar option; the wording differs.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Stop the phone adding it</h2>
+          <ul>
+            <li>
+              <strong>iPhone:</strong> Settings → Privacy &amp; Security → Location Services → Camera → Never.
+            </li>
+            <li>
+              <strong>Android:</strong> in the camera app's settings, turn off the option to save or tag the
+              location. Its name depends on the phone's maker.
+            </li>
+          </ul>
+          <p>Photos you have already taken keep their location. Only new ones are affected.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> When the location leaks, and when it does not</h2>
+          <p>
+            Services that recompress photos — most social networks, and messaging apps when you send a picture as a
+            picture — usually drop this data on the way. Everything that sends the file as it is keeps it: email
+            attachments, cloud links, AirDrop unless you switch it off in <em>Options</em>, and messaging apps when
+            you send the photo as a file or a document.
+          </p>
+          <p class="guide-note">
+            Rules change and every app is different. The only way to be sure is to check the file you are about to
+            send.
+          </p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> What else a photo says</h2>
+          <ul>
+            <li>The camera and lens, and often the serial number of the camera body — the same in every photo it takes.</li>
+            <li>The owner's name, if it was set in the camera.</li>
+            <li>The date and time, to the second, with the time zone.</li>
+            <li>The software that edited it.</li>
+            <li>
+              A small thumbnail of the picture. Some editors do not update it, so a cropped photo can still carry a
+              preview of the uncropped one.
+            </li>
+          </ul>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a photo now</a>
+            <span>Nothing leaves your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+            <li><a href="deflate.html">How DEFLATE works, visually</a></li>
+          </ul>
+          <p class="story-foot">
+            hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>:
+            you can read the code that reads your file.
+          </p>
+        </nav>
+      </article>
+    </main>
+  </body>
+</html>

@@ -61,7 +61,10 @@ not the repo; the site links the code.
 browser*.
 
 **r/privacy** — *Check what your photos reveal,
-and remove it, without uploading them anywhere.*
+and remove it, without uploading them anywhere.* Link the guide rather than
+the app: https://hexscope.pages.dev/remove-location-from-photo — or, for a
+second post, https://hexscope.pages.dev/pdf-hidden-versions (*Deleted from a
+PDF, but still inside it*).
 
 ## Answering
 

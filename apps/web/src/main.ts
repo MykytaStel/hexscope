@@ -318,6 +318,17 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]"))
   });
 }
 
+// The guides link to a sample by name, as ?sample=photo.jpg. Only the
+// samples on this page can be opened this way; the name picks a button.
+function openLinkedSample(): void {
+  const name = new URLSearchParams(location.search).get("sample");
+  if (!name) return;
+  history.replaceState(null, "", location.pathname);
+  const btn = [...document.querySelectorAll<HTMLButtonElement>("[data-sample]")].find((b) => b.dataset.name === name);
+  btn?.click();
+}
+openLinkedSample();
+
 // A file shared to the installed app (Android's share sheet) arrives through
 // the service worker, which keeps it in a cache for this page to pick up.
 async function openShared(): Promise<void> {
