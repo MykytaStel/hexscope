@@ -120,6 +120,13 @@ impl ParseTree {
         }
     }
 
+    /// Sets a node's range after the fact. An id not from this tree is ignored.
+    pub fn set_range(&mut self, id: NodeId, range: ByteRange) {
+        if let Some(n) = self.nodes.get_mut(id as usize) {
+            n.range = range;
+        }
+    }
+
     /// Sets a node's value after the fact, for a summary known only once its
     /// children are read. An id not from this tree is ignored.
     pub fn set_value(&mut self, id: NodeId, value: Option<Value>) {

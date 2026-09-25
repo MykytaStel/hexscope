@@ -179,6 +179,32 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             })
         }
         Format::Heif if depth == 1 => Some(Role::Structure),
+        Format::Pdf if label.starts_with("object ") => {
+            let what = match &node.value {
+                Some(crate::model::Value::Text(t)) => t.as_str(),
+                _ => "",
+            };
+            Some(match what {
+                "document information" | "XMP metadata" => Role::Metadata,
+                "cross-reference stream" | "object stream" | "linearization" => Role::Structure,
+                "image" | "embedded file" => Role::Content,
+                t if t.ends_with("stream") => Role::Content,
+                _ => Role::Structure,
+            })
+        }
+        Format::Pdf
+            if matches!(
+                label,
+                "header"
+                    | "binary marker"
+                    | "cross-reference table"
+                    | "trailer"
+                    | "startxref"
+                    | "%%EOF"
+            ) =>
+        {
+            Some(Role::Structure)
+        }
         Format::Zip if depth == 1 => Some(Role::Structure),
         Format::Zip if label == "data" && depth == 2 => {
             let entry = tree.try_get(node.parent?)?;
@@ -292,7 +318,7 @@ mod tests {
         let cut = slices_of(&png[..png.len() - 20]);
         assert!(cut.iter().any(|s| s.role == Role::Damaged), "{cut:?}");
 
-        let unknown = slices_of(b"%PDF-1.7 just a header");
+        let unknown = slices_of(b"GIF89a just a header");
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].role, Role::Structure);
     }

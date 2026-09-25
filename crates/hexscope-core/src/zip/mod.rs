@@ -10,7 +10,7 @@
 pub(crate) mod docs;
 mod extract;
 mod fields;
-mod office;
+pub(crate) mod office;
 #[cfg(test)]
 pub(crate) mod testing;
 

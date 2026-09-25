@@ -72,7 +72,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
 
 /// The text of the first `<name …>text</name>` element, decoded and trimmed.
 /// `None` for a missing, empty or self-closing element.
-fn element_text(xml: &str, name: &str) -> Option<String> {
+pub(crate) fn element_text(xml: &str, name: &str) -> Option<String> {
     let open = format!("<{name}");
     let mut from = 0;
     let start = loop {

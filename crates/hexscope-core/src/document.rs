@@ -3,6 +3,7 @@
 use crate::heif::{self, HeifDocument, parse_heif};
 use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
+use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
 use crate::zip::{self, ZipDocument, parse_zip};
 
@@ -11,6 +12,7 @@ pub enum Format {
     Png,
     Jpeg,
     Heif,
+    Pdf,
     Zip,
     Unknown,
 }
@@ -22,6 +24,7 @@ pub enum Document {
     Png(PngDocument),
     Jpeg(JpegDocument),
     Heif(HeifDocument),
+    Pdf(PdfDocument),
     Zip(ZipDocument),
     Unknown(ParseTree),
 }
@@ -32,6 +35,7 @@ impl Document {
             Document::Png(d) => &d.tree,
             Document::Jpeg(d) => &d.tree,
             Document::Heif(d) => &d.tree,
+            Document::Pdf(d) => &d.tree,
             Document::Zip(d) => &d.tree,
             Document::Unknown(t) => t,
         }
@@ -42,6 +46,7 @@ impl Document {
             Document::Png(_) => Format::Png,
             Document::Jpeg(_) => Format::Jpeg,
             Document::Heif(_) => Format::Heif,
+            Document::Pdf(_) => Format::Pdf,
             Document::Zip(_) => Format::Zip,
             Document::Unknown(_) => Format::Unknown,
         }
@@ -62,6 +67,9 @@ pub fn parse(data: &[u8]) -> Document {
     if heif::is_heif(data) {
         return Document::Heif(parse_heif(data));
     }
+    if pdf::is_pdf(data) {
+        return Document::Pdf(parse_pdf(data));
+    }
     // After the images, whose files may carry a ZIP on their end: an
     // archive is what the file is only when nothing earlier claimed it.
     if zip::is_zip(data) {
@@ -71,10 +79,9 @@ pub fn parse(data: &[u8]) -> Document {
 }
 
 /// Signatures of formats people are likely to drop in, so the answer can be
-/// "that is a PDF" rather than "unrecognised".
+/// "that is a gzip" rather than "unrecognised".
 pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
-    const SIGNATURES: [(&[u8], &str); 11] = [
-        (b"%PDF", "a PDF document"),
+    const SIGNATURES: [(&[u8], &str); 10] = [
         (b"GIF87a", "a GIF image"),
         (b"GIF89a", "a GIF image"),
         (b"\0asm", "a WebAssembly module"),
@@ -165,6 +172,7 @@ mod tests {
         assert_eq!(parse(b"hello").format(), Format::Unknown);
         assert_eq!(parse(b"PK\x03\x04 and the rest").format(), Format::Zip);
         assert_eq!(parse(b"PK\x05\x06").format(), Format::Zip);
+        assert_eq!(parse(b"%PDF-1.7 ...").format(), Format::Pdf);
         assert_eq!(parse(b"\0\0\0\x10ftypheic\0\0\0\0").format(), Format::Heif);
     }
 
@@ -182,7 +190,6 @@ mod tests {
             let tree = doc.tree();
             tree.get(tree.get(0).children[0]).label.clone()
         };
-        assert!(label(b"%PDF-1.7 ...").contains("PDF"));
         assert!(label(b"\x1F\x8B\x08....").contains("gzip"));
         assert!(label(b"\0\0\0\x18ftypisom....").contains("MP4"));
         assert!(label(b"").contains("empty"));
