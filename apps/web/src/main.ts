@@ -50,6 +50,14 @@ const picture = new PictureView({
     hex.setHead(start, end);
     if (start >= 0) hex.revealOffset(start, false);
   },
+  showBytes: (start, end) => {
+    toBytes();
+    // Its part of the file in the tree and the details, as well.
+    if (model) select(model.nodeAt(start));
+    hex.setHead(start, end);
+    // Once the bytes are laid out, bring these into view.
+    requestAnimationFrame(() => requestAnimationFrame(() => hex.scrollToOffset(start)));
+  },
   onStep: (index) => {
     toBytes();
     void openPlayer().then(() => player.jump(index));

@@ -3,7 +3,7 @@
 // by one DEFLATE step, which read a few bits of the file. This view follows
 // that chain both ways: point at a pixel to see the step and the file bytes
 // behind it, point at a byte of IDAT to see which pixels it became.
-import { BlockView } from "./blocks";
+import { BlockView, bytesLink } from "./blocks";
 import type { FileModel } from "./model";
 
 /** Numbers per located step: index, kind, a, b, bitStart, bitEnd, outStart. */
@@ -17,6 +17,8 @@ export interface PictureHooks {
   onBytes(start: number, end: number): void;
   /** Opens the DEFLATE player at a step. */
   onStep(index: number): void;
+  /** Opens the bytes `[start, end)` where they are not on screen: a phone's Bytes view. */
+  showBytes(start: number, end: number): void;
 }
 
 const FILTERS = ["None", "Sub", "Up", "Average", "Paeth"];
@@ -84,6 +86,10 @@ export class PictureView {
   /** One lookup at a time; the newest waiting one replaces older ones. */
   private busy = false;
   private next: (() => Promise<void>) | null = null;
+  /** The pixel last clicked or tapped: what stays when the pointer leaves. */
+  private pinned: [number, number] | null = null;
+  /** The pixel the caption is about, so it is not rebuilt under a click on its link. */
+  private shown = "";
 
   /** A JPEG's picture has blocks, not scanlines: it has a view of its own. */
   private readonly jpeg: BlockView;
@@ -96,6 +102,8 @@ export class PictureView {
   element(m: FileModel): HTMLElement | null {
     this.m = null;
     this.overlay = null;
+    this.pinned = null;
+    this.shown = "";
     const f = m.file;
     if (f.format === "jpeg") return this.jpeg.element(m);
     if (f.format !== "png" || !f.ihdr) return null;
@@ -128,17 +136,31 @@ export class PictureView {
 
     this.caption = el("p", "picture-caption hint", "Point at a pixel, or tap it, to see the bytes it came from.");
     // Pointer events, so a tap on a phone picks a pixel as hovering does.
-    const pick = (e: PointerEvent) => {
+    const at = (e: PointerEvent): [number, number] => {
       const r = frame.getBoundingClientRect();
       const x = Math.floor(((e.clientX - r.left) / r.width) * width);
       const y = Math.floor(((e.clientY - r.top) / r.height) * height);
-      this.queue(() => this.fromPixel(Math.min(width - 1, Math.max(0, x)), Math.min(height - 1, Math.max(0, y))));
+      return [Math.min(width - 1, Math.max(0, x)), Math.min(height - 1, Math.max(0, y))];
     };
-    frame.addEventListener("pointermove", pick);
-    frame.addEventListener("pointerdown", pick);
-    // A finger lifting also "leaves": keep what it picked.
+    // Hovering shows; a click or a tap also pins, so the caption and its
+    // links stay when the pointer leaves for them.
+    frame.addEventListener("pointermove", (e) => {
+      if (!frame.clientWidth) return;
+      const [x, y] = at(e);
+      this.queue(() => this.fromPixel(x, y));
+    });
+    frame.addEventListener("pointerdown", (e) => {
+      if (!frame.clientWidth) return;
+      const [x, y] = (this.pinned = at(e));
+      this.queue(() => this.fromPixel(x, y));
+    });
     frame.addEventListener("pointerleave", (e) => {
       if (e.pointerType !== "mouse") return;
+      const pinned = this.pinned;
+      if (pinned) {
+        this.queue(() => this.fromPixel(...pinned));
+        return;
+      }
       this.next = null;
       this.clear();
       this.hooks.onBytes(-1, -1);
@@ -187,10 +209,11 @@ export class PictureView {
   private async fromPixel(x: number, y: number): Promise<void> {
     const m = this.m;
     const g = this.g;
-    if (!m || !g) return;
+    if (!m || !g || this.shown === `${x},${y}`) return;
     const s = await this.hooks.locate(0, pixelOffset(g, x, y));
     if (this.m !== m) return;
     this.show(s, [x, y]);
+    this.shown = `${x},${y}`;
     if (s.length === 7) {
       const [start, end] = m.bitsToFile(s[4], s[5]);
       this.hooks.onBytes(start, end);
@@ -241,6 +264,10 @@ export class PictureView {
     const step = el("button", "link", `Step ${(index + 1).toLocaleString()} in the player`);
     step.addEventListener("click", () => this.hooks.onStep(index));
     this.caption.replaceChildren(...lines, " ", step);
+    if (pixel) {
+      const [start, end] = m.bitsToFile(s[4], s[5]);
+      this.caption.append(" · ", bytesLink(() => this.hooks.showBytes(start, end)));
+    }
   }
 
   private context(): CanvasRenderingContext2D | null {
@@ -257,6 +284,7 @@ export class PictureView {
   }
 
   private clear(): void {
+    this.shown = "";
     const o = this.overlay;
     o?.getContext("2d")?.clearRect(0, 0, o.width, o.height);
     if (this.caption && this.m) this.caption.textContent = "Point at a pixel, or tap it, to see the bytes it came from.";
