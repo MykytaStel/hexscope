@@ -7,6 +7,7 @@
 // to see the bytes that draw it, point at a byte to see its block — lights
 // the picture by what each part costs, and, for several scans, shows the
 // picture as it stands after each one.
+import { buildUp } from "./buildup";
 import type { FileModel } from "./model";
 
 export interface BlockHooks {
@@ -24,8 +25,6 @@ const MAX_HEIGHT = 420;
 const MAX_SIDE = 1600;
 /** The smallest a marked block is drawn, in screen pixels, so it can be found in a large photo. */
 const MIN_MARK = 8;
-/** Between scans when the build-up plays. */
-const PLAY_MS = 700;
 const HINT = "Point at the picture, or tap it, to see the bytes that draw it.";
 /** Numbers before each scan's starts in the core's map. */
 const SCAN_HEADER = 12;
@@ -197,7 +196,6 @@ export class BlockView {
   private drawn = 0;
   private drawingFor: FileModel | null = null;
   private wanted = 0;
-  private playing = 0;
 
   constructor(private readonly hooks: BlockHooks) {}
 
@@ -212,7 +210,6 @@ export class BlockView {
     this.scan = 0;
     this.drawn = 0;
     this.wanted = 0;
-    clearTimeout(this.playing);
     const f = m.file;
     if (f.format !== "jpeg" || !f.dimensions) return null;
     const [w, h] = f.dimensions;
@@ -334,73 +331,24 @@ export class BlockView {
       `${s.unitWidth}×${s.unitHeight} pixels, written in ${plural(cost, "bit")}.`;
   }
 
-  /** The slider that shows the picture after each scan, and a button that plays it. */
+  /** The picture after each scan. */
   private buildUp(host: HTMLElement, b: Blocks): void {
     const m = this.m;
     if (!m) return;
     const n = b.scans.length;
-    const label = el("label", "buildup-label");
-    const range = el("input");
-    range.type = "range";
-    range.min = "1";
-    range.max = String(n);
-    range.value = String(n);
-    range.setAttribute("aria-label", "Scans shown");
-    const says = el("span", "buildup-says");
-    const play = el("button", "btn btn-small", "Play");
-    const set = (k: number) => {
-      range.value = String(k);
-      const bytes = k === n ? m.bytes.length : b.scans[k - 1].end;
-      const share = Math.round((bytes / m.bytes.length) * 100);
-      says.textContent =
+    const end = (k: number) => (k === n ? m.bytes.length : b.scans[k - 1].end);
+    buildUp(host, {
+      intro: b.progressive
+        ? "This JPEG is progressive: it arrives blurry, then sharpens, scan by scan. See it build up:"
+        : "This JPEG comes in one scan per colour. See it build up:",
+      count: n,
+      show: (k) => void this.draw(m, k === n ? 0 : end(k)),
+      says: (k) =>
         k === n
           ? `All ${n} scans: the whole picture.`
-          : `After scan ${k} of ${n} (${describe(b.scans[k - 1], b.components, b.progressive)}): ${share}% of the file.`;
-      void this.draw(m, k === n ? 0 : bytes);
-    };
-    range.addEventListener("input", () => {
-      clearTimeout(this.playing);
-      this.playing = 0;
-      play.textContent = "Play";
-      set(Number(range.value));
+          : `After scan ${k} of ${n} (${describe(b.scans[k - 1], b.components, b.progressive)}): ` +
+            `${Math.round((end(k) / m.bytes.length) * 100)}% of the file.`,
     });
-    play.addEventListener("click", () => {
-      if (this.playing) {
-        clearTimeout(this.playing);
-        this.playing = 0;
-        play.textContent = "Play";
-        return;
-      }
-      play.textContent = "Stop";
-      let k = 1;
-      const step = () => {
-        if (this.m !== m) return;
-        set(k);
-        if (k === n) {
-          this.playing = 0;
-          play.textContent = "Play";
-          return;
-        }
-        k++;
-        this.playing = window.setTimeout(step, PLAY_MS);
-      };
-      step();
-    });
-    label.append(range);
-    host.append(
-      el(
-        "p",
-        "hint",
-        b.progressive
-          ? "This JPEG is progressive: it arrives blurry, then sharpens, scan by scan. See it build up:"
-          : "This JPEG comes in one scan per colour. See it build up:",
-      ),
-      label,
-      play,
-      says,
-    );
-    set(n);
-    host.hidden = false;
   }
 
   /**

@@ -4,6 +4,7 @@
 // that chain both ways: point at a pixel to see the step and the file bytes
 // behind it, point at a byte of IDAT to see which pixels it became.
 import { BlockView, bytesLink } from "./blocks";
+import { buildUp } from "./buildup";
 import type { FileModel } from "./model";
 
 /** Numbers per located step: index, kind, a, b, bitStart, bitEnd, outStart. */
@@ -25,11 +26,25 @@ const FILTERS = ["None", "Sub", "Up", "Average", "Paeth"];
 const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 /** The tallest the picture is shown, in CSS pixels. */
 const MAX_HEIGHT = 420;
-/** Rectangles drawn for one range at most: a huge copy is outlined, not tiled. */
+/** Rows drawn for one range at most: a huge copy is outlined, not tiled. */
 const MAX_RECTS = 4096;
+/** Single pixels drawn for one range of an interlaced picture at most. */
+const MAX_DOTS = 100_000;
+/** The picture's grain after each Adam7 pass: every pixel stands for a cell this size. */
+const CELL: [number, number][] = [
+  [8, 8],
+  [4, 8],
+  [4, 4],
+  [2, 4],
+  [2, 2],
+  [1, 2],
+  [1, 1],
+];
 
 const hex = (n: number) => `0x${n.toString(16).toUpperCase().padStart(2, "0")}`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+/** A share as a percentage; under 1%, with a decimal. */
+const pct = (f: number) => (f < 0.01 ? `${(f * 100).toFixed(1)}%` : `${Math.round(f * 100)}%`);
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -38,42 +53,120 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+/**
+ * One stored picture: the whole image, or one of an interlaced image's seven
+ * Adam7 passes, which holds every `dx`-th pixel of every `dy`-th row from
+ * (`x0`, `y0`) and is filtered as a picture of its own (PNG §8.2).
+ */
+export interface Pass {
+  /** 1 to 7 for an Adam7 pass, 0 for a picture that is not interlaced. */
+  number: number;
+  x0: number;
+  y0: number;
+  dx: number;
+  dy: number;
+  width: number;
+  height: number;
+  /** Bytes per scanline, filter byte included. */
+  row: number;
+  /** Where its first filter byte is in the decompressed data. */
+  start: number;
+  /** How many rows are stored before its first: an index into the row filters. */
+  first: number;
+}
+
 /** Image geometry, from IHDR. */
 export interface Geometry {
   width: number;
   height: number;
   /** Bits per pixel. */
   bpp: number;
-  /** Bytes per scanline, filter byte included. */
-  row: number;
+  /** The passes with pixels, in the order they are stored; one when not interlaced. */
+  passes: Pass[];
+  interlaced: boolean;
 }
 
-/** A PNG's geometry from its IHDR numbers [width, height, depth, colour type, …]. */
+/** Where each Adam7 pass starts on the 8×8 grid, and its steps, across and down. */
+const ADAM7: [number, number, number, number][] = [
+  [0, 0, 8, 8],
+  [4, 0, 8, 8],
+  [0, 4, 4, 8],
+  [2, 0, 4, 4],
+  [0, 2, 2, 4],
+  [1, 0, 2, 2],
+  [0, 1, 1, 2],
+];
+
+/** A PNG's geometry from its IHDR numbers [width, height, depth, colour type, interlace]. */
 export function geometry(ihdr: number[]): Geometry {
-  const [width, height, depth, color] = ihdr;
+  const [width, height, depth, color, interlace] = ihdr;
   const bpp = (CHANNELS[color] ?? 1) * depth;
-  return { width, height, bpp, row: Math.ceil((width * bpp) / 8) + 1 };
+  const rowOf = (w: number) => Math.ceil((w * bpp) / 8) + 1;
+  const interlaced = interlace === 1;
+  const passes: Pass[] = [];
+  if (!interlaced) {
+    passes.push({ number: 0, x0: 0, y0: 0, dx: 1, dy: 1, width, height, row: rowOf(width), start: 0, first: 0 });
+  } else {
+    let start = 0;
+    let first = 0;
+    ADAM7.forEach(([x0, y0, dx, dy], i) => {
+      const w = Math.max(0, Math.ceil((width - x0) / dx));
+      const h = Math.max(0, Math.ceil((height - y0) / dy));
+      // A pass with no pixels has no bytes, not even filter bytes.
+      if (!w || !h) return;
+      passes.push({ number: i + 1, x0, y0, dx, dy, width: w, height: h, row: rowOf(w), start, first });
+      start += rowOf(w) * h;
+      first += h;
+    });
+  }
+  return { width, height, bpp, passes, interlaced };
+}
+
+/** The pass pixel (x, y) is stored in, and its column and row there. */
+export function passOf(g: Geometry, x: number, y: number): [Pass, number, number] {
+  for (const p of g.passes) {
+    if (x >= p.x0 && y >= p.y0 && (x - p.x0) % p.dx === 0 && (y - p.y0) % p.dy === 0) {
+      return [p, (x - p.x0) / p.dx, (y - p.y0) / p.dy];
+    }
+  }
+  return [g.passes[0], x, y];
+}
+
+/** The pass decompressed byte `offset` is in, and its row there. */
+function passAt(g: Geometry, offset: number): [Pass, number] {
+  let p = g.passes[0];
+  for (const q of g.passes) if (q.start <= offset) p = q;
+  return [p, Math.min(p.height - 1, Math.floor((offset - p.start) / p.row))];
 }
 
 /** The decompressed byte where pixel (x, y) begins. */
 export function pixelOffset(g: Geometry, x: number, y: number): number {
-  return y * g.row + 1 + Math.floor((x * g.bpp) / 8);
+  const [p, c, r] = passOf(g, x, y);
+  return p.start + r * p.row + 1 + Math.floor((c * g.bpp) / 8);
 }
 
-/** The pixels decompressed bytes `[start, end)` fall on, as [x, y, width] runs, one per row. */
-export function runs(g: Geometry, start: number, end: number): [number, number, number][] {
-  const out: [number, number, number][] = [];
-  if (end <= start) return out;
-  const first = Math.floor(start / g.row);
-  const last = Math.min(g.height - 1, Math.floor((end - 1) / g.row));
-  for (let y = first; y <= last && out.length < MAX_RECTS; y++) {
-    const from = y === first ? start % g.row : 0;
-    const to = y === last ? (end - 1) % g.row : g.row - 1;
-    // Column 0 is the filter byte: it belongs to the row, not a pixel.
-    if (to < 1) continue;
-    const x0 = Math.floor(((Math.max(from, 1) - 1) * 8) / g.bpp);
-    const x1 = Math.min(g.width - 1, Math.floor(((to - 1) * 8 + 7) / g.bpp));
-    out.push([x0, y, x1 - x0 + 1]);
+/**
+ * The pixels decompressed bytes `[start, end)` fall on, as [x, y, count,
+ * step] runs, one per stored row: `count` pixels from (x, y), `step` apart.
+ */
+export function runs(g: Geometry, start: number, end: number): [number, number, number, number][] {
+  const out: [number, number, number, number][] = [];
+  for (const p of g.passes) {
+    const pEnd = p.start + p.row * p.height;
+    const from = Math.max(start, p.start) - p.start;
+    const to = Math.min(end, pEnd) - p.start;
+    if (to <= from) continue;
+    const first = Math.floor(from / p.row);
+    const last = Math.min(p.height - 1, Math.floor((to - 1) / p.row));
+    for (let r = first; r <= last && out.length < MAX_RECTS; r++) {
+      const a = r === first ? from % p.row : 0;
+      const b = r === last ? (to - 1) % p.row : p.row - 1;
+      // Column 0 is the filter byte: it belongs to the row, not a pixel.
+      if (b < 1) continue;
+      const c0 = Math.floor(((Math.max(a, 1) - 1) * 8) / g.bpp);
+      const c1 = Math.min(p.width - 1, Math.floor(((b - 1) * 8 + 7) / g.bpp));
+      out.push([p.x0 + c0 * p.dx, p.y0 + r * p.dy, c1 - c0 + 1, p.dx]);
+    }
   }
   return out;
 }
@@ -110,10 +203,7 @@ export class PictureView {
     const group = el("div", "group picture");
     group.append(el("h3", undefined, "Picture"));
     if (!f.preview) {
-      const why = f.ihdr[4]
-        ? "Interlaced: its pixels are stored in seven passes, which this view does not follow yet."
-        : "No pixels to show: the image data could not be decoded.";
-      group.append(el("p", "hint", why));
+      group.append(el("p", "hint", "No pixels to show: the image data could not be decoded."));
       return group;
     }
     this.g = geometry(f.ihdr);
@@ -165,8 +255,59 @@ export class PictureView {
       this.clear();
       this.hooks.onBytes(-1, -1);
     });
-    group.append(frame, this.caption);
+    group.append(frame);
+    if (this.g.interlaced) {
+      const host = el("div", "buildup");
+      group.append(host);
+      this.buildUp(host, m, canvas);
+    }
+    group.append(this.caption);
     return group;
+  }
+
+  /** An interlaced picture after each pass: coarse first, then filled in. */
+  private buildUp(host: HTMLElement, m: FileModel, canvas: HTMLCanvasElement): void {
+    const g = this.g;
+    const preview = m.file.preview;
+    const ctx = canvas.getContext("2d");
+    if (!g || !preview || !ctx) return;
+    const { width: pw, height: ph, pixels } = preview;
+    const n = g.passes.length;
+    const total = g.width * g.height;
+    buildUp(host, {
+      intro: "This PNG is interlaced (Adam7): its pixels are stored in seven passes, a coarse picture first, then filled in. See it build up:",
+      count: n,
+      show: (k) => {
+        // Each pixel shows the one in the passes so far that stands for it:
+        // the top-left of its cell. The preview may be scaled, so its pixels
+        // are looked up by where they sit in the picture.
+        const [cw, ch] = CELL[g.passes[k - 1].number - 1];
+        const out = new Uint8ClampedArray(pw * ph * 4);
+        for (let py = 0; py < ph; py++) {
+          const y = Math.floor((py * g.height) / ph);
+          const qy = Math.min(ph - 1, Math.floor(((y - (y % ch)) * ph) / g.height));
+          for (let px = 0; px < pw; px++) {
+            const x = Math.floor((px * g.width) / pw);
+            const qx = Math.min(pw - 1, Math.floor(((x - (x % cw)) * pw) / g.width));
+            const from = (qy * pw + qx) * 4;
+            out.set(pixels.subarray(from, from + 4), (py * pw + px) * 4);
+          }
+        }
+        ctx.putImageData(new ImageData(out, pw, ph), 0, 0);
+      },
+      says: async (k) => {
+        const p = g.passes[k - 1];
+        const pixelsSoFar = g.passes.slice(0, k).reduce((sum, q) => sum + q.width * q.height, 0);
+        const what = k === n ? `All ${n} passes: the whole picture` : `After pass ${p.number} of 7: ${pct(pixelsSoFar / total)} of the pixels`;
+        if (k === n) return `${what}.`;
+        // How much of the file those pixels took: the step that wrote the
+        // pass's last byte, and where its bits end.
+        const s = await this.hooks.locate(0, p.start + p.row * p.height - 1);
+        if (s.length !== 7) return `${what}.`;
+        const [, end] = m.bitsToFile(s[4], s[5]);
+        return `${what}, ${pct(end / m.bytes.length)} of the file.`;
+      },
+    });
   }
 
   /** From the hex view: the pixels a byte of the file became. */
@@ -246,18 +387,30 @@ export class PictureView {
     }
 
     const lines: (string | Node)[] = [];
+    const [pass, passRow] = passAt(g, outStart);
     if (pixel) {
-      const y = pixel[1];
-      const filter = m.file.rowFilters[y];
-      lines.push(`Pixel ${pixel[0]}, ${y} · row ${y} filtered with ${FILTERS[filter] ?? `type ${filter}`}. `);
+      const [p, , r] = passOf(g, pixel[0], pixel[1]);
+      const filter = m.file.rowFilters[p.first + r];
+      const where = g.interlaced ? `pass ${p.number} of 7, its row ${r}` : `row ${r}`;
+      lines.push(`Pixel ${pixel[0]}, ${pixel[1]} · ${where} filtered with ${FILTERS[filter] ?? `type ${filter}`}. `);
     } else {
-      const first = Math.floor(outStart / g.row);
-      lines.push(`These bits wrote ${plural(len, "byte")} of row ${first}${len > g.row ? " and on" : ""}. `);
+      const where = g.interlaced ? `pass ${pass.number}, row ${passRow}` : `row ${passRow}`;
+      lines.push(`These bits wrote ${plural(len, "byte")} of ${where}${len > pass.row ? " and on" : ""}. `);
     }
     if (kind === 1) {
       lines.push(`Its byte, ${hex(a)}, is a literal: spelled out in the file's bits.`);
     } else {
-      const rows = a % g.row === 0 ? ` — exactly ${plural(a / g.row, "row")} up` : a < g.row ? " on the same row" : "";
+      // Where the copy comes from, said only when it is in the same pass.
+      const from = outStart - a;
+      const up = g.interlaced ? " in its pass" : "";
+      const rows =
+        from < pass.start
+          ? ""
+          : a % pass.row === 0
+            ? ` — exactly ${plural(a / pass.row, "row")} up${up}`
+            : Math.floor((from - pass.start) / pass.row) === passRow
+              ? " on the same row"
+              : "";
       lines.push(`It was copied: ${plural(len, "byte")} from ${a.toLocaleString()} back${rows}, shown in blue.`);
     }
     // The player counts steps from 1.
@@ -298,9 +451,17 @@ export class PictureView {
     const sx = o.width / g.width;
     const sy = o.height / g.height;
     ctx.fillStyle = colour;
-    for (const [x, y, w] of runs(g, start, end)) {
+    let dots = 0;
+    for (const [x, y, count, step] of runs(g, start, end)) {
       // At least one screen pixel, so a copy inside a large picture still shows.
-      ctx.fillRect(x * sx, y * sy, Math.max(1, w * sx), Math.max(1, sy));
+      if (step === 1) {
+        ctx.fillRect(x * sx, y * sy, Math.max(1, count * sx), Math.max(1, sy));
+        continue;
+      }
+      // A pass's pixels are spread out: each is drawn where it is.
+      for (let i = 0; i < count && dots < MAX_DOTS; i++, dots++) {
+        ctx.fillRect((x + i * step) * sx, y * sy, Math.max(1, sx), Math.max(1, sy));
+      }
     }
   }
 }

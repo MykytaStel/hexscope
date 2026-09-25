@@ -342,11 +342,12 @@ impl Parsed {
         self.preview.as_ref().map_or(Vec::new(), |p| p.2.clone())
     }
 
-    /// Each scanline's filter type, 0 to 4, for a PNG that is not
-    /// interlaced; empty otherwise. Rows past a decoding failure are absent.
+    /// Each scanline's filter type, 0 to 4, in the order they are stored:
+    /// top to bottom, or for an interlaced PNG pass by pass. Rows past a
+    /// decoding failure are absent.
     #[wasm_bindgen(getter, js_name = rowFilters)]
     pub fn row_filters(&self) -> Vec<u8> {
-        let Some([w, h, depth, color, 0]) = self.ihdr else {
+        let Some([w, h, depth, color, interlace @ (0 | 1)]) = self.ihdr else {
             return Vec::new();
         };
         let ihdr = hexscope_core::png::fields::Ihdr {
@@ -354,16 +355,28 @@ impl Parsed {
             height: h,
             bit_depth: depth as u8,
             color_type: color as u8,
-            interlace: 0,
+            interlace: interlace as u8,
         };
-        let Some(row) = ihdr.stride().and_then(|s| s.checked_add(1)) else {
-            return Vec::new();
+        // Each pass's rows: where the first starts, its length, how many.
+        let rows: Vec<(usize, usize, usize)> = if interlace == 1 {
+            let Some(passes) = hexscope_core::png::adam7::passes(&ihdr) else {
+                return Vec::new();
+            };
+            passes
+                .iter()
+                .filter(|p| p.width > 0 && p.height > 0)
+                .map(|p| (p.start, p.stride + 1, p.height as usize))
+                .collect()
+        } else {
+            let Some(row) = ihdr.stride().and_then(|s| s.checked_add(1)) else {
+                return Vec::new();
+            };
+            vec![(0, row, h as usize)]
         };
-        self.output
-            .iter()
-            .step_by(row)
-            .take(h as usize)
-            .copied()
+        rows.iter()
+            .flat_map(|&(start, row, n)| {
+                (0..n).map_while(move |r| self.output.get(start + r * row).copied())
+            })
             .collect()
     }
 
@@ -1381,6 +1394,21 @@ mod tests {
         assert_eq!(parsed.blocks_note(), "");
         assert_eq!(parsed.block_map(), map, "found once, then kept");
         assert!(parse(b"\x89PNG\r\n\x1a\n").block_map().is_empty());
+    }
+
+    #[test]
+    fn an_interlaced_png_has_a_picture_and_every_pass_row_filter() {
+        let png = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../hexscope-core/tests/fixtures/pngsuite/basi0g08.png"),
+        )
+        .unwrap();
+        let parsed = parse(&png);
+        assert_eq!(parsed.preview_size(), vec![32, 32]);
+        // 32 × 32 in seven passes: 4, 4, 4, 8, 8, 16 and 16 rows.
+        let filters = parsed.row_filters();
+        assert_eq!(filters.len(), 60);
+        assert!(filters.iter().all(|&f| f <= 4));
     }
 
     #[test]
