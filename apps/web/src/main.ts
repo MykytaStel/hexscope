@@ -40,6 +40,10 @@ const picture = new PictureView({
     const r = await call({ type: "locate", by, pos });
     return r.type === "located" ? r.step : new Float64Array(0);
   },
+  blocks: async () => {
+    const r = await call({ type: "blocks" });
+    return r.type === "blocks" ? { map: r.map, note: r.note } : { map: new Float64Array(0), note: "" };
+  },
   // The player owns the mark while it plays.
   onBytes: (start, end) => {
     if (document.body.classList.contains("is-playing")) return;

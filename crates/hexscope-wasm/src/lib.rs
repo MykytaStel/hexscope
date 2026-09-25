@@ -89,6 +89,8 @@ pub struct Parsed {
     blocks: Option<Vec<f64>>,
     /// Why the blocks were not found, or stop short.
     blocks_note: String,
+    /// A photo's EXIF orientation, 1 to 8; 1 when it has none.
+    orientation: u16,
 }
 
 /// The preview's longer side, in pixels: sharp on a 2× screen at the width
@@ -235,6 +237,13 @@ impl Parsed {
     #[wasm_bindgen(getter)]
     pub fn format(&self) -> String {
         self.format.to_string()
+    }
+
+    /// A photo's EXIF orientation, 1 to 8: how to turn the stored picture
+    /// to show it the right way up. 1 when it says nothing.
+    #[wasm_bindgen(getter)]
+    pub fn orientation(&self) -> u16 {
+        self.orientation
     }
 
     /// `[width, height]`, or empty when the file does not say.
@@ -753,6 +762,11 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "jpeg";
             parsed.source = bytes.to_vec();
+            parsed.orientation = doc
+                .facts
+                .orientation
+                .filter(|o| (1..=8).contains(o))
+                .unwrap_or(1);
             parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w as u32, h as u32]);
             add_facts(&mut parsed, &doc.facts);
             parsed
@@ -1029,6 +1043,7 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         source: Vec::new(),
         blocks: None,
         blocks_note: String::new(),
+        orientation: 1,
     }
 }
 
@@ -1344,6 +1359,21 @@ mod tests {
         assert_eq!(parsed.blocks_note(), "");
         assert_eq!(parsed.block_map(), map, "found once, then kept");
         assert!(parse(b"\x89PNG\r\n\x1a\n").block_map().is_empty());
+    }
+
+    #[test]
+    fn a_photo_says_which_way_up_it_is() {
+        let mut photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        assert_eq!(parse(&photo).orientation(), 1);
+        // Its Orientation entry, turned to "rotate 90° clockwise".
+        let entry: &[u8] = &[0x01, 0x12, 0x00, 0x03, 0, 0, 0, 1, 0, 1];
+        let at = photo.windows(entry.len()).position(|w| w == entry).unwrap();
+        photo[at + 9] = 6;
+        assert_eq!(parse(&photo).orientation(), 6);
+        assert_eq!(parse(b"\x89PNG\r\n\x1a\n").orientation(), 1);
     }
 
     #[test]

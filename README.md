@@ -104,6 +104,13 @@ often exactly one row up — marks the file bytes that hold that step, and
 shows the copy's source in the picture. Point at a byte of IDAT and the
 pixels it became light up. One click opens that step in the DEFLATE player.
 
+A JPEG has no bytes per pixel: its picture is cut into blocks, usually 16×16
+pixels, each written as a run of Huffman-coded bits. hexscope reads the scan
+to find where each block begins, so pointing at the photo marks the bytes
+that draw that block and says how many bits it took; pointing at a byte of
+the scan outlines its block. **Where the bits go** lights the photo by what
+each block costs: detail and noise take bits, a clear sky almost none.
+
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
 Hover a tree row and its bytes light up. Click to pin.
@@ -178,7 +185,8 @@ them in small batches, and the decoder resumes from the nearest checkpoint.
 
 - **`crates/hexscope-core`** — the parsers, in Rust with no runtime
   dependencies: PNG with its own DEFLATE decoder, written to be paused and
-  resumed one step at a time; JPEG segments; EXIF in either byte order; and a
+  resumed one step at a time; JPEG segments, and a Huffman scan reader that
+  finds each block's bits without decoding pixels; EXIF in either byte order; and a
   dispatcher that recognises the format. A reference DEFLATE implementation is
   used only in tests, to check ours.
 - **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree
@@ -285,7 +293,8 @@ npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
 3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
    recursion into nested files. *Done.*
 4. **WebAssembly binaries.**
-5. **Full JPEG decoding.**
+5. **JPEG blocks** — which bytes draw which part of a photo. *Done for
+   sequential JPEGs; progressive ones next.*
 
 No analytics, ever. A tool people use to look at suspicious files has no
 business watching them.

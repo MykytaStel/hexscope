@@ -147,6 +147,26 @@ proptest! {
     }
 
     #[test]
+    fn a_damaged_jpeg_scan_is_survivable(
+        edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16),
+        cut in any::<usize>(),
+    ) {
+        // Damage lands in the headers, the tables and the scan alike; a map
+        // made at all points only into the file, and in order.
+        let mut bytes = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/photo.jpg")).unwrap();
+        let len = bytes.len();
+        for (at, b) in edits {
+            bytes[at % len] = b;
+        }
+        bytes.truncate(cut % (len + 1));
+        if let Ok(m) = hexscope_core::jpeg::blocks::block_map(&bytes) {
+            prop_assert!(m.starts.len() <= (m.columns * m.rows) as usize + 1);
+            prop_assert!(m.starts.windows(2).all(|w| w[0] <= w[1]));
+            prop_assert!(m.starts.iter().all(|&s| s <= bytes.len() as u64 * 8));
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

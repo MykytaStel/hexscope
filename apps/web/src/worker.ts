@@ -65,6 +65,7 @@ function describe(parsed: Parsed): ParsedFile {
     entropyWindow: 0,
     format: parsed.format as ParsedFile["format"],
     dimensions: null,
+    orientation: parsed.orientation,
     facts: [],
     location: null,
     parseMs: 0,
