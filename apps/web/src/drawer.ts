@@ -285,6 +285,7 @@ export class Drawer {
       jpeg: "What this photo reveals",
       heif: "What this photo reveals",
       png: "What this image reveals",
+      video: "What this video reveals",
     };
     group.append(el("h3", undefined, heading[f.format] ?? "What this document reveals"));
     if (!f.location && f.facts.length === 0) {
@@ -297,7 +298,9 @@ export class Drawer {
           ? "No document information or XMP: nothing about who wrote it, with what, or when."
           : removable
             ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
-            : "No EXIF metadata: nothing about the camera, the time or the place.";
+            : f.format === "video"
+              ? "No location, camera or software in its metadata."
+              : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
       if (removable) group.append(this.cleaner(f.format));
       return group;
@@ -363,6 +366,8 @@ export class Drawer {
       zip: "Removes the document's properties. Comments and tracked changes inside the text keep their authors.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
+      video:
+        "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte.",
     };
     const note =
@@ -382,7 +387,8 @@ export class Drawer {
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
-        li.append(el("span", undefined, item.what), el("span", "clean-size", formatBytes(item.bytes)));
+        const what = item.what.charAt(0).toUpperCase() + item.what.slice(1);
+        li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
         ul.append(li);
       }
       box.append(ul);

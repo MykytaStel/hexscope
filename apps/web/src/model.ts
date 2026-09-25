@@ -34,7 +34,7 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
-  format: "png" | "jpeg" | "heif" | "pdf" | "zip" | "unknown";
+  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */
@@ -138,8 +138,8 @@ function zipTint(label: string): Tint {
   return "text";
 }
 
-/** A HEIF's boxes: the file type, the metadata box, the media data. */
-const BOX_TINTS: Record<string, Tint> = { ftyp: "sig", meta: "ihdr", mdat: "idat" };
+/** A HEIF's or a movie's boxes: the file type, the metadata or movie box, the media data. */
+const BOX_TINTS: Record<string, Tint> = { ftyp: "sig", meta: "ihdr", moov: "ihdr", mdat: "idat" };
 
 function boxTint(label: string): Tint {
   return BOX_TINTS[label] ?? "anc";
@@ -165,6 +165,11 @@ function pdfTint(label: string, value: string): Tint | null {
     return "idat";
   }
   return "plte";
+}
+
+/** A movie's metadata: user data, the metadata box, and the items in them. */
+function isVideoMetadata(label: string): boolean {
+  return label === "udta" || label === "loci" || label.startsWith("©") || label.startsWith("com.apple.");
 }
 
 function chunkTint(label: string): Tint {
@@ -250,7 +255,7 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
-    const topTint = file.format === "zip" ? zipTint : file.format === "heif" ? boxTint : chunkTint;
+    const topTint = file.format === "zip" ? zipTint : file.format === "heif" || file.format === "video" ? boxTint : chunkTint;
     for (let i = 0; i < n; i++) {
       const kind = kinds[i];
       const p = parents[i];
@@ -259,6 +264,7 @@ export class FileModel {
       else if (file.labels[i].startsWith("GPS") || (p > 0 && this.tints[p] === "gps")) this.tints[i] = "gps";
       else if (i === 0) this.tints[i] = "anc";
       else if (file.format === "heif" && isHeifMetadata(file.labels[i])) this.tints[i] = "text";
+      else if (file.format === "video" && isVideoMetadata(file.labels[i])) this.tints[i] = "text";
       else if (file.format === "pdf") this.tints[i] = pdfTint(file.labels[i], file.values[i]) ?? (p > 0 ? this.tints[p] : "anc");
       else if (p === 0) this.tints[i] = topTint(file.labels[i]);
       else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? topTint(file.labels[this.top[i]]) : this.tints[p];

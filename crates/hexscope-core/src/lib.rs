@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bits;
+mod bmff;
 pub mod clean;
 pub mod crc32;
 pub mod crypto;
@@ -15,6 +16,7 @@ pub mod model;
 pub mod pdf;
 pub mod png;
 pub mod reader;
+pub mod video;
 pub mod zip;
 
 pub use document::{Document, Format, parse};

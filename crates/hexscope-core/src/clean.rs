@@ -11,6 +11,7 @@ use crate::heif::HeifDocument;
 use crate::jpeg::JpegDocument;
 use crate::model::{ByteRange, NodeKind};
 use crate::png::PngDocument;
+use crate::video::{Scrub, VideoDocument};
 use crate::zip::ZipDocument;
 
 /// The copy, and what was taken out of it.
@@ -65,7 +66,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC and AVIF images, PDFs and Office documents only"
+                "hexscope cleans PNG, JPEG, HEIC and AVIF images, MP4 and QuickTime videos, PDFs and Office documents only"
             }
         }
     }
@@ -78,6 +79,7 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Zip(doc) => clean_zip(data, &doc),
         Document::Pdf(_) => crate::pdf::clean::clean_pdf(data),
+        Document::Video(doc) => clean_video(data, &doc),
         _ => Err(CleanError::Unsupported),
     }
 }
@@ -313,6 +315,65 @@ fn clean_png(data: &[u8], doc: &PngDocument) -> Result<Cleaned, CleanError> {
         bytes: out,
         removed,
         orientation_kept: orientation,
+    })
+}
+
+// --- MP4 and QuickTime --------------------------------------------------------
+
+/// A movie's chunks are found by absolute offset, so the copy changes bytes
+/// in place: each box that describes becomes a `free` box of the same size
+/// with nothing in it, and the times in the headers become zero.
+fn clean_video(data: &[u8], doc: &VideoDocument) -> Result<Cleaned, CleanError> {
+    if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    if doc.scrub.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut out = data.to_vec();
+    let mut removed: Vec<Removed> = Vec::new();
+    for s in &doc.scrub {
+        let (what, bytes) = match *s {
+            Scrub::Free {
+                at,
+                len,
+                header,
+                what,
+            } => {
+                let (at, len, header) = (at as usize, len as usize, header as usize);
+                let range = out.get_mut(at..at + len).ok_or(CleanError::Damaged)?;
+                if len < header {
+                    return Err(CleanError::Damaged);
+                }
+                range[4..8].copy_from_slice(b"free");
+                range[header..].fill(0);
+                (what, len as u64)
+            }
+            Scrub::Zero { range, what } => {
+                let r = out
+                    .get_mut(range.start as usize..range.end() as usize)
+                    .ok_or(CleanError::Damaged)?;
+                r.fill(0);
+                (what, range.len)
+            }
+        };
+        match removed.iter_mut().find(|r| r.what == what) {
+            Some(r) => r.bytes += bytes,
+            None => removed.push(Removed {
+                what: what.into(),
+                bytes,
+            }),
+        }
+    }
+    // The place first: it is what people most need gone.
+    if let Some(i) = removed.iter().position(|r| r.what == "the location") {
+        let place = removed.remove(i);
+        removed.insert(0, place);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
     })
 }
 

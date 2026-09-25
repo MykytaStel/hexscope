@@ -723,6 +723,13 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Video(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "video";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
         Document::Pdf(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "pdf";
@@ -1278,6 +1285,22 @@ mod tests {
         }
         assert!(parsed.locate(0, 1e9).is_empty());
         assert!(parsed.locate(1, f64::NAN).is_empty());
+    }
+
+    #[test]
+    fn a_video_says_where_it_was_recorded() {
+        let mov = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../hexscope-core/tests/fixtures/iphone.mov"),
+        )
+        .unwrap();
+        let parsed = parse(&mov);
+        assert_eq!(parsed.format(), "video");
+        assert_eq!(parsed.dimensions(), vec![64, 48]);
+        assert_eq!(parsed.location().len(), 4);
+        let c = clean_copy(&mov);
+        assert_eq!(c.error(), "");
+        assert!(parse(&c.bytes()).location().is_empty());
     }
 
     #[test]

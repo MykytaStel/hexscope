@@ -50,9 +50,12 @@ cannot hold comfortably. Opened files nest at most four deep.
 and the byte view drops to 8 bytes per row, so it works on a phone, but hover
 is the main way to explore and touch has none.
 
-**WebAssembly size.** About 191 KB gzipped, grown from 58 KB as ZIP, the
+**WebAssembly size.** About 197 KB gzipped, grown from 58 KB as ZIP, the
 explanations, the file map, the clean copy, HEIF (17 KB), PDF (29 KB), PNG
-metadata (14 KB) and PDF decryption (11 KB) arrived. The explanations'
+metadata (14 KB), PDF decryption (11 KB) and video arrived. Measured with
+`twiggy`: the biggest single part is the explanations' text; dropping the
+function-name section from the build saved 9 KB gzipped, and a small
+decimal parser in place of the standard one about 6 KB before compression. The explanations'
 text is under 10 KB of that; where the rest went has not been measured. A size-optimised Rust build saved
 under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
 10 MB PNG five to six times slower in the browser (950–1,500 ms against

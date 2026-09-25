@@ -45,6 +45,8 @@ function noun(m: FileModel): string {
       return "photo";
     case "png":
       return "image";
+    case "video":
+      return "video";
     default:
       return "document";
   }
