@@ -158,9 +158,11 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
-    // A photo always gets the card, if only to say it gives nothing away; an
-    // archive only when it is a document with properties to show.
-    if (f.format === "jpeg" || f.format === "heif" || f.facts.length > 0) this.file.append(this.reveals(m));
+    // A photo or a PDF always gets the card, if only to say it gives nothing
+    // away; an archive only when it is a document with properties to show.
+    if (f.format === "jpeg" || f.format === "heif" || f.format === "pdf" || f.facts.length > 0) {
+      this.file.append(this.reveals(m));
+    }
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -276,7 +278,11 @@ export class Drawer {
     const photo = f.format === "jpeg" || f.format === "heif" || f.format === "png";
     group.append(el("h3", undefined, photo ? "What this photo reveals" : "What this document reveals"));
     if (!f.location && f.facts.length === 0) {
-      group.append(el("p", "hint", "No EXIF metadata: nothing about the camera, the time or the place."));
+      const none =
+        f.format === "pdf"
+          ? "No document information or XMP: nothing about who wrote it, with what, or when."
+          : "No EXIF metadata: nothing about the camera, the time or the place.";
+      group.append(el("p", "hint", none));
       return group;
     }
 
@@ -305,9 +311,7 @@ export class Drawer {
       dd.append(map);
     }
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
-    group.append(list);
-    // A PDF's clean copy is not built yet; a button that only refuses would mislead.
-    if (f.format !== "pdf") group.append(this.cleaner(f.format));
+    group.append(list, this.cleaner(f.format));
     return group;
   }
 
@@ -319,6 +323,7 @@ export class Drawer {
     const notes: Record<string, string> = {
       zip: "Removes the document's properties. Comments and tracked changes inside the text keep their authors.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
+      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte.",
     };
     const note =
       notes[format] ??

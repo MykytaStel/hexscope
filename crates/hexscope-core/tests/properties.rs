@@ -120,6 +120,11 @@ proptest! {
             for n in doc.tree.nodes() {
                 prop_assert!(n.range.end() <= len as u64);
             }
+            // A copy made at all must itself read without damage.
+            if let Ok(c) = hexscope_core::clean::clean(&bytes) {
+                let copy = hexscope_core::pdf::parse_pdf(&c.bytes);
+                prop_assert!(copy.tree.nodes().iter().all(|n| n.kind != hexscope_core::NodeKind::Error));
+            }
         }
     }
 

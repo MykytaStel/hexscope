@@ -24,9 +24,6 @@ RC4 and AES, written without dependencies.
 other way are not read. Neither are predictors, so the entries of a
 cross-reference stream are not shown one by one.
 
-**A PDF's clean copy.** Not built yet: the reveals card for a PDF has no
-button.
-
 **HEIF items built from other items.** An item stored by construction
 method 2 is assembled from other items' bytes; it is named, not assembled.
 HEIF sequences (Live Photo videos, bursts) are read as boxes only.
