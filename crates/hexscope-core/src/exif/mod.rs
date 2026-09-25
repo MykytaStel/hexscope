@@ -10,6 +10,7 @@ use crate::reader::Reader;
 use tags::tag_name;
 
 pub(crate) mod docs;
+mod makernote;
 mod tags;
 
 /// IFDs followed before giving up: real files have five at most
@@ -38,6 +39,12 @@ pub struct PhotoFacts {
     pub taken: Option<Fact>,
     pub location: Option<Location>,
     pub thumbnail: Option<Fact>,
+    /// How many photos the camera had taken, from a maker's note.
+    pub shutter: Option<Fact>,
+    /// How long the phone had been on, from an iPhone's maker note.
+    pub uptime: Option<Fact>,
+    /// IDs tying the photo to its Live Photo video or its burst.
+    pub linked: Option<Fact>,
     /// IFD0's Orientation, 1 to 8: how to turn the picture upright. Not a
     /// fact about anyone, but a clean copy must keep it.
     pub orientation: Option<u16>,
@@ -55,6 +62,9 @@ impl PhotoFacts {
         self.taken = self.taken.take().or(other.taken);
         self.location = self.location.take().or(other.location);
         self.thumbnail = self.thumbnail.take().or(other.thumbnail);
+        self.shutter = self.shutter.take().or(other.shutter);
+        self.uptime = self.uptime.take().or(other.uptime);
+        self.linked = self.linked.take().or(other.linked);
         self.orientation = self.orientation.take().or(other.orientation);
     }
 }
@@ -84,6 +94,8 @@ pub(crate) enum Ifd {
     Exif,
     Gps,
     Interop,
+    /// A maker's own IFD, inside its note.
+    Maker,
 }
 
 impl Ifd {
@@ -94,6 +106,7 @@ impl Ifd {
             Ifd::Exif => "Exif IFD",
             Ifd::Gps => "GPS IFD",
             Ifd::Interop => "Interop IFD",
+            Ifd::Maker => "maker's IFD",
         }
     }
 }
@@ -328,6 +341,12 @@ struct Found {
     thumb_len: Option<u64>,
     thumbnail: Option<Fact>,
     orientation: Option<u16>,
+    /// From a maker's note.
+    maker_serial: Vec<Fact>,
+    maker_owner: Option<Fact>,
+    shutter: Option<Fact>,
+    uptime: Option<Fact>,
+    linked: Vec<(&'static str, Fact)>,
 }
 
 impl Found {
@@ -390,7 +409,49 @@ impl Found {
             }),
             (None, None) => None,
         };
-        let owner = fact(self.any_text(0xA430).or(self.any_text(0x013B)));
+        // A maker's note repeats, or adds, serial numbers; EXIF's come first.
+        let serial = match (serial, self.maker_serial.first()) {
+            (Some(s), _) => Some(s),
+            (None, Some(first)) => {
+                let mut all: Vec<&str> = Vec::new();
+                for f in &self.maker_serial {
+                    if !all.contains(&f.text.as_str()) {
+                        all.push(&f.text);
+                    }
+                }
+                Some(Fact {
+                    text: all.join(", "),
+                    node: first.node,
+                })
+            }
+            (None, None) => None,
+        };
+        let owner =
+            fact(self.any_text(0xA430).or(self.any_text(0x013B))).or(self.maker_owner.clone());
+        // A Live Photo's ID first; each ID shortened, whole in its node.
+        let live = |x: &&(&str, Fact)| x.0 == "Live Photo";
+        let ids: Vec<&(&str, Fact)> = self
+            .linked
+            .iter()
+            .filter(live)
+            .chain(self.linked.iter().filter(|x| !live(x)))
+            .collect();
+        let linked = ids.first().map(|(_, first)| Fact {
+            text: ids
+                .iter()
+                .map(|(what, f)| {
+                    let short: String = f.text.chars().take(8).collect();
+                    let more = if f.text.chars().count() > 8 {
+                        "…"
+                    } else {
+                        ""
+                    };
+                    format!("{what} {short}{more}")
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
+            node: first.node,
+        });
         let software = fact(self.any_text(0x0131));
         let taken = self
             .any_text(0x9003)
@@ -430,6 +491,9 @@ impl Found {
             taken,
             location,
             thumbnail: self.thumbnail,
+            shutter: self.shutter,
+            uptime: self.uptime,
+            linked,
             orientation: self.orientation,
         }
     }
@@ -771,6 +835,17 @@ impl Walk<'_, '_> {
                         t.range(eoff + 8, 4),
                     );
                 }
+            }
+
+            // A maker's note, in the maker's own format.
+            if (kind, e.tag) == (Ifd::Exif, 0x927C)
+                && let Some(note) = value_node
+            {
+                let make = found
+                    .text_of(Ifd::Zero, 0x010F)
+                    .map(|(m, _)| m.to_string())
+                    .unwrap_or_default();
+                makernote::parse(tree, note, t, e.value_off, e.size, &make, found);
             }
 
             let value_field = t.range(eoff + 8, 4);

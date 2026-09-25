@@ -19,9 +19,10 @@ bytes for every PNG, interlaced or not, and blocks to bytes for Huffman-coded
 JPEGs, sequential or progressive. Arithmetic-coded and lossless JPEGs, both
 rare, are not mapped.
 
-**Vendor MakerNotes.** Camera makers store extra metadata — often more serial
-numbers — in a MakerNote whose format differs per vendor. It is shown as an
-opaque byte range.
+**Other makers' notes.** Apple's, Canon's, Nikon's and Fujifilm's MakerNotes
+are read; other makers' are shown as one range. Nikon encrypts parts of its
+note (ShotInfo, LensData) with the camera's serial number and shutter count;
+those parts are named, not decrypted.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
 

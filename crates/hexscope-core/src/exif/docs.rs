@@ -25,6 +25,152 @@ const fn oddity(text: &'static str) -> Doc {
     Doc::new(text).concern(Concern::Oddity)
 }
 
+const APPLE: &str = "https://exiftool.org/TagNames/Apple.html";
+const CANON: &str = "https://exiftool.org/TagNames/Canon.html";
+const NIKON: &str = "https://exiftool.org/TagNames/Nikon.html";
+const FUJI: &str = "https://exiftool.org/TagNames/FujiFilm.html";
+
+const fn apple(text: &'static str) -> Doc {
+    Doc::new(text).cite("ExifTool, Apple tags", APPLE)
+}
+const fn canon(text: &'static str) -> Doc {
+    Doc::new(text).cite("ExifTool, Canon tags", CANON)
+}
+const fn nikon(text: &'static str) -> Doc {
+    Doc::new(text).cite("ExifTool, Nikon tags", NIKON)
+}
+const fn fuji(text: &'static str) -> Doc {
+    Doc::new(text).cite("ExifTool, Fujifilm tags", FUJI)
+}
+
+/// The makers' tags the parser names. Makers publish none of this; ExifTool
+/// is the reference every reader follows. Names EXIF also uses mean what
+/// EXIF says, and are explained there.
+pub(crate) const MAKER: Table = &[
+    (
+        "MakerNoteVersion",
+        Doc::new("The version of the maker's note format.")
+            .cite("ExifTool, Apple and Nikon tags", APPLE),
+    ),
+    (
+        "RunTime",
+        apple(
+            "How long the phone had been on when it took the photo: photos with close run times came from the same phone, between restarts.",
+        ),
+    ),
+    (
+        "AccelerationVector",
+        apple("Which way gravity pulled on the phone: how it was held."),
+    ),
+    (
+        "HDRImageType",
+        apple("Whether this is an HDR photo, or the original one taken for it."),
+    ),
+    (
+        "BurstUUID",
+        apple("An ID shared by every photo of one burst."),
+    ),
+    (
+        "FocusDistanceRange",
+        apple("How near and far the focus reached."),
+    ),
+    (
+        "OISMode",
+        apple("What the optical image stabilisation did."),
+    ),
+    (
+        "ContentIdentifier",
+        apple(
+            "The ID a Live Photo shares with its video: it ties this photo to a movie file of the same moment.",
+        ),
+    ),
+    (
+        "ImageCaptureType",
+        apple("How the photo was taken: an ordinary shot, a portrait, a scan and so on."),
+    ),
+    (
+        "ImageUniqueID",
+        apple("An ID for this photo alone, which the phone's photo library knows it by."),
+    ),
+    (
+        "LivePhotoVideoIndex",
+        apple("Where in its Live Photo video this still falls."),
+    ),
+    (
+        "CameraType",
+        apple("Which of the phone's cameras took it: wide, ultra wide, telephoto or front."),
+    ),
+    (
+        "CanonCameraSettings",
+        canon("The camera's settings for the shot, in Canon's own record."),
+    ),
+    (
+        "CanonFocalLength",
+        canon("The lens's focal length, as Canon records it."),
+    ),
+    (
+        "CanonShotInfo",
+        canon("Exposure details of the shot, in Canon's own record."),
+    ),
+    (
+        "CanonImageType",
+        canon("What the camera calls this kind of image, often with its model name."),
+    ),
+    (
+        "CanonFirmwareVersion",
+        canon("The version of the camera's software."),
+    ),
+    ("FileNumber", canon("The number the camera gave the file.")),
+    (
+        "OwnerName",
+        canon("The owner's name, as set in the camera's menu: it goes into every photo."),
+    ),
+    (
+        "SerialNumber",
+        Doc::new("The camera's serial number: every photo it takes carries it.")
+            .cite("ExifTool, Canon and Nikon tags", CANON),
+    ),
+    (
+        "CanonCameraInfo",
+        canon("More of the camera's state, in a layout that changes from model to model."),
+    ),
+    ("CanonModelID", canon("A number for the camera model.")),
+    (
+        "InternalSerialNumber",
+        Doc::new("A serial number the maker keeps for itself, often not the one on the body.")
+            .cite("ExifTool, Canon and Fujifilm tags", CANON),
+    ),
+    ("ISO", nikon("The sensitivity the camera was set to.")),
+    (
+        "Quality",
+        Doc::new("The quality setting the photo was taken at.")
+            .cite("ExifTool, Nikon and Fujifilm tags", NIKON),
+    ),
+    ("FocusMode", nikon("How the camera focused.")),
+    ("Lens", nikon("The lens's focal lengths and apertures.")),
+    (
+        "ShotInfo",
+        nikon(
+            "Details of the shot, which Nikon encrypts with the camera's serial number and shutter count.",
+        ),
+    ),
+    (
+        "LensData",
+        nikon(
+            "The lens's details, which Nikon encrypts with the camera's serial number and shutter count.",
+        ),
+    ),
+    (
+        "ShutterCount",
+        nikon(
+            "How many photos the camera had taken: a count only this camera had reached at this moment.",
+        ),
+    ),
+    ("Version", fuji("The version of Fujifilm's note format.")),
+    ("Sharpness", fuji("The sharpening setting.")),
+    ("Saturation", fuji("The colour saturation setting.")),
+];
+
 /// Every tag the parser names, by that name. A test checks the parser's tag
 /// table against this one, so a tag cannot be named without being explained.
 pub(crate) const TAGS: Table = &[
@@ -486,6 +632,16 @@ const STRUCTURE: Table = &[
         ),
     ),
     (
+        "maker header",
+        structure(
+            "The maker's signature, which says whose format the note is in, before its own directory.",
+        ),
+    ),
+    ("Apple IFD", apple("The directory of Apple's tags.")),
+    ("Canon IFD", canon("The directory of Canon's tags.")),
+    ("Nikon IFD", nikon("The directory of Nikon's tags.")),
+    ("Fujifilm IFD", fuji("The directory of Fujifilm's tags.")),
+    (
         "tag 0x*",
         structure("A tag this tool does not name, often one a camera maker added."),
     ),
@@ -529,6 +685,10 @@ const STRUCTURE: Table = &[
         oddity("There are far more directories than any camera writes, so reading stopped."),
     ),
     (
+        "the maker's IFD is outside its note",
+        oddity("The maker's directory is said to start outside its note, so the note is not read."),
+    ),
+    (
         "* points back to an IFD already read",
         oddity("A directory points back to one already read; following it would loop forever."),
     ),
@@ -540,5 +700,7 @@ pub(crate) const ALL: Table = STRUCTURE;
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     // A value stored away from its entry means what its tag means.
     let tag = label.strip_suffix(" value").unwrap_or(label);
-    lookup(TAGS, tag, problem).or_else(|| lookup(STRUCTURE, label, problem))
+    lookup(TAGS, tag, problem)
+        .or_else(|| lookup(MAKER, tag, problem))
+        .or_else(|| lookup(STRUCTURE, label, problem))
 }
