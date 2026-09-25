@@ -591,6 +591,20 @@ input {
   color: var(--faint);
 }
 
+/* --- share ------------------------------------------------------------------------ */
+
+.sharer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+
+.sharer .hint {
+  margin: 0;
+}
+
 /* --- clean copy ---------------------------------------------------------------- */
 
 .cleaner {
