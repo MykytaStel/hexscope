@@ -1,0 +1,27 @@
+name: Something is wrong
+description: A file shows wrong, fails to open, or the page misbehaves.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please do not attach private files.** hexscope never uploads them, and a public issue would.
+        Open the file in hexscope, then under its details choose **Report a problem with this file**:
+        it copies the file's layout — formats, offsets, sizes, problems — and none of its content.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Structure report
+      description: Paste it here. Check it first — file names inside an archive can appear in it.
+      render: text
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Safari on iPhone 15, iOS 20

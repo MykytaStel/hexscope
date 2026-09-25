@@ -839,6 +839,53 @@ input {
   font-size: 12px;
 }
 
+/* A bug report's structure, to read before sharing. */
+.report-link {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.report {
+  width: min(680px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.report::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.report h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.report-text {
+  width: 100%;
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: 12px/1.5 var(--mono);
+  white-space: pre;
+  resize: vertical;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
 /* Links to the bytes, where the bytes are a view away. */
 .only-narrow {
   display: none;

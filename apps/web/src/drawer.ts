@@ -1,3 +1,4 @@
+import { openReport } from "./report";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
@@ -194,6 +195,10 @@ export class Drawer {
     }
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
+    const report = el("button", "link report-link", "Report a problem with this file");
+    report.title = "Shows the file's layout, without its content, to paste into a bug report";
+    report.addEventListener("click", () => openReport(m));
+    fileGroup.append(report);
     this.file.append(fileGroup);
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.

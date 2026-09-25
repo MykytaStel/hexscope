@@ -1,0 +1,16 @@
+name: A file or a case it should handle
+description: A format, or something a file reveals, that hexscope misses.
+labels: [idea]
+body:
+  - type: textarea
+    id: case
+    attributes:
+      label: The situation
+      description: Who needs this, and when? "Before sending a CV", "checking a download that will not open".
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The kind of file
+      description: Format, and the app or device that wrote it. No private files, please.

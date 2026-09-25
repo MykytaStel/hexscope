@@ -7,6 +7,8 @@ export default defineConfig({
   // Relative asset paths so the build works from any subpath, e.g. GitHub Pages.
   base: "./",
   worker: { format: "es" },
+  // The commit a report names, so a bug can be matched to the code it met.
+  define: { __BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? "dev").slice(0, 7)) },
   build: {
     target: "es2022",
     rollupOptions: {

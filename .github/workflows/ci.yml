@@ -64,6 +64,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build (WASM, typecheck, bundle)
         run: pnpm build
+      # Every visitor downloads the parser before seeing anything: its size is
+      # a budget, raised on purpose or not at all.
+      - name: WebAssembly size budget
+        run: |
+          size=$(cat apps/web/dist/assets/*.wasm | gzip -9 | wc -c)
+          echo "::notice::WebAssembly is $size bytes gzipped, of a 256000-byte budget."
+          test "$size" -le 256000
       - uses: actions/upload-artifact@v7
         with:
           name: hexscope-site
