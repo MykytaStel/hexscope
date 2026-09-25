@@ -64,6 +64,9 @@ const FACT_LABELS: Record<string, string> = {
   encryption: "Encryption",
   updates: "Edited",
   history: "Editing history",
+  shutter: "Shutter count",
+  uptime: "Phone on for",
+  linked: "Linked shots",
   names: "Function names",
   language: "Language",
   toolchain: "Built with",
@@ -406,7 +409,7 @@ export class Drawer {
     };
     const note =
       notes[format] ??
-      "Removes the camera data, location, serial numbers, thumbnail and comments. The picture itself is copied unchanged.";
+      "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
     box.append(button, el("p", "hint", note));
     button.addEventListener("click", async () => {
       button.disabled = true;

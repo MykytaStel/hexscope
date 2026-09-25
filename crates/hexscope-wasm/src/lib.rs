@@ -980,6 +980,9 @@ fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
         ("taken", &facts.taken),
         ("software", &facts.software),
         ("thumbnail", &facts.thumbnail),
+        ("shutter", &facts.shutter),
+        ("uptime", &facts.uptime),
+        ("linked", &facts.linked),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {

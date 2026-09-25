@@ -163,10 +163,11 @@ fn every_exif_tag_is_explained() {
 
 #[test]
 fn explanations_are_one_plain_sentence_and_links_are_https() {
-    let tables: [(&str, Table); 9] = [
+    let tables: [(&str, Table); 10] = [
         ("png", crate::png::docs::ALL),
         ("exif tags", crate::exif::docs::TAGS),
         ("exif", crate::exif::docs::ALL),
+        ("maker notes", crate::exif::docs::MAKER),
         ("jpeg", crate::jpeg::docs::ALL),
         ("zip", crate::zip::docs::ALL),
         ("heif", crate::heif::docs::ALL),

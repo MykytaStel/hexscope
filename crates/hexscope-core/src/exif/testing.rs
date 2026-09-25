@@ -32,21 +32,21 @@ impl Spec {
     }
 }
 
-fn u16b(o: ByteOrder, v: u16) -> [u8; 2] {
+pub fn u16b(o: ByteOrder, v: u16) -> [u8; 2] {
     match o {
         ByteOrder::Little => v.to_le_bytes(),
         ByteOrder::Big => v.to_be_bytes(),
     }
 }
 
-fn u32b(o: ByteOrder, v: u32) -> [u8; 4] {
+pub fn u32b(o: ByteOrder, v: u32) -> [u8; 4] {
     match o {
         ByteOrder::Little => v.to_le_bytes(),
         ByteOrder::Big => v.to_be_bytes(),
     }
 }
 
-fn encode(o: ByteOrder, v: &V) -> (u16, u32, Vec<u8>) {
+pub fn encode(o: ByteOrder, v: &V) -> (u16, u32, Vec<u8>) {
     match v {
         V::Ascii(s) => {
             let mut b = s.as_bytes().to_vec();
