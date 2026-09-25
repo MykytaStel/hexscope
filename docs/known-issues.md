@@ -9,11 +9,10 @@ returns a tree, and has no runtime dependencies.
 These are features in their own right rather than defects, each worth its own
 milestone.
 
-**Pixels and bytes for other images.** The picture view maps pixels to
-bytes for PNGs that are not interlaced, and blocks to bytes for Huffman-coded
-JPEGs, sequential or progressive. An interlaced PNG stores its pixels in
-seven passes, which is not followed yet; arithmetic-coded and lossless JPEGs,
-both rare, are not mapped.
+**Arithmetic-coded and lossless JPEGs.** The picture view maps pixels to
+bytes for every PNG, interlaced or not, and blocks to bytes for Huffman-coded
+JPEGs, sequential or progressive. Arithmetic-coded and lossless JPEGs, both
+rare, are not mapped.
 
 **Vendor MakerNotes.** Camera makers store extra metadata — often more serial
 numbers — in a MakerNote whose format differs per vendor. It is shown as an

@@ -1,3 +1,4 @@
+pub mod adam7;
 pub mod chunks;
 pub(crate) mod docs;
 pub mod fields;

@@ -31,7 +31,7 @@ fn chunk_data<'a>(data: &'a [u8], doc: &PngDocument, label: &str) -> Option<&'a 
 }
 
 /// The picture scaled so its longer side is at most `max_side`, or `None`
-/// when there are no pixels to show (interlaced, damaged, or absent).
+/// when there are no pixels to show (damaged, or absent).
 pub fn preview(data: &[u8], doc: &PngDocument, max_side: u32) -> Option<Preview> {
     let ihdr = doc.ihdr?;
     let pixels = doc.pixels.as_ref()?;
@@ -187,8 +187,11 @@ mod tests {
     }
 
     #[test]
-    fn an_interlaced_picture_has_no_preview() {
-        let data = suite("basi0g08.png");
-        assert!(preview(&data, &parse_png(&data), 64).is_none());
+    fn an_interlaced_picture_looks_like_its_plain_twin() {
+        let interlaced = suite("basi2c08.png");
+        let plain = suite("basn2c08.png");
+        let a = preview(&interlaced, &parse_png(&interlaced), 64).unwrap();
+        let b = preview(&plain, &parse_png(&plain), 64).unwrap();
+        assert_eq!(a.rgba, b.rgba);
     }
 }

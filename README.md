@@ -103,6 +103,9 @@ that wrote it — a literal byte, or a copy of so many bytes from so far back,
 often exactly one row up — marks the file bytes that hold that step, and
 shows the copy's source in the picture. Point at a byte of IDAT and the
 pixels it became light up. One click opens that step in the DEFLATE player.
+An interlaced PNG stores its pixels in seven passes, a coarse picture first;
+hexscope follows each pixel to its pass, and a slider shows the picture after
+each one, with how much of the file it took.
 
 A JPEG has no bytes per pixel: its picture is cut into blocks, usually 16×16
 pixels, each written as a run of Huffman-coded bits. hexscope reads the scan

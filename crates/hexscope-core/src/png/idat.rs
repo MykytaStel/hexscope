@@ -208,10 +208,9 @@ pub(super) fn decode_pixels(
 
 /// The image's pixels, from the decompressed scanlines.
 fn unfiltered(raw: &[u8], ihdr: Ihdr, tree: &mut ParseTree, root: NodeId) -> Option<Vec<u8>> {
-    // Interlaced images use a seven-pass layout that v1 does not reassemble.
-    // That is a limit of this tool, not a problem with the file, so it adds
-    // no node: the file summary already says the image is interlaced.
-    if ihdr.interlace != 0 {
+    // An undefined interlace method is already flagged on IHDR: its rows'
+    // order is unknown, so there are no pixels to put together.
+    if ihdr.interlace > 1 {
         return None;
     }
     let Some(stride) = ihdr.stride() else {
@@ -222,7 +221,12 @@ fn unfiltered(raw: &[u8], ihdr: Ihdr, tree: &mut ParseTree, root: NodeId) -> Opt
         );
         return None;
     };
-    match unfilter(raw, stride, ihdr.height, ihdr.filter_distance()) {
+    let pixels = if ihdr.interlace == 1 {
+        super::adam7::deinterlace(raw, &ihdr)
+    } else {
+        unfilter(raw, stride, ihdr.height, ihdr.filter_distance())
+    };
+    match pixels {
         Ok(pixels) => Some(pixels),
         Err(err) => {
             // Unfiltering works on decompressed scanlines, which have no

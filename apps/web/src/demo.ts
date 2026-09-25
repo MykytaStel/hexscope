@@ -108,7 +108,8 @@ async function show(m: FileModel, g: Geometry, x: number, y: number, p: Parts): 
   }
   p.bytesRow.replaceChildren(...cells);
 
-  const rows = kind === 2 && a % g.row === 0 ? `exactly ${a / g.row === 1 ? "one row" : `${a / g.row} rows`} up` : `${a} bytes back`;
+  const row = g.passes[0].row;
+  const rows = kind === 2 && a % row === 0 ? `exactly ${a / row === 1 ? "one row" : `${a / row} rows`} up` : `${a} bytes back`;
   p.caption.textContent =
     kind === 1
       ? `Pixel ${x}, ${y}: a literal byte, 0x${hex(a)}, spelled out in ${bitEnd - bitStart} bits.`
