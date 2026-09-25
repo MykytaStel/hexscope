@@ -28,6 +28,8 @@ const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 const MAX_HEIGHT = 420;
 /** Rows drawn for one range at most: a huge copy is outlined, not tiled. */
 const MAX_RECTS = 4096;
+/** The smallest a marked pixel is ringed at, in screen pixels. */
+const MIN_MARK = 10;
 /** Single pixels drawn for one range of an interlaced picture at most. */
 const MAX_DOTS = 100_000;
 /** The picture's grain after each Adam7 pass: every pixel stands for a cell this size. */
@@ -383,7 +385,18 @@ export class PictureView {
     const ctx = this.context();
     if (ctx) {
       if (kind === 2) this.paint(ctx, outStart - a, outStart - a + len, "rgba(59, 130, 246, 0.45)");
-      this.paint(ctx, outStart, outStart + len, "rgba(232, 82, 122, 0.6)");
+      const box = this.paint(ctx, outStart, outStart + len, "rgba(232, 82, 122, 0.6)");
+      // A pixel or two of a large picture is smaller than a screen pixel:
+      // ring it, so the eye finds it.
+      const dpr = window.devicePixelRatio || 1;
+      const min = MIN_MARK * dpr;
+      if (box && box[2] - box[0] < min && box[3] - box[1] < min) {
+        const cx = (box[0] + box[2]) / 2;
+        const cy = (box[1] + box[3]) / 2;
+        ctx.strokeStyle = "rgb(232, 82, 122)";
+        ctx.lineWidth = 2 * dpr;
+        ctx.strokeRect(cx - min / 2, cy - min / 2, min, min);
+      }
     }
 
     const lines: (string | Node)[] = [];
@@ -443,11 +456,23 @@ export class PictureView {
     if (this.caption && this.m) this.caption.textContent = "Point at a pixel, or tap it, to see the bytes it came from.";
   }
 
-  /** Fills the pixels output bytes `[start, end)` fall on. */
-  private paint(ctx: CanvasRenderingContext2D, start: number, end: number, colour: string): void {
+  /** Fills the pixels output bytes `[start, end)` fall on; returns what it covered, in canvas pixels. */
+  private paint(
+    ctx: CanvasRenderingContext2D,
+    start: number,
+    end: number,
+    colour: string,
+  ): [number, number, number, number] | null {
     const g = this.g;
     const o = this.overlay;
-    if (!g || !o || end <= start) return;
+    if (!g || !o || end <= start) return null;
+    let box: [number, number, number, number] | null = null;
+    const cover = (x: number, y: number, w: number, h: number) => {
+      ctx.fillRect(x, y, w, h);
+      box = box
+        ? [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x + w), Math.max(box[3], y + h)]
+        : [x, y, x + w, y + h];
+    };
     const sx = o.width / g.width;
     const sy = o.height / g.height;
     ctx.fillStyle = colour;
@@ -455,13 +480,14 @@ export class PictureView {
     for (const [x, y, count, step] of runs(g, start, end)) {
       // At least one screen pixel, so a copy inside a large picture still shows.
       if (step === 1) {
-        ctx.fillRect(x * sx, y * sy, Math.max(1, count * sx), Math.max(1, sy));
+        cover(x * sx, y * sy, Math.max(1, count * sx), Math.max(1, sy));
         continue;
       }
       // A pass's pixels are spread out: each is drawn where it is.
       for (let i = 0; i < count && dots < MAX_DOTS; i++, dots++) {
-        ctx.fillRect((x + i * step) * sx, y * sy, Math.max(1, sx), Math.max(1, sy));
+        cover((x + i * step) * sx, y * sy, Math.max(1, sx), Math.max(1, sy));
       }
     }
+    return box;
   }
 }
