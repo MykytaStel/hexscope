@@ -1,7 +1,9 @@
-// The landing page's demonstration: a pointer moving over a real PNG, and
-// for each pixel, the bytes of the file that wrote it — what hexscope does,
-// shown before anyone has to pick a file. It runs on the same worker as the
-// app, so it only runs while no file is open, and stops when one is.
+// The landing page's demonstration, in two scenes: a pointer moving over a
+// real PNG, and for each pixel, the bytes of the file that wrote it; then a
+// progressive JPEG arriving scan by scan, blurry at first and sharp at the
+// end — what hexscope does, shown before anyone has to pick a file. It runs
+// on the same worker as the app, so it only runs while no file is open, and
+// stops when one is.
 import { FileModel } from "./model";
 import { geometry, pixelOffset, runs, type Geometry } from "./pixels";
 import { call } from "./rpc";
@@ -17,7 +19,10 @@ const PATH: [number, number][] = [
   [13, 14],
 ];
 const DWELL_MS = 2400;
+/** Between scans of the JPEG. */
+const SCAN_MS = 800;
 const SAMPLE = "samples/sample.png";
+const PROGRESSIVE = "samples/progressive.jpg";
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -28,6 +33,49 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 const hex = (n: number) => n.toString(16).toUpperCase().padStart(2, "0");
 
 const idle = () => document.body.dataset.state === "empty";
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Where each scan's data ends in a JPEG: at the first marker after it that
+ * is not a restart marker or a stuffed zero. The file cut there, and closed,
+ * is the picture as far as that scan.
+ */
+export function scanEnds(b: Uint8Array): number[] {
+  const ends: number[] = [];
+  let i = 2;
+  while (i + 4 <= b.length && b[i] === 0xff) {
+    const marker = b[i + 1];
+    if (marker === 0xff) {
+      i++;
+      continue;
+    }
+    if (marker === 0xd9) break;
+    i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+    if (marker !== 0xda) continue;
+    while (i + 1 < b.length && !(b[i] === 0xff && b[i + 1] !== 0 && (b[i + 1] < 0xd0 || b[i + 1] > 0xd7))) i++;
+    ends.push(i);
+  }
+  return ends;
+}
+
+/** The progressive sample after each scan, decoded ahead so the scene only draws. */
+async function scans(): Promise<{ pictures: ImageBitmap[]; shares: number[] } | null> {
+  try {
+    const bytes = new Uint8Array(await (await fetch(PROGRESSIVE)).arrayBuffer());
+    const ends = scanEnds(bytes);
+    const pictures = await Promise.all(
+      ends.map((end) => {
+        const cut = new Uint8Array(end + 2);
+        cut.set(bytes.subarray(0, end));
+        cut.set([0xff, 0xd9], end);
+        return createImageBitmap(new Blob([cut], { type: "image/jpeg" }));
+      }),
+    );
+    return { pictures, shares: ends.map((end) => end / bytes.length) };
+  } catch {
+    return null;
+  }
+}
 
 export async function startDemo(host: HTMLElement): Promise<void> {
   if (!idle()) return;
@@ -41,30 +89,81 @@ export async function startDemo(host: HTMLElement): Promise<void> {
 
   const frame = el("div", "demo-frame");
   const image = el("canvas", "demo-image");
-  image.width = preview.width;
-  image.height = preview.height;
-  image
-    .getContext("2d")
-    ?.putImageData(new ImageData(new Uint8ClampedArray(preview.pixels), preview.width, preview.height), 0, 0);
+  const drawPng = () => {
+    image.width = preview.width;
+    image.height = preview.height;
+    image.classList.remove("is-photo");
+    image
+      .getContext("2d")
+      ?.putImageData(new ImageData(new Uint8ClampedArray(preview.pixels), preview.width, preview.height), 0, 0);
+  };
+  drawPng();
   const overlay = el("canvas", "demo-overlay");
   const pointer = el("div", "demo-pointer");
   frame.append(image, overlay, pointer);
   const bytesRow = el("div", "demo-bytes");
   const caption = el("p", "demo-caption");
   const side = el("div", "demo-side");
-  side.append(el("p", "demo-kicker", "Point at a pixel, see the bytes that made it"), bytesRow, caption);
+  const kicker = el("p", "demo-kicker");
+  side.append(kicker, bytesRow, caption);
   host.replaceChildren(frame, side);
   host.hidden = false;
+  const parts = { frame, overlay, pointer, bytesRow, caption };
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  for (let i = 0; idle(); i = (i + 1) % PATH.length) {
-    const [x, y] = PATH[i];
-    await show(m, g, x, y, { frame, overlay, pointer, bytesRow, caption });
-    // Without motion, one frame says it: stay on the first pixel.
-    if (reduce) return;
-    await new Promise((resolve) => setTimeout(resolve, DWELL_MS));
+  const jpeg = reduce ? Promise.resolve(null) : scans();
+  while (idle()) {
+    kicker.textContent = "Point at a pixel, see the bytes that made it";
+    pointer.hidden = false;
+    drawPng();
+    for (const [x, y] of PATH) {
+      if (!idle()) break;
+      await show(m, g, x, y, parts);
+      // Without motion, one frame says it: stay on the first pixel.
+      if (reduce) return;
+      await sleep(DWELL_MS);
+    }
+    const progressive = await jpeg;
+    if (progressive && idle()) await arrive(progressive, image, kicker, parts);
   }
   host.hidden = true;
+}
+
+/** The second scene: a progressive JPEG, scan after scan, and how much of the file each took. */
+async function arrive(
+  j: { pictures: ImageBitmap[]; shares: number[] },
+  image: HTMLCanvasElement,
+  kicker: HTMLElement,
+  p: Parts,
+): Promise<void> {
+  kicker.textContent = "A progressive JPEG, scan by scan";
+  p.pointer.hidden = true;
+  p.overlay.getContext("2d")?.clearRect(0, 0, p.overlay.width, p.overlay.height);
+  image.classList.add("is-photo");
+  const n = j.pictures.length;
+  const bar = el("span", "demo-bar");
+  const fill = el("span", "demo-bar-fill");
+  bar.append(fill);
+  const share = el("span", "demo-share");
+  p.bytesRow.replaceChildren(bar, share);
+  for (let k = 0; k < n && idle(); k++) {
+    const pic = j.pictures[k];
+    // The square frame shows the middle of the photo.
+    const side = Math.min(pic.width, pic.height);
+    image.width = side;
+    image.height = side;
+    image.getContext("2d")?.drawImage(pic, (pic.width - side) / 2, (pic.height - side) / 2, side, side, 0, 0, side, side);
+    const pct = Math.round(j.shares[k] * 100);
+    fill.style.width = `${pct}%`;
+    share.textContent = k === n - 1 ? "the whole file" : `${pct}% of the file`;
+    p.caption.textContent =
+      k === 0
+        ? `Scan 1 of ${n}: ${pct}% of the file, and the whole photo is there already — blurry, each block just its average.`
+        : k === n - 1
+          ? `All ${n} scans: every detail. hexscope shows which bytes draw which block, in each scan.`
+          : `Scan ${k + 1} of ${n}: ${pct}% of the file. Each scan adds finer detail.`;
+    await sleep(k === n - 1 ? DWELL_MS : SCAN_MS);
+  }
 }
 
 interface Parts {
