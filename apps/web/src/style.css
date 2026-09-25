@@ -430,7 +430,7 @@ input {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   align-content: start;
-  gap: 0 28px;
+  gap: 16px 28px;
 }
 
 .drawer-file h3 {
@@ -589,6 +589,110 @@ input {
 .makeup-size {
   font-family: var(--mono);
   color: var(--faint);
+}
+
+/* --- landing demonstration ----------------------------------------------------- */
+
+.demo {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: center;
+  margin: 22px auto 6px;
+  max-width: 560px;
+  text-align: left;
+}
+
+.demo[hidden] {
+  display: none;
+}
+
+.demo-frame {
+  position: relative;
+  flex: none;
+  width: 132px;
+  aspect-ratio: 1;
+  container-type: size;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.demo-image,
+.demo-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.demo-image {
+  image-rendering: pixelated;
+}
+
+.demo-pointer {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5);
+  transition: transform 450ms cubic-bezier(0.3, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+.demo-side {
+  min-width: 0;
+}
+
+.demo-kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.demo-bytes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font: 13px var(--mono);
+  color: var(--faint);
+}
+
+.demo-offset {
+  margin-right: 6px;
+}
+
+.demo-byte.is-hit {
+  color: #fff;
+  background: rgb(232 82 122 / 0.75);
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+.demo-caption {
+  margin: 8px 0 0;
+  min-height: 2.9em;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+@media (max-width: 520px) {
+  .demo {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .demo-bytes {
+    justify-content: center;
+  }
 }
 
 /* --- picture ---------------------------------------------------------------------- */
@@ -937,7 +1041,64 @@ body[data-state="loading"] .loading {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
   }
+}
+
+/* --- motion: only what shows how parts connect ------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* The verdict arrives line by line, as it is read. */
+.verdict-line {
+  animation: rise 220ms ease-out both;
+}
+
+.verdict-line:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.verdict-line:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+/* The make-up bar fills from the start of the file. */
+.makeup-bar {
+  transform-origin: left center;
+  animation: grow 450ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* After a clean copy, each fact it dropped is struck through. */
+.reveal-list dt,
+.reveal-list dd {
+  transition: opacity 300ms ease;
+}
+
+.reveal-list .reveal-link {
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1.5px;
+  transition: text-decoration-color 380ms ease;
+  transition-delay: inherit;
+}
+
+.reveal-list .is-removed {
+  opacity: 0.45;
+}
+
+.reveal-list .is-removed .reveal-link {
+  text-decoration-color: currentColor;
 }
 
 /* --- DEFLATE player ------------------------------------------------------- */
@@ -1314,7 +1475,64 @@ body:has(.reveals) .layout {
 
 /* --- narrow windows ----------------------------------------------------------- */
 
+/* The summary / bytes switch exists only on narrow screens. */
+.viewswitch {
+  display: none;
+}
+
 @media (max-width: 900px) {
+  body[data-state="ready"] .viewswitch {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+
+  /* Room in the top bar for the switch: the mark alone, and "Open". */
+  body[data-state="ready"] .brand-name,
+  .open-long {
+    display: none;
+  }
+
+  .viewswitch button {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .viewswitch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* Summary: what the file is and says, the whole height. */
+  body[data-view="summary"]:not(.is-playing) .pane-tree,
+  body[data-view="summary"]:not(.is-playing) .pane-hex,
+  body[data-view="summary"]:not(.is-playing) .drawer-node {
+    display: none;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .pane-drawer {
+    max-height: none;
+    border-top: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    border-top: 0;
+  }
+
+  /* Bytes: the tree, the bytes, and what the pointed-at part is. */
+  body[data-view="bytes"] .drawer-file {
+    display: none;
+  }
+
   .doors {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -34,13 +34,43 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 }
 
 /** Image geometry, from IHDR. */
-interface Geometry {
+export interface Geometry {
   width: number;
   height: number;
   /** Bits per pixel. */
   bpp: number;
   /** Bytes per scanline, filter byte included. */
   row: number;
+}
+
+/** A PNG's geometry from its IHDR numbers [width, height, depth, colour type, …]. */
+export function geometry(ihdr: number[]): Geometry {
+  const [width, height, depth, color] = ihdr;
+  const bpp = (CHANNELS[color] ?? 1) * depth;
+  return { width, height, bpp, row: Math.ceil((width * bpp) / 8) + 1 };
+}
+
+/** The decompressed byte where pixel (x, y) begins. */
+export function pixelOffset(g: Geometry, x: number, y: number): number {
+  return y * g.row + 1 + Math.floor((x * g.bpp) / 8);
+}
+
+/** The pixels decompressed bytes `[start, end)` fall on, as [x, y, width] runs, one per row. */
+export function runs(g: Geometry, start: number, end: number): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  if (end <= start) return out;
+  const first = Math.floor(start / g.row);
+  const last = Math.min(g.height - 1, Math.floor((end - 1) / g.row));
+  for (let y = first; y <= last && out.length < MAX_RECTS; y++) {
+    const from = y === first ? start % g.row : 0;
+    const to = y === last ? (end - 1) % g.row : g.row - 1;
+    // Column 0 is the filter byte: it belongs to the row, not a pixel.
+    if (to < 1) continue;
+    const x0 = Math.floor(((Math.max(from, 1) - 1) * 8) / g.bpp);
+    const x1 = Math.min(g.width - 1, Math.floor(((to - 1) * 8 + 7) / g.bpp));
+    out.push([x0, y, x1 - x0 + 1]);
+  }
+  return out;
 }
 
 export class PictureView {
@@ -69,9 +99,8 @@ export class PictureView {
       group.append(el("p", "hint", why));
       return group;
     }
-    const [width, height, depth, color] = f.ihdr;
-    const bpp = (CHANNELS[color] ?? 1) * depth;
-    this.g = { width, height, bpp, row: Math.ceil((width * bpp) / 8) + 1 };
+    this.g = geometry(f.ihdr);
+    const { width, height } = this.g;
     this.m = m;
 
     const frame = el("div", "picture-frame");
@@ -149,8 +178,7 @@ export class PictureView {
     const m = this.m;
     const g = this.g;
     if (!m || !g) return;
-    const out = y * g.row + 1 + Math.floor((x * g.bpp) / 8);
-    const s = await this.hooks.locate(0, out);
+    const s = await this.hooks.locate(0, pixelOffset(g, x, y));
     if (this.m !== m) return;
     this.show(s, [x, y]);
     if (s.length === 7) {
@@ -232,17 +260,9 @@ export class PictureView {
     const sx = o.width / g.width;
     const sy = o.height / g.height;
     ctx.fillStyle = colour;
-    const first = Math.floor(start / g.row);
-    const last = Math.min(g.height - 1, Math.floor((end - 1) / g.row));
-    for (let y = first, n = 0; y <= last && n < MAX_RECTS; y++, n++) {
-      const from = y === first ? start % g.row : 0;
-      const to = y === last ? (end - 1) % g.row : g.row - 1;
-      // Column 0 is the filter byte: it belongs to the row, not a pixel.
-      if (to < 1) continue;
-      const x0 = Math.floor(((Math.max(from, 1) - 1) * 8) / g.bpp);
-      const x1 = Math.min(g.width - 1, Math.floor(((to - 1) * 8 + 7) / g.bpp));
+    for (const [x, y, w] of runs(g, start, end)) {
       // At least one screen pixel, so a copy inside a large picture still shows.
-      ctx.fillRect(x0 * sx, y * sy, Math.max(1, (x1 - x0 + 1) * sx), Math.max(1, sy));
+      ctx.fillRect(x * sx, y * sy, Math.max(1, w * sx), Math.max(1, sy));
     }
   }
 }

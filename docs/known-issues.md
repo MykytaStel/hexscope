@@ -46,9 +46,11 @@ entries get no field-level nodes, only their entry, data and central record:
 every field of every entry would be millions of nodes, which a browser tab
 cannot hold comfortably. Opened files nest at most four deep.
 
-**The interface is built for pointing devices.** Below 900 px the panes stack
-and the byte view drops to 8 bytes per row, so it works on a phone, but hover
-is the main way to explore and touch has none.
+**Touch is second to pointing.** Below 900 px a file opens on its summary —
+the verdict, what it reveals, the clean copy — and *Bytes* shows the tree
+and the bytes, 8 to a row, the text shrinking to fit. Tapping a pixel works
+as hovering does; elsewhere, hovering over a byte to see what it is has no
+touch equivalent yet beyond tapping to select it.
 
 **WebAssembly size.** About 197 KB gzipped, grown from 58 KB as ZIP, the
 explanations, the file map, the clean copy, HEIF (17 KB), PDF (29 KB), PNG

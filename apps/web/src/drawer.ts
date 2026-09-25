@@ -146,7 +146,17 @@ export class Drawer {
     if (!m) return;
     const f = m.file;
 
-    this.file.append(this.verdict(m), this.makeup(m));
+    // What someone came to know first: the verdict, then what the file gives
+    // away, then the picture; how it is made, after.
+    this.file.append(this.verdict(m));
+    // A photo, a video or a PDF always gets the card, if only to say it gives
+    // nothing away; an archive only when it is a document with properties.
+    if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
+      this.file.append(this.reveals(m));
+    }
+    const picture = this.picture(m);
+    if (picture) this.file.append(picture);
+    this.file.append(this.makeup(m));
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h3", undefined, "File"));
@@ -162,13 +172,6 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
-    const picture = this.picture(m);
-    if (picture) this.file.append(picture);
-    // A photo or a PDF always gets the card, if only to say it gives nothing
-    // away; an archive only when it is a document with properties to show.
-    if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
-      this.file.append(this.reveals(m));
-    }
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -384,6 +387,12 @@ export class Drawer {
         return;
       }
       box.append(el("p", "clean-done", "Saved a clean copy. Removed:"));
+      // Each fact the copy no longer carries is struck out, one after another.
+      const facts = box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt, .reveal-list dd") ?? [];
+      facts.forEach((e, i) => {
+        e.style.transitionDelay = `${Math.floor(i / 2) * 70}ms`;
+        e.classList.add("is-removed");
+      });
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
