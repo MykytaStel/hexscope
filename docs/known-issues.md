@@ -10,11 +10,10 @@ These are features in their own right rather than defects, each worth its own
 milestone.
 
 **Pixels and bytes for other images.** The picture view maps pixels to
-bytes for PNGs that are not interlaced, and blocks to bytes for sequential
-JPEGs. An interlaced PNG stores its pixels in seven passes, and a progressive
-JPEG spreads each block over several scans; neither is followed yet. For a
-JPEG, the map follows its first scan: in the rare file with one scan per
-colour component, that scan is the brightness alone.
+bytes for PNGs that are not interlaced, and blocks to bytes for Huffman-coded
+JPEGs, sequential or progressive. An interlaced PNG stores its pixels in
+seven passes, which is not followed yet; arithmetic-coded and lossless JPEGs,
+both rare, are not mapped.
 
 **Vendor MakerNotes.** Camera makers store extra metadata — often more serial
 numbers — in a MakerNote whose format differs per vendor. It is shown as an

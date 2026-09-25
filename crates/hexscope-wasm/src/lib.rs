@@ -280,9 +280,11 @@ impl Parsed {
         self.output.clone()
     }
 
-    /// Where a JPEG's blocks are: `[mcuWidth, mcuHeight, columns, rows,
-    /// blocksPerMcu, then each MCU's first file bit, then the bit after the
-    /// last]`. Empty when they cannot be found; [`Parsed::blocks_note`] says
+    /// Where a JPEG's blocks are, scan by scan: `[progressive, components,
+    /// scans]`, then for each scan `[components (a bit each), ss, se, ah,
+    /// al, unitWidth, unitHeight, columns, rows, blocksPerUnit, end, n]` and
+    /// its `n` numbers: each unit's first file bit, then the bit after the
+    /// last. Empty when they cannot be found; [`Parsed::blocks_note`] says
     /// why. Found on first asking, since a large photo takes a moment.
     #[wasm_bindgen(js_name = blockMap)]
     pub fn block_map(&mut self) -> Vec<f64> {
@@ -291,13 +293,27 @@ impl Parsed {
             let (map, note) = match found {
                 Ok(m) => {
                     let mut out = vec![
-                        m.mcu_width as f64,
-                        m.mcu_height as f64,
-                        m.columns as f64,
-                        m.rows as f64,
-                        m.blocks_per_mcu as f64,
+                        m.progressive as u8 as f64,
+                        m.components as f64,
+                        m.scans.len() as f64,
                     ];
-                    out.extend(m.starts.iter().map(|&s| s as f64));
+                    for s in &m.scans {
+                        out.extend([
+                            s.components as f64,
+                            s.ss as f64,
+                            s.se as f64,
+                            s.ah as f64,
+                            s.al as f64,
+                            s.unit_width as f64,
+                            s.unit_height as f64,
+                            s.columns as f64,
+                            s.rows as f64,
+                            s.blocks_per_unit as f64,
+                            s.end as f64,
+                            s.starts.len() as f64,
+                        ]);
+                        out.extend(s.starts.iter().map(|&b| b as f64));
+                    }
                     (out, m.stopped.unwrap_or("").to_string())
                 }
                 Err(e) => (Vec::new(), e.reason().to_string()),
@@ -1354,8 +1370,14 @@ mod tests {
         .unwrap();
         let mut parsed = parse(&photo);
         let map = parsed.block_map();
-        assert_eq!(&map[..5], &[16.0, 16.0, 40.0, 30.0, 6.0]);
-        assert_eq!(map.len(), 5 + 40 * 30 + 1);
+        // Sequential, three components, one scan of all three: 40 × 30 MCUs of 16 × 16.
+        assert_eq!(&map[..3], &[0.0, 3.0, 1.0]);
+        assert_eq!(
+            &map[3..13],
+            &[7.0, 0.0, 63.0, 0.0, 0.0, 16.0, 16.0, 40.0, 30.0, 6.0]
+        );
+        assert_eq!(map[14], (40 * 30 + 1) as f64);
+        assert_eq!(map.len(), 15 + 40 * 30 + 1);
         assert_eq!(parsed.blocks_note(), "");
         assert_eq!(parsed.block_map(), map, "found once, then kept");
         assert!(parse(b"\x89PNG\r\n\x1a\n").block_map().is_empty());
