@@ -66,7 +66,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC and AVIF images, MP4 and QuickTime videos, PDFs and Office documents only"
+                "hexscope cleans PNG, JPEG, HEIC and AVIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
             }
         }
     }
@@ -80,6 +80,7 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
         Document::Zip(doc) => clean_zip(data, &doc),
         Document::Pdf(_) => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
+        Document::Wasm(doc) => clean_wasm(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     // Two blocks of the same kind, such as a second EXIF segment, are one line.
@@ -92,6 +93,42 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
     }
     cleaned.removed = merged;
     Ok(cleaned)
+}
+
+// --- WebAssembly -------------------------------------------------------------
+
+/// A module without the custom sections that say who built it and how:
+/// names, producers, source map and debug info links, DWARF. Engines ignore
+/// custom sections, and nothing else refers to their positions, so each is
+/// cut out whole and the rest copied byte for byte.
+fn clean_wasm(data: &[u8], doc: &crate::wasm::WasmDocument) -> Result<Cleaned, CleanError> {
+    if doc.component {
+        return Err(CleanError::Unsupported);
+    }
+    if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    if doc.strip.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut bytes = Vec::with_capacity(data.len());
+    let mut at = 0usize;
+    let mut removed = Vec::new();
+    for s in &doc.strip {
+        let (start, end) = (s.range.start as usize, s.range.end() as usize);
+        bytes.extend_from_slice(&data[at..start]);
+        at = end;
+        removed.push(Removed {
+            what: s.what.to_string(),
+            bytes: s.range.len,
+        });
+    }
+    bytes.extend_from_slice(&data[at..]);
+    Ok(Cleaned {
+        bytes,
+        removed,
+        orientation_kept: None,
+    })
 }
 
 // --- JPEG ------------------------------------------------------------------

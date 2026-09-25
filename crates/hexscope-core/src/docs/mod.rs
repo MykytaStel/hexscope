@@ -141,6 +141,7 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Pdf => crate::pdf::docs::describe(tree, node, problem),
         Format::Video => crate::video::docs::describe(tree, node, problem),
         Format::Zip => crate::zip::docs::describe(tree, node, problem),
+        Format::Wasm => crate::wasm::docs::describe(tree, node, problem),
         Format::Unknown => crate::document::docs(label),
     }
 }

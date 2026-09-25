@@ -34,6 +34,12 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
   grid.append(el("dt", undefined, key), el("dd", mono ? "mono" : undefined, value));
 }
 
+/** Facts a clean copy keeps, because they are part of what the file does. */
+const KEPT: Record<string, string[]> = { wasm: ["paths"] };
+const KEPT_NOTE: Record<string, string> = {
+  wasm: "Kept: the paths in its data, which its error messages print. Only a new build, with the paths remapped, can take them out.",
+};
+
 const FACT_LABELS: Record<string, string> = {
   camera: "Camera",
   lens: "Lens",
@@ -58,6 +64,14 @@ const FACT_LABELS: Record<string, string> = {
   encryption: "Encryption",
   updates: "Edited",
   history: "Editing history",
+  names: "Function names",
+  language: "Language",
+  toolchain: "Built with",
+  sdk: "SDK",
+  sourcemap: "Source map",
+  debuginfo: "Debug info at",
+  debug: "Debug info",
+  paths: "Built by user",
 };
 
 /** Why an entry cannot be played, or null when it can. */
@@ -74,7 +88,13 @@ function playReason(e: ZipEntryInfo): string | null {
 function roleName(role: number, format: string): string {
   switch (role) {
     case Role.Content:
-      return format === "zip" ? "Files" : format === "pdf" ? "Pages, fonts, images" : "Picture";
+      return format === "zip"
+        ? "Files"
+        : format === "pdf"
+          ? "Pages, fonts, images"
+          : format === "wasm"
+            ? "Code and data"
+            : "Picture";
     case Role.Metadata:
       return "Metadata";
     case Role.Thumbnail:
@@ -289,6 +309,7 @@ export class Drawer {
       heif: "What this photo reveals",
       png: "What this image reveals",
       video: "What this video reveals",
+      wasm: "What this module reveals",
     };
     group.append(el("h3", undefined, heading[f.format] ?? "What this document reveals"));
     if (!f.location && f.facts.length === 0) {
@@ -303,6 +324,8 @@ export class Drawer {
             ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
             : f.format === "video"
               ? "No location, camera or software in its metadata."
+              : f.format === "wasm"
+                ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
               : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
       if (removable) group.append(this.cleaner(f.format));
@@ -333,7 +356,14 @@ export class Drawer {
       map.title = "Opens openstreetmap.org in a new tab. The coordinates leave this page only if you click.";
       dd.append(map);
     }
-    for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
+    for (const fact of f.facts) {
+      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
+      // What the clean copy cannot take out stays unstruck.
+      if (KEPT[f.format]?.includes(fact.kind)) {
+        dd.dataset.kept = "";
+        (dd.previousElementSibling as HTMLElement | null)?.setAttribute("data-kept", "");
+      }
+    }
     group.append(list);
     if (categories(m).length > 0) group.append(this.sharer(m));
     // An encrypted PDF is not rewritten: the copy would drop its protection.
@@ -371,6 +401,7 @@ export class Drawer {
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
+      wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
       pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte.",
     };
     const note =
@@ -388,7 +419,9 @@ export class Drawer {
       }
       box.append(el("p", "clean-done", "Saved a clean copy. Removed:"));
       // Each fact the copy no longer carries is struck out, one after another.
-      const facts = box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt, .reveal-list dd") ?? [];
+      const facts =
+        box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
+        [];
       facts.forEach((e, i) => {
         e.style.transitionDelay = `${Math.floor(i / 2) * 70}ms`;
         e.classList.add("is-removed");
@@ -401,6 +434,9 @@ export class Drawer {
         ul.append(li);
       }
       box.append(ul);
+      if (box.closest(".reveals")?.querySelector(".reveal-list [data-kept]")) {
+        box.append(el("p", "hint", KEPT_NOTE[format] ?? "What is not struck out is part of the file's content, and stays."));
+      }
       if (r.orientation > 1) {
         box.append(el("p", "hint", "Kept only the orientation, so the picture stays the right way up."));
       }

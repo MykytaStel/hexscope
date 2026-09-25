@@ -30,6 +30,11 @@ const CATEGORIES: [string, string][] = [
   ["subject", "its subject"],
   ["keywords", "its keywords"],
   ["thumbnail", "a hidden preview of the picture"],
+  ["paths", "the user name of the computer that built it"],
+  ["names", "its functions' names"],
+  ["toolchain", "the compiler that built it"],
+  ["sourcemap", "where its source map is"],
+  ["debug", "debug info from its source"],
 ];
 
 /** The categories a file gives away, in order. */

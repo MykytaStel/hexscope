@@ -7,7 +7,7 @@ hand, from the author's own accounts.
 
 - [ ] https://hexscope.pages.dev and /deflate load, on a phone too.
 - [ ] Every sample works: photo, broken image, document, compression, HEIC,
-      progressive JPEG, video, edited PDF.
+      progressive JPEG, video, edited PDF, WebAssembly module.
 - [ ] Pointing at a pixel of a PNG marks its bytes; pointing at an IDAT
       byte marks its pixels. The same for an interlaced PNG, and its pass
       slider plays.

@@ -41,6 +41,7 @@ pub(crate) fn damaged() -> Vec<(String, Vec<u8>)> {
             "compact.pdf",
             "iphone.mov",
             "android.mp4",
+            "hello.wasm",
         ];
         if !kinds.iter().any(|k| name.ends_with(k)) {
             continue;
@@ -162,7 +163,7 @@ fn every_exif_tag_is_explained() {
 
 #[test]
 fn explanations_are_one_plain_sentence_and_links_are_https() {
-    let tables: [(&str, Table); 8] = [
+    let tables: [(&str, Table); 9] = [
         ("png", crate::png::docs::ALL),
         ("exif tags", crate::exif::docs::TAGS),
         ("exif", crate::exif::docs::ALL),
@@ -171,6 +172,7 @@ fn explanations_are_one_plain_sentence_and_links_are_https() {
         ("heif", crate::heif::docs::ALL),
         ("pdf", crate::pdf::docs::ALL),
         ("video", crate::video::docs::ALL),
+        ("wasm", crate::wasm::docs::ALL),
     ];
     for (name, table) in tables {
         for (pattern, d) in table.iter().copied() {

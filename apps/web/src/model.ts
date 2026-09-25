@@ -34,7 +34,7 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
-  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "unknown";
+  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "wasm" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */
@@ -147,6 +147,14 @@ function boxTint(label: string): Tint {
   return BOX_TINTS[label] ?? "anc";
 }
 
+/** A WebAssembly module's sections: the header, the code and data, and custom sections, which only describe it. */
+function sectionTint(label: string): Tint {
+  if (label === "magic" || label === "version") return "sig";
+  if (label === "section · code" || label === "section · data") return "idat";
+  if (label.startsWith("custom section")) return "text";
+  return "ihdr";
+}
+
 /** Inside a HEIF, EXIF and XMP items stand out from the picture around them. */
 function isHeifMetadata(label: string): boolean {
   return /^item \d+ · (Exif|mime)/.test(label);
@@ -257,7 +265,14 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
-    const topTint = file.format === "zip" ? zipTint : file.format === "heif" || file.format === "video" ? boxTint : chunkTint;
+    const topTint =
+      file.format === "zip"
+        ? zipTint
+        : file.format === "heif" || file.format === "video"
+          ? boxTint
+          : file.format === "wasm"
+            ? sectionTint
+            : chunkTint;
     for (let i = 0; i < n; i++) {
       const kind = kinds[i];
       const p = parents[i];

@@ -834,6 +834,14 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             });
             parsed
         }
+        Document::Wasm(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "wasm";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            parsed
+        }
         Document::Unknown(tree) => flatten(&tree),
     };
     parsed.docs = docs;
@@ -1412,6 +1420,21 @@ mod tests {
     }
 
     #[test]
+    fn a_webassembly_module_says_who_built_it() {
+        let module = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/hello.wasm"),
+        )
+        .unwrap();
+        let parsed = parse(&module);
+        assert_eq!(parsed.format(), "wasm");
+        let facts = parsed.facts();
+        for kind in ["names", "language", "toolchain", "paths"] {
+            assert!(facts.contains(kind), "{kind} in {facts}");
+        }
+        assert!(facts.contains("/Users/sample/projects/hello"));
+    }
+
+    #[test]
     fn a_photo_says_which_way_up_it_is() {
         let mut photo = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
@@ -1676,7 +1699,7 @@ mod tests {
 
         let refused = clean_copy(b"GIF89a not cleaned");
         assert!(refused.bytes().is_empty());
-        assert!(refused.error().contains("Office documents only"));
+        assert!(refused.error().contains("WebAssembly modules only"));
         let bare = clean_copy(&fixture("basn2c08.png"));
         assert!(bare.error().contains("nothing in it"));
     }
