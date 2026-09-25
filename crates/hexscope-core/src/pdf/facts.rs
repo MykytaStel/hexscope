@@ -1,6 +1,7 @@
 //! What a PDF says about who made it: the document information dictionary
 //! (14.3.3) and the XMP metadata stream (14.3.2), read after the scan.
 
+use super::crypt::Decryptor;
 use super::lexer::{Lexer, Obj};
 use super::{Ctx, ObjRec};
 use crate::inflate::{NoTrace, inflate, zlib_decompress};
@@ -17,7 +18,7 @@ pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 const MAX_TEXT: usize = 512;
 
 /// The order facts are shown in: who, what changed, then the rest.
-const ORDER: [&str; 10] = [
+const ORDER: [&str; 11] = [
     "author",
     "updates",
     "title",
@@ -28,6 +29,7 @@ const ORDER: [&str; 10] = [
     "created",
     "modified",
     "history",
+    "encryption",
 ];
 
 pub(super) fn collect(
@@ -37,7 +39,8 @@ pub(super) fn collect(
     encrypted: bool,
 ) -> Vec<DocumentFact> {
     let mut facts = Vec::new();
-    if encrypted {
+    // Encrypted, and no key: its strings say nothing readable.
+    if encrypted && ctx.crypt.is_none() {
         return facts;
     }
     let mut budget = MAX_DECODED_TOTAL;
@@ -52,7 +55,11 @@ pub(super) fn collect(
         match resolve(data, ctx, num, &mut budget) {
             Some(Found::Top(rec)) => {
                 tree.set_value(rec.node, Some(Value::Text("document information".into())));
-                info_facts(&rec.value, &mut facts, |key| {
+                let dict = match &ctx.crypt {
+                    Some(c) => decrypt_strings(&rec.value, c, rec.num, rec.gen_),
+                    None => rec.value.clone(),
+                };
+                info_facts(&dict, &mut facts, |key| {
                     rec.keys
                         .iter()
                         .rev()
@@ -82,8 +89,8 @@ pub(super) fn collect(
             .find(|o| o.value.get("Type").and_then(Obj::name) == Some("Metadata"))
     });
     if let Some(rec) = xmp
-        && let Some((range, node)) = rec.stream
-        && let Some(bytes) = decode(data, &rec.value, range, &mut budget)
+        && let Some((_, node)) = rec.stream
+        && let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget)
     {
         xmp_facts(&String::from_utf8_lossy(&bytes), node, &mut facts);
     }
@@ -107,11 +114,12 @@ enum Found<'a> {
 /// The latest object numbered `num`, at the top level or packed in an
 /// object stream (7.5.7).
 fn resolve<'a>(data: &[u8], ctx: &'a Ctx, num: u32, budget: &mut u64) -> Option<Found<'a>> {
+    let crypt = ctx.crypt.as_ref();
     if let Some(rec) = ctx.objects.iter().rev().find(|o| o.num == num) {
         return Some(Found::Top(rec));
     }
     ctx.objects.iter().rev().find_map(|rec| {
-        let (bytes, packed) = unpack(data, rec, budget)?;
+        let (bytes, packed) = unpack(data, rec, crypt, budget)?;
         let &(_, start, end) = packed.iter().find(|&&(n, ..)| n == num)?;
         let value = Lexer::new(&bytes[..end], start).value()?;
         Some(Found::Packed(value.obj, rec.stream?.1))
@@ -127,13 +135,13 @@ pub(super) type Packed = (u32, usize, usize);
 pub(super) fn unpack(
     data: &[u8],
     rec: &ObjRec,
+    crypt: Option<&Decryptor>,
     budget: &mut u64,
 ) -> Option<(Vec<u8>, Vec<Packed>)> {
     if rec.value.get("Type").and_then(Obj::name) != Some("ObjStm") {
         return None;
     }
-    let (range, _) = rec.stream?;
-    let bytes = decode(data, &rec.value, range, budget)?;
+    let bytes = decode(data, rec, crypt, budget)?;
     let count = rec.value.get("N").and_then(Obj::int)?;
     let first = usize::try_from(rec.value.get("First").and_then(Obj::int)?).ok()?;
     let mut lx = Lexer::new(&bytes, 0);
@@ -159,16 +167,28 @@ pub(super) fn unpack(
     Some((bytes, packed))
 }
 
-/// A stream's bytes, undone of Flate when that is its only filter.
-/// Every call spends from `budget`, successful or not.
+/// A stream's bytes, decrypted when the document is, and undone of Flate
+/// when that is its only filter. Every call spends from `budget`,
+/// successful or not.
 pub(super) fn decode(
     data: &[u8],
-    dict: &Obj,
-    range: crate::model::ByteRange,
+    rec: &ObjRec,
+    crypt: Option<&Decryptor>,
     budget: &mut u64,
 ) -> Option<Vec<u8>> {
+    let dict = &rec.value;
+    let (range, _) = rec.stream?;
     let limit = MAX_DECODED.min(*budget);
-    let raw = data.get(range.start as usize..range.end() as usize)?;
+    let stored = data.get(range.start as usize..range.end() as usize)?;
+    // Cross-reference streams are never encrypted, and XMP may be left out.
+    let ty = dict.get("Type").and_then(Obj::name);
+    let decrypted = match crypt {
+        Some(c) if ty != Some("XRef") && (ty != Some("Metadata") || c.encrypt_metadata) => {
+            Some(c.stream(rec.num, rec.gen_, stored)?)
+        }
+        _ => None,
+    };
+    let raw = decrypted.as_deref().unwrap_or(stored);
     let flate = match dict.get("Filter") {
         None => false,
         Some(Obj::Name(n)) => n == "FlateDecode",
@@ -186,6 +206,28 @@ pub(super) fn decode(
         .or_else(|| inflate(raw.get(2..)?, limit, &mut NoTrace).ok());
     *budget -= out.as_ref().map_or(limit, |o| o.len() as u64);
     out
+}
+
+/// A dictionary with its own strings decrypted. Strings inside an object
+/// stream are not encrypted on their own, so this is for top-level objects.
+pub(super) fn decrypt_strings(obj: &Obj, crypt: &Decryptor, num: u32, gen_: u16) -> Obj {
+    match obj {
+        Obj::Dict(entries) => Obj::Dict(
+            entries
+                .iter()
+                .map(|e| {
+                    let mut e = e.clone();
+                    if let Obj::Str(s) = &e.value.obj
+                        && let Some(plain) = crypt.string(num, gen_, s)
+                    {
+                        e.value.obj = Obj::Str(plain);
+                    }
+                    e
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    }
 }
 
 fn info_facts(dict: &Obj, facts: &mut Vec<DocumentFact>, node_of: impl Fn(&str) -> NodeId) {

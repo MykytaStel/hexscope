@@ -110,7 +110,7 @@ proptest! {
     fn a_damaged_pdf_is_survivable(
         edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16)
     ) {
-        for name in ["report.pdf", "compact.pdf"] {
+        for name in ["report.pdf", "compact.pdf", "encrypted-aes-128.pdf", "encrypted-rc4-128.pdf"] {
             let mut bytes = std::fs::read(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let len = bytes.len();
             for &(at, b) in &edits {

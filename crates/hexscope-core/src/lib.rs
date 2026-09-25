@@ -3,6 +3,7 @@
 pub mod bits;
 pub mod clean;
 pub mod crc32;
+pub mod crypto;
 pub mod docs;
 pub mod document;
 pub mod exif;

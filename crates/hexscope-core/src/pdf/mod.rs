@@ -6,6 +6,7 @@
 //! the ones an incremental update replaced, which are still there.
 
 pub(crate) mod clean;
+pub mod crypt;
 pub(crate) mod docs;
 pub(crate) mod facts;
 mod lexer;
@@ -30,8 +31,10 @@ pub struct PdfDocument {
     /// Revisions after the first save: a linearized file's first two
     /// sections are one save.
     pub edits: usize,
-    /// Its strings are encrypted, so none were read as facts.
+    /// It is encrypted: its strings and streams are unreadable without a key.
     pub encrypted: bool,
+    /// How, and whether it opened without a password.
+    pub lock: Option<crypt::Lock>,
     pub facts: Vec<DocumentFact>,
 }
 
@@ -75,6 +78,8 @@ pub(crate) struct Ctx {
     endobj: NextOf,
     endstream: NextOf,
     items: NextItem,
+    /// The key, when the document is encrypted and opens without a password.
+    pub crypt: Option<crypt::Decryptor>,
 }
 
 /// The next line that starts an item, remembering the last search the way
@@ -259,6 +264,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     revs.finish(&mut tree);
 
     let encrypted = ctx.trailers.iter().any(|t| t.get("Encrypt").is_some());
+    let lock = encrypted.then(|| unlock(&mut tree, &mut ctx));
     let linearized = ctx
         .objects
         .first()
@@ -268,6 +274,25 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
+    if let Some((l, node)) = &lock {
+        let text = match l {
+            crypt::Lock::Open { scheme } => {
+                format!("{scheme}, but it opens without a password, so anyone can read it")
+            }
+            crypt::Lock::Password { scheme } => {
+                format!("{scheme}, with a password to open it: hexscope cannot read its contents")
+            }
+            crypt::Lock::Unknown => "in a way hexscope does not read".to_string(),
+        };
+        facts::insert_update(
+            &mut facts,
+            DocumentFact {
+                kind: "encryption",
+                text,
+                node: *node,
+            },
+        );
+    }
     if edits > 0
         && let Some(&node) = revs.nodes.get(original)
     {
@@ -306,6 +331,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         revisions: ends.len(),
         edits,
         encrypted,
+        lock: lock.map(|(l, _)| l),
         facts,
     };
     (doc, ctx)
@@ -936,6 +962,46 @@ fn startxref(
         }
     }
     node
+}
+
+/// Tries the empty password. When it opens the document, the key is kept
+/// for reading facts, and top-level strings in the tree show as decrypted.
+fn unlock(tree: &mut ParseTree, ctx: &mut Ctx) -> (crypt::Lock, NodeId) {
+    let latest = |key: &str| ctx.trailers.iter().rev().find_map(|t| t.get(key));
+    let id0 = match latest("ID") {
+        Some(Obj::Array(ids)) => match ids.first().map(|i| &i.obj) {
+            Some(Obj::Str(s)) => s.clone(),
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    };
+    // The encryption dictionary: an object of its own, or written in place.
+    let (dict, dict_num, node) = match latest("Encrypt") {
+        Some(Obj::Ref(n, _)) => match ctx.objects.iter().rev().find(|o| o.num == *n) {
+            Some(rec) => (rec.value.clone(), Some(rec.num), rec.node),
+            None => return (crypt::Lock::Unknown, 0),
+        },
+        Some(d @ Obj::Dict(_)) => (d.clone(), None, 0),
+        _ => return (crypt::Lock::Unknown, 0),
+    };
+    let (lock, key) = crypt::open(&dict, &id0);
+    if let Some(key) = &key {
+        for rec in &ctx.objects {
+            // The encryption dictionary's own strings are not encrypted.
+            if Some(rec.num) == dict_num {
+                continue;
+            }
+            for (k, n) in &rec.keys {
+                if let Some(Obj::Str(s)) = rec.value.get(k)
+                    && let Some(plain) = key.string(rec.num, rec.gen_, s)
+                {
+                    tree.set_value(*n, Some(render(&Obj::Str(plain))));
+                }
+            }
+        }
+    }
+    ctx.crypt = key;
+    (lock, node)
 }
 
 /// Every `startxref` must point at a cross-reference table or stream.

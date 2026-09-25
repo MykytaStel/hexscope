@@ -1,4 +1,4 @@
-import { share } from "./share";
+import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 
@@ -55,6 +55,7 @@ const FACT_LABELS: Record<string, string> = {
   subject: "Subject",
   keywords: "Keywords",
   producer: "PDF made by",
+  encryption: "Encryption",
   updates: "Edited",
   history: "Editing history",
 };
@@ -323,7 +324,14 @@ export class Drawer {
       dd.append(map);
     }
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
-    group.append(list, this.sharer(m), this.cleaner(f.format));
+    group.append(list);
+    if (categories(m).length > 0) group.append(this.sharer(m));
+    // An encrypted PDF is not rewritten: the copy would drop its protection.
+    if (f.facts.some((x) => x.kind === "encryption")) {
+      group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
+    } else {
+      group.append(this.cleaner(f.format));
+    }
     return group;
   }
 

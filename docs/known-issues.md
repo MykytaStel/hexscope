@@ -15,10 +15,11 @@ opaque byte range.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
 
-**Encrypted PDFs.** Many PDFs are encrypted with an empty password, only to
-restrict printing or copying. Their structure is read, but their strings
-are not decrypted, so they show no author or dates. Decrypting needs MD5,
-RC4 and AES, written without dependencies.
+**PDFs with a password.** A PDF that opens without a password (RC4 40 or
+128, AES-128, AES-256) is decrypted to read what it says, as any viewer
+would. One that needs a password is only named as such; hexscope does not
+ask for passwords. No encrypted PDF gets a clean copy: rewriting it would
+drop the protection its author chose.
 
 **PDF filters other than Flate.** Object streams and XMP compressed any
 other way are not read. Neither are predictors, so the entries of a
@@ -44,9 +45,9 @@ cannot hold comfortably. Opened files nest at most four deep.
 and the byte view drops to 8 bytes per row, so it works on a phone, but hover
 is the main way to explore and touch has none.
 
-**WebAssembly size.** About 166 KB gzipped, grown from 58 KB as ZIP, the
-explanations, the file map, the clean copy, HEIF (17 KB) and PDF (29 KB)
-arrived. The explanations'
+**WebAssembly size.** About 191 KB gzipped, grown from 58 KB as ZIP, the
+explanations, the file map, the clean copy, HEIF (17 KB), PDF (29 KB), PNG
+metadata (14 KB) and PDF decryption (11 KB) arrived. The explanations'
 text is under 10 KB of that; where the rest went has not been measured. A size-optimised Rust build saved
 under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
 10 MB PNG five to six times slower in the browser (950–1,500 ms against
