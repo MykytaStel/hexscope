@@ -97,6 +97,33 @@ proptest! {
     }
 
     #[test]
+    fn pdf_start_plus_garbage_is_survivable(
+        rest in proptest::collection::vec(any::<u8>(), 0..4096)
+    ) {
+        let mut bytes = b"%PDF-1.7\n".to_vec();
+        bytes.extend(rest);
+        let doc = hexscope_core::pdf::parse_pdf(&bytes);
+        prop_assert!(doc.tree.root().is_some());
+    }
+
+    #[test]
+    fn a_damaged_pdf_is_survivable(
+        edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16)
+    ) {
+        for name in ["report.pdf", "compact.pdf"] {
+            let mut bytes = std::fs::read(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let len = bytes.len();
+            for &(at, b) in &edits {
+                bytes[at % len] = b;
+            }
+            let doc = hexscope_core::pdf::parse_pdf(&bytes);
+            for n in doc.tree.nodes() {
+                prop_assert!(n.range.end() <= len as u64);
+            }
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

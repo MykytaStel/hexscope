@@ -11,6 +11,7 @@ pub mod inflate;
 pub mod jpeg;
 pub mod map;
 pub mod model;
+pub mod pdf;
 pub mod png;
 pub mod reader;
 pub mod zip;

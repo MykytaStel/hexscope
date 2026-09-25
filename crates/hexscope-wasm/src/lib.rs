@@ -628,6 +628,14 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Pdf(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "pdf";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            parsed
+        }
         Document::Zip(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
@@ -1146,10 +1154,22 @@ mod tests {
 
     #[test]
     fn an_unknown_file_is_named_not_ignored() {
-        let parsed = parse(b"%PDF-1.7 not an image");
+        let parsed = parse(b"GIF89a not decoded");
         assert_eq!(parsed.format(), "unknown");
-        assert!(parsed.labels.contains("PDF"));
+        assert!(parsed.labels.contains("GIF"));
         assert!(parsed.facts().is_empty() && parsed.location().is_empty());
+    }
+
+    #[test]
+    fn a_pdf_says_who_wrote_it() {
+        let pdf = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../hexscope-core/tests/fixtures/report.pdf"),
+        )
+        .unwrap();
+        let parsed = parse(&pdf);
+        assert_eq!(parsed.format(), "pdf");
+        assert!(parsed.facts().contains("Olena Koval"));
     }
 
     #[test]

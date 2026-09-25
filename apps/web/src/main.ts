@@ -182,6 +182,9 @@ function showFileInfo(m: FileModel): void {
     chips.push(m.value(0).split(" · ")[0]);
     if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
     if (f.facts.length > 0 || f.location) chips.push("EXIF");
+  } else if (f.format === "pdf") {
+    // "PDF 1.7 · 12 objects · 2 revisions"
+    chips.push(...m.value(0).split(" · "));
   } else if (f.format === "zip") {
     chips.push("ZIP", m.value(0));
   } else {

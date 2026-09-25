@@ -10,16 +10,17 @@ running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
-> HEIC and AVIF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`, `.epub`) are
-> supported.
+> HEIC and AVIF, PDF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
+> `.epub`) are supported.
 
 ## What it does
 
-**Opens any PNG, JPEG, HEIC, AVIF or ZIP, broken or not.** A damaged file is the normal
-case, not the error case: hexscope always shows the full structure, with every
-problem marked on the exact bytes. A broken file opens on its first problem;
-**N** steps through the rest. Anything else is named when its signature is
-familiar — a PDF, a gzip, an MP4 video — rather than just refused.
+**Opens any PNG, JPEG, HEIC, AVIF, PDF or ZIP, broken or not.** A damaged
+file is the normal case, not the error case: hexscope always shows the full
+structure, with every problem marked on the exact bytes. A broken file opens
+on its first problem; **N** steps through the rest. Anything else is named
+when its signature is familiar — a gzip, an MP4 video, a GIF — rather than
+just refused.
 
 **Says what it found, then explains.** A file opens on a short verdict:
 damaged, something hidden or disguised, what it reveals, or healthy — each
@@ -50,6 +51,15 @@ entry it can. Any deflated entry plays in the DEFLATE player; *Open* shows an
 entry as a file of its own — a photo inside a Word document gets its own EXIF
 card — with breadcrumbs back (**Backspace** goes up one). An Office document
 shows who wrote it, who saved it last, when, with what, for which company.
+
+**Shows what a PDF kept.** A PDF is read in file order, not through its
+cross-reference table, so the tree holds every object — including the ones
+an edit replaced. A PDF changed after it was first saved usually still
+carries the earlier version, and hexscope says so, revision by revision. It
+shows who wrote it, with which programs, when, and its editing history, from
+the document information and the XMP metadata, compressed or not. It marks
+what a PDF can run or hide: JavaScript, actions that start programs, attached
+files, data before the header or after the end.
 
 **Shows what a photo reveals.** Drop a JPEG, or an iPhone's HEIC, and
 hexscope reads its EXIF:
@@ -134,7 +144,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~167 KB (WebAssembly 137 KB) | — |
+| The whole app, gzipped | ~197 KB (WebAssembly 166 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for

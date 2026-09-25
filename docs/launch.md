@@ -23,7 +23,7 @@ not the repo; the site links the code.
 
 > hexscope takes a file apart in your browser: every byte, what it means,
 > where the file is broken, and what it says about you. PNG, JPEG, HEIC,
-> AVIF and ZIP (so also .docx, .apk, .epub) for now.
+> AVIF, PDF and ZIP (so also .docx, .apk, .epub) for now.
 >
 > The part I most wanted to exist: a step-by-step DEFLATE player. For any
 > PNG or ZIP entry you can step through the decompression one decision at

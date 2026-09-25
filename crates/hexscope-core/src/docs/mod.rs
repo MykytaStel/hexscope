@@ -127,6 +127,7 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Png => crate::png::docs::describe(label, parent, problem),
         Format::Jpeg => crate::jpeg::docs::describe(label, problem),
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
+        Format::Pdf => crate::pdf::docs::describe(tree, node, problem),
         Format::Zip => crate::zip::docs::describe(tree, node, problem),
         Format::Unknown => crate::document::docs(label),
     }
