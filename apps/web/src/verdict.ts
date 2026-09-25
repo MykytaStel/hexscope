@@ -11,7 +11,7 @@ export interface VerdictLine {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** "a, b and c" */
-function list(items: string[]): string {
+export function list(items: string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }

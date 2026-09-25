@@ -64,13 +64,15 @@ the document information and the XMP metadata, compressed or not. It marks
 what a PDF can run or hide: JavaScript, actions that start programs, attached
 files, data before the header or after the end.
 
-**Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG,
-and hexscope reads its EXIF (and a PNG's text notes and XMP):
-where it was taken, the camera and lens, their serial numbers, the owner's
-name if the camera recorded one, the time, the software, an embedded
-thumbnail. Each fact links to the bytes that spell it out, so you can see
-exactly which part of the file gives you away. A photo with a location opens
-on it. The map link sends the coordinates nowhere unless you click it.
+**Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG, and
+hexscope reads its EXIF (and a PNG's text notes and XMP): where it was
+taken, the camera and lens, their serial numbers, the owner's name if the
+camera recorded one, the time, the software, an embedded thumbnail. Each
+fact links to the bytes that spell it out, so you can see exactly which part
+of the file gives you away. A photo with a location opens on it. The map
+link sends the coordinates nowhere unless you click it. *Share what it
+revealed* makes a card and a sentence that name only the kinds of thing a
+file gave away — never the place, the name or the number.
 
 **Removes it, if you want.** Under what a photo or a document reveals, one
 button saves a copy without it, made in the tab and never uploaded. A photo

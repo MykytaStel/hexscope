@@ -1,3 +1,4 @@
+import { share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 
@@ -322,8 +323,23 @@ export class Drawer {
       dd.append(map);
     }
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
-    group.append(list, this.cleaner(f.format));
+    group.append(list, this.sharer(m), this.cleaner(f.format));
     return group;
+  }
+
+  /** Shares what kinds of thing the file gives away, and nothing of what they are. */
+  private sharer(m: FileModel): HTMLElement {
+    const box = el("div", "sharer");
+    const button = el("button", "btn", "Share what it revealed");
+    button.title = "A card and a sentence that name only the kinds of thing — no place, name or number";
+    const status = el("span", "hint", "Only the kinds of thing, never what they are.");
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      status.textContent = await share(m);
+      button.disabled = false;
+    });
+    box.append(button, status);
+    return box;
   }
 
   /** One button that saves a copy without all of the above, then says what went. */
