@@ -6,7 +6,12 @@ hand, from the author's own accounts.
 ## Before posting
 
 - [ ] https://hexscope.pages.dev and /deflate load, on a phone too.
-- [ ] Every sample works: photo, broken image, document, compression.
+- [ ] Every sample works: photo, broken image, document, compression, HEIC,
+      edited PDF.
+- [ ] Pointing at a pixel of a PNG marks its bytes; pointing at an IDAT
+      byte marks its pixels.
+- [ ] The guides load: /remove-location-from-photo, /pdf-hidden-versions,
+      /png-wont-open.
 - [ ] The repo README opens on what it is and links the site.
 - [ ] A few hours free after posting, to answer comments.
 
@@ -17,6 +22,10 @@ not the repo; the site links the code.
 
 **Title** (HN allows 80 characters):
 
+> Show HN: Hexscope – point at a pixel, see the bits that made it
+
+Or, if the DEFLATE story reads better on the day:
+
 > Show HN: Hexscope – watch DEFLATE decompress, bit by bit, in the browser
 
 **Text:**
@@ -25,21 +34,26 @@ not the repo; the site links the code.
 > where the file is broken, and what it says about you. PNG, JPEG, HEIC,
 > AVIF, PDF and ZIP (so also .docx, .apk, .epub) for now.
 >
-> The part I most wanted to exist: a step-by-step DEFLATE player. For any
-> PNG or ZIP entry you can step through the decompression one decision at
-> a time — the bits it read, the Huffman code, which bytes a back-reference
-> copies — with a reading head on the file's own bytes. There is a short
+> The part I most wanted to exist: point at a pixel of a PNG and see the
+> DEFLATE step that wrote it — a literal, or a copy of 258 bytes from
+> exactly one row up — with the bits that hold it marked in the file, and
+> the reverse, from a byte to the pixels it became. Behind it is a
+> step-by-step DEFLATE player: every decision, the bits it read, the
+> Huffman code, which bytes a back-reference copies. There is a short
 > visual explainer built on it: https://hexscope.pages.dev/deflate
 >
 > Other things it does: shows what a photo reveals (GPS, camera serial
 > number, owner) and saves a copy without it, without re-encoding the
-> picture; names what a ZIP can hide (data before the archive, local
-> headers that disagree with the central directory, overlapping entries);
-> explains every field in one sentence, with a link to the spec section.
+> picture; shows that an edited PDF usually still holds its earlier
+> version, and writes one without it; names what a ZIP can hide (data
+> before the archive, local headers that disagree with the central
+> directory, overlapping entries); explains every field in one sentence,
+> with a link to the spec section.
 >
-> It is Rust compiled to WebAssembly (about 120 KB gzipped), no runtime
-> dependencies in the core, fuzzed, and it never uploads anything — the
-> source is here: https://github.com/MykytaStel/hexscope
+> It is Rust compiled to WebAssembly (under 200 KB gzipped), no runtime
+> dependencies in the core — even the MD5, RC4, AES and SHA-2 for
+> encrypted PDFs are written out — fuzzed, and it never uploads anything.
+> The source is here: https://github.com/MykytaStel/hexscope
 >
 > I'd love to hear which formats you'd want next, and where it gets things
 > wrong.
