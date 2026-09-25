@@ -1,3 +1,4 @@
+import { advice } from "./advice";
 import { openReport } from "./report";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
@@ -373,13 +374,24 @@ export class Drawer {
       }
     }
     group.append(list);
-    if (categories(m).length > 0) group.append(this.sharer(m));
+    // The one thing to do first, then when it matters and how to stop it
+    // next time, then telling others.
     // An encrypted PDF is not rewritten: the copy would drop its protection.
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
     } else {
       group.append(this.cleaner(f.format));
     }
+    const tips = advice(m);
+    if (tips.length > 0) {
+      const box = el("div", "advice");
+      box.append(el("p", "advice-title", "What you can do"));
+      const ul = el("ul");
+      for (const t of tips) ul.append(el("li", undefined, t));
+      box.append(ul);
+      group.append(box);
+    }
+    if (categories(m).length > 0) group.append(this.sharer(m));
     return group;
   }
 
