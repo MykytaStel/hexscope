@@ -10,7 +10,7 @@ running step by step, with an arc from each back-reference to the bytes it
 copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
-> HEIC and AVIF, PDF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
+> HEIC and AVIF, MP4 and MOV, PDF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
 > `.epub`) are supported. Guides: [removing a photo's
 > location](https://hexscope.pages.dev/remove-location-from-photo), [what an
 > edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
@@ -54,6 +54,13 @@ entry it can. Any deflated entry plays in the DEFLATE player; *Open* shows an
 entry as a file of its own — a photo inside a Word document gets its own EXIF
 card — with breadcrumbs back (**Backspace** goes up one). An Office document
 shows who wrote it, who saved it last, when, with what, for which company.
+
+**Shows where a video was recorded.** MP4 and QuickTime movies are read box
+by box. An iPhone's video keeps its location, make, model, software and date
+in QuickTime metadata; an Android phone writes the place in the user data;
+3GPP phones in a `loci` box. All three are shown, with the map link, and the
+clean copy blanks them where they lie, with the movie's header times: the
+file keeps its size, and the picture and sound are copied byte for byte.
 
 **Shows what a PDF kept.** A PDF is read in file order, not through its
 cross-reference table, so the tree holds every object — including the ones
@@ -161,7 +168,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~219 KB (WebAssembly 191 KB) | — |
+| The whole app, gzipped | ~227 KB (WebAssembly 197 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for

@@ -129,6 +129,24 @@ proptest! {
     }
 
     #[test]
+    fn a_damaged_video_is_survivable(
+        edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16)
+    ) {
+        for name in ["iphone.mov", "android.mp4"] {
+            let mut bytes = std::fs::read(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let len = bytes.len();
+            for &(at, b) in &edits {
+                bytes[at % len] = b;
+            }
+            let doc = hexscope_core::video::parse_video(&bytes);
+            prop_assert!(doc.tree.nodes().iter().all(|n| n.range.end() <= len as u64));
+            if let Ok(c) = hexscope_core::clean::clean(&bytes) {
+                prop_assert_eq!(c.bytes.len(), len);
+            }
+        }
+    }
+
+    #[test]
     fn explaining_never_panics(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
         let mut d = Decoder::new(&bytes, 1 << 20);
         while let Some(e) = d.explain_next() {

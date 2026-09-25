@@ -179,6 +179,20 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             })
         }
         Format::Heif if depth == 1 => Some(Role::Structure),
+        Format::Video if depth == 1 => Some(if label == "mdat" {
+            Role::Content
+        } else {
+            Role::Structure
+        }),
+        // What describes the movie, wherever it sits in the tree.
+        Format::Video
+            if matches!(label, "udta" | "meta" | "loci")
+                || label.starts_with('©')
+                || (label == "uuid"
+                    && matches!(&node.value, Some(crate::model::Value::Text(t)) if t == "XMP metadata")) =>
+        {
+            Some(Role::Metadata)
+        }
         Format::Pdf if label.starts_with("object ") => {
             let what = match &node.value {
                 Some(crate::model::Value::Text(t)) => t.as_str(),

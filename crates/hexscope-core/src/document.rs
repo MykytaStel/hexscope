@@ -5,6 +5,7 @@ use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
+use crate::video::{self, VideoDocument, parse_video};
 use crate::zip::{self, ZipDocument, parse_zip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,6 +13,7 @@ pub enum Format {
     Png,
     Jpeg,
     Heif,
+    Video,
     Pdf,
     Zip,
     Unknown,
@@ -24,6 +26,7 @@ pub enum Document {
     Png(PngDocument),
     Jpeg(JpegDocument),
     Heif(HeifDocument),
+    Video(VideoDocument),
     Pdf(PdfDocument),
     Zip(ZipDocument),
     Unknown(ParseTree),
@@ -35,6 +38,7 @@ impl Document {
             Document::Png(d) => &d.tree,
             Document::Jpeg(d) => &d.tree,
             Document::Heif(d) => &d.tree,
+            Document::Video(d) => &d.tree,
             Document::Pdf(d) => &d.tree,
             Document::Zip(d) => &d.tree,
             Document::Unknown(t) => t,
@@ -46,6 +50,7 @@ impl Document {
             Document::Png(_) => Format::Png,
             Document::Jpeg(_) => Format::Jpeg,
             Document::Heif(_) => Format::Heif,
+            Document::Video(_) => Format::Video,
             Document::Pdf(_) => Format::Pdf,
             Document::Zip(_) => Format::Zip,
             Document::Unknown(_) => Format::Unknown,
@@ -66,6 +71,9 @@ pub fn parse(data: &[u8]) -> Document {
     }
     if heif::is_heif(data) {
         return Document::Heif(parse_heif(data));
+    }
+    if video::is_video(data) {
+        return Document::Video(parse_video(data));
     }
     if pdf::is_pdf(data) {
         return Document::Pdf(parse_pdf(data));
@@ -98,10 +106,6 @@ pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
     }
     if data.starts_with(b"RIFF") && data.get(8..12) == Some(b"WEBP") {
         return Some(("a WebP image", 12));
-    }
-    // HEIF brands were read as HEIF before this; what is left is video.
-    if data.get(4..8) == Some(b"ftyp") {
-        return Some(("an MP4 or QuickTime video", 12));
     }
     None
 }
@@ -174,6 +178,7 @@ mod tests {
         assert_eq!(parse(b"PK\x05\x06").format(), Format::Zip);
         assert_eq!(parse(b"%PDF-1.7 ...").format(), Format::Pdf);
         assert_eq!(parse(b"\0\0\0\x10ftypheic\0\0\0\0").format(), Format::Heif);
+        assert_eq!(parse(b"\0\0\0\x10ftypisom\0\0\0\0").format(), Format::Video);
     }
 
     #[test]
@@ -191,7 +196,6 @@ mod tests {
             tree.get(tree.get(0).children[0]).label.clone()
         };
         assert!(label(b"\x1F\x8B\x08....").contains("gzip"));
-        assert!(label(b"\0\0\0\x18ftypisom....").contains("MP4"));
         assert!(label(b"").contains("empty"));
         assert!(label(b"just some text").contains("not recognised"));
     }
