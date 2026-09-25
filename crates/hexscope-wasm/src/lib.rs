@@ -739,6 +739,7 @@ fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
         ]
     });
     parsed.dimensions = doc.ihdr.map(|h| [h.width, h.height]);
+    add_facts(&mut parsed, &doc.facts);
     parsed.trace = doc.trace.as_ref().map(|t| {
         [
             t.total_events as f64,
@@ -1392,8 +1393,10 @@ mod tests {
         assert!(again.facts().is_empty());
         assert!(again.location().is_empty());
 
-        let refused = clean_copy(&fixture("basn2c08.png"));
+        let refused = clean_copy(b"GIF89a not cleaned");
         assert!(refused.bytes().is_empty());
         assert!(refused.error().contains("Office documents only"));
+        let bare = clean_copy(&fixture("basn2c08.png"));
+        assert!(bare.error().contains("nothing in it"));
     }
 }

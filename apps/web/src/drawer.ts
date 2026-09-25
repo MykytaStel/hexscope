@@ -160,7 +160,7 @@ export class Drawer {
     this.file.append(fileGroup);
     // A photo or a PDF always gets the card, if only to say it gives nothing
     // away; an archive only when it is a document with properties to show.
-    if (f.format === "jpeg" || f.format === "heif" || f.format === "pdf" || f.facts.length > 0) {
+    if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
       this.file.append(this.reveals(m));
     }
 
@@ -275,14 +275,25 @@ export class Drawer {
   private reveals(m: FileModel): HTMLElement {
     const f = m.file;
     const group = el("div", "group reveals");
-    const photo = f.format === "jpeg" || f.format === "heif" || f.format === "png";
-    group.append(el("h3", undefined, photo ? "What this photo reveals" : "What this document reveals"));
+    const heading: Record<string, string> = {
+      jpeg: "What this photo reveals",
+      heif: "What this photo reveals",
+      png: "What this image reveals",
+    };
+    group.append(el("h3", undefined, heading[f.format] ?? "What this document reveals"));
     if (!f.location && f.facts.length === 0) {
+      // A PNG can hold notes that name no one, such as a comment or the
+      // time it was changed: still worth a clean copy.
+      const notes = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "data after the end of the image"];
+      const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
       const none =
         f.format === "pdf"
           ? "No document information or XMP: nothing about who wrote it, with what, or when."
-          : "No EXIF metadata: nothing about the camera, the time or the place.";
+          : removable
+            ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
+            : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
+      if (removable) group.append(this.cleaner(f.format));
       return group;
     }
 
@@ -323,6 +334,7 @@ export class Drawer {
     const notes: Record<string, string> = {
       zip: "Removes the document's properties. Comments and tracked changes inside the text keep their authors.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
+      png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte.",
     };
     const note =

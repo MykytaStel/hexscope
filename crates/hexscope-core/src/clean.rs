@@ -10,6 +10,7 @@ use crate::document::{Document, parse};
 use crate::heif::HeifDocument;
 use crate::jpeg::JpegDocument;
 use crate::model::{ByteRange, NodeKind};
+use crate::png::PngDocument;
 use crate::zip::ZipDocument;
 
 /// The copy, and what was taken out of it.
@@ -64,7 +65,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans JPEG, HEIC and AVIF photos, PDFs and Office documents only"
+                "hexscope cleans PNG, JPEG, HEIC and AVIF images, PDFs and Office documents only"
             }
         }
     }
@@ -72,6 +73,7 @@ impl CleanError {
 
 pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
     match parse(data) {
+        Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Zip(doc) => clean_zip(data, &doc),
@@ -208,6 +210,110 @@ fn orientation_segment(orientation: u16) -> Vec<u8> {
     s.extend_from_slice(&[0x00, 0x00]);
     s.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // no next IFD
     s
+}
+
+// --- PNG ---------------------------------------------------------------------
+
+/// Text notes, EXIF and the modification time say who made the image, with
+/// what and when; every other chunk is about how to show it, and stays.
+fn clean_png(data: &[u8], doc: &PngDocument) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let top = &tree.get(root).children;
+
+    let orientation = doc.facts.orientation.filter(|&o| (2..=8).contains(&o));
+    let mut out = data.get(..8).ok_or(CleanError::Damaged)?.to_vec();
+    let mut text: Vec<String> = Vec::new();
+    let (mut text_bytes, mut removed) = (0u64, Vec::new());
+    for &id in top {
+        let n = tree.get(id);
+        let bytes = data
+            .get(n.range.start as usize..n.range.end() as usize)
+            .ok_or(CleanError::Damaged)?;
+        match n.label.as_str() {
+            "signature" | "damaged PNG signature" => {}
+            "tEXt" | "zTXt" | "iTXt" => {
+                let keyword = n
+                    .children
+                    .iter()
+                    .map(|&c| tree.get(c))
+                    .find(|c| c.label == "keyword")
+                    .and_then(|c| match &c.value {
+                        Some(crate::model::Value::Text(t)) => Some(t.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default();
+                if keyword == "XML:com.adobe.xmp" {
+                    removed.push(Removed {
+                        what: "XMP: editing history and author".into(),
+                        bytes: n.range.len,
+                    });
+                } else {
+                    if !keyword.is_empty() && !text.contains(&keyword) {
+                        text.push(keyword);
+                    }
+                    text_bytes += n.range.len;
+                }
+            }
+            "eXIf" => removed.push(Removed {
+                what: "EXIF: camera, time, location, serial numbers".into(),
+                bytes: n.range.len,
+            }),
+            "tIME" => removed.push(Removed {
+                what: "the time it was last changed".into(),
+                bytes: n.range.len,
+            }),
+            "data after the end of the image" => removed.push(Removed {
+                what: "data after the end of the image".into(),
+                bytes: n.range.len,
+            }),
+            // Problems inside the file other than damage are kept as they
+            // are; they are not chunks of their own.
+            _ if n.kind == NodeKind::Warning => {}
+            label => {
+                out.extend_from_slice(bytes);
+                // The orientation goes back right after the header, so the
+                // picture stays upright.
+                if label == "IHDR"
+                    && let Some(o) = orientation
+                {
+                    let tiff = minimal_tiff(Some(o));
+                    let mut chunk = (tiff.len() as u32).to_be_bytes().to_vec();
+                    let start = chunk.len();
+                    chunk.extend_from_slice(b"eXIf");
+                    chunk.extend_from_slice(&tiff);
+                    let crc = crc32(&chunk[start..]);
+                    chunk.extend_from_slice(&crc.to_be_bytes());
+                    out.extend_from_slice(&chunk);
+                }
+            }
+        }
+    }
+    if text_bytes > 0 {
+        let what = if text.is_empty() {
+            "text notes".to_string()
+        } else {
+            format!("text notes: {}", text.join(", "))
+        };
+        removed.insert(
+            0,
+            Removed {
+                what,
+                bytes: text_bytes,
+            },
+        );
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: orientation,
+    })
 }
 
 // --- HEIF (HEIC, AVIF) -------------------------------------------------------
@@ -474,10 +580,15 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
 mod tests {
     use super::*;
     use crate::exif::ByteOrder;
+    use crate::exif::PhotoFacts;
     use crate::exif::testing::{Spec, V, build};
     use crate::jpeg::parse_jpeg;
     use crate::jpeg::testing::jpeg_with_exif;
     use crate::zip::{extract, parse_zip};
+
+    fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
+        hay.windows(needle.len()).position(|w| w == needle)
+    }
 
     fn scan(bytes: &[u8]) -> Vec<u8> {
         let doc = parse_jpeg(bytes);
@@ -591,6 +702,119 @@ mod tests {
             }
         }
         assert!(cleaned.removed[0].what.starts_with("docProps/core.xml"));
+    }
+
+    fn pngsuite(name: &str) -> Vec<u8> {
+        std::fs::read(format!(
+            "{}/tests/fixtures/pngsuite/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_png_loses_its_notes_and_keeps_its_pixels() {
+        for name in [
+            "ct1n0g04.png",
+            "ctzn0g04.png",
+            "cten0g04.png",
+            "exif2c08.png",
+        ] {
+            let original = pngsuite(name);
+            let before = crate::png::parse_png(&original);
+            assert!(
+                before.facts.software.is_some()
+                    || before.facts.owner.is_some()
+                    || name.starts_with("exif"),
+                "{name}"
+            );
+            let cleaned = clean(&original).unwrap();
+            let after = crate::png::parse_png(&cleaned.bytes);
+            assert_eq!(problems(&after.tree), Vec::<String>::new(), "{name}");
+            assert_eq!(after.facts, PhotoFacts::default(), "{name}");
+            assert_eq!(after.pixels, before.pixels, "{name}: pixels unchanged");
+            let labels: Vec<_> = after
+                .tree
+                .get(0)
+                .children
+                .iter()
+                .map(|&c| after.tree.get(c).label.as_str())
+                .collect();
+            assert!(
+                !labels
+                    .iter()
+                    .any(|l| ["tEXt", "zTXt", "iTXt", "eXIf", "tIME"].contains(l)),
+                "{name}: {labels:?}"
+            );
+        }
+        let what = clean(&pngsuite("ct1n0g04.png")).unwrap().removed;
+        assert_eq!(
+            what[0].what,
+            "text notes: Title, Author, Copyright, Description, Software, Disclaimer"
+        );
+    }
+
+    #[test]
+    fn a_photo_saved_as_png_loses_its_location_twice_over() {
+        let original = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/photo.png"
+        ))
+        .unwrap();
+        let before = crate::png::parse_png(&original);
+        assert!(before.facts.location.is_some());
+        assert_eq!(
+            before.facts.camera.as_ref().unwrap().text,
+            "hexscope Sample Camera X1"
+        );
+        let cleaned = clean(&original).unwrap();
+        let what: Vec<_> = cleaned.removed.iter().map(|r| r.what.as_str()).collect();
+        assert_eq!(
+            what,
+            [
+                "EXIF: camera, time, location, serial numbers",
+                "XMP: editing history and author"
+            ]
+        );
+        // The XMP packet repeats the location in words of its own.
+        assert!(find(&original, b"GPSLatitude").is_some());
+        assert!(find(&cleaned.bytes, b"GPSLatitude").is_none());
+        assert!(find(&cleaned.bytes, b"HX-000042").is_none());
+        let after = crate::png::parse_png(&cleaned.bytes);
+        assert_eq!(after.facts, PhotoFacts::default());
+        assert_eq!(after.pixels, before.pixels);
+    }
+
+    #[test]
+    fn a_png_taken_sideways_stays_sideways() {
+        let original = pngsuite("exif2c08.png");
+        let mut turned = original.clone();
+        // IFD0's first entry is Orientation = 1; make it 6, and fix the CRC.
+        let at = find(&turned, b"\x01\x12\x00\x03\x00\x00\x00\x01\x00\x01").unwrap();
+        turned[at + 9] = 6;
+        let chunk = find(&turned, b"eXIf").unwrap();
+        let len = u32::from_be_bytes(turned[chunk - 4..chunk].try_into().unwrap()) as usize;
+        let crc = crc32(&turned[chunk..chunk + 4 + len]);
+        turned[chunk + 4 + len..chunk + 8 + len].copy_from_slice(&crc.to_be_bytes());
+        let cleaned = clean(&turned).unwrap();
+        assert_eq!(cleaned.orientation_kept, Some(6));
+        let after = crate::png::parse_png(&cleaned.bytes);
+        assert_eq!(problems(&after.tree), Vec::<String>::new());
+        assert_eq!(after.facts.orientation, Some(6));
+        assert_eq!(after.facts.camera, None);
+    }
+
+    #[test]
+    fn data_after_a_png_is_removed() {
+        let mut original = pngsuite("basn2c08.png");
+        original.extend_from_slice(b"PK\x03\x04 a hidden archive");
+        let cleaned = clean(&original).unwrap();
+        assert_eq!(cleaned.removed[0].what, "data after the end of the image");
+        assert_eq!(cleaned.bytes, pngsuite("basn2c08.png"));
+        assert_eq!(
+            clean(&pngsuite("basn2c08.png")),
+            Err(CleanError::NothingToRemove)
+        );
     }
 
     #[test]

@@ -16,5 +16,8 @@ sips -s format avif "$src" --out "$out/photo.avif" >/dev/null
 sips -z 3024 4032 "$src" --out "$tmp/big.jpg" >/dev/null
 sips -s format heic "$tmp/big.jpg" --out "$out/photo-grid.heic" >/dev/null
 rm -r "$tmp"
+# The same photo as a PNG, as macOS saves one: EXIF in eXIf, and the
+# location again in an XMP packet.
+sips -s format png "$src" --out "$out/photo.png" >/dev/null
 cp "$out/photo-grid.heic" "$here/../apps/web/public/samples/photo.heic"
-ls -la "$out"/photo.heic "$out"/photo.avif "$out"/photo-grid.heic
+ls -la "$out"/photo.heic "$out"/photo.avif "$out"/photo-grid.heic "$out"/photo.png

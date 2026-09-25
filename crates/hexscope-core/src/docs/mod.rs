@@ -124,7 +124,18 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
     let label = node.label.as_str();
     let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
     match format {
-        Format::Png => crate::png::docs::describe(label, parent, problem),
+        Format::Png => crate::png::docs::describe(label, parent, problem).or_else(|| {
+            // Inside eXIf, the EXIF tables explain the TIFF block.
+            let in_exif = std::iter::successors(node.parent, |&p| tree.try_get(p)?.parent)
+                .any(|p| tree.try_get(p).is_some_and(|n| n.label == "eXIf"));
+            // A thumbnail inside it is a JPEG of its own.
+            in_exif
+                .then(|| {
+                    crate::exif::docs::describe(label, problem)
+                        .or_else(|| crate::jpeg::docs::describe(label, problem))
+                })
+                .flatten()
+        }),
         Format::Jpeg => crate::jpeg::docs::describe(label, problem),
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
         Format::Pdf => crate::pdf::docs::describe(tree, node, problem),

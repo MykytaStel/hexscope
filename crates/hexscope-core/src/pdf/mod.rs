@@ -7,7 +7,7 @@
 
 pub(crate) mod clean;
 pub(crate) mod docs;
-mod facts;
+pub(crate) mod facts;
 mod lexer;
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};

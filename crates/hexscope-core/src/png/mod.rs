@@ -4,11 +4,13 @@ pub mod fields;
 mod idat;
 pub mod unfilter;
 
+use crate::exif::{Fact, PhotoFacts, parse_tiff};
 use crate::inflate::trace::TraceSummary;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::png::chunks::{ChunkError, PNG_SIGNATURE, next_chunk, resync};
 use crate::png::fields::{
-    Ihdr, decode_gama, decode_ihdr, decode_phys, decode_plte, decode_text, decode_trns,
+    Ihdr, TextNote, decode_gama, decode_ihdr, decode_itxt, decode_phys, decode_plte, decode_text,
+    decode_time, decode_trns, decode_ztxt,
 };
 use crate::png::idat::{IdatChunks, decode_pixels};
 use crate::reader::Reader;
@@ -29,6 +31,8 @@ pub struct PngDocument {
     pub idat: Vec<ByteRange>,
     /// The decompressed zlib stream: filtered scanlines, before unfiltering.
     pub inflated: Option<Vec<u8>>,
+    /// What its eXIf and text chunks say about who made it.
+    pub facts: PhotoFacts,
 }
 
 /// Parses a PNG. Never fails: damage is recorded as `Warning`/`Error` nodes.
@@ -79,6 +83,8 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
     let mut idat_ranges: Vec<ByteRange> = Vec::new();
     let mut idat_nodes: Vec<NodeId> = Vec::new();
     let mut saw_iend = false;
+    let mut notes: Vec<TextNote> = Vec::new();
+    let mut exif = PhotoFacts::default();
 
     loop {
         // Captured before the call: `next_chunk` seeks to end-of-input on any
@@ -86,6 +92,18 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         // afterwards is always EOF and says nothing about where the damage is.
         // The whole point of this tool is pointing at the broken bytes.
         let chunk_start = r.pos();
+        // A PNG ends at IEND. Readers ignore what follows, so whatever is
+        // there — another file, a payload — is kept out of sight, not broken.
+        if saw_iend {
+            if chunk_start < data.len() as u64 {
+                tree.warning(
+                    root,
+                    "data after the end of the image",
+                    ByteRange::new(chunk_start, data.len() as u64 - chunk_start),
+                );
+            }
+            break;
+        }
         let Some(result) = next_chunk(&mut r) else {
             break;
         };
@@ -147,7 +165,18 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         match &chunk.kind {
             b"IHDR" => ihdr = decode_ihdr(&chunk, &mut tree, node),
             b"PLTE" => decode_plte(&chunk, &mut tree, node),
-            b"tEXt" => decode_text(&chunk, &mut tree, node),
+            b"tEXt" => notes.extend(decode_text(&chunk, &mut tree, node)),
+            b"zTXt" => notes.extend(decode_ztxt(&chunk, &mut tree, node)),
+            b"iTXt" => notes.extend(decode_itxt(&chunk, &mut tree, node)),
+            b"tIME" => {
+                decode_time(&chunk, &mut tree, node);
+            }
+            b"eXIf" => exif.fill_from(parse_tiff(
+                &mut tree,
+                node,
+                chunk.data,
+                chunk.data_range.start,
+            )),
             b"pHYs" => decode_phys(&chunk, &mut tree, node),
             b"gAMA" => decode_gama(&chunk, &mut tree, node),
             b"tRNS" => decode_trns(&chunk, &mut tree, node, ihdr.map(|h| h.color_type)),
@@ -193,5 +222,61 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         trace: decoded.trace,
         idat: idat_ranges,
         inflated: decoded.inflated,
+        facts: {
+            // EXIF first, as in a photo; text notes fill what it lacks.
+            exif.fill_from(text_facts(&notes));
+            exif
+        },
     }
+}
+
+/// Longest text fact kept, in characters.
+const MAX_FACT: usize = 200;
+
+/// The text notes that say who made the image, with what and when: the
+/// keywords PNG defines (§11.3.3.1) and, in an XMP packet, their like.
+fn text_facts(notes: &[TextNote]) -> PhotoFacts {
+    let mut f = PhotoFacts::default();
+    let set = |slot: &mut Option<Fact>, text: &str, node: NodeId| {
+        let text = text.trim();
+        if slot.is_none() && !text.is_empty() {
+            *slot = Some(Fact {
+                text: text.chars().take(MAX_FACT).collect(),
+                node,
+            });
+        }
+    };
+    for (keyword, text, node) in notes {
+        let node = *node;
+        match keyword.as_str() {
+            "Author" => set(&mut f.owner, text, node),
+            "Software" => set(&mut f.software, text, node),
+            "Creation Time" => set(&mut f.taken, text, node),
+            "Source" => set(&mut f.camera, text, node),
+            "XML:com.adobe.xmp" => {
+                use crate::pdf::facts::{xmp_date, xmp_text};
+                if let Some(t) = xmp_text(text, "dc:creator") {
+                    set(&mut f.owner, &t, node);
+                }
+                if let Some(t) = xmp_text(text, "xmp:CreatorTool") {
+                    set(&mut f.software, &t, node);
+                }
+                if let Some(t) = xmp_text(text, "tiff:Model") {
+                    set(&mut f.camera, &t, node);
+                }
+                let taken = [
+                    "exif:DateTimeOriginal",
+                    "photoshop:DateCreated",
+                    "xmp:CreateDate",
+                ]
+                .iter()
+                .find_map(|k| xmp_text(text, k));
+                if let Some(t) = taken {
+                    set(&mut f.taken, &xmp_date(&t), node);
+                }
+            }
+            _ => {}
+        }
+    }
+    f
 }
