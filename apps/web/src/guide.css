@@ -1,0 +1,47 @@
+/* The guides: one column of text, in the story page's type. */
+
+.guide-layout {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 36px 20px 80px;
+}
+
+.guide-layout .story-text {
+  max-width: none;
+}
+
+.story-text ul,
+.story-text ol {
+  padding-left: 22px;
+}
+
+.story-text li + li {
+  margin-top: 6px;
+}
+
+.story-text code {
+  font: 13.5px var(--mono);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.guide-note {
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+}
+
+.guide-more {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 14.5px;
+}
+
+.guide-more ul {
+  list-style: none;
+  padding: 0;
+}

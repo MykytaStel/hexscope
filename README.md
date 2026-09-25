@@ -11,7 +11,10 @@ copies. Nothing is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
 > HEIC and AVIF, PDF, and ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`) are supported.
+> `.epub`) are supported. Guides: [removing a photo's
+> location](https://hexscope.pages.dev/remove-location-from-photo), [what an
+> edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
+> [why a PNG won't open](https://hexscope.pages.dev/png-wont-open).
 
 ## What it does
 

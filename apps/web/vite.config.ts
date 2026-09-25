@@ -10,8 +10,15 @@ export default defineConfig({
   build: {
     target: "es2022",
     rollupOptions: {
-      // The app, and the story page that explains DEFLATE with its player.
-      input: { main: page("index.html"), deflate: page("deflate.html") },
+      // The app, the story page that explains DEFLATE with its player, and
+      // the guides, which are plain pages.
+      input: {
+        main: page("index.html"),
+        deflate: page("deflate.html"),
+        location: page("remove-location-from-photo.html"),
+        pdf: page("pdf-hidden-versions.html"),
+        png: page("png-wont-open.html"),
+      },
     },
   },
 });

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A PNG that will not open is usually one of five things, and each leaves a mark in the file. How to find which, in your browser, without uploading the image." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Why won't my PNG open? — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/png-wont-open" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/png-wont-open" />
+    <meta property="og:title" content="Why won't my PNG open?" />
+    <meta property="og:description" content="Five reasons a PNG will not open, and how to see which one it is, byte by byte." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Broken files</p>
+        <h1>Why won't my PNG open?</h1>
+        <p class="story-lede">
+          When a viewer refuses a PNG, it rarely says why. The cause is almost always one of five things, and each
+          one leaves a mark in the file's bytes. <a href="./">hexscope</a> reads a broken file anyway, in your
+          browser, and points at the exact place.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a PNG</a>
+          <a class="btn" href="./?sample=broken.png">Try a broken image</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> It is not really a PNG</h2>
+          <p>
+            A file named <code>.png</code> can be a JPEG, a WebP or an iPhone's HEIC photo that was renamed, or
+            saved under the wrong name by a website. Programs that trust the name fail. Every PNG starts with the same
+            eight bytes, <code>89 50 4E 47 0D 0A 1A 0A</code>; if those are missing, hexscope names the format the
+            file really is, and opens it as that when it can.
+          </p>
+          <p>
+            <strong>Fix:</strong> give it the right extension, or open it with a program that reads what it really is.
+          </p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> It was cut short</h2>
+          <p>
+            A download that stopped early, a copy to a full disk, a card pulled out too soon: the file simply ends.
+            A PNG is a run of <em>chunks</em>, each with its length, and it must finish with one called IEND. hexscope
+            shows the last chunk that is whole, the one that is cut, and that IEND never arrives.
+          </p>
+          <p><strong>Fix:</strong> get the file again. What is missing cannot be rebuilt.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> It went through a text-mode transfer</h2>
+          <p>
+            Some old transfer programs — FTP in ASCII mode is the classic — treat every file as text and change its
+            line endings on the way. The signature's <code>0D 0A</code> and <code>0A</code> bytes are there to
+            catch exactly this: when they come out changed, the file was altered as text, and so was everything after.
+            hexscope reports a <em>damaged PNG signature</em> and reads on, so you can see the damage that follows.
+          </p>
+          <p><strong>Fix:</strong> transfer the file again in binary mode.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Bytes were changed</h2>
+          <p>
+            Every chunk ends with a CRC-32, a checksum of its type and data. A single flipped bit — a failing disk, a
+            faulty edit, a careless tool — makes it disagree. hexscope marks every mismatch with the stored and the
+            computed value, on the four bytes of the checksum, so you can see which chunk was hit. Some viewers
+            refuse a file for a bad checksum in a vital chunk even when the rest is fine.
+          </p>
+          <p>
+            <strong>Fix:</strong> get a good copy if you can. When the damage is only in the checksum, a program that
+            recomputes it may rescue the file.
+          </p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> The compressed pixels are broken</h2>
+          <p>
+            The picture is stored in IDAT chunks, compressed with DEFLATE — the same compression as ZIP. When those
+            bytes are damaged, decompression stops part-way, and viewers show nothing, or the top of the picture and
+            then grey. hexscope decompresses the stream step by step and points at the step where it breaks; its
+            player shows everything decoded up to there.
+          </p>
+          <p><strong>Fix:</strong> as with a cut file, only a good copy brings back what is lost.</p>
+        </section>
+
+        <section>
+          <h2>What hexscope does not do</h2>
+          <p>
+            It does not repair files: it shows you what is wrong, and where, so you know whether a file can be saved
+            and what to ask for. The file stays in your browser; nothing is uploaded.
+          </p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a PNG now</a>
+          </p>
+          <p class="story-foot">
+            The format is the W3C's
+            <a href="https://www.w3.org/TR/png-3/#5PNG-file-signature" target="_blank" rel="noopener noreferrer">PNG specification</a>;
+            its signature is there to tell PNGs from other files and to catch some transmission errors early.
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="deflate.html">How DEFLATE works, visually</a></li>
+          </ul>
+          <p class="story-foot">
+            hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>:
+            you can read the code that reads your file.
+          </p>
+        </nav>
+      </article>
+    </main>
+  </body>
+</html>
