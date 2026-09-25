@@ -81,7 +81,13 @@ pub struct Parsed {
     docs: DocTables,
     /// `[start, len, role, node or -1] × n`: what the file is made of.
     composition: Vec<f64>,
+    /// The picture, scaled to fit: `(width, height, rgba)`.
+    preview: Option<(u32, u32, Vec<u8>)>,
 }
+
+/// The preview's longer side, in pixels: sharp on a 2× screen at the width
+/// the file panel gives it.
+const PREVIEW_MAX: u32 = 768;
 
 /// What each node is, deduplicated: thousands of nodes share a few hundred
 /// explanations, so each is sent once with a per-node index into it.
@@ -257,6 +263,95 @@ impl Parsed {
     #[wasm_bindgen(getter)]
     pub fn inflated(&self) -> Vec<u8> {
         self.output.clone()
+    }
+
+    /// The picture's preview size, `[width, height]`; empty when there is none.
+    #[wasm_bindgen(getter, js_name = previewSize)]
+    pub fn preview_size(&self) -> Vec<u32> {
+        self.preview.as_ref().map_or(Vec::new(), |p| vec![p.0, p.1])
+    }
+
+    /// The preview's pixels, four bytes each.
+    #[wasm_bindgen(getter, js_name = previewPixels)]
+    pub fn preview_pixels(&self) -> Vec<u8> {
+        self.preview.as_ref().map_or(Vec::new(), |p| p.2.clone())
+    }
+
+    /// Each scanline's filter type, 0 to 4, for a PNG that is not
+    /// interlaced; empty otherwise. Rows past a decoding failure are absent.
+    #[wasm_bindgen(getter, js_name = rowFilters)]
+    pub fn row_filters(&self) -> Vec<u8> {
+        let Some([w, h, depth, color, 0]) = self.ihdr else {
+            return Vec::new();
+        };
+        let ihdr = hexscope_core::png::fields::Ihdr {
+            width: w,
+            height: h,
+            bit_depth: depth as u8,
+            color_type: color as u8,
+            interlace: 0,
+        };
+        let Some(row) = ihdr.stride().and_then(|s| s.checked_add(1)) else {
+            return Vec::new();
+        };
+        self.output
+            .iter()
+            .step_by(row)
+            .take(h as usize)
+            .copied()
+            .collect()
+    }
+
+    /// The step that wrote output byte `pos` (`by` 0) or read DEFLATE bit
+    /// `pos` (`by` 1), as `[index, kind, a, b, bitStart, bitEnd, outStart]`
+    /// in the layout of [`Parsed::steps`]; empty when no step does. Resumes
+    /// from the nearest checkpoint, so it costs one interval at most.
+    pub fn locate(&self, by: u8, pos: f64) -> Vec<f64> {
+        let Some(body) = self.body() else {
+            return Vec::new();
+        };
+        if !(pos.is_finite() && pos >= 0.0) {
+            return Vec::new();
+        }
+        let pos = pos as u64;
+        let before = |c: &Checkpoint| {
+            if by == 0 {
+                c.out_pos <= pos
+            } else {
+                c.bit_pos <= pos
+            }
+        };
+        let nearest = self.checkpoints.partition_point(before);
+        let mut d = nearest
+            .checked_sub(1)
+            .and_then(|i| self.checkpoints.get(i))
+            .and_then(|cp| Decoder::resume(body, MAX_PIXEL_BYTES, &self.output, cp).ok())
+            .unwrap_or_else(|| Decoder::new(body, MAX_PIXEL_BYTES));
+        while let Some(Ok(step)) = d.step() {
+            let produced = match step.event {
+                InflateEvent::Literal { .. } => 1,
+                InflateEvent::Match { length, .. } => length as u64,
+                _ => 0,
+            };
+            let (start, end, done) = if by == 0 {
+                (
+                    step.out_start,
+                    step.out_start + produced,
+                    step.out_start > pos,
+                )
+            } else {
+                (step.bit_start, step.bit_end, step.bit_start > pos)
+            };
+            if done {
+                break;
+            }
+            if start <= pos && pos < end {
+                let mut out = vec![step.index as f64];
+                encode(&step, &mut out);
+                return out;
+            }
+        }
+        Vec::new()
     }
 
     /// Up to `count` DEFLATE steps starting at step `from`, flattened with
@@ -726,6 +821,8 @@ pub fn entropy(bytes: &[u8], bins: u32) -> Vec<f32> {
 
 fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
     let mut parsed = flatten(&doc.tree);
+    parsed.preview = hexscope_core::png::preview::preview(bytes, &doc, PREVIEW_MAX)
+        .map(|p| (p.width, p.height, p.rgba));
     parsed.format = "png";
     parsed.header_len = 2;
     parsed.trailer_len = 4;
@@ -880,6 +977,7 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         extract_error: String::new(),
         docs: DocTables::default(),
         composition: Vec::new(),
+        preview: None,
     }
 }
 
@@ -1159,6 +1257,27 @@ mod tests {
         assert_eq!(parsed.format(), "unknown");
         assert!(parsed.labels.contains("GIF"));
         assert!(parsed.facts().is_empty() && parsed.location().is_empty());
+    }
+
+    #[test]
+    fn a_pixel_leads_to_the_step_that_wrote_it_and_back() {
+        let parsed = parse(&fixture("basn2c08.png"));
+        assert_eq!(parsed.preview_size(), vec![32, 32]);
+        assert_eq!(parsed.preview_pixels().len(), 32 * 32 * 4);
+        // Every output byte has a step, and that step's bits lead back to it.
+        for pos in [0.0, 1.0, 97.0, 500.0, 3000.0, 3103.0] {
+            let s = parsed.locate(0, pos);
+            assert_eq!(s.len(), 7, "{pos}");
+            let (kind, len, bit_start, out_start) = (s[1], s[3], s[4], s[6]);
+            let produced = if kind == 1.0 { 1.0 } else { len };
+            assert!(
+                out_start <= pos && pos < out_start + produced,
+                "{pos}: {s:?}"
+            );
+            assert_eq!(parsed.locate(1, bit_start), s, "{pos}");
+        }
+        assert!(parsed.locate(0, 1e9).is_empty());
+        assert!(parsed.locate(1, f64::NAN).is_empty());
     }
 
     #[test]

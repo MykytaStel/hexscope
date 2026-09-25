@@ -35,6 +35,10 @@ export interface ParsedFile {
   entropy: Float32Array;
   entropyWindow: number;
   format: "png" | "jpeg" | "heif" | "pdf" | "zip" | "unknown";
+  /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
+  preview: { width: number; height: number; pixels: Uint8Array } | null;
+  /** Each scanline's filter type, for a PNG that is not interlaced. */
+  rowFilters: Uint8Array;
   /** [width, height], or null when the file does not say. */
   dimensions: [number, number] | null;
   /** What a photo's metadata reveals; empty for anything else. */
@@ -335,6 +339,15 @@ export class FileModel {
     const within = n - starts[seg];
     if (within >= this.file.segments[seg * 2 + 1]) return -1;
     return this.file.segments[seg * 2] + within;
+  }
+
+  /** Byte `n` of the reassembled stream at file offset `offset`, or -1 outside it. */
+  fileToStream(offset: number): number {
+    const s = this.file.segments;
+    for (let i = 0; i < s.length; i += 2) {
+      if (offset >= s[i] && offset < s[i] + s[i + 1]) return this.segmentStreamStart[i / 2] + offset - s[i];
+    }
+    return -1;
   }
 
   /**

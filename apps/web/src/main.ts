@@ -3,6 +3,7 @@ import { Drawer, formatBytes, type CleanResult } from "./drawer";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
+import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
@@ -25,6 +26,7 @@ const hex = new HexView($("hex"), {
   onHover: (id, offset) => {
     setHover(id);
     status.textContent = offset >= 0 && model ? describeOffset(offset) : "";
+    picture.fromByte(offset);
     status.hidden = !status.textContent;
   },
   onSelect: select,
@@ -32,6 +34,21 @@ const hex = new HexView($("hex"), {
 const minimap = new Minimap($("hex"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: select });
+const picture = new PictureView({
+  locate: async (by, pos) => {
+    const r = await call({ type: "locate", by, pos });
+    return r.type === "located" ? r.step : new Float64Array(0);
+  },
+  // The player owns the mark while it plays.
+  onBytes: (start, end) => {
+    if (document.body.classList.contains("is-playing")) return;
+    hex.setHead(start, end);
+    if (start >= 0) hex.revealOffset(start, false);
+  },
+  onStep: (index) => {
+    void openPlayer().then(() => player.jump(index));
+  },
+});
 const drawer = new Drawer(
   $("drawer"),
   select,
@@ -45,6 +62,7 @@ const drawer = new Drawer(
       void load(new File([bytes as BlobPart], name));
     },
   },
+  (m) => picture.element(m),
 );
 
 /** "photo.jpg" → "photo-clean.jpg" */

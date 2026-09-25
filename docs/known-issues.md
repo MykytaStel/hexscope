@@ -9,6 +9,11 @@ returns a tree, and has no runtime dependencies.
 These are features in their own right rather than defects, each worth its own
 milestone.
 
+**Pixels and bytes for other images.** The picture view maps pixels to
+bytes for PNGs that are not interlaced. An interlaced PNG stores its pixels
+in seven passes, and a JPEG's pixels come out of blocks of cosine waves
+rather than bytes of their own; neither is followed yet.
+
 **Vendor MakerNotes.** Camera makers store extra metadata — often more serial
 numbers — in a MakerNote whose format differs per vendor. It is shown as an
 opaque byte range.
