@@ -133,6 +133,8 @@ export class Drawer {
     private readonly onOpen: (entry: number) => void,
     private readonly onHover: (id: number) => void,
     private readonly cleaning: CleanActions,
+    /** The picture panel, for a file that has one. */
+    private readonly picture: (m: FileModel) => HTMLElement | null,
   ) {
     this.node = el("section", "drawer-node");
     this.file = el("section", "drawer-file");
@@ -160,6 +162,8 @@ export class Drawer {
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
     fileGroup.append(grid);
     this.file.append(fileGroup);
+    const picture = this.picture(m);
+    if (picture) this.file.append(picture);
     // A photo or a PDF always gets the card, if only to say it gives nothing
     // away; an archive only when it is a document with properties to show.
     if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {

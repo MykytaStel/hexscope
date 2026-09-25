@@ -90,6 +90,13 @@ its document properties (comments and tracked changes keep their authors,
 and the page says so). The page lists what went, and *Open the clean copy*
 shows it in hexscope, so you can see the card is empty.
 
+**Shows which bytes make which pixels.** Beside a PNG's structure, its
+picture: point at a pixel, or tap it, and hexscope names the DEFLATE step
+that wrote it — a literal byte, or a copy of so many bytes from so far back,
+often exactly one row up — marks the file bytes that hold that step, and
+shows the copy's source in the picture. Point at a byte of IDAT and the
+pixels it became light up. One click opens that step in the DEFLATE player.
+
 **Links every view.** Hover a byte and its field lights up in the tree, the
 details panel says what it is, and the status bar shows its offset and path.
 Hover a tree row and its bytes light up. Click to pin.

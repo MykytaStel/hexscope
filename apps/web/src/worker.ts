@@ -12,7 +12,8 @@ export type WorkerRequest =
   | { id: number; type: "selectEntry"; index: number }
   | { id: number; type: "open"; index: number }
   | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; bytes: Uint8Array };
+  | { id: number; type: "clean"; bytes: Uint8Array }
+  | { id: number; type: "locate"; by: 0 | 1; pos: number };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile }
@@ -20,6 +21,7 @@ export type WorkerResponse =
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "steps"; steps: Float64Array }
+  | { id: number; type: "located"; step: Float64Array }
   | { id: number; type: "inflated"; bytes: Uint8Array }
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
@@ -64,7 +66,13 @@ function describe(parsed: Parsed): ParsedFile {
     facts: [],
     location: null,
     parseMs: 0,
+    preview: null,
+    rowFilters: parsed.rowFilters,
   };
+  const size = Array.from(parsed.previewSize);
+  if (size.length === 2) {
+    result.preview = { width: size[0], height: size[1], pixels: parsed.previewPixels };
+  }
   const dims = Array.from(parsed.dimensions);
   result.dimensions = dims.length === 2 ? [dims[0], dims[1]] : null;
   const facts = parsed.facts ? parsed.facts.split(SEPARATOR) : [];
@@ -98,6 +106,8 @@ const transfers = (r: ParsedFile): Transferable[] => [
   r.docConcerns.buffer,
   r.composition.buffer,
   r.entropy.buffer,
+  r.rowFilters.buffer,
+  ...(r.preview ? [r.preview.pixels.buffer] : []),
 ];
 
 /** Bins the entropy minimap is drawn from; the page draws at most one per pixel row. */
@@ -163,7 +173,10 @@ async function handle(req: WorkerRequest): Promise<void> {
     post({ id: req.id, type: "back" });
     return;
   }
-  if (req.type === "steps") {
+  if (req.type === "locate") {
+    const step = current.locate(req.by, req.pos);
+    post({ id: req.id, type: "located", step }, [step.buffer]);
+  } else if (req.type === "steps") {
     const steps = current.steps(req.from, req.count);
     post({ id: req.id, type: "steps", steps }, [steps.buffer]);
   } else if (req.type === "selectEntry") {
