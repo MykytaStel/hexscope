@@ -839,6 +839,33 @@ input {
   font-size: 12px;
 }
 
+/* What to do about what a file reveals. */
+.advice {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.advice-title {
+  margin: 0 0 4px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.advice ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.advice li + li {
+  margin-top: 6px;
+}
+
 /* A bug report's structure, to read before sharing. */
 .report-link {
   margin-top: 10px;
