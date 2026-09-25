@@ -162,3 +162,7 @@ for name, data in [("report.pdf", report()), ("compact.pdf", compact())]:
     with open(os.path.join(OUT, name), "wb") as f:
         f.write(data)
     print(name, len(data))
+
+# The edited one is also the web app's PDF sample.
+with open(os.path.join(HERE, "..", "apps", "web", "public", "samples", "report.pdf"), "wb") as f:
+    f.write(report())

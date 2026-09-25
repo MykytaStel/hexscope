@@ -51,6 +51,11 @@ const FACT_LABELS: Record<string, string> = {
   company: "Company",
   application: "Application",
   template: "Template",
+  subject: "Subject",
+  keywords: "Keywords",
+  producer: "PDF made by",
+  updates: "Edited",
+  history: "Editing history",
 };
 
 /** Why an entry cannot be played, or null when it can. */
@@ -67,7 +72,7 @@ function playReason(e: ZipEntryInfo): string | null {
 function roleName(role: number, format: string): string {
   switch (role) {
     case Role.Content:
-      return format === "zip" ? "Files" : "Picture";
+      return format === "zip" ? "Files" : format === "pdf" ? "Pages, fonts, images" : "Picture";
     case Role.Metadata:
       return "Metadata";
     case Role.Thumbnail:
@@ -268,7 +273,8 @@ export class Drawer {
   private reveals(m: FileModel): HTMLElement {
     const f = m.file;
     const group = el("div", "group reveals");
-    group.append(el("h3", undefined, f.format === "zip" ? "What this document reveals" : "What this photo reveals"));
+    const photo = f.format === "jpeg" || f.format === "heif" || f.format === "png";
+    group.append(el("h3", undefined, photo ? "What this photo reveals" : "What this document reveals"));
     if (!f.location && f.facts.length === 0) {
       group.append(el("p", "hint", "No EXIF metadata: nothing about the camera, the time or the place."));
       return group;
@@ -299,7 +305,9 @@ export class Drawer {
       dd.append(map);
     }
     for (const fact of f.facts) row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
-    group.append(list, this.cleaner(f.format));
+    group.append(list);
+    // A PDF's clean copy is not built yet; a button that only refuses would mislead.
+    if (f.format !== "pdf") group.append(this.cleaner(f.format));
     return group;
   }
 

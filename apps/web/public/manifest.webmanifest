@@ -20,7 +20,7 @@
       "files": [
         {
           "name": "file",
-          "accept": ["image/*", "application/zip", ".png", ".jpg", ".jpeg", ".heic", ".heif", ".avif", ".zip", ".docx", ".xlsx", ".pptx"]
+          "accept": ["image/*", "application/zip", "application/pdf", ".pdf", ".png", ".jpg", ".jpeg", ".heic", ".heif", ".avif", ".zip", ".docx", ".xlsx", ".pptx"]
         }
       ]
     }

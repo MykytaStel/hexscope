@@ -15,6 +15,18 @@ opaque byte range.
 
 **IPTC.** Photoshop's APP13 segment is named but not decoded.
 
+**Encrypted PDFs.** Many PDFs are encrypted with an empty password, only to
+restrict printing or copying. Their structure is read, but their strings
+are not decrypted, so they show no author or dates. Decrypting needs MD5,
+RC4 and AES, written without dependencies.
+
+**PDF filters other than Flate.** Object streams and XMP compressed any
+other way are not read. Neither are predictors, so the entries of a
+cross-reference stream are not shown one by one.
+
+**A PDF's clean copy.** Not built yet: the reveals card for a PDF has no
+button.
+
 **HEIF items built from other items.** An item stored by construction
 method 2 is assembled from other items' bytes; it is named, not assembled.
 HEIF sequences (Live Photo videos, bursts) are read as boxes only.
@@ -35,9 +47,9 @@ cannot hold comfortably. Opened files nest at most four deep.
 and the byte view drops to 8 bytes per row, so it works on a phone, but hover
 is the main way to explore and touch has none.
 
-**WebAssembly size.** About 137 KB gzipped, grown from 58 KB as ZIP, the
-explanations, the file map, the clean copy and HEIF arrived; HEIF alone
-added 17 KB. The explanations'
+**WebAssembly size.** About 166 KB gzipped, grown from 58 KB as ZIP, the
+explanations, the file map, the clean copy, HEIF (17 KB) and PDF (29 KB)
+arrived. The explanations'
 text is under 10 KB of that; where the rest went has not been measured. A size-optimised Rust build saved
 under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
 10 MB PNG five to six times slower in the browser (950–1,500 ms against

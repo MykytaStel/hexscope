@@ -28,6 +28,7 @@ const REVEALS: Record<string, string> = {
   company: "the company",
   created: "when it was written",
   editing: "how long it was worked on",
+  updates: "earlier versions of itself",
 };
 
 /**
