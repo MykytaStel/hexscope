@@ -8,7 +8,10 @@ import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
-import { misfit } from "./verdict";
+import { misfit, verdict } from "./verdict";
+import { BatchView, type BatchItem } from "./batch";
+import { categories } from "./share";
+import { storedZip } from "./zipwrite";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -19,6 +22,11 @@ let hover = -1;
 let selected = -1;
 let problemCursor = -1;
 let loadId = 0;
+/** Files dropped together, while they are the way back; null for one file. */
+let batch: BatchItem[] | null = null;
+/** The batch stops reading while one of its files is open: that file's document is the worker's. */
+let batchPaused = false;
+let batchRunning = false;
 
 const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
@@ -259,9 +267,20 @@ function showFileInfo(m: FileModel): void {
   }
   chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
 
-  // The way back up: each archive above this document, then this one.
+  // The way back up: the list of files, each archive above this document, then this one.
   const name = document.createElement("span");
   name.className = "filename";
+  if (batch) {
+    const crumb = document.createElement("button");
+    crumb.className = "crumb-back";
+    crumb.textContent = `${batch.length} files`;
+    crumb.title = "Back to the list (Backspace)";
+    crumb.addEventListener("click", showBatch);
+    const sep = document.createElement("span");
+    sep.className = "crumb-sep";
+    sep.textContent = "›";
+    name.append(crumb, sep);
+  }
   levels.forEach((level, depth) => {
     const crumb = document.createElement("button");
     crumb.className = "crumb-back";
@@ -282,6 +301,136 @@ function showFileInfo(m: FileModel): void {
   // A location is not damage, so it gets its own badge rather than joining
   // the problems count — but it is the first thing a person should see.
   locationBtn.hidden = !f.location;
+}
+
+// --- many files ------------------------------------------------------------
+
+const batchView = new BatchView($("batch"), {
+  open: (i) => {
+    const item = batch?.[i];
+    if (!item) return;
+    batchPaused = true;
+    void load(item.file);
+  },
+  saveClean: () => void saveBatchClean(),
+});
+
+/** A short name for the kind of file, beside its name in the list. */
+function kindOf(m: FileModel): string {
+  const first = m.value(0).split(" · ")[0];
+  switch (m.file.format) {
+    case "jpeg":
+      return "JPEG";
+    case "png":
+      return "PNG";
+    case "heif":
+    case "video":
+    case "pdf":
+      return first;
+    case "zip": {
+      // An Office document says which by its main part.
+      const labels = m.file.labels;
+      if (labels.includes("word/document.xml")) return "Word document";
+      if (labels.includes("xl/workbook.xml")) return "Excel workbook";
+      if (labels.includes("ppt/presentation.xml")) return "PowerPoint deck";
+      return "ZIP";
+    }
+    case "wasm":
+      return "WebAssembly";
+    default:
+      return "";
+  }
+}
+
+/** Starts reading many files, and lists them. */
+function startBatch(files: File[]): void {
+  ++loadId;
+  closePlayer();
+  model = null;
+  levels = [];
+  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], reveals: [], cleanName: file.name, note: "" }));
+  batchView.result = "";
+  showBatch();
+}
+
+/** Back to the list of files. */
+function showBatch(): void {
+  if (!batch) return;
+  closePlayer();
+  document.body.dataset.state = "batch";
+  $("fileinfo").textContent = `${batch.length} files`;
+  $("load-error").hidden = true;
+  locationBtn.hidden = true;
+  problemsBtn.hidden = true;
+  playBtn.hidden = true;
+  batchPaused = false;
+  batchView.render(batch);
+  void runBatch();
+}
+
+/** Reads the files still waiting, one at a time, saying after each what it found. */
+async function runBatch(): Promise<void> {
+  if (batchRunning) return;
+  batchRunning = true;
+  const items = batch;
+  try {
+    for (const item of items ?? []) {
+      if (batch !== items || batchPaused) break;
+      if (item.state !== "waiting") continue;
+      item.state = "reading";
+      if (document.body.dataset.state === "batch") batchView.render(items!);
+      try {
+        const [r, buffer] = await Promise.all([call({ type: "parse", file: item.file }), item.file.arrayBuffer()]);
+        if (r.type !== "parsed") throw new Error(r.type === "error" ? r.message : "unexpected reply");
+        const m = new FileModel(r.result, new Uint8Array(buffer), item.file.name);
+        item.kind = kindOf(m);
+        item.lines = verdict(m);
+        item.reveals = categories(m);
+        item.cleanName = cleanName(m);
+        item.state = "done";
+      } catch (e) {
+        item.state = "failed";
+        item.note = e instanceof Error ? e.message : String(e);
+      }
+      if (batch === items && document.body.dataset.state === "batch") batchView.render(items!);
+    }
+  } finally {
+    batchRunning = false;
+  }
+  // Paused and resumed while a file was being read: finish the rest.
+  if (batch && batch === items && !batchPaused && batch.some((i) => i.state === "waiting")) void runBatch();
+}
+
+/** Makes a clean copy of every file that gives something away, and saves them as one ZIP. */
+async function saveBatchClean(): Promise<void> {
+  const items = batch;
+  if (!items) return;
+  batchView.result = "Making the clean copies…";
+  const files: { name: string; bytes: Uint8Array }[] = [];
+  const failed: string[] = [];
+  let nothing = 0;
+  for (const item of items) {
+    if (item.state !== "done" || (item.reveals.length === 0 && !item.lines.some((l) => l.kind === "hidden"))) continue;
+    const r = await call({ type: "clean", bytes: new Uint8Array(await item.file.arrayBuffer()) });
+    if (r.type === "cleaned" && !r.error) files.push({ name: item.cleanName, bytes: r.bytes });
+    else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
+    else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
+  }
+  if (batch !== items) return;
+  const said: string[] = [];
+  if (files.length > 0) {
+    const name = "hexscope-clean-copies.zip";
+    const url = URL.createObjectURL(new Blob([storedZip(files) as BlobPart], { type: "application/zip" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    said.push(`Saved ${files.length === 1 ? "1 clean copy" : `${files.length} clean copies`} as ${name}.`);
+  }
+  if (nothing > 0) said.push(`${nothing === 1 ? "1 file had" : `${nothing} files had`} nothing hexscope can remove.`);
+  if (failed.length > 0) said.push(`Not cleaned — ${failed.join("; ")}.`);
+  batchView.result = said.join(" ") || "Nothing to clean.";
 }
 
 async function load(file: File): Promise<void> {
@@ -379,6 +528,11 @@ async function loadSample(path: string, name: string): Promise<void> {
 
 /** Back to where it was after a file failed to open, saying why. */
 function loadFailed(message: string): void {
+  if (batch && !model) {
+    showBatch();
+    $("fileinfo").textContent = message;
+    return;
+  }
   document.body.dataset.state = model ? "ready" : "empty";
   $("fileinfo").textContent = message;
   // On the landing page the top bar is out of the way: say it by the button.
@@ -394,13 +548,14 @@ function loadFailed(message: string): void {
 for (const id of ["picker", "picker-empty"]) {
   $<HTMLInputElement>(id).addEventListener("change", (e) => {
     const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = [...(input.files ?? [])];
     input.value = ""; // so choosing the same file again still fires
-    if (file) void load(file);
+    openFiles(files);
   });
 }
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]")) {
   btn.addEventListener("click", async () => {
+    batch = null;
     await loadSample(btn.dataset.sample!, btn.dataset.name!);
     // "Watch compression work" goes straight to the player.
     if (btn.dataset.then === "play" && canPlay()) void openPlayer();
@@ -464,9 +619,18 @@ window.addEventListener("drop", (e) => {
   e.preventDefault();
   dragDepth = 0;
   document.body.classList.remove("is-dragging");
-  const file = e.dataTransfer?.files[0];
-  if (file) void load(file);
+  openFiles([...(e.dataTransfer?.files ?? [])]);
 });
+
+/** One file opens; several are listed. */
+function openFiles(files: File[]): void {
+  if (files.length > 1) {
+    startBatch(files);
+  } else if (files.length === 1) {
+    batch = null;
+    void load(files[0]);
+  }
+}
 
 window.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== "range") return;
@@ -482,6 +646,9 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Backspace" && levels.length > 0) {
     e.preventDefault();
     void back(levels.length - 1);
+  } else if (e.key === "Backspace" && batch && document.body.dataset.state === "ready") {
+    e.preventDefault();
+    showBatch();
   }
   if ((e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
 });

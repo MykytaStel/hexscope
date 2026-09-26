@@ -42,7 +42,7 @@
         </button>
         <label class="btn">
           Open<span class="open-long">&nbsp;file</span>
-          <input type="file" id="picker" hidden />
+          <input type="file" id="picker" multiple hidden />
         </label>
       </div>
     </header>
@@ -55,6 +55,8 @@
       <footer class="pane pane-drawer" id="drawer" aria-label="Details"></footer>
     </main>
 
+    <section class="batch" id="batch" aria-label="Files"></section>
+
     <div class="empty">
       <div class="empty-card">
         <div class="hero">
@@ -64,9 +66,9 @@
             <div class="hero-actions">
               <label class="btn btn-primary btn-big">
                 Choose a file
-                <input type="file" id="picker-empty" hidden />
+                <input type="file" id="picker-empty" multiple hidden />
               </label>
-              <span class="hero-drop">or drop one anywhere on this page</span>
+              <span class="hero-drop">or drop one — or a whole folder's worth — anywhere on this page</span>
             </div>
             <p class="load-error" id="load-error" role="alert" hidden></p>
             <p class="promise">
