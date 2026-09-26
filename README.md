@@ -37,6 +37,14 @@ RFC 1950/1951, ITU T.81, JFIF, EXIF 2.32, PKWARE APPNOTE), linked. Problems
 say how worried to be. The verdict is what reading the structure finds; it
 is not a virus scan, and says so.
 
+**Checks many files at once.** Drop a folder's worth of photos or
+documents, or choose several, and hexscope lists them with what each one
+gives away — the place, a serial number, deleted text, a black box that
+hides nothing, damage, a wrong extension — read one after another in the
+tab. Each opens as a file of its own, with the way back to the list; *Save
+clean copies* makes a clean copy of every file that gives something away
+and saves them as one ZIP.
+
 **Shows the whole file at once.** "What it's made of" splits every byte into
 picture (or files), metadata, thumbnail, structure, hidden and damaged, with
 a bar in file order and the share of each. Beside the hex view, a minimap of
