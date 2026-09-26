@@ -15,6 +15,7 @@ import { storedZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
+import { compare, parseAside, showComparison } from "./compare";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -133,6 +134,7 @@ const drawer = new Drawer(
       void load(new File([bytes as BlobPart], name));
     },
     repair: repairCopy,
+    compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
   },
   (m) => picture.element(m),
@@ -144,6 +146,18 @@ function cleanName(m: FileModel): string {
   const dot = base.lastIndexOf(".");
   const ext = misfit(m)?.fits ?? (dot > 0 ? base.slice(dot) : "");
   return `${dot > 0 ? base.slice(0, dot) : base}-clean${ext}`;
+}
+
+/** Compares the file on screen with another, parsed aside. */
+async function compareWith(other: File): Promise<void> {
+  const a = model;
+  if (!a) return;
+  try {
+    const b = await parseAside(other);
+    showComparison(a, b, compare(a, b));
+  } catch (e) {
+    drawer.showNote(`Could not read ${other.name}: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /** "photo.jpg" → "photo-repaired.jpg", with the extension that fits. */
