@@ -52,6 +52,8 @@ fn a_document_with_an_update_keeps_both_versions() {
                 "updates",
                 "once after it was first saved; the earlier version is still inside"
             ),
+            // The line the update replaced, which no page shows any more.
+            ("earlier", "“Salary: 4,200 EUR a month”"),
             ("title", "Quarterly plan - v2"),
             ("application", "Sample Writer 3.1"),
             ("producer", "hexscope sample generator"),

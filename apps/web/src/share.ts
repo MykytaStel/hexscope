@@ -11,6 +11,7 @@ const CATEGORIES: [string, string][] = [
   ["location", "where it was taken"],
   ["updates", "earlier versions of itself"],
   ["deleted", "text that was deleted"],
+  ["earlier", "text an edit took off the page"],
   ["photoplace", "where its photos were taken"],
   ["serial", "the camera's serial number"],
   ["owner", "the owner's name"],

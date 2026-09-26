@@ -280,6 +280,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let edits = ends.len().saturating_sub(original);
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
     let blackouts = if !encrypted || ctx.crypt.is_some() {
+        redact::earlier_text(data, &ctx, &mut facts);
         redact::check(data, &mut tree, &ctx, &mut facts)
     } else {
         Vec::new()

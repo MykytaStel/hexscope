@@ -69,6 +69,25 @@ function grey(b: ImageBitmap, [x, y, w, h]: [number, number, number, number]): F
   return out;
 }
 
+/** The picture itself, as stored (not yet turned upright); null when the browser cannot decode it. */
+export async function decodePicture(m: FileModel): Promise<ImageBitmap | null> {
+  const f = m.file;
+  try {
+    if (f.format === "jpeg") {
+      return await createImageBitmap(new Blob([asStored(m.bytes) as BlobPart], { type: "image/jpeg" }));
+    }
+    if (f.preview) {
+      const { width, height, pixels } = f.preview;
+      return await createImageBitmap(new ImageData(new Uint8ClampedArray(pixels), width, height));
+    }
+    // Safari decodes HEIC and AVIF; where the browser cannot, there is simply no picture.
+    if (f.format === "heif") return await createImageBitmap(new Blob([m.bytes as BlobPart]));
+  } catch {
+    // Not decodable here.
+  }
+  return null;
+}
+
 /** Decodes and compares; null when there is no thumbnail, or either will not decode. */
 export async function checkThumbnail(m: FileModel): Promise<ThumbnailCheck | null> {
   const f = m.file;
@@ -78,20 +97,13 @@ export async function checkThumbnail(m: FileModel): Promise<ThumbnailCheck | nul
   const bytes = m.bytes.subarray(start, start + m.len(fact.node));
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
   let thumbnail: ImageBitmap;
-  let picture: ImageBitmap;
   try {
     thumbnail = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
-    if (f.format === "jpeg") {
-      picture = await createImageBitmap(new Blob([asStored(m.bytes) as BlobPart], { type: "image/jpeg" }));
-    } else if (f.preview) {
-      const { width, height, pixels } = f.preview;
-      picture = await createImageBitmap(new ImageData(new Uint8ClampedArray(pixels), width, height));
-    } else {
-      return null;
-    }
   } catch {
     return null;
   }
+  const picture = await decodePicture(m);
+  if (!picture) return null;
   const inner = content(thumbnail);
   const shape = inner[2] / inner[3] / (picture.width / picture.height);
   let differs: ThumbnailCheck["differs"] = null;
