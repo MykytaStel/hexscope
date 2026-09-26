@@ -7,7 +7,7 @@ use super::{Ctx, ObjRec};
 use crate::inflate::{NoTrace, inflate, zlib_decompress};
 use crate::model::{NodeId, ParseTree, Value};
 use crate::zip::DocumentFact;
-use crate::zip::office::element_text;
+use crate::zip::office::{MAX_PHOTOS, element_text, photo_says};
 
 /// Streams decompressed to read facts are capped at this.
 const MAX_DECODED: u64 = 16 * 1024 * 1024;
@@ -18,9 +18,11 @@ pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 const MAX_TEXT: usize = 512;
 
 /// The order facts are shown in: who, what changed, then the rest.
-const ORDER: [&str; 11] = [
+const ORDER: [&str; 13] = [
     "author",
     "updates",
+    "photoplace",
+    "photo",
     "title",
     "subject",
     "keywords",
@@ -95,8 +97,45 @@ pub(super) fn collect(
         xmp_facts(&String::from_utf8_lossy(&bytes), node, &mut facts);
     }
 
+    // Photos have a budget of their own: one large picture must not stop
+    // the rest being read, nor the facts above.
+    let mut budget = MAX_DECODED_TOTAL;
+    for rec in ctx.objects.iter().filter(|r| is_photo(r)).take(MAX_PHOTOS) {
+        let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget) else {
+            continue;
+        };
+        if !bytes.starts_with(&[0xFF, 0xD8]) {
+            continue;
+        }
+        let found = crate::jpeg::parse_jpeg(&bytes).facts;
+        if let Some(said) = photo_says(&found) {
+            facts.push(DocumentFact {
+                kind: if found.location.is_some() {
+                    "photoplace"
+                } else {
+                    "photo"
+                },
+                text: cap(format!("the image in object {}: {said}", rec.num)),
+                node: rec.stream.map_or(rec.node, |(_, n)| n),
+            });
+        }
+    }
+
     facts.sort_by_key(|f| ORDER.iter().position(|&k| k == f.kind));
     facts
+}
+
+/// An image whose stream is a JPEG file as it is (8.9.5, DCTDecode as its
+/// only filter): what a camera wrote into it comes along.
+pub(super) fn is_photo(rec: &ObjRec) -> bool {
+    let v = &rec.value;
+    rec.stream.is_some()
+        && v.get("Subtype").and_then(Obj::name) == Some("Image")
+        && match v.get("Filter") {
+            Some(Obj::Name(n)) => n == "DCTDecode",
+            Some(Obj::Array(a)) => a.len() == 1 && a[0].obj.name() == Some("DCTDecode"),
+            _ => false,
+        }
 }
 
 pub(super) fn insert_update(facts: &mut Vec<DocumentFact>, fact: DocumentFact) {

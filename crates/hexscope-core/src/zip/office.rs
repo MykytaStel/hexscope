@@ -172,7 +172,7 @@ fn photo_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
 }
 
 /// A photo's revealing facts in one line: where, with what, by whom, when.
-fn photo_says(f: &PhotoFacts) -> Option<String> {
+pub(crate) fn photo_says(f: &PhotoFacts) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(l) = &f.location {
         let ns = if l.latitude < 0.0 { 'S' } else { 'N' };

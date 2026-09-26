@@ -72,7 +72,8 @@ cross-reference table, so the tree holds every object — including the ones
 an edit replaced. A PDF changed after it was first saved usually still
 carries the earlier version, and hexscope says so, revision by revision. It
 shows who wrote it, with which programs, when, and its editing history, from
-the document information and the XMP metadata, compressed or not. It marks
+the document information and the XMP metadata, compressed or not, and what
+each JPEG photo on its pages says: where, with which camera. It marks
 what a PDF can run or hide: JavaScript, actions that start programs,
 attached files, data before the header or after the end. An encrypted PDF
 that opens without a password — most of them — is decrypted to read it, as a
@@ -104,10 +105,12 @@ and anything after its end; its pixels are copied byte for byte. A HEIC or
 AVIF keeps its size: its EXIF and XMP are blanked where they lie, because
 everything else in it is found by offset. A PDF is written anew with only
 what its pages use: no author, programs or dates, no XMP, and none of the
-earlier versions an edit left behind. A Word, Excel or PowerPoint file loses
-its document properties, and the photos in it lose their EXIF (comments and
-tracked changes are part of its text and stay, and the page says so). The page lists what went, and *Open the clean copy*
-shows it in hexscope, so you can see the card is empty.
+earlier versions an edit left behind; its photos' EXIF is zeroed where it
+lies, leaving the pictures untouched. A Word, Excel or PowerPoint file loses
+its document properties, and the photos in it their EXIF (comments and
+tracked changes are part of its text and stay, and the page says so). The
+page lists what went, and *Open the clean copy* shows it in hexscope, so you
+can see the card is empty.
 
 **Shows which bytes make which pixels.** Beside a PNG's structure, its
 picture: point at a pixel, or tap it, and hexscope names the DEFLATE step
