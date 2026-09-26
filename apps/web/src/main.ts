@@ -611,7 +611,8 @@ function arrive(): void {
 async function openEntry(entry: number): Promise<void> {
   const parent = model;
   if (!parent) return;
-  const name = parent.label(parent.entry(entry).node);
+  // A PDF's attachment by its name; an archive's entry by its node's.
+  const name = parent.file.format === "pdf" ? (parent.file.attachments[entry] ?? "attachment") : parent.label(parent.entry(entry).node);
   closePlayer();
   const r = await call({ type: "open", index: entry });
   if (model !== parent) return;

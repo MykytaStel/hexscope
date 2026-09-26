@@ -206,6 +206,7 @@ fn the_redacted_sample_still_holds_what_its_boxes_cover() {
                 "page 1, in white on white: “Internal: the client would accept EUR 60,000 if pushed.”"
             ),
             ("comments", "1 comment by Olena Koval"),
+            ("attachments", "1 file: “payments.csv”"),
             ("title", "Settlement agreement - redacted"),
             ("producer", "hexscope sample generator"),
         ]
@@ -214,9 +215,19 @@ fn the_redacted_sample_still_holds_what_its_boxes_cover() {
     // leaves the rest where it was.
     let clean = crate::clean::clean(&fixture("redacted.pdf")).unwrap();
     let after = parse_pdf(&clean.bytes);
-    assert_eq!(problems(&after.tree), Vec::<String>::new());
+    // The attachment stays, and is still named as such.
+    assert_eq!(
+        problems(&after.tree),
+        ["a file carried inside the document"]
+    );
     // Comments are part of the document: they stay.
-    assert_eq!(facts(&after), [("comments", "1 comment by Olena Koval")]);
+    assert_eq!(
+        facts(&after),
+        [
+            ("comments", "1 comment by Olena Koval"),
+            ("attachments", "1 file: “payments.csv”")
+        ]
+    );
     for gone in [
         "Olena Koval) Tj",
         "4567",
@@ -263,6 +274,43 @@ fn a_filled_form_and_attached_files_are_named() {
             ),
             ("attachments", "2 files: “salaries.xlsx”, “notes.txt”"),
         ]
+    );
+}
+
+#[test]
+fn an_attached_file_opens() {
+    let deflated = {
+        use std::io::Write;
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+        z.write_all(b"name,salary\nOlena,4200\n").unwrap();
+        z.finish().unwrap()
+    };
+    let pdf = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(a) 3 0 R (b) 5 0 R] >> >> >>".to_vec(),
+        b"<< /Type /Pages /Kids [] /Count 0 >>".to_vec(),
+        b"<< /Type /Filespec /F (salaries.csv) /EF << /F 4 0 R >> >>".to_vec(),
+        stream("/Type /EmbeddedFile /Filter /FlateDecode", &deflated),
+        b"<< /Type /Filespec /F (gone.txt) >>".to_vec(),
+    ]);
+    let doc = parse_pdf(&pdf);
+    assert_eq!(
+        doc.attachments,
+        [
+            ("salaries.csv".to_string(), Some(4)),
+            ("gone.txt".to_string(), None)
+        ]
+    );
+    assert_eq!(
+        attachment_bytes(&pdf, 0).unwrap(),
+        b"name,salary\nOlena,4200\n"
+    );
+    assert_eq!(
+        attachment_bytes(&pdf, 1),
+        Err("its bytes are not in the file")
+    );
+    assert_eq!(
+        attachment_bytes(&pdf, 7),
+        Err("there is no such attachment")
     );
 }
 

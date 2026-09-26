@@ -87,6 +87,10 @@ pub struct Parsed {
     /// [`Parsed::blackouts`], and the covered texts in order.
     blackouts: Vec<f64>,
     blackout_texts: Vec<String>,
+    /// A PDF's bytes and its attachments' names, when it has any: they open
+    /// as files of their own.
+    pdf_source: Vec<u8>,
+    attachment_names: Vec<String>,
     /// A JPEG's bytes, for finding its blocks when asked.
     source: Vec<u8>,
     /// Its blocks, once found: the layout of [`Parsed::block_map`].
@@ -350,6 +354,13 @@ impl Parsed {
         self.blocks_note.clone()
     }
 
+    /// A PDF's attached files, by name, joined by U+001F; each opens with
+    /// `extractEntry` at its index.
+    #[wasm_bindgen(getter)]
+    pub fn attachments(&self) -> String {
+        self.attachment_names.join(&SEPARATOR.to_string())
+    }
+
     /// A PDF's pages with text under black boxes, to draw: per page
     /// `[page, left, bottom, right, top, boxes, texts, context]`, then four
     /// numbers per box, per covered text and per text left showing on the
@@ -602,6 +613,10 @@ impl Parsed {
     pub fn extract_entry(&mut self, index: u32) -> Vec<u8> {
         self.extract_error.clear();
         let result = match &self.zip {
+            None if !self.attachment_names.is_empty() => {
+                hexscope_core::pdf::attachment_bytes(&self.pdf_source, index as usize)
+                    .map_err(str::to_string)
+            }
             None => Err("this file is not an archive".to_string()),
             Some(zip) => match zip.entries.get(index as usize) {
                 None => Err(format!("there is no entry {index}")),
@@ -856,6 +871,11 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             parsed.format = "pdf";
             for f in &doc.facts {
                 parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            if !doc.attachments.is_empty() {
+                parsed.pdf_source = bytes.to_vec();
+                parsed.attachment_names =
+                    doc.attachments.iter().map(|(n, _)| sanitise(n)).collect();
             }
             for b in &doc.blackouts {
                 parsed.blackouts.extend([b.page as f64]);
@@ -1189,6 +1209,8 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         preview: None,
         blackouts: Vec::new(),
         blackout_texts: Vec::new(),
+        pdf_source: Vec::new(),
+        attachment_names: Vec::new(),
         source: Vec::new(),
         blocks: None,
         blocks_note: String::new(),

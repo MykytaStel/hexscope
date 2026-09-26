@@ -44,6 +44,29 @@ pub struct PdfDocument {
     pub facts: Vec<DocumentFact>,
     /// Pages with text under black boxes, to draw what the boxes cover.
     pub blackouts: Vec<Blackout>,
+    /// Files attached to it: each name, and the object that holds its bytes
+    /// when the file does.
+    pub attachments: Vec<(String, Option<u32>)>,
+}
+
+/// An attached file's bytes: the `index`-th of [`PdfDocument::attachments`],
+/// decrypted and decompressed as a reader would.
+pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static str> {
+    let (doc, ctx) = parse_with(data);
+    let (_, stream) = doc
+        .attachments
+        .get(index)
+        .ok_or("there is no such attachment")?;
+    let num = stream.ok_or("its bytes are not in the file")?;
+    let rec = ctx
+        .objects
+        .iter()
+        .rev()
+        .find(|o| o.num == num)
+        .ok_or("its bytes are not in the file")?;
+    let mut budget = facts::MAX_DECODED_TOTAL;
+    facts::decode(data, rec, ctx.crypt.as_ref(), &mut budget)
+        .ok_or("it is compressed in a way hexscope does not read, or larger than it opens")
 }
 
 /// `%PDF-` within the first kilobyte.
@@ -282,9 +305,10 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
+    let mut attachments = Vec::new();
     let blackouts = if !encrypted || ctx.crypt.is_some() {
         redact::earlier_text(data, &ctx, &mut facts);
-        forms::check(data, &ctx, &mut facts);
+        attachments = forms::check(data, &ctx, &mut facts);
         redact::check(data, &mut tree, &ctx, &mut facts)
     } else {
         Vec::new()
@@ -349,6 +373,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         lock: lock.map(|(l, _)| l),
         facts,
         blackouts,
+        attachments,
     };
     (doc, ctx)
 }

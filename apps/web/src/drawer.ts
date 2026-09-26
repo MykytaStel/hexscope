@@ -495,6 +495,17 @@ export class Drawer {
         const parts = deleted[1].split(" … ").flatMap((t, i) => [...(i ? [" … "] : []), el("del", "deleted-text", t)]);
         dd.querySelector(".reveal-link")?.replaceChildren(...parts);
       }
+      // Each attached file opens as a file of its own, with the way back.
+      if (fact.kind === "attachments" && f.attachments.length > 0) {
+        const open = el("span", "attachment-open");
+        f.attachments.forEach((name, i) => {
+          const b = el("button", "link", `Open ${name}`);
+          b.title = "Opens the attached file here, with the way back to this one";
+          b.addEventListener("click", () => this.onOpen(i));
+          open.append(b);
+        });
+        dd.append(open);
+      }
       // A photo inside a document that says where: the same map link as a photo's own.
       const place = fact.kind === "photoplace" ? /taken at ([\d.]+)° ([NS]), ([\d.]+)° ([EW])/.exec(fact.text) : null;
       if (place) {

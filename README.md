@@ -94,7 +94,7 @@ were never applied — and shows the text, drawn on the page where it sits —
 and text no one can see: drawn invisibly, in white on white, off the page,
 or too small, such as instructions hidden in a CV for screening software.
 Comments are listed with their authors, a form's answers with their fields,
-and attached files by name. It marks
+and attached files by name — each opens as a file of its own. It marks
 what a PDF can run or hide: JavaScript, actions that start programs,
 attached files, data before the header or after the end. An encrypted PDF
 that opens without a password — most of them — is decrypted to read it, as a

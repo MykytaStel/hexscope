@@ -1951,6 +1951,14 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* A PDF's attached files, each a link that opens it. */
+.attachment-open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 13px;
+}
+
 /* Two files compared. */
 .compare section {
   margin: 14px 0;

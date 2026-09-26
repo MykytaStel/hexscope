@@ -117,6 +117,24 @@ pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
     None
 }
 
+/// Whether the start of a file reads as text: UTF-8, with no control
+/// characters but tabs and line ends. A cut in the middle of a character
+/// at the end of the sample does not count against it.
+fn is_text(data: &[u8]) -> bool {
+    let sample = &data[..data.len().min(4096)];
+    let valid = match std::str::from_utf8(sample) {
+        Ok(s) => s,
+        Err(e) if e.valid_up_to() + 4 > sample.len() && e.error_len().is_none() => {
+            std::str::from_utf8(&sample[..e.valid_up_to()]).unwrap_or_default()
+        }
+        Err(_) => return false,
+    };
+    !valid.is_empty()
+        && valid
+            .chars()
+            .all(|c| !c.is_control() || matches!(c, '\t' | '\n' | '\r'))
+}
+
 fn unknown(data: &[u8]) -> ParseTree {
     let mut tree = ParseTree::new();
     let root = tree.add(
@@ -129,8 +147,12 @@ fn unknown(data: &[u8]) -> ParseTree {
     let (label, len) = match (data.is_empty(), identify(data)) {
         (true, _) => ("empty file".to_string(), 0),
         (false, Some((name, len))) => (format!("this looks like {name} — not supported yet"), len),
+        (false, None) if is_text(data) => (
+            "plain text, which reads in the column beside the bytes".to_string(),
+            data.len() as u64,
+        ),
         (false, None) => (
-            "format not recognised: not a PNG, a JPEG or a ZIP".to_string(),
+            "format not recognised by its first bytes".to_string(),
             data.len().min(8) as u64,
         ),
     };
@@ -154,6 +176,12 @@ pub(crate) fn docs(label: &str) -> Option<crate::docs::Doc> {
             "this looks like *",
             Doc::new(
                 "The file starts the way this other format does, one hexscope does not read yet.",
+            ),
+        ),
+        (
+            "plain text*",
+            Doc::new(
+                "Text, not a format hexscope takes apart: every byte is shown, and the words read in the text column beside them.",
             ),
         ),
         (
@@ -205,7 +233,9 @@ mod tests {
         };
         assert!(label(b"\x1F\x8B\x08....").contains("gzip"));
         assert!(label(b"").contains("empty"));
-        assert!(label(b"just some text").contains("not recognised"));
+        assert!(label(b"just some text\n").starts_with("plain text"));
+        assert!(label("пам'ять, cut mid-char: \u{00e9}".as_bytes()).starts_with("plain text"));
+        assert!(label(b"\x00\x01binary").contains("not recognised"));
     }
 
     #[test]
