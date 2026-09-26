@@ -1739,6 +1739,62 @@ body.is-playing .drawer-file {
   color: var(--faint);
 }
 
+/* A PDF page's black boxes, and the text under them, drawn. Paper stays
+   paper in dark mode: this is how the page itself looks. */
+.blackout {
+  margin: 12px 0 6px;
+}
+
+.blackout svg {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.blackout-page {
+  fill: #fbfbf8;
+}
+
+.blackout-box {
+  fill: #111;
+}
+
+.blackout-text {
+  fill: #fff;
+  font-family: Helvetica, Arial, sans-serif;
+  transition: opacity 250ms ease;
+}
+
+.blackout-context {
+  fill: #444;
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+.blackout-unread {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.6;
+  stroke-dasharray: 2 2;
+  transition: opacity 250ms ease;
+}
+
+.blackout.is-viewer .blackout-text,
+.blackout.is-viewer .blackout-unread {
+  opacity: 0;
+}
+
+.blackout figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
 /* Text a black box covers: the box, and the words it did not remove. */
 .redacted {
   display: inline-block;

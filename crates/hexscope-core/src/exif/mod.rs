@@ -5,6 +5,7 @@
 //! chains remember where they have been, and entry counts are capped by what
 //! the block can actually hold.
 
+use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 use tags::tag_name;
@@ -292,7 +293,7 @@ fn num(v: f64) -> String {
     if !v.is_finite() {
         return "undefined".to_string();
     }
-    let s = format!("{v:.6}");
+    let s = fixed(v, 6);
     let s = s.trim_end_matches('0').trim_end_matches('.');
     if s == "-0" {
         "0".to_string()

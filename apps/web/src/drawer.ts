@@ -1,3 +1,4 @@
+import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, drawn } from "./thumbnail";
 import { openReport } from "./report";
@@ -394,6 +395,8 @@ export class Drawer {
       }
     }
     group.append(list);
+    // The first pages with black boxes over text, drawn.
+    for (const b of f.blackouts.slice(0, 2)) group.append(blackoutFigure(b));
     if (thumbRow) group.append(this.thumbnailCheck(m, thumbRow));
     // The one thing to do first, then when it matters and how to stop it
     // next time, then telling others.

@@ -2,7 +2,7 @@
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
 import init, { cleanCopy, entropy, parse, type Parsed } from "./wasm/hexscope_wasm.js";
-import type { ParsedFile } from "./model";
+import type { Blackout, PageArea, ParsedFile } from "./model";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -68,6 +68,7 @@ function describe(parsed: Parsed): ParsedFile {
     orientation: parsed.orientation,
     facts: [],
     location: null,
+    blackouts: [],
     parseMs: 0,
     preview: null,
     rowFilters: parsed.rowFilters,
@@ -91,11 +92,30 @@ function describe(parsed: Parsed): ParsedFile {
       node: loc[3],
     };
   }
+  result.blackouts = blackouts(parsed.blackouts, parsed.blackoutTexts.split(SEPARATOR));
   const ihdr = Array.from(parsed.ihdr);
   const trace = Array.from(parsed.trace);
   result.ihdr = ihdr.length ? ihdr : null;
   result.trace = trace.length ? trace : null;
   return result;
+}
+
+/** The layout `Parsed.blackouts` documents, as objects. */
+function blackouts(n: Float64Array, texts: string[]): Blackout[] {
+  const out: Blackout[] = [];
+  const area = (i: number): PageArea => [n[i], n[i + 1], n[i + 2], n[i + 3]];
+  let i = 0;
+  let t = 0;
+  while (i + 8 <= n.length) {
+    const b: Blackout = { page: n[i], media: area(i + 1), boxes: [], texts: [], context: [] };
+    const [boxes, pieces, beside] = [n[i + 5], n[i + 6], n[i + 7]];
+    i += 8;
+    for (let k = 0; k < boxes && i + 4 <= n.length; k++, i += 4) b.boxes.push(area(i));
+    for (let k = 0; k < pieces && i + 4 <= n.length; k++, i += 4) b.texts.push({ area: area(i), text: texts[t++] ?? "" });
+    for (let k = 0; k < beside && i + 4 <= n.length; k++, i += 4) b.context.push({ area: area(i), text: texts[t++] ?? "" });
+    out.push(b);
+  }
+  return out;
 }
 
 const transfers = (r: ParsedFile): Transferable[] => [

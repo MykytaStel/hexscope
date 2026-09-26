@@ -8,6 +8,7 @@ pub mod crypto;
 pub mod docs;
 pub mod document;
 pub mod exif;
+mod fixed;
 pub mod heif;
 pub mod inflate;
 pub mod jpeg;

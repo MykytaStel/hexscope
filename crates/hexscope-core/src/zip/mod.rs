@@ -14,6 +14,7 @@ pub(crate) mod office;
 #[cfg(test)]
 pub(crate) mod testing;
 
+use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 pub use extract::{ExtractError, extract};
@@ -895,11 +896,11 @@ fn human(n: u64) -> String {
     if n < 1024 {
         format!("{n} B")
     } else if f < KB * KB {
-        format!("{:.1} KB", f / KB)
+        format!("{} KB", fixed(f / KB, 1))
     } else if f < KB * KB * KB {
-        format!("{:.1} MB", f / (KB * KB))
+        format!("{} MB", fixed(f / (KB * KB), 1))
     } else {
-        format!("{:.1} GB", f / (KB * KB * KB))
+        format!("{} GB", fixed(f / (KB * KB * KB), 1))
     }
 }
 

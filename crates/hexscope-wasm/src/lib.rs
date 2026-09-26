@@ -83,6 +83,10 @@ pub struct Parsed {
     composition: Vec<f64>,
     /// The picture, scaled to fit: `(width, height, rgba)`.
     preview: Option<(u32, u32, Vec<u8>)>,
+    /// A PDF's pages with text under black boxes: the layout of
+    /// [`Parsed::blackouts`], and the covered texts in order.
+    blackouts: Vec<f64>,
+    blackout_texts: Vec<String>,
     /// A JPEG's bytes, for finding its blocks when asked.
     source: Vec<u8>,
     /// Its blocks, once found: the layout of [`Parsed::block_map`].
@@ -328,6 +332,23 @@ impl Parsed {
     #[wasm_bindgen(getter, js_name = blocksNote)]
     pub fn blocks_note(&self) -> String {
         self.blocks_note.clone()
+    }
+
+    /// A PDF's pages with text under black boxes, to draw: per page
+    /// `[page, left, bottom, right, top, boxes, texts, context]`, then four
+    /// numbers per box, per covered text and per text left showing on the
+    /// same lines, each `[left, bottom, right, top]` in the page's points.
+    /// The texts are in `blackoutTexts`, covered first, in the same order.
+    #[wasm_bindgen(getter)]
+    pub fn blackouts(&self) -> Vec<f64> {
+        self.blackouts.clone()
+    }
+
+    /// The texts of [`Parsed::blackouts`] joined by U+001F; an empty one
+    /// is in a font whose codes do not read as letters.
+    #[wasm_bindgen(getter, js_name = blackoutTexts)]
+    pub fn blackout_texts(&self) -> String {
+        self.blackout_texts.join(&SEPARATOR.to_string())
     }
 
     /// The picture's preview size, `[width, height]`; empty when there is none.
@@ -820,6 +841,22 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             for f in &doc.facts {
                 parsed.facts.push((f.kind, sanitise(&f.text), f.node));
             }
+            for b in &doc.blackouts {
+                parsed.blackouts.extend([b.page as f64]);
+                parsed.blackouts.extend(b.media);
+                parsed.blackouts.extend([
+                    b.boxes.len() as f64,
+                    b.texts.len() as f64,
+                    b.context.len() as f64,
+                ]);
+                for area in &b.boxes {
+                    parsed.blackouts.extend(area);
+                }
+                for (area, text) in b.texts.iter().chain(&b.context) {
+                    parsed.blackouts.extend(area);
+                    parsed.blackout_texts.push(sanitise(text));
+                }
+            }
             parsed
         }
         Document::Zip(doc) => {
@@ -1080,6 +1117,8 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         docs: DocTables::default(),
         composition: Vec::new(),
         preview: None,
+        blackouts: Vec::new(),
+        blackout_texts: Vec::new(),
         source: Vec::new(),
         blocks: None,
         blocks_note: String::new(),
@@ -1705,5 +1744,41 @@ mod tests {
         assert!(refused.error().contains("WebAssembly modules only"));
         let bare = clean_copy(&fixture("basn2c08.png"));
         assert!(bare.error().contains("nothing in it"));
+    }
+
+    #[test]
+    fn a_blacked_out_pdf_says_where_its_boxes_and_their_text_are() {
+        let p = parse(&docx("../hexscope-core/tests/fixtures/redacted.pdf"));
+        let b = p.blackouts();
+        // One page, A4, three boxes over three pieces of text, three labels.
+        assert_eq!(b[..8], [1.0, 0.0, 0.0, 595.0, 842.0, 3.0, 3.0, 3.0]);
+        assert_eq!(b.len(), 8 + 3 * 4 + 3 * 4 + 3 * 4);
+        let texts: Vec<String> = p
+            .blackout_texts()
+            .split(SEPARATOR)
+            .map(String::from)
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                "Olena Koval",
+                "+380 67 123 4567",
+                "EUR 48,000",
+                "Claimant:",
+                "Phone:",
+                "Settlement:"
+            ]
+        );
+        // Each text lies inside the box drawn over it.
+        for i in 0..3 {
+            let bx = &b[8 + i * 4..8 + i * 4 + 4];
+            let tx = &b[20 + i * 4..20 + i * 4 + 4];
+            assert!(bx[0] <= tx[0] && tx[2] <= bx[2] + 1.0, "{bx:?} {tx:?}");
+        }
+        assert!(
+            parse(&docx("../hexscope-core/tests/fixtures/report.pdf"))
+                .blackouts()
+                .is_empty()
+        );
     }
 }
