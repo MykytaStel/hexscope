@@ -8,7 +8,7 @@
 #![forbid(unsafe_code)]
 
 use hexscope_core::clean::clean;
-use hexscope_core::docs::{Doc, describe};
+use hexscope_core::docs::describe;
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
     BlockKind, Checkpoint, CheckpointSink, Decoder, InflateError, InflateEvent, Step, inflate,
@@ -115,17 +115,33 @@ struct DocTables {
 impl DocTables {
     fn build(tree: &ParseTree, format: Format) -> Self {
         let mut t = DocTables::default();
-        let mut seen: std::collections::HashMap<Doc, i32> = std::collections::HashMap::new();
+        // Docs already sent, by where their text and citation live: every
+        // doc is a constant, so its strings' addresses name it. Sorted, for
+        // binary search; a file has a few hundred kinds of part at most. A
+        // hash map here cost 3 KB of the build.
+        let mut seen: Vec<((usize, usize, u8), i32)> = Vec::new();
         for n in tree.nodes() {
             let id = match describe(tree, n.id, format) {
                 None => -1,
-                Some(doc) => *seen.entry(doc).or_insert_with(|| {
-                    t.texts.push(doc.text);
-                    t.cites.push(doc.spec.map_or("", |s| s.cite));
-                    t.urls.push(doc.spec.map_or("", |s| s.url));
-                    t.concerns.push(doc.concern.map_or(0, |c| c as u8));
-                    t.texts.len() as i32 - 1
-                }),
+                Some(doc) => {
+                    let key = (
+                        doc.text.as_ptr() as usize,
+                        doc.spec.map_or(0, |s| s.cite.as_ptr() as usize),
+                        doc.concern.map_or(0, |c| c as u8),
+                    );
+                    match seen.binary_search_by(|(k, _)| k.cmp(&key)) {
+                        Ok(i) => seen[i].1,
+                        Err(i) => {
+                            t.texts.push(doc.text);
+                            t.cites.push(doc.spec.map_or("", |s| s.cite));
+                            t.urls.push(doc.spec.map_or("", |s| s.url));
+                            t.concerns.push(doc.concern.map_or(0, |c| c as u8));
+                            let id = t.texts.len() as i32 - 1;
+                            seen.insert(i, (key, id));
+                            id
+                        }
+                    }
+                }
             };
             t.ids.push(id);
         }

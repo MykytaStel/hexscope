@@ -4,7 +4,6 @@
 use crate::docs::{Concern, describe};
 use crate::document::Format;
 use crate::model::{NodeId, NodeKind, ParseTree};
-use std::collections::BTreeSet;
 
 /// What a stretch of bytes is for, in words anyone reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -83,7 +82,8 @@ pub fn composition(tree: &ParseTree, format: Format, file_len: u64) -> Vec<Slice
 
     // Sweep: between consecutive event positions, the deepest active node
     // (latest added among equals, as children follow parents) owns the bytes.
-    let mut active: BTreeSet<(u32, usize)> = BTreeSet::new();
+    // Kept sorted; nested parts make it a short list.
+    let mut active: Vec<(u32, usize)> = Vec::new();
     let mut out: Vec<Slice> = Vec::new();
     let mut at = 0u64;
     let mut k = 0;
@@ -91,10 +91,12 @@ pub fn composition(tree: &ParseTree, format: Format, file_len: u64) -> Vec<Slice
         while k < events.len() && events[k].0 <= at {
             let (_, is_start, i) = events[k];
             let key = (roles[i].1, i);
-            if is_start {
-                active.insert(key);
-            } else {
-                active.remove(&key);
+            match (active.binary_search(&key), is_start) {
+                (Err(at), true) => active.insert(at, key),
+                (Ok(at), false) => {
+                    active.remove(at);
+                }
+                _ => {}
             }
             k += 1;
         }

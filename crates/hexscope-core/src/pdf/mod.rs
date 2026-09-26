@@ -1018,7 +1018,8 @@ fn unlock(tree: &mut ParseTree, ctx: &mut Ctx) -> (crypt::Lock, NodeId) {
 
 /// Every `startxref` must point at a cross-reference table or stream.
 fn check_startxrefs(tree: &mut ParseTree, ctx: &Ctx) {
-    let sections: std::collections::HashSet<u64> = ctx
+    // A handful of sections: a list is enough, and smaller than a hash set.
+    let sections: Vec<u64> = ctx
         .xref_at
         .iter()
         .copied()
