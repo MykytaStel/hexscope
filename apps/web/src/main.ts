@@ -1,5 +1,5 @@
 import "./style.css";
-import { Drawer, formatBytes, type CleanResult } from "./drawer";
+import { Drawer, formatBytes, type CleanResult, type RepairResult } from "./drawer";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
@@ -104,6 +104,8 @@ const drawer = new Drawer(
       const name = model ? cleanName(model) : "file-clean";
       void load(new File([bytes as BlobPart], name));
     },
+    repair: repairCopy,
+    openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
   },
   (m) => picture.element(m),
 );
@@ -114,6 +116,28 @@ function cleanName(m: FileModel): string {
   const dot = base.lastIndexOf(".");
   const ext = misfit(m)?.fits ?? (dot > 0 ? base.slice(dot) : "");
   return `${dot > 0 ? base.slice(0, dot) : base}-clean${ext}`;
+}
+
+/** "photo.jpg" → "photo-repaired.jpg", with the extension that fits. */
+function repairedName(m: FileModel): string {
+  return cleanName(m).replace(/-clean(\.[^.]*)?$/, "-repaired$1");
+}
+
+/** Repairs in the worker and hands the copy to the browser as a download. */
+async function repairCopy(): Promise<RepairResult> {
+  const m = model;
+  if (!m) return { bytes: new Uint8Array(0), fixed: [], error: "no file is open" };
+  const r = await call({ type: "repair", bytes: m.bytes.slice() });
+  if (r.type !== "repaired") return { bytes: new Uint8Array(0), fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
+  if (!r.error) {
+    const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = repairedName(m);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+  return { bytes: r.bytes, fixed: r.fixed, error: r.error };
 }
 
 /** Makes the copy in the worker and hands it to the browser as a download. */

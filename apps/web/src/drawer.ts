@@ -163,12 +163,25 @@ export interface CleanResult {
   error: string;
 }
 
+export interface RepairResult {
+  bytes: Uint8Array;
+  fixed: string[];
+  error: string;
+}
+
 export interface CleanActions {
   /** Makes the copy and saves it; resolves with what was done. */
   clean(): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
+  /** Makes a repaired copy and saves it; resolves with what was done. */
+  repair(): Promise<RepairResult>;
+  /** Opens the repaired copy in hexscope. */
+  openRepaired(bytes: Uint8Array): void;
 }
+
+/** Formats a damaged file of which hexscope can save what survived. */
+const REPAIRABLE = ["png", "jpeg", "zip"];
 
 const degrees = (v: number, pos: string, neg: string) =>
   `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
@@ -280,7 +293,37 @@ export class Drawer {
       list.append(li);
     }
     group.append(list, el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) group.append(this.repairer());
     return group;
+  }
+
+  /** One button that saves a repaired copy, then says what it did. */
+  private repairer(): HTMLElement {
+    const box = el("div", "repairer");
+    const button = el("button", "btn btn-repair", "Try to repair — save a fixed copy");
+    button.title = "Makes the copy in this tab: nothing is uploaded";
+    box.append(
+      button,
+      el("p", "hint", "Keeps what survived and puts it back in order: checksums made right, a file cut short given its end, an archive rebuilt from its whole files. Nothing is guessed."),
+    );
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Repairing…";
+      const r = await this.cleaning.repair();
+      button.remove();
+      if (r.error) {
+        box.append(el("p", "hint", `No repaired copy: ${r.error}.`));
+        return;
+      }
+      box.append(el("p", "clean-done", "Saved a repaired copy. What was done:"));
+      const ul = el("ul", "clean-list");
+      for (const f of r.fixed) ul.append(el("li", undefined, f.charAt(0).toUpperCase() + f.slice(1)));
+      const open = el("button", "btn", "Open the repaired copy");
+      open.title = "Check it yourself: the damage should be gone";
+      open.addEventListener("click", () => this.cleaning.openRepaired(r.bytes));
+      box.append(ul, open);
+    });
+    return box;
   }
 
   /** What the file is made of: a bar in file order and a legend by size. */

@@ -17,6 +17,7 @@ pub mod model;
 pub mod pdf;
 pub mod png;
 pub mod reader;
+pub mod repair;
 pub mod video;
 pub mod wasm;
 pub mod zip;

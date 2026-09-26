@@ -963,6 +963,56 @@ pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
     }
 }
 
+/// A damaged file's copy with what survived put back in order.
+#[wasm_bindgen]
+pub struct RepairCopy {
+    bytes: Vec<u8>,
+    fixed: Vec<String>,
+    error: String,
+}
+
+#[wasm_bindgen]
+impl RepairCopy {
+    /// The repaired copy; empty when none was made.
+    #[wasm_bindgen(getter)]
+    pub fn bytes(&self) -> Vec<u8> {
+        self.bytes.clone()
+    }
+
+    /// What was done, in words, joined by U+001F.
+    #[wasm_bindgen(getter)]
+    pub fn fixed(&self) -> String {
+        self.fixed
+            .iter()
+            .map(|f| sanitise(f))
+            .collect::<Vec<_>>()
+            .join(&SEPARATOR.to_string())
+    }
+
+    /// Why no copy was made; empty when one was.
+    #[wasm_bindgen(getter)]
+    pub fn error(&self) -> String {
+        self.error.clone()
+    }
+}
+
+/// Repairs what can be repaired: see `hexscope_core::repair`.
+#[wasm_bindgen(js_name = repairCopy)]
+pub fn repair_copy(bytes: &[u8]) -> RepairCopy {
+    match hexscope_core::repair::repair(bytes) {
+        Ok(r) => RepairCopy {
+            bytes: r.bytes,
+            fixed: r.fixed,
+            error: String::new(),
+        },
+        Err(e) => RepairCopy {
+            bytes: Vec::new(),
+            fixed: Vec::new(),
+            error: e.reason().to_string(),
+        },
+    }
+}
+
 /// Shannon entropy, 0 to 8 bits per byte, of up to `bins` windows covering
 /// `bytes`, each at least 256 bytes. Separate from `parse` so the time shown
 /// for parsing is the parse alone.
