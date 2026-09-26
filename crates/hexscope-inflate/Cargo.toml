@@ -1,0 +1,12 @@
+[package]
+name = "hexscope-inflate"
+version = "0.1.0"
+description = "DEFLATE and zlib decoded step by step, each step explainable"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+flate2 = "1"

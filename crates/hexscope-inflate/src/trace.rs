@@ -1,4 +1,4 @@
-use crate::inflate::engine::{BlockKind, Checkpoint, EventSink, InflateEvent, Step};
+use crate::engine::{BlockKind, Checkpoint, EventSink, InflateEvent, Step};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraceSummary {
@@ -111,7 +111,7 @@ impl EventSink for CheckpointSink {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inflate::engine::inflate;
+    use crate::engine::inflate;
     use flate2::Compression;
     use flate2::write::DeflateEncoder;
     use std::io::Write;
@@ -193,7 +193,7 @@ mod tests {
         let out = inflate(&compressed, u64::MAX, &mut sink).unwrap();
 
         for cp in sink.finish().checkpoints {
-            let mut d = crate::inflate::Decoder::resume(&compressed, u64::MAX, &out, &cp)
+            let mut d = crate::Decoder::resume(&compressed, u64::MAX, &out, &cp)
                 .unwrap_or_else(|e| panic!("checkpoint {cp:?} failed: {e:?}"));
             while let Some(step) = d.step() {
                 step.unwrap();

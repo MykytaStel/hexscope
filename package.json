@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT OR Apache-2.0",
   "scripts": {
-    "wasm": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/hexscope_wasm.wasm --out-dir apps/web/src/wasm --target web --remove-name-section --remove-producers-section",
+    "wasm": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --out-dir apps/web/src/wasm --target web --remove-name-section --remove-producers-section",
     "dev": "pnpm wasm && pnpm --filter web dev",
     "build": "pnpm wasm && pnpm --filter web build"
   },

@@ -1,8 +1,8 @@
 //! What one decoding step read, bit by bit, and the code tables it read with.
 //! Built only when asked for, so plain decoding pays nothing for it.
 
-use crate::inflate::InflateError;
-use crate::inflate::engine::{BlockKind, Step};
+use crate::InflateError;
+use crate::engine::{BlockKind, Step};
 
 /// What a run of bits meant. The numbering is part of the WASM bridge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

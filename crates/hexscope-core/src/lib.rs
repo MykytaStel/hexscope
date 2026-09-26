@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-pub mod bits;
+pub use hexscope_inflate::bits;
 mod bmff;
 pub mod clean;
 pub mod crc32;
@@ -10,7 +10,8 @@ pub mod document;
 pub mod exif;
 mod fixed;
 pub mod heif;
-pub mod inflate;
+/// DEFLATE and zlib, from their own crate: see `hexscope-inflate`.
+pub use hexscope_inflate as inflate;
 pub mod jpeg;
 pub mod map;
 pub mod model;

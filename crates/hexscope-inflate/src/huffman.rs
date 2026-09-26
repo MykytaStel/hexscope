@@ -1,6 +1,6 @@
+use crate::InflateError;
 use crate::bits::BitReader;
-use crate::inflate::InflateError;
-use crate::inflate::explain::CodeGroup;
+use crate::explain::CodeGroup;
 
 pub const MAX_BITS: usize = 15;
 
@@ -107,7 +107,7 @@ impl Huffman {
 mod tests {
     use super::*;
 
-    use crate::inflate::tables::fixed_literal_lengths;
+    use crate::tables::fixed_literal_lengths;
 
     /// Packs Huffman codes, each most significant bit first, into DEFLATE's
     /// least-significant-bit-first byte order.

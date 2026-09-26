@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+hexscope-inflate = { path = "../hexscope-inflate" }
 
 [dev-dependencies]
 flate2 = "1"
