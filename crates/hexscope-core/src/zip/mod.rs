@@ -11,6 +11,7 @@ pub(crate) mod docs;
 mod extract;
 mod fields;
 pub(crate) mod office;
+pub(crate) mod revise;
 #[cfg(test)]
 pub(crate) mod testing;
 pub(crate) mod write;
