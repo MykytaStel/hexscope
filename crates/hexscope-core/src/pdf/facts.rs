@@ -18,13 +18,15 @@ pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 const MAX_TEXT: usize = 512;
 
 /// The order facts are shown in: who, what changed, then the rest.
-const ORDER: [&str; 17] = [
+const ORDER: [&str; 19] = [
     "covered",
     "hiddentext",
     "author",
     "updates",
     "earlier",
     "comments",
+    "form",
+    "attachments",
     "photoplace",
     "photo",
     "title",
