@@ -32,6 +32,16 @@ const RULES: Rule[] = [
     text: "What earlier edits deleted or replaced is still in the file, and any PDF reader can bring it back. Save a clean copy before sending it: it keeps only what the pages show now.",
   },
   {
+    when: ["deleted", "tracked", "comments"],
+    formats: ["zip"],
+    text: "Tracked changes and comments travel with the file: whoever gets it can show them (Review → All Markup) and read what was deleted, and who wrote what. Before sending it, accept or reject every change, delete the comments, and save.",
+  },
+  {
+    when: ["photoplace"],
+    formats: ["zip"],
+    text: "A photo placed in a document keeps its own location and camera data. The clean copy removes it from every photo inside.",
+  },
+  {
     when: ["paths"],
     text: "The paths come from the computer that built it. Rebuild with them rewritten — --remap-path-prefix for Rust, -ffile-prefix-map for C and C++ — so the next build does not carry a user name.",
   },

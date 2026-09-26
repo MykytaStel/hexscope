@@ -542,10 +542,10 @@ fn a_real_word_document_reads_cleanly_and_every_entry_extracts() {
     use hexscope_core::zip::{extract, parse_zip};
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     // The fixture as `textutil` wrote it, and the site's sample, which adds
-    // a stored image with Python's zipfile.
+    // a comment, a tracked deletion and a stored photo with Python's zipfile.
     for (path, entries) in [
         (dir.join("tests/fixtures/report.docx"), 8),
-        (dir.join("../../apps/web/public/samples/report.docx"), 9),
+        (dir.join("../../apps/web/public/samples/report.docx"), 10),
     ] {
         let bytes = fs::read(&path).unwrap();
         let doc = parse_zip(&bytes);
@@ -570,6 +570,24 @@ fn a_real_word_document_reads_cleanly_and_every_entry_extracts() {
             ("company", "Hexscope Test Co"),
         ] {
             assert!(facts.contains(&want), "{}: {facts:?}", path.display());
+        }
+        if entries == 10 {
+            for want in [
+                ("comments", "1 comment by Olena Koval"),
+                ("tracked", "1 deletion by Petro Ivanenko, not accepted yet"),
+                (
+                    "deleted",
+                    "“, except the east, where we lost the Lviv contract”",
+                ),
+            ] {
+                assert!(facts.contains(&want), "{facts:?}");
+            }
+            assert!(
+                facts
+                    .iter()
+                    .any(|&(k, t)| k == "photoplace" && t.starts_with("photo.jpg: taken at")),
+                "{facts:?}"
+            );
         }
 
         for e in &doc.entries {

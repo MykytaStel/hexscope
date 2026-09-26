@@ -530,9 +530,39 @@ fn le32(out: &mut Vec<u8>, v: u32) {
     out.extend_from_slice(&v.to_le_bytes());
 }
 
+/// A photo placed in an Office document, cleaned like one opened on its
+/// own; `None` when it is not a JPEG or PNG, or has nothing to remove.
+fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
+    use crate::zip::office::{MAX_PART, is_media};
+    if !is_media(&e.name) || e.uncompressed > MAX_PART {
+        return None;
+    }
+    let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
+    // Only pictures: an archive inside is not opened again.
+    if !bytes.starts_with(&[0xFF, 0xD8]) && !bytes.starts_with(b"\x89PNG") {
+        return None;
+    }
+    clean(&bytes).ok()
+}
+
 fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
+    use crate::zip::office::MAX_PHOTOS;
     let tree = &doc.tree;
-    if !doc.entries.iter().any(|e| replacement(&e.name).is_some()) {
+    let mut photos = 0;
+    let media: Vec<Option<Cleaned>> = doc
+        .entries
+        .iter()
+        .map(|e| {
+            if photos >= MAX_PHOTOS || !crate::zip::office::is_media(&e.name) {
+                return None;
+            }
+            photos += 1;
+            clean_media(data, e)
+        })
+        .collect();
+    if !doc.entries.iter().any(|e| replacement(&e.name).is_some())
+        && media.iter().all(Option::is_none)
+    {
         return Err(CleanError::NothingToRemove);
     }
     if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
@@ -566,7 +596,7 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
     let mut records = Vec::new();
     let mut removed = Vec::new();
     let mut extras = 0u64;
-    for e in &doc.entries {
+    for (e, photo) in doc.entries.iter().zip(&media) {
         if e.data.len != e.compressed {
             return Err(CleanError::Damaged);
         }
@@ -592,7 +622,17 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
                 });
                 (0, xml.as_bytes(), crc32(xml.as_bytes()), xml.len() as u64)
             }
-            None => (e.method, original, e.crc32, e.uncompressed),
+            // A photo is stored as it is: JPEG and PNG are compressed already.
+            None => match photo {
+                Some(c) => {
+                    removed.push(Removed {
+                        what: format!("{}: what the photo reveals", e.name),
+                        bytes: c.removed.iter().map(|r| r.bytes).sum(),
+                    });
+                    (0, &c.bytes[..], crc32(&c.bytes), c.bytes.len() as u64)
+                }
+                None => (e.method, original, e.crc32, e.uncompressed),
+            },
         };
         let offset = u32::try_from(out.len()).map_err(|_| CleanError::Zip64)?;
         let r = Record {
@@ -808,6 +848,33 @@ mod tests {
             }
         }
         assert!(cleaned.removed[0].what.starts_with("docProps/core.xml"));
+    }
+
+    #[test]
+    fn a_photo_in_a_document_loses_what_it_reveals() {
+        use crate::zip::testing::{Archive, Entry, build as zip};
+        let photo = revealing(1);
+        let text = b"<w:document><w:body/></w:document>";
+        let b = zip(&Archive {
+            entries: vec![
+                Entry::new("word/document.xml", text, 8),
+                Entry::new("word/media/image1.jpeg", &photo, 8),
+                Entry::new("word/media/plain.jpeg", &jpeg_with_exif(None), 8),
+            ],
+            ..Default::default()
+        });
+        let cleaned = clean(&b.bytes).unwrap();
+        let after = parse_zip(&cleaned.bytes);
+        assert!(after.facts.is_empty(), "{:?}", after.facts);
+        assert_eq!(problems(&after.tree), Vec::<String>::new());
+        let image = extract(&cleaned.bytes, &after.entries[1], 1 << 20).unwrap();
+        assert_eq!(scan(&image), scan(&photo), "picture copied byte for byte");
+        assert_eq!(after.entries[1].method, 0);
+        // Nothing to take out of the others: copied as they were.
+        assert_eq!(after.entries[0].method, 8);
+        assert_eq!(after.entries[2].method, 8);
+        let what: Vec<_> = cleaned.removed.iter().map(|r| r.what.as_str()).collect();
+        assert_eq!(what, ["word/media/image1.jpeg: what the photo reveals"]);
     }
 
     fn pngsuite(name: &str) -> Vec<u8> {

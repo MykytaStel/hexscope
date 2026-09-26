@@ -38,9 +38,10 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: the paths in its data, which its error messages print. Only a new build, with the paths remapped, can take them out.",
+  zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
 };
 
 const FACT_LABELS: Record<string, string> = {
@@ -78,6 +79,11 @@ const FACT_LABELS: Record<string, string> = {
   debuginfo: "Debug info at",
   debug: "Debug info",
   paths: "Built by user",
+  comments: "Comments",
+  tracked: "Tracked changes",
+  deleted: "Deleted text",
+  photoplace: "Photo inside",
+  photo: "Photo inside",
 };
 
 /** Why an entry cannot be played, or null when it can. */
@@ -510,7 +516,9 @@ export class Drawer {
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
-        const what = item.what.charAt(0).toUpperCase() + item.what.slice(1);
+        // A sentence starts with a capital; a path such as "word/media/…" stays as named.
+        const path = /^[^\s:]+\//.test(item.what);
+        const what = path ? item.what : item.what.charAt(0).toUpperCase() + item.what.slice(1);
         li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
         ul.append(li);
       }
