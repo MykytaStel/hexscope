@@ -8,7 +8,7 @@
 //! is left behind: the document information, objects an update replaced,
 //! objects an update deleted. XMP streams are kept, but empty.
 
-use super::facts::{MAX_DECODED_TOTAL, unpack};
+use super::facts::{MAX_DECODED_TOTAL, is_photo, unpack};
 use super::lexer::{Lexer, Obj};
 use super::{ObjRec, parse_with};
 use crate::clean::{CleanError, Cleaned, Removed};
@@ -82,6 +82,7 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     out.extend_from_slice(&[0xE2, 0xE3, 0xCF, 0xD3, b'\n']);
     let mut offsets: Vec<(u32, u16, usize)> = Vec::new();
     let mut xmp_bytes = 0u64;
+    let mut photo_bytes = 0u64;
     for &n in &reached {
         let Some((_, source)) = current.get(&n) else {
             continue;
@@ -108,7 +109,13 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
                     Some((range, _)) => {
                         out.extend_from_slice(slice(data, rec.value_range));
                         out.extend_from_slice(b"\nstream\n");
-                        out.extend_from_slice(slice(data, range));
+                        if is_photo(rec) {
+                            let mut jpeg = slice(data, range).to_vec();
+                            photo_bytes += blank_photo(&mut jpeg);
+                            out.extend_from_slice(&jpeg);
+                        } else {
+                            out.extend_from_slice(slice(data, range));
+                        }
                         out.extend_from_slice(b"\nendstream");
                     }
                     None => out.extend_from_slice(slice(data, rec.value_range)),
@@ -187,6 +194,12 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
             bytes: xmp_bytes,
         });
     }
+    if photo_bytes > 0 {
+        removed.push(Removed {
+            what: "EXIF and XMP of the photos in it: camera, location, dates".into(),
+            bytes: photo_bytes,
+        });
+    }
     if doc.edits > 0 || earlier > 0 {
         removed.push(Removed {
             what: "Earlier versions of the document, kept by later edits".into(),
@@ -220,6 +233,47 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
         removed,
         orientation_kept: None,
     })
+}
+
+/// Zeroes, in place, what a camera writes into a JPEG: EXIF and XMP (APP1)
+/// and Photoshop's IPTC (APP13). Every length stays, so the stream's
+/// `/Length` does too, and a reader skips a segment it does not recognise.
+/// Returns the bytes zeroed.
+pub(crate) fn blank_photo(jpeg: &mut [u8]) -> u64 {
+    if !jpeg.starts_with(&[0xFF, 0xD8]) {
+        return 0;
+    }
+    let mut at = 2;
+    let mut blanked = 0;
+    while at + 4 <= jpeg.len() && jpeg[at] == 0xFF {
+        let marker = jpeg[at + 1];
+        match marker {
+            // Fill bytes before a marker.
+            0xFF => {
+                at += 1;
+                continue;
+            }
+            // The picture starts, or ends: nothing after is metadata.
+            0xDA | 0xD9 => break,
+            // Markers without a length.
+            0x01 | 0xD0..=0xD7 => {
+                at += 2;
+                continue;
+            }
+            _ => {}
+        }
+        let len = u16::from_be_bytes([jpeg[at + 2], jpeg[at + 3]]) as usize;
+        let end = at + 2 + len;
+        if len < 2 || end > jpeg.len() {
+            break;
+        }
+        if marker == 0xE1 || marker == 0xED {
+            jpeg[at + 4..end].fill(0);
+            blanked += (len - 2) as u64;
+        }
+        at = end;
+    }
+    blanked
 }
 
 fn slice(data: &[u8], range: crate::model::ByteRange) -> &[u8] {

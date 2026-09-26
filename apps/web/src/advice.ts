@@ -38,7 +38,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["photoplace"],
-    formats: ["zip"],
+    formats: ["zip", "pdf"],
     text: "A photo placed in a document keeps its own location and camera data. The clean copy removes it from every photo inside.",
   },
   {

@@ -118,6 +118,122 @@ fn information_packed_in_an_object_stream_is_read() {
     assert_eq!(xmp.value, Some(Value::Text("XMP metadata".into())));
 }
 
+/// A JPEG that says where, with what camera, and whose.
+fn photo() -> Vec<u8> {
+    use crate::exif::ByteOrder;
+    use crate::exif::testing::{Spec, V, build};
+    let mut s = Spec::new(ByteOrder::Big);
+    s.ifd0 = vec![(0x0110, V::Ascii("Canon EOS R5"))];
+    s.exif = vec![(0xA431, V::Ascii("HX-000042"))];
+    s.gps = vec![
+        (0x01, V::Ascii("S")),
+        (0x02, V::Rational(vec![(33, 1), (51, 1), (0, 1)])),
+        (0x03, V::Ascii("E")),
+        (0x04, V::Rational(vec![(151, 1), (12, 1), (0, 1)])),
+    ];
+    crate::jpeg::testing::jpeg_with_exif(Some(&build(s)))
+}
+
+/// One page showing `jpeg`, with a correct cross-reference table.
+fn pdf_with_photo(jpeg: &[u8]) -> Vec<u8> {
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut at = Vec::new();
+    let objects: [Vec<u8>; 4] = [
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 8 8] /Resources << /XObject << /Im1 4 0 R >> >> >>".to_vec(),
+        [
+            format!("<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n", jpeg.len()).as_bytes(),
+            jpeg,
+            b"\nendstream",
+        ]
+        .concat(),
+    ];
+    for (i, body) in objects.iter().enumerate() {
+        at.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(body);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(b"xref\n0 5\n0000000000 65535 f\r\n");
+    for a in at {
+        out.extend_from_slice(format!("{a:010} 00000 n\r\n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    out
+}
+
+#[test]
+fn a_photo_in_a_pdf_says_where_it_was_taken() {
+    let doc = parse_pdf(&pdf_with_photo(&photo()));
+    assert_eq!(problems(&doc.tree), Vec::<String>::new());
+    assert_eq!(
+        facts(&doc),
+        [(
+            "photoplace",
+            "the image in object 4: taken at 33.85000° S, 151.20000° E · Canon EOS R5 · serial HX-000042"
+        )]
+    );
+    assert_eq!(doc.tree.get(doc.facts[0].node).label, "stream data");
+    // A picture with nothing to say is not listed.
+    let plain = parse_pdf(&pdf_with_photo(&crate::jpeg::testing::jpeg_with_exif(None)));
+    assert_eq!(facts(&plain), []);
+}
+
+#[test]
+fn the_clean_copy_blanks_a_photo_and_keeps_its_picture() {
+    let jpeg = photo();
+    let cleaned = crate::clean::clean(&pdf_with_photo(&jpeg)).unwrap();
+    let doc = parse_pdf(&cleaned.bytes);
+    assert_eq!(problems(&doc.tree), Vec::<String>::new());
+    assert_eq!(facts(&doc), []);
+    assert!(
+        cleaned.removed[0]
+            .what
+            .starts_with("EXIF and XMP of the photos"),
+        "{:?}",
+        cleaned.removed
+    );
+    // The same length, and the same picture after the metadata.
+    let stream = find(&doc.tree, "stream data")[0].range;
+    let after = &cleaned.bytes[stream.start as usize..stream.end() as usize];
+    assert_eq!(after.len(), jpeg.len());
+    let sos = jpeg.windows(2).position(|w| w == [0xFF, 0xDA]).unwrap();
+    assert_eq!(after[sos..], jpeg[sos..]);
+    assert_eq!(
+        crate::jpeg::parse_jpeg(after).facts,
+        Default::default(),
+        "nothing left to reveal"
+    );
+}
+
+#[test]
+fn blanking_stops_at_anything_it_cannot_follow() {
+    use super::clean::blank_photo;
+    // Not a JPEG, a length past the end, a length under two.
+    for mut bytes in [
+        b"GIF89a".to_vec(),
+        vec![0xFF, 0xD8, 0xFF, 0xE1, 0x40, 0x00, 1, 2],
+        vec![0xFF, 0xD8, 0xFF, 0xE1, 0x00, 0x01, 1, 2],
+    ] {
+        let before = bytes.clone();
+        assert_eq!(blank_photo(&mut bytes), 0);
+        assert_eq!(bytes, before);
+    }
+    // Fill bytes, a segment kept, one blanked, and nothing after the scan.
+    let mut bytes = vec![
+        0xFF, 0xD8, 0xFF, 0xFF, 0xE0, 0x00, 0x04, 7, 7, 0xFF, 0xE1, 0x00, 0x04, 9, 9, 0xFF, 0xDA,
+        0xFF, 0xE1,
+    ];
+    assert_eq!(blank_photo(&mut bytes), 2);
+    assert_eq!(bytes[7..9], [7, 7]);
+    assert_eq!(bytes[13..15], [0, 0]);
+    assert_eq!(bytes[17..], [0xFF, 0xE1]);
+}
+
 #[test]
 fn what_runs_or_hides_is_marked() {
     let pdf = b"%PDF-1.4
