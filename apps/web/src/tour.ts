@@ -74,7 +74,13 @@ function visible(el: Element | null): el is HTMLElement {
 /** Starts the tour if it has not been seen; call once a file is on screen. */
 export function maybeTour(): void {
   if (seen() || document.querySelector(".tour")) return;
-  const steps = STEPS.map((s) => ({ ...s, el: [...document.querySelectorAll(s.target)].find(visible) ?? null })).filter(
+  // Each target is a list tried in order: the first that is on screen.
+  const find = (target: string) =>
+    target
+      .split(",")
+      .map((t) => document.querySelector(t.trim()))
+      .find(visible) ?? null;
+  const steps = STEPS.map((s) => ({ ...s, el: find(s.target) })).filter(
     (s): s is Step & { el: HTMLElement } => s.el !== null,
   );
   if (steps.length === 0) return;

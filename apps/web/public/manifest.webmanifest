@@ -20,7 +20,7 @@
       "files": [
         {
           "name": "file",
-          "accept": ["image/*", "video/mp4", "video/quicktime", "application/zip", "application/pdf", ".pdf", ".mp4", ".mov", ".png", ".jpg", ".jpeg", ".heic", ".heif", ".avif", ".zip", ".docx", ".xlsx", ".pptx"]
+          "accept": ["image/*", "video/mp4", "video/quicktime", "application/zip", "application/pdf", ".pdf", ".mp4", ".mov", ".png", ".jpg", ".jpeg", ".heic", ".heif", ".avif", ".zip", ".docx", ".xlsx", ".pptx", ".wasm", "application/wasm"]
         }
       ]
     }
