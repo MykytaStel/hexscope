@@ -89,6 +89,7 @@ export async function startDemo(host: HTMLElement): Promise<void> {
 
   const frame = el("div", "demo-frame");
   const image = el("canvas", "demo-image");
+  image.setAttribute("aria-hidden", "true");
   const drawPng = () => {
     image.width = preview.width;
     image.height = preview.height;
@@ -99,6 +100,7 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   };
   drawPng();
   const overlay = el("canvas", "demo-overlay");
+  overlay.setAttribute("aria-hidden", "true");
   const pointer = el("div", "demo-pointer");
   frame.append(image, overlay, pointer);
   const bytesRow = el("div", "demo-bytes");

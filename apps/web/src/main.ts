@@ -12,6 +12,24 @@ import { misfit, verdict } from "./verdict";
 import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
 import { storedZip } from "./zipwrite";
+import { openShortcuts } from "./shortcuts";
+
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
+
+// The file pickers are labels around hidden inputs: reachable by keyboard
+// only when the label itself takes focus and acts as a button.
+for (const label of document.querySelectorAll<HTMLLabelElement>("label.btn")) {
+  const input = label.querySelector<HTMLInputElement>("input[type=file]");
+  if (!input) continue;
+  label.tabIndex = 0;
+  label.setAttribute("role", "button");
+  label.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      input.click();
+    }
+  });
+}
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -658,6 +676,8 @@ function openFiles(files: File[]): void {
 
 window.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== "range") return;
+  // A dialog open over the page takes the keys; Escape closes it by itself.
+  if (document.querySelector("dialog[open]")) return;
   if (player.handleKey(e)) {
     e.preventDefault();
     return;
@@ -666,7 +686,11 @@ window.addEventListener("keydown", (e) => {
     if (player.isOpen) closePlayer();
     else select(-1);
   }
-  if (e.key === "n" || e.key === "N") nextProblem();
+  // Letters only bare: Cmd-N and Ctrl-P belong to the browser.
+  const bare = !e.metaKey && !e.ctrlKey && !e.altKey;
+  if (e.key === "?" && !e.metaKey && !e.ctrlKey) openShortcuts();
+  if (bare && (e.key === "o" || e.key === "O")) $<HTMLInputElement>(document.body.dataset.state === "empty" ? "picker-empty" : "picker").click();
+  if (bare && (e.key === "n" || e.key === "N")) nextProblem();
   if (e.key === "Backspace" && levels.length > 0) {
     e.preventDefault();
     void back(levels.length - 1);
@@ -674,7 +698,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     showBatch();
   }
-  if ((e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
+  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
 });
 
 document.body.dataset.state = "empty";

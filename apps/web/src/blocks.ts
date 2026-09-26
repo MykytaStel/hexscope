@@ -226,13 +226,17 @@ export class BlockView {
     frame.style.aspectRatio = `${dw} / ${dh}`;
     frame.style.width = `min(100%, ${Math.round((MAX_HEIGHT * dw) / dh)}px)`;
     const image = el("canvas", "picture-image");
+    image.setAttribute("role", "img");
+    image.setAttribute("aria-label", "The picture, with its 8×8 blocks");
     image.style.imageRendering = "auto";
     const scale = Math.min(1, MAX_SIDE / Math.max(dw, dh));
     image.width = Math.max(1, Math.round(dw * scale));
     image.height = Math.max(1, Math.round(dh * scale));
     const heat = el("canvas", "picture-overlay");
+    heat.setAttribute("aria-hidden", "true");
     heat.hidden = true;
     const mark = el("canvas", "picture-overlay");
+    mark.setAttribute("aria-hidden", "true");
     frame.append(image, heat, mark);
     this.frame = frame;
     this.image = image;
