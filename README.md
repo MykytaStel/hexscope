@@ -84,13 +84,16 @@ that opens without a password — most of them — is decrypted to read it, as a
 viewer would; one that needs a password is only named as such.
 
 **Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG, and
-hexscope reads its EXIF (and a PNG's text notes and XMP): where it was
+hexscope reads its EXIF (and a PNG's text notes): where it was
 taken, the camera and lens, their serial numbers, the owner's name if the
 camera recorded one, the time, the software, an embedded thumbnail — and
 from the maker's own notes, what EXIF leaves out: more serial numbers, how
 many photos the camera has taken, and on an iPhone, the IDs that tie a photo
 to its Live Photo video and its burst, and how long the phone had been on,
-which ties together every photo taken between two restarts. When the
+which ties together every photo taken between two restarts. From XMP and
+IPTC, what an editor or an agency adds: the place typed in (a city, a
+country, with or without GPS), the caption, the original file's name and
+each step of the edit. When the
 embedded thumbnail is not the picture — the photo was cropped or edited and
 the camera's small copy was left as it was — the two are shown side by side:
 the thumbnail still shows what was taken out. Each

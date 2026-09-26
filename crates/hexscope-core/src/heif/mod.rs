@@ -498,6 +498,7 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
     // The boxes item data can live in.
     let mut holders = ctx.mdat.clone();
     holders.extend(ctx.idat.map(|(_, node, r)| (r, node)));
+    let mut xmp_node = None;
     for (start, n, id, item, part) in placed {
         let container = holders
             .iter()
@@ -546,7 +547,15 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
             read_exif(doc, data, node, start, n, depth);
         } else if is_xmp && part == 0 {
             doc.xmp = Some(ByteRange::new(start, n));
+            xmp_node = Some(node);
         }
+    }
+    // After EXIF, whichever came first: EXIF's facts win where both say.
+    if let (Some(r), Some(node)) = (doc.xmp, xmp_node)
+        && let Some(bytes) = data.get(r.start as usize..r.end() as usize)
+    {
+        let xmp = crate::exif::xmp::from_xmp(&String::from_utf8_lossy(bytes), node);
+        doc.facts.fill_from(xmp);
     }
 }
 

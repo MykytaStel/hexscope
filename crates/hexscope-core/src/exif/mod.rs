@@ -13,6 +13,7 @@ use tags::tag_name;
 pub(crate) mod docs;
 mod makernote;
 mod tags;
+pub(crate) mod xmp;
 
 /// IFDs followed before giving up: real files have five at most
 /// (0, 1, Exif, GPS, Interop).
@@ -46,6 +47,14 @@ pub struct PhotoFacts {
     pub uptime: Option<Fact>,
     /// IDs tying the photo to its Live Photo video or its burst.
     pub linked: Option<Fact>,
+    /// A place named in words, from XMP or IPTC: a city, a country.
+    pub place: Option<Fact>,
+    /// The caption someone wrote for it.
+    pub caption: Option<Fact>,
+    /// The file it was made from: a raw file's name, a source's path.
+    pub original: Option<Fact>,
+    /// How it was edited, from XMP's history.
+    pub history: Option<Fact>,
     /// IFD0's Orientation, 1 to 8: how to turn the picture upright. Not a
     /// fact about anyone, but a clean copy must keep it.
     pub orientation: Option<u16>,
@@ -66,6 +75,10 @@ impl PhotoFacts {
         self.shutter = self.shutter.take().or(other.shutter);
         self.uptime = self.uptime.take().or(other.uptime);
         self.linked = self.linked.take().or(other.linked);
+        self.place = self.place.take().or(other.place);
+        self.caption = self.caption.take().or(other.caption);
+        self.original = self.original.take().or(other.original);
+        self.history = self.history.take().or(other.history);
         self.orientation = self.orientation.take().or(other.orientation);
     }
 }
@@ -496,6 +509,7 @@ impl Found {
             uptime: self.uptime,
             linked,
             orientation: self.orientation,
+            ..Default::default()
         }
     }
 }

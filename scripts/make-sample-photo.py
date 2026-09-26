@@ -10,7 +10,9 @@ the exact bytes are known.
 
 With `cropped`, it builds cropped.jpg instead: the same photo cropped to its
 left part, the tower gone, with the thumbnail still showing the whole scene
-— what an editor that does not update the thumbnail leaves behind.
+— what an editor that does not update the thumbnail leaves behind — and the
+XMP record such an editor adds: the place typed in, the original file's
+name, and each step of the edit.
 
     python3 scripts/make-sample-photo.py cropped
 """
@@ -144,6 +146,25 @@ def tiff(thumbnail):
     return bytes(out + values + thumbnail)
 
 
+# What an editor writes when it exports: invented, but shaped like
+# Lightroom's and Photoshop's.
+XMP = b"""<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about=""
+  xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+  xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"
+  xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
+  xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
+  xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
+  xmp:CreatorTool="Sample Editor 2.1"
+  xmpMM:PreservedFileName="IMG_0042.HEIC"
+  Iptc4xmpCore:Location="Champ de Mars" photoshop:City="Paris" photoshop:Country="France">
+ <xmpMM:History><rdf:Seq>
+  <rdf:li stEvt:action="derived" stEvt:softwareAgent="Sample Editor 2.1" stEvt:when="2026-06-14T21:05:00+02:00"/>
+  <rdf:li stEvt:action="saved" stEvt:softwareAgent="Sample Editor 2.1" stEvt:when="2026-06-14T21:07:30+02:00"/>
+ </rdf:Seq></xmpMM:History>
+</rdf:Description></rdf:RDF></x:xmpmeta>"""
+
+
 def main():
     import sys
     cropped = sys.argv[1:] == ["cropped"]
@@ -157,7 +178,11 @@ def main():
     block = b"Exif\0\0" + tiff(thumb)
     app1 = b"\xFF\xE1" + struct.pack(">H", len(block) + 2) + block
     assert photo[:2] == b"\xFF\xD8"
-    # EXIF goes straight after SOI, where cameras put it.
+    # EXIF goes straight after SOI, where cameras put it; an editor's XMP
+    # right after.
+    if cropped:
+        packet = b"http://ns.adobe.com/xap/1.0/\0" + XMP
+        app1 += b"\xFF\xE1" + struct.pack(">H", len(packet) + 2) + packet
     out = photo[:2] + app1 + photo[2:]
     path = OUT.replace("photo.jpg", "cropped.jpg") if cropped else OUT
     os.makedirs(os.path.dirname(path), exist_ok=True)
