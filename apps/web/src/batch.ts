@@ -56,8 +56,19 @@ function tags(item: BatchItem): HTMLElement[] {
   return out;
 }
 
+/** Which files the list shows. */
+type Show = "all" | "reveals" | "problems";
+
+/** Rows drawn at a time: a folder of thousands would make the page crawl. */
+const PAGE = 300;
+
 export class BatchView {
   private status = el("p", "batch-result");
+  private show: Show = "all";
+  private limit = PAGE;
+  private items: BatchItem[] = [];
+  private lastDrawn = 0;
+  private pending = 0;
 
   constructor(
     private host: HTMLElement,
@@ -69,7 +80,22 @@ export class BatchView {
     this.status.textContent = text;
   }
 
+  /** Draws the list, at most a few times a second while files are read. */
   render(items: BatchItem[]): void {
+    this.items = items;
+    const wait = 150 - (performance.now() - this.lastDrawn);
+    if (wait > 0 && items.some((i) => i.state === "waiting" || i.state === "reading")) {
+      if (!this.pending) this.pending = window.setTimeout(() => this.draw(), wait);
+      return;
+    }
+    this.draw();
+  }
+
+  private draw(): void {
+    clearTimeout(this.pending);
+    this.pending = 0;
+    this.lastDrawn = performance.now();
+    const items = this.items;
     const done = items.filter((i) => i.state === "done" || i.state === "failed");
     const busy = done.length < items.length;
     const revealing = items.filter((i) => i.reveals.length > 0).length;
@@ -96,13 +122,38 @@ export class BatchView {
     save.addEventListener("click", () => this.hooks.saveClean());
     head.append(title, summary, save, this.status);
 
+    const isProblem = (i: BatchItem) =>
+      i.state === "failed" || i.lines.some((l) => l.kind === "damage" || l.kind === "hidden" || l.kind === "misnamed");
+    const filters: [Show, string, number][] = [
+      ["all", "All", items.length],
+      ["reveals", "Give something away", revealing],
+      ["problems", "Damaged or hiding something", items.filter(isProblem).length],
+    ];
+    const bar = el("div", "batch-filter");
+    bar.setAttribute("role", "group");
+    bar.setAttribute("aria-label", "Show");
+    for (const [key, label, n] of filters) {
+      const b = el("button", undefined, `${label} · ${n}`);
+      b.setAttribute("aria-pressed", String(this.show === key));
+      b.addEventListener("click", () => {
+        this.show = key;
+        this.limit = PAGE;
+        this.draw();
+      });
+      bar.append(b);
+    }
+    const shown = items
+      .map((item, i) => ({ item, i }))
+      .filter(({ item }) => this.show === "all" || (this.show === "reveals" ? item.reveals.length > 0 : isProblem(item)));
+
     const list = el("ul", "batch-list");
-    items.forEach((item, i) => {
+    shown.slice(0, this.limit).forEach(({ item, i }) => {
       const li = el("li");
       const row = el("button", "batch-row");
       row.disabled = item.state === "waiting" || item.state === "reading";
       row.title = row.disabled ? "Still reading" : "Open this file";
-      const name = el("span", "batch-name", item.file.name);
+      // In a folder, where it is in the folder.
+      const name = el("span", "batch-name", item.file.webkitRelativePath || item.file.name);
       const meta = el("span", "batch-meta", [item.kind, size(item.file.size)].filter(Boolean).join(" · "));
       const found = el("span", "batch-tags");
       found.append(...tags(item));
@@ -111,7 +162,15 @@ export class BatchView {
       li.append(row);
       list.append(li);
     });
-    card.append(head, list);
+    card.append(head, bar, list);
+    if (shown.length > this.limit) {
+      const more = el("button", "btn", `Show ${Math.min(PAGE, shown.length - this.limit)} more of ${shown.length - this.limit}`);
+      more.addEventListener("click", () => {
+        this.limit += PAGE;
+        this.draw();
+      });
+      card.append(more);
+    }
     this.host.replaceChildren(card);
   }
 }

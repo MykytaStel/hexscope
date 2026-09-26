@@ -29,7 +29,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
 
 // The file pickers are labels around hidden inputs: reachable by keyboard
 // only when the label itself takes focus and acts as a button.
-for (const label of document.querySelectorAll<HTMLLabelElement>("label.btn")) {
+for (const label of document.querySelectorAll<HTMLLabelElement>("label.btn, label.link")) {
   const input = label.querySelector<HTMLInputElement>("input[type=file]");
   if (!input) continue;
   label.tabIndex = 0;
@@ -644,7 +644,7 @@ function loadFailed(message: string): void {
 
 // --- inputs -------------------------------------------------------------
 
-for (const id of ["picker", "picker-empty"]) {
+for (const id of ["picker", "picker-empty", "picker-folder"]) {
   $<HTMLInputElement>(id).addEventListener("change", (e) => {
     const input = e.target as HTMLInputElement;
     const files = [...(input.files ?? [])];

@@ -2,6 +2,7 @@ import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
+import { saveStructure } from "./export";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
@@ -249,7 +250,10 @@ export class Drawer {
     const report = el("button", "link report-link", "Report a problem with this file");
     report.title = "Shows the file's layout, without its content, to paste into a bug report";
     report.addEventListener("click", () => openReport(m));
-    fileGroup.append(report);
+    const save = el("button", "link report-link", "Save the structure as JSON");
+    save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
+    save.addEventListener("click", () => saveStructure(m));
+    fileGroup.append(report, save);
     // Another file beside this one: what one gives away that the other does not.
     const pick = el("label", "link compare-pick", "Compare with another file…");
     const input = el("input");
@@ -261,6 +265,14 @@ export class Drawer {
       if (f) this.cleaning.compare(f);
     });
     pick.append(input);
+    pick.tabIndex = 0;
+    pick.setAttribute("role", "button");
+    pick.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        input.click();
+      }
+    });
     fileGroup.append(pick);
     this.file.append(fileGroup);
 

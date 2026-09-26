@@ -1431,6 +1431,34 @@ body[data-state="batch"] .layout {
   display: none;
 }
 
+.batch-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.batch-filter button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.batch-filter button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.hero-folder {
+  cursor: pointer;
+}
+
 .batch-list {
   display: grid;
   gap: 8px;
