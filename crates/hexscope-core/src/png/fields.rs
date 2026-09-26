@@ -1,3 +1,4 @@
+use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::png::chunks::Chunk;
 use crate::reader::Reader;
@@ -273,7 +274,10 @@ pub fn decode_gama(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) {
         chunk,
         0,
         4,
-        Value::Text(format!("{:.5} (stored as {raw})", raw as f64 / 100_000.0)),
+        Value::Text(format!(
+            "{} (stored as {raw})",
+            fixed(raw as f64 / 100_000.0, 5)
+        )),
     );
 }
 

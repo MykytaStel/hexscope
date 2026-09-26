@@ -11,6 +11,7 @@ pub(crate) mod docs;
 
 use crate::bmff::{BoxBody, Fields, be, fourcc, walk};
 use crate::exif::{Fact, Location, PhotoFacts};
+use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 
 /// Boxes nested deeper than this are not opened.
@@ -115,7 +116,7 @@ pub fn parse_video(data: &[u8]) -> VideoDocument {
         summary.push_str(&format!(" · {w}×{h}"));
     }
     if let Some(d) = ctx.duration {
-        summary.push_str(&format!(" · {d:.1} s"));
+        summary.push_str(&format!(" · {} s", fixed(d, 1)));
     }
     tree.set_value(root, Some(Value::Text(summary)));
     VideoDocument {
@@ -546,8 +547,14 @@ impl BoxBody for Ctx {
                 f.cstr("astronomicalBody");
                 f.cstr("additionalNotes");
                 f.rest("body");
-                f.tree
-                    .set_value(node, Some(Value::Text(format!("{lat:.5}, {lon:.5}"))));
+                f.tree.set_value(
+                    node,
+                    Some(Value::Text(format!(
+                        "{}, {}",
+                        crate::fixed::fixed(lat, 5),
+                        crate::fixed::fixed(lon, 5)
+                    ))),
+                );
                 if (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon) {
                     self.facts.location.get_or_insert(Location {
                         latitude: lat,

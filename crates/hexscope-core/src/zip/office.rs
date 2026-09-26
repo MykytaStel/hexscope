@@ -10,6 +10,7 @@
 
 use super::{ZipEntry, extract};
 use crate::exif::PhotoFacts;
+use crate::fixed::fixed;
 use crate::model::NodeId;
 
 /// Property files larger than this are not read. Real ones are a few KB.
@@ -178,9 +179,9 @@ pub(crate) fn photo_says(f: &PhotoFacts) -> Option<String> {
         let ns = if l.latitude < 0.0 { 'S' } else { 'N' };
         let ew = if l.longitude < 0.0 { 'W' } else { 'E' };
         parts.push(format!(
-            "taken at {:.5}° {ns}, {:.5}° {ew}",
-            l.latitude.abs(),
-            l.longitude.abs()
+            "taken at {}° {ns}, {}° {ew}",
+            fixed(l.latitude.abs(), 5),
+            fixed(l.longitude.abs(), 5)
         ));
     }
     let listed = [

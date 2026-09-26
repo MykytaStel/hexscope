@@ -46,7 +46,24 @@ export interface ParsedFile {
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
   location: PhotoLocation | null;
+  /** A PDF's pages with text under black boxes; empty for anything else. */
+  blackouts: Blackout[];
   parseMs: number;
+}
+
+/** `[left, bottom, right, top]` in a PDF page's points, the origin at the bottom left. */
+export type PageArea = [number, number, number, number];
+
+/** One page's black boxes and the text still under them. */
+export interface Blackout {
+  /** Counted from 1. */
+  page: number;
+  media: PageArea;
+  boxes: PageArea[];
+  /** An empty text is in a font whose codes do not read as letters. */
+  texts: { area: PageArea; text: string }[];
+  /** Text left showing on the same lines, such as a label. */
+  context: { area: PageArea; text: string }[];
 }
 
 /** How worried to be about a problem, as the core classifies it. */

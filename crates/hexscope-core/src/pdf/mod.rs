@@ -12,6 +12,8 @@ pub(crate) mod facts;
 mod lexer;
 mod redact;
 
+pub use redact::Blackout;
+
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::zip::DocumentFact;
 use lexer::{Entry, Item, Lexer, Obj};
@@ -37,6 +39,8 @@ pub struct PdfDocument {
     /// How, and whether it opened without a password.
     pub lock: Option<crypt::Lock>,
     pub facts: Vec<DocumentFact>,
+    /// Pages with text under black boxes, to draw what the boxes cover.
+    pub blackouts: Vec<Blackout>,
 }
 
 /// `%PDF-` within the first kilobyte.
@@ -275,9 +279,11 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
-    if !encrypted || ctx.crypt.is_some() {
-        redact::check(data, &mut tree, &ctx, &mut facts);
-    }
+    let blackouts = if !encrypted || ctx.crypt.is_some() {
+        redact::check(data, &mut tree, &ctx, &mut facts)
+    } else {
+        Vec::new()
+    };
     if let Some((l, node)) = &lock {
         let text = match l {
             crypt::Lock::Open { scheme } => {
@@ -337,6 +343,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         encrypted,
         lock: lock.map(|(l, _)| l),
         facts,
+        blackouts,
     };
     (doc, ctx)
 }

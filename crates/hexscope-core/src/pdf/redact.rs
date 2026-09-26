@@ -25,6 +25,10 @@ const MAX_PAGES: usize = 2000;
 /// Pieces of text remembered on one page, and boxes checked against them.
 const MAX_TEXTS: usize = 20_000;
 const MAX_BOXES: usize = 2000;
+/// Boxes and pieces of text kept to draw a page, at most.
+const MAX_DRAWN: usize = 200;
+/// Pages drawn, at most.
+const MAX_DRAWN_PAGES: usize = 50;
 /// Operands kept for one operator; real ones take at most a handful.
 const MAX_OPERANDS: usize = 32;
 /// Content decompressed for this check, in all.
@@ -167,7 +171,7 @@ fn dark(c: &[f64]) -> bool {
 
 /// Walks one page's content and returns the text that ends up under a dark
 /// box, in the order it was drawn.
-fn covered_text(content: &[u8]) -> Vec<Vec<u8>> {
+fn covered_text(content: &[u8]) -> Painted {
     let mut lx = Lexer::new(content, 0);
     let mut ops: Vec<Obj> = Vec::new();
     let mut gs = Graphics {
@@ -183,6 +187,8 @@ fn covered_text(content: &[u8]) -> Vec<Vec<u8>> {
     let (mut size, mut leading, mut scale) = (0.0f64, 0.0f64, 1.0f64);
     let mut shown: Vec<Shown> = Vec::new();
     let mut boxes = 0;
+    // The boxes that cover something, for drawing the page.
+    let mut covering: Vec<Area> = Vec::new();
 
     loop {
         lx.skip_ws();
@@ -263,8 +269,13 @@ fn covered_text(content: &[u8]) -> Vec<Vec<u8>> {
                 if gs.dark {
                     for area in rects.iter().take(MAX_BOXES.saturating_sub(boxes)) {
                         boxes += 1;
+                        let mut any = false;
                         for s in shown.iter_mut().filter(|s| !s.covered) {
                             s.covered = s.area.inside(area) >= COVERED;
+                            any |= s.covered;
+                        }
+                        if any && covering.len() < MAX_DRAWN {
+                            covering.push(*area);
                         }
                     }
                 }
@@ -329,11 +340,34 @@ fn covered_text(content: &[u8]) -> Vec<Vec<u8>> {
         }
         ops.clear();
     }
-    // Pieces that run on from each other on one line are one word: a TJ
-    // array splits words for kerning. A little further along the line is
-    // the next word; anywhere else is another piece of text.
+    let (covered, rest): (Vec<Shown>, Vec<Shown>) = shown.into_iter().partition(|s| s.covered);
+    let pieces = merge(covered);
+    // What is written on the same lines, and left showing: what the covered
+    // text was, a name after "Claimant:".
+    let beside = |s: &Shown| {
+        pieces.iter().any(|(a, _)| {
+            let h = a.0[3] - a.0[1];
+            (s.area.0[1] - a.0[1]).abs() < 0.3 * h
+        })
+    };
+    let context = if pieces.is_empty() {
+        Vec::new()
+    } else {
+        merge(rest.into_iter().filter(|s| beside(s)).collect())
+    };
+    Painted {
+        pieces,
+        context,
+        boxes: covering,
+    }
+}
+
+/// Pieces that run on from each other on one line are one word: a TJ array
+/// splits words for kerning. A little further along the line is the next
+/// word; anywhere else is another piece of text.
+fn merge(shown: Vec<Shown>) -> Vec<(Area, Vec<u8>)> {
     let mut out: Vec<(Area, Vec<u8>)> = Vec::new();
-    for s in shown.into_iter().filter(|s| s.covered) {
+    for s in shown {
         if let Some((last, bytes)) = out.last_mut() {
             let h = (last.0[3] - last.0[1]).abs();
             let gap = s.area.0[0] - last.0[2];
@@ -348,7 +382,17 @@ fn covered_text(content: &[u8]) -> Vec<Vec<u8>> {
         }
         out.push((s.area, s.bytes));
     }
-    out.into_iter().map(|(_, b)| b).collect()
+    out.truncate(MAX_DRAWN);
+    out
+}
+
+/// What a page's dark boxes cover: each piece of text, where it is, and the
+/// boxes over it.
+struct Painted {
+    pieces: Vec<(Area, Vec<u8>)>,
+    /// Text left showing on the same lines.
+    context: Vec<(Area, Vec<u8>)>,
+    boxes: Vec<Area>,
 }
 
 /// The box a path of straight lines makes, when it makes one: four corners
@@ -394,7 +438,8 @@ fn find_word(data: &[u8], from: usize, word: &[u8]) -> Option<usize> {
 }
 
 /// The pages in reading order, from the catalog down the page tree (7.7.3).
-fn pages(data: &[u8], ctx: &Ctx, root: u32, budget: &mut u64) -> Vec<(Obj, NodeId)> {
+/// Each comes with its MediaBox, which a page may inherit (7.7.3.4).
+fn pages(data: &[u8], ctx: &Ctx, root: u32, budget: &mut u64) -> Vec<(Obj, NodeId, [f64; 4])> {
     let mut out = Vec::new();
     let mut seen = Vec::new();
     let catalog = match resolve(data, ctx, root, budget) {
@@ -402,8 +447,10 @@ fn pages(data: &[u8], ctx: &Ctx, root: u32, budget: &mut u64) -> Vec<(Obj, NodeI
         Some(Found::Packed(obj, _)) => obj,
         None => return out,
     };
-    let mut stack = vec![catalog.get("Pages").cloned()];
-    while let Some(next) = stack.pop() {
+    // US Letter, when nothing says otherwise.
+    let letter = [0.0, 0.0, 612.0, 792.0];
+    let mut stack = vec![(catalog.get("Pages").cloned(), letter)];
+    while let Some((next, inherited)) = stack.pop() {
         if out.len() >= MAX_PAGES || seen.len() > MAX_PAGES * 4 {
             break;
         }
@@ -417,12 +464,24 @@ fn pages(data: &[u8], ctx: &Ctx, root: u32, budget: &mut u64) -> Vec<(Obj, NodeI
             Some(Found::Packed(obj, id)) => (obj, id),
             None => continue,
         };
+        let media = match node.get("MediaBox") {
+            Some(Obj::Array(a)) if a.len() == 4 => {
+                let v: Vec<f64> = a.iter().filter_map(|i| num(&i.obj)).collect();
+                match v[..] {
+                    [l, b, r, t] if r != l && t != b => [l.min(r), b.min(t), l.max(r), b.max(t)],
+                    _ => inherited,
+                }
+            }
+            _ => inherited,
+        };
         match node.get("Kids") {
             Some(Obj::Array(kids)) => {
                 // Last first, so the first page comes off the stack first.
-                stack.extend(kids.iter().rev().map(|k| Some(k.obj.clone())));
+                stack.extend(kids.iter().rev().map(|k| (Some(k.obj.clone()), media)));
             }
-            _ if node.get("Type").and_then(Obj::name) == Some("Page") => out.push((node, id)),
+            _ if node.get("Type").and_then(Obj::name) == Some("Page") => {
+                out.push((node, id, media))
+            }
             _ => {}
         }
     }
@@ -436,16 +495,23 @@ fn top(ctx: &Ctx, n: u32) -> Option<&ObjRec> {
 
 /// Text under black boxes, and areas marked for redaction that were never
 /// redacted, as a warning on the page's content and a fact for each page.
-pub(super) fn check(data: &[u8], tree: &mut ParseTree, ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
+pub(super) fn check(
+    data: &[u8],
+    tree: &mut ParseTree,
+    ctx: &Ctx,
+    facts: &mut Vec<DocumentFact>,
+) -> Vec<Blackout> {
+    let mut drawn = Vec::new();
     let Some(root) = ctx.trailers.iter().rev().find_map(|t| match t.get("Root") {
         Some(Obj::Ref(n, _)) => Some(*n),
         _ => None,
     }) else {
-        return;
+        return drawn;
     };
     let mut budget = BUDGET;
     let crypt = ctx.crypt.as_ref();
-    for (i, (page, page_node)) in pages(data, ctx, root, &mut budget).into_iter().enumerate() {
+    for (i, (page, page_node, media)) in pages(data, ctx, root, &mut budget).into_iter().enumerate()
+    {
         let number = i + 1;
         // The page's content, one stream or several read as one (7.8.2).
         let refs: Vec<u32> = match page.get("Contents") {
@@ -469,11 +535,30 @@ pub(super) fn check(data: &[u8], tree: &mut ParseTree, ctx: &Ctx, facts: &mut Ve
                 content.push(b'\n');
             }
         }
-        let hidden = covered_text(&content);
+        let painted = covered_text(&content);
+        let hidden: Vec<Vec<u8>> = painted.pieces.iter().map(|(_, b)| b.clone()).collect();
         if let Some(rec) = first
             && !hidden.is_empty()
         {
             let words = words(&hidden);
+            if drawn.len() < MAX_DRAWN_PAGES {
+                drawn.push(Blackout {
+                    page: number,
+                    media,
+                    boxes: painted.boxes.iter().map(|a| a.0).collect(),
+                    texts: painted
+                        .pieces
+                        .iter()
+                        .map(|(a, b)| (a.0, readable(&text(b))))
+                        .collect(),
+                    context: painted
+                        .context
+                        .iter()
+                        .map(|(a, b)| (a.0, readable(&text(b))))
+                        .filter(|(_, t)| !t.is_empty())
+                        .collect(),
+                });
+            }
             let (range, _) = rec.stream.unwrap_or((tree.get(rec.node).range, rec.node));
             let node = tree.warning(rec.node, "text under a black box", range);
             tree.set_value(node, Some(Value::Text(words.clone())));
@@ -519,6 +604,25 @@ pub(super) fn check(data: &[u8], tree: &mut ParseTree, ctx: &Ctx, facts: &mut Ve
             );
         }
     }
+    drawn
+}
+
+/// One page's black boxes and the text they cover, in the page's own
+/// coordinates (points, the origin at the bottom left), to draw it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Blackout {
+    /// Counted from 1.
+    pub page: usize,
+    /// The page: left, bottom, right, top.
+    pub media: [f64; 4],
+    /// The dark boxes over text, the same way round.
+    pub boxes: Vec<[f64; 4]>,
+    /// Each covered piece of text and where it is; the text is empty when
+    /// its font's codes do not read as letters.
+    pub texts: Vec<([f64; 4], String)>,
+    /// Text left showing on the same lines, such as the label before a
+    /// covered name.
+    pub context: Vec<([f64; 4], String)>,
 }
 
 /// The hidden pieces as words, set apart by ` · `, or a count when their
@@ -530,12 +634,7 @@ fn words(pieces: &[Vec<u8>]) -> String {
         .filter(|p| !p.is_empty())
         .collect::<Vec<_>>()
         .join(" · ");
-    let chars = joined.chars().count().max(1);
-    let readable = joined
-        .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_ascii_punctuation() || *c == ' ')
-        .count();
-    if !joined.is_empty() && readable * 10 >= chars * 8 {
+    if !readable(&joined).is_empty() {
         format!("“{joined}”")
     } else {
         let n = pieces.len();
@@ -546,14 +645,32 @@ fn words(pieces: &[Vec<u8>]) -> String {
     }
 }
 
+/// The text with its spaces tidied, or nothing when under four in five of
+/// its characters are letters, digits, punctuation or spaces: codes that
+/// are not letters read as noise.
+fn readable(t: &str) -> String {
+    let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+    let chars = t.chars().count();
+    let good = t
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_ascii_punctuation() || *c == ' ' || *c == '·')
+        .count();
+    if chars > 0 && good * 10 >= chars * 8 {
+        t
+    } else {
+        String::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn hidden(content: &str) -> Vec<String> {
         covered_text(content.as_bytes())
+            .pieces
             .iter()
-            .map(|b| String::from_utf8_lossy(b).into_owned())
+            .map(|(_, b)| String::from_utf8_lossy(b).into_owned())
             .collect()
     }
 

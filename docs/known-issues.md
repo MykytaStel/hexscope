@@ -66,12 +66,13 @@ take the whole word, and a box inside a form is not seen. Text in a font
 whose codes are not letters (most CID fonts) is counted, not shown. The
 clean copy does not remove covered text: it keeps pages as they are.
 
-**WebAssembly size.** About 247 KB gzipped against a CI budget of 256,000
+**WebAssembly size.** About 241 KB gzipped against a CI budget of 256,000
 bytes, grown from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF (17 KB), PDF (29 KB), PNG metadata (14 KB), PDF decryption
 (11 KB), video, WebAssembly, MakerNotes and the PDF redaction check (10 KB,
 after a hand-written reader for PDF numbers saved 15 KB over the standard
-float parser) arrived. Measured with
+float parser) arrived. Writing numbers with a fixed count of decimals by
+hand, in place of the standard float formatting, saved 9.6 KB. Measured with
 `twiggy`: the biggest single part is the explanations' text; dropping the
 function-name section from the build saved 9 KB gzipped, and a small
 decimal parser in place of the standard one about 6 KB before compression. The explanations'

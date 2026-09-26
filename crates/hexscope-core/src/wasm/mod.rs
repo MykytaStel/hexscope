@@ -14,6 +14,7 @@ pub(crate) mod docs;
 #[cfg(test)]
 mod tests;
 
+use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::zip::DocumentFact;
 
@@ -607,8 +608,8 @@ pub fn parse_wasm(data: &[u8]) -> WasmDocument {
 fn human(n: u64) -> String {
     match n {
         0..1024 => format!("{n} bytes"),
-        1024..1_048_576 => format!("{:.1} KB", n as f64 / 1024.0),
-        _ => format!("{:.1} MB", n as f64 / 1_048_576.0),
+        1024..1_048_576 => format!("{} KB", fixed(n as f64 / 1024.0, 1)),
+        _ => format!("{} MB", fixed(n as f64 / 1_048_576.0, 1)),
     }
 }
 
