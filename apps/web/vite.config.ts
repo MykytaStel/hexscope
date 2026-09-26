@@ -20,6 +20,8 @@ export default defineConfig({
         location: page("remove-location-from-photo.html"),
         pdf: page("pdf-hidden-versions.html"),
         png: page("png-wont-open.html"),
+        documents: page("check-document-before-sending.html"),
+        hidden: page("hidden-text-in-pdf.html"),
       },
     },
   },

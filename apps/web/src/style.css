@@ -1923,6 +1923,45 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* The first-run tour: a note beside the part it is about. */
+.tour {
+  position: fixed;
+  z-index: 40;
+  width: min(320px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.tour p {
+  margin: 6px 0 12px;
+  color: var(--muted);
+}
+
+.tour-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tour-count {
+  margin-right: auto;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.tour-lit {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+  transition: outline-color 200ms ease;
+}
+
 /* The keyboard shortcuts. */
 .keys {
   display: grid;
