@@ -1,7 +1,9 @@
-// The landing page's demonstration, in two scenes: a pointer moving over a
-// real PNG, and for each pixel, the bytes of the file that wrote it; then a
-// progressive JPEG arriving scan by scan, blurry at first and sharp at the
-// end — what hexscope does, shown before anyone has to pick a file. It runs
+// The landing page's demonstration, in three scenes: a photo giving away
+// where it was taken and whose camera took it, then its clean copy that
+// does not; a pointer moving over a real PNG, and for each pixel, the bytes
+// of the file that wrote it; then a progressive JPEG arriving scan by scan,
+// blurry at first and sharp at the end — what hexscope does, for anyone and
+// for the curious, shown before anyone has to pick a file. It runs
 // on the same worker as the app, so it only runs while no file is open, and
 // stops when one is.
 import { FileModel } from "./model";
@@ -23,6 +25,16 @@ const DWELL_MS = 2400;
 const SCAN_MS = 800;
 const SAMPLE = "samples/sample.png";
 const PROGRESSIVE = "samples/progressive.jpg";
+const PHOTO = "samples/photo.jpg";
+/** What the photo scene lists, in order, and how it names each. */
+const TOLD: [string, string][] = [
+  ["location", "Where"],
+  ["owner", "Owner"],
+  ["serial", "Camera serial"],
+  ["taken", "Taken"],
+];
+/** Between facts appearing in the photo scene. */
+const FACT_MS = 900;
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -79,6 +91,11 @@ async function scans(): Promise<{ pictures: ImageBitmap[]; shares: number[] } | 
 
 export async function startDemo(host: HTMLElement): Promise<void> {
   if (!idle()) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // First, while the worker is free: the PNG scene below keeps the worker
+  // on the PNG, pointing at its pixels.
+  const said = reduce ? null : await photoScene();
+  if (!idle()) return;
   const bytes = new Uint8Array(await (await fetch(SAMPLE)).arrayBuffer());
   if (!idle()) return;
   const r = await call({ type: "parse", file: new File([bytes], "sample.png") });
@@ -107,15 +124,19 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   const caption = el("p", "demo-caption");
   const side = el("div", "demo-side");
   const kicker = el("p", "demo-kicker");
-  side.append(kicker, bytesRow, caption);
+  const told = el("dl", "demo-facts");
+  told.hidden = true;
+  side.append(kicker, told, bytesRow, caption);
   host.replaceChildren(frame, side);
   host.hidden = false;
   const parts = { frame, overlay, pointer, bytesRow, caption };
 
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const jpeg = reduce ? Promise.resolve(null) : scans();
   while (idle()) {
-    kicker.textContent = "Point at a pixel, see the bytes that made it";
+    if (said && idle()) await tell(said, image, kicker, told, parts);
+    told.hidden = true;
+    bytesRow.hidden = false;
+    kicker.textContent = "For the curious: point at a pixel, see the bytes that made it";
     pointer.hidden = false;
     drawPng();
     for (const [x, y] of PATH) {
@@ -131,14 +152,96 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   host.hidden = true;
 }
 
-/** The second scene: a progressive JPEG, scan after scan, and how much of the file each took. */
+/** What the photo scene needs, worked out ahead: the picture, what it gives away, what its clean copy removed. */
+interface Said {
+  picture: ImageBitmap;
+  facts: [string, string][];
+  removedBytes: number;
+  /** What the clean copy still gives away, of the facts told: none, when it works. */
+  left: number;
+}
+
+/** Parses the sample photo and its clean copy. Runs before the other scenes use the worker. */
+async function photoScene(): Promise<Said | null> {
+  try {
+    const bytes = new Uint8Array(await (await fetch(PHOTO)).arrayBuffer());
+    if (!idle()) return null;
+    const picture = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
+    const r = await call({ type: "parse", file: new File([bytes], "photo.jpg") });
+    if (r.type !== "parsed" || !idle()) return null;
+    const f = r.result;
+    const facts: [string, string][] = [];
+    for (const [kind, name] of TOLD) {
+      if (kind === "location" && f.location) {
+        const { latitude: la, longitude: lo } = f.location;
+        facts.push([name, `${Math.abs(la).toFixed(4)}° ${la < 0 ? "S" : "N"}, ${Math.abs(lo).toFixed(4)}° ${lo < 0 ? "W" : "E"}`]);
+        continue;
+      }
+      const fact = f.facts.find((x) => x.kind === kind);
+      // To the minute: the seconds and time zone only make the line longer.
+      if (fact) facts.push([name, kind === "taken" ? fact.text.slice(0, 16) : fact.text]);
+    }
+    const c = await call({ type: "clean", bytes: bytes.slice() });
+    if (c.type !== "cleaned" || c.error || !idle()) return null;
+    const again = await call({ type: "parse", file: new File([c.bytes as BlobPart], "photo.jpg") });
+    if (again.type !== "parsed") return null;
+    const kinds = TOLD.map(([k]) => k);
+    const left = again.result.facts.filter((x) => kinds.includes(x.kind)).length + (again.result.location ? 1 : 0);
+    return { picture, facts, removedBytes: c.removed.reduce((n, x) => n + x.bytes, 0), left };
+  } catch {
+    return null;
+  }
+}
+
+/** The first scene: a photo, what it gives away, and its clean copy. */
+async function tell(said: Said, image: HTMLCanvasElement, kicker: HTMLElement, told: HTMLElement, p: Parts): Promise<void> {
+  kicker.textContent = "Before you send a photo";
+  p.pointer.hidden = true;
+  p.overlay.getContext("2d")?.clearRect(0, 0, p.overlay.width, p.overlay.height);
+  image.classList.add("is-photo");
+  const pic = said.picture;
+  const side = Math.min(pic.width, pic.height);
+  image.width = side;
+  image.height = side;
+  image.getContext("2d")?.drawImage(pic, (pic.width - side) / 2, (pic.height - side) / 2, side, side, 0, 0, side, side);
+  p.bytesRow.hidden = true;
+  told.replaceChildren();
+  told.classList.remove("is-clean");
+  told.hidden = false;
+  p.caption.textContent = "A photo, as a camera or phone saves it. Inside it:";
+  await sleep(FACT_MS);
+  // Every row is there from the start, unseen, so the card keeps its size as they appear.
+  const rows = said.facts.map(([name, value]) => {
+    const row = el("div", "demo-fact");
+    row.append(el("dt", undefined, name), el("dd", undefined, value));
+    return row;
+  });
+  told.replaceChildren(...rows);
+  for (const row of rows) {
+    if (!idle()) return;
+    row.classList.add("is-shown");
+    await sleep(FACT_MS);
+  }
+  if (!idle()) return;
+  p.caption.textContent = "Anyone you send it to can read all of that.";
+  await sleep(DWELL_MS);
+  if (!idle()) return;
+  told.classList.add("is-clean");
+  p.caption.textContent =
+    said.left === 0
+      ? `The clean copy: the same picture, and none of that — ${said.removedBytes.toLocaleString("en")} bytes of it removed, in your browser.`
+      : "The clean copy: the same picture, with its camera data removed, in your browser.";
+  await sleep(DWELL_MS * 1.5);
+}
+
+/** The last scene: a progressive JPEG, scan after scan, and how much of the file each took. */
 async function arrive(
   j: { pictures: ImageBitmap[]; shares: number[] },
   image: HTMLCanvasElement,
   kicker: HTMLElement,
   p: Parts,
 ): Promise<void> {
-  kicker.textContent = "A progressive JPEG, scan by scan";
+  kicker.textContent = "For the curious: a progressive JPEG, scan by scan";
   p.pointer.hidden = true;
   p.overlay.getContext("2d")?.clearRect(0, 0, p.overlay.width, p.overlay.height);
   image.classList.add("is-photo");
