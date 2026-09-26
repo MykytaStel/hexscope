@@ -39,11 +39,11 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "tracked", "deleted"], pdf: ["comments"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "tracked", "deleted", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides"], pdf: ["comments"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
   pdf: "Kept: the comments, which are part of the document. Delete them in a PDF editor if they should not travel with it.",
-  zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
+  zip: "Kept: what is part of the document itself — comments, tracked changes, hidden sheets, rows and slides, speaker notes, links to other files. Remove them in Word, Excel or PowerPoint, then save.",
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
@@ -103,6 +103,11 @@ const FACT_LABELS: Record<string, string> = {
   hiddentext: "Hidden text",
   earlier: "Taken off the page",
   comments: "Comments",
+  hiddensheets: "Hidden sheets",
+  hiddencells: "Hidden rows and columns",
+  links: "Links to files",
+  notes: "Speaker notes",
+  hiddenslides: "Hidden slides",
   tracked: "Tracked changes",
   deleted: "Deleted text",
   photoplace: "Photo inside",

@@ -125,8 +125,243 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         push("tracked", tracked, node);
         push("deleted", deleted_text(&xml), node);
     }
+    sheets_and_slides(data, entries, &mut facts);
     facts.extend(photo_facts(data, entries));
     facts
+}
+
+/// Every element's text: `<a:t>one</a:t>…<a:t>two</a:t>`.
+#[inline(never)]
+fn texts(xml: &str, name: &str) -> Vec<String> {
+    let close = format!("</{name}>");
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some((_, body)) = find_tag(xml, from, name) {
+        from = body;
+        if xml[..body - 1].ends_with('/') {
+            continue;
+        }
+        let Some(len) = xml[body..].find(&close) else {
+            break;
+        };
+        out.push(decode(&xml[body..body + len]));
+        from = body + len;
+    }
+    out
+}
+
+/// A sheet's or a slide's number, from its part's name: `slide7.xml` is 7.
+fn number(name: &str) -> String {
+    let stem = name
+        .rsplit('/')
+        .next()
+        .unwrap_or(name)
+        .trim_end_matches(".xml");
+    stem.trim_start_matches(|c: char| !c.is_ascii_digit())
+        .to_string()
+}
+
+/// What an Excel workbook or a PowerPoint deck keeps out of sight: hidden
+/// sheets, rows, columns and slides; comments and their authors; links to
+/// files on the author's computer; the speaker's notes.
+fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<DocumentFact>) {
+    let read = |e: &ZipEntry| {
+        (e.uncompressed <= MAX_PART)
+            .then(|| extract(data, e, MAX_PART).ok())
+            .flatten()
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+    };
+    let parts = |prefix: &'static str| {
+        entries.iter().filter(move |e| {
+            e.name.starts_with(prefix) && e.name.ends_with(".xml") && !e.name.contains("/_rels/")
+        })
+    };
+    let mut push = |kind: &'static str, text: String, node: NodeId| {
+        facts.push(DocumentFact {
+            kind,
+            text: cap(text),
+            node,
+        })
+    };
+    let quote = |v: &[String]| {
+        let q: Vec<String> = v.iter().take(MAX_NAMES).map(|s| format!("“{s}”")).collect();
+        let more = v.len().saturating_sub(MAX_NAMES);
+        if more > 0 {
+            format!("{} and {more} more", q.join(", "))
+        } else {
+            q.join(", ")
+        }
+    };
+
+    // Sheets hidden from their tabs: "hidden", or "veryHidden", which only
+    // a macro or an XML editor brings back.
+    if let Some(e) = entries.iter().find(|e| e.name == "xl/workbook.xml")
+        && let Some(xml) = read(e)
+    {
+        let hidden: Vec<String> = tags(&xml, "sheet")
+            .into_iter()
+            .filter(|t| attribute(t, "state").is_some_and(|s| s != "visible"))
+            .filter_map(|t| attribute(t, "name"))
+            .collect();
+        if !hidden.is_empty() {
+            push("hiddensheets", quote(&hidden), e.node);
+        }
+    }
+    let (mut rows, mut cols, mut node) = (0usize, 0usize, None);
+    for e in parts("xl/worksheets/") {
+        let Some(xml) = read(e) else { continue };
+        let hidden = |t: &&&str| attribute(t, "hidden").is_some_and(|h| h == "1" || h == "true");
+        let r = tags(&xml, "row").iter().filter(hidden).count();
+        let c: usize = tags(&xml, "col")
+            .iter()
+            .filter(hidden)
+            .map(|t| {
+                let n = |k| attribute(t, k).and_then(|v| v.parse::<usize>().ok());
+                n("max")
+                    .zip(n("min"))
+                    .map_or(1, |(max, min)| max.saturating_sub(min) + 1)
+            })
+            .sum();
+        if r + c > 0 {
+            node.get_or_insert(e.node);
+        }
+        rows += r;
+        cols += c;
+    }
+    if let Some(node) = node {
+        let what = match (rows, cols) {
+            (r, 0) => plural(r, "hidden row", "hidden rows"),
+            (0, c) => plural(c, "hidden column", "hidden columns"),
+            (r, c) => format!(
+                "{} and {}",
+                plural(r, "hidden row", "hidden rows"),
+                plural(c, "hidden column", "hidden columns")
+            ),
+        };
+        push("hiddencells", what, node);
+    }
+
+    // Comments, and who wrote them: Excel's notes and threads, PowerPoint's
+    // comments old and new.
+    let mut authors: Vec<String> = Vec::new();
+    for (file, tag, attr) in [
+        ("xl/persons/person.xml", "person", "displayName"),
+        ("ppt/commentAuthors.xml", "p:cmAuthor", "name"),
+        ("ppt/authors.xml", "p188:author", "name"),
+    ] {
+        if let Some(xml) = entries.iter().find(|e| e.name == file).and_then(&read) {
+            authors.extend(
+                tags(&xml, tag)
+                    .into_iter()
+                    .filter_map(|t| attribute(t, attr)),
+            );
+        }
+    }
+    let (mut comments, mut node) = (0, None);
+    for (prefix, tag) in [
+        ("xl/comments", "comment"),
+        ("xl/threadedComments/", "threadedComment"),
+        ("ppt/comments/", "p:cm"),
+        ("ppt/comments/", "p188:cm"),
+    ] {
+        for e in parts(prefix) {
+            let Some(xml) = read(e) else { continue };
+            let n = tags(&xml, tag).len();
+            if n > 0 {
+                node.get_or_insert(e.node);
+                comments += n;
+                if prefix == "xl/comments" {
+                    authors.extend(texts(&xml, "author"));
+                }
+            }
+        }
+    }
+    if let Some(node) = node {
+        push(
+            "comments",
+            by(plural(comments, "comment", "comments"), &authors),
+            node,
+        );
+    }
+
+    // Links to other files, which name where they are on the author's disk.
+    let mut links: Vec<String> = Vec::new();
+    let mut node = None;
+    for e in entries
+        .iter()
+        .filter(|e| e.name.starts_with("xl/externalLinks/_rels/"))
+    {
+        let Some(xml) = read(e) else { continue };
+        for t in tags(&xml, "Relationship") {
+            if attribute(t, "TargetMode").as_deref() == Some("External")
+                && let Some(target) = attribute(t, "Target")
+            {
+                node.get_or_insert(e.node);
+                links.push(target);
+            }
+        }
+    }
+    if let Some(node) = node {
+        push("links", quote(&links), node);
+    }
+
+    // PowerPoint: the speaker's notes, and slides left out of the show.
+    let (mut notes, mut first, mut node) = (0, String::new(), None);
+    for e in parts("ppt/notesSlides/") {
+        let Some(xml) = read(e) else { continue };
+        // A notes page also holds its slide's number: that is not a note.
+        let words: Vec<String> = texts(&xml, "a:t")
+            .into_iter()
+            .filter(|t| !t.trim().chars().all(|c| c.is_ascii_digit()))
+            .collect();
+        let said = words
+            .join(" ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !said.is_empty() {
+            notes += 1;
+            node.get_or_insert(e.node);
+            if first.is_empty() {
+                first = said;
+            }
+        }
+    }
+    if let Some(node) = node {
+        push(
+            "notes",
+            format!("on {}: “{first}”", plural(notes, "slide", "slides")),
+            node,
+        );
+    }
+    let mut hidden: Vec<(usize, NodeId)> = Vec::new();
+    for e in parts("ppt/slides/") {
+        let Some(xml) = read(e) else { continue };
+        if let Some(t) = tags(&xml, "p:sld").first()
+            && attribute(t, "show").is_some_and(|v| v == "0" || v == "false")
+        {
+            hidden.push((number(&e.name).parse().unwrap_or(0), e.node));
+        }
+    }
+    if let Some(&(_, node)) = hidden.first() {
+        // In order, by hand: a few numbers need no library sort, which
+        // would cost the build kilobytes.
+        let mut n: Vec<usize> = Vec::new();
+        for &(v, _) in &hidden {
+            let at = n.iter().position(|&x| x > v).unwrap_or(n.len());
+            n.insert(at, v);
+        }
+        let list: Vec<String> = n.iter().map(|v| v.to_string()).collect();
+        push(
+            "hiddenslides",
+            format!(
+                "{} {}",
+                if n.len() == 1 { "slide" } else { "slides" },
+                list.join(", ")
+            ),
+            node,
+        );
+    }
 }
 
 /// Entries that hold the pictures placed in a Word, Excel or PowerPoint file.
@@ -272,17 +507,22 @@ fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize, usize)> {
     }
 }
 
-/// Every `<name …>` tag, as its text from `<` to `>`.
-fn tags<'a>(xml: &'a str, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+/// Every `<name …>` tag, as its text from `<` to `>`. A list rather than
+/// an iterator, and never inlined: one copy of the loop serves every
+/// caller, which keeps the WebAssembly build small.
+#[inline(never)]
+fn tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
+    let mut out = Vec::new();
     let mut from = 0;
-    std::iter::from_fn(move || {
-        let (start, end) = find_tag(xml, from, name)?;
+    while let Some((start, end)) = find_tag(xml, from, name) {
         from = end;
-        Some(&xml[start..end])
-    })
+        out.push(&xml[start..end]);
+    }
+    out
 }
 
 /// The value of `name="…"` or `name='…'` in a tag, decoded.
+#[inline(never)]
 fn attribute(tag: &str, name: &str) -> Option<String> {
     let mut from = 0;
     loop {
@@ -615,5 +855,74 @@ mod tests {
                 Entry::new("word/comments.xml", xml.as_bytes(), 0),
             ]);
         }
+    }
+
+    #[test]
+    fn a_workbook_says_what_it_hides_and_who_commented() {
+        let facts = facts_of(vec![
+            Entry::new(
+                "xl/workbook.xml",
+                br#"<workbook><sheets><sheet name="Summary" sheetId="1"/><sheet name="Salaries" state="hidden" sheetId="2"/><sheet name="Old" state="veryHidden" sheetId="3"/></sheets></workbook>"#,
+                8,
+            ),
+            Entry::new(
+                "xl/worksheets/sheet1.xml",
+                br#"<worksheet><cols><col min="3" max="5" hidden="1"/></cols><sheetData><row r="1"/><row r="2" hidden="1"/><row r="3" hidden="true"/></sheetData></worksheet>"#,
+                8,
+            ),
+            Entry::new(
+                "xl/comments1.xml",
+                br#"<comments><authors><author>Olena Koval</author></authors><commentList><comment ref="A1" authorId="0"/><comment ref="B2" authorId="0"/></commentList></comments>"#,
+                0,
+            ),
+            Entry::new(
+                "xl/externalLinks/_rels/externalLink1.xml.rels",
+                br#"<Relationships><Relationship Id="rId1" Target="file:///C:/Users/olena/Documents/budget.xlsx" TargetMode="External"/></Relationships>"#,
+                0,
+            ),
+        ]);
+        assert_eq!(
+            facts,
+            [
+                ("hiddensheets", "“Salaries”, “Old”".to_string()),
+                (
+                    "hiddencells",
+                    "2 hidden rows and 3 hidden columns".to_string()
+                ),
+                ("comments", "2 comments by Olena Koval".to_string()),
+                (
+                    "links",
+                    "“file:///C:/Users/olena/Documents/budget.xlsx”".to_string()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_deck_says_its_notes_and_hidden_slides() {
+        let facts = facts_of(vec![
+            Entry::new("ppt/slides/slide1.xml", br#"<p:sld><p:cSld/></p:sld>"#, 8),
+            Entry::new("ppt/slides/slide10.xml", br#"<p:sld show="0"><p:cSld/></p:sld>"#, 8),
+            Entry::new("ppt/slides/slide2.xml", br#"<p:sld show="0"/>"#, 8),
+            Entry::new(
+                "ppt/notesSlides/notesSlide1.xml",
+                br#"<p:notes><a:t>Do not mention</a:t><a:t> the delay.</a:t><a:fld type="slidenum"><a:t>1</a:t></a:fld></p:notes>"#,
+                8,
+            ),
+            Entry::new("ppt/notesSlides/notesSlide2.xml", br#"<p:notes><a:t>2</a:t></p:notes>"#, 8),
+            Entry::new("ppt/commentAuthors.xml", br#"<p:cmAuthorLst><p:cmAuthor id="0" name="Petro"/></p:cmAuthorLst>"#, 8),
+            Entry::new("ppt/comments/comment1.xml", br#"<p:cmLst><p:cm authorId="0"/></p:cmLst>"#, 8),
+        ]);
+        assert_eq!(
+            facts,
+            [
+                ("comments", "1 comment by Petro".to_string()),
+                (
+                    "notes",
+                    "on 1 slide: “Do not mention the delay.”".to_string()
+                ),
+                ("hiddenslides", "slides 2, 10".to_string()),
+            ]
+        );
     }
 }
