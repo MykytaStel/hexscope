@@ -90,6 +90,8 @@ const REVEALS: Record<string, string> = {
   updates: "earlier versions of itself",
   hiddentext: "text hidden from view",
   deleted: "text that was deleted",
+  form: "what was filled into its form",
+  attachments: "files attached to it",
   hiddensheets: "sheets hidden from view",
   hiddencells: "hidden rows and columns",
   links: "paths on the author's computer",

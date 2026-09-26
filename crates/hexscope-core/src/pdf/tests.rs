@@ -241,6 +241,32 @@ fn the_redacted_sample_still_holds_what_its_boxes_cover() {
 }
 
 #[test]
+fn a_filled_form_and_attached_files_are_named() {
+    let pdf = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R 6 0 R] >> /Names << /EmbeddedFiles << /Names [(a) 7 0 R] >> >> >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Annots [8 0 R] >>".to_vec(),
+        b"<< /T (Name) /V (Olena Koval) /FT /Tx >>".to_vec(),
+        b"<< /T (Agree) /V /Off /FT /Btn >>".to_vec(),
+        b"<< /T (Contact) /Kids [9 0 R] >>".to_vec(),
+        b"<< /Type /Filespec /F (salaries.xlsx) /UF (salaries.xlsx) >>".to_vec(),
+        b"<< /Type /Annot /Subtype /FileAttachment /FS << /F (notes.txt) >> >>".to_vec(),
+        b"<< /T (Phone) /V <FEFF002B0033> >>".to_vec(),
+    ]);
+    let doc = parse_pdf(&pdf);
+    assert_eq!(
+        facts(&doc),
+        [
+            (
+                "form",
+                "2 fields filled in: Name: “Olena Koval”, Contact.Phone: “+3”"
+            ),
+            ("attachments", "2 files: “salaries.xlsx”, “notes.txt”"),
+        ]
+    );
+}
+
+#[test]
 fn text_under_a_black_box_and_an_unapplied_redaction_are_found() {
     let covered = b"BT /F1 12 Tf 72 700 Td (Salary: 4200 UAH) Tj ET 0 0 0 rg 70 695 140 16 re f";
     let marked = b"BT /F1 12 Tf 72 700 Td (Visible) Tj ET";

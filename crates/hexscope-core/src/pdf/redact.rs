@@ -38,7 +38,8 @@ const MAX_NAMES: usize = 4;
 const LETTER: [f64; 4] = [0.0, 0.0, 612.0, 792.0];
 
 /// Annotation types that are comments: notes, highlights, marks (12.5.6.2).
-const COMMENTS: [&str; 15] = [
+/// Attached files are named apart, in [`super::forms`].
+const COMMENTS: [&str; 14] = [
     "Text",
     "FreeText",
     "Highlight",
@@ -53,7 +54,6 @@ const COMMENTS: [&str; 15] = [
     "Circle",
     "Polygon",
     "PolyLine",
-    "FileAttachment",
 ];
 
 /// One page as the checks need it.

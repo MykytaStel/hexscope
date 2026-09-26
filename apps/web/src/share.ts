@@ -13,6 +13,8 @@ const CATEGORIES: [string, string][] = [
   ["updates", "earlier versions of itself"],
   ["deleted", "text that was deleted"],
   ["earlier", "text an edit took off the page"],
+  ["form", "what was filled into its form"],
+  ["attachments", "files attached to it"],
   ["hiddensheets", "sheets hidden from view"],
   ["hiddencells", "hidden rows and columns"],
   ["notes", "the speaker's notes"],

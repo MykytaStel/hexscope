@@ -33,6 +33,11 @@ const RULES: Rule[] = [
     text: "A black box drawn over text hides it only on screen and on paper: anyone can still select, copy or search it. Do not send this file. The clean copy takes the text out from under the boxes and applies any marks for redaction, leaving the rest of each line in place; open it here to check.",
   },
   {
+    when: ["form", "attachments"],
+    formats: ["pdf"],
+    text: "A filled-in form keeps its answers as data, and attached files ride along inside: anyone who opens the file can read both, whatever the pages show. If only the pages should be sent, print the PDF to a new PDF, which flattens the form and leaves attachments behind.",
+  },
+  {
     when: ["hiddentext"],
     formats: ["pdf"],
     text: "Text no one can see on the page is still read by search, by screen readers and by programs that read the file — hiring systems and AI tools among them. If you did not put it there, ask who did. The clean copy removes it.",
