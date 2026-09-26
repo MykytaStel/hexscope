@@ -37,10 +37,12 @@ check:
 
 clean:
   --in-place       replace each file with its clean copy
-  --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT)
+  --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT);
+                   for a single file, --out can name the copy itself: --out copy.jpg
 
 repair:
-  --out DIR        write the copies into DIR (default: beside each file, as NAME-repaired.EXT)
+  --out DIR        write the copies into DIR (default: beside each file, as NAME-repaired.EXT);
+                   for a single file, --out can name the copy itself
 
 Exit status: 0, nothing to fail on; 1, something to fail on; 2, a usage or file error.
 In GitHub Actions, findings are also written as annotations on the files.
@@ -118,7 +120,12 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--json" => o.json = true,
             "--all" => o.all = true,
             "--in-place" => o.in_place = true,
-            "--out" => o.out = Some(PathBuf::from(it.next().ok_or("--out needs a folder")?)),
+            "--out" => {
+                o.out = Some(PathBuf::from(
+                    it.next()
+                        .ok_or("--out needs a folder, or a name for the copy")?,
+                ))
+            }
             s if s.starts_with("--") => {
                 return Err(format!("unknown option {s}; see hexscope --help"));
             }
@@ -352,10 +359,24 @@ enum Make {
     Repair,
 }
 
+/// The copy's own name, when `--out` gives one: a single file, and a path
+/// with an extension that is not a folder already.
+fn out_file(o: &Options) -> Option<PathBuf> {
+    match (&o.out, o.paths.as_slice()) {
+        (Some(out), [one]) if one.is_file() && !out.is_dir() && out.extension().is_some() => {
+            Some(out.clone())
+        }
+        _ => None,
+    }
+}
+
 /// Where a copy goes: beside the file, into `--out`, or over it.
 fn target(path: &Path, o: &Options, suffix: &str) -> PathBuf {
     if o.in_place {
         return path.to_path_buf();
+    }
+    if let Some(file) = out_file(o) {
+        return file;
     }
     let stem = path
         .file_stem()
@@ -372,8 +393,17 @@ fn target(path: &Path, o: &Options, suffix: &str) -> PathBuf {
 
 fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     let o = options(args)?;
-    if let Some(dir) = &o.out {
-        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    match (&o.out, out_file(&o)) {
+        (Some(dir), None) => {
+            std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        }
+        (_, Some(file)) => {
+            if let Some(parent) = file.parent().filter(|p| !p.as_os_str().is_empty()) {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("{}: {e}", parent.display()))?;
+            }
+        }
+        _ => {}
     }
     if o.in_place && matches!(kind, Make::Repair) {
         return Err("repair keeps the damaged file: use --out, or the default beside it".into());

@@ -705,3 +705,37 @@ fn the_iso_standard_itself_opens_when_present() {
     );
     assert!(facts(&doc).contains(&("author", "Jim King")));
 }
+
+/// A letter printed to PDF by Chrome (from `scripts/chrome-highlight.html`):
+/// a name "blacked out" with a black background under black text, a black
+/// box drawn over part of an account number, and a white note.
+#[test]
+fn a_chrome_letter_hides_nothing_under_its_black_highlight() {
+    let data = fixture("chrome-highlight.pdf");
+    let doc = parse_pdf(&data);
+    let found = facts(&doc);
+    assert!(
+        found.contains(&(
+            "covered",
+            "page 1: “Olena Kovalenko · Account number 4402 1187 9”"
+        )),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&(
+            "hiddentext",
+            "page 1, in white on white: “Internal: offer up to 20,000”"
+        )),
+        "{found:?}"
+    );
+    // The clean copy has none of it, and says so.
+    let clean = crate::clean::clean(&data).unwrap();
+    let cleaned = parse_pdf(&clean.bytes);
+    let after = facts(&cleaned);
+    assert!(
+        after
+            .iter()
+            .all(|(k, _)| *k != "covered" && *k != "hiddentext"),
+        "{after:?}"
+    );
+}

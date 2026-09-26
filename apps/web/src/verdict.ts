@@ -122,10 +122,15 @@ export function verdict(m: FileModel): VerdictLine[] {
   const f = m.file;
   if (f.format === "unknown") {
     const message = m.children(0)[0];
+    const label = message !== undefined ? m.label(message) : "";
     return [
       {
         kind: "unknown",
-        text: `hexscope does not read this format${message !== undefined ? `: ${m.label(message)}` : ""}.`,
+        text: label.startsWith("plain text")
+          ? "Plain text: not a format hexscope takes apart. Its words read in the column beside the bytes."
+          : label === "empty file"
+            ? "The file is empty: there is not a single byte in it. A download or a copy may have stopped before it began."
+            : `hexscope does not read this format${label ? `: ${label}` : ""}.`,
         node: message ?? -1,
       },
     ];
