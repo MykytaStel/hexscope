@@ -28,6 +28,11 @@ const RULES: Rule[] = [
     text: "A video sent as a file — by email, in a messenger, through a cloud link — keeps where it was recorded. Save a clean copy before sending it; turn off location for the camera app to keep new ones from recording it.",
   },
   {
+    when: ["covered"],
+    formats: ["pdf"],
+    text: "A black box drawn over text hides it only on screen and on paper: anyone can still select, copy or search it. Do not send this file. Redact with a tool that removes the text — in Acrobat, Redact, then Apply — or print the pages to an image, and open the result here to check.",
+  },
+  {
     when: ["updates"],
     text: "What earlier edits deleted or replaced is still in the file, and any PDF reader can bring it back. Save a clean copy before sending it: it keeps only what the pages show now.",
   },

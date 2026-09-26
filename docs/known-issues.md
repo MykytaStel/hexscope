@@ -58,9 +58,20 @@ and the bytes, 8 to a row, the text shrinking to fit. Tapping a pixel works
 as hovering does; elsewhere, hovering over a byte to see what it is has no
 touch equivalent yet beyond tapping to select it.
 
-**WebAssembly size.** About 197 KB gzipped, grown from 58 KB as ZIP, the
-explanations, the file map, the clean copy, HEIF (17 KB), PDF (29 KB), PNG
-metadata (14 KB), PDF decryption (11 KB) and video arrived. Measured with
+**Text under black boxes is found by estimate.** A PDF page is walked as a
+viewer paints it, but a string's width is taken from its length and the font
+size, not from the font's own widths, and content drawn by form XObjects is
+not followed. So a box that covers only part of a word may be missed or may
+take the whole word, and a box inside a form is not seen. Text in a font
+whose codes are not letters (most CID fonts) is counted, not shown. The
+clean copy does not remove covered text: it keeps pages as they are.
+
+**WebAssembly size.** About 247 KB gzipped against a CI budget of 256,000
+bytes, grown from 58 KB as ZIP, the explanations, the file map, the clean
+copy, HEIF (17 KB), PDF (29 KB), PNG metadata (14 KB), PDF decryption
+(11 KB), video, WebAssembly, MakerNotes and the PDF redaction check (10 KB,
+after a hand-written reader for PDF numbers saved 15 KB over the standard
+float parser) arrived. Measured with
 `twiggy`: the biggest single part is the explanations' text; dropping the
 function-name section from the build saved 9 KB gzipped, and a small
 decimal parser in place of the standard one about 6 KB before compression. The explanations'

@@ -38,9 +38,10 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"], pdf: ["covered"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: the paths in its data, which its error messages print. Only a new build, with the paths remapped, can take them out.",
+  pdf: "Kept: the text under the black boxes, which is part of the page. Redact it with a tool that removes the text itself — in Acrobat, Redact, then Apply — and check the result here.",
   zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
 };
 
@@ -79,6 +80,7 @@ const FACT_LABELS: Record<string, string> = {
   debuginfo: "Debug info at",
   debug: "Debug info",
   paths: "Built by user",
+  covered: "Hidden, not removed",
   comments: "Comments",
   tracked: "Tracked changes",
   deleted: "Deleted text",
@@ -374,8 +376,17 @@ export class Drawer {
     }
     let thumbRow: HTMLElement | null = null;
     for (const fact of f.facts) {
-      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node);
+      const covered = fact.kind === "covered";
+      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, covered);
       if (fact.kind === "thumbnail") thumbRow = dd;
+      // Text found under a black box is shown the way it was meant to look:
+      // blacked out, with what is still there showing through.
+      const quoted = covered ? /^(page \d+: )“(.*)”$/.exec(fact.text) : null;
+      if (quoted) {
+        const link = dd.querySelector(".reveal-link");
+        const bars = quoted[2].split(" · ").map((t) => el("span", "redacted", t));
+        link?.replaceChildren(quoted[1], ...bars);
+      }
       // What the clean copy cannot take out stays unstruck.
       if (KEPT[f.format]?.includes(fact.kind)) {
         dd.dataset.kept = "";

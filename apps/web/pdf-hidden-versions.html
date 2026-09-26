@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="An edited PDF often keeps its earlier version inside, along with its author and the programs that made it. How it happens, how to check a PDF, and how to get a copy without it." />
+    <meta name="description" content="An edited PDF often keeps its earlier version inside, along with its author and the programs that made it, and a black box drawn over text leaves the text there. How it happens, how to check a PDF, and how to get a copy without it." />
     <meta name="theme-color" content="#2563eb" />
     <title>Deleted from a PDF, but still inside it — hexscope</title>
     <link rel="canonical" href="https://hexscope.pages.dev/pdf-hidden-versions" />
@@ -112,8 +112,18 @@
           <p>
             Drawing a black rectangle over text hides it on screen and on paper, but the text is still there:
             selecting it, copying it, or searching for it brings it back. A redaction tool removes the text itself.
-            hexscope's clean copy keeps the current pages exactly as they are, so it does not remove text under a
-            box either — use a real redaction tool first, then check the result.
+            Some tools only <em>mark</em> an area for redaction and remove it when you apply the redaction — until
+            then, everything under the mark is still in the file.
+          </p>
+          <p>
+            hexscope walks each page the way a viewer paints it and finds text that a dark box was drawn over
+            afterwards, and marks that were never applied. It shows the text it found, so you can see what anyone
+            else could read. Its clean copy keeps the pages exactly as they are, so it does not remove that text:
+            redact with a tool that does — in Acrobat, <em>Redact</em>, then <em>Apply</em> — or print the pages to
+            an image, and check the result here.
+          </p>
+          <p class="story-cta">
+            <a class="btn" href="./?sample=redacted.pdf">Try a blacked-out PDF</a>
           </p>
           <p class="story-cta">
             <a class="btn btn-primary" href="./">Check a PDF now</a>

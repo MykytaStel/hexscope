@@ -345,6 +345,20 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "text under a black box",
+        hidden(
+            "ISO 32000-1 §8.5.3",
+            "Text with a dark box painted over it. The box hides it on screen and on paper, but the text is still in the page: select it, copy it, or search for it, and it is there.",
+        ),
+    ),
+    (
+        "marked for redaction, never redacted",
+        hidden(
+            "ISO 32000-1 §12.5.6.23",
+            "An area marked for redaction. Until a tool applies the redaction, what it marks stays in the document, and a viewer may show only an outline or an overlay.",
+        ),
+    ),
+    (
         "a file carried inside the document",
         hidden(
             "ISO 32000-1 §7.11.4",

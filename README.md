@@ -73,7 +73,10 @@ an edit replaced. A PDF changed after it was first saved usually still
 carries the earlier version, and hexscope says so, revision by revision. It
 shows who wrote it, with which programs, when, and its editing history, from
 the document information and the XMP metadata, compressed or not, and what
-each JPEG photo on its pages says: where, with which camera. It marks
+each JPEG photo on its pages says: where, with which camera. It finds
+"redactions" that hide nothing: text a black box was painted over, which is
+still in the page to select and copy, and areas marked for redaction that
+were never applied — and shows the text. It marks
 what a PDF can run or hide: JavaScript, actions that start programs,
 attached files, data before the header or after the end. An encrypted PDF
 that opens without a password — most of them — is decrypted to read it, as a
