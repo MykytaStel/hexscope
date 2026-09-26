@@ -69,20 +69,24 @@ only when nothing but the page is behind it; a shading or a clipped image
 behind it is not taken into account. The clean copy writes a rewritten
 page's content uncompressed, so the file can grow.
 
-**WebAssembly size.** About 244 KB gzipped against a CI budget of 256,000
-bytes, grown from 58 KB as ZIP, the explanations, the file map, the clean
-copy, HEIF (17 KB), PDF (29 KB), PNG metadata (14 KB), PDF decryption
-(11 KB), video, WebAssembly, MakerNotes and the PDF redaction check (10 KB,
-after a hand-written reader for PDF numbers saved 15 KB over the standard
-float parser) arrived. Writing numbers with a fixed count of decimals by
-hand, in place of the standard float formatting, saved 9.6 KB. Measured with
-`twiggy`: the biggest single part is the explanations' text; dropping the
-function-name section from the build saved 9 KB gzipped, and a small
-decimal parser in place of the standard one about 6 KB before compression. The explanations'
-text is under 10 KB of that; where the rest went has not been measured. A size-optimised Rust build saved
-under 2 KB. `wasm-opt -O3` saved 17% raw and 7% gzipped — and made parsing a
-10 MB PNG five to six times slower in the browser (950–1,500 ms against
-165–266 ms, measured side by side). Neither was kept.
+**WebAssembly size.** About 219 KB gzipped against a CI budget of 256,000
+bytes. It grew from 58 KB as ZIP, the explanations, the file map, the clean
+copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
+MakerNotes, the PDF page walk with its fonts, repair and Office's hidden
+parts arrived, and came down as the build was worked on:
+
+- hand-written readers and writers of decimal numbers in place of the
+  standard float parsing and formatting (about 25 KB before compression);
+- sorted lists in place of hash maps and B-trees, and one sort key type
+  for the whole crate (9 KB gzipped);
+- the browser's build optimised for size (`[profile.wasm]`, opt-level "s")
+  except the DEFLATE decoder, which is a crate of its own at full speed:
+  36 KB gzipped off, with parsing as fast as before — optimised for size,
+  a 16 MB PNG took 715 ms against 467.
+
+`wasm-opt -O3` saved 7% gzipped and made parsing a 10 MB PNG five to six
+times slower in the browser; it is not used. The biggest single part left
+is the explanations' text.
 
 ## Fixed
 

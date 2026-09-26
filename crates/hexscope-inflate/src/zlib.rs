@@ -1,6 +1,5 @@
-use crate::inflate::InflateError;
-use crate::inflate::engine::{EventSink, inflate};
-use crate::reader::Reader;
+use crate::InflateError;
+use crate::engine::{EventSink, inflate};
 
 const ADLER_MOD: u32 = 65521;
 
@@ -35,10 +34,7 @@ pub fn zlib_decompress(
         .len()
         .checked_sub(6)
         .ok_or(InflateError::BadZlibHeader)?;
-    let mut r = Reader::new(data);
-    let (Ok(cmf), Ok(flg)) = (r.u8(), r.u8()) else {
-        return Err(InflateError::BadZlibHeader);
-    };
+    let (cmf, flg) = (data[0], data[1]);
 
     // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
     if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
@@ -49,9 +45,9 @@ pub fn zlib_decompress(
         return Err(InflateError::BadZlibHeader);
     }
 
-    let (Ok(body), Ok(stored)) = (r.bytes(body_len), r.u32_be()) else {
-        return Err(InflateError::BadZlibHeader);
-    };
+    let body = &data[2..2 + body_len];
+    let t = &data[2 + body_len..];
+    let stored = u32::from_be_bytes([t[0], t[1], t[2], t[3]]);
 
     let out = inflate(body, max_output, sink)?;
     if adler32(&out) != stored {
@@ -63,7 +59,7 @@ pub fn zlib_decompress(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inflate::NoTrace;
+    use crate::NoTrace;
     use flate2::Compression;
     use flate2::write::ZlibEncoder;
     use std::io::Write;

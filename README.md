@@ -289,7 +289,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~227 KB (WebAssembly 197 KB) | — |
+| The whole app, gzipped | ~285 KB (WebAssembly 219 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for
@@ -304,6 +304,9 @@ them in small batches, and the decoder resumes from the nearest checkpoint.
   decoding pixels; EXIF in either byte order; and a
   dispatcher that recognises the format. A reference DEFLATE implementation is
   used only in tests, to check ours.
+- **`crates/hexscope-inflate`** — DEFLATE and zlib, decoded step by step so
+  each step can be explained, and the bit reader under them. A crate of its
+  own so the browser build can be optimised for size everywhere else.
 - **`crates/hexscope-cli`** — `hexscope` on the command line and the
   GitHub Action (`action.yml`), on the same core, with no dependencies.
 - **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree

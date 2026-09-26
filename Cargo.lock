@@ -335,8 +335,16 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "flate2",
+ "hexscope-inflate",
  "insta",
  "proptest",
+]
+
+[[package]]
+name = "hexscope-inflate"
+version = "0.1.0"
+dependencies = [
+ "flate2",
 ]
 
 [[package]]

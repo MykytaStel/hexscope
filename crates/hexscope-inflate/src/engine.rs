@@ -1,8 +1,8 @@
+use crate::InflateError;
 use crate::bits::{BitError, BitReader};
-use crate::inflate::InflateError;
-use crate::inflate::explain::{BlockTables, DynamicHeader, Explained, Part, PartKind};
-use crate::inflate::huffman::Huffman;
-use crate::inflate::tables::{
+use crate::explain::{BlockTables, DynamicHeader, Explained, Part, PartKind};
+use crate::huffman::Huffman;
+use crate::tables::{
     CODE_LENGTH_ORDER, DIST_BASE, DIST_EXTRA, LENGTH_BASE, LENGTH_EXTRA, fixed_distance_lengths,
     fixed_literal_lengths,
 };
@@ -610,7 +610,7 @@ mod tests {
         enc.finish().unwrap()
     }
 
-    use crate::inflate::explain::{Explained, PartKind};
+    use crate::explain::{Explained, PartKind};
 
     /// Bit fields packed in DEFLATE order. Header fields are numbers, read
     /// least significant bit first; Huffman codes go most significant first.
