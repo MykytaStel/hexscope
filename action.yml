@@ -1,0 +1,33 @@
+name: hexscope
+description: Check files for what they give away — locations, serial numbers, authors, deleted text, black boxes that hide nothing — before they are published.
+author: MykytaStel
+branding:
+  icon: eye
+  color: blue
+
+inputs:
+  paths:
+    description: Files or folders to check, separated by spaces. Folders are read through.
+    default: "."
+  fail-on:
+    description: >-
+      Fail when a file has any of these, comma-separated: reveals, hidden,
+      damage, oddity, or kinds of fact such as location, serial, author,
+      covered. "none" never fails.
+    default: reveals,hidden,damage
+
+runs:
+  using: composite
+  steps:
+    # Built from this action's own copy of the repository, at the version
+    # the workflow asked for: nothing is downloaded but the toolchain.
+    - name: Build hexscope
+      shell: bash
+      run: cargo install --locked --quiet --root "$RUNNER_TEMP/hexscope" --path "$GITHUB_ACTION_PATH/crates/hexscope-cli"
+    - name: Check
+      shell: bash
+      env:
+        FAIL_ON: ${{ inputs.fail-on }}
+        CHECK_PATHS: ${{ inputs.paths }}
+      # Paths are split on spaces on purpose: they are a list.
+      run: '"$RUNNER_TEMP/hexscope/bin/hexscope" check --fail-on "$FAIL_ON" $CHECK_PATHS'

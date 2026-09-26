@@ -212,6 +212,36 @@ the player to the step it describes.
 | **Esc** | close the player, or clear the selection |
 | **Backspace** | back out of a file opened inside an archive |
 
+## On the command line, and in CI
+
+The same reading, without a browser: `hexscope` checks files and folders,
+and makes clean or repaired copies. Nothing leaves the machine.
+
+```sh
+cargo install --locked --git https://github.com/MykytaStel/hexscope hexscope-cli
+
+hexscope check photos/                         # what each file gives away; exit 1 if anything
+hexscope check --fail-on location,serial site/ # fail only on these
+hexscope check --json report.pdf               # one JSON object per file
+hexscope clean --in-place site/images/         # strip what they give away
+hexscope repair broken.png                     # save what survived, as broken-repaired.png
+```
+
+`--fail-on` takes `reveals`, `hidden`, `damage`, `oddity`, or kinds of fact
+such as `location`, `serial`, `author`, `covered`; `none` never fails.
+
+As a GitHub Action, it stops a photo with a location, or a PDF with a black
+box that hides nothing, from being published — each finding is annotated on
+its file:
+
+```yaml
+- uses: actions/checkout@v7
+- uses: MykytaStel/hexscope@main
+  with:
+    paths: site/images docs
+    fail-on: location,serial,covered,hiddentext
+```
+
 ## Why
 
 To see inside a file today you either read the spec with `xxd` open in another
@@ -256,6 +286,8 @@ them in small batches, and the decoder resumes from the nearest checkpoint.
   decoding pixels; EXIF in either byte order; and a
   dispatcher that recognises the format. A reference DEFLATE implementation is
   used only in tests, to check ours.
+- **`crates/hexscope-cli`** — `hexscope` on the command line and the
+  GitHub Action (`action.yml`), on the same core, with no dependencies.
 - **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree
   crosses as a handful of typed arrays rather than one object per node.
 - **`apps/web`** — the interface: TypeScript, Vite, Canvas 2D, no UI
@@ -363,6 +395,13 @@ npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
    *Done; components are listed, not decoded.*
 5. **JPEG blocks** — which bytes draw which part of a photo, scan by scan,
    sequential or progressive. *Done.*
+6. **Documents before they are sent** — PDF redactions that hide nothing
+   (and a clean copy that redacts), hidden text, Word's tracked changes and
+   comments, photos inside documents. *Done.*
+7. **Save what survived** — repaired copies of damaged PNG, JPEG and ZIP.
+   *Done.*
+8. **Command line and CI** — `hexscope check`, `clean`, `repair`, and a
+   GitHub Action. *Done; not yet on crates.io.*
 
 No analytics, ever. A tool people use to look at suspicious files has no
 business watching them.

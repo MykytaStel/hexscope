@@ -31,6 +31,30 @@ jobs:
       - name: Builds for the browser target
         run: cargo check -p hexscope-core -p hexscope-wasm --target wasm32-unknown-unknown
 
+  # The GitHub Action, run on the samples as a workflow would run it: a
+  # photo that gives nothing away passes; the samples, which give plenty
+  # away, fail.
+  action:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: Passes on what gives nothing away
+        uses: ./
+        with:
+          paths: apps/web/public/samples/sample.png apps/web/public/samples/progressive.jpg
+      - name: Fails on what does
+        id: leaky
+        continue-on-error: true
+        uses: ./
+        with:
+          paths: apps/web/public/samples/photo.jpg
+          fail-on: location
+      - name: It did fail
+        if: steps.leaky.outcome != 'failure'
+        run: exit 1
+
   fuzz:
     runs-on: ubuntu-26.04
     steps:
