@@ -59,7 +59,14 @@ fn quote(items: &[String]) -> String {
     }
 }
 
-pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
+/// The form's answers and the attached files as facts; returns each
+/// attachment's name and the object number of its bytes, when they are in
+/// the file.
+pub(super) fn check(
+    data: &[u8],
+    ctx: &Ctx,
+    facts: &mut Vec<DocumentFact>,
+) -> Vec<(String, Option<u32>)> {
     let mut budget = BUDGET;
     let Some(root) = ctx
         .trailers
@@ -67,10 +74,10 @@ pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
         .rev()
         .find_map(|t| t.get("Root").cloned())
     else {
-        return;
+        return Vec::new();
     };
     let Some((catalog, catalog_node)) = get(data, ctx, &root, &mut budget) else {
-        return;
+        return Vec::new();
     };
 
     // The form: each field's full name and its answer, through the tree of
@@ -142,6 +149,7 @@ pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
 
     // Attachments: the document's named files, and files attached to pages.
     let mut names: Vec<String> = Vec::new();
+    let mut streams: Vec<Option<u32>> = Vec::new();
     let mut node = None;
     let mut push = |spec: &Obj, at: Option<NodeId>, budget: &mut u64| {
         let Some((spec, spec_node)) = get(data, ctx, spec, budget) else {
@@ -158,6 +166,12 @@ pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
         {
             node = node.or(spec_node).or(at);
             names.push(n);
+            // The embedded file itself: a stream, by reference (7.11.4).
+            let ef = spec.get("EF");
+            streams.push(match ef.and_then(|ef| ef.get("UF").or(ef.get("F"))) {
+                Some(Obj::Ref(num, _)) => Some(*num),
+                _ => None,
+            });
         }
     };
     if let Some((tree, tree_node)) = catalog
@@ -216,4 +230,5 @@ pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
             },
         );
     }
+    names.into_iter().zip(streams).collect()
 }

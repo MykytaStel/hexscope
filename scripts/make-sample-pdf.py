@@ -9,8 +9,9 @@
                compressed XMP.
   redacted.pdf "redacted" the way that does not work: black boxes painted
                over a name, a phone number and a sum, which are all still in
-               the page; a note in white on white; a comment; and on page
-               two an area marked for redaction that was never applied.
+               the page; a note in white on white; a comment; a spreadsheet
+               of payments attached; and on page two an area marked for
+               redaction that was never applied.
 
 The text is original. Run from anywhere:
 
@@ -164,7 +165,8 @@ def compact():
 
 def redacted():
     w = Writer(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
-    w.obj(1, b"<< /Type /Catalog /Pages 2 0 R >>")
+    w.obj(1, b"<< /Type /Catalog /Pages 2 0 R\n"
+             b"   /Names << /EmbeddedFiles << /Names [(payments.csv) 11 0 R] >> >> >>")
     w.obj(2, b"<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>")
     w.obj(3, b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n"
              b"   /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R /Annots [10 0 R] >>")
@@ -193,7 +195,10 @@ def redacted():
     w.obj(9, b"<< /Title (Settlement agreement - redacted) /Producer (hexscope sample generator) >>")
     w.obj(10, b"<< /Type /Annot /Subtype /Text /Rect [400 730 420 750] /T (Olena Koval)\n"
               b"   /Contents (Check the sum with Petro before this goes out.) >>")
-    w.xref(range(0, 11), b"<< /Size 11 /Root 1 0 R /Info 9 0 R >>")
+    w.obj(11, b"<< /Type /Filespec /F (payments.csv) /UF (payments.csv) /EF << /F 12 0 R >> >>")
+    csv = zlib.compress(b"payee,amount,date\nOlena Koval,48000,2026-03-20\nPetro Ivanenko,12000,2026-03-20\n")
+    w.obj(12, b"<< /Type /EmbeddedFile /Subtype /text#2Fcsv /Length %d /Filter /FlateDecode >>" % len(csv), csv)
+    w.xref(range(0, 13), b"<< /Size 13 /Root 1 0 R /Info 9 0 R >>")
     return bytes(w.out)
 
 

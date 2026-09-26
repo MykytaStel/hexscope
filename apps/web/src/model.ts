@@ -46,6 +46,8 @@ export interface ParsedFile {
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
   location: PhotoLocation | null;
+  /** A PDF's attached files, by name; each opens by its index. */
+  attachments: string[];
   /** A PDF's pages with text under black boxes; empty for anything else. */
   blackouts: Blackout[];
   parseMs: number;

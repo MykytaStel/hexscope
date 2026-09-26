@@ -71,6 +71,7 @@ function describe(parsed: Parsed): ParsedFile {
     facts: [],
     location: null,
     blackouts: [],
+    attachments: parsed.attachments ? parsed.attachments.split(SEPARATOR) : [],
     parseMs: 0,
     preview: null,
     rowFilters: parsed.rowFilters,
