@@ -140,6 +140,12 @@ short given its end so viewers show what arrived; an archive whose end was
 lost written anew from the files that are whole and check out. The page
 lists what was done, and the copy opens in hexscope to check.
 
+**Works from the keyboard.** <kbd>?</kbd> lists the keys: <kbd>O</kbd>
+opens a file, <kbd>N</kbd> goes to the next problem, <kbd>P</kbd> plays the
+decompression, <kbd>Backspace</kbd> goes back up. Every control takes focus
+and shows it; the pictures say what they are to a screen reader, and what
+only decorates them is hidden from it.
+
 **Shows which bytes make which pixels.** Beside a PNG's structure, its
 picture: point at a pixel, or tap it, and hexscope names the DEFLATE step
 that wrote it — a literal byte, or a copy of so many bytes from so far back,

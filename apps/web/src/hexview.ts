@@ -97,6 +97,9 @@ export class HexView {
     this.scroller.className = "hex-scroller";
     this.canvas = document.createElement("canvas");
     this.canvas.className = "hex-canvas";
+    // The bytes as drawn; the tree beside them says the same in words.
+    this.canvas.setAttribute("role", "img");
+    this.canvas.setAttribute("aria-label", "The file's bytes, in hex and as text");
     this.spacer = document.createElement("div");
     this.scroller.append(this.canvas, this.spacer);
     host.append(this.scroller);

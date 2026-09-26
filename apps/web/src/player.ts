@@ -208,7 +208,7 @@ export class Player {
       </div>
       <p class="player-sentence"></p>
       <p class="player-meta"></p>
-      <div class="player-stage"><canvas class="player-strip"></canvas></div>
+      <div class="player-stage"><canvas class="player-strip" aria-hidden="true"></canvas></div>
       <div class="player-progress" title="Click to jump"><div></div></div>`;
     host.append(this.root);
     this.root.querySelector(".player-meta")!.after(this.codes.bits);

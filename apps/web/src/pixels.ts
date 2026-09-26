@@ -214,6 +214,8 @@ export class PictureView {
 
     const frame = el("div", "picture-frame");
     const canvas = el("canvas", "picture-image");
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", "The picture");
     canvas.width = f.preview.width;
     canvas.height = f.preview.height;
     const ctx = canvas.getContext("2d");
@@ -223,6 +225,7 @@ export class PictureView {
     frame.style.aspectRatio = `${width} / ${height}`;
     frame.style.width = `min(100%, ${Math.round((MAX_HEIGHT * width) / height)}px)`;
     const overlay = el("canvas", "picture-overlay");
+    overlay.setAttribute("aria-hidden", "true");
     frame.append(canvas, overlay);
     this.overlay = overlay;
 
