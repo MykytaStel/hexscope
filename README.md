@@ -147,6 +147,11 @@ lists what was done, and the copy opens in hexscope to check.
 bytes written in hex (`FF D8`, `0x504B`): each match is marked and the part
 of the file it falls in is selected, so what is found is also explained.
 
+**Compares two files.** *Compare with another file* — or, after a clean
+copy, *Compare with the original* — says what one gives away that the other
+does not, what is wrong with each, and which parts of the structure only one
+has or both have differently. The second file is read by a worker of its own.
+
 **Works from the keyboard.** <kbd>?</kbd> lists the keys: <kbd>O</kbd>
 opens a file, <kbd>N</kbd> goes to the next problem, <kbd>P</kbd> plays the
 decompression, <kbd>Backspace</kbd> goes back up. Every control takes focus

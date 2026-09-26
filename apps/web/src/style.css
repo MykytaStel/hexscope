@@ -1923,6 +1923,47 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* Two files compared. */
+.compare section {
+  margin: 14px 0;
+}
+
+.compare h3 {
+  margin: 0 0 6px;
+  color: var(--faint);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compare p {
+  margin: 6px 0;
+}
+
+.compare-files {
+  color: var(--muted);
+}
+
+.compare-list {
+  max-height: 220px;
+  margin: 6px 0;
+  padding-left: 18px;
+  overflow-y: auto;
+  font: 12px/1.6 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.compare details summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.compare-pick {
+  display: inline-block;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
 /* Find in the file: over the top right of the bytes. */
 .search,
 .search-open {

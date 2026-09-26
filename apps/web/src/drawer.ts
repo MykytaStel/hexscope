@@ -184,6 +184,8 @@ export interface CleanActions {
   repair(): Promise<RepairResult>;
   /** Opens the repaired copy in hexscope. */
   openRepaired(bytes: Uint8Array): void;
+  /** Compares the file on screen with another. */
+  compare(other: File): void;
 }
 
 /** Formats a damaged file of which hexscope can save what survived. */
@@ -248,6 +250,18 @@ export class Drawer {
     report.title = "Shows the file's layout, without its content, to paste into a bug report";
     report.addEventListener("click", () => openReport(m));
     fileGroup.append(report);
+    // Another file beside this one: what one gives away that the other does not.
+    const pick = el("label", "link compare-pick", "Compare with another file…");
+    const input = el("input");
+    input.type = "file";
+    input.hidden = true;
+    input.addEventListener("change", () => {
+      const f = input.files?.[0];
+      input.value = "";
+      if (f) this.cleaning.compare(f);
+    });
+    pick.append(input);
+    fileGroup.append(pick);
     this.file.append(fileGroup);
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
@@ -641,7 +655,10 @@ export class Drawer {
       const open = el("button", "btn", "Open the clean copy");
       open.title = "Check it yourself: the card should now be empty";
       open.addEventListener("click", () => this.cleaning.open(r.bytes));
-      box.append(open);
+      const diff = el("button", "btn", "Compare with the original");
+      diff.title = "What the copy took out, part by part";
+      diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
+      box.append(open, diff);
     });
     return box;
   }
