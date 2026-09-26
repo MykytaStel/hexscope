@@ -13,6 +13,7 @@ use crate::model::{ByteRange, NodeKind};
 use crate::png::PngDocument;
 use crate::video::{Scrub, VideoDocument};
 use crate::zip::ZipDocument;
+use crate::zip::write::{Part, assemble, header_of};
 
 /// The copy, and what was taken out of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -522,14 +523,6 @@ fn replacement(name: &str) -> Option<(&'static str, &'static str)> {
     }
 }
 
-fn le16(out: &mut Vec<u8>, v: u16) {
-    out.extend_from_slice(&v.to_le_bytes());
-}
-
-fn le32(out: &mut Vec<u8>, v: u32) {
-    out.extend_from_slice(&v.to_le_bytes());
-}
-
 /// A photo placed in an Office document, cleaned like one opened on its
 /// own; `None` when it is not a JPEG or PNG, or has nothing to remove.
 fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
@@ -571,29 +564,7 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
     if doc.entries.iter().any(|e| e.is_encrypted()) {
         return Err(CleanError::Encrypted);
     }
-    let limit = u32::MAX as u64;
-    if doc.entries.len() >= 0xFFFF
-        || doc
-            .entries
-            .iter()
-            .any(|e| e.compressed >= limit || e.uncompressed >= limit)
-    {
-        return Err(CleanError::Zip64);
-    }
-
-    struct Record {
-        flags: u16,
-        method: u16,
-        time: [u8; 4],
-        crc: u32,
-        comp: u32,
-        uncomp: u32,
-        name: Vec<u8>,
-        offset: u32,
-    }
-
-    let mut out = Vec::with_capacity(data.len());
-    let mut records = Vec::new();
+    let mut parts = Vec::with_capacity(doc.entries.len());
     let mut removed = Vec::new();
     let mut extras = 0u64;
     for (e, photo) in doc.entries.iter().zip(&media) {
@@ -601,20 +572,12 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
             return Err(CleanError::Damaged);
         }
         // The original local header: its times and its exact name bytes.
-        let at = tree.get(e.node).range.start as usize;
-        let header = data.get(at..at + 30).ok_or(CleanError::Damaged)?;
-        let name_len = u16::from_le_bytes([header[26], header[27]]) as usize;
-        extras += u16::from_le_bytes([header[28], header[29]]) as u64;
-        let name = data
-            .get(at + 30..at + 30 + name_len)
-            .ok_or(CleanError::Damaged)?
-            .to_vec();
-        let time = [header[10], header[11], header[12], header[13]];
-
+        let (name, time, extra) = header_of(data, tree, e).ok_or(CleanError::Damaged)?;
+        extras += u64::from(extra);
         let original = data
             .get(e.data.start as usize..e.data.end() as usize)
             .ok_or(CleanError::Damaged)?;
-        let (method, body, crc, uncomp): (u16, &[u8], u32, u64) = match replacement(&e.name) {
+        let (method, body, crc, uncompressed): (u16, &[u8], u32, u64) = match replacement(&e.name) {
             Some((xml, what)) => {
                 removed.push(Removed {
                     what: format!("{}: {what}", e.name),
@@ -634,62 +597,17 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
                 None => (e.method, original, e.crc32, e.uncompressed),
             },
         };
-        let offset = u32::try_from(out.len()).map_err(|_| CleanError::Zip64)?;
-        let r = Record {
-            // No data descriptor: the sizes are known and go in the header.
-            flags: e.flags & !(1 << 3),
+        parts.push(Part {
+            name,
+            flags: e.flags,
             method,
             time,
             crc,
-            comp: body.len() as u32,
-            uncomp: uncomp as u32,
-            name,
-            offset,
-        };
-        le32(&mut out, 0x0403_4B50);
-        le16(&mut out, 20);
-        le16(&mut out, r.flags);
-        le16(&mut out, r.method);
-        out.extend_from_slice(&r.time);
-        le32(&mut out, r.crc);
-        le32(&mut out, r.comp);
-        le32(&mut out, r.uncomp);
-        le16(&mut out, r.name.len() as u16);
-        le16(&mut out, 0);
-        out.extend_from_slice(&r.name);
-        out.extend_from_slice(body);
-        records.push(r);
+            uncompressed,
+            body,
+        });
     }
-
-    let cd_start = u32::try_from(out.len()).map_err(|_| CleanError::Zip64)?;
-    for r in &records {
-        le32(&mut out, 0x0201_4B50);
-        le16(&mut out, 20);
-        le16(&mut out, 20);
-        le16(&mut out, r.flags);
-        le16(&mut out, r.method);
-        out.extend_from_slice(&r.time);
-        le32(&mut out, r.crc);
-        le32(&mut out, r.comp);
-        le32(&mut out, r.uncomp);
-        le16(&mut out, r.name.len() as u16);
-        le16(&mut out, 0); // extra
-        le16(&mut out, 0); // comment
-        le16(&mut out, 0); // disk
-        le16(&mut out, 0); // internal attributes
-        le32(&mut out, 0); // external attributes
-        le32(&mut out, r.offset);
-        out.extend_from_slice(&r.name);
-    }
-    let cd_size = u32::try_from(out.len()).map_err(|_| CleanError::Zip64)? - cd_start;
-    le32(&mut out, 0x0605_4B50);
-    le16(&mut out, 0);
-    le16(&mut out, 0);
-    le16(&mut out, records.len() as u16);
-    le16(&mut out, records.len() as u16);
-    le32(&mut out, cd_size);
-    le32(&mut out, cd_start);
-    le16(&mut out, 0);
+    let out = assemble(&parts).ok_or(CleanError::Zip64)?;
 
     if extras > 0 {
         removed.push(Removed {

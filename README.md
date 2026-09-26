@@ -133,6 +133,13 @@ tracked changes are part of its text and stay, and the page says so). The
 page lists what went, and *Open the clean copy* shows it in hexscope, so you
 can see the card is empty.
 
+**Saves what survived.** A damaged PNG, JPEG or ZIP gets *Try to repair*:
+a copy with what survived put back in order and nothing guessed — a PNG's
+checksums made right, a chunk with a broken length passed over, a file cut
+short given its end so viewers show what arrived; an archive whose end was
+lost written anew from the files that are whole and check out. The page
+lists what was done, and the copy opens in hexscope to check.
+
 **Shows which bytes make which pixels.** Beside a PNG's structure, its
 picture: point at a pixel, or tap it, and hexscope names the DEFLATE step
 that wrote it — a literal byte, or a copy of so many bytes from so far back,

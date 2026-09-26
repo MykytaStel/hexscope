@@ -1915,6 +1915,19 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* The repair: under the verdict, for a damaged file. */
+.repairer {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-top: 10px;
+}
+
+.btn-repair {
+  border-color: color-mix(in srgb, var(--tint-error) 55%, var(--border));
+  color: var(--tint-error);
+}
+
 /* Hidden text, shown as if selected: that is how anyone finds it. */
 .ghost-text {
   padding: 0 3px;

@@ -13,6 +13,7 @@ mod fields;
 pub(crate) mod office;
 #[cfg(test)]
 pub(crate) mod testing;
+pub(crate) mod write;
 
 use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};

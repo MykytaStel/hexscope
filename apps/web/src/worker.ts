@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import init, { cleanCopy, entropy, parse, type Parsed } from "./wasm/hexscope_wasm.js";
+import init, { cleanCopy, entropy, parse, repairCopy, type Parsed } from "./wasm/hexscope_wasm.js";
 import type { Blackout, PageArea, ParsedFile } from "./model";
 
 export type WorkerRequest =
@@ -13,6 +13,7 @@ export type WorkerRequest =
   | { id: number; type: "open"; index: number }
   | { id: number; type: "back"; depth: number }
   | { id: number; type: "clean"; bytes: Uint8Array }
+  | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" };
 
@@ -21,6 +22,7 @@ export type WorkerResponse =
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
+  | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "located"; step: Float64Array }
   | { id: number; type: "blocks"; map: Float64Array; note: string }
@@ -172,6 +174,14 @@ async function handle(req: WorkerRequest): Promise<void> {
     const bytes = c.bytes;
     post({ id: req.id, type: "cleaned", bytes, removed, orientation: c.orientationKept, error: c.error }, [bytes.buffer]);
     c.free();
+    return;
+  }
+
+  if (req.type === "repair") {
+    const r = repairCopy(req.bytes);
+    const bytes = r.bytes;
+    post({ id: req.id, type: "repaired", bytes, fixed: r.fixed ? r.fixed.split(SEPARATOR) : [], error: r.error }, [bytes.buffer]);
+    r.free();
     return;
   }
 
