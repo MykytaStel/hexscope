@@ -1,0 +1,14 @@
+[package]
+name = "hexscope-cli"
+version = "0.1.0"
+description = "Checks files for what they give away — locations, serial numbers, authors, black boxes that hide nothing — and cleans or repairs them"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "hexscope"
+path = "src/main.rs"
+
+[dependencies]
+hexscope-core = { path = "../hexscope-core" }
