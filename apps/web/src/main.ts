@@ -104,17 +104,41 @@ const picture = new PictureView({
 // On a phone the file opens on its summary; the tree and the bytes are a
 // tap away, and anything that points into the bytes goes there.
 const narrow = matchMedia("(max-width: 900px)");
+/** The view a wide screen opens on: the three panes, unless the person chose the summary. */
+const VIEW = "hexscope.view";
+function wideView(): "summary" | "bytes" {
+  try {
+    return localStorage.getItem(VIEW) === "summary" ? "summary" : "bytes";
+  } catch {
+    return "bytes";
+  }
+}
 function setView(view: "summary" | "bytes"): void {
   document.body.dataset.view = view;
   for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
     b.setAttribute("aria-pressed", String(b.dataset.view === view));
   }
 }
+/** The view a file opens on: a phone always starts on the summary. */
+function openingView(): "summary" | "bytes" {
+  return narrow.matches ? "summary" : wideView();
+}
 function toBytes(): void {
-  if (narrow.matches) setView("bytes");
+  if (document.body.dataset.view !== "bytes") setView("bytes");
 }
 for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
-  b.addEventListener("click", () => setView(b.dataset.view === "bytes" ? "bytes" : "summary"));
+  b.addEventListener("click", () => {
+    const view = b.dataset.view === "bytes" ? "bytes" : "summary";
+    setView(view);
+    // On a wide screen the choice is remembered for the next file.
+    if (!narrow.matches) {
+      try {
+        localStorage.setItem(VIEW, view);
+      } catch {
+        // Nowhere to keep it.
+      }
+    }
+  });
 }
 setView("summary");
 
@@ -570,7 +594,7 @@ function show(m: FileModel): void {
   drawer.showFile(m);
   drawer.showNode(m, -1, false);
   showFileInfo(m);
-  setView("summary");
+  setView(openingView());
   updateProblems();
   playBtn.hidden = !canPlay();
 }

@@ -2347,6 +2347,28 @@ body:has(.reveals) .layout {
     grid-template-rows: minmax(0, 1fr) 400px;
   }
 
+  /* The summary alone: one readable column, the tree and bytes a click away. */
+  body[data-view="summary"]:not(.is-playing) .pane-tree,
+  body[data-view="summary"]:not(.is-playing) .pane-hex,
+  body[data-view="summary"]:not(.is-playing) .drawer-node {
+    display: none;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .pane-drawer {
+    grid-column: 1;
+    border-left: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
   body.is-playing .pane-drawer {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -2358,9 +2380,32 @@ body:has(.reveals) .layout {
 
 /* --- narrow windows ----------------------------------------------------------- */
 
-/* The summary / bytes switch exists only on narrow screens. */
+/* The summary / bytes switch: on a phone it is how the bytes are reached;
+   on a wide screen, a way to see only the summary. */
 .viewswitch {
   display: none;
+}
+
+body[data-state="ready"] .viewswitch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.viewswitch button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.viewswitch button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
 }
 
 @media (max-width: 900px) {
