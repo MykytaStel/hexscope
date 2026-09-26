@@ -1,6 +1,6 @@
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
-import { checkThumbnail, drawn } from "./thumbnail";
+import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
@@ -46,6 +46,20 @@ const KEPT_NOTE: Record<string, string> = {
   zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
 };
 
+/** Facts shown first in colour: what someone would least want to send. */
+const STRONG = ["covered", "deleted", "earlier", "photoplace"];
+
+/** A link that opens a place on OpenStreetMap, only when clicked. */
+function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
+  const map = el("a", "map-link", "Open in OpenStreetMap ↗");
+  const [lat, lon] = [latitude.toFixed(6), longitude.toFixed(6)];
+  map.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
+  map.target = "_blank";
+  map.rel = "noopener noreferrer";
+  map.title = "Opens openstreetmap.org in a new tab. The coordinates leave this page only if you click.";
+  return map;
+}
+
 const FACT_LABELS: Record<string, string> = {
   camera: "Camera",
   lens: "Lens",
@@ -82,6 +96,7 @@ const FACT_LABELS: Record<string, string> = {
   debug: "Debug info",
   paths: "Built by user",
   covered: "Hidden, not removed",
+  earlier: "Taken off the page",
   comments: "Comments",
   tracked: "Tracked changes",
   deleted: "Deleted text",
@@ -330,7 +345,21 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
     };
-    group.append(el("h3", undefined, heading[f.format] ?? "What this document reveals"));
+    const title = el("h3", undefined, heading[f.format] ?? "What this document reveals");
+    group.append(title);
+    // The picture it is about, small, beside the heading: which photo this is.
+    if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
+      void decodePicture(m).then((b) => {
+        if (!b) return;
+        const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 128);
+        c.className = "reveal-picture";
+        c.setAttribute("role", "img");
+        c.setAttribute("aria-label", "The picture");
+        const head = el("div", "reveal-head");
+        title.replaceWith(head);
+        head.append(title, c);
+      });
+    }
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the
       // time it was changed: still worth a clean copy.
@@ -365,20 +394,30 @@ export class Drawer {
     if (f.location) {
       const { latitude, longitude, altitude, node } = f.location;
       const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}${
-        altitude !== null ? ` · ${Math.round(altitude)} m` : ""
+        altitude !== null ? ` · ${Math.round(altitude)}\u00a0m` : ""
       }`;
       const dd = row("Location", where, node, true);
-      const map = el("a", "map-link", "Open in OpenStreetMap ↗");
-      map.href = `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=17/${latitude.toFixed(6)}/${longitude.toFixed(6)}`;
-      map.target = "_blank";
-      map.rel = "noopener noreferrer";
-      map.title = "Opens openstreetmap.org in a new tab. The coordinates leave this page only if you click.";
-      dd.append(map);
+      dd.append(mapLink(latitude, longitude));
     }
     let thumbRow: HTMLElement | null = null;
     for (const fact of f.facts) {
       const covered = fact.kind === "covered";
-      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, covered);
+      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, STRONG.includes(fact.kind));
+      // A sentence reads better in the body font; only coordinates and codes are set in mono.
+      if (!covered) dd.querySelector(".reveal-link")?.classList.remove("is-strong");
+      // Deleted text looks the way Word marks it: struck through.
+      const deleted = fact.kind === "deleted" || fact.kind === "earlier" ? /^“(.*)”$/.exec(fact.text) : null;
+      if (deleted) {
+        const parts = deleted[1].split(" … ").flatMap((t, i) => [...(i ? [" … "] : []), el("del", "deleted-text", t)]);
+        dd.querySelector(".reveal-link")?.replaceChildren(...parts);
+      }
+      // A photo inside a document that says where: the same map link as a photo's own.
+      const place = fact.kind === "photoplace" ? /taken at ([\d.]+)° ([NS]), ([\d.]+)° ([EW])/.exec(fact.text) : null;
+      if (place) {
+        const lat = Number(place[1]) * (place[2] === "S" ? -1 : 1);
+        const lon = Number(place[3]) * (place[4] === "W" ? -1 : 1);
+        dd.append(mapLink(lat, lon));
+      }
       if (fact.kind === "thumbnail") thumbRow = dd;
       // Text found under a black box is shown the way it was meant to look:
       // blacked out, with what is still there showing through.
@@ -497,13 +536,13 @@ export class Drawer {
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
-      zip: "Removes the document's properties. Comments and tracked changes inside the text keep their authors.",
+      zip: "Removes the document's properties, and the camera data and location of every photo in it. Comments and tracked changes are part of the text: they stay, with their authors.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
-      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte.",
+      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte; photos keep their pixels and lose their camera data.",
     };
     const note =
       notes[format] ??

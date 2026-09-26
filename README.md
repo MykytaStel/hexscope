@@ -70,7 +70,8 @@ file keeps its size, and the picture and sound are copied byte for byte.
 **Shows what a PDF kept.** A PDF is read in file order, not through its
 cross-reference table, so the tree holds every object — including the ones
 an edit replaced. A PDF changed after it was first saved usually still
-carries the earlier version, and hexscope says so, revision by revision. It
+carries the earlier version, and hexscope says so, revision by revision, and
+shows the text an update took off a page that is still in the file. It
 shows who wrote it, with which programs, when, and its editing history, from
 the document information and the XMP metadata, compressed or not, and what
 each JPEG photo on its pages says: where, with which camera. It finds

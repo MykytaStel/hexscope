@@ -172,6 +172,42 @@ fn dark(c: &[f64]) -> bool {
 /// Walks one page's content and returns the text that ends up under a dark
 /// box, in the order it was drawn.
 fn covered_text(content: &[u8]) -> Painted {
+    let (shown, covering) = walk(content);
+    let (covered, rest): (Vec<Shown>, Vec<Shown>) = shown.into_iter().partition(|s| s.covered);
+    let pieces = merge(covered);
+    // What is written on the same lines, and left showing: what the covered
+    // text was, a name after "Claimant:".
+    let beside = |s: &Shown| {
+        pieces.iter().any(|(a, _)| {
+            let h = a.0[3] - a.0[1];
+            (s.area.0[1] - a.0[1]).abs() < 0.3 * h
+        })
+    };
+    let context = if pieces.is_empty() {
+        Vec::new()
+    } else {
+        merge(rest.into_iter().filter(|s| beside(s)).collect())
+    };
+    Painted {
+        pieces,
+        context,
+        boxes: covering,
+    }
+}
+
+/// Every piece of text a page's content shows, in words, a line's words
+/// together.
+pub(super) fn page_text(content: &[u8]) -> Vec<String> {
+    merge(walk(content).0)
+        .iter()
+        .map(|(_, b)| readable(&text(b)))
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// Paints a page's content: each piece of text where it goes, marked when
+/// a dark box is filled over it later, and the boxes that cover some.
+fn walk(content: &[u8]) -> (Vec<Shown>, Vec<Area>) {
     let mut lx = Lexer::new(content, 0);
     let mut ops: Vec<Obj> = Vec::new();
     let mut gs = Graphics {
@@ -340,26 +376,7 @@ fn covered_text(content: &[u8]) -> Painted {
         }
         ops.clear();
     }
-    let (covered, rest): (Vec<Shown>, Vec<Shown>) = shown.into_iter().partition(|s| s.covered);
-    let pieces = merge(covered);
-    // What is written on the same lines, and left showing: what the covered
-    // text was, a name after "Claimant:".
-    let beside = |s: &Shown| {
-        pieces.iter().any(|(a, _)| {
-            let h = a.0[3] - a.0[1];
-            (s.area.0[1] - a.0[1]).abs() < 0.3 * h
-        })
-    };
-    let context = if pieces.is_empty() {
-        Vec::new()
-    } else {
-        merge(rest.into_iter().filter(|s| beside(s)).collect())
-    };
-    Painted {
-        pieces,
-        context,
-        boxes: covering,
-    }
+    (shown, covering)
 }
 
 /// Pieces that run on from each other on one line are one word: a TJ array
@@ -605,6 +622,73 @@ pub(super) fn check(
         }
     }
     drawn
+}
+
+/// Text an update took off a page that the file still holds: lines an
+/// earlier version of a page's content has and its latest version does not.
+/// An incremental update (7.5.6) appends the new content and leaves the old
+/// where it was, for any reader of the bytes.
+pub(super) fn earlier_text(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
+    let mut budget = BUDGET;
+    let crypt = ctx.crypt.as_ref();
+    let mut gone: Vec<String> = Vec::new();
+    let mut node = None;
+    let objects = &ctx.objects;
+    // Each content stream's latest version, and the ones it replaced. Pages
+    // are few beside objects, so a scan per page is cheap; a cap keeps a
+    // file of endless content streams from making it slow.
+    let contents = objects
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| is_content(o))
+        .take(MAX_PAGES * 2);
+    for (i, latest) in contents {
+        if objects[i + 1..].iter().any(|l| l.num == latest.num) {
+            continue;
+        }
+        let earlier: Vec<&ObjRec> = objects[..i]
+            .iter()
+            .filter(|o| o.num == latest.num && is_content(o))
+            .collect();
+        if earlier.is_empty() {
+            continue;
+        }
+        let Some(now) = decode(data, latest, crypt, &mut budget) else {
+            continue;
+        };
+        let now = page_text(&now);
+        for old in earlier {
+            let Some(bytes) = decode(data, old, crypt, &mut budget) else {
+                continue;
+            };
+            for line in page_text(&bytes) {
+                if !now.contains(&line) && !gone.contains(&line) && gone.len() < MAX_DRAWN {
+                    node.get_or_insert(old.stream.map_or(old.node, |(_, n)| n));
+                    gone.push(line);
+                }
+            }
+        }
+    }
+    if let Some(node) = node {
+        insert_update(
+            facts,
+            DocumentFact {
+                kind: "earlier",
+                text: cap(format!("“{}”", gone.join(" … "))),
+                node,
+            },
+        );
+    }
+}
+
+/// A stream that looks like page content: no type, no subtype, not a font
+/// program (whose dictionaries carry `Length1`), not an image.
+fn is_content(rec: &ObjRec) -> bool {
+    let v = &rec.value;
+    rec.stream.is_some()
+        && ["Type", "Subtype", "Length1", "Width"]
+            .iter()
+            .all(|k| v.get(k).is_none())
 }
 
 /// One page's black boxes and the text they cover, in the page's own

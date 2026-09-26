@@ -82,16 +82,25 @@
 
         <div class="doors">
           <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
+            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
             <span class="door-title">Check a photo</span>
             <span class="door-text">Where it was taken, the camera's serial number, the owner's name — and how to remove them.</span>
             <span class="door-go">Try a sample photo →</span>
           </button>
+          <button class="door" data-sample="samples/redacted.pdf" data-name="redacted.pdf">
+            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><rect x="8.5" y="11" width="7" height="2.4" class="fill" /><rect x="8.5" y="15.5" width="5" height="2.4" class="fill" /></svg>
+            <span class="door-title">Check a document before you send it</span>
+            <span class="door-text">Black boxes that hide nothing, deleted text still inside, comments and who wrote them — in PDFs and Word files.</span>
+            <span class="door-go">Try a blacked-out PDF →</span>
+          </button>
           <button class="door" data-sample="samples/broken.png" data-name="broken.png">
+            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
             <span class="door-title">Why won't it open?</span>
             <span class="door-text">The exact bytes that break a file, and what they should have been.</span>
             <span class="door-go">Try a broken image →</span>
           </button>
           <button class="door" data-sample="samples/sample.png" data-name="sample.png" data-then="play">
+            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M10 8.5v7l5.5-3.5z" class="fill" /></svg>
             <span class="door-title">Watch compression work</span>
             <span class="door-text">Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.</span>
             <span class="door-go">Play it →</span>
@@ -107,7 +116,6 @@
             <button class="link" data-sample="samples/video.mov" data-name="video.mov">an iPhone video</button> ·
             <button class="link" data-sample="samples/report.docx" data-name="report.docx">a Word document</button> ·
             <button class="link" data-sample="samples/report.pdf" data-name="report.pdf">an edited PDF</button> ·
-            <button class="link" data-sample="samples/redacted.pdf" data-name="redacted.pdf">a blacked-out PDF</button> ·
             <button class="link" data-sample="samples/hello.wasm" data-name="hello.wasm">a WebAssembly module</button>
           </p>
           <p>

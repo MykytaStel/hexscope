@@ -1260,7 +1260,7 @@ body[data-state="empty"] .layout {
 
 .doors {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   text-align: left;
 }
@@ -1281,6 +1281,22 @@ body[data-state="empty"] .layout {
 
 .door:hover {
   border-color: var(--accent);
+}
+
+.door-icon {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 2px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.door-icon .fill {
+  fill: var(--accent);
+  stroke: none;
 }
 
 .door-title {
@@ -1737,6 +1753,30 @@ body.is-playing .drawer-file {
 
 .reveal-list dt {
   color: var(--faint);
+}
+
+/* The picture a photo's card is about, beside its heading. */
+.reveal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reveal-picture {
+  width: auto;
+  height: auto;
+  max-width: 64px;
+  max-height: 64px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* Text a tracked deletion still holds, marked the way Word marks it. */
+.deleted-text {
+  color: var(--tint-error, #e5484d);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
 }
 
 /* A PDF page's black boxes, and the text under them, drawn. Paper stays
