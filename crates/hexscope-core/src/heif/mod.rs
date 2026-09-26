@@ -493,7 +493,10 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
             placed.push((start, n, item.id, item, k as u32));
         }
     }
-    placed.sort_by_key(|p| p.0);
+    // By position, ties in the order met.
+    let mut order: Vec<(u64, usize)> = placed.iter().enumerate().map(|(i, p)| (p.0, i)).collect();
+    order.sort_unstable();
+    let placed: Vec<_> = order.into_iter().map(|(_, i)| placed[i]).collect();
 
     // The boxes item data can live in.
     let mut holders = ctx.mdat.clone();

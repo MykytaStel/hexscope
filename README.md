@@ -85,7 +85,10 @@ the document information and the XMP metadata, compressed or not, and what
 each JPEG photo on its pages says: where, with which camera. It finds
 "redactions" that hide nothing: text a black box was painted over, which is
 still in the page to select and copy, and areas marked for redaction that
-were never applied — and shows the text. It marks
+were never applied — and shows the text, drawn on the page where it sits —
+and text no one can see: drawn invisibly, in white on white, off the page,
+or too small, such as instructions hidden in a CV for screening software.
+Comments are listed with their authors. It marks
 what a PDF can run or hide: JavaScript, actions that start programs,
 attached files, data before the header or after the end. An encrypted PDF
 that opens without a password — most of them — is decrypted to read it, as a
@@ -121,7 +124,10 @@ AVIF keeps its size: its EXIF and XMP are blanked where they lie, because
 everything else in it is found by offset. A PDF is written anew with only
 what its pages use: no author, programs or dates, no XMP, and none of the
 earlier versions an edit left behind; its photos' EXIF is zeroed where it
-lies, leaving the pictures untouched. A Word, Excel or PowerPoint file loses
+lies, leaving the pictures untouched. Text under black boxes, under marks
+for redaction and hidden from view is taken out of the page — each glyph
+replaced by the space it took up, so every other letter stays where it was —
+and the marks are applied, as a redaction tool would. A Word, Excel or PowerPoint file loses
 its document properties, and the photos in it their EXIF (comments and
 tracked changes are part of its text and stay, and the page says so). The
 page lists what went, and *Open the clean copy* shows it in hexscope, so you

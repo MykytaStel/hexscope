@@ -104,6 +104,13 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
         versions.push((rec.num, rec.start, Source::Top(rec)));
     }
     let current = Current::new(versions);
+    // Pages with text under black boxes, marked for redaction, or hidden:
+    // their content written again without it.
+    let super::redact::Rewrites {
+        streams: rewritten,
+        removed: taken_out,
+        applied,
+    } = super::redact::rewrites(data, &ctx);
 
     // Everything the catalog reaches, and nothing else.
     let mut reached = vec![false; current.0.len()];
@@ -134,6 +141,13 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     {
         let n = *n;
         let at = out.len();
+        // A redaction applied: its mark is retired, a hidden empty annotation
+        // in its place so the page's list of annotations still holds.
+        if applied.contains(&n) {
+            out.extend_from_slice(format!("{n} 0 obj\n<< /Type /Annot /Subtype /Link /Rect [0 0 0 0] /Border [0 0 0] /F 2 >>\nendobj\n").as_bytes());
+            offsets.push((n, 0, at));
+            continue;
+        }
         match source {
             Source::Top(rec) => {
                 let gen_ = rec.gen_;
@@ -150,6 +164,14 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
                             .as_bytes(),
                         );
                         out.extend_from_slice(EMPTY_XMP);
+                        out.extend_from_slice(b"\nendstream");
+                    }
+                    // Written anew, and so uncompressed: a dictionary of its own.
+                    Some(_) if let Some((_, content)) = rewritten.iter().find(|(k, _)| *k == n) => {
+                        out.extend_from_slice(
+                            format!("<< /Length {} >>\nstream\n", content.len()).as_bytes(),
+                        );
+                        out.extend_from_slice(content);
                         out.extend_from_slice(b"\nendstream");
                     }
                     Some((range, _)) => {
@@ -239,6 +261,23 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
             what: "XMP: editing history and author".into(),
             bytes: xmp_bytes,
         });
+    }
+    // First: it is what someone checking a redaction wants to read.
+    if taken_out > 0 {
+        removed.insert(
+            0,
+            Removed {
+                what: format!(
+                    "Text under black boxes, marked for redaction, or hidden: {taken_out} {}",
+                    if taken_out == 1 {
+                        "character"
+                    } else {
+                        "characters"
+                    }
+                ),
+                bytes: taken_out,
+            },
+        );
     }
     if photo_bytes > 0 {
         removed.push(Removed {

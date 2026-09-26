@@ -70,7 +70,7 @@ function misnamed(m: FileModel): VerdictLine | null {
 }
 
 /** Kinds named ahead of the rest in the "Reveals" line. */
-const URGENT = ["location", "earlier", "updates", "deleted", "photoplace"];
+const URGENT = ["hiddentext", "location", "earlier", "updates", "deleted", "photoplace"];
 
 /** What each kind of fact gives away, in words, for the "Reveals" line. */
 const REVEALS: Record<string, string> = {
@@ -88,6 +88,7 @@ const REVEALS: Record<string, string> = {
   created: "when it was written",
   editing: "how long it was worked on",
   updates: "earlier versions of itself",
+  hiddentext: "text hidden from view",
   deleted: "text that was deleted",
   earlier: "text an edit took off the page",
   photoplace: "where its photos were taken",

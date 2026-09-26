@@ -1772,7 +1772,10 @@ mod tests {
         let b = p.blackouts();
         // One page, A4, three boxes over three pieces of text, three labels.
         assert_eq!(b[..8], [1.0, 0.0, 0.0, 595.0, 842.0, 3.0, 3.0, 3.0]);
-        assert_eq!(b.len(), 8 + 3 * 4 + 3 * 4 + 3 * 4);
+        // Then page 2: the mark for redaction, the name under it, and the
+        // words either side of it on the line.
+        assert_eq!(b[44..52], [2.0, 0.0, 0.0, 595.0, 842.0, 1.0, 1.0, 2.0]);
+        assert_eq!(b.len(), 44 + 8 + 4 + 4 + 2 * 4);
         let texts: Vec<String> = p
             .blackout_texts()
             .split(SEPARATOR)
@@ -1786,7 +1789,10 @@ mod tests {
                 "EUR 48,000",
                 "Claimant:",
                 "Phone:",
-                "Settlement:"
+                "Settlement:",
+                "Petro Ivanenko",
+                "Signed in Kyiv on 3 March 2026 by",
+                "."
             ]
         );
         // Each text lies inside the box drawn over it.
