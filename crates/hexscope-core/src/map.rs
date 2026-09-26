@@ -4,7 +4,6 @@
 use crate::docs::{Concern, describe};
 use crate::document::Format;
 use crate::model::{NodeId, NodeKind, ParseTree};
-use std::collections::BTreeSet;
 
 /// What a stretch of bytes is for, in words anyone reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -61,8 +60,11 @@ pub fn composition(tree: &ParseTree, format: Format, file_len: u64) -> Vec<Slice
         }
     }
 
-    // Intervals as start and end events, clipped to the file.
-    let mut events: Vec<(u64, bool, usize)> = Vec::new();
+    // Intervals as start and end events, clipped to the file: the position
+    // doubled, plus one for a start, so that at one position ends sort
+    // before starts. (One key type for every sort in the crate keeps the
+    // build small: each kind of sort is kilobytes of code.)
+    let mut events: Vec<(u64, usize)> = Vec::new();
     let mut roles: Vec<(Role, u32, NodeId)> = Vec::new();
     for n in nodes {
         let start = n.range.start.min(file_len);
@@ -73,32 +75,36 @@ pub fn composition(tree: &ParseTree, format: Format, file_len: u64) -> Vec<Slice
         if let Some(role) = role_of(tree, n.id, format, depth[n.id as usize]) {
             let i = roles.len();
             roles.push((role, depth[n.id as usize], n.id));
-            events.push((start, true, i));
-            events.push((end, false, i));
+            events.push(((start << 1) | 1, i));
+            events.push((end << 1, i));
         }
     }
     // At one position, ends before starts: a node ending where the next
     // begins does not overlap it.
-    events.sort_unstable_by_key(|&(at, is_start, i)| (at, is_start, i));
+    events.sort_unstable();
 
     // Sweep: between consecutive event positions, the deepest active node
     // (latest added among equals, as children follow parents) owns the bytes.
-    let mut active: BTreeSet<(u32, usize)> = BTreeSet::new();
+    // Kept sorted; nested parts make it a short list.
+    let mut active: Vec<(u32, usize)> = Vec::new();
     let mut out: Vec<Slice> = Vec::new();
     let mut at = 0u64;
     let mut k = 0;
     while at < file_len {
-        while k < events.len() && events[k].0 <= at {
-            let (_, is_start, i) = events[k];
+        while k < events.len() && events[k].0 >> 1 <= at {
+            let (key, i) = events[k];
+            let is_start = key & 1 == 1;
             let key = (roles[i].1, i);
-            if is_start {
-                active.insert(key);
-            } else {
-                active.remove(&key);
+            match (active.binary_search(&key), is_start) {
+                (Err(at), true) => active.insert(at, key),
+                (Ok(at), false) => {
+                    active.remove(at);
+                }
+                _ => {}
             }
             k += 1;
         }
-        let next = events.get(k).map_or(file_len, |e| e.0.min(file_len));
+        let next = events.get(k).map_or(file_len, |e| (e.0 >> 1).min(file_len));
         let (role, node) = match active.last() {
             Some(&(_, i)) => (roles[i].0, Some(roles[i].2)),
             None => (Role::Hidden, None),

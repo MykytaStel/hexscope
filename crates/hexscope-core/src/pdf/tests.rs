@@ -24,6 +24,12 @@ fn facts(doc: &PdfDocument) -> Vec<(&str, &str)> {
         .collect()
 }
 
+/// Whether text a rewrite wrote as a hex string is in the bytes.
+fn hex_has(bytes: &[u8], text: &str) -> bool {
+    let hex: String = text.bytes().map(|b| format!("{b:02X}")).collect();
+    super::find(bytes, hex.as_bytes()).is_some()
+}
+
 fn find<'t>(tree: &'t ParseTree, label: &str) -> Vec<&'t Node> {
     tree.nodes().iter().filter(|n| n.label == label).collect()
 }
@@ -193,15 +199,45 @@ fn the_redacted_sample_still_holds_what_its_boxes_cover() {
             ),
             (
                 "covered",
-                "page 2: an area marked for redaction was never applied"
+                "page 2: an area marked for redaction was never applied: “Petro Ivanenko”"
             ),
+            (
+                "hiddentext",
+                "page 1, in white on white: “Internal: the client would accept EUR 60,000 if pushed.”"
+            ),
+            ("comments", "1 comment by Olena Koval"),
             ("title", "Settlement agreement - redacted"),
             ("producer", "hexscope sample generator"),
         ]
     );
-    // What the boxes cover is text in the page, not a picture of it.
+    // The clean copy takes the covered text out, applies the mark, and
+    // leaves the rest where it was.
     let clean = crate::clean::clean(&fixture("redacted.pdf")).unwrap();
-    assert_eq!(facts(&parse_pdf(&clean.bytes))[0].0, "covered");
+    let after = parse_pdf(&clean.bytes);
+    assert_eq!(problems(&after.tree), Vec::<String>::new());
+    // Comments are part of the document: they stay.
+    assert_eq!(facts(&after), [("comments", "1 comment by Olena Koval")]);
+    for gone in [
+        "Olena Koval) Tj",
+        "4567",
+        "48,000",
+        "Ivanenko",
+        "60,000",
+        "4F6C656E61",
+    ] {
+        assert!(
+            super::find(&clean.bytes, gone.as_bytes()).is_none(),
+            "{gone}"
+        );
+    }
+    for kept in ["Claimant:", "Settlement agreement", "Signed in Kyiv"] {
+        assert!(
+            super::find(&clean.bytes, kept.as_bytes()).is_some() || hex_has(&clean.bytes, kept),
+            "{kept}"
+        );
+    }
+    let what: Vec<_> = clean.removed.iter().map(|r| r.what.as_str()).collect();
+    assert!(what[0].starts_with("Text under black boxes"), "{what:?}");
 }
 
 #[test]
@@ -230,7 +266,7 @@ fn text_under_a_black_box_and_an_unapplied_redaction_are_found() {
             ("covered", "page 1: “Salary: 4200 UAH”"),
             (
                 "covered",
-                "page 2: an area marked for redaction was never applied"
+                "page 2: an area marked for redaction was never applied: “Visible”"
             ),
         ]
     );

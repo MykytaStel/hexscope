@@ -30,7 +30,12 @@ const RULES: Rule[] = [
   {
     when: ["covered"],
     formats: ["pdf"],
-    text: "A black box drawn over text hides it only on screen and on paper: anyone can still select, copy or search it. Do not send this file. Redact with a tool that removes the text — in Acrobat, Redact, then Apply — or print the pages to an image, and open the result here to check.",
+    text: "A black box drawn over text hides it only on screen and on paper: anyone can still select, copy or search it. Do not send this file. The clean copy takes the text out from under the boxes and applies any marks for redaction, leaving the rest of each line in place; open it here to check.",
+  },
+  {
+    when: ["hiddentext"],
+    formats: ["pdf"],
+    text: "Text no one can see on the page is still read by search, by screen readers and by programs that read the file — hiring systems and AI tools among them. If you did not put it there, ask who did. The clean copy removes it.",
   },
   {
     when: ["updates"],

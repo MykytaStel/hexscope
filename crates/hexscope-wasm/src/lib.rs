@@ -8,7 +8,7 @@
 #![forbid(unsafe_code)]
 
 use hexscope_core::clean::clean;
-use hexscope_core::docs::{Doc, describe};
+use hexscope_core::docs::describe;
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
     BlockKind, Checkpoint, CheckpointSink, Decoder, InflateError, InflateEvent, Step, inflate,
@@ -115,17 +115,33 @@ struct DocTables {
 impl DocTables {
     fn build(tree: &ParseTree, format: Format) -> Self {
         let mut t = DocTables::default();
-        let mut seen: std::collections::HashMap<Doc, i32> = std::collections::HashMap::new();
+        // Docs already sent, by where their text and citation live: every
+        // doc is a constant, so its strings' addresses name it. Sorted, for
+        // binary search; a file has a few hundred kinds of part at most. A
+        // hash map here cost 3 KB of the build.
+        let mut seen: Vec<((usize, usize, u8), i32)> = Vec::new();
         for n in tree.nodes() {
             let id = match describe(tree, n.id, format) {
                 None => -1,
-                Some(doc) => *seen.entry(doc).or_insert_with(|| {
-                    t.texts.push(doc.text);
-                    t.cites.push(doc.spec.map_or("", |s| s.cite));
-                    t.urls.push(doc.spec.map_or("", |s| s.url));
-                    t.concerns.push(doc.concern.map_or(0, |c| c as u8));
-                    t.texts.len() as i32 - 1
-                }),
+                Some(doc) => {
+                    let key = (
+                        doc.text.as_ptr() as usize,
+                        doc.spec.map_or(0, |s| s.cite.as_ptr() as usize),
+                        doc.concern.map_or(0, |c| c as u8),
+                    );
+                    match seen.binary_search_by(|(k, _)| k.cmp(&key)) {
+                        Ok(i) => seen[i].1,
+                        Err(i) => {
+                            t.texts.push(doc.text);
+                            t.cites.push(doc.spec.map_or("", |s| s.cite));
+                            t.urls.push(doc.spec.map_or("", |s| s.url));
+                            t.concerns.push(doc.concern.map_or(0, |c| c as u8));
+                            let id = t.texts.len() as i32 - 1;
+                            seen.insert(i, (key, id));
+                            id
+                        }
+                    }
+                }
             };
             t.ids.push(id);
         }
@@ -1756,7 +1772,10 @@ mod tests {
         let b = p.blackouts();
         // One page, A4, three boxes over three pieces of text, three labels.
         assert_eq!(b[..8], [1.0, 0.0, 0.0, 595.0, 842.0, 3.0, 3.0, 3.0]);
-        assert_eq!(b.len(), 8 + 3 * 4 + 3 * 4 + 3 * 4);
+        // Then page 2: the mark for redaction, the name under it, and the
+        // words either side of it on the line.
+        assert_eq!(b[44..52], [2.0, 0.0, 0.0, 595.0, 842.0, 1.0, 1.0, 2.0]);
+        assert_eq!(b.len(), 44 + 8 + 4 + 4 + 2 * 4);
         let texts: Vec<String> = p
             .blackout_texts()
             .split(SEPARATOR)
@@ -1770,7 +1789,10 @@ mod tests {
                 "EUR 48,000",
                 "Claimant:",
                 "Phone:",
-                "Settlement:"
+                "Settlement:",
+                "Petro Ivanenko",
+                "Signed in Kyiv on 3 March 2026 by",
+                "."
             ]
         );
         // Each text lies inside the box drawn over it.

@@ -58,15 +58,18 @@ and the bytes, 8 to a row, the text shrinking to fit. Tapping a pixel works
 as hovering does; elsewhere, hovering over a byte to see what it is has no
 touch equivalent yet beyond tapping to select it.
 
-**Text under black boxes is found by estimate.** A PDF page is walked as a
-viewer paints it, but a string's width is taken from its length and the font
-size, not from the font's own widths, and content drawn by form XObjects is
-not followed. So a box that covers only part of a word may be missed or may
-take the whole word, and a box inside a form is not seen. Text in a font
-whose codes are not letters (most CID fonts) is counted, not shown. The
-clean copy does not remove covered text: it keeps pages as they are.
+**What a PDF page hides is found glyph by glyph, within limits.** A page is
+walked as a viewer paints it, each glyph placed with its font's widths
+(`/Widths`, `/W`, or Adobe's tables for Helvetica, Times and Courier) and
+read through `/ToUnicode`; a font with neither is estimated at half its size
+per code, and a composite font without `/ToUnicode` is counted, not read.
+Content drawn by form XObjects is not followed, so a box or text inside a
+form is not seen, and the clean copy leaves it. White text counts as hidden
+only when nothing but the page is behind it; a shading or a clipped image
+behind it is not taken into account. The clean copy writes a rewritten
+page's content uncompressed, so the file can grow.
 
-**WebAssembly size.** About 241 KB gzipped against a CI budget of 256,000
+**WebAssembly size.** About 244 KB gzipped against a CI budget of 256,000
 bytes, grown from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF (17 KB), PDF (29 KB), PNG metadata (14 KB), PDF decryption
 (11 KB), video, WebAssembly, MakerNotes and the PDF redaction check (10 KB,

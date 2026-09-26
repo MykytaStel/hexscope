@@ -39,15 +39,15 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"], pdf: ["covered"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"], pdf: ["comments"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: the paths in its data, which its error messages print. Only a new build, with the paths remapped, can take them out.",
-  pdf: "Kept: the text under the black boxes, which is part of the page. Redact it with a tool that removes the text itself — in Acrobat, Redact, then Apply — and check the result here.",
+  pdf: "Kept: the comments, which are part of the document. Delete them in a PDF editor if they should not travel with it.",
   zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-const STRONG = ["covered", "deleted", "earlier", "photoplace"];
+const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -99,6 +99,7 @@ const FACT_LABELS: Record<string, string> = {
   debug: "Debug info",
   paths: "Built by user",
   covered: "Hidden, not removed",
+  hiddentext: "Hidden text",
   earlier: "Taken off the page",
   comments: "Comments",
   tracked: "Tracked changes",
@@ -408,6 +409,9 @@ export class Drawer {
       const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, STRONG.includes(fact.kind));
       // A sentence reads better in the body font; only coordinates and codes are set in mono.
       if (!covered) dd.querySelector(".reveal-link")?.classList.remove("is-strong");
+      // Hidden text is shown as if selected: that is how someone finds it.
+      const ghost = fact.kind === "hiddentext" ? /^(.*?: )“(.*)”$/.exec(fact.text) : null;
+      if (ghost) dd.querySelector(".reveal-link")?.replaceChildren(ghost[1], el("mark", "ghost-text", ghost[2]));
       // Deleted text looks the way Word marks it: struck through.
       const deleted = fact.kind === "deleted" || fact.kind === "earlier" ? /^“(.*)”$/.exec(fact.text) : null;
       if (deleted) {
@@ -424,7 +428,7 @@ export class Drawer {
       if (fact.kind === "thumbnail") thumbRow = dd;
       // Text found under a black box is shown the way it was meant to look:
       // blacked out, with what is still there showing through.
-      const quoted = covered ? /^(page \d+: )“(.*)”$/.exec(fact.text) : null;
+      const quoted = covered ? /^(.*?: )“(.*)”$/.exec(fact.text) : null;
       if (quoted) {
         const link = dd.querySelector(".reveal-link");
         const bars = quoted[2].split(" · ").map((t) => el("span", "redacted", t));
@@ -545,7 +549,7 @@ export class Drawer {
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
-      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, and no earlier versions. The pages are copied byte for byte; photos keep their pixels and lose their camera data.",
+      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; photos lose their camera data.",
     };
     const note =
       notes[format] ??

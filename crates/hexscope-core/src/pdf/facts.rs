@@ -18,11 +18,13 @@ pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 const MAX_TEXT: usize = 512;
 
 /// The order facts are shown in: who, what changed, then the rest.
-const ORDER: [&str; 15] = [
+const ORDER: [&str; 17] = [
     "covered",
+    "hiddentext",
     "author",
     "updates",
     "earlier",
+    "comments",
     "photoplace",
     "photo",
     "title",
@@ -123,7 +125,7 @@ pub(super) fn collect(
         }
     }
 
-    facts.sort_by_key(|f| ORDER.iter().position(|&k| k == f.kind));
+    order(&mut facts);
     facts
 }
 
@@ -142,7 +144,25 @@ pub(super) fn is_photo(rec: &ObjRec) -> bool {
 
 pub(super) fn insert_update(facts: &mut Vec<DocumentFact>, fact: DocumentFact) {
     facts.push(fact);
-    facts.sort_by_key(|f| ORDER.iter().position(|&k| k == f.kind));
+    order(facts);
+}
+
+/// Puts facts in [`ORDER`], keeping the order of equals. By hand: a handful
+/// of facts need no library sort, and each one costs the build kilobytes.
+fn order(facts: &mut [DocumentFact]) {
+    let rank = |f: &DocumentFact| {
+        ORDER
+            .iter()
+            .position(|&k| k == f.kind)
+            .unwrap_or(ORDER.len())
+    };
+    for i in 1..facts.len() {
+        let mut j = i;
+        while j > 0 && rank(&facts[j - 1]) > rank(&facts[j]) {
+            facts.swap(j - 1, j);
+            j -= 1;
+        }
+    }
 }
 
 pub(super) enum Found<'a> {
@@ -201,13 +221,17 @@ pub(super) fn unpack(
         at.push((n, start));
     }
     // Each value runs to where the next one starts.
-    let mut starts: Vec<usize> = at.iter().map(|&(_, s)| s).collect();
+    let mut starts: Vec<(u64, usize)> = at.iter().map(|&(_, s)| (s as u64, 0)).collect();
     starts.sort_unstable();
     let packed = at
         .into_iter()
         .map(|(n, s)| {
-            let i = starts.partition_point(|&x| x <= s);
-            (n, s, starts.get(i).copied().unwrap_or(bytes.len()))
+            let i = starts.partition_point(|&(x, _)| x <= s as u64);
+            (
+                n,
+                s,
+                starts.get(i).map_or(bytes.len(), |&(x, _)| x as usize),
+            )
         })
         .collect();
     Some((bytes, packed))

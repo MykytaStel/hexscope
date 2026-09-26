@@ -13,7 +13,6 @@ use super::lexer::{Lexer, Obj};
 use super::{ObjRec, parse_with};
 use crate::clean::{CleanError, Cleaned, Removed};
 use crate::model::NodeKind;
-use std::collections::{BTreeMap, BTreeSet};
 
 /// An XMP packet with nothing in it.
 const EMPTY_XMP: &[u8] = b"<?xpacket begin=\"\xEF\xBB\xBF\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/><?xpacket end=\"w\"?>";
@@ -23,6 +22,51 @@ enum Source<'a> {
     Top(&'a ObjRec),
     /// Unpacked from an object stream: its value's bytes, and the value.
     Packed(Vec<u8>, Obj),
+}
+
+/// The current version of every object, sorted by number: of the versions
+/// of one number, the last met wins, as an update comes after what it
+/// replaces — except that an object in the file's body never gives way to
+/// one before it. A sorted list, not a map: maps cost the WebAssembly build
+/// several kilobytes.
+struct Current<'a>(Vec<(u32, u64, Source<'a>)>);
+
+impl<'a> Current<'a> {
+    fn new(versions: Vec<(u32, u64, Source<'a>)>) -> Self {
+        let mut order: Vec<(u64, usize)> = versions
+            .iter()
+            .enumerate()
+            .map(|(i, v)| ((u64::from(v.0) << 32) | (i as u64 & 0xFFFF_FFFF), i))
+            .collect();
+        order.sort_unstable();
+        let mut slots: Vec<Option<(u32, u64, Source<'a>)>> =
+            versions.into_iter().map(Some).collect();
+        let mut out: Vec<(u32, u64, Source<'a>)> = Vec::new();
+        for (_, i) in order {
+            let Some(v) = slots[i].take() else { continue };
+            match out.last_mut() {
+                Some(last) if last.0 == v.0 => {
+                    let wins = match v.2 {
+                        Source::Packed(..) => true,
+                        Source::Top(_) => last.1 <= v.1,
+                    };
+                    if wins {
+                        *last = v;
+                    }
+                }
+                _ => out.push(v),
+            }
+        }
+        Current(out)
+    }
+
+    fn index(&self, n: u32) -> Option<usize> {
+        self.0.binary_search_by_key(&n, |v| v.0).ok()
+    }
+
+    fn get(&self, n: u32) -> Option<&Source<'a>> {
+        self.index(n).map(|i| &self.0[i].2)
+    }
 }
 
 pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
@@ -38,9 +82,8 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
         return Err(CleanError::Damaged);
     };
 
-    // The current version of every object: later in the file wins, as an
-    // update comes after what it replaces.
-    let mut current: BTreeMap<u32, (u64, Source)> = BTreeMap::new();
+    // Every version of every object, in the order they are met.
+    let mut versions: Vec<(u32, u64, Source)> = Vec::new();
     let mut budget = MAX_DECODED_TOTAL;
     for rec in &ctx.objects {
         if let Some((bytes, packed)) = unpack(data, rec, ctx.crypt.as_ref(), &mut budget) {
@@ -52,28 +95,34 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
                 // object is not part of it.
                 let r = value.range;
                 let text = bytes[r.start as usize..r.end() as usize].to_vec();
-                current.insert(n, (rec.start, Source::Packed(text, value.obj)));
+                versions.push((n, rec.start, Source::Packed(text, value.obj)));
             }
         } else if rec.value.get("Type").and_then(Obj::name) == Some("ObjStm") {
             // Objects we cannot unpack could be the ones the document uses.
             return Err(CleanError::Unreadable);
         }
-        if current.get(&rec.num).is_none_or(|&(at, _)| at <= rec.start) {
-            current.insert(rec.num, (rec.start, Source::Top(rec)));
-        }
+        versions.push((rec.num, rec.start, Source::Top(rec)));
     }
+    let current = Current::new(versions);
+    // Pages with text under black boxes, marked for redaction, or hidden:
+    // their content written again without it.
+    let super::redact::Rewrites {
+        streams: rewritten,
+        removed: taken_out,
+        applied,
+    } = super::redact::rewrites(data, &ctx);
 
     // Everything the catalog reaches, and nothing else.
-    let mut reached = BTreeSet::new();
+    let mut reached = vec![false; current.0.len()];
     let mut queue = vec![root];
     while let Some(n) = queue.pop() {
-        if !reached.insert(n) {
+        let Some(i) = current.index(n) else { continue };
+        if std::mem::replace(&mut reached[i], true) {
             continue;
         }
-        match current.get(&n) {
-            Some((_, Source::Top(rec))) => refs(&rec.value, &mut queue),
-            Some((_, Source::Packed(_, obj))) => refs(obj, &mut queue),
-            None => {}
+        match &current.0[i].2 {
+            Source::Top(rec) => refs(&rec.value, &mut queue),
+            Source::Packed(_, obj) => refs(obj, &mut queue),
         }
     }
 
@@ -83,11 +132,22 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     let mut offsets: Vec<(u32, u16, usize)> = Vec::new();
     let mut xmp_bytes = 0u64;
     let mut photo_bytes = 0u64;
-    for &n in &reached {
-        let Some((_, source)) = current.get(&n) else {
-            continue;
-        };
+    for (n, _, source) in current
+        .0
+        .iter()
+        .zip(&reached)
+        .filter(|(_, r)| **r)
+        .map(|(c, _)| c)
+    {
+        let n = *n;
         let at = out.len();
+        // A redaction applied: its mark is retired, a hidden empty annotation
+        // in its place so the page's list of annotations still holds.
+        if applied.contains(&n) {
+            out.extend_from_slice(format!("{n} 0 obj\n<< /Type /Annot /Subtype /Link /Rect [0 0 0 0] /Border [0 0 0] /F 2 >>\nendobj\n").as_bytes());
+            offsets.push((n, 0, at));
+            continue;
+        }
         match source {
             Source::Top(rec) => {
                 let gen_ = rec.gen_;
@@ -104,6 +164,14 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
                             .as_bytes(),
                         );
                         out.extend_from_slice(EMPTY_XMP);
+                        out.extend_from_slice(b"\nendstream");
+                    }
+                    // Written anew, and so uncompressed: a dictionary of its own.
+                    Some(_) if let Some((_, content)) = rewritten.iter().find(|(k, _)| *k == n) => {
+                        out.extend_from_slice(
+                            format!("<< /Length {} >>\nstream\n", content.len()).as_bytes(),
+                        );
+                        out.extend_from_slice(content);
                         out.extend_from_slice(b"\nendstream");
                     }
                     Some((range, _)) => {
@@ -166,20 +234,20 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     for rec in &ctx.objects {
         let ty = rec.value.get("Type").and_then(Obj::name);
         let superseded =
-            !matches!(current.get(&rec.num), Some((_, Source::Top(r))) if std::ptr::eq(*r, rec));
+            !matches!(current.get(rec.num), Some(Source::Top(r)) if std::ptr::eq(*r, rec));
         if Some(rec.num) == info {
             // Counted below, wherever its current version is.
         } else if matches!(ty, Some("XRef" | "ObjStm")) {
             // Structure the rewrite replaces.
         } else if superseded {
             earlier += length(rec);
-        } else if !reached.contains(&rec.num) {
+        } else if !current.index(rec.num).is_some_and(|i| reached[i]) {
             unused += length(rec);
         }
     }
-    match info.and_then(|n| current.get(&n)) {
-        Some((_, Source::Top(rec))) => info_bytes = length(rec),
-        Some((_, Source::Packed(text, _))) => info_bytes = text.len() as u64,
+    match info.and_then(|n| current.get(n)) {
+        Some(Source::Top(rec)) => info_bytes = length(rec),
+        Some(Source::Packed(text, _)) => info_bytes = text.len() as u64,
         None => {}
     }
     if info_bytes > 0 {
@@ -193,6 +261,23 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
             what: "XMP: editing history and author".into(),
             bytes: xmp_bytes,
         });
+    }
+    // First: it is what someone checking a redaction wants to read.
+    if taken_out > 0 {
+        removed.insert(
+            0,
+            Removed {
+                what: format!(
+                    "Text under black boxes, marked for redaction, or hidden: {taken_out} {}",
+                    if taken_out == 1 {
+                        "character"
+                    } else {
+                        "characters"
+                    }
+                ),
+                bytes: taken_out,
+            },
+        );
     }
     if photo_bytes > 0 {
         removed.push(Removed {

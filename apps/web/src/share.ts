@@ -8,6 +8,7 @@ import { list } from "./verdict";
 /** Each kind of fact as a category, most telling first. */
 const CATEGORIES: [string, string][] = [
   ["covered", "text that was blacked out but not removed"],
+  ["hiddentext", "text hidden from view"],
   ["location", "where it was taken"],
   ["updates", "earlier versions of itself"],
   ["deleted", "text that was deleted"],

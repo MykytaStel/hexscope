@@ -9,8 +9,8 @@
                compressed XMP.
   redacted.pdf "redacted" the way that does not work: black boxes painted
                over a name, a phone number and a sum, which are all still in
-               the page, and on page two an area marked for redaction that
-               was never applied.
+               the page; a note in white on white; a comment; and on page
+               two an area marked for redaction that was never applied.
 
 The text is original. Run from anywhere:
 
@@ -167,7 +167,7 @@ def redacted():
     w.obj(1, b"<< /Type /Catalog /Pages 2 0 R >>")
     w.obj(2, b"<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>")
     w.obj(3, b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n"
-             b"   /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>")
+             b"   /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R /Annots [10 0 R] >>")
     rows = [(b"Claimant:", b"Olena Koval"), (b"Phone:", b"+380 67 123 4567"),
             (b"Settlement:", b"EUR 48,000")]
     ops = b"BT /F1 16 Tf 72 780 Td (Settlement agreement) Tj ET\n"
@@ -179,6 +179,8 @@ def redacted():
     ops += b"0 g\n"
     for i, (_, value) in enumerate(rows):
         ops += b"156 %d %d 17 re f\n" % (735 - 22 * i, 7 * len(value) + 10)
+    # A note left in white: invisible on the page, there for anyone who searches.
+    ops += b"1 g BT /F1 9 Tf 72 620 Td (Internal: the client would accept EUR 60,000 if pushed.) Tj ET\n"
     content = zlib.compress(ops)
     w.obj(4, b"<< /Length %d /Filter /FlateDecode >>" % len(content), content)
     w.obj(5, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
@@ -186,10 +188,12 @@ def redacted():
              b"   /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R /Annots [8 0 R] >>")
     content = zlib.compress(b"BT /F1 12 Tf 72 780 Td (Signed in Kyiv on 3 March 2026 by Petro Ivanenko.) Tj ET")
     w.obj(7, b"<< /Length %d /Filter /FlateDecode >>" % len(content), content)
-    w.obj(8, b"<< /Type /Annot /Subtype /Redact /Rect [315 775 410 794]\n"
+    w.obj(8, b"<< /Type /Annot /Subtype /Redact /Rect [258 775 342 794]\n"
              b"   /OverlayText (REDACTED) /IC [0 0 0] >>")
     w.obj(9, b"<< /Title (Settlement agreement - redacted) /Producer (hexscope sample generator) >>")
-    w.xref(range(0, 10), b"<< /Size 10 /Root 1 0 R /Info 9 0 R >>")
+    w.obj(10, b"<< /Type /Annot /Subtype /Text /Rect [400 730 420 750] /T (Olena Koval)\n"
+              b"   /Contents (Check the sum with Petro before this goes out.) >>")
+    w.xref(range(0, 11), b"<< /Size 11 /Root 1 0 R /Info 9 0 R >>")
     return bytes(w.out)
 
 

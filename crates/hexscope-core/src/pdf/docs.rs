@@ -352,6 +352,34 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "text drawn invisibly",
+        hidden(
+            "ISO 32000-1 §9.3.6",
+            "Text drawn with no ink (rendering mode 3): unseen on the page, found by search, copy and any program reading the file. Scanned pages use it for their words; this is not one.",
+        ),
+    ),
+    (
+        "text in white on white",
+        hidden(
+            "ISO 32000-1 §8.6",
+            "Text in white with only the paper behind it: invisible to a reader, found by search, copy and software that screens documents — a way to hide instructions for it.",
+        ),
+    ),
+    (
+        "text placed off the page",
+        hidden(
+            "ISO 32000-1 §14.11.2",
+            "Text placed outside the page, where no viewer shows it and no printer prints it, yet anything reading the text finds it.",
+        ),
+    ),
+    (
+        "text too small to see",
+        hidden(
+            "ISO 32000-1 §9.3",
+            "Text under a point high: a speck on the page, but whole words to search and to programs reading the file.",
+        ),
+    ),
+    (
         "marked for redaction, never redacted",
         hidden(
             "ISO 32000-1 §12.5.6.23",

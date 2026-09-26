@@ -1915,6 +1915,14 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* Hidden text, shown as if selected: that is how anyone finds it. */
+.ghost-text {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text);
+}
+
 /* Text a tracked deletion still holds, marked the way Word marks it. */
 .deleted-text {
   color: var(--tint-error, #e5484d);
