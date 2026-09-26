@@ -69,6 +69,9 @@ function misnamed(m: FileModel): VerdictLine | null {
   };
 }
 
+/** Kinds named ahead of the rest in the "Reveals" line. */
+const URGENT = ["location", "updates", "deleted", "photoplace"];
+
 /** What each kind of fact gives away, in words, for the "Reveals" line. */
 const REVEALS: Record<string, string> = {
   location: "where it was taken",
@@ -82,6 +85,11 @@ const REVEALS: Record<string, string> = {
   created: "when it was written",
   editing: "how long it was worked on",
   updates: "earlier versions of itself",
+  deleted: "text that was deleted",
+  photoplace: "where its photos were taken",
+  photo: "the camera behind its photos",
+  comments: "who commented",
+  tracked: "who changed what",
   shutter: "how many photos the camera has taken",
   linked: "IDs that link it to other shots",
   uptime: "how long the phone had been on",
@@ -138,9 +146,13 @@ export function verdict(m: FileModel): VerdictLine[] {
   }
 
   const kinds = [...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)];
+  // What can hurt most goes first, so the four named include it.
+  kinds.sort((a, b) => Number(URGENT.includes(b)) - Number(URGENT.includes(a)));
   const given = [...new Set(kinds.map((k) => REVEALS[k]).filter(Boolean))];
   if (given.length > 0) {
-    const first = f.location?.node ?? f.facts[0]?.node ?? -1;
+    // "Show me" goes to the first thing named.
+    const top = kinds.find((k) => REVEALS[k]);
+    const first = top === "location" ? (f.location?.node ?? -1) : (f.facts.find((x) => x.kind === top)?.node ?? -1);
     lines.push({ kind: "reveals", text: `Reveals ${list(given.slice(0, 4))}.`, node: first });
   }
 

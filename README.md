@@ -55,7 +55,10 @@ technique), bytes nothing points at. A truncated download still lists every
 entry it can. Any deflated entry plays in the DEFLATE player; *Open* shows an
 entry as a file of its own — a photo inside a Word document gets its own EXIF
 card — with breadcrumbs back (**Backspace** goes up one). An Office document
-shows who wrote it, who saved it last, when, with what, for which company.
+shows who wrote it, who saved it last, when, with what, for which company;
+a Word document also its comments and tracked changes, by whom, with the
+text a tracked deletion still holds though no page shows it; and every photo
+placed in it says where it was taken and with what camera.
 
 **Shows where a video was recorded.** MP4 and QuickTime movies are read box
 by box. An iPhone's video keeps its location, make, model, software and date
@@ -102,8 +105,8 @@ AVIF keeps its size: its EXIF and XMP are blanked where they lie, because
 everything else in it is found by offset. A PDF is written anew with only
 what its pages use: no author, programs or dates, no XMP, and none of the
 earlier versions an edit left behind. A Word, Excel or PowerPoint file loses
-its document properties (comments and tracked changes keep their authors,
-and the page says so). The page lists what went, and *Open the clean copy*
+its document properties, and the photos in it lose their EXIF (comments and
+tracked changes are part of its text and stay, and the page says so). The page lists what went, and *Open the clean copy*
 shows it in hexscope, so you can see the card is empty.
 
 **Shows which bytes make which pixels.** Beside a PNG's structure, its
