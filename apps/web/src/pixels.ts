@@ -203,7 +203,7 @@ export class PictureView {
     if (f.format === "jpeg") return this.jpeg.element(m);
     if (f.format !== "png" || !f.ihdr) return null;
     const group = el("div", "group picture");
-    group.append(el("h3", undefined, "Picture"));
+    group.append(el("h2", undefined, "Picture"));
     if (!f.preview) {
       group.append(el("p", "hint", "No pixels to show: the image data could not be decoded."));
       return group;

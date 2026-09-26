@@ -61,6 +61,48 @@ function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
   return map;
 }
 
+/** What a clean copy of each kind of file cannot take out, because it is what the file shows or says. */
+const LIMITS: Record<string, string[]> = {
+  photo: [
+    "What the picture shows: faces, street signs, house numbers, a screen or a letter in view, reflections.",
+    "Marks some apps and AI tools hide in the pixels themselves.",
+  ],
+  video: ["What the video shows and what its sound says: voices, place names, anything in view."],
+  pdf: [
+    "Anything still visible on the pages: a name or number you did not black out.",
+    "Text that is part of a picture, such as a scanned page or a screenshot, under a black box: the copy cannot take letters out of a picture. Check those pages by eye, or black them out before scanning.",
+    "Words and numbers in the text itself that say who wrote it or for whom.",
+  ],
+  zip: [
+    "What the text says: names, addresses and details written in the document itself.",
+    "What pasted pictures show: a screenshot can show a desktop, a name, an open tab.",
+  ],
+};
+
+/** A name with a date in it, the way phones and messengers name files: `IMG_20260614_183207`, `Screenshot 2026-06-14 at 18.32`. */
+const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01])/;
+
+/** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
+function cleanLimits(m: FileModel): HTMLElement {
+  const format = m.file.format;
+  const kind = format === "jpeg" || format === "heif" || format === "png" ? "photo" : format;
+  const items = [...(LIMITS[kind] ?? [])];
+  const base = m.name.split("/").pop() ?? m.name;
+  if (DATED.test(base)) {
+    items.push(`Its name, “${base}”, says when it was made; the copy keeps the name, with “-clean” added. Rename it if that matters.`);
+  }
+  const box = el("details", "clean-limits");
+  if (items.length === 0) {
+    box.hidden = true;
+    return box;
+  }
+  box.append(el("summary", undefined, "What no clean copy can remove"));
+  const ul = el("ul");
+  ul.append(...items.map((t) => el("li", undefined, t)));
+  box.append(ul);
+  return box;
+}
+
 const FACT_LABELS: Record<string, string> = {
   camera: "Camera",
   lens: "Lens",
@@ -237,7 +279,7 @@ export class Drawer {
     this.file.append(this.makeup(m));
 
     const fileGroup = el("div", "group");
-    fileGroup.append(el("h3", undefined, "File"));
+    fileGroup.append(el("h2", undefined, "File"));
     const grid = el("dl", "facts");
     fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
     if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
@@ -257,7 +299,7 @@ export class Drawer {
     save.addEventListener("click", () => saveStructure(m));
     fileGroup.append(report, save);
     // Another file beside this one: what one gives away that the other does not.
-    const pick = el("label", "link compare-pick", "Compare with another file…");
+    const pick = el("button", "link compare-pick", "Compare with another file…");
     const input = el("input");
     input.type = "file";
     input.hidden = true;
@@ -266,15 +308,8 @@ export class Drawer {
       input.value = "";
       if (f) this.cleaning.compare(f);
     });
-    pick.append(input);
-    pick.tabIndex = 0;
-    pick.setAttribute("role", "button");
-    pick.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        input.click();
-      }
-    });
+    pick.addEventListener("click", () => input.click());
+    fileGroup.append(input);
     fileGroup.append(pick);
     this.file.append(fileGroup);
 
@@ -282,7 +317,7 @@ export class Drawer {
     if (f.trace && f.format === "png") {
       const [events, literals, matches, output] = f.trace;
       const deflate = el("div", "group");
-      deflate.append(el("h3", undefined, "DEFLATE"));
+      deflate.append(el("h2", undefined, "DEFLATE"));
       const d = el("dl", "facts");
       fact(d, "Compressed", `${formatBytes(f.idatBytes)} → ${formatBytes(output)}`);
       if (f.idatBytes > 0) fact(d, "Ratio", `${(output / f.idatBytes).toFixed(2)}×`);
@@ -314,7 +349,7 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
-    group.append(el("h3", undefined, "What hexscope found"));
+    group.append(el("h2", undefined, "What hexscope found"));
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
@@ -363,7 +398,7 @@ export class Drawer {
   /** What the file is made of: a bar in file order and a legend by size. */
   private makeup(m: FileModel): HTMLElement {
     const group = el("div", "group makeup");
-    group.append(el("h3", undefined, "What it's made of"));
+    group.append(el("h2", undefined, "What it's made of"));
     const slices = m.slices();
     const total = slices.reduce((n, s) => n + s.len, 0);
     if (total === 0) return group;
@@ -426,7 +461,7 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
     };
-    const title = el("h3", undefined, heading[f.format] ?? "What this document reveals");
+    const title = el("h2", undefined, heading[f.format] ?? "What this document reveals");
     group.append(title);
     // The picture it is about, small, beside the heading: which photo this is.
     if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
@@ -457,7 +492,7 @@ export class Drawer {
                 ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
               : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
-      if (removable) group.append(this.cleaner(f.format));
+      if (removable) group.append(this.cleaner(m));
       return group;
     }
 
@@ -540,7 +575,7 @@ export class Drawer {
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
     } else {
-      group.append(this.cleaner(f.format));
+      group.append(this.cleaner(m));
     }
     const tips = advice(m);
     if (tips.length > 0) {
@@ -628,7 +663,8 @@ export class Drawer {
   }
 
   /** One button that saves a copy without all of the above, then says what went. */
-  private cleaner(format: string): HTMLElement {
+  private cleaner(m: FileModel): HTMLElement {
+    const format = m.file.format;
     const box = el("div", "cleaner");
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
     button.title = "Makes the copy in this tab: nothing is uploaded";
@@ -644,7 +680,8 @@ export class Drawer {
     const note =
       notes[format] ??
       "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
-    box.append(button, el("p", "hint", note));
+    const limits = cleanLimits(m);
+    box.append(button, el("p", "hint", note), limits);
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Making the copy…";
@@ -685,7 +722,7 @@ export class Drawer {
       const diff = el("button", "btn", "Compare with the original");
       diff.title = "What the copy took out, part by part";
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
-      box.append(open, diff);
+      box.append(open, diff, limits);
     });
     return box;
   }
@@ -766,7 +803,7 @@ export class Drawer {
   private entry(m: FileModel, i: number): HTMLElement {
     const e = m.entry(i);
     const group = el("div", "group entry");
-    group.append(el("h3", undefined, "Entry"));
+    group.append(el("h2", undefined, "Entry"));
     const grid = el("dl", "facts");
     fact(grid, "Name", m.label(e.node));
     fact(grid, "Data", m.value(e.node));

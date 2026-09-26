@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="See what your photos and documents reveal about you, find exactly where a broken file breaks, and watch compression work byte by byte. Nothing is uploaded." />
+    <meta name="description" content="Check what a photo or document gives away before you send it — its location, the owner's name, text under black boxes, comments — and save a clean copy. In your browser; nothing is uploaded." />
     <meta name="theme-color" content="#2563eb" />
-    <title>hexscope — see what your files say about you</title>
+    <title>hexscope — see what a file gives away before you send it</title>
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://hexscope.pages.dev/" />
-    <meta property="og:title" content="hexscope — see what your files say about you" />
+    <meta property="og:title" content="hexscope — see what a file gives away before you send it" />
     <meta property="og:description" content="Where your photo was taken, who wrote your document, why a file won't open — shown byte by byte, in your browser. Nothing is uploaded." />
     <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -40,10 +40,8 @@
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 13.5 8 4 13.5z" /></svg>
           <span class="btn-label">Watch it decompress</span>
         </button>
-        <label class="btn">
-          Open<span class="open-long">&nbsp;file</span>
-          <input type="file" id="picker" multiple hidden />
-        </label>
+        <button type="button" class="btn" data-opens="picker">Open<span class="open-long">&nbsp;file</span></button>
+        <input type="file" id="picker" multiple hidden />
       </div>
     </header>
 
@@ -57,21 +55,17 @@
 
     <section class="batch" id="batch" aria-label="Files"></section>
 
-    <div class="empty">
+    <section class="empty" aria-label="Start">
       <div class="empty-card">
         <div class="hero">
           <div class="hero-text">
-            <h1>See what your files say about you</h1>
-            <p class="lede">Where a photo was taken, who wrote a document, what an edited PDF still hides, why a file won't open. hexscope reads it right here, in your browser, and shows you — byte by byte.</p>
+            <h1>See what a file gives away before you send it</h1>
+            <p class="lede">Where a photo was taken, whose camera took it, the text under a PDF's black boxes, the comments left in a Word file. hexscope finds them right here, in your browser, and saves a clean copy without them.</p>
             <div class="hero-actions">
-              <label class="btn btn-primary btn-big">
-                Choose a file
-                <input type="file" id="picker-empty" multiple hidden />
-              </label>
-              <label class="link hero-folder">
-                or a whole folder
-                <input type="file" id="picker-folder" webkitdirectory hidden />
-              </label>
+              <button type="button" class="btn btn-primary btn-big" data-opens="picker-empty">Choose a file</button>
+              <input type="file" id="picker-empty" multiple hidden />
+              <button type="button" class="link hero-folder" data-opens="picker-folder">or a whole folder</button>
+              <input type="file" id="picker-folder" webkitdirectory hidden />
               <span class="hero-drop">— or drop them anywhere on this page</span>
             </div>
             <p class="load-error" id="load-error" role="alert" hidden></p>
@@ -86,6 +80,7 @@
           <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
         </div>
 
+        <h2 class="doors-title">Before you send</h2>
         <div class="doors">
           <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
@@ -99,6 +94,11 @@
             <span class="door-text">Black boxes that hide nothing, deleted text still inside, comments and who wrote them — in PDFs and Word files.</span>
             <span class="door-go">Try a blacked-out PDF →</span>
           </button>
+        </div>
+
+        <h2 class="doors-title">Look inside</h2>
+        <p class="doors-lede">Why a file won't open, and how it is built: every byte explained, with where its format defines it.</p>
+        <div class="doors">
           <button class="door" data-sample="samples/broken.png" data-name="broken.png">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
             <span class="door-title">Why won't it open?</span>
@@ -112,6 +112,13 @@
             <span class="door-go">Play it →</span>
           </button>
         </div>
+        <ul class="geek-list">
+          <li><strong>Bytes view</strong> — the structure beside the hex, every part with its spec reference</li>
+          <li><strong>Find</strong> <kbd>/</kbd> — text or hex, and the part of the file it falls in</li>
+          <li><strong>Compare</strong> — two files, or a file and its clean copy</li>
+          <li><strong>JSON</strong> — the whole structure, with its explanations</li>
+          <li><strong>Command line and CI</strong> — the same checks in <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">a CLI and a GitHub Action</a></li>
+        </ul>
 
         <nav class="more-links" aria-label="More">
           <p>
@@ -137,7 +144,7 @@
         </nav>
         <p class="footnote">Open source · no accounts · no analytics · no uploads · <button class="link" data-shortcuts>Keyboard shortcuts</button> <kbd>?</kbd> · <button class="link" data-tour>Take the tour</button></p>
       </div>
-    </div>
+    </section>
 
     <div class="dropzone"><div>Drop to open</div></div>
     <div class="loading">Parsing…</div>

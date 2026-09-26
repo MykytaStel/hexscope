@@ -57,6 +57,9 @@ export class Minimap {
     this.canvas.className = "minimap";
     this.canvas.setAttribute("role", "scrollbar");
     this.canvas.setAttribute("aria-label", "Whole-file map by entropy: click to jump");
+    this.canvas.setAttribute("aria-valuemin", "0");
+    this.canvas.setAttribute("aria-valuemax", "100");
+    this.canvas.setAttribute("aria-valuenow", "0");
     host.append(this.canvas);
     const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D is not available");
@@ -92,6 +95,9 @@ export class Minimap {
   setView(start: number, end: number): void {
     if (start === this.view[0] && end === this.view[1]) return;
     this.view = [start, end];
+    // How far into the file the bytes in view are, for a screen reader.
+    const len = this.model?.bytes.length ?? 0;
+    this.canvas.setAttribute("aria-valuenow", String(len > 0 ? Math.round((start / len) * 100) : 0));
     this.schedule();
   }
 

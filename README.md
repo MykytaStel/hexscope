@@ -1,13 +1,16 @@
 # hexscope
 
-A microscope for binary files — drop one in and watch it take itself apart,
-entirely in your browser.
+See what a file gives away before you send it — and, if you are curious,
+how every byte of it works. Entirely in your browser.
 
-hexscope shows you what is actually inside a file: the structure tree, the
-bytes each field occupies, where the file is damaged, what a photo gives away
-about whoever took it, and — the part no other tool does — a PNG's compression
-running step by step, with an arc from each back-reference to the bytes it
-copies. Nothing is uploaded anywhere. The file never leaves the tab.
+For everyone: where a photo was taken and whose camera took it, the text
+still under a PDF's black boxes, the comments and deleted text left in a
+Word file, the hidden sheets of a spreadsheet — found, explained in plain
+words, and removed in a clean copy with one click. For the curious: the
+structure tree, the bytes each field occupies, where a file is damaged,
+and — the part no other tool does — a PNG's compression running step by
+step, with an arc from each back-reference to the bytes it copies. Nothing
+is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
 > HEIC and AVIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
@@ -265,19 +268,22 @@ its file:
 
 ## Why
 
-To see inside a file today you either read the spec with `xxd` open in another
-window, or install a desktop hex editor. Both are fine for people who already
-know what they are looking for. Neither helps when you just want to know why a
-PNG will not open, where your parser reads the wrong offset, or how DEFLATE
-actually works.
+Files carry more than they show. A photo sent as a file says where it was
+taken; a PDF with black boxes drawn over a name still holds the name; a
+Word document keeps what was deleted with tracked changes on. The tools
+that show this are made for people who already know it is there. And to
+see inside a file at all, you either read the spec with `xxd` open in
+another window, or install a desktop hex editor.
 
 It is built for:
 
-1. **A file is broken and you need to know where.**
-2. **You are writing a parser** and need to see which bytes hold a field.
-3. **You are learning** a format or a compression algorithm and want to look at
+1. **You are about to send a photo or a document** and want to know what
+   goes with it — and a copy without it.
+2. **A file is broken and you need to know where.**
+3. **You are writing a parser** and need to see which bytes hold a field.
+4. **You are learning** a format or a compression algorithm and want to look at
    one rather than read about one.
-4. **Reverse engineering, CTF, security triage** — inspect a suspicious file
+5. **Reverse engineering, CTF, security triage** — inspect a suspicious file
    without executing it. Everything runs locally, which is the point.
 
 ## How fast
@@ -292,7 +298,7 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~285 KB (WebAssembly 219 KB) | — |
+| The whole app, gzipped | ~290 KB (WebAssembly 226 KB) | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for
@@ -332,7 +338,9 @@ Three rules hold across the parser:
   is. The sample photo's metadata is checked against what Apple's ImageIO
   reads from the same file.
 
-Open problems are listed in [`docs/known-issues.md`](docs/known-issues.md).
+Open problems are listed in [`docs/known-issues.md`](docs/known-issues.md);
+how to find your way around the code, and how to add to it, is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 The original design and plan are in [`docs/superpowers/`](docs/superpowers/).
 
 ## Developing
