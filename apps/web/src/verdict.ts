@@ -2,7 +2,7 @@ import { Concern, FileModel, Kind } from "./model";
 
 /** One line of the verdict: what kind of finding, the sentence, where to look. */
 export interface VerdictLine {
-  kind: "damage" | "hidden" | "reveals" | "oddity" | "healthy" | "unknown";
+  kind: "damage" | "misnamed" | "hidden" | "reveals" | "oddity" | "healthy" | "unknown";
   text: string;
   /** The node "Show me" selects, or -1 when there is nothing to point at. */
   node: number;
@@ -14,6 +14,59 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function list(items: string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** The extensions each format is named with. */
+const EXTENSIONS: Record<string, string[]> = {
+  jpeg: ["jpg", "jpeg", "jpe", "jfif"],
+  png: ["png"],
+  heif: ["heic", "heif", "hif", "avif"],
+  video: ["mp4", "m4v", "mov", "qt", "3gp", "3g2", "m4a"],
+  pdf: ["pdf"],
+  zip: ["zip", "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "odt", "ods", "odp", "epub", "apk", "aab", "jar", "war", "xpi", "ipa", "whl", "nupkg", "kmz", "3mf", "usdz"],
+  wasm: ["wasm"],
+};
+
+/** A format as a person would name it, and the extension that fits it. */
+const NAMES: Record<string, [string, string]> = {
+  jpeg: ["a JPEG", ".jpg"],
+  png: ["a PNG", ".png"],
+  heif: ["a HEIF image (HEIC or AVIF)", ".heic"],
+  video: ["an MP4 or QuickTime movie", ".mp4"],
+  pdf: ["a PDF", ".pdf"],
+  zip: ["a ZIP archive", ".zip"],
+  wasm: ["a WebAssembly module", ".wasm"],
+};
+
+/** A name's extension that says another format than the bytes, what they are, and the extension that fits them. */
+export function misfit(m: FileModel): { ext: string; what: string; fits: string } | null {
+  const f = m.file;
+  const dot = m.name.lastIndexOf(".");
+  if (dot <= 0 || f.format === "unknown") return null;
+  const ext = m.name.slice(dot + 1).toLowerCase();
+  const claimed = Object.keys(EXTENSIONS).find((k) => EXTENSIONS[k].includes(ext));
+  if (!claimed || claimed === f.format) return null;
+  let [what, fits] = NAMES[f.format];
+  // A HEIF says which it is: "HEIC · …" or "AVIF · …".
+  const brand = f.format === "heif" ? m.value(0).split(" · ")[0] : "";
+  if (brand === "HEIC" || brand === "AVIF") [what, fits] = [`a ${brand} image`, `.${brand.toLowerCase()}`];
+  return { ext, what, fits };
+}
+
+/**
+ * A file whose name says one format while its bytes are another: a HEIC
+ * photo saved as .jpg, a PNG screenshot renamed. The bytes are fine; apps
+ * that go by the name refuse it, which looks like damage and is not.
+ */
+function misnamed(m: FileModel): VerdictLine | null {
+  const n = misfit(m);
+  if (!n) return null;
+  return {
+    kind: "misnamed",
+    text: `Named .${n.ext}, but it is ${n.what}. Apps that go by the name may refuse it or call it damaged; renaming it to ${n.fits} fixes that.`,
+    // The bytes that say what it is: its signature.
+    node: m.children(0)[0] ?? 0,
+  };
 }
 
 /** What each kind of fact gives away, in words, for the "Reveals" line. */
@@ -64,6 +117,10 @@ export function verdict(m: FileModel): VerdictLine[] {
   const odd = m.problems.filter((id) => !damage.includes(id) && !hidden.includes(id));
 
   const lines: VerdictLine[] = [];
+  // Often the whole answer to "why won't it open", so it comes before any
+  // damage; "looks healthy", which it agrees with, still goes above it.
+  const name = misnamed(m);
+  if (name) lines.push(name);
   if (damage.length > 0) {
     lines.push({
       kind: "damage",

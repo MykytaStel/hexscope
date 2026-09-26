@@ -1059,7 +1059,8 @@ a.btn {
 .verdict-line.is-damage { --tone: var(--tint-error); }
 .verdict-line.is-hidden { --tone: var(--tint-plte); }
 .verdict-line.is-reveals { --tone: var(--tint-gps); }
-.verdict-line.is-oddity { --tone: var(--tint-warning); }
+.verdict-line.is-oddity,
+.verdict-line.is-misnamed { --tone: var(--tint-warning); }
 .verdict-line.is-healthy { --tone: var(--tint-sig); }
 .verdict-line.is-unknown { --tone: var(--tint-iend); }
 
