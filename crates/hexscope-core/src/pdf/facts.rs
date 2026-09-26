@@ -18,7 +18,8 @@ pub(super) const MAX_DECODED_TOTAL: u64 = 64 * 1024 * 1024;
 const MAX_TEXT: usize = 512;
 
 /// The order facts are shown in: who, what changed, then the rest.
-const ORDER: [&str; 13] = [
+const ORDER: [&str; 14] = [
+    "covered",
     "author",
     "updates",
     "photoplace",
@@ -143,7 +144,7 @@ pub(super) fn insert_update(facts: &mut Vec<DocumentFact>, fact: DocumentFact) {
     facts.sort_by_key(|f| ORDER.iter().position(|&k| k == f.kind));
 }
 
-enum Found<'a> {
+pub(super) enum Found<'a> {
     /// An object at the top level of the file.
     Top(&'a ObjRec),
     /// An object inside a compressed object stream, and that stream's node.
@@ -152,7 +153,12 @@ enum Found<'a> {
 
 /// The latest object numbered `num`, at the top level or packed in an
 /// object stream (7.5.7).
-fn resolve<'a>(data: &[u8], ctx: &'a Ctx, num: u32, budget: &mut u64) -> Option<Found<'a>> {
+pub(super) fn resolve<'a>(
+    data: &[u8],
+    ctx: &'a Ctx,
+    num: u32,
+    budget: &mut u64,
+) -> Option<Found<'a>> {
     let crypt = ctx.crypt.as_ref();
     if let Some(rec) = ctx.objects.iter().rev().find(|o| o.num == num) {
         return Some(Found::Top(rec));

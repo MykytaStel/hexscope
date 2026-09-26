@@ -134,21 +134,11 @@ fn photo() -> Vec<u8> {
     crate::jpeg::testing::jpeg_with_exif(Some(&build(s)))
 }
 
-/// One page showing `jpeg`, with a correct cross-reference table.
-fn pdf_with_photo(jpeg: &[u8]) -> Vec<u8> {
+/// A PDF of these objects, numbered from 1, with a correct cross-reference
+/// table; the first is the catalog.
+fn pdf_of(objects: &[Vec<u8>]) -> Vec<u8> {
     let mut out = b"%PDF-1.7\n".to_vec();
     let mut at = Vec::new();
-    let objects: [Vec<u8>; 4] = [
-        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 8 8] /Resources << /XObject << /Im1 4 0 R >> >> >>".to_vec(),
-        [
-            format!("<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n", jpeg.len()).as_bytes(),
-            jpeg,
-            b"\nendstream",
-        ]
-        .concat(),
-    ];
     for (i, body) in objects.iter().enumerate() {
         at.push(out.len());
         out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
@@ -156,14 +146,105 @@ fn pdf_with_photo(jpeg: &[u8]) -> Vec<u8> {
         out.extend_from_slice(b"\nendobj\n");
     }
     let xref = out.len();
-    out.extend_from_slice(b"xref\n0 5\n0000000000 65535 f\r\n");
+    let size = objects.len() + 1;
+    out.extend_from_slice(format!("xref\n0 {size}\n0000000000 65535 f\r\n").as_bytes());
     for a in at {
         out.extend_from_slice(format!("{a:010} 00000 n\r\n").as_bytes());
     }
     out.extend_from_slice(
-        format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+        format!("trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
     );
     out
+}
+
+fn stream(dict: &str, bytes: &[u8]) -> Vec<u8> {
+    [
+        format!("<< {dict} /Length {} >>\nstream\n", bytes.len()).as_bytes(),
+        bytes,
+        b"\nendstream",
+    ]
+    .concat()
+}
+
+/// One page showing `jpeg`.
+fn pdf_with_photo(jpeg: &[u8]) -> Vec<u8> {
+    pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 8 8] /Resources << /XObject << /Im1 4 0 R >> >> >>".to_vec(),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode",
+            jpeg,
+        ),
+    ])
+}
+
+#[test]
+fn the_redacted_sample_still_holds_what_its_boxes_cover() {
+    let doc = parse_pdf(&fixture("redacted.pdf"));
+    assert_eq!(
+        facts(&doc),
+        [
+            (
+                "covered",
+                "page 1: “Olena Koval · +380 67 123 4567 · EUR 48,000”"
+            ),
+            (
+                "covered",
+                "page 2: an area marked for redaction was never applied"
+            ),
+            ("title", "Settlement agreement - redacted"),
+            ("producer", "hexscope sample generator"),
+        ]
+    );
+    // What the boxes cover is text in the page, not a picture of it.
+    let clean = crate::clean::clean(&fixture("redacted.pdf")).unwrap();
+    assert_eq!(facts(&parse_pdf(&clean.bytes))[0].0, "covered");
+}
+
+#[test]
+fn text_under_a_black_box_and_an_unapplied_redaction_are_found() {
+    let covered = b"BT /F1 12 Tf 72 700 Td (Salary: 4200 UAH) Tj ET 0 0 0 rg 70 695 140 16 re f";
+    let marked = b"BT /F1 12 Tf 72 700 Td (Visible) Tj ET";
+    let deflated = {
+        use std::io::Write;
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+        z.write_all(covered).unwrap();
+        z.finish().unwrap()
+    };
+    let pdf = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents [5 0 R] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 6 0 R /Annots [7 0 R] >>".to_vec(),
+        stream("/Filter /FlateDecode", &deflated),
+        stream("", marked),
+        b"<< /Type /Annot /Subtype /Redact /Rect [70 695 210 711] >>".to_vec(),
+    ]);
+    let doc = parse_pdf(&pdf);
+    assert_eq!(
+        facts(&doc),
+        [
+            ("covered", "page 1: “Salary: 4200 UAH”"),
+            (
+                "covered",
+                "page 2: an area marked for redaction was never applied"
+            ),
+        ]
+    );
+    assert_eq!(
+        problems(&doc.tree),
+        [
+            "text under a black box",
+            "marked for redaction, never redacted"
+        ]
+    );
+    let warning = doc.tree.get(doc.facts[0].node);
+    assert_eq!(
+        warning.value,
+        Some(Value::Text("“Salary: 4200 UAH”".into()))
+    );
+    assert_eq!(doc.tree.get(warning.parent.unwrap()).label, "object 5 0");
 }
 
 #[test]

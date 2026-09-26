@@ -10,6 +10,7 @@ pub mod crypt;
 pub(crate) mod docs;
 pub(crate) mod facts;
 mod lexer;
+mod redact;
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::zip::DocumentFact;
@@ -274,6 +275,9 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
+    if !encrypted || ctx.crypt.is_some() {
+        redact::check(data, &mut tree, &ctx, &mut facts);
+    }
     if let Some((l, node)) = &lock {
         let text = match l {
             crypt::Lock::Open { scheme } => {
