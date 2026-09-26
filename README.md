@@ -27,7 +27,9 @@ just refused.
 
 **Says what it found, then explains.** A file opens on a short verdict:
 damaged, something hidden or disguised, what it reveals, or healthy — each
-line a link to the bytes behind it. Every part of every file then explains
+line a link to the bytes behind it. A file named for another format (a HEIC
+photo saved as .jpg) is told so, with the extension that fits it; that is
+often the whole reason a file "won't open". Every part of every file then explains
 itself at two depths, both always shown: one plain sentence first ("The
 location directory: where the picture was taken"), and below it the offset,
 the raw value and the section of the specification that defines it (PNG,

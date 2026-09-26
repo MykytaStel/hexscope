@@ -8,6 +8,7 @@ import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
+import { misfit } from "./verdict";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -92,18 +93,19 @@ const drawer = new Drawer(
   {
     clean: cleanCopy,
     open: (bytes) => {
-      const name = cleanName(model?.name ?? "file");
+      const name = model ? cleanName(model) : "file-clean";
       void load(new File([bytes as BlobPart], name));
     },
   },
   (m) => picture.element(m),
 );
 
-/** "photo.jpg" → "photo-clean.jpg" */
-function cleanName(name: string): string {
-  const base = name.split("/").pop() ?? name;
+/** "photo.jpg" → "photo-clean.jpg"; a HEIC named .jpg → "photo-clean.heic". */
+function cleanName(m: FileModel): string {
+  const base = m.name.split("/").pop() ?? m.name;
   const dot = base.lastIndexOf(".");
-  return dot > 0 ? `${base.slice(0, dot)}-clean${base.slice(dot)}` : `${base}-clean`;
+  const ext = misfit(m)?.fits ?? (dot > 0 ? base.slice(dot) : "");
+  return `${dot > 0 ? base.slice(0, dot) : base}-clean${ext}`;
 }
 
 /** Makes the copy in the worker and hands it to the browser as a download. */
@@ -118,7 +120,7 @@ async function cleanCopy(): Promise<CleanResult> {
     const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
     const a = document.createElement("a");
     a.href = url;
-    a.download = cleanName(m.name);
+    a.download = cleanName(m);
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
