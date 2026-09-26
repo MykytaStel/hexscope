@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A Word file or a PDF can carry more than its pages show: tracked changes with the deleted text, comments and their authors, black boxes that hide nothing, photos that say where they were taken. How to see it all, and remove it, in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Check a document before you send it — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/check-document-before-sending" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/check-document-before-sending" />
+    <meta property="og:title" content="Check a document before you send it" />
+    <meta property="og:description" content="What a Word file or a PDF carries besides its pages, and how to see and remove it without uploading it." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Documents</p>
+        <h1>Check a document before you send it</h1>
+        <p class="story-lede">
+          A contract, a CV, a report: before it leaves you, it is worth knowing what it holds besides the words on its pages. Much of it is added without asking — by the program, by an earlier edit, by a colleague — and none of it shows when you read the document. <a href="./">hexscope</a> opens it in your browser and lists what anyone else could find.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file</a>
+          <a class="btn" href="./?sample=redacted.pdf">Try a blacked-out PDF</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What a Word file keeps</h2>
+          <p>A <code>.docx</code> is a ZIP of XML files, and several of them are about you rather than the text:</p>
+          <ul><li><strong>Tracked changes</strong> — and the text each deletion removed, which is still in the file though no page shows it.</li><li><strong>Comments</strong>, with the name of whoever wrote each one.</li><li><strong>Properties</strong>: the author, who saved it last, the company, the template, how long it was edited.</li><li><strong>Photos</strong> placed in it, each with its own EXIF: where it was taken, with which camera, its serial number.</li></ul>
+          <p class="guide-note">Open the sample <a href="./?sample=report.docx">Word document</a>: it shows a tracked deletion that still says “except the east, where we lost the Lviv contract”.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> What a PDF keeps</h2>
+          <ul><li><strong>Black boxes that hide nothing.</strong> A rectangle drawn over a name hides it on screen and on paper; the name is still there to select, copy and search.</li><li><strong>Marks for redaction never applied</strong>: until a tool applies them, what they cover is all there.</li><li><strong>Text no one can see</strong>: drawn invisibly, in white on white, off the page, too small. See <a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a>.</li><li><strong>Earlier versions</strong> an edit left behind, with what it took off the page. See <a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a>.</li><li><strong>Comments</strong> and their authors, the document properties, and the EXIF of every photo on its pages.</li></ul>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Remove it</h2>
+          <p>Under <em>What this document reveals</em>, <em>Remove it — save a clean copy</em> makes a copy in your browser. A PDF is written anew: the text under black boxes and the hidden text are taken out, letter by letter, with the rest of each line left where it was; marks for redaction are applied; earlier versions, properties and XMP are left behind; photos lose their camera data. A Word file loses its properties, and its photos their EXIF.</p>
+          <p>Comments and tracked changes are part of a Word document's text, so the clean copy keeps them and says so. In Word, <em>Review</em> → accept or reject every change and delete the comments, then save. <em>File → Info → Check for Issues → Inspect Document</em> removes properties on Windows.</p>
+          <p><em>Open the clean copy</em> shows it in hexscope, so you can check the list is empty.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Many files at once</h2>
+          <p>Drop a folder's worth of documents on the page, or choose several: each is listed with what it gives away, and <em>Save clean copies</em> saves a clean copy of every one that gives something away, as one ZIP.</p>
+          <p>For a website or a repository, the <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">command line and GitHub Action</a> check every file before it is published.</p>
+        </section>
+
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file now</a>
+          <span>Nothing leaves your browser.</span>
+        </p>
+        <p class="story-foot">Word documents follow ECMA-376 (Office Open XML); PDF follows ISO 32000-1.</p>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+          </ul>
+          <p class="story-foot">
+            hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>:
+            you can read the code that reads your file.
+          </p>
+        </nav>
+      </article>
+    </main>
+  </body>
+</html>

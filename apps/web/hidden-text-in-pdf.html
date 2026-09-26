@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A PDF can hold text no reader sees — in white on white, drawn invisibly, off the page, or too small — that search, copy and screening software read in full. How to find it, see what it says, and remove it, in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Text no one can see in a PDF — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/hidden-text-in-pdf" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/hidden-text-in-pdf" />
+    <meta property="og:title" content="Text no one can see in a PDF" />
+    <meta property="og:description" content="White-on-white, invisible and off-page text in PDFs: what it is, who reads it, and how to find and remove it without uploading the file." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">PDF privacy</p>
+        <h1>Text no one can see in a PDF</h1>
+        <p class="story-lede">
+          Text in a PDF does not have to be visible to be there. Written in white on a white page, drawn with no ink, placed beyond the page's edge or made a fraction of a point high, it is invisible to a reader — and read in full by search, by copy and paste, by screen readers, and by the programs that screen CVs and documents. <a href="./">hexscope</a> finds it and shows you what it says.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file</a>
+          <a class="btn" href="./?sample=redacted.pdf">Try a PDF with a hidden note</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Four ways to hide text</h2>
+          <ul><li><strong>White on white.</strong> White text with nothing but the page behind it. White text on a dark band is a design, and hexscope leaves it alone.</li><li><strong>No ink.</strong> Text rendering mode 3 draws text invisibly. Scanned pages use it for their recognised words, so a page that is a scan does not count.</li><li><strong>Off the page.</strong> Placed outside the page's area, where no viewer shows it and no printer prints it.</li><li><strong>Too small.</strong> Under a point high: a speck, or nothing, on the page.</li></ul>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Why it matters</h2>
+          <p>It can be an honest leftover — a note from an earlier draft, a template's placeholder. It can also be a message for software: words in a CV meant for the screening program and not for the person, such as instructions addressed to an AI. Either way, whoever gets the file can read it.</p>
+          <p class="guide-note">A black box drawn over text is the same problem the other way round: the text is hidden from the reader and there for everyone else. hexscope finds both.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Find it</h2>
+          <p>Open the PDF in hexscope. Hidden text appears under <em>What this document reveals</em> as <em>Hidden text</em>, page by page, with how it is hidden and what it says, and the verdict opens on <em>Something is hidden or disguised</em>. Each finding links to the page content that holds it.</p>
+          <p>Text in a font whose codes are not letters is counted rather than shown, and text inside form XObjects is not read yet.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Remove it</h2>
+          <p><em>Remove it — save a clean copy</em> takes hidden text out of the page, letter by letter, and leaves everything else where it was. Open the clean copy to check nothing is left.</p>
+          <p>If you received the file, removing the text does not tell you who put it there — ask. If you are sending it, check it first: a template or an export can leave text you never saw.</p>
+        </section>
+
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file now</a>
+          <span>Nothing leaves your browser.</span>
+        </p>
+        <p class="story-foot">Text rendering modes are in ISO 32000-1, section 9.3.6.</p>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+          </ul>
+          <p class="story-foot">
+            hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>:
+            you can read the code that reads your file.
+          </p>
+        </nav>
+      </article>
+    </main>
+  </body>
+</html>

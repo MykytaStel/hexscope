@@ -13,8 +13,17 @@ import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
 import { storedZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
+import { maybeTour, resetTour } from "./tour";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
+// "Take the tour": on the sample photo, from the start.
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
+  b.addEventListener("click", () => {
+    resetTour();
+    batch = null;
+    void loadSample("samples/photo.jpg", "photo.jpg");
+  });
+}
 
 // The file pickers are labels around hidden inputs: reachable by keyboard
 // only when the label itself takes focus and acts as a button.
@@ -496,6 +505,8 @@ async function load(file: File): Promise<void> {
   levels = [];
   show(new FileModel(response.result, new Uint8Array(buffer), file.name));
   arrive();
+  // The first file ever opened here gets a short tour, once laid out.
+  setTimeout(maybeTour, 350);
 }
 
 /** Puts a document on screen, with nothing selected. */
