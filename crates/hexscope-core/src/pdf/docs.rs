@@ -348,7 +348,7 @@ const TABLE: Table = &[
         "text under a black box",
         hidden(
             "ISO 32000-1 §8.5.3",
-            "Text with a dark box painted over it. The box hides it on screen and on paper, but the text is still in the page: select it, copy it, or search for it, and it is there.",
+            "Text with a dark box over it, or dark text on a dark box, as a black highlight leaves it. Hidden on screen and paper, it is still in the page: select, copy or search it.",
         ),
     ),
     (

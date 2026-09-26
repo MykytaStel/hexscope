@@ -156,7 +156,14 @@ fn unknown(data: &[u8]) -> ParseTree {
             data.len().min(8) as u64,
         ),
     };
-    tree.error(root, label, ByteRange::new(0, len));
+    // Only an empty file is something wrong with it; the rest say what the
+    // file is, or that hexscope cannot tell.
+    let kind = if data.is_empty() {
+        NodeKind::Error
+    } else {
+        NodeKind::Field
+    };
+    tree.add(Some(root), label, ByteRange::new(0, len), kind, None);
     tree
 }
 
@@ -236,6 +243,19 @@ mod tests {
         assert!(label(b"just some text\n").starts_with("plain text"));
         assert!(label("пам'ять, cut mid-char: \u{00e9}".as_bytes()).starts_with("plain text"));
         assert!(label(b"\x00\x01binary").contains("not recognised"));
+    }
+
+    #[test]
+    fn only_an_empty_file_is_a_problem_among_unknown_ones() {
+        let kind = |data: &[u8]| {
+            let doc = parse(data);
+            let tree = doc.tree();
+            tree.get(tree.get(0).children[0]).kind
+        };
+        assert_eq!(kind(b""), NodeKind::Error);
+        for data in [&b"text\n"[..], b"\x1F\x8B\x08....", b"\x00\x01binary"] {
+            assert_eq!(kind(data), NodeKind::Field);
+        }
     }
 
     #[test]

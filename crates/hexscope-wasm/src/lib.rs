@@ -1259,7 +1259,10 @@ mod tests {
     fn a_non_png_still_flattens_to_a_tree() {
         let parsed = parse(b"definitely not a png");
         assert!(parsed.starts.len() >= 2);
-        assert_eq!(parsed.kinds[1], 3, "the signature failure is an error");
+        // Text is what the file is, not something wrong with it; an empty
+        // file is.
+        assert_eq!(parsed.kinds[1], 1, "the text is a field");
+        assert_eq!(parse(b"").kinds[1], 3, "an empty file is an error");
         assert!(parsed.ihdr().is_empty());
         assert!(parsed.trace().is_empty());
     }

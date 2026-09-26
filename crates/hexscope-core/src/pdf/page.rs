@@ -379,6 +379,11 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
     let (mut tm, mut tlm) = (IDENTITY, IDENTITY);
     // What is painted that is not white: what white text shows against.
     let mut painted: Vec<Area> = Vec::new();
+    // Every box filled, and whether dark: dark text drawn on a dark box
+    // hides as surely as a box drawn over it, the way a highlighter set to
+    // black does.
+    let mut fills: Vec<(Area, bool)> = Vec::new();
+    let checked = std::cell::Cell::new(0u64);
     let mut images: Vec<Area> = Vec::new();
     let mut work = 0u64;
 
@@ -416,6 +421,7 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 .map_or(&unknown, |f| &f.1);
             let first = w.glyphs.len();
             let white = gs.fill.is_some_and(|l| l >= WHITE);
+            let dark_text = gs.fill.is_some_and(|l| l <= DARK) && gs.mode != 3 && gs.mode != 7;
             for (code, len) in font.codes(bytes) {
                 if w.glyphs.len() >= MAX_GLYPHS {
                     break;
@@ -436,6 +442,20 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     None if !font.two_byte => w.text.push_str(&pdf_doc(&[code as u8])),
                     None => w.text.push('\u{FFFD}'),
                 }
+                // On a dark box, and nothing lighter painted over it since.
+                let on_dark = if dark_text && checked.get() < MAX_WORK {
+                    fills
+                        .iter()
+                        .rev()
+                        .find(|(f, _)| {
+                            checked.set(checked.get() + 1);
+                            area.inside(f) >= COVERED
+                        })
+                        .filter(|(_, dark)| *dark)
+                        .map(|(f, _)| *f)
+                } else {
+                    None
+                };
                 let hidden = if gs.mode == 3 || gs.mode == 7 {
                     Some(Hidden::Invisible)
                 } else if !area.meets(&media) {
@@ -457,10 +477,17 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                         0.0
                     },
                     text: (from, w.text.len() as u32),
-                    covered: false,
+                    covered: on_dark.is_some() && hidden.is_none(),
                     marked: false,
                     hidden,
                 });
+                if let Some(b) = on_dark
+                    && hidden.is_none()
+                    && w.boxes.len() < MAX_BOXES
+                    && !w.boxes.contains(&b)
+                {
+                    w.boxes.push(b);
+                }
                 *tm = translate(advance, tm);
             }
             w.runs.push(Run {
@@ -524,6 +551,9 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     if gs.fill.is_none_or(|l| l < WHITE) && painted.len() < MAX_GLYPHS {
                         painted.push(*area);
                     }
+                    if fills.len() < MAX_GLYPHS {
+                        fills.push((*area, dark));
+                    }
                     if !dark || work > MAX_WORK {
                         continue;
                     }
@@ -549,6 +579,9 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 let a = Area::of(&gs.ctm, 0.0, 0.0, 1.0, 1.0);
                 painted.push(a);
                 images.push(a);
+                if fills.len() < MAX_GLYPHS {
+                    fills.push((a, false));
+                }
             }
             b"BT" => {
                 tm = IDENTITY;
@@ -797,10 +830,27 @@ mod tests {
         let page =
             "BT /F1 12 Tf 72 700 Td (Salary: 4200) Tj 0 -20 Td (Kept) Tj ET 0 g 70 695 100 16 re f";
         assert_eq!(covered(page), ["Salary: 4200"]);
-        // Drawn first, a box is a background.
+        // Drawn first, a box is a background: text in a colour that shows
+        // on it is seen.
         assert!(
-            covered("0 g 70 695 100 16 re f BT /F1 12 Tf 72 700 Td (Visible) Tj ET").is_empty()
+            covered("0 g 70 695 100 16 re f BT 1 g /F1 12 Tf 72 700 Td (Visible) Tj ET").is_empty()
         );
+        assert!(
+            covered("0.9 g 70 695 100 16 re f BT 0 g /F1 12 Tf 72 700 Td (Visible) Tj ET")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn dark_text_on_a_dark_box_is_covered() {
+        // A name "blacked out" by a black highlight: box first, then the
+        // text in black on it.
+        let page = "0 g 70 695 100 16 re f BT /F1 12 Tf 72 700 Td (Olena) Tj 0 -40 Td (Kept) Tj ET";
+        assert_eq!(covered(page), ["Olena"]);
+        // Something lighter painted on the box since is what the text shows against.
+        let page =
+            "0 g 70 695 100 16 re f 1 g 70 695 100 16 re f BT 0 g /F1 12 Tf 72 700 Td (Seen) Tj ET";
+        assert!(covered(page).is_empty());
     }
 
     #[test]

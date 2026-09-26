@@ -81,6 +81,16 @@ fn a_folder_is_read_through_and_unknown_files_are_left_out() {
     assert!(copy.exists(), "{out}");
     let (code, ..) = run(&["check", copy.to_str().unwrap()]);
     assert_eq!(code, 0);
+    // One file, and --out naming the copy: the copy is that file.
+    let named = dir.join("out").join("shared.jpg");
+    let (code, out, _) = run(&[
+        "clean",
+        "--out",
+        named.to_str().unwrap(),
+        dir.join("sub/photo.jpg").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+    assert!(named.is_file(), "{out}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
