@@ -205,6 +205,36 @@ fn it_says_who_built_it_and_how() {
 }
 
 #[test]
+fn imports_say_what_the_module_can_ask_for() {
+    let f = |imports: &[(&str, &str)]| {
+        let v: Vec<(String, String)> = imports
+            .iter()
+            .map(|(m, n)| (m.to_string(), n.to_string()))
+            .collect();
+        imports_fact(&v)
+    };
+    assert_eq!(f(&[]), None);
+    assert_eq!(
+        f(&[
+            ("wasi_snapshot_preview1", "fd_write"),
+            ("wasi_snapshot_preview1", "random_get"),
+            ("wbg", "__wbg_fetch_1b2c"),
+            ("wbg", "__wbg_getRandomValues_3aa5"),
+        ])
+        .as_deref(),
+        Some(
+            "reach the network, write to files or the console and draw random numbers (4 functions from wasi_snapshot_preview1, wbg)"
+        )
+    );
+    assert_eq!(f(&[("env", "add")]).as_deref(), Some("1 function from env"));
+    let many: Vec<(String, String)> = (0..5).map(|i| (format!("m{i}"), "x".to_string())).collect();
+    assert_eq!(
+        imports_fact(&many).as_deref(),
+        Some("5 functions from m0, m1, m2 and 2 more")
+    );
+}
+
+#[test]
 fn the_clean_copy_keeps_the_program() {
     let data = sample();
     let c = crate::clean::clean(&data).unwrap();
@@ -212,8 +242,10 @@ fn the_clean_copy_keeps_the_program() {
     assert!(problems(&doc).is_empty(), "{:?}", problems(&doc));
     assert!(!labels(&doc).iter().any(|l| l.starts_with("custom section")));
     assert!(
-        doc.facts.iter().all(|f| f.kind == "paths"),
-        "the data's paths stay"
+        doc.facts
+            .iter()
+            .all(|f| f.kind == "paths" || f.kind == "imports"),
+        "the data's paths and the imports, which are the program, stay"
     );
     assert_eq!(doc.functions, 2);
     // Everything before the custom sections is the same, byte for byte.

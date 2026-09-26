@@ -170,7 +170,10 @@ one, blurry at 7% of the file and sharp at the end.
 **Shows who built a WebAssembly module.** Its custom sections say how it
 was made — the language, the compiler and its version, every function's
 name, a link to its source map, DWARF debug info — and its data often holds
-paths from the computer that built it, with the user's name in them.
+paths from the computer that built it, with the user's name in them. Its
+imports say what it can ask of whatever runs it — reach the network, open
+files, read the clock, draw random numbers, change the page, use the camera
+— by the names WASI, the component model and wasm-bindgen give them.
 hexscope lists each section and entry, finds those, and saves a copy
 without the custom sections, the code and data copied byte for byte.
 

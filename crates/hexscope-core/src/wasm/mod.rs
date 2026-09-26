@@ -307,6 +307,103 @@ fn read_names(data: &[u8], start: usize, end: usize) -> Names {
     names
 }
 
+/// What a module can ask its host for, by the names WASI, the component
+/// model's interfaces and wasm-bindgen give its imports: each pattern is
+/// matched in the lower-cased module and function name.
+const ABILITIES: [(&[&str], &str); 13] = [
+    (
+        &[
+            "sock_",
+            "fetch",
+            "xmlhttprequest",
+            "websocket",
+            "sendbeacon",
+            "wasi:sockets",
+            "wasi:http",
+        ],
+        "reach the network",
+    ),
+    (
+        &["path_", "fd_readdir", "wasi:filesystem"],
+        "open files by name",
+    ),
+    (&["fd_write"], "write to files or the console"),
+    (&["fd_read"], "read files or input"),
+    (
+        &["localstorage", "sessionstorage", "indexeddb", "cookie"],
+        "keep data in the browser",
+    ),
+    (
+        &["environ_", "wasi:cli/environment"],
+        "read environment variables",
+    ),
+    (&["args_"], "read its command line"),
+    (
+        &["clock_", "date_now", "performance", "wasi:clocks"],
+        "read the clock",
+    ),
+    (
+        &[
+            "random_get",
+            "getrandomvalues",
+            "randomfillsync",
+            "wasi:random",
+        ],
+        "draw random numbers",
+    ),
+    (
+        &["document", "createelement", "queryselector", "innerhtml"],
+        "change the page it runs in",
+    ),
+    (&["clipboard"], "use the clipboard"),
+    (&["geolocation"], "ask where you are"),
+    (
+        &["getusermedia", "mediadevices"],
+        "use the camera or microphone",
+    ),
+];
+
+/// The imports in words: what they let the module do, and from whom.
+fn imports_fact(imports: &[(String, String)]) -> Option<String> {
+    if imports.is_empty() {
+        return None;
+    }
+    // Most telling first: the order of the table.
+    let keys: Vec<String> = imports
+        .iter()
+        .map(|(m, n)| format!("{m} {n}").to_ascii_lowercase())
+        .collect();
+    let mut can: Vec<&str> = ABILITIES
+        .iter()
+        .filter(|(patterns, _)| keys.iter().any(|k| patterns.iter().any(|p| k.contains(p))))
+        .map(|&(_, ability)| ability)
+        .collect();
+    let mut modules: Vec<&str> = Vec::new();
+    for (m, _) in imports {
+        if !modules.contains(&m.as_str()) {
+            modules.push(m);
+        }
+    }
+    let more = modules.len().saturating_sub(3);
+    modules.truncate(3);
+    let mut from = modules.join(", ");
+    if more > 0 {
+        from.push_str(&format!(" and {more} more"));
+    }
+    let count = plural(imports.len() as u64, "function");
+    Some(if can.is_empty() {
+        format!("{count} from {from}")
+    } else {
+        let last = can.pop().unwrap_or_default();
+        let list = if can.is_empty() {
+            last.to_string()
+        } else {
+            format!("{} and {last}", can.join(", "))
+        };
+        format!("{list} ({count} from {from})")
+    })
+}
+
 /// State while the tree is built.
 struct Ctx<'a> {
     data: &'a [u8],
@@ -319,6 +416,9 @@ struct Ctx<'a> {
     /// User names seen in paths, and the node of the first place each was.
     users: Vec<(String, String, NodeId)>,
     debug: Option<(NodeId, u64, u32)>,
+    /// Functions imported, by module and name, and the import section.
+    imports: Vec<(String, String)>,
+    import_node: Option<NodeId>,
 }
 
 impl Ctx<'_> {
@@ -425,6 +525,8 @@ pub fn parse_wasm(data: &[u8]) -> WasmDocument {
         facts: Vec::new(),
         strip: Vec::new(),
         users: Vec::new(),
+        imports: Vec::new(),
+        import_node: None,
         debug: None,
     };
     let mut last_rank = 0u8;
@@ -571,7 +673,7 @@ pub fn parse_wasm(data: &[u8]) -> WasmDocument {
     }
 
     // Most telling first: who built it, where its source is, then how.
-    const ORDER: [&str; 8] = [
+    const ORDER: [&str; 9] = [
         "paths",
         "sourcemap",
         "debug",
@@ -580,7 +682,13 @@ pub fn parse_wasm(data: &[u8]) -> WasmDocument {
         "language",
         "toolchain",
         "sdk",
+        "imports",
     ];
+    if let Some(node) = ctx.import_node
+        && let Some(text) = imports_fact(&ctx.imports)
+    {
+        ctx.fact("imports", text, node);
+    }
     let mut facts = std::mem::take(&mut ctx.facts);
     for kind in ORDER {
         if let Some(at) = facts.iter().position(|f| f.kind == kind) {
@@ -699,6 +807,9 @@ fn contents(ctx: &mut Ctx, node: NodeId, id: u8, r: &mut Reader) -> R<Option<Str
                 let what = match r.byte()? {
                     0 => {
                         ctx.imported_functions += 1;
+                        if ctx.imports.len() < MAX_ENTRIES as usize {
+                            ctx.imports.push((module.clone(), name.clone()));
+                        }
                         format!("function, type {}", r.u32()?)
                     }
                     1 => {
@@ -723,6 +834,7 @@ fn contents(ctx: &mut Ctx, node: NodeId, id: u8, r: &mut Reader) -> R<Option<Str
                 };
                 Ok((format!("import {module}.{name}"), Some(Value::Text(what))))
             })?;
+            ctx.import_node = Some(node);
             plural(n as u64, "import")
         }
         3 => {

@@ -39,9 +39,9 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths"], zip: ["comments", "tracked", "deleted"], pdf: ["comments"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "tracked", "deleted"], pdf: ["comments"] };
 const KEPT_NOTE: Record<string, string> = {
-  wasm: "Kept: the paths in its data, which its error messages print. Only a new build, with the paths remapped, can take them out.",
+  wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
   pdf: "Kept: the comments, which are part of the document. Delete them in a PDF editor if they should not travel with it.",
   zip: "Kept: comments and tracked changes, which are part of the document's text. In Word, accept or reject every change and delete the comments (Review), then save.",
 };
@@ -98,6 +98,7 @@ const FACT_LABELS: Record<string, string> = {
   debuginfo: "Debug info at",
   debug: "Debug info",
   paths: "Built by user",
+  imports: "Asks its host to",
   covered: "Hidden, not removed",
   hiddentext: "Hidden text",
   earlier: "Taken off the page",
