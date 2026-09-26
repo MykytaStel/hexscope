@@ -279,7 +279,7 @@ export class Drawer {
     this.file.append(this.makeup(m));
 
     const fileGroup = el("div", "group");
-    fileGroup.append(el("h3", undefined, "File"));
+    fileGroup.append(el("h2", undefined, "File"));
     const grid = el("dl", "facts");
     fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
     if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
@@ -299,7 +299,7 @@ export class Drawer {
     save.addEventListener("click", () => saveStructure(m));
     fileGroup.append(report, save);
     // Another file beside this one: what one gives away that the other does not.
-    const pick = el("label", "link compare-pick", "Compare with another file…");
+    const pick = el("button", "link compare-pick", "Compare with another file…");
     const input = el("input");
     input.type = "file";
     input.hidden = true;
@@ -308,15 +308,8 @@ export class Drawer {
       input.value = "";
       if (f) this.cleaning.compare(f);
     });
-    pick.append(input);
-    pick.tabIndex = 0;
-    pick.setAttribute("role", "button");
-    pick.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        input.click();
-      }
-    });
+    pick.addEventListener("click", () => input.click());
+    fileGroup.append(input);
     fileGroup.append(pick);
     this.file.append(fileGroup);
 
@@ -324,7 +317,7 @@ export class Drawer {
     if (f.trace && f.format === "png") {
       const [events, literals, matches, output] = f.trace;
       const deflate = el("div", "group");
-      deflate.append(el("h3", undefined, "DEFLATE"));
+      deflate.append(el("h2", undefined, "DEFLATE"));
       const d = el("dl", "facts");
       fact(d, "Compressed", `${formatBytes(f.idatBytes)} → ${formatBytes(output)}`);
       if (f.idatBytes > 0) fact(d, "Ratio", `${(output / f.idatBytes).toFixed(2)}×`);
@@ -356,7 +349,7 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
-    group.append(el("h3", undefined, "What hexscope found"));
+    group.append(el("h2", undefined, "What hexscope found"));
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
@@ -405,7 +398,7 @@ export class Drawer {
   /** What the file is made of: a bar in file order and a legend by size. */
   private makeup(m: FileModel): HTMLElement {
     const group = el("div", "group makeup");
-    group.append(el("h3", undefined, "What it's made of"));
+    group.append(el("h2", undefined, "What it's made of"));
     const slices = m.slices();
     const total = slices.reduce((n, s) => n + s.len, 0);
     if (total === 0) return group;
@@ -468,7 +461,7 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
     };
-    const title = el("h3", undefined, heading[f.format] ?? "What this document reveals");
+    const title = el("h2", undefined, heading[f.format] ?? "What this document reveals");
     group.append(title);
     // The picture it is about, small, beside the heading: which photo this is.
     if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
@@ -810,7 +803,7 @@ export class Drawer {
   private entry(m: FileModel, i: number): HTMLElement {
     const e = m.entry(i);
     const group = el("div", "group entry");
-    group.append(el("h3", undefined, "Entry"));
+    group.append(el("h2", undefined, "Entry"));
     const grid = el("dl", "facts");
     fact(grid, "Name", m.label(e.node));
     fact(grid, "Data", m.value(e.node));

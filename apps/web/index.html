@@ -40,10 +40,8 @@
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 13.5 8 4 13.5z" /></svg>
           <span class="btn-label">Watch it decompress</span>
         </button>
-        <label class="btn">
-          Open<span class="open-long">&nbsp;file</span>
-          <input type="file" id="picker" multiple hidden />
-        </label>
+        <button type="button" class="btn" data-opens="picker">Open<span class="open-long">&nbsp;file</span></button>
+        <input type="file" id="picker" multiple hidden />
       </div>
     </header>
 
@@ -57,21 +55,17 @@
 
     <section class="batch" id="batch" aria-label="Files"></section>
 
-    <div class="empty">
+    <section class="empty" aria-label="Start">
       <div class="empty-card">
         <div class="hero">
           <div class="hero-text">
             <h1>See what a file gives away before you send it</h1>
             <p class="lede">Where a photo was taken, whose camera took it, the text under a PDF's black boxes, the comments left in a Word file. hexscope finds them right here, in your browser, and saves a clean copy without them.</p>
             <div class="hero-actions">
-              <label class="btn btn-primary btn-big">
-                Choose a file
-                <input type="file" id="picker-empty" multiple hidden />
-              </label>
-              <label class="link hero-folder">
-                or a whole folder
-                <input type="file" id="picker-folder" webkitdirectory hidden />
-              </label>
+              <button type="button" class="btn btn-primary btn-big" data-opens="picker-empty">Choose a file</button>
+              <input type="file" id="picker-empty" multiple hidden />
+              <button type="button" class="link hero-folder" data-opens="picker-folder">or a whole folder</button>
+              <input type="file" id="picker-folder" webkitdirectory hidden />
               <span class="hero-drop">— or drop them anywhere on this page</span>
             </div>
             <p class="load-error" id="load-error" role="alert" hidden></p>
@@ -150,7 +144,7 @@
         </nav>
         <p class="footnote">Open source · no accounts · no analytics · no uploads · <button class="link" data-shortcuts>Keyboard shortcuts</button> <kbd>?</kbd> · <button class="link" data-tour>Take the tour</button></p>
       </div>
-    </div>
+    </section>
 
     <div class="dropzone"><div>Drop to open</div></div>
     <div class="loading">Parsing…</div>

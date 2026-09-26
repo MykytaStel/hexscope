@@ -95,6 +95,9 @@ export class HexView {
   ) {
     this.scroller = document.createElement("div");
     this.scroller.className = "hex-scroller";
+    // Focusable, so the keyboard scrolls the bytes as it would a page.
+    this.scroller.tabIndex = 0;
+    this.scroller.setAttribute("aria-label", "Bytes");
     this.canvas = document.createElement("canvas");
     this.canvas.className = "hex-canvas";
     // The bytes as drawn; the tree beside them says the same in words.

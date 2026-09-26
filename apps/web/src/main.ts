@@ -27,19 +27,9 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
   });
 }
 
-// The file pickers are labels around hidden inputs: reachable by keyboard
-// only when the label itself takes focus and acts as a button.
-for (const label of document.querySelectorAll<HTMLLabelElement>("label.btn, label.link")) {
-  const input = label.querySelector<HTMLInputElement>("input[type=file]");
-  if (!input) continue;
-  label.tabIndex = 0;
-  label.setAttribute("role", "button");
-  label.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      input.click();
-    }
-  });
+// The file pickers: buttons that open hidden inputs.
+for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-opens]")) {
+  button.addEventListener("click", () => document.getElementById(button.dataset.opens ?? "")?.click());
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -388,7 +378,8 @@ function showFileInfo(m: FileModel): void {
   chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
 
   // The way back up: the list of files, each archive above this document, then this one.
-  const name = document.createElement("span");
+  // The page's heading while a file is open: its name, and the way to it.
+  const name = document.createElement("h1");
   name.className = "filename";
   if (batch) {
     const crumb = document.createElement("button");

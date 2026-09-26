@@ -34,6 +34,16 @@ export class TreeView {
     this.list = document.createElement("div");
     this.list.className = "tree";
     this.list.setAttribute("role", "tree");
+    this.list.setAttribute("aria-label", "Structure");
+    // One stop for the keyboard; the arrows move within, as in a file manager.
+    this.list.tabIndex = 0;
+    this.list.addEventListener("keydown", (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (this.key(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
     host.append(this.list);
 
     host.addEventListener("scroll", () => this.schedule(), { passive: true });
@@ -78,9 +88,14 @@ export class TreeView {
   setSelected(id: number): void {
     const m = this.model;
     if (!m) return;
-    this.rows.get(this.selected)?.classList.remove("is-selected");
+    const was = this.rows.get(this.selected);
+    was?.classList.remove("is-selected");
+    was?.setAttribute("aria-selected", "false");
     this.selected = id;
-    if (id < 0) return;
+    if (id < 0) {
+      this.list.removeAttribute("aria-activedescendant");
+      return;
+    }
 
     // Open the ancestors so the selection is actually in the list.
     let changed = false;
@@ -92,7 +107,54 @@ export class TreeView {
     }
     if (changed) this.relayout();
     this.scrollToRow(this.visible.indexOf(id));
-    this.rows.get(id)?.classList.add("is-selected");
+    const row = this.rows.get(id);
+    row?.classList.add("is-selected");
+    row?.setAttribute("aria-selected", "true");
+    if (row) this.list.setAttribute("aria-activedescendant", row.id);
+  }
+
+  /** Moves through the tree by key; whether the key was one it uses. */
+  private key(key: string): boolean {
+    const m = this.model;
+    if (!m || this.visible.length === 0) return false;
+    const at = Math.max(0, this.visible.indexOf(this.selected));
+    const id = this.visible[at];
+    const go = (to: number) => {
+      if (to !== undefined && to >= 0) this.cb.onSelect(to);
+    };
+    // Nothing selected yet: the first arrow lands on the top.
+    if (this.selected < 0 && key.startsWith("Arrow")) {
+      go(this.visible[0]);
+      return true;
+    }
+    switch (key) {
+      case "ArrowDown":
+        go(this.visible[Math.min(at + 1, this.visible.length - 1)]);
+        return true;
+      case "ArrowUp":
+        go(this.visible[Math.max(at - 1, 0)]);
+        return true;
+      case "Home":
+        go(this.visible[0]);
+        return true;
+      case "End":
+        go(this.visible[this.visible.length - 1]);
+        return true;
+      case "ArrowRight":
+        if (!m.hasChildren(id)) return true;
+        if (!this.expanded.has(id)) this.toggle(id);
+        else go(m.children(id)[0]);
+        return true;
+      case "ArrowLeft":
+        if (this.expanded.has(id) && m.hasChildren(id)) this.toggle(id);
+        else if (id !== 0) go(m.file.parents[id]);
+        return true;
+      case "Enter":
+      case " ":
+        if (m.hasChildren(id)) this.toggle(id);
+        return true;
+    }
+    return false;
   }
 
   private toggle(id: number): void {
@@ -162,6 +224,8 @@ export class TreeView {
       }
     }
     this.list.replaceChildren(frag);
+    if (this.rows.has(this.selected)) this.list.setAttribute("aria-activedescendant", `tree-row-${this.selected}`);
+    else this.list.removeAttribute("aria-activedescendant");
   }
 
   private row(m: FileModel, id: number): HTMLElement {
@@ -170,6 +234,9 @@ export class TreeView {
     row.dataset.id = String(id);
     row.dataset.tint = m.tint(id);
     row.setAttribute("role", "treeitem");
+    row.id = `tree-row-${id}`;
+    row.setAttribute("aria-level", String(m.depth[id] + 1));
+    row.setAttribute("aria-selected", String(id === this.selected));
     row.style.setProperty("--depth", String(m.depth[id]));
 
     const kind = m.kind(id);

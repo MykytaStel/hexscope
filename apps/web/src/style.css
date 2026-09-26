@@ -8,9 +8,11 @@
   --panel-2: #fafaf8;
   --border: #e4e3de;
   --text: #1c1c1e;
-  --muted: #6b6b70;
-  --faint: #a0a0a6;
-  --accent: #2563eb;
+  --muted: #5d5d62;
+  --faint: #6f6f74;
+  --accent: #1d4ed8;
+  /* Text on the accent colour. */
+  --on-accent: #fff;
   --row-hover: rgba(37, 99, 235, 0.07);
   --row-selected: rgba(37, 99, 235, 0.13);
 
@@ -26,9 +28,11 @@
   --tint-iend: #8e8e93;
   --tint-text: #0e9aa7;
   --tint-anc: #5b6475;
-  --tint-gps: #d6336c;
+  --tint-gps: #c42a60;
   --tint-warning: #d69e00;
-  --tint-error: #e5383b;
+  /* Warning text: the tint, dark enough to read on a light page. */
+  --warning-text: #855f00;
+  --tint-error: #c81e1e;
   --alpha-base: 0.1;
   --alpha-selected: 0.22;
   --alpha-hover: 0.34;
@@ -42,8 +46,9 @@
     --border: #28282c;
     --text: #ececef;
     --muted: #a1a1aa;
-    --faint: #6b6b74;
+    --faint: #878791;
     --accent: #6b9bff;
+    --on-accent: #0b1020;
     --row-hover: rgba(107, 155, 255, 0.09);
     --row-selected: rgba(107, 155, 255, 0.17);
 
@@ -64,6 +69,7 @@
     --alpha-base: 0.13;
     --alpha-selected: 0.27;
     --alpha-hover: 0.4;
+    --warning-text: var(--tint-warning);
   }
 }
 
@@ -170,6 +176,8 @@ input {
 }
 
 .filename {
+  margin: 0;
+  font-size: inherit;
   color: var(--text);
   font-weight: 600;
   overflow: hidden;
@@ -210,7 +218,7 @@ input {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn-primary:hover {
@@ -245,7 +253,7 @@ input {
 }
 
 .problems[data-severity="warning"] {
-  color: var(--tint-warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--tint-warning) 14%, transparent);
   border-color: color-mix(in srgb, var(--tint-warning) 35%, transparent);
 }
@@ -401,7 +409,7 @@ input {
   text-overflow: ellipsis;
 }
 
-.row.is-warning .label { color: var(--tint-warning); }
+.row.is-warning .label { color: var(--warning-text); }
 .row.is-error .label { color: var(--tint-error); }
 
 .value {
@@ -430,7 +438,7 @@ input {
   gap: 16px 28px;
 }
 
-.drawer-file h3 {
+.drawer-file h2 {
   margin: 0 0 8px;
   font-size: 11px;
   font-weight: 650;
@@ -758,7 +766,7 @@ input {
 .btn[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn:disabled {
@@ -1681,7 +1689,7 @@ body[data-state="loading"] .loading {
 body.is-playing .btn-play {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 body.is-playing .layout {
@@ -1747,7 +1755,7 @@ body.is-playing .drawer-file {
   width: 42px;
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .player-speed {
@@ -2457,7 +2465,7 @@ body[data-state="ready"] .viewswitch {
 
 .viewswitch button[aria-pressed="true"] {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 @media (max-width: 900px) {
@@ -2516,7 +2524,7 @@ body[data-state="ready"] .viewswitch {
 
   .viewswitch button[aria-pressed="true"] {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
   }
 
   /* Summary: what the file is and says, the whole height. */

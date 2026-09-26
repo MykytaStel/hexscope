@@ -11,6 +11,14 @@ const KEYS: [string[], string][] = [
   [["?"], "Show these keys"],
 ];
 
+const TREE: [string[], string][] = [
+  [["↑", "↓"], "The part above or below"],
+  [["→"], "Open a part, or go to its first part"],
+  [["←"], "Close a part, or go to the one it is in"],
+  [["Home", "End"], "The first or the last part"],
+  [["Enter"], "Open or close the part"],
+];
+
 const PLAYER: [string[], string][] = [
   [["Space"], "Play or pause"],
   [["←", "→"], "One step back or on"],
@@ -49,6 +57,8 @@ export function openShortcuts(): void {
   dialog.append(
     el("h2", undefined, "Keyboard shortcuts"),
     table(KEYS),
+    el("h3", undefined, "In the structure, once it has focus (Tab to it)"),
+    table(TREE),
     el("h3", undefined, "In the DEFLATE player"),
     table(PLAYER),
     close,

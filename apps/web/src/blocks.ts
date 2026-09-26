@@ -221,7 +221,7 @@ export class BlockView {
     const [dw, dh] = f.orientation >= 5 ? [h, w] : [w, h];
 
     const group = el("div", "group picture");
-    group.append(el("h3", undefined, "Picture"));
+    group.append(el("h2", undefined, "Picture"));
     const frame = el("div", "picture-frame");
     frame.style.aspectRatio = `${dw} / ${dh}`;
     frame.style.width = `min(100%, ${Math.round((MAX_HEIGHT * dw) / dh)}px)`;
