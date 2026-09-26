@@ -4,6 +4,7 @@
 const KEYS: [string[], string][] = [
   [["O"], "Open a file"],
   [["N"], "Go to the next problem"],
+  [["/"], "Find text, or bytes in hex, in the file"],
   [["P"], "Watch the file decompress, byte by byte (PNG and ZIP entries)"],
   [["Backspace"], "Back up: out of an archive entry, or to the list of files"],
   [["Esc"], "Close the player, or clear the selection"],

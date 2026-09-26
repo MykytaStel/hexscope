@@ -66,7 +66,10 @@ card — with breadcrumbs back (**Backspace** goes up one). An Office document
 shows who wrote it, who saved it last, when, with what, for which company;
 a Word document also its comments and tracked changes, by whom, with the
 text a tracked deletion still holds though no page shows it; and every photo
-placed in it says where it was taken and with what camera.
+placed in it says where it was taken and with what camera. A workbook names
+its hidden sheets, hidden rows and columns, its comments' authors and the
+files it links to on its author's disk; a deck, its speaker notes, hidden
+slides and comments.
 
 **Shows where a video was recorded.** MP4 and QuickTime movies are read box
 by box. An iPhone's video keeps its location, make, model, software and date
@@ -139,6 +142,10 @@ checksums made right, a chunk with a broken length passed over, a file cut
 short given its end so viewers show what arrived; an archive whose end was
 lost written anew from the files that are whole and check out. The page
 lists what was done, and the copy opens in hexscope to check.
+
+**Finds in the file.** <kbd>/</kbd> searches the bytes for text, or for
+bytes written in hex (`FF D8`, `0x504B`): each match is marked and the part
+of the file it falls in is selected, so what is found is also explained.
 
 **Works from the keyboard.** <kbd>?</kbd> lists the keys: <kbd>O</kbd>
 opens a file, <kbd>N</kbd> goes to the next problem, <kbd>P</kbd> plays the

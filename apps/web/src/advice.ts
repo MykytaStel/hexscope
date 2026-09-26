@@ -47,6 +47,11 @@ const RULES: Rule[] = [
     text: "Tracked changes and comments travel with the file: whoever gets it can show them (Review → All Markup) and read what was deleted, and who wrote what. Before sending it, accept or reject every change, delete the comments, and save.",
   },
   {
+    when: ["hiddensheets", "hiddencells", "hiddenslides", "notes", "links"],
+    formats: ["zip"],
+    text: "Hiding a sheet, a row or a slide only folds it away: whoever opens the file can unhide it in a click, and speaker notes travel with every copy of a deck. Delete what should not be sent, rather than hiding it; Excel's links to other files name where they are on your computer — break them (Data → Edit Links) before sending.",
+  },
+  {
     when: ["photoplace"],
     formats: ["zip", "pdf"],
     text: "A photo placed in a document keeps its own location and camera data. The clean copy removes it from every photo inside.",

@@ -1923,6 +1923,85 @@ body.is-playing .drawer-file {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* Find in the file: over the top right of the bytes. */
+.search,
+.search-open {
+  position: absolute;
+  top: 8px;
+  right: 22px;
+  z-index: 6;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
+}
+
+.search[hidden] {
+  display: none;
+}
+
+.search:not([hidden]) ~ .search-open {
+  display: none;
+}
+
+.search input {
+  width: min(220px, 40vw);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 13px var(--mono);
+  outline: none;
+}
+
+.search-count {
+  min-width: 5.5em;
+  color: var(--faint);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.search-step,
+.search-open {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.search-open {
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.search-open svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.search-step:hover,
+.search-open:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
 /* The first-run tour: a note beside the part it is about. */
 .tour {
   position: fixed;

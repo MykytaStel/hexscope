@@ -14,6 +14,7 @@ import { categories } from "./share";
 import { storedZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
+import { SearchBar } from "./search";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -255,6 +256,36 @@ function select(id: number): void {
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
   playBtn.hidden = !canPlay() && !player.isOpen;
+}
+
+/** Selects a node without scrolling to it: the view is already where it should be. */
+function selectInPlace(id: number): void {
+  selected = id;
+  hex.setSelected(id);
+  minimap.setSelected(id);
+  tree.setSelected(id);
+  drawer.showNode(model, id, id >= 0);
+}
+
+// Find in the file: each match marked in the bytes, its part selected.
+const search = new SearchBar($("hex"), {
+  bytes: () => model?.bytes ?? null,
+  show: (start, end) => {
+    hex.setHead(start, end);
+    if (start < 0 || !model) return;
+    toBytes();
+    selectInPlace(model.nodeAt(start));
+    hex.revealOffset(start, false);
+  },
+});
+{
+  const open = document.createElement("button");
+  open.className = "search-open";
+  open.title = "Find in the file (/)";
+  open.setAttribute("aria-label", "Find in the file");
+  open.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>';
+  open.addEventListener("click", () => search.open());
+  $("hex").append(open);
 }
 
 /** Selects a node another view led to, and lights up its bytes. */
@@ -519,6 +550,7 @@ function show(m: FileModel): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
+  search.reset();
   minimap.setModel(m);
   tree.setModel(m);
   drawer.showFile(m);
@@ -702,6 +734,11 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "?" && !e.metaKey && !e.ctrlKey) openShortcuts();
   if (bare && (e.key === "o" || e.key === "O")) $<HTMLInputElement>(document.body.dataset.state === "empty" ? "picker-empty" : "picker").click();
   if (bare && (e.key === "n" || e.key === "N")) nextProblem();
+  // The bytes are drawn, not text: the browser's own find cannot see them.
+  if (document.body.dataset.state === "ready" && (e.key === "/" || ((e.metaKey || e.ctrlKey) && e.key === "f"))) {
+    e.preventDefault();
+    search.open();
+  }
   if (e.key === "Backspace" && levels.length > 0) {
     e.preventDefault();
     void back(levels.length - 1);
