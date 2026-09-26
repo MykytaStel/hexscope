@@ -43,7 +43,9 @@ gives away — the place, a serial number, deleted text, a black box that
 hides nothing, damage, a wrong extension — read one after another in the
 tab. Each opens as a file of its own, with the way back to the list; *Save
 clean copies* makes a clean copy of every file that gives something away
-and saves them as one ZIP.
+and saves them as one ZIP. A whole folder can be chosen; the list filters
+to the files that give something away, or those damaged or hiding
+something.
 
 **Shows the whole file at once.** "What it's made of" splits every byte into
 picture (or files), metadata, thumbnail, structure, hidden and damaged, with
@@ -142,6 +144,10 @@ checksums made right, a chunk with a broken length passed over, a file cut
 short given its end so viewers show what arrived; an archive whose end was
 lost written anew from the files that are whole and check out. The page
 lists what was done, and the copy opens in hexscope to check.
+
+**Saves the structure.** *Save the structure as JSON* writes every part —
+its offset, length, kind, value and explanation, nested as in the tree —
+with what the file gives away and what is wrong with it, for your own tools.
 
 **Finds in the file.** <kbd>/</kbd> searches the bytes for text, or for
 bytes written in hex (`FF D8`, `0x504B`): each match is marked and the part

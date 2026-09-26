@@ -68,7 +68,11 @@
                 Choose a file
                 <input type="file" id="picker-empty" multiple hidden />
               </label>
-              <span class="hero-drop">or drop one — or a whole folder's worth — anywhere on this page</span>
+              <label class="link hero-folder">
+                or a whole folder
+                <input type="file" id="picker-folder" webkitdirectory hidden />
+              </label>
+              <span class="hero-drop">— or drop them anywhere on this page</span>
             </div>
             <p class="load-error" id="load-error" role="alert" hidden></p>
             <p class="promise">
