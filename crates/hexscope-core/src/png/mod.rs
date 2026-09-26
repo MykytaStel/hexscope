@@ -255,28 +255,7 @@ fn text_facts(notes: &[TextNote]) -> PhotoFacts {
             "Software" => set(&mut f.software, text, node),
             "Creation Time" => set(&mut f.taken, text, node),
             "Source" => set(&mut f.camera, text, node),
-            "XML:com.adobe.xmp" => {
-                use crate::pdf::facts::{xmp_date, xmp_text};
-                if let Some(t) = xmp_text(text, "dc:creator") {
-                    set(&mut f.owner, &t, node);
-                }
-                if let Some(t) = xmp_text(text, "xmp:CreatorTool") {
-                    set(&mut f.software, &t, node);
-                }
-                if let Some(t) = xmp_text(text, "tiff:Model") {
-                    set(&mut f.camera, &t, node);
-                }
-                let taken = [
-                    "exif:DateTimeOriginal",
-                    "photoshop:DateCreated",
-                    "xmp:CreateDate",
-                ]
-                .iter()
-                .find_map(|k| xmp_text(text, k));
-                if let Some(t) = taken {
-                    set(&mut f.taken, &xmp_date(&t), node);
-                }
-            }
+            "XML:com.adobe.xmp" => f.fill_from(crate::exif::xmp::from_xmp(text, node)),
             _ => {}
         }
     }

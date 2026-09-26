@@ -138,7 +138,7 @@ fn jpeg_what(label: &str) -> String {
     let kind = label.split(" · ").nth(1).unwrap_or("");
     match (label, kind) {
         (_, "EXIF") => "EXIF: camera, time, location, serial numbers, thumbnail".into(),
-        (_, "XMP") => "XMP: editing history and author".into(),
+        (_, "XMP") => "XMP: editing history, author and place names".into(),
         (_, "Photoshop") => "Photoshop and IPTC: captions, keywords, credits".into(),
         (_, "MPF") => "an index of extra pictures stored in the file".into(),
         (_, "JFXX") => "a JFIF thumbnail".into(),
@@ -297,7 +297,7 @@ fn clean_png(data: &[u8], doc: &PngDocument) -> Result<Cleaned, CleanError> {
                     .unwrap_or_default();
                 if keyword == "XML:com.adobe.xmp" {
                     removed.push(Removed {
-                        what: "XMP: editing history and author".into(),
+                        what: "XMP: editing history, author and place names".into(),
                         bytes: n.range.len,
                     });
                 } else {
@@ -487,7 +487,7 @@ fn clean_heif(data: &[u8], doc: &HeifDocument) -> Result<Cleaned, CleanError> {
             None => room.fill(b' '),
         }
         removed.push(Removed {
-            what: "XMP: editing history and author".into(),
+            what: "XMP: editing history, author and place names".into(),
             bytes: xmp.len,
         });
     }
@@ -796,6 +796,28 @@ mod tests {
     }
 
     #[test]
+    fn an_editors_record_goes_with_the_rest() {
+        let mut jpeg = jpeg_with_exif(None);
+        let xmp = b"http://ns.adobe.com/xap/1.0/\0<x:xmpmeta photoshop:City=\"Lviv\" xmpMM:PreservedFileName=\"IMG_1.CR3\"/>";
+        let mut segment = vec![0xFF, 0xE1];
+        segment.extend(((xmp.len() + 2) as u16).to_be_bytes());
+        segment.extend_from_slice(xmp);
+        jpeg.splice(2..2, segment);
+        let before = parse_jpeg(&jpeg).facts;
+        assert_eq!(before.place.map(|f| f.text).as_deref(), Some("Lviv"));
+        assert_eq!(
+            before.original.map(|f| f.text).as_deref(),
+            Some("IMG_1.CR3")
+        );
+        let cleaned = clean(&jpeg).unwrap();
+        assert_eq!(parse_jpeg(&cleaned.bytes).facts, Default::default());
+        assert_eq!(
+            cleaned.removed[0].what,
+            "XMP: editing history, author and place names"
+        );
+    }
+
+    #[test]
     fn a_turned_photo_stays_upright() {
         let cleaned = clean(&revealing(6)).unwrap();
         assert_eq!(cleaned.orientation_kept, Some(6));
@@ -946,7 +968,7 @@ mod tests {
             what,
             [
                 "EXIF: camera, time, location, serial numbers",
-                "XMP: editing history and author"
+                "XMP: editing history, author and place names"
             ]
         );
         // The XMP packet repeats the location in words of its own.

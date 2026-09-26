@@ -60,6 +60,11 @@ const RULES: Rule[] = [
     text: "These IDs, and how long the phone had been on, tie this photo to others from the same phone. The clean copy removes them.",
   },
   {
+    when: ["place", "history", "original"],
+    formats: ["jpeg", "heif", "png"],
+    text: "Editors such as Lightroom and Photoshop add their own record: the place typed in, the original file's name, each step of the edit. Turning off location on the phone does not touch it — export without metadata, or save a clean copy.",
+  },
+  {
     when: ["owner"],
     formats: ["jpeg", "heif", "png"],
     text: "The owner's name comes from the camera's own settings: change it there, and new photos will stop carrying it.",

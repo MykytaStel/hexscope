@@ -424,6 +424,7 @@ fn decode_segment(
             } else {
                 text
             };
+            doc.facts.fill_from(crate::exif::xmp::from_xmp(&xml, node));
             field(tree, node, "identifier", at, ID, Value::Text("XMP".into()));
             field(
                 tree,
@@ -433,6 +434,11 @@ fn decode_segment(
                 payload.len() as u64 - ID,
                 Value::Text(shown),
             );
+        }
+        0xED if app_kind(payload) == Some("Photoshop") => {
+            let resources = payload.get(14..).unwrap_or_default();
+            doc.facts
+                .fill_from(crate::exif::xmp::from_photoshop(resources, node));
         }
         0xFE => {
             let text = String::from_utf8_lossy(p.rest()).trim().to_string();
