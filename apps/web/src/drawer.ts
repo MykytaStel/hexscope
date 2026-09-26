@@ -40,11 +40,11 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "tracked", "deleted", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides"], pdf: ["comments", "form", "attachments"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides"], pdf: ["comments", "form", "attachments"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
   pdf: "Kept: comments, form answers and attached files, which are part of the document. Delete them in a PDF editor — or flatten the form by printing to PDF — if they should not travel with it.",
-  zip: "Kept: what is part of the document itself — comments, tracked changes, hidden sheets, rows and slides, speaker notes, links to other files. Remove them in Word, Excel or PowerPoint, then save.",
+  zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files. Remove them in Excel or PowerPoint, then save.",
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
@@ -512,7 +512,9 @@ export class Drawer {
         link?.replaceChildren(quoted[1], ...bars);
       }
       // What the clean copy cannot take out stays unstruck.
-      if (KEPT[f.format]?.includes(fact.kind)) {
+      // A Word document's comments go with the clean copy; a workbook's or a deck's stay.
+      const word = f.format === "zip" && f.labels.includes("word/document.xml");
+      if (KEPT[f.format]?.includes(fact.kind) && !(word && fact.kind === "comments")) {
         dd.dataset.kept = "";
         (dd.previousElementSibling as HTMLElement | null)?.setAttribute("data-kept", "");
       }
@@ -620,7 +622,7 @@ export class Drawer {
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
-      zip: "Removes the document's properties, and the camera data and location of every photo in it. Comments and tracked changes are part of the text: they stay, with their authors.",
+      zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       video:

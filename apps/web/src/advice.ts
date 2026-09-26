@@ -49,7 +49,7 @@ const RULES: Rule[] = [
   {
     when: ["deleted", "tracked", "comments"],
     formats: ["zip"],
-    text: "Tracked changes and comments travel with the file: whoever gets it can show them (Review → All Markup) and read what was deleted, and who wrote what. Before sending it, accept or reject every change, delete the comments, and save.",
+    text: "Tracked changes and comments travel with the file: whoever gets it can show them (Review → All Markup) and read what was deleted, and who wrote what. The clean copy accepts every change and deletes the comments, as Word's Accept All Changes and Delete All Comments would; to reject a change instead, do it in Word first.",
   },
   {
     when: ["hiddensheets", "hiddencells", "hiddenslides", "notes", "links"],
@@ -87,7 +87,7 @@ const RULES: Rule[] = [
   {
     when: ["author", "editor", "company"],
     formats: ["zip"],
-    text: "Word, Excel and PowerPoint write the name of the account that made and saved a file. In Office, File → Info → Check for Issues → Inspect Document removes it; comments and tracked changes keep their authors either way.",
+    text: "Word, Excel and PowerPoint write the name of the account that made and saved a file. The clean copy removes it; in Office, File → Info → Check for Issues → Inspect Document does too.",
   },
   {
     when: ["author", "application", "producer", "created", "modified"],

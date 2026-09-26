@@ -523,6 +523,37 @@ fn replacement(name: &str) -> Option<(&'static str, &'static str)> {
     }
 }
 
+/// A Word part with its tracked changes accepted and its comments' marks
+/// gone, or a part of comments emptied, and what that did; `None` when the
+/// part is neither, or has nothing to take out.
+fn revise(data: &[u8], e: &crate::zip::ZipEntry) -> Option<(Vec<u8>, String)> {
+    use crate::zip::office::MAX_PART;
+    use crate::zip::revise::{accept, emptied, is_comments, is_story};
+    if !(is_story(&e.name) || is_comments(&e.name)) || e.uncompressed > MAX_PART {
+        return None;
+    }
+    let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
+    let xml = std::str::from_utf8(&bytes).ok()?;
+    if is_comments(&e.name) {
+        let empty = emptied(xml)?;
+        return (empty.len() < xml.len()).then(|| {
+            (
+                empty.into_bytes(),
+                "comments and who wrote them".to_string(),
+            )
+        });
+    }
+    let (out, n) = accept(xml);
+    (n > 0).then(|| {
+        let what = if n == 1 {
+            "1 tracked change or comment mark".to_string()
+        } else {
+            format!("{n} tracked changes and comment marks")
+        };
+        (out.into_bytes(), format!("{what}, accepted or removed"))
+    })
+}
+
 /// A photo placed in an Office document, cleaned like one opened on its
 /// own; `None` when it is not a JPEG or PNG, or has nothing to remove.
 fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
@@ -553,8 +584,11 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
             clean_media(data, e)
         })
         .collect();
+    let revised: Vec<Option<(Vec<u8>, String)>> =
+        doc.entries.iter().map(|e| revise(data, e)).collect();
     if !doc.entries.iter().any(|e| replacement(&e.name).is_some())
         && media.iter().all(Option::is_none)
+        && revised.iter().all(Option::is_none)
     {
         return Err(CleanError::NothingToRemove);
     }
@@ -567,7 +601,7 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
     let mut parts = Vec::with_capacity(doc.entries.len());
     let mut removed = Vec::new();
     let mut extras = 0u64;
-    for (e, photo) in doc.entries.iter().zip(&media) {
+    for ((e, photo), change) in doc.entries.iter().zip(&media).zip(&revised) {
         if e.data.len != e.compressed {
             return Err(CleanError::Damaged);
         }
@@ -586,15 +620,22 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
                 (0, xml.as_bytes(), crc32(xml.as_bytes()), xml.len() as u64)
             }
             // A photo is stored as it is: JPEG and PNG are compressed already.
-            None => match photo {
-                Some(c) => {
+            None => match (photo, change) {
+                (_, Some((xml, what))) => {
+                    removed.push(Removed {
+                        what: format!("{}: {what}", e.name),
+                        bytes: e.uncompressed.saturating_sub(xml.len() as u64),
+                    });
+                    (0, &xml[..], crc32(xml), xml.len() as u64)
+                }
+                (Some(c), None) => {
                     removed.push(Removed {
                         what: format!("{}: what the photo reveals", e.name),
                         bytes: c.removed.iter().map(|r| r.bytes).sum(),
                     });
                     (0, &c.bytes[..], crc32(&c.bytes), c.bytes.len() as u64)
                 }
-                None => (e.method, original, e.crc32, e.uncompressed),
+                (None, None) => (e.method, original, e.crc32, e.uncompressed),
             },
         };
         parts.push(Part {

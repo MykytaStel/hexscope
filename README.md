@@ -134,8 +134,10 @@ lies, leaving the pictures untouched. Text under black boxes, under marks
 for redaction and hidden from view is taken out of the page — each glyph
 replaced by the space it took up, so every other letter stays where it was —
 and the marks are applied, as a redaction tool would. A Word, Excel or PowerPoint file loses
-its document properties, and the photos in it their EXIF (comments and
-tracked changes are part of its text and stay, and the page says so). The
+its document properties, and the photos in it their EXIF; a Word document
+has its tracked changes accepted and its comments deleted, as Word's Accept
+All Changes and Delete All Comments would (a workbook's hidden sheets or a
+deck's notes are part of it and stay, and the page says so). The
 page lists what went, and *Open the clean copy* shows it in hexscope, so you
 can see the card is empty.
 
