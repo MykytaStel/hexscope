@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import init, { cleanCopy, entropy, parse, repairCopy, type Parsed } from "./wasm/hexscope_wasm.js";
+import init, { cleanCopy, entropy, pageTexts, parse, redactCopy, repairCopy, type Parsed } from "./wasm/hexscope_wasm.js";
 import type { Blackout, PageArea, ParsedFile } from "./model";
 
 export type WorkerRequest =
@@ -14,6 +14,8 @@ export type WorkerRequest =
   | { id: number; type: "back"; depth: number }
   | { id: number; type: "clean"; bytes: Uint8Array }
   | { id: number; type: "repair"; bytes: Uint8Array }
+  | { id: number; type: "pageTexts"; bytes: Uint8Array }
+  | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" };
 
@@ -23,6 +25,7 @@ export type WorkerResponse =
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
+  | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "located"; step: Float64Array }
   | { id: number; type: "blocks"; map: Float64Array; note: string }
@@ -30,6 +33,13 @@ export type WorkerResponse =
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
   | { id: number; type: "error"; message: string };
+
+/** One page's visible glyphs: where each lands, four numbers each, and its text. */
+export interface PageGlyphs {
+  media: PageArea;
+  areas: Float64Array;
+  texts: string[];
+}
 
 const SEPARATOR = "\u001f";
 const ready = init();
@@ -174,6 +184,29 @@ async function handle(req: WorkerRequest): Promise<void> {
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
     const bytes = c.bytes;
     post({ id: req.id, type: "cleaned", bytes, removed, orientation: c.orientationKept, error: c.error }, [bytes.buffer]);
+    c.free();
+    return;
+  }
+
+  if (req.type === "pageTexts") {
+    const t = pageTexts(req.bytes);
+    const pages: PageGlyphs[] = [];
+    for (let i = 0; i < t.count; i++) {
+      const texts = t.texts(i);
+      pages.push({ media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [] });
+    }
+    t.free();
+    post({ id: req.id, type: "pageTexts", pages });
+    return;
+  }
+
+  if (req.type === "redact") {
+    const c = redactCopy(req.bytes, req.areas);
+    const parts = c.removed ? c.removed.split(SEPARATOR) : [];
+    const removed = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
+    const bytes = c.bytes;
+    post({ id: req.id, type: "cleaned", bytes, removed, orientation: 0, error: c.error }, [bytes.buffer]);
     c.free();
     return;
   }

@@ -152,6 +152,11 @@ const drawer = new Drawer(
       void load(new File([bytes as BlobPart], name));
     },
     save: saveAs,
+    pages: async () => {
+      const r = await call({ type: "pageTexts", bytes: model ? model.bytes.slice() : new Uint8Array(0) });
+      return r.type === "pageTexts" ? r.pages : [];
+    },
+    redact: redactCopy,
     repair: repairCopy,
     compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
@@ -209,6 +214,19 @@ function saveAs(name: string, bytes: Uint8Array): void {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** A PDF's copy with chosen text blacked out, saved as the clean copy is. */
+async function redactCopy(areas: Float64Array): Promise<CleanResult> {
+  const m = model;
+  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
+  if (!m) return { ...none, error: "no file is open" };
+  const r = await call({ type: "redact", bytes: m.bytes.slice(), areas });
+  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
+  const base = cleanName(m).replace(/-clean(\.[^.]*)?$/, "-redacted$1");
+  const saved = !r.error && !phoneCanShare();
+  if (saved) saveAs(base, r.bytes);
+  return { bytes: r.bytes, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
 }
 
 /**

@@ -206,15 +206,24 @@ struct Painted<'a> {
     annots: Vec<(Obj, NodeId, Option<u32>)>,
 }
 
-fn paint<'a>(data: &[u8], ctx: &'a Ctx, page: &Page, budget: &mut u64) -> Painted<'a> {
+/// A page painted, with its marks for redaction and any `extra` areas to
+/// black out, which count as marks of no annotation.
+fn paint<'a>(
+    data: &[u8],
+    ctx: &'a Ctx,
+    page: &Page,
+    budget: &mut u64,
+    extra: &[Area],
+) -> Painted<'a> {
     let fonts: Fonts = page_fonts(data, ctx, page.resources.as_ref(), budget);
     let (content, parts) = content(data, ctx, &page.dict, budget);
     let annots = annotations(ctx, page);
-    let marks: Vec<(Area, NodeId, Option<u32>)> = annots
+    let mut marks: Vec<(Area, NodeId, Option<u32>)> = annots
         .iter()
         .filter(|(a, ..)| subtype(a) == "Redact")
         .filter_map(|(a, n, num)| Some((rect(a)?, *n, *num)))
         .collect();
+    marks.extend(extra.iter().map(|a| (*a, page.node, None)));
     let areas: Vec<Area> = marks.iter().map(|m| m.0).collect();
     let walked = walk(&content, &fonts, Area(page.media), &areas);
     Painted {
@@ -248,7 +257,7 @@ pub(super) fn check(
     let mut comment_node = None;
     for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
         let number = i + 1;
-        let p = paint(data, ctx, page, &mut budget);
+        let p = paint(data, ctx, page, &mut budget, &[]);
         let w = &p.walked;
         // The warnings hang on the page's first content stream.
         let at = p.parts.first().map(|(rec, ..)| {
@@ -410,14 +419,20 @@ pub(crate) struct Rewrites {
 /// The page streams the clean copy rewrites. Covered, marked and hidden
 /// glyphs go; every other glyph stays where it was. A page with areas
 /// marked for redaction gets them filled in black and the marks retired,
-/// as applying the redaction would.
-pub(crate) fn rewrites(data: &[u8], ctx: &Ctx) -> Rewrites {
+/// as applying the redaction would. `extra` are more areas to black out
+/// the same way, by page number counted from 1: what a person chose.
+pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rewrites {
     let mut out: Vec<(u32, Vec<u8>)> = Vec::new();
     let mut applied = Vec::new();
     let mut removed = 0u64;
     let mut budget = BUDGET;
-    for page in pages(data, ctx, &mut budget) {
-        let p = paint(data, ctx, &page, &mut budget);
+    for (i, page) in pages(data, ctx, &mut budget).into_iter().enumerate() {
+        let mine: Vec<Area> = extra
+            .iter()
+            .filter(|(n, _)| *n as usize == i + 1)
+            .map(|(_, a)| Area(*a))
+            .collect();
+        let p = paint(data, ctx, &page, &mut budget, &mine);
         let edits = p.walked.edits(&p.content, unseen);
         if (edits.is_empty() && p.marks.is_empty()) || p.parts.is_empty() {
             continue;
@@ -459,6 +474,44 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx) -> Rewrites {
         removed,
         applied,
     }
+}
+
+/// One page's visible text, glyph by glyph, where each lands: what a
+/// person searches to choose what to black out.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageText {
+    /// Counted from 1.
+    pub page: u32,
+    /// `[left, bottom, right, top]` in the page's points.
+    pub media: [f64; 4],
+    pub glyphs: Vec<([f64; 4], String)>,
+}
+
+/// Glyphs read for searching, at most, across the document.
+const MAX_SEARCHED: usize = 500_000;
+
+pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
+    let mut out = Vec::new();
+    let mut budget = BUDGET;
+    let mut total = 0;
+    for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
+        let p = paint(data, ctx, page, &mut budget, &[]);
+        let w = &p.walked;
+        let glyphs: Vec<([f64; 4], String)> = w
+            .glyphs
+            .iter()
+            .filter(|g| !unseen(g))
+            .take(MAX_SEARCHED.saturating_sub(total))
+            .map(|g| (g.area.0, w.text_of(g).to_string()))
+            .collect();
+        total += glyphs.len();
+        out.push(PageText {
+            page: i as u32 + 1,
+            media: page.media,
+            glyphs,
+        });
+    }
+    out
 }
 
 /// Text an update took off a page that the file still holds: lines an

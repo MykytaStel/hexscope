@@ -2766,3 +2766,113 @@ body[data-state="ready"] .viewswitch {
   gap: 4px;
   line-height: 1.45;
 }
+
+/* --- black out text yourself -------------------------------------------------- */
+
+.redact-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.redact-form input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.redact-status {
+  margin: 0 0 6px;
+}
+
+.redact-status:empty {
+  display: none;
+}
+
+.redact-term {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.redact-head .link {
+  margin-left: 4px;
+}
+
+.redact-term ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.redact-term label {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.redact-term label:hover {
+  background: var(--row-hover);
+}
+
+.redact-term input {
+  margin: 0 6px 0 0;
+  vertical-align: -2px;
+}
+
+.redact-page {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+/* What will go, as it will look: a black bar with the words still readable here. */
+.redact-hit {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: #111;
+  color: #fff;
+}
+
+.redactor > .btn-primary {
+  margin: 4px 0 8px;
+}
+
+/* --- black out part of a picture ------------------------------------------------ */
+
+.blackout-open {
+  display: block;
+  margin: 8px 0 0;
+}
+
+.blackpicture {
+  width: min(960px, calc(100vw - 32px));
+}
+
+.blackpicture-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  margin: 8px auto;
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.blackpicture-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

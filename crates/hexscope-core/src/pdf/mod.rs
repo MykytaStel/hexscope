@@ -15,7 +15,7 @@ mod lexer;
 mod page;
 pub(crate) mod redact;
 
-pub use redact::Blackout;
+pub use redact::{Blackout, PageText};
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::zip::DocumentFact;
@@ -70,6 +70,12 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
 }
 
 /// `%PDF-` within the first kilobyte.
+/// Every page's visible text, glyph by glyph, where each lands.
+pub fn page_texts(data: &[u8]) -> Vec<PageText> {
+    let (_, ctx) = parse_with(data);
+    redact::page_texts(data, &ctx)
+}
+
 pub fn is_pdf(data: &[u8]) -> bool {
     header_at(data).is_some()
 }
