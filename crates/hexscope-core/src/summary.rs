@@ -61,6 +61,7 @@ fn photo(facts: &PhotoFacts, out: &mut Vec<(&'static str, String)>) {
         ("shutter", &facts.shutter),
         ("uptime", &facts.uptime),
         ("linked", &facts.linked),
+        ("screenshot", &facts.screenshot),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {

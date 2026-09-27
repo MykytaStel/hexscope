@@ -110,6 +110,7 @@ const REVEALS: Record<string, string> = {
   paths: "the user name of the computer that built it",
   names: "its functions' names",
   toolchain: "the compiler that built it",
+  screenshot: "that it is a screenshot",
   sentfrom: "the address it was sent from",
   computer: "the sender's computer's name",
   mailer: "the mail app",

@@ -1203,6 +1203,7 @@ fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
         ("shutter", &facts.shutter),
         ("uptime", &facts.uptime),
         ("linked", &facts.linked),
+        ("screenshot", &facts.screenshot),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {

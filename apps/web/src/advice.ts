@@ -5,6 +5,9 @@
 // itself does not — and how to stop the next file carrying it.
 import type { FileModel } from "./model";
 
+/** How phones and computers name a screenshot, in a few languages. */
+export const SCREENSHOT_NAME = /screen ?shot|знімок екрана|снимок экрана|bildschirmfoto|capture d.écran|captura de pantalla|schermata|zrzut ekranu/i;
+
 /** Tips shown at most, so the ones that matter are read. */
 const MAX = 3;
 
@@ -17,6 +20,10 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
+  {
+    when: ["screenshot"],
+    text: "A screenshot shows whatever was on the screen: notifications and who sent them, other tabs, your name or photo in a corner, the time and the network. Look along its edges before sending it, and black out what should not go with “Black out part of the picture”.",
+  },
   {
     when: ["replyto", "authfail"],
     formats: ["eml"],
@@ -119,6 +126,8 @@ const RULES: Rule[] = [
 export function advice(m: FileModel): string[] {
   const f = m.file;
   const kinds = new Set([...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)]);
+  // Phones and computers that do not mark a screenshot still name it as one.
+  if (SCREENSHOT_NAME.test(m.name.split("/").pop() ?? "")) kinds.add("screenshot");
   return RULES.filter((r) => (!r.formats || r.formats.includes(f.format)) && r.when.some((k) => kinds.has(k)))
     .slice(0, MAX)
     .map((r) => r.text);

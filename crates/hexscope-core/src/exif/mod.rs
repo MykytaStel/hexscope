@@ -55,6 +55,9 @@ pub struct PhotoFacts {
     pub original: Option<Fact>,
     /// How it was edited, from XMP's history.
     pub history: Option<Fact>,
+    /// That it is a screenshot, as iPhones and Macs mark theirs: its
+    /// UserComment says so.
+    pub screenshot: Option<Fact>,
     /// IFD0's Orientation, 1 to 8: how to turn the picture upright. Not a
     /// fact about anyone, but a clean copy must keep it.
     pub orientation: Option<u16>,
@@ -79,6 +82,7 @@ impl PhotoFacts {
         self.caption = self.caption.take().or(other.caption);
         self.original = self.original.take().or(other.original);
         self.history = self.history.take().or(other.history);
+        self.screenshot = self.screenshot.take().or(other.screenshot);
         self.orientation = self.orientation.take().or(other.orientation);
     }
 }
@@ -361,6 +365,7 @@ struct Found {
     shutter: Option<Fact>,
     uptime: Option<Fact>,
     linked: Vec<(&'static str, Fact)>,
+    screenshot: Option<Fact>,
 }
 
 impl Found {
@@ -509,6 +514,7 @@ impl Found {
             uptime: self.uptime,
             linked,
             orientation: self.orientation,
+            screenshot: self.screenshot,
             ..Default::default()
         }
     }
@@ -903,6 +909,16 @@ impl Walk<'_, '_> {
                 (Ifd::Gps, 0x06) => found.alt = t.numbers(&e, 1).first().copied(),
                 (Ifd::Zero, 0x0112) => {
                     found.orientation = t.numbers(&e, 1).first().map(|&v| v as u16);
+                }
+                // A character set's 8-byte name, then the comment.
+                (Ifd::Exif, 0x9286) => {
+                    let raw = t.raw(&e, 72);
+                    if raw.windows(10).any(|w| w == b"Screenshot") {
+                        found.screenshot = Some(Fact {
+                            text: "marked as a screenshot".into(),
+                            node: value_node.unwrap_or(entry),
+                        });
+                    }
                 }
                 _ => {}
             }

@@ -185,6 +185,7 @@ const FACT_LABELS: Record<string, string> = {
   uptime: "Phone on for",
   linked: "Linked shots",
   names: "Function names",
+  screenshot: "Screenshot",
   sentfrom: "Sent from",
   computer: "Computer's name",
   mailer: "Mail app",
@@ -619,6 +620,9 @@ export class Drawer {
       group.append(el("p", "hint", none));
       if (removable) group.append(this.cleaner(m));
       if (canBlackOut(m)) group.append(this.blackOutButton(m));
+      // A screenshot with no metadata still shows what was on the screen.
+      const tips = this.tips(m);
+      if (tips) group.append(tips);
       return group;
     }
 
@@ -707,17 +711,22 @@ export class Drawer {
       group.append(this.cleaner(m));
     }
     if (canBlackOut(m)) group.append(this.blackOutButton(m));
-    const tips = advice(m);
-    if (tips.length > 0) {
-      const box = el("div", "advice");
-      box.append(el("p", "advice-title", "What you can do"));
-      const ul = el("ul");
-      for (const t of tips) ul.append(el("li", undefined, t));
-      box.append(ul);
-      group.append(box);
-    }
+    const tips = this.tips(m);
+    if (tips) group.append(tips);
     if (categories(m).length > 0) group.append(this.sharer(m));
     return group;
+  }
+
+  /** What to do about what was found, or null when there is nothing to say. */
+  private tips(m: FileModel): HTMLElement | null {
+    const tips = advice(m);
+    if (tips.length === 0) return null;
+    const box = el("div", "advice");
+    box.append(el("p", "advice-title", "What you can do"));
+    const ul = el("ul");
+    for (const t of tips) ul.append(el("li", undefined, t));
+    box.append(ul);
+    return box;
   }
 
   /**
