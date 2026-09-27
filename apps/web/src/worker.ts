@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import init, { cleanCopy, entropy, pageTexts, parse, redactCopy, repairCopy, type Parsed } from "./wasm/hexscope_wasm.js";
+import type { Parsed } from "./wasm/hexscope_wasm.js";
 import type { Blackout, PageArea, ParsedFile } from "./model";
 
 export type WorkerRequest =
@@ -43,7 +43,48 @@ export interface PageGlyphs {
 }
 
 const SEPARATOR = "\u001f";
-const ready = init();
+/** The parser's two builds: all of it, and pictures and movies alone — half the size, and what most files need. */
+type Module = typeof import("./wasm/hexscope_wasm.js");
+let full: Promise<Module> | null = null;
+let media: Promise<Module> | null = null;
+const loadFull = () =>
+  (full ??= import("./wasm/hexscope_wasm.js").then(async (m) => {
+    await m.default();
+    return m;
+  }));
+const loadMedia = () =>
+  (media ??= import("./wasm-media/hexscope_wasm.js").then(async (m) => {
+    await m.default();
+    // The same interface, less what documents need.
+    return m as unknown as Module;
+  }));
+
+/** Whether the small build reads these bytes: PNG, JPEG, and the ISO boxes of HEIF and MP4. */
+function isMedia(b: Uint8Array): boolean {
+  const png = b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  const iso = b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70;
+  return png || jpeg || iso;
+}
+const moduleFor = (b: Uint8Array) => (isMedia(b) ? loadMedia() : loadFull());
+
+/**
+ * Once a picture has been read, the whole parser is fetched quietly — not
+ * started — so the service worker has it for opening a document offline.
+ * Not on a connection that asks to save data.
+ */
+let prefetched = false;
+function prefetchFull(): void {
+  if (prefetched || full) return;
+  prefetched = true;
+  const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+  if (saveData || !navigator.onLine) return;
+  setTimeout(() => {
+    if (full) return;
+    void import("./wasm/hexscope_wasm.js").catch(() => {});
+    void fetch(new URL("./wasm/hexscope_wasm_bg.wasm", import.meta.url)).catch(() => {});
+  }, 10_000);
+}
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
 
@@ -151,8 +192,8 @@ const transfers = (r: ParsedFile): Transferable[] => [
 const ENTROPY_BINS = 1024;
 
 /** Entropy for the minimap, outside the timed parse. The window matches the core's: never under 256 bytes. */
-function addEntropy(result: ParsedFile, bytes: Uint8Array): void {
-  result.entropy = entropy(bytes, ENTROPY_BINS);
+function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
+  result.entropy = wasm.entropy(bytes, ENTROPY_BINS);
   const bins = Math.max(1, Math.min(ENTROPY_BINS, Math.floor(bytes.length / 256)));
   result.entropyWindow = Math.ceil(bytes.length / bins);
 }
@@ -161,25 +202,25 @@ function addEntropy(result: ParsedFile, bytes: Uint8Array): void {
 const MAX_DEPTH = 4;
 
 async function handle(req: WorkerRequest): Promise<void> {
-  await ready;
-
   if (req.type === "parse") {
     const bytes = new Uint8Array(await req.file.arrayBuffer());
+    const wasm = await moduleFor(bytes);
     // Timed from the call into WASM through reading every array back out, so
     // the number shown to the user is the whole cost, not the flattering part.
     const t0 = performance.now();
-    const parsed = parse(bytes);
+    const parsed = wasm.parse(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes);
+    addEntropy(result, bytes, wasm);
     for (const p of stack) p.free();
     stack = [parsed];
+    if (isMedia(bytes)) prefetchFull();
     post({ id: req.id, type: "parsed", result }, transfers(result));
     return;
   }
 
   if (req.type === "clean") {
-    const c = cleanCopy(req.bytes);
+    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
@@ -190,7 +231,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "pageTexts") {
-    const t = pageTexts(req.bytes);
+    const t = (await loadFull()).pageTexts(req.bytes);
     const pages: PageGlyphs[] = [];
     for (let i = 0; i < t.count; i++) {
       const texts = t.texts(i);
@@ -202,7 +243,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "redact") {
-    const c = redactCopy(req.bytes, req.areas);
+    const c = (await loadFull()).redactCopy(req.bytes, req.areas);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
@@ -213,7 +254,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "repair") {
-    const r = repairCopy(req.bytes);
+    const r = (await moduleFor(req.bytes)).repairCopy(req.bytes);
     const bytes = r.bytes;
     post({ id: req.id, type: "repaired", bytes, fixed: r.fixed ? r.fixed.split(SEPARATOR) : [], error: r.error }, [bytes.buffer]);
     r.free();
@@ -227,11 +268,13 @@ async function handle(req: WorkerRequest): Promise<void> {
     // An archive's entry, or a file found inside the bytes.
     const bytes = req.type === "open" ? current.extractEntry(req.index) : req.bytes;
     if (bytes.length === 0) throw new Error(`This entry cannot be opened: ${current.extractError}.`);
+    // Its own build: a ZIP behind a photo needs the one that reads archives.
+    const wasm = await moduleFor(bytes);
     const t0 = performance.now();
-    const parsed = parse(bytes);
+    const parsed = wasm.parse(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes);
+    addEntropy(result, bytes, wasm);
     stack.push(parsed);
     post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
     return;

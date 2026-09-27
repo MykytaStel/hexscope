@@ -85,19 +85,21 @@ pub fn parse(data: &[u8]) -> Document {
     if video::is_video(data) {
         return Document::Video(parse_video(data));
     }
-    if wasm::is_wasm(data) {
+    // Without documents, what follows is never reached, and not linked.
+    let documents = cfg!(feature = "documents");
+    if documents && wasm::is_wasm(data) {
         return Document::Wasm(parse_wasm(data));
     }
-    if pdf::is_pdf(data) {
+    if documents && pdf::is_pdf(data) {
         return Document::Pdf(parse_pdf(data));
     }
     // After the images, whose files may carry a ZIP on their end: an
     // archive is what the file is only when nothing earlier claimed it.
-    if zip::is_zip(data) {
+    if documents && zip::is_zip(data) {
         return Document::Zip(parse_zip(data));
     }
     // Text last: a message is header lines, and nothing binary claims it.
-    if eml::is_eml(data) {
+    if documents && eml::is_eml(data) {
         return Document::Eml(parse_eml(data));
     }
     Document::Unknown(unknown(data))

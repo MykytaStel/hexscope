@@ -78,10 +78,10 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
-        Document::Zip(doc) => clean_zip(data, &doc),
-        Document::Pdf(_) => crate::pdf::clean::clean_pdf(data),
+        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc),
+        Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
-        Document::Wasm(doc) => clean_wasm(data, &doc),
+        Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     // Two blocks of the same kind, such as a second EXIF segment, are one line.
