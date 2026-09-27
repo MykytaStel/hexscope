@@ -80,6 +80,47 @@ const LIMITS: Record<string, string[]> = {
   ],
 };
 
+/** Media types by extension, for sharing a copy: a share sheet goes by type. */
+const TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  heif: "image/heif",
+  avif: "image/avif",
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  m4a: "audio/mp4",
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  zip: "application/zip",
+  wasm: "application/wasm",
+};
+
+/**
+ * A button that hands the copy to the device's share sheet — Messages,
+ * Telegram, mail — or null where the browser cannot share such a file.
+ * Its own button, because sharing must follow a tap of its own.
+ */
+function shareButton(name: string, bytes: Uint8Array): HTMLButtonElement | null {
+  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  const file = new File([bytes as BlobPart], name, { type: TYPES[ext] ?? "" });
+  if (!navigator.canShare?.({ files: [file] })) return null;
+  const b = el("button", "btn btn-primary", "Share the clean copy");
+  b.title = "Send the copy on: to a chat, to mail, to another app";
+  b.addEventListener("click", async () => {
+    try {
+      await navigator.share({ files: [file] });
+    } catch {
+      // Cancelled, or refused: the copy is saved all the same.
+    }
+  });
+  return b;
+}
+
 /** A movie file with sound and no picture: a voice memo, a song. */
 function isAudio(m: FileModel): boolean {
   return m.file.format === "video" && / audio\b/.test(m.value(0));
@@ -215,6 +256,10 @@ function openReason(e: ZipEntryInfo, nested: number): string | null {
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
   bytes: Uint8Array;
+  /** What the copy is called when saved. */
+  name: string;
+  /** Whether it was saved already; if not, it waits for Share or Save. */
+  saved: boolean;
   removed: { what: string; bytes: number }[];
   orientation: number;
   error: string;
@@ -231,6 +276,8 @@ export interface CleanActions {
   clean(): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
+  /** Saves bytes as a download. */
+  save(name: string, bytes: Uint8Array): void;
   /** Makes a repaired copy and saves it; resolves with what was done. */
   repair(): Promise<RepairResult>;
   /** Opens the repaired copy in hexscope. */
@@ -700,7 +747,7 @@ export class Drawer {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", "Saved a clean copy. Removed:"));
+      box.append(el("p", "clean-done", r.saved ? "Saved a clean copy. Removed:" : "Made a clean copy. Removed:"));
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
@@ -728,6 +775,14 @@ export class Drawer {
       const open = el("button", "btn", "Open the clean copy");
       open.title = "Check it yourself: the card should now be empty";
       open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
+      const sharer = shareButton(r.name, r.bytes);
+      if (sharer) box.append(sharer);
+      if (!r.saved) {
+        const save = el("button", "btn", "Save it");
+        save.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
+        box.append(save);
+      }
       const diff = el("button", "btn", "Compare with the original");
       diff.title = "What the copy took out, part by part";
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));

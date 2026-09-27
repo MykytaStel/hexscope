@@ -151,6 +151,7 @@ const drawer = new Drawer(
       const name = model ? cleanName(model) : "file-clean";
       void load(new File([bytes as BlobPart], name));
     },
+    save: saveAs,
     repair: repairCopy,
     compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
@@ -200,23 +201,33 @@ async function repairCopy(): Promise<RepairResult> {
   return { bytes: r.bytes, fixed: r.fixed, error: r.error };
 }
 
-/** Makes the copy in the worker and hands it to the browser as a download. */
+/** Saves bytes as a download. */
+function saveAs(name: string, bytes: Uint8Array): void {
+  const url = URL.createObjectURL(new Blob([bytes.slice() as BlobPart]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * Makes the copy in the worker and saves it — except on a phone that can
+ * share files, where the copy waits for "Share" or "Save": a download
+ * there is a dialog in the way of sending it on.
+ */
 async function cleanCopy(): Promise<CleanResult> {
   const m = model;
-  if (!m) return { bytes: new Uint8Array(0), removed: [], orientation: 0, error: "no file is open" };
+  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
+  if (!m) return { ...none, error: "no file is open" };
   const r = await call({ type: "clean", bytes: m.bytes.slice() });
-  if (r.type !== "cleaned") {
-    return { bytes: new Uint8Array(0), removed: [], orientation: 0, error: r.type === "error" ? r.message : "unexpected reply" };
-  }
-  if (!r.error) {
-    const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = cleanName(m);
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  }
-  return { bytes: r.bytes, removed: r.removed, orientation: r.orientation, error: r.error };
+  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
+  const name = cleanName(m);
+  const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;
+  const shareable = navigator.canShare?.({ files: [new File([], name)] }) ?? false;
+  const saved = !r.error && !(phone && shareable);
+  if (saved) saveAs(name, r.bytes);
+  return { bytes: r.bytes, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
 }
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
@@ -421,6 +432,7 @@ function showFileInfo(m: FileModel): void {
 // --- many files ------------------------------------------------------------
 
 const batchView = new BatchView($("batch"), {
+  canShareCopies: phoneCanShare,
   open: (i) => {
     const item = batch?.[i];
     if (!item) return;
@@ -516,23 +528,44 @@ async function runBatch(): Promise<void> {
   if (batch && batch === items && !batchPaused && batch.some((i) => i.state === "waiting")) void runBatch();
 }
 
-/** Makes a clean copy of every file that gives something away, and saves them as one ZIP. */
+/** Clean copies shared one file each, at most: past this, or this many bytes, they go as a ZIP. */
+const MAX_SHARED = 50;
+const MAX_SHARED_BYTES = 400 * 1024 * 1024;
+
+/** A phone that can share files: its copies go to the share sheet rather than a download. */
+function phoneCanShare(): boolean {
+  return (
+    matchMedia("(hover: none) and (pointer: coarse)").matches &&
+    (navigator.canShare?.({ files: [new File([], "photo.jpg", { type: "image/jpeg" })] }) ?? false)
+  );
+}
+
+/**
+ * Makes a clean copy of every file that gives something away. On a
+ * computer they are saved as one ZIP; on a phone that can share files,
+ * they wait for "Share", one file each, so they can go straight to a chat.
+ */
 async function saveBatchClean(): Promise<void> {
   const items = batch;
   if (!items) return;
   batchView.result = "Making the clean copies…";
+  const todo = items.filter((i) => i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden")));
+  const bytesTotal = todo.reduce((n, i) => n + i.file.size, 0);
+  const share = phoneCanShare() && todo.length <= MAX_SHARED && bytesTotal <= MAX_SHARED_BYTES;
   // Each copy goes into the archive as soon as it is made, and out of memory.
   const zip = new StoredZip();
+  const shared: File[] = [];
   const failed: string[] = [];
   let nothing = 0;
   let done = 0;
-  const todo = items.filter((i) => i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden")));
   for (const item of todo) {
     const r = await call({ type: "clean", bytes: new Uint8Array(await item.file.arrayBuffer()) });
     if (batch !== items) return;
     try {
-      if (r.type === "cleaned" && !r.error) zip.add(item.cleanName, r.bytes);
-      else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
+      if (r.type === "cleaned" && !r.error) {
+        if (share) shared.push(new File([r.bytes as BlobPart], item.cleanName, { type: item.file.type }));
+        else zip.add(item.cleanName, r.bytes);
+      } else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
       else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
     } catch (e) {
       failed.push(`${item.file.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -541,18 +574,42 @@ async function saveBatchClean(): Promise<void> {
     if (todo.length > 10) batchView.result = `Making the clean copies… ${done} of ${todo.length}`;
   }
   const said: string[] = [];
-  if (zip.size > 0) {
-    const name = "hexscope-clean-copies.zip";
-    const url = URL.createObjectURL(zip.finish());
+  const name = "hexscope-clean-copies.zip";
+  const saveZip = (z: StoredZip) => {
+    const url = URL.createObjectURL(z.finish());
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+  if (zip.size > 0) {
+    saveZip(zip);
     said.push(`Saved ${zip.size === 1 ? "1 clean copy" : `${zip.size} clean copies`} as ${name}.`);
   }
   if (nothing > 0) said.push(`${nothing === 1 ? "1 file had" : `${nothing} files had`} nothing hexscope can remove.`);
   if (failed.length > 0) said.push(`Not cleaned — ${failed.join("; ")}.`);
+  if (shared.length > 0) {
+    const n = shared.length === 1 ? "1 clean copy" : `${shared.length} clean copies`;
+    const shareBtn = document.createElement("button");
+    shareBtn.className = "btn btn-primary";
+    shareBtn.textContent = `Share ${n}`;
+    shareBtn.addEventListener("click", () => {
+      navigator.share({ files: shared }).catch(() => {
+        // Cancelled, or refused: the copies are still here to save.
+      });
+    });
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "btn";
+    saveBtn.textContent = "Save as a ZIP";
+    saveBtn.addEventListener("click", async () => {
+      const z = new StoredZip();
+      for (const f of shared) z.add(f.name, new Uint8Array(await f.arrayBuffer()));
+      saveZip(z);
+    });
+    batchView.offer(`Made ${n}. ${said.join(" ")}`.trim() + " ", shareBtn, saveBtn);
+    return;
+  }
   batchView.result = said.join(" ") || "Nothing to clean.";
 }
 

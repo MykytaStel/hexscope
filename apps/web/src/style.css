@@ -1048,6 +1048,14 @@ a.btn {
   margin-top: 10px;
 }
 
+.batch-action {
+  margin: 6px 6px 0 0;
+}
+
+.cleaner > .btn {
+  margin: 0 6px 8px 0;
+}
+
 .btn-clean {
   border-color: color-mix(in srgb, var(--tint-gps) 45%, transparent);
   color: var(--tint-gps);
