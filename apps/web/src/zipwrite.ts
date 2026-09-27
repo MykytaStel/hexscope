@@ -13,44 +13,39 @@ const CRC_TABLE = (() => {
   return t;
 })();
 
+const DOS_DATE = (0 << 9) | (1 << 5) | 1; // 1980-01-01
+
 export function crc32(bytes: Uint8Array): number {
   let c = 0xffffffff;
   for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
-export interface ZipFile {
-  name: string;
-  bytes: Uint8Array;
-}
+/**
+ * A ZIP built one file at a time. Each file's bytes go into a Blob as soon
+ * as they are added, so a folder of clean copies never has to fit in memory
+ * at once: the browser may keep a large Blob on disk.
+ */
+export class StoredZip {
+  private readonly parts: BlobPart[] = [];
+  private readonly central: Uint8Array[] = [];
+  private readonly seen = new Set<string>();
+  private offset = 0;
+  private count = 0;
 
-/** Names made unique: a second `photo.jpg` becomes `photo (2).jpg`. */
-function unique(files: ZipFile[]): ZipFile[] {
-  const seen = new Set<string>();
-  return files.map((f) => {
-    let name = f.name;
-    const dot = name.lastIndexOf(".");
-    const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
-    for (let n = 2; seen.has(name.toLowerCase()); n++) name = `${stem} (${n})${ext}`;
-    seen.add(name.toLowerCase());
-    return { name, bytes: f.bytes };
-  });
-}
+  /** Adds a file. A second `photo.jpg` becomes `photo (2).jpg`. Throws past what a plain ZIP can say (4 GB, 65,535 entries). */
+  add(fileName: string, bytes: Uint8Array): void {
+    if (this.count >= 0xffff) throw new Error("too many files for one ZIP");
+    let unique = fileName;
+    const dot = fileName.lastIndexOf(".");
+    const [stem, ext] = dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, ""];
+    for (let n = 2; this.seen.has(unique.toLowerCase()); n++) unique = `${stem} (${n})${ext}`;
+    this.seen.add(unique.toLowerCase());
 
-/** The archive's bytes. Throws past the sizes a plain ZIP can say (4 GB, 65,535 entries). */
-export function storedZip(input: ZipFile[]): Uint8Array {
-  const files = unique(input);
-  if (files.length > 0xffff) throw new Error("too many files for one ZIP");
-  const enc = new TextEncoder();
-  const DOS_DATE = (0 << 9) | (1 << 5) | 1; // 1980-01-01
-  const parts: Uint8Array[] = [];
-  const central: Uint8Array[] = [];
-  let offset = 0;
-  for (const f of files) {
-    const name = enc.encode(f.name);
-    const crc = crc32(f.bytes);
-    const size = f.bytes.length;
-    if (offset + 30 + name.length + size > 0xffffffff) throw new Error("too large for one ZIP");
+    const name = new TextEncoder().encode(unique);
+    const crc = crc32(bytes);
+    const size = bytes.length;
+    if (this.offset + 30 + name.length + size > 0xffffffff) throw new Error("too large for one ZIP");
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, 0x04034b50, true);
     local.setUint16(4, 20, true);
@@ -63,7 +58,7 @@ export function storedZip(input: ZipFile[]): Uint8Array {
     local.setUint32(22, size, true);
     local.setUint16(26, name.length, true);
     local.setUint16(28, 0, true);
-    parts.push(new Uint8Array(local.buffer), name, f.bytes);
+    this.parts.push(local.buffer, name as BlobPart, new Blob([bytes as BlobPart]));
 
     const cd = new DataView(new ArrayBuffer(46));
     cd.setUint32(0, 0x02014b50, true);
@@ -77,23 +72,25 @@ export function storedZip(input: ZipFile[]): Uint8Array {
     cd.setUint32(20, size, true);
     cd.setUint32(24, size, true);
     cd.setUint16(28, name.length, true);
-    cd.setUint32(42, offset, true);
-    central.push(new Uint8Array(cd.buffer), name);
-    offset += 30 + name.length + size;
+    cd.setUint32(42, this.offset, true);
+    this.central.push(new Uint8Array(cd.buffer), name);
+    this.offset += 30 + name.length + size;
+    this.count++;
   }
-  const cdSize = central.reduce((n, p) => n + p.length, 0);
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true);
-  end.setUint16(8, files.length, true);
-  end.setUint16(10, files.length, true);
-  end.setUint32(12, cdSize, true);
-  end.setUint32(16, offset, true);
-  const all = [...parts, ...central, new Uint8Array(end.buffer)];
-  const out = new Uint8Array(all.reduce((n, p) => n + p.length, 0));
-  let at = 0;
-  for (const p of all) {
-    out.set(p, at);
-    at += p.length;
+
+  get size(): number {
+    return this.count;
   }
-  return out;
+
+  /** The archive, with its central directory at the end. */
+  finish(): Blob {
+    const cdSize = this.central.reduce((n, p) => n + p.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, this.count, true);
+    end.setUint16(10, this.count, true);
+    end.setUint32(12, cdSize, true);
+    end.setUint32(16, this.offset, true);
+    return new Blob([...this.parts, ...(this.central as BlobPart[]), end.buffer], { type: "application/zip" });
+  }
 }

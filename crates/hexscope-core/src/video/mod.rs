@@ -42,7 +42,7 @@ pub enum Scrub {
 #[derive(Debug)]
 pub struct VideoDocument {
     pub tree: ParseTree,
-    /// "MP4" or "QuickTime".
+    /// "MP4" or "QuickTime", with " audio" when there is no picture.
     pub kind: &'static str,
     pub width: Option<u32>,
     pub height: Option<u32>,
@@ -76,6 +76,9 @@ struct Ctx {
     scrub: Vec<Scrub>,
     width: u32,
     height: u32,
+    /// Whether a track is a picture, and whether one is sound (`hdlr`).
+    picture: bool,
+    sound: bool,
     duration: Option<f64>,
     /// `mvhd`'s creation time, for when nothing else says when.
     created: Option<Fact>,
@@ -105,10 +108,14 @@ pub fn parse_video(data: &[u8]) -> VideoDocument {
     if facts.taken.is_none() {
         facts.taken = ctx.created;
     }
-    let kind = if ctx.brand.is_empty() || ctx.brand.starts_with("qt") {
-        "QuickTime"
-    } else {
-        "MP4"
+    // A file with sound and no picture — a voice memo, a song — is audio.
+    let audio =
+        (ctx.sound && !ctx.picture) || ctx.brand.starts_with("M4A") || ctx.brand.starts_with("M4B");
+    let kind = match (ctx.brand.is_empty() || ctx.brand.starts_with("qt"), audio) {
+        (true, false) => "QuickTime",
+        (true, true) => "QuickTime audio",
+        (false, false) => "MP4",
+        (false, true) => "MP4 audio",
     };
     let (width, height) = (ctx.width > 0).then_some((ctx.width, ctx.height)).unzip();
     let mut summary = kind.to_string();
@@ -381,7 +388,11 @@ impl BoxBody for Ctx {
             "hdlr" => {
                 f.full_box()?;
                 f.num("preDefined", 4)?;
-                f.cc("handlerType")?;
+                match f.cc("handlerType")?.as_str() {
+                    "vide" => self.picture = true,
+                    "soun" => self.sound = true,
+                    _ => {}
+                }
                 if f.at + 12 <= end {
                     f.num("reserved", 12)?;
                 }

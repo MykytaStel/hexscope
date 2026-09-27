@@ -1,4 +1,5 @@
 import { themeColors } from "./canvas";
+import { onThemeChange } from "./theme";
 import { FileModel } from "./model";
 
 export interface MinimapCallbacks {
@@ -67,7 +68,7 @@ export class Minimap {
     this.readTheme();
 
     new ResizeObserver(() => this.schedule()).observe(this.canvas);
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    onThemeChange(() => {
       this.readTheme();
       this.schedule();
     });

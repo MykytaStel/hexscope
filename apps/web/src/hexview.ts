@@ -1,4 +1,5 @@
 import { HEX, MONO, themeColors } from "./canvas";
+import { onThemeChange } from "./theme";
 import { FileModel, Kind, type Tint } from "./model";
 
 export interface HexCallbacks {
@@ -116,7 +117,7 @@ export class HexView {
     this.canvas.addEventListener("mousemove", (e) => this.pointer(e, false));
     this.canvas.addEventListener("mouseleave", () => this.cb.onHover(-1, -1));
     this.canvas.addEventListener("click", (e) => this.pointer(e, true));
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    onThemeChange(() => {
       this.palette = readPalette();
       this.schedule();
     });
