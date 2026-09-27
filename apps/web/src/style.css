@@ -2876,3 +2876,40 @@ body[data-state="ready"] .viewswitch {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* --- files inside files ---------------------------------------------------------- */
+
+.inside {
+  margin: 8px 0 4px;
+  font-size: 13px;
+}
+
+.inside-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.inside-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.inside-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.inside-list .btn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12.5px;
+}
+
+.inside-at {
+  font-family: var(--mono);
+}
