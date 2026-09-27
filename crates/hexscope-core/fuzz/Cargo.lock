@@ -46,6 +46,9 @@ dependencies = [
 [[package]]
 name = "hexscope-core"
 version = "0.1.0"
+dependencies = [
+ "hexscope-inflate",
+]
 
 [[package]]
 name = "hexscope-core-fuzz"
@@ -54,6 +57,10 @@ dependencies = [
  "hexscope-core",
  "libfuzzer-sys",
 ]
+
+[[package]]
+name = "hexscope-inflate"
+version = "0.1.0"
 
 [[package]]
 name = "jobserver"

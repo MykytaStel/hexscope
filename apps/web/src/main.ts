@@ -4,6 +4,7 @@ import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
 import { themeButton } from "./theme";
+import { ActionBar } from "./actionbar";
 import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { Player } from "./player";
@@ -27,6 +28,9 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
     void loadSample("samples/photo.jpg", "photo.jpg");
   });
 }
+
+// On a phone, what to do about the file stays at hand.
+new ActionBar().watch(document.getElementById("drawer")!);
 
 // Light, dark or the system's, beside Open.
 document.querySelector('[data-opens="picker"]')?.before(themeButton());

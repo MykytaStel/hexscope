@@ -2913,3 +2913,119 @@ body[data-state="ready"] .viewswitch {
 .inside-at {
   font-family: var(--mono);
 }
+
+.redact-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 10px;
+}
+
+.redact-preset {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.redact-preview {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.redact-preview-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.redact-figure {
+  margin: 0;
+}
+
+.redact-figure svg {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.redact-figure figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.redact-drawing {
+  fill: rgb(0 0 0 / 0.35);
+  stroke: #111;
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+
+.redact-page-pick {
+  justify-self: start;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* On a phone: how the file is made, folded under one line. */
+.more-details {
+  margin: 4px 0 12px;
+  border-top: 1px solid var(--border);
+}
+
+.more-details > summary {
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* The one thing to do, at the bottom of a phone's screen. */
+.actionbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  body[data-state="ready"][data-view="summary"] .actionbar:not([hidden]) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+  }
+
+  .actionbar .btn {
+    width: 100%;
+    max-width: 420px;
+    height: 44px;
+    justify-content: center;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Room at the end, so the bar never covers the last line. */
+  body[data-state="ready"][data-view="summary"] .drawer-file {
+    padding-bottom: 72px;
+  }
+}
