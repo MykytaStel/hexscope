@@ -349,9 +349,13 @@ export class Drawer {
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor());
+    // On a phone, how the file is made waits under one line, so what to do
+    // about it is not scrolled past.
+    const more = matchMedia("(max-width: 900px)").matches ? el("details", "more-details") : null;
+    const later = (e: HTMLElement) => (more ?? this.file).append(e);
     const picture = this.picture(m);
-    if (picture) this.file.append(picture);
-    this.file.append(this.makeup(m));
+    if (picture) later(picture);
+    later(this.makeup(m));
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h2", undefined, "File"));
@@ -393,7 +397,11 @@ export class Drawer {
     pick.addEventListener("click", () => input.click());
     fileGroup.append(input);
     fileGroup.append(pick);
-    this.file.append(fileGroup);
+    later(fileGroup);
+    if (more) {
+      more.prepend(el("summary", undefined, "More about the file: what it is made of, its picture, its structure"));
+      this.file.append(more);
+    }
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -405,7 +413,7 @@ export class Drawer {
       if (f.idatBytes > 0) fact(d, "Ratio", `${(output / f.idatBytes).toFixed(2)}×`);
       fact(d, "Steps", events.toLocaleString());
       deflate.append(d);
-      this.file.append(deflate);
+      later(deflate);
 
       // Literal vs back-reference split: the one number that says how much
       // LZ77 actually found to reuse.
