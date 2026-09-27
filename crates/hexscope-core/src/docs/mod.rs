@@ -138,12 +138,21 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         }),
         Format::Jpeg => crate::jpeg::docs::describe(label, problem),
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
-        Format::Pdf => crate::pdf::docs::describe(tree, node, problem),
+        Format::Pdf if cfg!(feature = "documents") => {
+            crate::pdf::docs::describe(tree, node, problem)
+        }
         Format::Video => crate::video::docs::describe(tree, node, problem),
-        Format::Zip => crate::zip::docs::describe(tree, node, problem),
-        Format::Wasm => crate::wasm::docs::describe(tree, node, problem),
-        Format::Eml => crate::eml::docs::describe(tree, node, problem),
+        Format::Zip if cfg!(feature = "documents") => {
+            crate::zip::docs::describe(tree, node, problem)
+        }
+        Format::Wasm if cfg!(feature = "documents") => {
+            crate::wasm::docs::describe(tree, node, problem)
+        }
+        Format::Eml if cfg!(feature = "documents") => {
+            crate::eml::docs::describe(tree, node, problem)
+        }
         Format::Unknown => crate::document::docs(label),
+        _ => None,
     }
 }
 

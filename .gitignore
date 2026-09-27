@@ -31,6 +31,7 @@ dist/
 
 # Generated WASM bindings (rebuilt by `pnpm wasm`)
 apps/web/src/wasm/
+apps/web/src/wasm-media/
 
 apps/web/.local/
 

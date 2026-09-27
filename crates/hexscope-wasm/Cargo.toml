@@ -11,8 +11,14 @@ publish = false
 # cdylib for the browser, rlib so the flattening logic is testable natively.
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["documents"]
+# Without it, the small module the page loads first: pictures and movies
+# only (see hexscope-core's feature of the same name).
+documents = ["hexscope-core/documents"]
+
 [dependencies]
-hexscope-core = { path = "../hexscope-core" }
+hexscope-core = { path = "../hexscope-core", default-features = false }
 # Pinned exactly: the generated JS glue must match the wasm-bindgen CLI version.
 wasm-bindgen = "=0.2.128"
 

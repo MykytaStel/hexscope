@@ -613,6 +613,7 @@ impl Parsed {
     pub fn extract_entry(&mut self, index: u32) -> Vec<u8> {
         self.extract_error.clear();
         let result = match &self.zip {
+            _ if !cfg!(feature = "documents") => Err("this module opens no documents".to_string()),
             None if !self.attachment_names.is_empty() && self.format == "eml" => {
                 hexscope_core::eml::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
@@ -644,6 +645,9 @@ impl Parsed {
     /// time. Returns false, changing nothing, if the entry cannot be played.
     #[wasm_bindgen(js_name = selectEntry)]
     pub fn select_entry(&mut self, index: u32) -> bool {
+        if !cfg!(feature = "documents") {
+            return false;
+        }
         let Some(zip) = &self.zip else {
             return false;
         };
@@ -870,7 +874,7 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
-        Document::Pdf(doc) => {
+        Document::Pdf(doc) if cfg!(feature = "documents") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "pdf";
             for f in &doc.facts {
@@ -899,7 +903,7 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             }
             parsed
         }
-        Document::Zip(doc) => {
+        Document::Zip(doc) if cfg!(feature = "documents") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
             for f in &doc.facts {
@@ -911,7 +915,7 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             });
             parsed
         }
-        Document::Eml(doc) => {
+        Document::Eml(doc) if cfg!(feature = "documents") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "eml";
             for f in &doc.facts {
@@ -923,7 +927,7 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             }
             parsed
         }
-        Document::Wasm(doc) => {
+        Document::Wasm(doc) if cfg!(feature = "documents") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "wasm";
             for f in &doc.facts {
@@ -932,6 +936,8 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             parsed
         }
         Document::Unknown(tree) => flatten(&tree),
+        // A document in the small module, which never makes one.
+        other => flatten(other.tree()),
     };
     parsed.docs = docs;
     parsed.composition = slices;
@@ -1009,6 +1015,7 @@ fn into_copy(
 /// A PDF's clean copy with chosen areas blacked out: `areas` is five
 /// numbers per area — the page, counted from 1, then left, bottom, right
 /// and top in its points. See `hexscope_core::clean::redact`.
+#[cfg(feature = "documents")]
 #[wasm_bindgen(js_name = redactCopy)]
 pub fn redact_copy(bytes: &[u8], areas: &[f64]) -> CleanCopy {
     let areas: Vec<(u32, [f64; 4])> = areas
@@ -1021,11 +1028,13 @@ pub fn redact_copy(bytes: &[u8], areas: &[f64]) -> CleanCopy {
 }
 
 /// Every page's visible text, glyph by glyph, for choosing what to black out.
+#[cfg(feature = "documents")]
 #[wasm_bindgen]
 pub struct PageTexts {
     pages: Vec<hexscope_core::pdf::PageText>,
 }
 
+#[cfg(feature = "documents")]
 #[wasm_bindgen]
 impl PageTexts {
     /// Pages read.
@@ -1059,6 +1068,7 @@ impl PageTexts {
 }
 
 /// Reads every page's visible text: see `hexscope_core::pdf::page_texts`.
+#[cfg(feature = "documents")]
 #[wasm_bindgen(js_name = pageTexts)]
 pub fn page_texts(bytes: &[u8]) -> PageTexts {
     PageTexts {

@@ -77,7 +77,8 @@ that format's `docs.rs` table. The coverage test tells you if you forgot.
 **A new format** — only when real files ask for it: a module under
 `hexscope-core/src/`, a signature check in `document.rs`, a `Document`
 variant, its docs table, a sample and fixtures, and a case in the bridge's
-`parse` (`crates/hexscope-wasm/src/lib.rs`). Keep it within the WebAssembly budget (below).
+`parse` (`crates/hexscope-wasm/src/lib.rs`), behind the `documents` feature
+unless it is a picture or a movie. Keep it within the budgets (below).
 
 **The web app** has no framework: plain TypeScript and DOM, Canvas 2D for the
 bytes. Colours are tokens at the top of `style.css`, in both themes; text must
@@ -85,8 +86,12 @@ keep 4.5:1 contrast. Check it at 375 px wide, and with the keyboard alone.
 
 ## Budgets
 
-- The WebAssembly module, gzipped, must stay under 256,000 bytes; CI fails
-  above it. `hexscope-inflate` is built for speed, everything else for size.
+- The parser is built twice: a small module for pictures and movies, which
+  the page loads first (under 150,000 bytes gzipped), and the whole one,
+  loaded only for a document (under 320,000). CI fails above either. A new
+  format belongs in the whole one unless it is a picture or a movie; the
+  worker picks the module by a file's first bytes (`isMedia` in
+  `apps/web/src/worker.ts`). `hexscope-inflate` is built for speed, everything else for size.
   What has cost the most: float parsing and formatting (use `fixed.rs` and the
   PDF lexer's own reader), `HashMap` and `BTreeMap`, `to_lowercase`, and a new
   key type for `sort` — each pulls in code of its own.

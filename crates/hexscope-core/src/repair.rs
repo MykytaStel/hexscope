@@ -71,7 +71,7 @@ pub fn repair(data: &[u8]) -> Result<Repaired, RepairError> {
     let r = match doc {
         Document::Png(_) => repair_png(data),
         Document::Jpeg(j) => repair_jpeg(data, &j.tree),
-        Document::Zip(z) => repair_zip(data, &z),
+        Document::Zip(z) if cfg!(feature = "documents") => repair_zip(data, &z),
         _ => return Err(RepairError::Unsupported),
     }?;
     if r.fixed.is_empty() {

@@ -316,7 +316,8 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The whole app, gzipped | ~290 KB (WebAssembly 226 KB) | — |
+| The page and the parser for pictures and movies, gzipped | ~190 KB (WebAssembly 123 KB) | — |
+| The parser for documents, loaded when one is opened | 242 KB | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. The player never holds the stream's steps in memory: it asks for
