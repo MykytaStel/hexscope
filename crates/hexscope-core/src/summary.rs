@@ -104,6 +104,14 @@ pub fn summarize(data: &[u8]) -> Summary {
             photo(&d.facts, &mut facts);
             "heif"
         }
+        Document::Webp(d) => {
+            photo(&d.facts, &mut facts);
+            "webp"
+        }
+        Document::Gif(d) => {
+            photo(&d.facts, &mut facts);
+            "gif"
+        }
         Document::Video(d) => {
             photo(&d.facts, &mut facts);
             "video"

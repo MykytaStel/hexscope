@@ -1,6 +1,7 @@
 //! Recognising a file's format and parsing it with the right module.
 
 use crate::eml::{self, EmlDocument, parse_eml};
+use crate::gif::{self, GifDocument, parse_gif};
 use crate::heif::{self, HeifDocument, parse_heif};
 use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
@@ -8,6 +9,7 @@ use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
 use crate::video::{self, VideoDocument, parse_video};
 use crate::wasm::{self, WasmDocument, parse_wasm};
+use crate::webp::{self, WebpDocument, parse_webp};
 use crate::zip::{self, ZipDocument, parse_zip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,6 +17,8 @@ pub enum Format {
     Png,
     Jpeg,
     Heif,
+    Webp,
+    Gif,
     Video,
     Pdf,
     Zip,
@@ -30,6 +34,8 @@ pub enum Document {
     Png(PngDocument),
     Jpeg(JpegDocument),
     Heif(HeifDocument),
+    Webp(WebpDocument),
+    Gif(GifDocument),
     Video(VideoDocument),
     Pdf(PdfDocument),
     Zip(ZipDocument),
@@ -44,6 +50,8 @@ impl Document {
             Document::Png(d) => &d.tree,
             Document::Jpeg(d) => &d.tree,
             Document::Heif(d) => &d.tree,
+            Document::Webp(d) => &d.tree,
+            Document::Gif(d) => &d.tree,
             Document::Video(d) => &d.tree,
             Document::Pdf(d) => &d.tree,
             Document::Zip(d) => &d.tree,
@@ -58,6 +66,8 @@ impl Document {
             Document::Png(_) => Format::Png,
             Document::Jpeg(_) => Format::Jpeg,
             Document::Heif(_) => Format::Heif,
+            Document::Webp(_) => Format::Webp,
+            Document::Gif(_) => Format::Gif,
             Document::Video(_) => Format::Video,
             Document::Pdf(_) => Format::Pdf,
             Document::Zip(_) => Format::Zip,
@@ -81,6 +91,12 @@ pub fn parse(data: &[u8]) -> Document {
     }
     if heif::is_heif(data) {
         return Document::Heif(parse_heif(data));
+    }
+    if webp::is_webp(data) {
+        return Document::Webp(parse_webp(data));
+    }
+    if gif::is_gif(data) {
+        return Document::Gif(parse_gif(data));
     }
     if video::is_video(data) {
         return Document::Video(parse_video(data));
@@ -108,9 +124,7 @@ pub fn parse(data: &[u8]) -> Document {
 /// Signatures of formats people are likely to drop in, so the answer can be
 /// "that is a gzip" rather than "unrecognised".
 pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
-    const SIGNATURES: [(&[u8], &str); 9] = [
-        (b"GIF87a", "a GIF image"),
-        (b"GIF89a", "a GIF image"),
+    const SIGNATURES: [(&[u8], &str); 7] = [
         (b"\x7FELF", "an ELF executable"),
         (b"\xCF\xFA\xED\xFE", "a Mach-O executable"),
         (b"MZ", "a Windows executable"),
@@ -121,9 +135,6 @@ pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
     ];
     if let Some((sig, name)) = SIGNATURES.iter().find(|(sig, _)| data.starts_with(sig)) {
         return Some((name, sig.len() as u64));
-    }
-    if data.starts_with(b"RIFF") && data.get(8..12) == Some(b"WEBP") {
-        return Some(("a WebP image", 12));
     }
     None
 }

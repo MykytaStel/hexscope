@@ -36,7 +36,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["location"],
-    formats: ["jpeg", "heif", "png"],
+    formats: ["jpeg", "heif", "png", "webp", "gif"],
     text: "Instagram, Facebook and X usually remove the location when you post. Sending the photo itself keeps it: by email, as a file in Telegram or WhatsApp, through a cloud link, on a forum or a marketplace. For those, save a clean copy. To keep new photos from recording it, turn off location for the camera app.",
   },
   {
@@ -84,7 +84,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["serial", "shutter"],
-    formats: ["jpeg", "heif", "png"],
+    formats: ["jpeg", "heif", "png", "webp", "gif"],
     text: "A camera's serial number is in every photo it takes, so photos shared under different names can be traced to one camera. The clean copy removes it.",
   },
   {
@@ -93,12 +93,12 @@ const RULES: Rule[] = [
   },
   {
     when: ["place", "history", "original"],
-    formats: ["jpeg", "heif", "png"],
+    formats: ["jpeg", "heif", "png", "webp", "gif"],
     text: "Editors such as Lightroom and Photoshop add their own record: the place typed in, the original file's name, each step of the edit. Turning off location on the phone does not touch it — export without metadata, or save a clean copy.",
   },
   {
     when: ["owner"],
-    formats: ["jpeg", "heif", "png"],
+    formats: ["jpeg", "heif", "png", "webp", "gif"],
     text: "The owner's name comes from the camera's own settings: change it there, and new photos will stop carrying it.",
   },
   {

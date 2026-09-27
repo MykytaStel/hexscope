@@ -136,7 +136,7 @@ const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01]
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 function cleanLimits(m: FileModel): HTMLElement {
   const format = m.file.format;
-  const kind = format === "jpeg" || format === "heif" || format === "png" ? "photo" : isAudio(m) ? "audio" : format;
+  const kind = ["jpeg", "heif", "png", "webp", "gif"].includes(format) ? "photo" : isAudio(m) ? "audio" : format;
   const items = [...(LIMITS[kind] ?? [])];
   const base = m.name.split("/").pop() ?? m.name;
   if (DATED.test(base)) {
@@ -580,6 +580,8 @@ export class Drawer {
     const heading: Record<string, string> = {
       jpeg: "What this photo reveals",
       heif: "What this photo reveals",
+      webp: "What this image reveals",
+      gif: "What this image reveals",
       png: "What this image reveals",
       video: "What this video reveals",
       wasm: "What this module reveals",
@@ -588,7 +590,7 @@ export class Drawer {
     const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // The picture it is about, small, beside the heading: which photo this is.
-    if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
+    if (["jpeg", "png", "heif", "webp", "gif"].includes(f.format)) {
       void decodePicture(m).then((b) => {
         if (!b) return;
         const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 128);
@@ -1034,6 +1036,8 @@ export class Drawer {
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
       zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
+      webp: "Leaves out the EXIF and XMP chunks: camera, place, dates, editing history. The picture is copied byte for byte.",
+      gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       video:

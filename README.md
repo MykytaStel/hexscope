@@ -13,7 +13,7 @@ step, with an arc from each back-reference to the bytes it copies. Nothing
 is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
-> HEIC and AVIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
+> HEIC and AVIF, WebP and GIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
 > `.epub`), emails saved as `.eml` and WebAssembly are supported. Guides: [removing a photo's
 > location](https://hexscope.pages.dev/remove-location-from-photo), [what an
 > edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),

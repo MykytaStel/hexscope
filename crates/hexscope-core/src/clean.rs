@@ -67,7 +67,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC and AVIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
             }
         }
     }
@@ -91,6 +91,8 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
+        Document::Webp(doc) => clean_webp(data, &doc),
+        Document::Gif(doc) => clean_gif(data, &doc),
         Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options),
         Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
@@ -118,6 +120,107 @@ pub fn redact(data: &[u8], areas: &[(u32, [f64; 4])]) -> Result<Cleaned, CleanEr
         return Err(CleanError::Unsupported);
     }
     crate::pdf::clean::clean_pdf_with(data, areas)
+}
+
+// --- WebP and GIF --------------------------------------------------------------
+
+/// A WebP without its EXIF and XMP chunks, the extended header's flags for
+/// them cleared, and the RIFF size made right.
+fn clean_webp(data: &[u8], doc: &crate::webp::WebpDocument) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let mut body = b"WEBP".to_vec();
+    let mut removed = Vec::new();
+    for &id in &tree.get(root).children {
+        let n = tree.get(id);
+        let bytes = data
+            .get(n.range.start as usize..n.range.end() as usize)
+            .ok_or(CleanError::Damaged)?;
+        match n.label.as_str() {
+            "RIFF header" => {}
+            "EXIF" => removed.push(Removed {
+                what: "EXIF: camera, time, location, serial numbers".into(),
+                bytes: n.range.len,
+            }),
+            "XMP" => removed.push(Removed {
+                what: "XMP: editing history, author and place names".into(),
+                bytes: n.range.len,
+            }),
+            "data after the end of the image" => removed.push(Removed {
+                what: "data after the end of the image".into(),
+                bytes: n.range.len,
+            }),
+            _ if n.kind == NodeKind::Warning => {}
+            "VP8X" => {
+                let mut chunk = bytes.to_vec();
+                // Bit 3 says EXIF, bit 2 XMP: neither is there now.
+                if let Some(flags) = chunk.get_mut(8) {
+                    *flags &= !0x0C;
+                }
+                body.extend_from_slice(&chunk);
+            }
+            _ => body.extend_from_slice(bytes),
+        }
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let size = u32::try_from(body.len()).map_err(|_| CleanError::Damaged)?;
+    let mut out = b"RIFF".to_vec();
+    out.extend_from_slice(&size.to_le_bytes());
+    out.extend_from_slice(&body);
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
+}
+
+/// A GIF without its comments and XMP; timing, looping and colour profiles
+/// stay, and every frame is copied byte for byte.
+fn clean_gif(data: &[u8], doc: &crate::gif::GifDocument) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let mut out = Vec::with_capacity(data.len());
+    let mut removed = Vec::new();
+    for &id in &tree.get(root).children {
+        let n = tree.get(id);
+        let bytes = data
+            .get(n.range.start as usize..n.range.end() as usize)
+            .ok_or(CleanError::Damaged)?;
+        match n.label.as_str() {
+            "comment" => removed.push(Removed {
+                what: "comments".into(),
+                bytes: n.range.len,
+            }),
+            l if l.starts_with("application · XMP") => removed.push(Removed {
+                what: "XMP: editing history, author and place names".into(),
+                bytes: n.range.len,
+            }),
+            "data after the end of the image" => removed.push(Removed {
+                what: "data after the end of the image".into(),
+                bytes: n.range.len,
+            }),
+            _ if n.kind == NodeKind::Warning => {}
+            // The screen descriptor's node covers only its fields; its
+            // colour table and the header are nodes of their own.
+            _ => out.extend_from_slice(bytes),
+        }
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
 }
 
 // --- WebAssembly -------------------------------------------------------------

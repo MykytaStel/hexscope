@@ -394,6 +394,9 @@ function showFileInfo(m: FileModel): void {
     chips.push("JPEG");
     if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
     if (f.facts.length > 0 || f.location) chips.push("EXIF");
+  } else if (f.format === "webp" || f.format === "gif") {
+    chips.push(...m.value(0).split(" · "));
+    if (f.facts.length > 0 || f.location) chips.push("Metadata");
   } else if (f.format === "heif") {
     chips.push(m.value(0).split(" · ")[0]);
     if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
@@ -477,6 +480,8 @@ function kindOf(m: FileModel): string {
     case "png":
       return "PNG";
     case "heif":
+    case "webp":
+    case "gif":
     case "video":
     case "pdf":
       return first;

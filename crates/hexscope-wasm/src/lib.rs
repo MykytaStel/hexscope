@@ -867,6 +867,20 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Webp(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "webp";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
+        Document::Gif(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "gif";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
         Document::Video(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "video";
@@ -1593,9 +1607,9 @@ mod tests {
 
     #[test]
     fn an_unknown_file_is_named_not_ignored() {
-        let parsed = parse(b"GIF89a not decoded");
+        let parsed = parse(b"\x1F\x8B\x08 not decoded");
         assert_eq!(parsed.format(), "unknown");
-        assert!(parsed.labels.contains("GIF"));
+        assert!(parsed.labels.contains("gzip"));
         assert!(parsed.facts().is_empty() && parsed.location().is_empty());
     }
 
@@ -1934,7 +1948,7 @@ mod tests {
         assert!(again.facts().is_empty());
         assert!(again.location().is_empty());
 
-        let refused = clean_copy(b"GIF89a not cleaned", false);
+        let refused = clean_copy(b"\x1F\x8B\x08 not cleaned", false);
         assert!(refused.bytes().is_empty());
         assert!(refused.error().contains("WebAssembly modules only"));
         let bare = clean_copy(&fixture("basn2c08.png"), false);
