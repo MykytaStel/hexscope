@@ -1697,7 +1697,7 @@ mod tests {
         assert_eq!(parsed.format(), "video");
         assert_eq!(parsed.dimensions(), vec![64, 48]);
         assert_eq!(parsed.location().len(), 4);
-        let c = clean_copy(&mov);
+        let c = clean_copy(&mov, false);
         assert_eq!(c.error(), "");
         assert!(parse(&c.bytes()).location().is_empty());
     }
@@ -1927,17 +1927,17 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
         )
         .unwrap();
-        let c = clean_copy(&photo);
+        let c = clean_copy(&photo, false);
         assert_eq!(c.error(), "");
         assert!(c.removed().starts_with("EXIF"));
         let again = parse(&c.bytes());
         assert!(again.facts().is_empty());
         assert!(again.location().is_empty());
 
-        let refused = clean_copy(b"GIF89a not cleaned");
+        let refused = clean_copy(b"GIF89a not cleaned", false);
         assert!(refused.bytes().is_empty());
         assert!(refused.error().contains("WebAssembly modules only"));
-        let bare = clean_copy(&fixture("basn2c08.png"));
+        let bare = clean_copy(&fixture("basn2c08.png"), false);
         assert!(bare.error().contains("nothing in it"));
     }
 
