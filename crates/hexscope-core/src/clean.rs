@@ -73,12 +73,25 @@ impl CleanError {
     }
 }
 
+/// What a clean copy may take out beyond what it always does.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CleanOptions {
+    /// Empty Excel's and PowerPoint's comments and speaker notes, and the
+    /// names of who wrote them. They are part of the document, so only when
+    /// asked.
+    pub comments_and_notes: bool,
+}
+
 pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
+    clean_with(data, CleanOptions::default())
+}
+
+pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanError> {
     let mut cleaned = match parse(data) {
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
-        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc),
+        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options),
         Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
         Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
@@ -537,10 +550,31 @@ fn replacement(name: &str) -> Option<(&'static str, &'static str)> {
 /// A Word part with its tracked changes accepted and its comments' marks
 /// gone, or a part of comments emptied, and what that did; `None` when the
 /// part is neither, or has nothing to take out.
-fn revise(data: &[u8], e: &crate::zip::ZipEntry) -> Option<(Vec<u8>, String)> {
+fn revise(
+    data: &[u8],
+    e: &crate::zip::ZipEntry,
+    options: CleanOptions,
+) -> Option<(Vec<u8>, String)> {
     use crate::zip::office::MAX_PART;
-    use crate::zip::revise::{accept, emptied, is_comments, is_story};
-    if !(is_story(&e.name) || is_comments(&e.name)) || e.uncompressed > MAX_PART {
+    use crate::zip::revise::{accept, blank_notes, emptied, is_comments, is_story};
+    if e.uncompressed > MAX_PART {
+        return None;
+    }
+    // Excel's and PowerPoint's comments and notes, when asked for.
+    if options.comments_and_notes && blank_notes(&e.name, "").is_some() {
+        let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
+        let xml = std::str::from_utf8(&bytes).ok()?;
+        let (out, n) = blank_notes(&e.name, xml)?;
+        let what = if e.name.starts_with("ppt/notesSlides/") {
+            "the speaker's notes"
+        } else if e.name.contains("uthor") || e.name.contains("person") {
+            "who wrote the comments"
+        } else {
+            "comments"
+        };
+        return (n > 0).then(|| (out.into_bytes(), format!("{what}, emptied")));
+    }
+    if !(is_story(&e.name) || is_comments(&e.name)) {
         return None;
     }
     let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
@@ -580,7 +614,7 @@ fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
     clean(&bytes).ok()
 }
 
-fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
+fn clean_zip(data: &[u8], doc: &ZipDocument, options: CleanOptions) -> Result<Cleaned, CleanError> {
     use crate::zip::office::MAX_PHOTOS;
     let tree = &doc.tree;
     let mut photos = 0;
@@ -595,8 +629,11 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
             clean_media(data, e)
         })
         .collect();
-    let revised: Vec<Option<(Vec<u8>, String)>> =
-        doc.entries.iter().map(|e| revise(data, e)).collect();
+    let revised: Vec<Option<(Vec<u8>, String)>> = doc
+        .entries
+        .iter()
+        .map(|e| revise(data, e, options))
+        .collect();
     if !doc.entries.iter().any(|e| replacement(&e.name).is_some())
         && media.iter().all(Option::is_none)
         && revised.iter().all(Option::is_none)
@@ -1006,6 +1043,47 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    /// A deck exported by Keynote: its speaker notes stay in the clean copy
+    /// unless asked for, and then are emptied, with the deck still whole.
+    #[test]
+    fn keynote_notes_go_only_when_asked() {
+        let deck = std::fs::read(format!(
+            "{}/tests/fixtures/keynote.pptx",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        let has = |b: &[u8]| {
+            crate::zip::parse_zip(b)
+                .facts
+                .iter()
+                .any(|f| f.kind == "notes")
+        };
+        assert!(has(&deck));
+        let kept = clean(&deck);
+        // Nothing else to take out of this deck: the notes are its content.
+        assert!(kept.is_err() || has(&kept.unwrap().bytes));
+        let gone = clean_with(
+            &deck,
+            CleanOptions {
+                comments_and_notes: true,
+            },
+        )
+        .unwrap();
+        assert!(!has(&gone.bytes), "{:?}", gone.removed);
+        assert!(
+            gone.removed
+                .iter()
+                .any(|r| r.what.contains("speaker's notes, emptied"))
+        );
+        assert!(
+            !crate::zip::parse_zip(&gone.bytes)
+                .tree
+                .nodes()
+                .iter()
+                .any(|n| n.kind == NodeKind::Error)
+        );
     }
 
     #[test]

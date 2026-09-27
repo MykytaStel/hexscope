@@ -10,7 +10,7 @@
 
 #![forbid(unsafe_code)]
 
-use hexscope_core::clean::clean;
+use hexscope_core::clean::{CleanOptions, clean_with};
 use hexscope_core::docs::Concern;
 use hexscope_core::repair::repair;
 use hexscope_core::summary::{Summary, summarize};
@@ -37,6 +37,7 @@ check:
 
 clean:
   --in-place       replace each file with its clean copy
+  --notes          also empty Excel's and PowerPoint's comments and speaker notes
   --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT);
                    for a single file, --out can name the copy itself: --out copy.jpg
 
@@ -91,6 +92,7 @@ struct Options {
     json: bool,
     all: bool,
     in_place: bool,
+    notes: bool,
     out: Option<PathBuf>,
     paths: Vec<PathBuf>,
 }
@@ -101,6 +103,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         json: false,
         all: false,
         in_place: false,
+        notes: false,
         out: None,
         paths: Vec::new(),
     };
@@ -120,6 +123,7 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--json" => o.json = true,
             "--all" => o.all = true,
             "--in-place" => o.in_place = true,
+            "--notes" => o.notes = true,
             "--out" => {
                 o.out = Some(PathBuf::from(
                     it.next()
@@ -412,14 +416,19 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     for path in files(&o.paths)? {
         let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         let result = match kind {
-            Make::Clean => clean(&data)
-                .map(|c| {
-                    (
-                        c.bytes,
-                        c.removed.into_iter().map(|r| r.what).collect::<Vec<_>>(),
-                    )
-                })
-                .map_err(|e| e.reason()),
+            Make::Clean => clean_with(
+                &data,
+                CleanOptions {
+                    comments_and_notes: o.notes,
+                },
+            )
+            .map(|c| {
+                (
+                    c.bytes,
+                    c.removed.into_iter().map(|r| r.what).collect::<Vec<_>>(),
+                )
+            })
+            .map_err(|e| e.reason()),
             Make::Repair => repair(&data)
                 .map(|r| (r.bytes, r.fixed))
                 .map_err(|e| e.reason()),

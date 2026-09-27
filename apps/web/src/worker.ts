@@ -13,7 +13,7 @@ export type WorkerRequest =
   | { id: number; type: "open"; index: number }
   | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; bytes: Uint8Array }
+  | { id: number; type: "clean"; bytes: Uint8Array; notes?: boolean }
   | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
@@ -220,7 +220,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
-    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes);
+    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes, req.notes ?? false);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });

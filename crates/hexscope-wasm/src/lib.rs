@@ -7,7 +7,7 @@
 
 #![forbid(unsafe_code)]
 
-use hexscope_core::clean::clean;
+use hexscope_core::clean::{CleanOptions, clean_with};
 use hexscope_core::docs::describe;
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
@@ -986,10 +986,16 @@ impl CleanCopy {
 }
 
 /// Makes a copy of `bytes` without what it reveals about the people behind
-/// it: see `hexscope_core::clean`.
+/// it: see `hexscope_core::clean`. `notes` also empties Excel's and
+/// PowerPoint's comments and speaker notes.
 #[wasm_bindgen(js_name = cleanCopy)]
-pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
-    into_copy(clean(bytes))
+pub fn clean_copy(bytes: &[u8], notes: bool) -> CleanCopy {
+    into_copy(clean_with(
+        bytes,
+        CleanOptions {
+            comments_and_notes: notes,
+        },
+    ))
 }
 
 /// A copy, or why there is none, as the page reads it.

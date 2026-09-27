@@ -239,11 +239,11 @@ async function redactCopy(areas: Float64Array): Promise<CleanResult> {
  * share files, where the copy waits for "Share" or "Save": a download
  * there is a dialog in the way of sending it on.
  */
-async function cleanCopy(): Promise<CleanResult> {
+async function cleanCopy(notes = false): Promise<CleanResult> {
   const m = model;
   const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
   if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "clean", bytes: m.bytes.slice() });
+  const r = await call({ type: "clean", bytes: m.bytes.slice(), notes });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
   const name = cleanName(m);
   const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;

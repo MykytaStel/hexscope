@@ -3029,3 +3029,16 @@ body[data-state="ready"] .viewswitch {
     padding-bottom: 72px;
   }
 }
+
+.clean-also {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.clean-also input {
+  margin: 0 6px 0 0;
+  vertical-align: -2px;
+}

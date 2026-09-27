@@ -287,8 +287,8 @@ export interface RepairResult {
 }
 
 export interface CleanActions {
-  /** Makes the copy and saves it; resolves with what was done. */
-  clean(): Promise<CleanResult>;
+  /** Makes the copy and saves it; resolves with what was done. `notes` also empties a workbook's or a deck's comments and notes. */
+  clean(notes?: boolean): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
   /** Opens a file found inside this one. */
@@ -692,6 +692,7 @@ export class Drawer {
       const word = f.format === "zip" && f.labels.includes("word/document.xml");
       if (KEPT[f.format]?.includes(fact.kind) && !(word && fact.kind === "comments")) {
         dd.dataset.kept = "";
+        dd.dataset.kind = fact.kind;
         (dd.previousElementSibling as HTMLElement | null)?.setAttribute("data-kept", "");
       }
     }
@@ -1045,11 +1046,30 @@ export class Drawer {
       notes[format] ??
       "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
     const limits = cleanLimits(m);
-    box.append(button, el("p", "hint", note), limits);
+    box.append(button, el("p", "hint", note));
+    // A workbook's or a deck's comments and notes are its content: gone only when asked.
+    const word = m.file.labels.includes("word/document.xml");
+    const extras = format === "zip" && !word && m.file.facts.some((x) => x.kind === "notes" || x.kind === "comments");
+    const also = el("input");
+    if (extras) {
+      also.type = "checkbox";
+      const label = el("label", "clean-also");
+      label.append(also, " Also empty the comments and the speaker's notes, and who wrote them");
+      box.append(label);
+    }
+    box.append(limits);
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Making the copy…";
-      const r = await this.cleaning.clean();
+      const notes = extras && also.checked;
+      // What goes with them is struck out with the rest.
+      if (notes) {
+        for (const e of box.closest(".reveals")?.querySelectorAll<HTMLElement>("[data-kept]") ?? []) {
+          const kind = e.dataset.kind ?? e.nextElementSibling?.getAttribute("data-kind");
+          if (kind === "notes" || kind === "comments") delete e.dataset.kept;
+        }
+      }
+      const r = await this.cleaning.clean(notes);
       box.replaceChildren();
       if (r.error) {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
@@ -1075,7 +1095,10 @@ export class Drawer {
       }
       box.append(ul);
       if (box.closest(".reveals")?.querySelector(".reveal-list [data-kept]")) {
-        box.append(el("p", "hint", KEPT_NOTE[format] ?? "What is not struck out is part of the file's content, and stays."));
+        const kept = notes
+          ? "Kept: what is part of a workbook or a deck itself — hidden sheets, rows and slides, links to other files. Delete them in Excel or PowerPoint, then save."
+          : KEPT_NOTE[format];
+        box.append(el("p", "hint", kept ?? "What is not struck out is part of the file's content, and stays."));
       }
       if (r.orientation > 1) {
         box.append(el("p", "hint", "Kept only the orientation, so the picture stays the right way up."));
