@@ -87,8 +87,8 @@ pub struct Parsed {
     /// [`Parsed::blackouts`], and the covered texts in order.
     blackouts: Vec<f64>,
     blackout_texts: Vec<String>,
-    /// A PDF's bytes and its attachments' names, when it has any: they open
-    /// as files of their own.
+    /// A PDF's or an email's bytes and its attachments' names, when it has
+    /// any: they open as files of their own.
     pdf_source: Vec<u8>,
     attachment_names: Vec<String>,
     /// A JPEG's bytes, for finding its blocks when asked.
@@ -613,6 +613,10 @@ impl Parsed {
     pub fn extract_entry(&mut self, index: u32) -> Vec<u8> {
         self.extract_error.clear();
         let result = match &self.zip {
+            None if !self.attachment_names.is_empty() && self.format == "eml" => {
+                hexscope_core::eml::attachment_bytes(&self.pdf_source, index as usize)
+                    .map_err(str::to_string)
+            }
             None if !self.attachment_names.is_empty() => {
                 hexscope_core::pdf::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
@@ -905,6 +909,18 @@ pub fn parse(bytes: &[u8]) -> Parsed {
                 source: bytes.to_vec(),
                 entries: doc.entries,
             });
+            parsed
+        }
+        Document::Eml(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "eml";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            if !doc.attachments.is_empty() {
+                parsed.pdf_source = bytes.to_vec();
+                parsed.attachment_names = doc.attachments.iter().map(|n| sanitise(n)).collect();
+            }
             parsed
         }
         Document::Wasm(doc) => {

@@ -1,5 +1,6 @@
 //! Recognising a file's format and parsing it with the right module.
 
+use crate::eml::{self, EmlDocument, parse_eml};
 use crate::heif::{self, HeifDocument, parse_heif};
 use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
@@ -18,6 +19,7 @@ pub enum Format {
     Pdf,
     Zip,
     Wasm,
+    Eml,
     Unknown,
 }
 
@@ -32,6 +34,7 @@ pub enum Document {
     Pdf(PdfDocument),
     Zip(ZipDocument),
     Wasm(WasmDocument),
+    Eml(EmlDocument),
     Unknown(ParseTree),
 }
 
@@ -45,6 +48,7 @@ impl Document {
             Document::Pdf(d) => &d.tree,
             Document::Zip(d) => &d.tree,
             Document::Wasm(d) => &d.tree,
+            Document::Eml(d) => &d.tree,
             Document::Unknown(t) => t,
         }
     }
@@ -58,6 +62,7 @@ impl Document {
             Document::Pdf(_) => Format::Pdf,
             Document::Zip(_) => Format::Zip,
             Document::Wasm(_) => Format::Wasm,
+            Document::Eml(_) => Format::Eml,
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -90,6 +95,10 @@ pub fn parse(data: &[u8]) -> Document {
     // archive is what the file is only when nothing earlier claimed it.
     if zip::is_zip(data) {
         return Document::Zip(parse_zip(data));
+    }
+    // Text last: a message is header lines, and nothing binary claims it.
+    if eml::is_eml(data) {
+        return Document::Eml(parse_eml(data));
     }
     Document::Unknown(unknown(data))
 }

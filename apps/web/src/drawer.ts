@@ -52,7 +52,7 @@ const KEPT_NOTE: Record<string, string> = {
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace"];
+const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -185,6 +185,14 @@ const FACT_LABELS: Record<string, string> = {
   uptime: "Phone on for",
   linked: "Linked shots",
   names: "Function names",
+  sentfrom: "Sent from",
+  computer: "Computer's name",
+  mailer: "Mail app",
+  timezone: "Time zone",
+  replyto: "Replies go to",
+  returnpath: "Bounces",
+  auth: "Sender checks",
+  authfail: "Sender checks",
   language: "Language",
   toolchain: "Built with",
   sdk: "SDK",
@@ -228,6 +236,8 @@ function roleName(role: number, format: string): string {
         ? "Files"
         : format === "pdf"
           ? "Pages, fonts, images"
+          : format === "eml"
+            ? "Message and attachments"
           : format === "wasm"
             ? "Code and data"
             : "Picture";
@@ -564,6 +574,7 @@ export class Drawer {
       png: "What this image reveals",
       video: "What this video reveals",
       wasm: "What this module reveals",
+      eml: "What this email reveals",
     };
     const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
@@ -681,6 +692,9 @@ export class Drawer {
     // An encrypted PDF is not rewritten: the copy would drop its protection.
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
+    } else if (f.format === "eml") {
+      // A message is read, not sent on as it is: what it says is what the servers wrote.
+      group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else {
       group.append(this.cleaner(m));
     }

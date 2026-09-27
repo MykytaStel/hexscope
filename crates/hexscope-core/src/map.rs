@@ -143,6 +143,10 @@ fn push(out: &mut Vec<Slice>, start: u64, len: u64, role: Role, node: Option<Nod
 /// their concern; parts by their format and label.
 fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<Role> {
     let node = tree.try_get(id)?;
+    // A message's warnings are about its header lines, which stay what they are.
+    if format == Format::Eml && node.kind == NodeKind::Warning {
+        return None;
+    }
     match node.kind {
         NodeKind::Error => return Some(Role::Damaged),
         NodeKind::Warning => {
@@ -208,6 +212,15 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             l if l.starts_with("custom section · ") => Role::Metadata,
             _ => Role::Structure,
         }),
+        // A message's header says who and where; its text and files are it.
+        Format::Eml => match label {
+            "headers" => Some(Role::Metadata),
+            "body" | "attachment" => Some(Role::Content),
+            // The blank line after a header, boundary lines between parts.
+            "email" | "parts" => Some(Role::Structure),
+            l if l.starts_with("part ") => Some(Role::Structure),
+            _ => None,
+        },
         Format::Pdf if label.starts_with("object ") => {
             let what = match &node.value {
                 Some(crate::model::Value::Text(t)) => t.as_str(),
