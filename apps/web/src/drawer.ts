@@ -1,5 +1,6 @@
 import { areasOf, find, searchable, type Match, type Searchable } from "./redactor";
 import { canBlackOut, openBlackPicture } from "./blackpicture";
+import { findEmbedded, type Embedded } from "./embedded";
 import type { PageGlyphs } from "./worker";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
@@ -279,6 +280,8 @@ export interface CleanActions {
   clean(): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
+  /** Opens a file found inside this one. */
+  openInside(bytes: Uint8Array, name: string): void;
   /** Every page's visible glyphs, for searching. */
   pages(): Promise<PageGlyphs[]>;
   /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
@@ -359,7 +362,14 @@ export class Drawer {
     const save = el("button", "link report-link", "Save the structure as JSON");
     save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
     save.addEventListener("click", () => saveStructure(m));
-    fileGroup.append(report, save);
+    const inside = el("button", "link report-link", "Find files inside");
+    inside.title = "Looks through every byte for the start of another file: pictures, archives, documents";
+    inside.addEventListener("click", () => {
+      const found = findEmbedded(m.bytes, 0, m.bytes.length, m.file.format === "zip" ? ["zip"] : []);
+      const list = found.length > 0 ? this.insideList(m, found, "Files inside") : el("p", "hint", "No other file starts anywhere in it.");
+      inside.replaceWith(list);
+    });
+    fileGroup.append(report, save, inside);
     // Another file beside this one: what one gives away that the other does not.
     const pick = el("button", "link compare-pick", "Compare with another file…");
     const input = el("input");
@@ -423,9 +433,41 @@ export class Drawer {
       }
       list.append(li);
     }
-    group.append(list, el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    group.append(list);
+    // What the structure leaves over — data after the end, a gap — may be a
+    // whole file of its own: say which, and open it.
+    const hidden = m
+      .slices()
+      .filter((sl) => sl.role === Role.Hidden)
+      .flatMap((sl) => findEmbedded(m.bytes, sl.start, sl.start + sl.len));
+    if (hidden.length > 0) group.append(this.insideList(m, hidden, "Hidden in it"));
+    group.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
     if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) group.append(this.repairer());
     return group;
+  }
+
+  /** Files found inside this one, each to open or save. */
+  private insideList(m: FileModel, found: Embedded[], title: string): HTMLElement {
+    const box = el("div", "inside");
+    box.append(el("p", "inside-title", `${title}: ${found.length === 1 ? "1 file" : `${found.length} files`}`));
+    const ul = el("ul", "inside-list");
+    const stem = (m.name.split("/").pop() ?? m.name).replace(/\.[^.]*$/, "");
+    for (const e of found) {
+      const li = el("li");
+      const name = `${stem}-at-${e.start.toString(16).toUpperCase()}.${e.ext}`;
+      const bytes = () => m.bytes.subarray(e.start, e.end);
+      const at = el("button", "link inside-at", `0x${e.start.toString(16).toUpperCase()}`);
+      at.title = "Show where it starts";
+      at.addEventListener("click", () => this.onSelect(m.nodeAt(e.start)));
+      const open = el("button", "btn", "Open");
+      open.addEventListener("click", () => this.cleaning.openInside(bytes(), name));
+      const save = el("button", "btn", "Save");
+      save.addEventListener("click", () => this.cleaning.save(name, bytes().slice()));
+      li.append(el("span", "inside-what", `${e.what.charAt(0).toUpperCase()}${e.what.slice(1)}`), " at ", at, el("span", "clean-size", formatBytes(e.end - e.start)), open, save);
+      ul.append(li);
+    }
+    box.append(ul);
+    return box;
   }
 
   /** One button that saves a repaired copy, then says what it did. */

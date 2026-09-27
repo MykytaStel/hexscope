@@ -152,6 +152,7 @@ const drawer = new Drawer(
       void load(new File([bytes as BlobPart], name));
     },
     save: saveAs,
+    openInside: (bytes, name) => void openInside(bytes, name),
     pages: async () => {
       const r = await call({ type: "pageTexts", bytes: model ? model.bytes.slice() : new Uint8Array(0) });
       return r.type === "pageTexts" ? r.pages : [];
@@ -696,6 +697,22 @@ async function openEntry(entry: number): Promise<void> {
   if (model !== parent) return;
   if (r.type !== "opened") {
     drawer.showNote(r.type === "error" ? r.message : "The entry could not be opened.");
+    return;
+  }
+  levels.push({ model: parent, selected });
+  show(new FileModel(r.result, r.bytes, name));
+  arrive();
+}
+
+/** Opens a file found inside the one on screen, with the way back to it. */
+async function openInside(bytes: Uint8Array, name: string): Promise<void> {
+  const parent = model;
+  if (!parent) return;
+  closePlayer();
+  const r = await call({ type: "openBytes", bytes: bytes.slice() });
+  if (model !== parent) return;
+  if (r.type !== "opened") {
+    drawer.showNote(r.type === "error" ? r.message : "It could not be opened.");
     return;
   }
   levels.push({ model: parent, selected });

@@ -11,6 +11,7 @@ export type WorkerRequest =
   | { id: number; type: "explain"; index: number; knownBlock: number }
   | { id: number; type: "selectEntry"; index: number }
   | { id: number; type: "open"; index: number }
+  | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
   | { id: number; type: "clean"; bytes: Uint8Array }
   | { id: number; type: "repair"; bytes: Uint8Array }
@@ -221,9 +222,10 @@ async function handle(req: WorkerRequest): Promise<void> {
 
   if (stack.length === 0) throw new Error("No file is open");
   const current = stack[stack.length - 1];
-  if (req.type === "open") {
+  if (req.type === "open" || req.type === "openBytes") {
     if (stack.length > MAX_DEPTH) throw new Error(`files nest at most ${MAX_DEPTH} deep here`);
-    const bytes = current.extractEntry(req.index);
+    // An archive's entry, or a file found inside the bytes.
+    const bytes = req.type === "open" ? current.extractEntry(req.index) : req.bytes;
     if (bytes.length === 0) throw new Error(`This entry cannot be opened: ${current.extractError}.`);
     const t0 = performance.now();
     const parsed = parse(bytes);
