@@ -1,0 +1,2 @@
+# Emails keep their CRLF line ends byte for byte: they are fixtures.
+*.eml -text
