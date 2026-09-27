@@ -739,3 +739,40 @@ fn a_chrome_letter_hides_nothing_under_its_black_highlight() {
         "{after:?}"
     );
 }
+
+/// What a person chooses to black out is taken out of the page, and a box
+/// drawn where it was; the rest of the line stays.
+#[test]
+fn chosen_text_is_taken_out_and_boxed() {
+    let data = fixture("chrome-highlight.pdf");
+    let pages = super::page_texts(&data);
+    assert_eq!(pages.len(), 1);
+    let text: String = pages[0].glyphs.iter().map(|g| g.1.as_str()).collect();
+    assert!(text.contains("12,500"), "{text}");
+    // The glyphs of "12,500", and the box around them.
+    let at = text.find("12,500").unwrap();
+    let mut seen = 0;
+    let mut area = [f64::MAX, f64::MAX, f64::MIN, f64::MIN];
+    for (a, t) in &pages[0].glyphs {
+        if seen >= at && seen < at + 6 {
+            area = [
+                area[0].min(a[0]),
+                area[1].min(a[1]),
+                area[2].max(a[2]),
+                area[3].max(a[3]),
+            ];
+        }
+        seen += t.len();
+    }
+    let copy = crate::clean::redact(&data, &[(1, area)]).unwrap();
+    let after: String = super::page_texts(&copy.bytes)[0]
+        .glyphs
+        .iter()
+        .map(|g| g.1.as_str())
+        .collect();
+    assert!(!after.contains("12,500"), "{after}");
+    assert!(after.contains("Amount:"), "{after}");
+    assert!(after.contains("EUR"), "{after}");
+    // Not a PDF: nothing to black out this way.
+    assert!(crate::clean::redact(b"\xFF\xD8\xFF", &[]).is_err());
+}

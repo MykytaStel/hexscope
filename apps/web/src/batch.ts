@@ -20,6 +20,8 @@ export interface BatchItem {
 export interface BatchHooks {
   open(index: number): void;
   saveClean(): void;
+  /** Whether the clean copies can go to the share sheet, one file each: a phone. */
+  canShareCopies(): boolean;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -80,6 +82,11 @@ export class BatchView {
     this.status.textContent = text;
   }
 
+  /** Says what is ready, with what to do with it. */
+  offer(text: string, ...actions: HTMLButtonElement[]): void {
+    this.status.replaceChildren(text, ...actions.map((a) => (a.classList.add("batch-action"), a)));
+  }
+
   /** Draws the list, at most a few times a second while files are read. */
   render(items: BatchItem[]): void {
     this.items = items;
@@ -116,9 +123,12 @@ export class BatchView {
       ].filter(Boolean);
       summary.textContent = parts.length ? `${parts.join(" · ")}.` : "None of them gives anything away.";
     }
-    const save = el("button", "btn btn-clean", "Save clean copies (.zip)");
+    const phone = this.hooks.canShareCopies();
+    const save = el("button", "btn btn-clean", phone ? "Make clean copies" : "Save clean copies (.zip)");
     save.disabled = busy || revealing + hidden === 0;
-    save.title = "Makes every copy in this tab and saves them as one ZIP: nothing is uploaded";
+    save.title = phone
+      ? "Makes every copy in this tab, to share or save: nothing is uploaded"
+      : "Makes every copy in this tab and saves them as one ZIP: nothing is uploaded";
     save.addEventListener("click", () => this.hooks.saveClean());
     head.append(title, summary, save, this.status);
 

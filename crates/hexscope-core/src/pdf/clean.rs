@@ -70,6 +70,15 @@ impl<'a> Current<'a> {
 }
 
 pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
+    clean_pdf_with(data, &[])
+}
+
+/// The clean copy, with `extra` areas blacked out as well: page number
+/// counted from 1, and `[left, bottom, right, top]` in its points.
+pub(crate) fn clean_pdf_with(
+    data: &[u8],
+    extra: &[(u32, [f64; 4])],
+) -> Result<Cleaned, CleanError> {
     let (doc, ctx) = parse_with(data);
     if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
         return Err(CleanError::Damaged);
@@ -110,7 +119,7 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
         streams: rewritten,
         removed: taken_out,
         applied,
-    } = super::redact::rewrites(data, &ctx);
+    } = super::redact::rewrites(data, &ctx, extra);
 
     // Everything the catalog reaches, and nothing else.
     let mut reached = vec![false; current.0.len()];

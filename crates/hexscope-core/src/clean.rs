@@ -96,6 +96,17 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
     Ok(cleaned)
 }
 
+/// A clean copy of a PDF with `areas` blacked out as well: each a page
+/// number counted from 1 and `[left, bottom, right, top]` in its points.
+/// What is under them is taken out of the page, not only covered, and a
+/// black box drawn in its place.
+pub fn redact(data: &[u8], areas: &[(u32, [f64; 4])]) -> Result<Cleaned, CleanError> {
+    if !crate::pdf::is_pdf(data) {
+        return Err(CleanError::Unsupported);
+    }
+    crate::pdf::clean::clean_pdf_with(data, areas)
+}
+
 // --- WebAssembly -------------------------------------------------------------
 
 /// A module without the custom sections that say who built it and how:

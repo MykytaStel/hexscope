@@ -967,7 +967,14 @@ impl CleanCopy {
 /// it: see `hexscope_core::clean`.
 #[wasm_bindgen(js_name = cleanCopy)]
 pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
-    match clean(bytes) {
+    into_copy(clean(bytes))
+}
+
+/// A copy, or why there is none, as the page reads it.
+fn into_copy(
+    result: Result<hexscope_core::clean::Cleaned, hexscope_core::clean::CleanError>,
+) -> CleanCopy {
+    match result {
         Ok(c) => CleanCopy {
             bytes: c.bytes,
             removed: c.removed.into_iter().map(|r| (r.what, r.bytes)).collect(),
@@ -980,6 +987,66 @@ pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
             error: e.reason().to_string(),
             orientation: 0,
         },
+    }
+}
+
+/// A PDF's clean copy with chosen areas blacked out: `areas` is five
+/// numbers per area — the page, counted from 1, then left, bottom, right
+/// and top in its points. See `hexscope_core::clean::redact`.
+#[wasm_bindgen(js_name = redactCopy)]
+pub fn redact_copy(bytes: &[u8], areas: &[f64]) -> CleanCopy {
+    let areas: Vec<(u32, [f64; 4])> = areas
+        .as_chunks::<5>()
+        .0
+        .iter()
+        .map(|[page, l, b, r, t]| (*page as u32, [*l, *b, *r, *t]))
+        .collect();
+    into_copy(hexscope_core::clean::redact(bytes, &areas))
+}
+
+/// Every page's visible text, glyph by glyph, for choosing what to black out.
+#[wasm_bindgen]
+pub struct PageTexts {
+    pages: Vec<hexscope_core::pdf::PageText>,
+}
+
+#[wasm_bindgen]
+impl PageTexts {
+    /// Pages read.
+    #[wasm_bindgen(getter)]
+    pub fn count(&self) -> usize {
+        self.pages.len()
+    }
+
+    /// A page's `[left, bottom, right, top]`.
+    pub fn media(&self, i: usize) -> Vec<f64> {
+        self.pages.get(i).map_or(Vec::new(), |p| p.media.to_vec())
+    }
+
+    /// A page's glyphs' areas, four numbers each.
+    pub fn areas(&self, i: usize) -> Vec<f64> {
+        self.pages
+            .get(i)
+            .map_or(Vec::new(), |p| p.glyphs.iter().flat_map(|g| g.0).collect())
+    }
+
+    /// A page's glyphs' text, joined by U+001F.
+    pub fn texts(&self, i: usize) -> String {
+        self.pages.get(i).map_or(String::new(), |p| {
+            p.glyphs
+                .iter()
+                .map(|g| g.1.replace(SEPARATOR, ""))
+                .collect::<Vec<_>>()
+                .join(&SEPARATOR.to_string())
+        })
+    }
+}
+
+/// Reads every page's visible text: see `hexscope_core::pdf::page_texts`.
+#[wasm_bindgen(js_name = pageTexts)]
+pub fn page_texts(bytes: &[u8]) -> PageTexts {
+    PageTexts {
+        pages: hexscope_core::pdf::page_texts(bytes),
     }
 }
 

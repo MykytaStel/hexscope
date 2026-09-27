@@ -1,3 +1,6 @@
+import { areasOf, find, searchable, type Match, type Searchable } from "./redactor";
+import { canBlackOut, openBlackPicture } from "./blackpicture";
+import type { PageGlyphs } from "./worker";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
@@ -64,13 +67,13 @@ function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
 /** What a clean copy of each kind of file cannot take out, because it is what the file shows or says. */
 const LIMITS: Record<string, string[]> = {
   photo: [
-    "What the picture shows: faces, street signs, house numbers, a screen or a letter in view, reflections.",
+    "What the picture shows: faces, street signs, house numbers, a screen or a letter in view, reflections. Black those out with “Black out part of the picture”.",
     "Marks some apps and AI tools hide in the pixels themselves.",
   ],
   video: ["What the video shows and what its sound says: voices, place names, anything in view."],
   audio: ["What the recording says: voices, names, places, anything heard in the background."],
   pdf: [
-    "Anything still visible on the pages: a name or number you did not black out.",
+    "Anything still visible on the pages: a name or number you did not black out. “Black out text yourself” takes it out.",
     "Text that is part of a picture, such as a scanned page or a screenshot, under a black box: the copy cannot take letters out of a picture. Check those pages by eye, or black them out before scanning.",
     "Words and numbers in the text itself that say who wrote it or for whom.",
   ],
@@ -79,6 +82,47 @@ const LIMITS: Record<string, string[]> = {
     "What pasted pictures show: a screenshot can show a desktop, a name, an open tab.",
   ],
 };
+
+/** Media types by extension, for sharing a copy: a share sheet goes by type. */
+const TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  heif: "image/heif",
+  avif: "image/avif",
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  m4a: "audio/mp4",
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  zip: "application/zip",
+  wasm: "application/wasm",
+};
+
+/**
+ * A button that hands the copy to the device's share sheet — Messages,
+ * Telegram, mail — or null where the browser cannot share such a file.
+ * Its own button, because sharing must follow a tap of its own.
+ */
+function shareButton(name: string, bytes: Uint8Array): HTMLButtonElement | null {
+  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  const file = new File([bytes as BlobPart], name, { type: TYPES[ext] ?? "" });
+  if (!navigator.canShare?.({ files: [file] })) return null;
+  const b = el("button", "btn btn-primary", "Share the clean copy");
+  b.title = "Send the copy on: to a chat, to mail, to another app";
+  b.addEventListener("click", async () => {
+    try {
+      await navigator.share({ files: [file] });
+    } catch {
+      // Cancelled, or refused: the copy is saved all the same.
+    }
+  });
+  return b;
+}
 
 /** A movie file with sound and no picture: a voice memo, a song. */
 function isAudio(m: FileModel): boolean {
@@ -215,6 +259,10 @@ function openReason(e: ZipEntryInfo, nested: number): string | null {
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
   bytes: Uint8Array;
+  /** What the copy is called when saved. */
+  name: string;
+  /** Whether it was saved already; if not, it waits for Share or Save. */
+  saved: boolean;
   removed: { what: string; bytes: number }[];
   orientation: number;
   error: string;
@@ -231,6 +279,12 @@ export interface CleanActions {
   clean(): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
+  /** Every page's visible glyphs, for searching. */
+  pages(): Promise<PageGlyphs[]>;
+  /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
+  redact(areas: Float64Array): Promise<CleanResult>;
+  /** Saves bytes as a download. */
+  save(name: string, bytes: Uint8Array): void;
   /** Makes a repaired copy and saves it; resolves with what was done. */
   repair(): Promise<RepairResult>;
   /** Opens the repaired copy in hexscope. */
@@ -280,6 +334,8 @@ export class Drawer {
     if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
       this.file.append(this.reveals(m));
     }
+    // A PDF: black out what you choose, not only what the file already hides.
+    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor());
     const picture = this.picture(m);
     if (picture) this.file.append(picture);
     this.file.append(this.makeup(m));
@@ -501,6 +557,7 @@ export class Drawer {
               : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
       if (removable) group.append(this.cleaner(m));
+      if (canBlackOut(m)) group.append(this.blackOutButton(m));
       return group;
     }
 
@@ -585,6 +642,7 @@ export class Drawer {
     } else {
       group.append(this.cleaner(m));
     }
+    if (canBlackOut(m)) group.append(this.blackOutButton(m));
     const tips = advice(m);
     if (tips.length > 0) {
       const box = el("div", "advice");
@@ -670,6 +728,148 @@ export class Drawer {
     return box;
   }
 
+  /** Opens the picture to black out what it shows: faces, plates, an address. */
+  private blackOutButton(m: FileModel): HTMLElement {
+    const b = el("button", "link blackout-open", "Black out part of the picture…");
+    b.title = "Draw boxes over what the picture itself shows, and save a new picture with them in it";
+    b.addEventListener("click", () =>
+      void openBlackPicture(m, {
+        deliver: (name, bytes, into) => {
+          const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;
+          const sharer = shareButton(name, bytes);
+          if (sharer) into.append(sharer);
+          if (phone && sharer) {
+            const save = el("button", "btn", "Save it");
+            save.addEventListener("click", () => this.cleaning.save(name, bytes));
+            into.append(save);
+          } else {
+            this.cleaning.save(name, bytes);
+          }
+          const open = el("button", "btn", "Open the copy");
+          open.addEventListener("click", () => {
+            into.closest("dialog")?.close();
+            this.cleaning.open(bytes);
+          });
+          into.append(open);
+        },
+      }),
+    );
+    return b;
+  }
+
+  /** Black out text yourself: search, tick, save a copy with it taken out. */
+  private redactor(): HTMLElement {
+    const group = el("div", "group redactor");
+    group.append(el("h2", undefined, "Black out text yourself"));
+    group.append(
+      el(
+        "p",
+        "hint",
+        "Type a name, a number or an address: every place it appears is found. The copy takes it out of the pages — not only covers it — and draws a black box where it was.",
+      ),
+    );
+    const form = el("form", "redact-form");
+    const input = el("input");
+    input.type = "search";
+    input.placeholder = "A name, a number…";
+    input.setAttribute("aria-label", "Text to black out");
+    input.spellcheck = false;
+    const findBtn = el("button", "btn", "Find");
+    findBtn.type = "submit";
+    form.append(input, findBtn);
+    const list = el("div", "redact-list");
+    const status = el("p", "hint redact-status");
+    const save = el("button", "btn btn-primary", "Save a blacked-out copy");
+    save.hidden = true;
+    const result = el("div", "cleaner");
+    group.append(form, status, list, save, result);
+
+    let pages: Searchable[] | null = null;
+    // Every search kept, each place with its tick.
+    const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[] }[] = [];
+    const refresh = () => {
+      const n = chosen.reduce((k, c) => k + c.ticks.filter((t) => t.checked).length, 0);
+      save.hidden = chosen.length === 0;
+      save.disabled = n === 0;
+      save.textContent = n === 1 ? "Save a copy with 1 place blacked out" : `Save a copy with ${n} places blacked out`;
+    };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const term = input.value.trim();
+      if (!term || chosen.some((c) => c.term.toLowerCase() === term.toLowerCase())) return;
+      findBtn.disabled = true;
+      status.textContent = pages ? "" : "Reading the pages…";
+      pages ??= searchable(await this.cleaning.pages());
+      findBtn.disabled = false;
+      const matches = find(pages, term);
+      if (matches.length === 0) {
+        status.textContent = `“${term}” is not on the pages as text. If it is in a picture — a scan, a screenshot — this cannot take it out.`;
+        return;
+      }
+      status.textContent = "";
+      input.value = "";
+      const block = el("div", "redact-term");
+      const head = el("div", "redact-head");
+      const remove = el("button", "link", "Remove");
+      head.append(el("strong", undefined, `“${term}”`), ` — ${matches.length === 1 ? "1 place" : `${matches.length} places`} `, remove);
+      const ul = el("ul");
+      const ticks = matches.map((mt) => {
+        const li = el("li");
+        const label = el("label");
+        const tick = el("input");
+        tick.type = "checkbox";
+        tick.checked = true;
+        tick.addEventListener("change", refresh);
+        label.append(tick, el("span", "redact-page", `Page ${mt.page}`), " ", mt.before, el("mark", "redact-hit", mt.text), mt.after);
+        li.append(label);
+        ul.append(li);
+        return tick;
+      });
+      const entry = { term, matches, ticks };
+      chosen.push(entry);
+      remove.addEventListener("click", () => {
+        chosen.splice(chosen.indexOf(entry), 1);
+        block.remove();
+        refresh();
+      });
+      block.append(head, ul);
+      list.append(block);
+      refresh();
+    });
+    save.addEventListener("click", async () => {
+      const picked = chosen.flatMap((c) => c.matches.filter((_, i) => c.ticks[i].checked));
+      save.disabled = true;
+      save.textContent = "Making the copy…";
+      const r = await this.cleaning.redact(areasOf(picked));
+      refresh();
+      result.replaceChildren();
+      if (r.error) {
+        result.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
+        return;
+      }
+      result.append(el("p", "clean-done", `${r.saved ? "Saved" : "Made"} a copy with ${picked.length === 1 ? "1 place" : `${picked.length} places`} blacked out, and nothing about who made the file. Removed:`));
+      const ul = el("ul", "clean-list");
+      for (const item of r.removed) {
+        const li = el("li");
+        li.append(el("span", undefined, item.what.charAt(0).toUpperCase() + item.what.slice(1)), el("span", "clean-size", formatBytes(item.bytes)));
+        ul.append(li);
+      }
+      result.append(ul);
+      const sharer = shareButton(r.name, r.bytes);
+      if (sharer) result.append(sharer);
+      if (!r.saved) {
+        const again = el("button", "btn", "Save it");
+        again.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
+        result.append(again);
+      }
+      const open = el("button", "btn", "Open the copy");
+      open.title = "Check it yourself: search it for what you blacked out";
+      open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      result.append(open);
+    });
+    return group;
+  }
+
   /** One button that saves a copy without all of the above, then says what went. */
   private cleaner(m: FileModel): HTMLElement {
     const format = m.file.format;
@@ -700,7 +900,7 @@ export class Drawer {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", "Saved a clean copy. Removed:"));
+      box.append(el("p", "clean-done", r.saved ? "Saved a clean copy. Removed:" : "Made a clean copy. Removed:"));
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
@@ -728,6 +928,14 @@ export class Drawer {
       const open = el("button", "btn", "Open the clean copy");
       open.title = "Check it yourself: the card should now be empty";
       open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
+      const sharer = shareButton(r.name, r.bytes);
+      if (sharer) box.append(sharer);
+      if (!r.saved) {
+        const save = el("button", "btn", "Save it");
+        save.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
+        box.append(save);
+      }
       const diff = el("button", "btn", "Compare with the original");
       diff.title = "What the copy took out, part by part";
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
