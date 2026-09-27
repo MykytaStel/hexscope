@@ -30,3 +30,15 @@ name = "parse"
 path = "fuzz_targets/parse.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "parse_eml"
+path = "fuzz_targets/parse_eml.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "copies"
+path = "fuzz_targets/copies.rs"
+test = false
+doc = false

@@ -1,4 +1,4 @@
-import { areasOf, find, searchable, type Match, type Searchable } from "./redactor";
+import { areasOf, find, findPreset, pageFigure, PRESETS, searchable, textIn, type Match, type Searchable } from "./redactor";
 import { canBlackOut, openBlackPicture } from "./blackpicture";
 import { findEmbedded, type Embedded } from "./embedded";
 import type { PageGlyphs } from "./worker";
@@ -8,7 +8,7 @@ import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { saveStructure } from "./export";
 import { categories, share } from "./share";
-import { Concern, FileModel, Kind, Role, type ZipEntryInfo } from "./model";
+import { Concern, FileModel, Kind, Role, type PageArea, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
@@ -813,7 +813,7 @@ export class Drawer {
     return b;
   }
 
-  /** Black out text yourself: search, tick, save a copy with it taken out. */
+  /** Black out text yourself: search or pick a kind, tick, draw boxes, see the pages, save. */
   private redactor(): HTMLElement {
     const group = el("div", "group redactor");
     group.append(el("h2", undefined, "Black out text yourself"));
@@ -821,7 +821,7 @@ export class Drawer {
       el(
         "p",
         "hint",
-        "Type a name, a number or an address: every place it appears is found. The copy takes it out of the pages — not only covers it — and draws a black box where it was.",
+        "Type a name, a number or an address, or pick a kind below: every place it appears is found. The copy takes it out of the pages — not only covers it — and draws a black box where it was.",
       ),
     );
     const form = el("form", "redact-form");
@@ -833,42 +833,61 @@ export class Drawer {
     const findBtn = el("button", "btn", "Find");
     findBtn.type = "submit";
     form.append(input, findBtn);
+    const presets = el("div", "redact-presets");
     const list = el("div", "redact-list");
     const status = el("p", "hint redact-status");
+    const preview = el("div", "redact-preview");
     const save = el("button", "btn btn-primary", "Save a blacked-out copy");
     save.hidden = true;
     const result = el("div", "cleaner");
-    group.append(form, status, list, save, result);
+    group.append(form, presets, status, list, preview, save, result);
 
     let pages: Searchable[] | null = null;
-    // Every search kept, each place with its tick.
-    const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[] }[] = [];
+    const load = async () => (pages ??= searchable(await this.cleaning.pages()));
+    // Every search kept, each place with its tick; boxes drawn are one more.
+    const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[]; block: HTMLElement }[] = [];
+    // Pages shown to draw on, beyond those with something ticked.
+    const shownPages = new Set<number>();
+    const picked = () => chosen.flatMap((c) => c.matches.filter((_, i) => c.ticks[i].checked));
+
+    const drawPreview = () => {
+      preview.replaceChildren();
+      if (!pages) return;
+      const marks = picked();
+      const withMarks = new Set(marks.map((m) => m.page));
+      const show = [...new Set([...withMarks, ...shownPages])].sort((a, b) => a - b);
+      if (show.length > 0) preview.append(el("p", "redact-preview-title", "As the copy will show it"));
+      for (const n of show) {
+        const p = pages[n - 1];
+        if (!p) continue;
+        const areas = marks.filter((m) => m.page === n).flatMap((m) => m.areas);
+        preview.append(pageFigure(p, areas, (area) => addBox(p, area)));
+      }
+      // Any other page, to draw a box on.
+      if (pages.length > 0) {
+        const pick = el("select", "redact-page-pick");
+        pick.setAttribute("aria-label", "Show a page to draw a box on");
+        pick.append(el("option", undefined, show.length ? "Draw on another page…" : "Draw a box on a page…"));
+        for (const p of pages) if (!show.includes(p.page)) pick.append(Object.assign(el("option", undefined, `Page ${p.page}`), { value: String(p.page) }));
+        pick.addEventListener("change", () => {
+          shownPages.add(Number(pick.value));
+          drawPreview();
+        });
+        if (pick.options.length > 1) preview.append(pick);
+      }
+    };
     const refresh = () => {
-      const n = chosen.reduce((k, c) => k + c.ticks.filter((t) => t.checked).length, 0);
+      const n = picked().length;
       save.hidden = chosen.length === 0;
       save.disabled = n === 0;
       save.textContent = n === 1 ? "Save a copy with 1 place blacked out" : `Save a copy with ${n} places blacked out`;
+      drawPreview();
     };
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const term = input.value.trim();
-      if (!term || chosen.some((c) => c.term.toLowerCase() === term.toLowerCase())) return;
-      findBtn.disabled = true;
-      status.textContent = pages ? "" : "Reading the pages…";
-      pages ??= searchable(await this.cleaning.pages());
-      findBtn.disabled = false;
-      const matches = find(pages, term);
-      if (matches.length === 0) {
-        status.textContent = `“${term}” is not on the pages as text. If it is in a picture — a scan, a screenshot — this cannot take it out.`;
-        return;
-      }
-      status.textContent = "";
-      input.value = "";
-      const block = el("div", "redact-term");
-      const head = el("div", "redact-head");
-      const remove = el("button", "link", "Remove");
-      head.append(el("strong", undefined, `“${term}”`), ` — ${matches.length === 1 ? "1 place" : `${matches.length} places`} `, remove);
-      const ul = el("ul");
+
+    /** Lists what a search found, each place with a tick; `extend` adds to a list already there. */
+    const addBlock = (term: string, matches: Match[]) => {
+      const existing = chosen.find((c) => c.term === term);
+      const ul = existing ? existing.block.querySelector("ul")! : el("ul");
       const ticks = matches.map((mt) => {
         const li = el("li");
         const label = el("label");
@@ -876,12 +895,23 @@ export class Drawer {
         tick.type = "checkbox";
         tick.checked = true;
         tick.addEventListener("change", refresh);
-        label.append(tick, el("span", "redact-page", `Page ${mt.page}`), " ", mt.before, el("mark", "redact-hit", mt.text), mt.after);
+        label.append(tick, el("span", "redact-page", `Page ${mt.page}`), " ", mt.before, el("mark", "redact-hit", mt.text || "a box you drew"), mt.after);
         li.append(label);
         ul.append(li);
         return tick;
       });
-      const entry = { term, matches, ticks };
+      if (existing) {
+        existing.matches.push(...matches);
+        existing.ticks.push(...ticks);
+        existing.block.querySelector(".redact-count")!.textContent = ` — ${existing.matches.length === 1 ? "1 place" : `${existing.matches.length} places`} `;
+        refresh();
+        return;
+      }
+      const block = el("div", "redact-term");
+      const head = el("div", "redact-head");
+      const remove = el("button", "link", "Remove");
+      head.append(el("strong", undefined, term), el("span", "redact-count", ` — ${matches.length === 1 ? "1 place" : `${matches.length} places`} `), remove);
+      const entry = { term, matches: [...matches], ticks, block };
       chosen.push(entry);
       remove.addEventListener("click", () => {
         chosen.splice(chosen.indexOf(entry), 1);
@@ -891,19 +921,71 @@ export class Drawer {
       block.append(head, ul);
       list.append(block);
       refresh();
+    };
+    const addBox = (p: Searchable, area: PageArea) => {
+      const text = textIn(p, area);
+      addBlock("Boxes you drew", [{ page: p.page, areas: [area], before: "", text, after: "" }]);
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const term = input.value.trim();
+      if (!term || chosen.some((c) => c.term.toLowerCase() === `“${term}”`.toLowerCase())) return;
+      findBtn.disabled = true;
+      status.textContent = pages ? "" : "Reading the pages…";
+      const ps = await load();
+      findBtn.disabled = false;
+      const matches = find(ps, term);
+      if (matches.length === 0) {
+        status.textContent = `“${term}” is not on the pages as text. If it is in a picture — a scan, a screenshot — draw a box over it on the page instead.`;
+        drawPreview();
+        return;
+      }
+      status.textContent = "";
+      input.value = "";
+      addBlock(`“${term}”`, matches);
     });
+    for (const preset of PRESETS) {
+      const b = el("button", "btn redact-preset", preset.label);
+      b.type = "button";
+      b.addEventListener("click", async () => {
+        if (chosen.some((c) => c.term === preset.name)) return;
+        b.disabled = true;
+        const matches = findPreset(await load(), preset);
+        b.disabled = false;
+        if (matches.length === 0) {
+          status.textContent = `No ${preset.name.toLowerCase()} on the pages.`;
+          drawPreview();
+          return;
+        }
+        status.textContent = "";
+        addBlock(preset.name, matches);
+      });
+      presets.append(b);
+    }
+    // The pages to draw on, once asked for.
+    const drawOn = el("button", "link", "Draw a box on a page instead");
+    drawOn.type = "button";
+    drawOn.addEventListener("click", async () => {
+      await load();
+      drawOn.remove();
+      if (pages && pages.length > 0) shownPages.add(1);
+      drawPreview();
+    });
+    presets.append(drawOn);
+
     save.addEventListener("click", async () => {
-      const picked = chosen.flatMap((c) => c.matches.filter((_, i) => c.ticks[i].checked));
+      const marks = picked();
       save.disabled = true;
       save.textContent = "Making the copy…";
-      const r = await this.cleaning.redact(areasOf(picked));
+      const r = await this.cleaning.redact(areasOf(marks));
       refresh();
       result.replaceChildren();
       if (r.error) {
         result.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      result.append(el("p", "clean-done", `${r.saved ? "Saved" : "Made"} a copy with ${picked.length === 1 ? "1 place" : `${picked.length} places`} blacked out, and nothing about who made the file. Removed:`));
+      result.append(el("p", "clean-done", `${r.saved ? "Saved" : "Made"} a copy with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out, and nothing about who made the file. Removed:`));
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");

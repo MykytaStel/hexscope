@@ -1,12 +1,14 @@
-// Black out text yourself, in a PDF: type a name or a number, see every
-// place it appears on the pages, tick the ones to go, and get a copy in
-// which they are taken out of the page — not only covered — with a black
-// box drawn where each was. The search runs here, over each page's glyphs
-// and where they land; the core rewrites the pages.
+// Black out text yourself, in a PDF: type a name or a number — or pick
+// "every email address", "every phone number" — see every place it appears
+// on the pages, tick the ones to go, draw boxes of your own on a page, and
+// see each page as it will be before the copy is made. The copy takes the
+// ticked places out of the page — not only covers them — with a black box
+// drawn where each was. The search runs here, over each page's glyphs and
+// where they land; the core rewrites the pages.
 import type { PageArea } from "./model";
 import type { PageGlyphs } from "./worker";
 
-/** One place a search found: which page, the boxes to draw, and the text around it. */
+/** One place to black out: which page, the boxes to draw, and the text around it. */
 export interface Match {
   page: number;
   areas: PageArea[];
@@ -18,10 +20,12 @@ export interface Match {
 /** A page as one searchable string, with the glyph each character came from (-1 for a space put between words). */
 export interface Searchable {
   page: number;
+  media: PageArea;
   text: string;
   lower: string;
   glyph: Int32Array;
   areas: Float64Array;
+  texts: string[];
 }
 
 /** Characters of context either side of a match. */
@@ -57,8 +61,22 @@ export function searchable(pages: PageGlyphs[]): Searchable[] {
       const l = ch.toLowerCase();
       lower += l.length === ch.length ? l : ch;
     }
-    return { page: n + 1, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas };
+    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts };
   });
+}
+
+/** The match for characters `[s, e)` of a page, or null when no glyph is in them. */
+function toMatch(p: Searchable, s: number, e: number): Match | null {
+  const glyphs: number[] = [];
+  for (let i = s; i < e; i++) if (p.glyph[i] >= 0 && glyphs[glyphs.length - 1] !== p.glyph[i]) glyphs.push(p.glyph[i]);
+  if (glyphs.length === 0) return null;
+  return {
+    page: p.page,
+    areas: boxes(p.areas, glyphs),
+    before: (s > CONTEXT ? "…" : "") + p.text.slice(Math.max(0, s - CONTEXT), s),
+    text: p.text.slice(s, e),
+    after: p.text.slice(e, e + CONTEXT) + (e + CONTEXT < p.text.length ? "…" : ""),
+  };
 }
 
 /** Every place `query` appears, ignoring case and how words are spaced. */
@@ -67,26 +85,109 @@ export function find(pages: Searchable[], query: string): Match[] {
   const out: Match[] = [];
   if (!q) return out;
   for (const p of pages) {
-    // Spaces in the page run together as the query's do.
     let from = 0;
     while (out.length < MAX_MATCHES) {
       const at = indexLoose(p.lower, q, from);
       if (!at) break;
-      const [s, e] = at;
-      from = e;
-      const glyphs: number[] = [];
-      for (let i = s; i < e; i++) if (p.glyph[i] >= 0 && glyphs[glyphs.length - 1] !== p.glyph[i]) glyphs.push(p.glyph[i]);
-      if (glyphs.length === 0) continue;
-      out.push({
-        page: p.page,
-        areas: boxes(p.areas, glyphs),
-        before: (s > CONTEXT ? "…" : "") + p.text.slice(Math.max(0, s - CONTEXT), s),
-        text: p.text.slice(s, e),
-        after: p.text.slice(e, e + CONTEXT) + (e + CONTEXT < p.text.length ? "…" : ""),
-      });
+      from = at[1];
+      const m = toMatch(p, at[0], at[1]);
+      if (m) out.push(m);
     }
   }
   return out;
+}
+
+/** A kind of thing to find everywhere at once: a pattern, and a check that what it matched is one. */
+export interface Preset {
+  label: string;
+  /** What a found one is called in the list. */
+  name: string;
+  pattern: RegExp;
+  valid?: (s: string) => boolean;
+  /** Another kind whose finds this one never overlaps: no phone number inside an account number. */
+  not?: () => Preset;
+}
+
+const digits = (s: string) => s.replace(/\D/g, "");
+
+/** Luhn's check: what a card number's last digit is for. */
+function luhn(s: string): boolean {
+  const d = digits(s);
+  if (d.length < 13 || d.length > 19) return false;
+  let sum = 0;
+  for (let i = 0; i < d.length; i++) {
+    let n = d.charCodeAt(d.length - 1 - i) - 48;
+    if (i % 2 === 1) n = n * 2 > 9 ? n * 2 - 9 : n * 2;
+    sum += n;
+  }
+  return sum % 10 === 0;
+}
+
+/** ISO 13616's check on an IBAN: moved and read as a number, it leaves 1 over 97. */
+function iban(s: string): boolean {
+  const v = s.replace(/\s/g, "").toUpperCase();
+  if (v.length < 15 || v.length > 34) return false;
+  const moved = v.slice(4) + v.slice(0, 4);
+  let rest = 0;
+  for (const ch of moved) {
+    const n = ch >= "A" ? ch.charCodeAt(0) - 55 : ch.charCodeAt(0) - 48;
+    rest = n > 9 ? (rest * 100 + n) % 97 : (rest * 10 + n) % 97;
+  }
+  return rest === 1;
+}
+
+const MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|січ|лют|бер|кві|тра|чер|лип|сер|вер|жов|лис|гру";
+
+export const PRESETS: Preset[] = [
+  { label: "Email addresses", name: "Email addresses", pattern: /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu },
+  {
+    label: "Phone numbers",
+    name: "Phone numbers",
+    pattern: /(?<![\d.,])\+?\(?\d[\d ()\-.]{7,17}\d(?![\d,])/g,
+    valid: (s) => {
+      const n = digits(s).length;
+      // A number with a plus, or written in groups, not a figure in a table.
+      return n >= 9 && n <= 15 && (s.startsWith("+") || /[ ()\-.]/.test(s)) && !/^\d{1,3}(\.\d{3})+$/.test(s);
+    },
+    not: () => PRESETS[2],
+  },
+  {
+    label: "Card and bank numbers",
+    name: "Card and bank account numbers",
+    pattern: /\b(?:\d[ -]?){12,18}\d\b|\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g,
+    valid: (s) => (/^[A-Z]/.test(s) ? iban(s) : luhn(s)),
+  },
+  {
+    label: "Dates",
+    name: "Dates",
+    pattern: new RegExp(
+      `\\b\\d{1,2}[./]\\d{1,2}[./]\\d{2,4}\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2} (?:${MONTHS})\\p{L}*\\.? \\d{4}\\b|\\b(?:${MONTHS})\\p{L}*\\.? \\d{1,2},? \\d{4}\\b`,
+      "giu",
+    ),
+  },
+];
+
+/** Every place a preset's pattern finds one. */
+export function findPreset(pages: Searchable[], preset: Preset): Match[] {
+  const out: Match[] = [];
+  const other = preset.not?.();
+  for (const p of pages) {
+    const taken = other ? spans(p.text, other) : [];
+    for (const hit of p.text.matchAll(preset.pattern)) {
+      if (out.length >= MAX_MATCHES) return out;
+      if (preset.valid && !preset.valid(hit[0])) continue;
+      const [s, e] = [hit.index, hit.index + hit[0].length];
+      if (taken.some(([a, b]) => s < b && a < e)) continue;
+      const m = toMatch(p, hit.index, hit.index + hit[0].length);
+      if (m) out.push(m);
+    }
+  }
+  return out;
+}
+
+/** Where a kind finds its things in a text, as `[start, end)`. */
+function spans(text: string, preset: Preset): [number, number][] {
+  return [...text.matchAll(preset.pattern)].filter((h) => !preset.valid || preset.valid(h[0])).map((h) => [h.index, h.index + h[0].length]);
 }
 
 /** Finds `q` in `hay` from `from`, where a space in `q` matches one or more spaces; `[start, end)` or null. */
@@ -127,9 +228,154 @@ function boxes(a: Float64Array, glyphs: number[]): PageArea[] {
   return out;
 }
 
+/** The text of the glyphs mostly inside an area, as a drawn box would take it out. */
+export function textIn(p: Searchable, area: PageArea): string {
+  const [L, B, R, T] = area;
+  let out = "";
+  let last = -1;
+  for (let i = 0; i < p.text.length; i++) {
+    const g = p.glyph[i];
+    if (g < 0) {
+      if (last >= 0 && !out.endsWith(" ")) out += " ";
+      continue;
+    }
+    const [l, b, r, t] = [p.areas[g * 4], p.areas[g * 4 + 1], p.areas[g * 4 + 2], p.areas[g * 4 + 3]];
+    const w = Math.max(0, Math.min(r, R) - Math.max(l, L));
+    const h = Math.max(0, Math.min(t, T) - Math.max(b, B));
+    if (w * h >= 0.5 * (r - l) * (t - b) && r > l) {
+      out += p.text[i];
+      last = g;
+    }
+  }
+  return out.trim();
+}
+
 /** The areas to send to the core: five numbers each, the page then the box. */
 export function areasOf(matches: Match[]): Float64Array {
   const out: number[] = [];
   for (const m of matches) for (const a of m.areas) out.push(m.page, ...a);
   return Float64Array.from(out);
+}
+
+// --- the page, as the copy will show it ------------------------------------------
+
+const SVG = "http://www.w3.org/2000/svg";
+
+function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>): SVGElementTagNameMap[K] {
+  const e = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  return e;
+}
+
+/**
+ * A page drawn from its glyphs — each line's text where it lands — with
+ * black boxes over what will go. Dragging across it draws a box of one's
+ * own, handed to `onBox` in the page's points.
+ */
+export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area: PageArea) => void): HTMLElement {
+  const figure = document.createElement("figure");
+  figure.className = "redact-figure";
+  const [ml, mb, mr, mt] = p.media;
+  const y = (v: number) => mt - v;
+  // The part of the page with text on it, and a margin: a page is mostly
+  // white, and its words should be big enough to read.
+  let [el, eb, er, et] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let g = 0; g < p.texts.length; g++) {
+    el = Math.min(el, p.areas[g * 4]);
+    eb = Math.min(eb, p.areas[g * 4 + 1]);
+    er = Math.max(er, p.areas[g * 4 + 2]);
+    et = Math.max(et, p.areas[g * 4 + 3]);
+  }
+  for (const [l, b, r, t] of boxesToDraw) [el, eb, er, et] = [Math.min(el, l), Math.min(eb, b), Math.max(er, r), Math.max(et, t)];
+  const view =
+    el < er
+      ? [Math.max(0, el - ml - 24), Math.max(0, mt - et - 24), Math.min(mr - ml, er - ml + 24), Math.min(mt - mb, mt - eb + 24)]
+      : [0, 0, mr - ml, mt - mb];
+  const pic = svg("svg", {
+    viewBox: `${view[0]} ${view[1]} ${view[2] - view[0]} ${view[3] - view[1]}`,
+    role: "img",
+    "aria-label": `Page ${p.page} as the copy will show it; drag across it to black out more`,
+  });
+  pic.append(svg("rect", { class: "blackout-page", x: 0, y: 0, width: mr - ml, height: mt - mb }));
+  // The text in runs along a line, each stretched to the width it takes.
+  const a = p.areas;
+  let run = "";
+  let box: PageArea | null = null;
+  const flush = () => {
+    if (!box || !run.trim()) return;
+    const [l, b, r, t] = box;
+    const h = t - b;
+    const text = svg("text", {
+      class: "blackout-context",
+      x: l - ml,
+      y: y(b + 0.2 * h),
+      "font-size": h,
+      textLength: Math.max(1, r - l),
+      lengthAdjust: "spacingAndGlyphs",
+    });
+    text.textContent = run;
+    pic.append(text);
+  };
+  for (let g = 0; g < p.texts.length; g++) {
+    const area: PageArea = [a[g * 4], a[g * 4 + 1], a[g * 4 + 2], a[g * 4 + 3]];
+    const h = area[3] - area[1];
+    if (box && Math.abs(box[1] - area[1]) < 0.3 * Math.max(h, 0.01) && area[0] - box[2] < 1.5 * h && area[0] >= box[0]) {
+      if (area[0] - box[2] > 0.2 * h && !run.endsWith(" ")) run += " ";
+      run += p.texts[g];
+      box[2] = Math.max(box[2], area[2]);
+      box[3] = Math.max(box[3], area[3]);
+      continue;
+    }
+    flush();
+    run = p.texts[g];
+    box = [...area];
+  }
+  flush();
+  for (const [l, b, r, t] of boxesToDraw) {
+    pic.append(svg("rect", { class: "blackout-box", x: l - ml, y: y(t), width: r - l, height: t - b }));
+  }
+
+  // A box of one's own: from where the pointer goes down to where it comes up.
+  const drawn = svg("rect", { class: "redact-drawing", x: 0, y: 0, width: 0, height: 0 });
+  drawn.style.display = "none";
+  pic.append(drawn);
+  const at = (e: PointerEvent): [number, number] => {
+    const m = pic.getScreenCTM();
+    if (!m) return [0, 0];
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return [Math.min(mr - ml, Math.max(0, pt.x)), Math.min(mt - mb, Math.max(0, pt.y))];
+  };
+  let start: [number, number] | null = null;
+  pic.addEventListener("pointerdown", (e) => {
+    start = at(e);
+    pic.setPointerCapture(e.pointerId);
+  });
+  pic.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const [x, yy] = at(e);
+    drawn.style.display = "";
+    drawn.setAttribute("x", String(Math.min(start[0], x)));
+    drawn.setAttribute("y", String(Math.min(start[1], yy)));
+    drawn.setAttribute("width", String(Math.abs(x - start[0])));
+    drawn.setAttribute("height", String(Math.abs(yy - start[1])));
+  });
+  const end = (e: PointerEvent) => {
+    if (!start) return;
+    const [x, yy] = at(e);
+    const [x0, y0] = start;
+    start = null;
+    drawn.style.display = "none";
+    if (Math.abs(x - x0) < 2 || Math.abs(yy - y0) < 2) return;
+    // Back to the page's points, which count up from its bottom left.
+    onBox([ml + Math.min(x, x0), mt - Math.max(yy, y0), ml + Math.max(x, x0), mt - Math.min(yy, y0)]);
+  };
+  pic.addEventListener("pointerup", end);
+  pic.addEventListener("pointercancel", () => {
+    start = null;
+    drawn.style.display = "none";
+  });
+  const caption = document.createElement("figcaption");
+  caption.textContent = `Page ${p.page} — drag across it to black out more`;
+  figure.append(pic, caption);
+  return figure;
 }

@@ -2913,3 +2913,70 @@ body[data-state="ready"] .viewswitch {
 .inside-at {
   font-family: var(--mono);
 }
+
+.redact-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 10px;
+}
+
+.redact-preset {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.redact-preview {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.redact-preview-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.redact-figure {
+  margin: 0;
+}
+
+.redact-figure svg {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.redact-figure figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.redact-drawing {
+  fill: rgb(0 0 0 / 0.35);
+  stroke: #111;
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+
+.redact-page-pick {
+  justify-self: start;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
