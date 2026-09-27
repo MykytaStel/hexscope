@@ -163,3 +163,29 @@ fn a_clean_copy_keeps_its_size_and_loses_its_place() {
         );
     }
 }
+
+#[test]
+fn sound_without_a_picture_is_audio() {
+    let text = |name: &str| match parse_video(&fixture(name)).tree.get(0).value.clone() {
+        Some(Value::Text(t)) => t,
+        other => panic!("{other:?}"),
+    };
+    // A voice memo made by ffmpeg: one sound track, no picture.
+    assert!(
+        text("voice.m4a").starts_with("MP4 audio"),
+        "{}",
+        text("voice.m4a")
+    );
+    let doc = parse_video(&fixture("voice.m4a"));
+    assert_eq!(doc.facts.owner.map(|f| f.text).as_deref(), Some("Olena"));
+    assert!(
+        text("iphone.mov").starts_with("QuickTime ·"),
+        "{}",
+        text("iphone.mov")
+    );
+    assert!(
+        text("android.mp4").starts_with("MP4 ·"),
+        "{}",
+        text("android.mp4")
+    );
+}

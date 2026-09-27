@@ -38,8 +38,10 @@
   --alpha-hover: 0.34;
 }
 
+/* Dark: when the system is, unless light was chosen; or when dark was chosen. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #0f0f11;
     --panel: #161618;
     --panel-2: #1a1a1d;
@@ -71,6 +73,44 @@
     --alpha-hover: 0.4;
     --warning-text: var(--tint-warning);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0f11;
+  --panel: #161618;
+  --panel-2: #1a1a1d;
+  --border: #28282c;
+  --text: #ececef;
+  --muted: #a1a1aa;
+  --faint: #878791;
+  --accent: #6b9bff;
+  --on-accent: #0b1020;
+  --row-hover: rgba(107, 155, 255, 0.09);
+  --row-selected: rgba(107, 155, 255, 0.17);
+
+  --hex-bg: #131315;
+  --hex-text: #e4e4e7;
+  --hex-zero: #4d4d55;
+  --hex-offset: #5d5d66;
+  --tint-sig: #34d17a;
+  --tint-ihdr: #5b8cff;
+  --tint-plte: #b57bff;
+  --tint-idat: #ffa53d;
+  --tint-iend: #9a9aa2;
+  --tint-text: #2fc6d1;
+  --tint-anc: #8a93a6;
+  --tint-gps: #ff5c9a;
+  --tint-warning: #ffd23f;
+  --tint-error: #ff5a5f;
+  --alpha-base: 0.13;
+  --alpha-selected: 0.27;
+  --alpha-hover: 0.4;
+  --warning-text: var(--tint-warning);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 * {
@@ -208,6 +248,17 @@ input {
   cursor: pointer;
   font-weight: 500;
   transition: background 0.12s, border-color 0.12s;
+}
+
+.btn-icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .btn:hover {
@@ -2507,8 +2558,10 @@ body[data-state="ready"] .viewswitch {
     overflow: hidden;
   }
 
-  /* Room in the top bar for the switch: the mark alone, and "Open". */
+  /* Room in the top bar for the switch: the mark alone, and "Open". The
+     theme is chosen on the start page. */
   body[data-state="ready"] .brand-name,
+  body[data-state="ready"] .theme-button,
   .open-long {
     display: none;
   }

@@ -1,4 +1,5 @@
 import { HEX, MONO, themeColors } from "./canvas";
+import { onThemeChange } from "./theme";
 import { CodesView, readExplained, readTables, type BlockTables } from "./codes";
 import { BLOCK_NAMES, STRIDE, StepKind, type Step } from "./deflate";
 import type { FileModel } from "./model";
@@ -248,7 +249,7 @@ export class Player {
       this.seek(Math.round(((e.clientX - r.left) / r.width) * (this.total - 1)));
     });
     new ResizeObserver(() => this.resize()).observe(this.canvas);
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    onThemeChange(() => {
       this.palette = readStripPalette();
       this.draw();
     });

@@ -68,6 +68,7 @@ const LIMITS: Record<string, string[]> = {
     "Marks some apps and AI tools hide in the pixels themselves.",
   ],
   video: ["What the video shows and what its sound says: voices, place names, anything in view."],
+  audio: ["What the recording says: voices, names, places, anything heard in the background."],
   pdf: [
     "Anything still visible on the pages: a name or number you did not black out.",
     "Text that is part of a picture, such as a scanned page or a screenshot, under a black box: the copy cannot take letters out of a picture. Check those pages by eye, or black them out before scanning.",
@@ -79,13 +80,18 @@ const LIMITS: Record<string, string[]> = {
   ],
 };
 
+/** A movie file with sound and no picture: a voice memo, a song. */
+function isAudio(m: FileModel): boolean {
+  return m.file.format === "video" && / audio\b/.test(m.value(0));
+}
+
 /** A name with a date in it, the way phones and messengers name files: `IMG_20260614_183207`, `Screenshot 2026-06-14 at 18.32`. */
 const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01])/;
 
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 function cleanLimits(m: FileModel): HTMLElement {
   const format = m.file.format;
-  const kind = format === "jpeg" || format === "heif" || format === "png" ? "photo" : format;
+  const kind = format === "jpeg" || format === "heif" || format === "png" ? "photo" : isAudio(m) ? "audio" : format;
   const items = [...(LIMITS[kind] ?? [])];
   const base = m.name.split("/").pop() ?? m.name;
   if (DATED.test(base)) {
@@ -461,7 +467,7 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
     };
-    const title = el("h2", undefined, heading[f.format] ?? "What this document reveals");
+    const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // The picture it is about, small, beside the heading: which photo this is.
     if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
@@ -487,7 +493,9 @@ export class Drawer {
           : removable
             ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
             : f.format === "video"
-              ? "No location, camera or software in its metadata."
+              ? isAudio(m)
+                ? "No location, device or software in its metadata."
+                : "No location, camera or software in its metadata."
               : f.format === "wasm"
                 ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
               : "No EXIF metadata: nothing about the camera, the time or the place.";
@@ -678,6 +686,7 @@ export class Drawer {
       pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; photos lose their camera data.",
     };
     const note =
+      (isAudio(m) ? "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte." : undefined) ??
       notes[format] ??
       "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
     const limits = cleanLimits(m);

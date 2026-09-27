@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
     <meta name="description" content="A Word file or a PDF can carry more than its pages show: tracked changes with the deleted text, comments and their authors, black boxes that hide nothing, photos that say where they were taken. How to see it all, and remove it, in your browser." />
     <meta name="theme-color" content="#2563eb" />
     <title>Check a document before you send it — hexscope</title>
@@ -49,7 +50,7 @@
 
         <section>
           <h2><span class="num">2</span> What a PDF keeps</h2>
-          <ul><li><strong>Black boxes that hide nothing.</strong> A rectangle drawn over a name hides it on screen and on paper; the name is still there to select, copy and search.</li><li><strong>Marks for redaction never applied</strong>: until a tool applies them, what they cover is all there.</li><li><strong>Text no one can see</strong>: drawn invisibly, in white on white, off the page, too small. See <a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a>.</li><li><strong>Earlier versions</strong> an edit left behind, with what it took off the page. See <a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a>.</li><li><strong>Comments</strong> and their authors, the document properties, and the EXIF of every photo on its pages.</li></ul>
+          <ul><li><strong>Black boxes that hide nothing.</strong> A rectangle drawn over a name hides it on screen and on paper; the name is still there to select, copy and search. So is a name marked with a black highlight before the file was saved as PDF.</li><li><strong>Marks for redaction never applied</strong>: until a tool applies them, what they cover is all there.</li><li><strong>Text no one can see</strong>: drawn invisibly, in white on white, off the page, too small. See <a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a>.</li><li><strong>Earlier versions</strong> an edit left behind, with what it took off the page. See <a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a>.</li><li><strong>Comments</strong> and their authors, the document properties, and the EXIF of every photo on its pages. Printing a page to PDF keeps it: a web page or a report with a phone photo in it, saved as PDF from Chrome, still says where the photo was taken.</li></ul>
         </section>
 
         <section>
@@ -87,5 +88,6 @@
         </nav>
       </article>
     </main>
+    <script type="module" src="/src/page.ts"></script>
   </body>
 </html>

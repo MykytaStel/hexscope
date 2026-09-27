@@ -3,6 +3,7 @@ import { Drawer, formatBytes, type CleanResult, type RepairResult } from "./draw
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
+import { themeButton } from "./theme";
 import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { Player } from "./player";
@@ -11,7 +12,7 @@ import { call, playerSource } from "./rpc";
 import { misfit, verdict } from "./verdict";
 import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
-import { storedZip } from "./zipwrite";
+import { StoredZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
@@ -26,6 +27,9 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
     void loadSample("samples/photo.jpg", "photo.jpg");
   });
 }
+
+// Light, dark or the system's, beside Open.
+document.querySelector('[data-opens="picker"]')?.before(themeButton());
 
 // The file pickers: buttons that open hidden inputs.
 for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-opens]")) {
@@ -517,27 +521,35 @@ async function saveBatchClean(): Promise<void> {
   const items = batch;
   if (!items) return;
   batchView.result = "Making the clean copies…";
-  const files: { name: string; bytes: Uint8Array }[] = [];
+  // Each copy goes into the archive as soon as it is made, and out of memory.
+  const zip = new StoredZip();
   const failed: string[] = [];
   let nothing = 0;
-  for (const item of items) {
-    if (item.state !== "done" || (item.reveals.length === 0 && !item.lines.some((l) => l.kind === "hidden"))) continue;
+  let done = 0;
+  const todo = items.filter((i) => i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden")));
+  for (const item of todo) {
     const r = await call({ type: "clean", bytes: new Uint8Array(await item.file.arrayBuffer()) });
-    if (r.type === "cleaned" && !r.error) files.push({ name: item.cleanName, bytes: r.bytes });
-    else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
-    else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
+    if (batch !== items) return;
+    try {
+      if (r.type === "cleaned" && !r.error) zip.add(item.cleanName, r.bytes);
+      else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
+      else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
+    } catch (e) {
+      failed.push(`${item.file.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    done++;
+    if (todo.length > 10) batchView.result = `Making the clean copies… ${done} of ${todo.length}`;
   }
-  if (batch !== items) return;
   const said: string[] = [];
-  if (files.length > 0) {
+  if (zip.size > 0) {
     const name = "hexscope-clean-copies.zip";
-    const url = URL.createObjectURL(new Blob([storedZip(files) as BlobPart], { type: "application/zip" }));
+    const url = URL.createObjectURL(zip.finish());
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    said.push(`Saved ${files.length === 1 ? "1 clean copy" : `${files.length} clean copies`} as ${name}.`);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    said.push(`Saved ${zip.size === 1 ? "1 clean copy" : `${zip.size} clean copies`} as ${name}.`);
   }
   if (nothing > 0) said.push(`${nothing === 1 ? "1 file had" : `${nothing} files had`} nothing hexscope can remove.`);
   if (failed.length > 0) said.push(`Not cleaned — ${failed.join("; ")}.`);
