@@ -119,6 +119,10 @@ pub fn summarize(data: &[u8]) -> Summary {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             "wasm"
         }
+        Document::Eml(d) => {
+            facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
+            "eml"
+        }
         Document::Unknown(_) => "unknown",
     };
     Summary {

@@ -403,6 +403,9 @@ function showFileInfo(m: FileModel): void {
     chips.push(...m.value(0).split(" · "));
   } else if (f.format === "zip") {
     chips.push("ZIP", m.value(0));
+  } else if (f.format === "eml") {
+    chips.push("Email");
+    if (f.attachments.length > 0) chips.push(f.attachments.length === 1 ? "1 attachment" : `${f.attachments.length} attachments`);
   } else if (f.format === "wasm") {
     // "WebAssembly · 82 functions · “hello”"
     chips.push(...m.value(0).split(" · "));
@@ -483,6 +486,8 @@ function kindOf(m: FileModel): string {
     }
     case "wasm":
       return "WebAssembly";
+    case "eml":
+      return "Email";
     default:
       return "";
   }
@@ -691,7 +696,10 @@ async function openEntry(entry: number): Promise<void> {
   const parent = model;
   if (!parent) return;
   // A PDF's attachment by its name; an archive's entry by its node's.
-  const name = parent.file.format === "pdf" ? (parent.file.attachments[entry] ?? "attachment") : parent.label(parent.entry(entry).node);
+  const name =
+    parent.file.format === "pdf" || parent.file.format === "eml"
+      ? (parent.file.attachments[entry] ?? "attachment")
+      : parent.label(parent.entry(entry).node);
   closePlayer();
   const r = await call({ type: "open", index: entry });
   if (model !== parent) return;

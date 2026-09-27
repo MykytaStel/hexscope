@@ -47,6 +47,17 @@ read no further.
 
 ## Limits by design
 
+**Emails: IPv4, top-level header.** The address a message was sent from is
+read from the first server's `Received` line and `X-Originating-IP`, IPv4
+only; an IPv6 origin is not named. Only the message's own header is checked
+for forgery signs; a forwarded message inside it is shown, not judged. An
+email is not cleaned: its attached files are, once opened.
+
+**Blacking out by search finds text, not pictures.** *Black out text
+yourself* searches the letters a page draws; words that are part of an image
+— a scan, a screenshot — are not found, and the page says so. A name split
+by a line break is found only when typed with a space where the break is.
+
 **Large archives.** Up to 100,000 entries are read. Past the first 2,000,
 entries get no field-level nodes, only their entry, data and central record:
 every field of every entry would be millions of nodes, which a browser tab

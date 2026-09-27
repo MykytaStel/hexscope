@@ -18,6 +18,16 @@ interface Rule {
 
 const RULES: Rule[] = [
   {
+    when: ["replyto", "authfail"],
+    formats: ["eml"],
+    text: "If replies go to another domain, or the sender's domain did not vouch for the message, it may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
+  },
+  {
+    when: ["sentfrom", "computer"],
+    formats: ["eml"],
+    text: "The first server wrote down where the message was sent from — often a home or office address, which says roughly where the sender was — and some mail apps put the computer's name in the message's ID. Webmail such as Gmail usually leaves the sender's address out; a desktop mail app sending through its provider may not.",
+  },
+  {
     when: ["location"],
     formats: ["jpeg", "heif", "png"],
     text: "Instagram, Facebook and X usually remove the location when you post. Sending the photo itself keeps it: by email, as a file in Telegram or WhatsApp, through a cloud link, on a forum or a marketplace. For those, save a clean copy. To keep new photos from recording it, turn off location for the camera app.",

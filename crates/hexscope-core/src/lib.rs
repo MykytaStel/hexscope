@@ -7,6 +7,7 @@ pub mod crc32;
 pub mod crypto;
 pub mod docs;
 pub mod document;
+pub mod eml;
 pub mod exif;
 mod fixed;
 pub mod heif;

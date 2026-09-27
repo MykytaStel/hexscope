@@ -14,7 +14,7 @@ is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
 > HEIC and AVIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`) and WebAssembly are supported. Guides: [removing a photo's
+> `.epub`), emails saved as `.eml` and WebAssembly are supported. Guides: [removing a photo's
 > location](https://hexscope.pages.dev/remove-location-from-photo), [what an
 > edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
 > [why a PNG won't open](https://hexscope.pages.dev/png-wont-open).
@@ -57,6 +57,24 @@ the whole file colours each stretch by entropy — zeros and padding, text and
 structure, compressed or encrypted — marks the problems, outlines what is on
 screen, and jumps where you click. An encrypted blob in a text file, or data
 tacked onto the end of an image, stands out at a glance.
+
+**Black out what you choose.** In a PDF, type a name or a number: every
+place it appears is listed, and the copy takes the ticked ones out of the
+page — the letters themselves — with a black box where each was. In a
+photo, drag boxes over faces, plates or an address; the copy is a new
+picture with the boxes in its pixels and no metadata. Every copy can go
+straight to the share sheet on a phone.
+
+**Reads emails.** An `.eml` file shows the address the sender connected
+from, the computer's name in the message ID, the mail app, the sender's
+time zone, and whether the sender's domain vouched for the message or its
+replies go elsewhere — the signs of a forgery. Attached files open as files
+of their own.
+
+**Finds files inside files.** Data after the end of a picture is searched
+for another file's start — a ZIP behind a JPEG is named in the verdict —
+and *Find files inside* looks through every byte: the photos in a PDF, the
+thumbnail in a photo, each opened with its own parsers.
 
 **Takes archives apart, and what is inside them.** A ZIP — and so a Word
 document, a spreadsheet, an Android app, a Java archive, an e-book — is read

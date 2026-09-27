@@ -34,7 +34,7 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
-  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "wasm" | "unknown";
+  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */

@@ -25,6 +25,7 @@ const EXTENSIONS: Record<string, string[]> = {
   pdf: ["pdf"],
   zip: ["zip", "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "odt", "ods", "odp", "epub", "apk", "aab", "jar", "war", "xpi", "ipa", "whl", "nupkg", "kmz", "3mf", "usdz"],
   wasm: ["wasm"],
+  eml: ["eml", "msg822", "mbox"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -36,6 +37,7 @@ const NAMES: Record<string, [string, string]> = {
   pdf: ["a PDF", ".pdf"],
   zip: ["a ZIP archive", ".zip"],
   wasm: ["a WebAssembly module", ".wasm"],
+  eml: ["an email", ".eml"],
 };
 
 /** A name's extension that says another format than the bytes, what they are, and the extension that fits them. */
@@ -108,6 +110,10 @@ const REVEALS: Record<string, string> = {
   paths: "the user name of the computer that built it",
   names: "its functions' names",
   toolchain: "the compiler that built it",
+  sentfrom: "the address it was sent from",
+  computer: "the sender's computer's name",
+  mailer: "the mail app",
+  timezone: "the sender's time zone",
   sourcemap: "where its source is",
   debug: "debug info from its source",
 };
