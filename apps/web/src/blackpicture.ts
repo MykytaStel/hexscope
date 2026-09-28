@@ -47,7 +47,6 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   const canvas = el("canvas", "blackpicture-canvas");
   canvas.width = base.width;
   canvas.height = base.height;
-  canvas.setAttribute("aria-label", "The picture: drag across it to draw a black box");
   const ctx = canvas.getContext("2d");
   const boxes: Box[] = [];
   let drawing: Box | null = null;
@@ -55,8 +54,20 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
     if (!ctx) return;
     ctx.drawImage(base, 0, 0);
     ctx.fillStyle = "#000";
-    for (const [x0, y0, x1, y1] of drawing ? [...boxes, drawing] : boxes) {
+    for (const [x0, y0, x1, y1] of boxes) {
       ctx.fillRect(x0 * canvas.width, y0 * canvas.height, (x1 - x0) * canvas.width, (y1 - y0) * canvas.height);
+    }
+    // The box being drawn or moved: see-through, outlined, until it is made.
+    if (drawing) {
+      const [x0, y0, x1, y1] = drawing;
+      const r: [number, number, number, number] = [x0 * canvas.width, y0 * canvas.height, (x1 - x0) * canvas.width, (y1 - y0) * canvas.height];
+      ctx.fillStyle = "rgb(0 0 0 / 0.45)";
+      ctx.fillRect(...r);
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = Math.max(1.5, canvas.width / 500);
+      ctx.strokeStyle = "#fff";
+      ctx.strokeRect(...r);
+      ctx.setLineDash([]);
     }
   };
   draw();
@@ -85,6 +96,46 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   };
   canvas.addEventListener("pointerup", finish);
   canvas.addEventListener("pointercancel", finish);
+
+  // The same with the keyboard: a box to move with the arrows, size with
+  // Shift and the arrows, and black out with Enter; Alt for small steps.
+  const kb = [0.4, 0.45, 0.2, 0.1];
+  const showKb = () => {
+    drawing = [kb[0], kb[1], kb[0] + kb[2], kb[1] + kb[3]];
+    draw();
+  };
+  canvas.tabIndex = 0;
+  canvas.setAttribute(
+    "aria-label",
+    "The picture: drag across it to draw a black box, or use the arrow keys to move a box, Shift and the arrows to size it, and Enter to black it out",
+  );
+  canvas.addEventListener("focus", showKb);
+  canvas.addEventListener("blur", () => {
+    if (start) return;
+    drawing = null;
+    draw();
+  });
+  canvas.addEventListener("keydown", (e) => {
+    const step = e.altKey ? 0.005 : 0.02;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const move = moves[e.key];
+    if (move) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        kb[2] = Math.max(MIN_SIDE * 2, Math.min(1 - kb[0], kb[2] + move[0]));
+        kb[3] = Math.max(MIN_SIDE * 2, Math.min(1 - kb[1], kb[3] + move[1]));
+      } else {
+        kb[0] = Math.max(0, Math.min(1 - kb[2], kb[0] + move[0]));
+        kb[1] = Math.max(0, Math.min(1 - kb[3], kb[1] + move[1]));
+      }
+      showKb();
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      boxes.push([kb[0], kb[1], kb[0] + kb[2], kb[1] + kb[3]]);
+      refresh();
+      showKb();
+    }
+  });
 
   const undo = el("button", "btn", "Undo");
   undo.addEventListener("click", () => {
@@ -135,7 +186,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   const hint = el(
     "p",
     "hint",
-    "Drag across faces, number plates, an address, a screen. The copy is a new picture: the boxes are part of its pixels, and it carries nothing about the camera or the place.",
+    "Drag across faces, number plates, an address, a screen — or Tab to the picture, move a box with the arrow keys, size it with Shift, and press Enter. The copy is a new picture: the boxes are part of its pixels, and it carries nothing about the camera or the place.",
   );
   const bar = el("div", "blackpicture-bar");
   bar.append(save, undo, close);
