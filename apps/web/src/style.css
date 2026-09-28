@@ -3817,3 +3817,65 @@ body[data-state="ready"] .viewswitch {
     transform: none;
   }
 }
+
+/* What the colours in the bytes mean: one button, bottom left, over the bytes. */
+.hex-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 6;
+  max-width: min(320px, calc(100% - 40px));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  font-size: 12.5px;
+}
+
+.hex-legend summary {
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.hex-legend ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0 4px 6px;
+  list-style: none;
+}
+
+.hex-legend button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hex-legend button:hover {
+  background: var(--row-hover);
+}
+
+.hex-legend-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.makeup-said {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}

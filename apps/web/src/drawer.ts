@@ -494,9 +494,11 @@ export class Drawer {
     // about it is not scrolled past.
     const more = matchMedia("(max-width: 900px)").matches ? el("details", "more-details") : null;
     const later = (e: HTMLElement) => (more ?? this.file).append(e);
+    // What it is made of stays in sight: how much is the thing itself, and
+    // how much is about it, says why a file is heavier than it looks.
+    this.file.append(this.makeup(m));
     const picture = this.picture(m);
     if (picture) later(picture);
-    later(this.makeup(m));
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h2", undefined, "File"));
@@ -746,7 +748,17 @@ export class Drawer {
       }
       legend.append(li);
     }
-    group.append(bar, legend);
+    // In one sentence: the thing itself, what is about it, what is unaccounted.
+    const share = (role: number) => (byRole.get(role)?.bytes ?? 0) / total;
+    const pct = (x: number) => (x < 0.01 ? "under 1%" : `${Math.round(x * 100)}%`);
+    const about = share(Role.Metadata) + share(Role.Thumbnail);
+    const parts = [`${pct(share(Role.Content))} goes to the ${roleName(Role.Content, m.file.format).toLowerCase()}`];
+    if (about > 0) parts.push(`${pct(about)} to information about it`);
+    if (share(Role.Structure) >= 0.01) parts.push(`${pct(share(Role.Structure))} to the structure that holds it together`);
+    if (share(Role.Hidden) > 0) parts.push(`${pct(share(Role.Hidden))} to bytes the format does not account for`);
+    const thumb = share(Role.Thumbnail) > 0 ? " — a second, small copy of the picture among it" : "";
+    const said = `Of its ${formatBytes(total)}, ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]}${thumb}.`;
+    group.append(el("p", "makeup-said", said), bar, legend);
     return group;
   }
 

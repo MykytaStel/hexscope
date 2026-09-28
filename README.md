@@ -28,9 +28,17 @@ on its first problem; **N** steps through the rest. Anything else is named
 when its signature is familiar — a gzip, an MP4 video, a GIF — rather than
 just refused.
 
-**Says what it found, then explains.** A file opens on a short verdict:
-damaged, something hidden or disguised, what it reveals, or healthy — each
-line a link to the bytes behind it. A file named for another format (a HEIC
+**Says what it found, then explains.** A file opens on its answer, in one
+line coloured by how much it matters — "This photo gives away 8 things",
+"This email may not be from who it says" — with the clean copy as the button
+under it, then a short verdict: damaged, something hidden or disguised, what
+it reveals, or healthy — each line a link to the bytes behind it. A photo
+that records a place shows the picture beside a map with a pin on it, drawn
+in the page from Natural Earth's coastline, so no map site is asked; an
+email shows its way to you — who it says it is from and whether that domain
+vouched for it, where it set out from, each server — and marks where a
+reply, a link or an attachment would lead off it. A clean copy ends on the
+file and the copy side by side: what it gave away, and what is left. A file named for another format (a HEIC
 photo saved as .jpg) is told so, with the extension that fits it; that is
 often the whole reason a file "won't open". Every part of every file then explains
 itself at two depths, both always shown: one plain sentence first ("The
@@ -52,7 +60,9 @@ something.
 
 **Shows the whole file at once.** "What it's made of" splits every byte into
 picture (or files), metadata, thumbnail, structure, hidden and damaged, with
-a bar in file order and the share of each. Beside the hex view, a minimap of
+a bar in file order, the share of each, and one sentence that says it. The
+hex view's colours are named for the format under *Colours*, each a way to
+the first part in it. Beside the hex view, a minimap of
 the whole file colours each stretch by entropy — zeros and padding, text and
 structure, compressed or encrypted — marks the problems, outlines what is on
 screen, and jumps where you click. An encrypted blob in a text file, or data
