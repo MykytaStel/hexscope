@@ -15,11 +15,19 @@ export interface BatchItem {
   /** The clean copy's name, for the ZIP. */
   cleanName: string;
   note: string;
+  /** Left out of the clean copies, by choice. */
+  skip: boolean;
+}
+
+/** Whether a file has something a clean copy takes out. */
+export function cleanable(i: BatchItem): boolean {
+  return i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden"));
 }
 
 export interface BatchHooks {
   open(index: number): void;
-  saveClean(): void;
+  /** Makes the copies of the files chosen; `keepNames` names each as the original. */
+  saveClean(keepNames: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
   canShareCopies(): boolean;
 }
@@ -71,6 +79,7 @@ export class BatchView {
   private items: BatchItem[] = [];
   private lastDrawn = 0;
   private pending = 0;
+  private keepNames = false;
 
   constructor(
     private host: HTMLElement,
@@ -124,13 +133,23 @@ export class BatchView {
       summary.textContent = parts.length ? `${parts.join(" · ")}.` : "None of them gives anything away.";
     }
     const phone = this.hooks.canShareCopies();
-    const save = el("button", "btn btn-clean", phone ? "Make clean copies" : "Save clean copies (.zip)");
-    save.disabled = busy || revealing + hidden === 0;
+    const chosen = items.filter((i) => cleanable(i) && !i.skip).length;
+    const copies = plural(chosen, "clean copy", "clean copies");
+    const save = el("button", "btn btn-clean", busy || chosen === 0 ? (phone ? "Make clean copies" : "Save clean copies (.zip)") : phone ? `Make ${copies}` : `Save ${copies} (.zip)`);
+    save.disabled = busy || chosen === 0;
     save.title = phone
-      ? "Makes every copy in this tab, to share or save: nothing is uploaded"
-      : "Makes every copy in this tab and saves them as one ZIP: nothing is uploaded";
-    save.addEventListener("click", () => this.hooks.saveClean());
-    head.append(title, summary, save, this.status);
+      ? "Makes the copies in this tab, to share or save: nothing is uploaded"
+      : "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded";
+    save.addEventListener("click", () => this.hooks.saveClean(this.keepNames));
+    // "photo.jpg" rather than "photo-clean.jpg": in their own ZIP they need no mark.
+    const keep = el("label", "batch-keep");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = this.keepNames;
+    box.addEventListener("change", () => (this.keepNames = box.checked));
+    keep.append(box, " Keep the original names");
+    keep.hidden = busy || chosen === 0;
+    head.append(title, summary, save, keep, this.status);
 
     const isProblem = (i: BatchItem) =>
       i.state === "failed" || i.lines.some((l) => l.kind === "damage" || l.kind === "hidden" || l.kind === "misnamed");
@@ -157,6 +176,8 @@ export class BatchView {
       .filter(({ item }) => this.show === "all" || (this.show === "reveals" ? item.reveals.length > 0 : isProblem(item)));
 
     const list = el("ul", "batch-list");
+    // With any tick in the list, every row keeps its place for one.
+    const anyPick = shown.some(({ item }) => cleanable(item));
     shown.slice(0, this.limit).forEach(({ item, i }) => {
       const li = el("li");
       const row = el("button", "batch-row");
@@ -169,6 +190,23 @@ export class BatchView {
       found.append(...tags(item));
       row.append(name, meta, found);
       row.addEventListener("click", () => this.hooks.open(i));
+      // Whether this one goes into the clean copies.
+      if (cleanable(item)) {
+        const pick = el("input", "batch-pick");
+        pick.type = "checkbox";
+        pick.checked = !item.skip;
+        pick.setAttribute("aria-label", `Make a clean copy of ${item.file.name}`);
+        pick.title = "Make a clean copy of this one";
+        pick.addEventListener("change", () => {
+          item.skip = !pick.checked;
+          this.draw();
+        });
+        li.classList.add("has-pick");
+        li.append(pick);
+      } else if (anyPick) {
+        li.classList.add("has-pick");
+        li.append(el("span", "batch-pick"));
+      }
       li.append(row);
       list.append(li);
     });

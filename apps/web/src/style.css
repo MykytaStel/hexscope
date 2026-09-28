@@ -3286,3 +3286,37 @@ body[data-state="ready"] .viewswitch {
     display: block;
   }
 }
+
+/* A tick before a file in the list: whether it goes into the clean copies. */
+.batch-list li.has-pick {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-pick {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.batch-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.batch-keep[hidden] {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .batch-pick {
+    width: 22px;
+    height: 22px;
+  }
+}

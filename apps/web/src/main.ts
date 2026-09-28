@@ -11,7 +11,7 @@ import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
 import { misfit, verdict } from "./verdict";
-import { BatchView, type BatchItem } from "./batch";
+import { BatchView, cleanable, type BatchItem } from "./batch";
 import { categories } from "./share";
 import { StoredZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
@@ -481,7 +481,7 @@ const batchView = new BatchView($("batch"), {
     batchPaused = true;
     void load(item.file);
   },
-  saveClean: () => void saveBatchClean(),
+  saveClean: (keepNames) => void saveBatchClean(keepNames),
 });
 
 /** A short name for the kind of file, beside its name in the list. */
@@ -524,7 +524,7 @@ function startBatch(files: File[]): void {
   closePlayer();
   model = null;
   levels = [];
-  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], reveals: [], cleanName: file.name, note: "" }));
+  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], reveals: [], cleanName: file.name, note: "", skip: false }));
   batchView.result = "";
   showBatch();
 }
@@ -599,11 +599,13 @@ function phoneCanShare(): boolean {
  * computer they are saved as one ZIP; on a phone that can share files,
  * they wait for "Share", one file each, so they can go straight to a chat.
  */
-async function saveBatchClean(): Promise<void> {
+async function saveBatchClean(keepNames: boolean): Promise<void> {
   const items = batch;
   if (!items) return;
   batchView.result = "Making the clean copies…";
-  const todo = items.filter((i) => i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden")));
+  const todo = items.filter((i) => cleanable(i) && !i.skip);
+  // Kept names keep a folder's own folders, in the ZIP.
+  const copyName = (i: BatchItem) => (keepNames ? i.file.webkitRelativePath || i.file.name : i.cleanName);
   const bytesTotal = todo.reduce((n, i) => n + i.file.size, 0);
   const share = phoneCanShare() && todo.length <= MAX_SHARED && bytesTotal <= MAX_SHARED_BYTES;
   // Each copy goes into the archive as soon as it is made, and out of memory.
@@ -617,8 +619,8 @@ async function saveBatchClean(): Promise<void> {
     if (batch !== items) return;
     try {
       if (r.type === "cleaned" && !r.error) {
-        if (share) shared.push(new File([r.bytes as BlobPart], item.cleanName, { type: item.file.type }));
-        else zip.add(item.cleanName, r.bytes);
+        if (share) shared.push(new File([r.bytes as BlobPart], copyName(item).split("/").pop() ?? item.cleanName, { type: item.file.type }));
+        else zip.add(copyName(item), r.bytes);
       } else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
       else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
     } catch (e) {
