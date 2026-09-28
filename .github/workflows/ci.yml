@@ -97,6 +97,18 @@ jobs:
       # email's way — from the real parser, loaded as the worker loads it.
       - name: Web tests
         run: pnpm --filter web test
+      # The built site in a real browser, on a computer's screen and a
+      # phone's: a sample's answer, a clean copy, an email, offline.
+      - name: Install Chromium for end-to-end tests
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: pnpm --filter web e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-traces
+          path: apps/web/test-results
+          if-no-files-found: ignore
       # The page's own script, before any parser: what every visitor waits for.
       - name: JavaScript size budget
         run: |
