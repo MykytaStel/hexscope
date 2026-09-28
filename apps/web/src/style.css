@@ -32,6 +32,8 @@
   --tint-warning: #d69e00;
   /* Warning text: the tint, dark enough to read on a light page. */
   --warning-text: #855f00;
+  /* Green for words: the tint itself is too light on white. */
+  --ok-text: #15803d;
   --tint-error: #c81e1e;
   --alpha-base: 0.1;
   --alpha-selected: 0.22;
@@ -72,6 +74,7 @@
     --alpha-selected: 0.27;
     --alpha-hover: 0.4;
     --warning-text: var(--tint-warning);
+    --ok-text: var(--tint-sig);
   }
 }
 
@@ -107,6 +110,7 @@
   --alpha-selected: 0.27;
   --alpha-hover: 0.4;
   --warning-text: var(--tint-warning);
+  --ok-text: var(--tint-sig);
 }
 
 :root[data-theme="light"] {
@@ -1083,7 +1087,7 @@ a.btn {
 .clean-done {
   margin: 0 0 6px;
   font-weight: 600;
-  color: var(--tint-sig);
+  color: var(--ok-text);
 }
 
 .clean-list {
@@ -3668,7 +3672,7 @@ body[data-state="ready"] .viewswitch {
   margin-top: 6px;
   overflow-wrap: anywhere;
   font: 11.5px var(--mono);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .ba-arrow {
