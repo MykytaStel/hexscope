@@ -1,0 +1,155 @@
+// What the page says about each sample, from the real parser: the headline,
+// the verdict, the tips, what a share card counts, and an email's way.
+// The WebAssembly build is loaded from disk, as the worker loads it; run
+// `pnpm wasm` first.
+import { readFileSync } from "node:fs";
+import { beforeAll, describe as group, expect, it } from "vitest";
+import { initSync, parse } from "./wasm/hexscope_wasm.js";
+import { describe } from "./describe";
+import { FileModel } from "./model";
+import { headline } from "./headline";
+import { verdict, misfit } from "./verdict";
+import { advice } from "./advice";
+import { categories, categoryCount } from "./share";
+import { address, mailRoute, receivedBy } from "./emailpath";
+
+const here = (path: string) => new URL(path, import.meta.url);
+
+beforeAll(() => {
+  initSync({ module: readFileSync(here("./wasm/hexscope_wasm_bg.wasm")) });
+});
+
+function open(name: string, bytes?: Uint8Array): FileModel {
+  const b = bytes ?? new Uint8Array(readFileSync(here(`../public/samples/${name}`)));
+  return new FileModel(describe(parse(b)), b, name);
+}
+
+group("the headline", () => {
+  it("counts what a photo gives away, in red for a place", () => {
+    const h = headline(open("photo.jpg"));
+    expect(h.tone).toBe("danger");
+    expect(h.text).toMatch(/^This photo gives away \d+ things$/);
+  });
+
+  it("says a forged email may not be from who it says", () => {
+    expect(headline(open("phishing.eml"))).toEqual({ tone: "danger", text: "This email may not be from who it says" });
+  });
+
+  it("counts what an honest email gives away, without calling it forged", () => {
+    const h = headline(open("message.eml"));
+    expect(h.text).toMatch(/^This email gives away \d+ things$/);
+  });
+
+  it("names a document, not an archive, for Word and Excel", () => {
+    expect(headline(open("report.docx")).text).toMatch(/^This document /);
+    expect(headline(open("budget.xlsx")).text).toMatch(/^This document /);
+    expect(headline(open("deflate-demo.zip")).text).toMatch(/archive/);
+  });
+
+  it("says a damaged file is damaged", () => {
+    expect(headline(open("broken.png"))).toEqual({ tone: "danger", text: "This picture is damaged" });
+  });
+
+  it("does not claim a file it does not read says nothing", () => {
+    const h = headline(open("junk.bin", new TextEncoder().encode("Rar!\x1a\x07\x00 not really")));
+    expect(h.tone).toBe("neutral");
+  });
+
+  it("counts the same things a share card does", () => {
+    for (const name of ["photo.jpg", "report.pdf", "report.docx", "message.eml", "video.mov"]) {
+      const m = open(name);
+      const n = categories(m).length;
+      const h = headline(m);
+      if (n > 0 && !h.text.includes("may not be")) expect(h.text, name).toContain(`${n} thing`);
+    }
+  });
+});
+
+group("the verdict", () => {
+  it("opens a damaged file on its damage", () => {
+    expect(verdict(open("broken.png"))[0].kind).toBe("damage");
+  });
+
+  it("puts what a photo reveals before its health", () => {
+    const kinds = verdict(open("photo.jpg")).map((l) => l.kind);
+    expect(kinds.indexOf("reveals")).toBeLessThan(kinds.indexOf("healthy"));
+  });
+
+  it("points every line it can at a part of the file", () => {
+    for (const name of ["photo.jpg", "redacted.pdf", "phishing.eml", "budget.xlsx"]) {
+      const m = open(name);
+      for (const l of verdict(m)) if (l.kind !== "healthy") expect(l.node, `${name}: ${l.text}`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("tells a picture named for another format by its extension", () => {
+    const bytes = new Uint8Array(readFileSync(here("../public/samples/sample.png")));
+    expect(misfit(open("holiday.jpg", bytes))).toMatchObject({ ext: "jpg", fits: ".png" });
+    expect(misfit(open("sample.png"))).toBeNull();
+  });
+});
+
+group("the tips", () => {
+  it("lead with the place for a photo, and link a guide", () => {
+    const tips = advice(open("photo.jpg"));
+    expect(tips[0].text).toMatch(/location/);
+    expect(tips[0].guide?.[0]).toBe("remove-location-from-photo.html");
+  });
+
+  it("warn about a forged email's links and files first", () => {
+    expect(advice(open("phishing.eml"))[0].text).toMatch(/Do not click or open them/);
+  });
+
+  it("are three at most", () => {
+    for (const name of ["photo.jpg", "redacted.pdf", "phishing.eml", "report.docx"]) expect(advice(open(name)).length).toBeLessThanOrEqual(3);
+  });
+
+  it("name a screenshot by its file name alone", () => {
+    const bytes = new Uint8Array(readFileSync(here("../public/samples/sample.png")));
+    expect(advice(open("Screenshot 2026-09-28 at 10.00.00.png", bytes)).some((t) => /screenshot/i.test(t.text))).toBe(true);
+  });
+});
+
+group("a share card", () => {
+  // What a file does or how it is locked is not something it gives away.
+  const NOT_TOLD = ["auth", "encryption", "opens", "launch", "scripts", "submits"];
+
+  it("has a category for every kind of fact a sample gives", () => {
+    const samples = ["photo.jpg", "photo.heic", "cropped.jpg", "progressive.jpg", "sample.png", "video.mov", "report.pdf", "redacted.pdf",
+      "report.docx", "budget.xlsx", "message.eml", "phishing.eml", "hello.wasm"];
+    for (const name of samples) {
+      for (const f of open(name).file.facts) {
+        if (!NOT_TOLD.includes(f.kind)) expect(categoryCount([f.kind]), `${name}: ${f.kind}`).toBe(1);
+      }
+    }
+  });
+
+  it("counts categories, never the same one twice", () => {
+    expect(categoryCount(["location", "location", "serial"])).toBe(2);
+    expect(categoryCount(["nothing-we-know"])).toBe(0);
+  });
+});
+
+group("an email's way", () => {
+  it("reads addresses and servers", () => {
+    expect(address('"Example Bank" <security@example-bank.com>')).toEqual({ name: "Example Bank", addr: "security@example-bank.com" });
+    expect(address("plain@example.com")).toEqual({ name: "", addr: "plain@example.com" });
+    expect(receivedBy("from a (b [1.2.3.4]) by mx.example.net (Postfix) with ESMTP")).toBe("mx.example.net");
+    expect(receivedBy("from nowhere")).toBe("a server");
+  });
+
+  it("marks a forged message's sender, reply address, link and attachment", () => {
+    const r = mailRoute(open("phishing.eml"))!;
+    expect(r.stops[0]).toMatchObject({ main: "security@example-bank.com", tone: "bad" });
+    expect(r.stops.map((s) => s.label)).toEqual(["Says it is from", "Sent from", "Passed through", "To"]);
+    expect(r.off.map((s) => s.main)).toEqual(["verify-account@example.info", "login.example.info", "invoice.pdf.html"]);
+  });
+
+  it("lists an honest message's servers in the order they passed it on", () => {
+    const r = mailRoute(open("message.eml"))!;
+    expect(r.stops[0].tone).toBe("good");
+    expect(r.stops.filter((s) => s.label === "Passed through").map((s) => s.main)).toEqual(["smtp.example.org", "mx.example.net", "inbox.example.net"]);
+    expect(r.stops[1].notes).toContain("MacBook-Pro-Olena.local");
+    expect(r.off).toEqual([]);
+  });
+});

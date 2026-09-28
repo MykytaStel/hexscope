@@ -93,6 +93,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build (WASM, typecheck, bundle)
         run: pnpm build
+      # What the page says about each sample — headline, verdict, tips, an
+      # email's way — from the real parser, loaded as the worker loads it.
+      - name: Web tests
+        run: pnpm --filter web test
+      # The page's own script, before any parser: what every visitor waits for.
+      - name: JavaScript size budget
+        run: |
+          main=$(gzip -9c apps/web/dist/assets/main-*.js | wc -c)
+          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 65000)."
+          test "$main" -le 65000
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
