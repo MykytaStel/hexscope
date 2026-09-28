@@ -89,6 +89,27 @@ test("a file opened earlier in the tab opens again from the list", async ({ page
   await expect(page.locator(".recent-files")).toHaveCount(0);
 });
 
+test("a photo copied as a clean picture: pixels only, nothing else", async ({ page, context }, info) => {
+  test.skip(info.project.name !== "computer", "the clipboard is granted on the computer's browser");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await openDoor(page, /Check a photo/);
+  await page.getByRole("button", { name: "Copy a clean picture" }).first().click();
+  await expect(page.getByRole("button", { name: /Copied/ })).toBeVisible();
+  const chunks = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const b = new Uint8Array(await (await item.getType("image/png")).arrayBuffer());
+    const seen: string[] = [];
+    for (let i = 8; i + 8 <= b.length; ) {
+      const len = ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+      seen.push(String.fromCharCode(...b.subarray(i + 4, i + 8)));
+      i += 12 + len;
+    }
+    return [...new Set(seen)];
+  });
+  // No text, no EXIF, no XMP: the picture and nothing else.
+  expect(chunks.filter((c) => !["IHDR", "IDAT", "IEND", "sRGB", "gAMA", "cHRM", "pHYs", "iCCP"].includes(c))).toEqual([]);
+});
+
 const sample = (name: string) => new URL(`../public/samples/${name}`, import.meta.url).pathname;
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {

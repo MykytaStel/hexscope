@@ -7,6 +7,8 @@ import { noun } from "./headline";
 import { el, formatBytes } from "./dom";
 import { LIMITS } from "./knowledge";
 import { typeOf } from "./files";
+import { decodePicture, drawn } from "./thumbnail";
+import { announce } from "./announce";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -133,4 +135,40 @@ export function cleanLimits(m: FileModel): HTMLElement {
   ul.append(...items.map((t) => el("li", undefined, t)));
   box.append(ul);
   return box;
+}
+
+/** Picture formats a browser can draw, and so copy as a clean picture. */
+const PICTURES = ["jpeg", "png", "webp", "gif", "heif"];
+
+/**
+ * "Copy a clean picture": the picture drawn again from its pixels and put
+ * on the clipboard as a PNG, to paste straight into a chat or a document.
+ * Drawn pixels carry nothing else — no place, no camera, no names — so the
+ * copy is clean by how it is made. Null where the clipboard cannot take a
+ * picture, or the file is not one.
+ */
+export function copyPictureButton(m: FileModel): HTMLButtonElement | null {
+  if (!PICTURES.includes(m.file.format) || typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) return null;
+  const b = el("button", "btn", "Copy a clean picture");
+  b.title = "Puts the picture on the clipboard without anything else, to paste into a chat";
+  b.addEventListener("click", async () => {
+    const said = b.textContent;
+    // The item is handed over at once, with the picture to come: Safari
+    // lets a page write to the clipboard only while the tap is fresh.
+    const png = (async () => {
+      const bitmap = await decodePicture(m);
+      if (!bitmap) throw new Error("undrawable");
+      const canvas = drawn(bitmap, m.file.format === "jpeg" ? m.file.orientation : 1, Math.max(bitmap.width, bitmap.height));
+      return await new Promise<Blob>((ok, no) => canvas.toBlob((blob) => (blob ? ok(blob) : no(new Error("no blob"))), "image/png"));
+    })();
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+      b.textContent = "Copied — paste it anywhere";
+      announce("Copied a clean picture. Paste it into a chat or a document.");
+    } catch {
+      b.textContent = "This browser would not copy it";
+    }
+    setTimeout(() => (b.textContent = said), 2500);
+  });
+  return b;
 }
