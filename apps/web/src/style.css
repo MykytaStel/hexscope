@@ -2128,7 +2128,7 @@ body.is-playing .drawer-file {
 .compare-side,
 .compare-offset {
   margin-right: 10px;
-  color: var(--hex-offset);
+  color: var(--faint);
 }
 
 .compare-hex span,
@@ -2802,8 +2802,7 @@ body[data-state="ready"] .viewswitch {
 }
 
 .demo-facts.is-clean dd {
-  color: var(--faint);
-  opacity: 0.7;
+  color: var(--muted);
   text-decoration: line-through;
   text-decoration-color: var(--tint-sig);
 }
