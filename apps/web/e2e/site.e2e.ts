@@ -116,6 +116,28 @@ test("a photo copied as a clean picture: pixels only, nothing else", async ({ pa
   expect(chunks.filter((c) => !["IHDR", "IDAT", "IEND", "sRGB", "gAMA", "cHRM", "pHYs", "iCCP"].includes(c))).toEqual([]);
 });
 
+test("the keyboard list closes every way people try: ×, Escape, a click outside, ? again", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "keys are for a computer");
+  await home(page);
+  const list = page.locator("dialog.shortcuts");
+  const open = async () => {
+    await page.keyboard.press("?");
+    await expect(list).toBeVisible();
+  };
+  await open();
+  await page.getByRole("button", { name: "Close", exact: true }).first().click();
+  await expect(list).toHaveCount(0);
+  await open();
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
+  await open();
+  await page.mouse.click(5, 5);
+  await expect(list).toHaveCount(0);
+  await open();
+  await page.keyboard.press("?");
+  await expect(list).toHaveCount(0);
+});
+
 const sample = (name: string) => new URL(`../public/samples/${name}`, import.meta.url).pathname;
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {

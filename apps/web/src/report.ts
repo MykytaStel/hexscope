@@ -4,6 +4,7 @@
 // an archive's entries carry are replaced by their number. The person sees
 // the whole text before copying it.
 import { Kind, type FileModel } from "./model";
+import { dismissable } from "./dialogs";
 
 /** The commit the site was built from, set by the build. */
 declare const __BUILD__: string;
@@ -112,5 +113,6 @@ export function openReport(m: FileModel): void {
     actions,
   );
   document.body.append(dialog);
+  dismissable(dialog);
   dialog.showModal();
 }

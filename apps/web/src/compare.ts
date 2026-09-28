@@ -8,6 +8,7 @@
 import { Concern, FileModel, Kind } from "./model";
 import { categories } from "./share";
 import type { WorkerRequest, WorkerResponse } from "./worker";
+import { dismissable } from "./dialogs";
 
 /** Parts listed per group, at most. */
 const MAX_LISTED = 200;
@@ -237,5 +238,6 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
 
   dialog.append(el("h2", undefined, "Compare"), head, reveals, problems, structure, close);
   document.body.append(dialog);
+  dismissable(dialog);
   dialog.showModal();
 }

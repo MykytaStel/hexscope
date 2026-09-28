@@ -1,5 +1,6 @@
 // The keyboard, in one list: "?" opens it anywhere, and the landing page
 // links to it.
+import { dismissable } from "./dialogs";
 
 /** The modifier for pasting on this computer. */
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
@@ -11,7 +12,7 @@ const KEYS: [string[], string][] = [
   [["/"], "Find text, or bytes in hex, in the file"],
   [["P"], "Watch the file decompress, byte by byte (PNG and ZIP entries)"],
   [["Backspace"], "Back up: out of an archive entry, or to the list of files"],
-  [["Esc"], "Close the player, or clear the selection"],
+  [["Esc"], "Close this list or any window, the player, or clear the selection"],
   [["?"], "Show these keys"],
 ];
 
@@ -66,6 +67,13 @@ export function openShortcuts(): void {
   const close = el("button", "btn", "Close");
   close.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialog.remove());
+  // "?" opened it; "?" again closes it.
+  dialog.addEventListener("keydown", (e) => {
+    if (e.key === "?") {
+      e.preventDefault();
+      dialog.close();
+    }
+  });
   dialog.append(
     el("h2", undefined, "Keyboard shortcuts"),
     table(KEYS),
@@ -78,5 +86,6 @@ export function openShortcuts(): void {
     close,
   );
   document.body.append(dialog);
+  dismissable(dialog);
   dialog.showModal();
 }
