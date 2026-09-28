@@ -36,10 +36,12 @@ new ActionBar().watch(document.getElementById("drawer")!);
 // Light, dark or the system's, beside Open.
 document.querySelector('[data-opens="picker"]')?.before(themeButton());
 
-// The file pickers: buttons that open hidden inputs.
-for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-opens]")) {
-  button.addEventListener("click", () => document.getElementById(button.dataset.opens ?? "")?.click());
-}
+// The file pickers: buttons that open hidden inputs — wherever they are,
+// the summary's own included, drawn after the page loaded.
+document.addEventListener("click", (e) => {
+  const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
+  if (button) document.getElementById(button.dataset.opens ?? "")?.click();
+});
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -922,29 +924,31 @@ window.addEventListener("paste", (e) => {
 // The same from a button, for a phone, which has no keys to paste with:
 // the browser asks, then hands over what was copied.
 const pasteKey = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) {
-  btn.hidden = !navigator.clipboard?.read;
-  btn.addEventListener("click", async () => {
-    let items: ClipboardItems;
-    try {
-      items = await navigator.clipboard.read();
-    } catch {
-      loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
-      return;
-    }
-    const files: File[] = [];
-    for (const item of items) {
-      const type = item.types.find((t) => t.startsWith("image/"));
-      if (!type) continue;
-      const blob = await item.getType(type);
-      files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
-    }
-    if (files.length === 0) {
-      loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
-      return;
-    }
-    openFiles(files);
-  });
+for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) btn.hidden = !navigator.clipboard?.read;
+document.addEventListener("click", (e) => {
+  if ((e.target as Element | null)?.closest?.("[data-paste]")) void pasteFromClipboard();
+});
+
+async function pasteFromClipboard(): Promise<void> {
+  let items: ClipboardItems;
+  try {
+    items = await navigator.clipboard.read();
+  } catch {
+    loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
+    return;
+  }
+  const files: File[] = [];
+  for (const item of items) {
+    const type = item.types.find((t) => t.startsWith("image/"));
+    if (!type) continue;
+    const blob = await item.getType(type);
+    files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
+  }
+  if (files.length === 0) {
+    loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
+    return;
+  }
+  openFiles(files);
 }
 
 /** One file opens; several are listed. */

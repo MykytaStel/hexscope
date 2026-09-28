@@ -464,6 +464,22 @@ export class Drawer {
         deflate.append(bar, legend);
       }
     }
+    this.file.append(this.nextFile());
+  }
+
+  /** Where to go once done with this file: another one, chosen or pasted. */
+  private nextFile(): HTMLElement {
+    const group = el("div", "group next-file");
+    group.append(el("h2", undefined, "Check another file"));
+    const row = el("div", "entry-actions");
+    const choose = el("button", "btn", "Choose a file");
+    choose.dataset.opens = "picker";
+    const paste = el("button", "btn", "Paste a copied picture");
+    paste.dataset.paste = "";
+    paste.hidden = !navigator.clipboard?.read;
+    row.append(choose, paste);
+    group.append(row);
+    return group;
   }
 
   /** The answer to the question people arrive with: is it all right, and what does it say? */

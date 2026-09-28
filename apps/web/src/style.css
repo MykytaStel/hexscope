@@ -3274,3 +3274,15 @@ body[data-state="ready"] .viewswitch {
     height: 20px;
   }
 }
+
+/* Another file, from the end of the summary: on a phone, where the top
+   bar's Open is far away and there are no keys to paste with. */
+.next-file {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .next-file {
+    display: block;
+  }
+}
