@@ -280,7 +280,7 @@ pub(super) fn check(
             );
         }
         // Boxes over pictures, less those a copy already blacked out under.
-        let n = w
+        let over: Vec<Area> = w
             .over_pictures
             .iter()
             .filter(|b| {
@@ -300,7 +300,9 @@ pub(super) fn check(
                         .any(|u| !super::pictures::already_blacked(ctx, c.num, u))
                 })
             })
-            .count();
+            .copied()
+            .collect();
+        let n = over.len();
         if let Some((node, range)) = at
             && n > 0
         {
@@ -334,7 +336,7 @@ pub(super) fn check(
             };
             insert_update(facts, fact("covered", text, warning));
         }
-        if (!covered.is_empty() || !p.marks.is_empty()) && drawn.len() < MAX_DRAWN_PAGES {
+        if (!covered.is_empty() || !p.marks.is_empty() || n > 0) && drawn.len() < MAX_DRAWN_PAGES {
             let blacked = |g: &Glyph| g.covered || g.marked;
             let pieces = w.pieces(blacked);
             let beside = |g: &Glyph| {
@@ -354,7 +356,7 @@ pub(super) fn check(
             drawn.push(Blackout {
                 page: number,
                 media: page.media,
-                boxes: w.boxes.iter().map(|a| a.0).collect(),
+                boxes: w.boxes.iter().chain(&over).map(|a| a.0).collect(),
                 texts: shown(pieces),
                 context: shown(context)
                     .into_iter()
@@ -687,7 +689,8 @@ pub struct Blackout {
     pub page: usize,
     /// The page: left, bottom, right, top.
     pub media: [f64; 4],
-    /// The dark boxes over text, and marks for redaction, the same way round.
+    /// The dark boxes over text or over part of a picture, and marks for
+    /// redaction, the same way round.
     pub boxes: Vec<[f64; 4]>,
     /// Each covered piece of text and where it is; the text is empty when
     /// its font's codes do not read as letters.

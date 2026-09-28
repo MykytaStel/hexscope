@@ -337,6 +337,24 @@ export class Drawer {
     host.append(this.node, this.file);
   }
 
+  // Each page's pictures, fetched once per file, when a page is first drawn.
+  private pictured: FileModel | null = null;
+  private pictureCache = new Map<number, Promise<Shown[]>>();
+
+  private picturesOf(m: FileModel, page: number): Promise<Shown[]> {
+    if (m !== this.pictured) {
+      forgetPictures();
+      this.pictured = m;
+      this.pictureCache = new Map();
+    }
+    let p = this.pictureCache.get(page);
+    if (!p) {
+      p = this.cleaning.pictures(page).then(toShown).catch(() => []);
+      this.pictureCache.set(page, p);
+    }
+    return p;
+  }
+
   showFile(m: FileModel | null): void {
     this.file.replaceChildren();
     if (!m) return;
@@ -351,7 +369,7 @@ export class Drawer {
       this.file.append(this.reveals(m));
     }
     // A PDF: black out what you choose, not only what the file already hides.
-    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor());
+    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor(m));
     // On a phone, how the file is made waits under one line, so what to do
     // about it is not scrolled past.
     const more = matchMedia("(max-width: 900px)").matches ? el("details", "more-details") : null;
@@ -701,8 +719,10 @@ export class Drawer {
       }
     }
     group.append(list);
-    // The first pages with black boxes over text, drawn.
-    for (const b of f.blackouts.slice(0, 2)) group.append(blackoutFigure(b));
+    // The first pages with black boxes over text or pictures, drawn; with
+    // their pictures when a box lies on one.
+    const overPictures = f.labels.includes("a picture under a black box");
+    for (const b of f.blackouts.slice(0, 2)) group.append(blackoutFigure(b, overPictures ? this.picturesOf(m, b.page) : undefined));
     if (thumbRow) group.append(this.thumbnailCheck(m, thumbRow));
     // The one thing to do first, then when it matters and how to stop it
     // next time, then telling others.
@@ -836,7 +856,7 @@ export class Drawer {
   }
 
   /** Black out text yourself: search or pick a kind, tick, draw boxes, see the pages, save. */
-  private redactor(): HTMLElement {
+  private redactor(m: FileModel): HTMLElement {
     const group = el("div", "group redactor");
     group.append(el("h2", undefined, "Black out text yourself"));
     group.append(
@@ -866,17 +886,7 @@ export class Drawer {
 
     let pages: Searchable[] | null = null;
     const load = async () => (pages ??= searchable(await this.cleaning.pages()));
-    // Each page's pictures, fetched once, when the page is first shown.
-    forgetPictures();
-    const shown = new Map<number, Promise<Shown[]>>();
-    const picturesOf = (n: number) => {
-      let p = shown.get(n);
-      if (!p) {
-        p = this.cleaning.pictures(n).then(toShown).catch(() => []);
-        shown.set(n, p);
-      }
-      return p;
-    };
+    const picturesOf = (n: number) => this.picturesOf(m, n);
     // Every search kept, each place with its tick; boxes drawn are one more.
     const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[]; block: HTMLElement }[] = [];
     // Pages shown to draw on, beyond those with something ticked.
@@ -1056,7 +1066,7 @@ export class Drawer {
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
-      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; photos lose their camera data.",
+      pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data.",
     };
     const note =
       (isAudio(m) ? "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte." : undefined) ??

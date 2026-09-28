@@ -929,6 +929,10 @@ fn a_black_box_over_a_scan_is_found_and_cleaned() {
         facts(&doc)
     );
     assert_eq!(problems(&doc.tree), ["a picture under a black box"]);
+    // The page is drawn, the box on it, to show what is under it.
+    assert_eq!(doc.blackouts.len(), 1);
+    assert_eq!(doc.blackouts[0].boxes, [[0.0, 0.0, 60.0, 50.0]]);
+    assert!(doc.blackouts[0].texts.is_empty());
     let copy = crate::clean::clean(&data).unwrap();
     let px = picture(&copy.bytes, 20);
     for (i, &v) in px.iter().enumerate() {

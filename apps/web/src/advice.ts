@@ -47,7 +47,7 @@ const RULES: Rule[] = [
   {
     when: ["covered"],
     formats: ["pdf"],
-    text: "A black box drawn over text hides it only on screen and on paper: anyone can still select, copy or search it. Do not send this file. The clean copy takes the text out from under the boxes and applies any marks for redaction, leaving the rest of each line in place; open it here to check.",
+    text: "A black box drawn over text, or over part of a scanned page, hides it only on screen and on paper: anyone can still select, copy or search the text, or take the picture out whole. Do not send this file. The clean copy takes out what is under the boxes — the letters, and the picture's pixels there — and applies any marks for redaction, leaving the rest in place; open it here to check.",
   },
   {
     when: ["form", "attachments"],

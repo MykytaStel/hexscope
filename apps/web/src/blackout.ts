@@ -5,6 +5,7 @@
 // core's estimate of where each string sits, so each text is stretched to
 // the width the core gave it.
 import type { Blackout, PageArea } from "./model";
+import type { Shown } from "./redactor";
 
 const SVG = "http://www.w3.org/2000/svg";
 /** Points of page kept around the boxes. */
@@ -36,8 +37,8 @@ function around(areas: PageArea[], media: PageArea): PageArea {
   ];
 }
 
-/** One page's boxes and what they cover, with a toggle between the two views. */
-export function blackoutFigure(b: Blackout): HTMLElement {
+/** One page's boxes and what they cover, with a toggle between the two views; the page's pictures under them, when given. */
+export function blackoutFigure(b: Blackout, pictures?: Promise<Shown[]>): HTMLElement {
   const figure = document.createElement("figure");
   figure.className = "blackout";
   const [ml, , , mt] = b.media;
@@ -59,17 +60,21 @@ export function blackoutFigure(b: Blackout): HTMLElement {
       height: vt - vb,
     }),
   );
-  for (const [l, bottom, r, t] of b.boxes) {
-    pic.append(
-      svg("rect", {
-        class: "blackout-box",
-        x: l - ml,
-        y: y(t),
-        width: r - l,
-        height: t - bottom,
-      }),
-    );
-  }
+  // The page's pictures, under the boxes: what a box over a scan hides.
+  const layer = svg("g", {});
+  pic.append(layer);
+  const boxes = b.boxes.map((area) => {
+    const [l, bottom, r, t] = area;
+    const rect = svg("rect", {
+      class: "blackout-box",
+      x: l - ml,
+      y: y(t),
+      width: r - l,
+      height: t - bottom,
+    });
+    pic.append(rect);
+    return { rect, area };
+  });
   // What is left showing, as the page shows it.
   for (const { area, text } of b.context) pic.append(words(area, text, "blackout-context"));
   for (const { area, text } of b.texts) {
@@ -105,6 +110,8 @@ export function blackoutFigure(b: Blackout): HTMLElement {
     return e;
   }
 
+  // "read" for text; "see" once a box turns out to lie on a picture.
+  let under = "read";
   const caption = document.createElement("figcaption");
   const label = document.createElement("span");
   label.textContent = `Page ${b.page}: what anyone can still read under the boxes`;
@@ -117,11 +124,37 @@ export function blackoutFigure(b: Blackout): HTMLElement {
     const hidden = figure.classList.toggle("is-viewer");
     toggle.setAttribute("aria-pressed", String(hidden));
     toggle.textContent = hidden ? "Show what is under the boxes" : "Show as a viewer does";
-    label.textContent = hidden
-      ? `Page ${b.page}: as a viewer shows it`
-      : `Page ${b.page}: what anyone can still read under the boxes`;
+    label.textContent = hidden ? `Page ${b.page}: as a viewer shows it` : `Page ${b.page}: what anyone can still ${under} under the boxes`;
   });
   caption.append(label, toggle);
   figure.append(pic, caption);
+  void pictures?.then((list) => {
+    let over = false;
+    for (const { href, matrix: [a, bb, c, d, e, f] } of list) {
+      layer.append(
+        svg("image", {
+          href,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          preserveAspectRatio: "none",
+          transform: `matrix(${a} ${-bb} ${-c} ${d} ${c + e - ml} ${mt - d - f})`,
+        }),
+      );
+      const xs = [e, a + e, c + e, a + c + e];
+      const ys = [f, bb + f, d + f, bb + d + f];
+      const [pl, pb, pr, pt] = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+      // A box on the picture shows it through, outlined, until the toggle.
+      for (const { rect, area: [l, bottom, r, t] } of boxes) {
+        if (l >= pl - 1 && r <= pr + 1 && bottom >= pb - 1 && t <= pt + 1) {
+          rect.classList.add("is-over-picture");
+          over = true;
+        }
+      }
+    }
+    if (over && !figure.classList.contains("is-viewer")) label.textContent = `Page ${b.page}: what anyone can still see under the boxes`;
+    if (over) under = "see";
+  });
   return figure;
 }

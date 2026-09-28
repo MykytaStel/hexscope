@@ -2386,6 +2386,16 @@ kbd {
   transition: opacity 250ms ease;
 }
 
+/* A box over a picture: the picture through it, outlined, until the page
+   is shown as a viewer shows it. */
+.blackout:not(.is-viewer) .blackout-box.is-over-picture {
+  fill: transparent;
+  stroke: var(--tint-error);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
 .blackout.is-viewer .blackout-text,
 .blackout.is-viewer .blackout-unread {
   opacity: 0;
