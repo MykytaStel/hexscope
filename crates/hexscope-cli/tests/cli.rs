@@ -183,3 +183,39 @@ fn sarif_is_one_log_for_code_scanning() {
     assert!(out.contains("\"byteOffset\":"), "{out}");
     assert!(out.contains("photo.jpg"));
 }
+
+/// `clean --in-place` replaces the file with its clean copy in one step:
+/// the photo's place is gone, its permissions are kept, and nothing is left
+/// beside it.
+#[test]
+fn clean_in_place_replaces_the_file_whole() {
+    let dir = std::env::temp_dir().join(format!("hexscope-in-place-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let photo = dir.join("photo.jpg");
+    std::fs::copy(fixture("photo.jpg"), &photo).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&photo, std::fs::Permissions::from_mode(0o640)).unwrap();
+    }
+    let before = std::fs::read(&photo).unwrap();
+    let (code, out, err) = run(&["clean", "--in-place", photo.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}{err}");
+    let after = std::fs::read(&photo).unwrap();
+    assert!(after.len() < before.len());
+    let (_, out, _) = run(&["check", "--fail-on", "none", photo.to_str().unwrap()]);
+    assert!(!out.contains("location"), "{out}");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&photo).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o640);
+    }
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.file_name())
+        .collect();
+    assert_eq!(left, [std::ffi::OsString::from("photo.jpg")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

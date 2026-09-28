@@ -759,7 +759,8 @@ input {
 
 .demo-byte.is-hit {
   color: #fff;
-  background: rgb(232 82 122 / 0.75);
+  /* Solid, and dark enough for white on it in either theme. */
+  background: #b3204f;
   border-radius: 3px;
   padding: 0 2px;
   margin: 0 -2px;
@@ -1996,8 +1997,12 @@ body[data-state="loading"] .loading {
   transition-delay: inherit;
 }
 
-.reveal-list .is-removed {
-  opacity: 0.45;
+/* Gone from the copy: struck through and quieter, but still readable —
+   what was removed is worth reading. */
+.reveal-list .is-removed,
+.reveal-list .is-removed .reveal-link,
+.reveal-list .is-removed .map-link {
+  color: var(--muted);
 }
 
 .reveal-list .is-removed .reveal-link {
@@ -2990,8 +2995,10 @@ body[data-state="ready"] .viewswitch {
   }
 
   /* A compact card beside its words, so the ways in stay near the top. */
+  /* The picture grows with the screen, to about the height the words
+     beside it keep for their longest scene: no empty band under it. */
   .demo {
-    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-columns: clamp(112px, 24vw, 200px) minmax(0, 1fr);
     /* The picture stays put while the words beside it change. */
     align-items: start;
     gap: 14px;
@@ -3012,7 +3019,7 @@ body[data-state="ready"] .viewswitch {
   }
 
   .demo-side {
-    min-height: 195px;
+    min-height: 210px;
   }
 
   body[data-state="ready"] .viewswitch {
@@ -3923,7 +3930,7 @@ body[data-state="ready"] .viewswitch {
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .mail-stop-main {

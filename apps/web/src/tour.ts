@@ -91,6 +91,9 @@ export function maybeTour(): void {
   bubble.setAttribute("role", "dialog");
   bubble.setAttribute("aria-live", "polite");
   const title = document.createElement("strong");
+  // Named by its title, as a dialog must be for a screen reader.
+  title.id = "tour-title";
+  bubble.setAttribute("aria-labelledby", title.id);
   const text = document.createElement("p");
   const count = document.createElement("span");
   count.className = "tour-count";

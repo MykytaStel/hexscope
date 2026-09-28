@@ -360,12 +360,21 @@ export class Drawer {
         const place = el("figure", "place-map");
         hero.append(place);
         // Loaded only for a file that says where: the coastline is 20 KB.
-        void import("./map").then(({ placeMap }) => {
-          const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}`;
-          place.append(placeMap(latitude, longitude, `A map with a pin where it was taken: ${where}`));
-          // The map site is one click away on the Location row; this one asks no one.
-          place.append(el("figcaption", undefined, "Where it was taken — drawn here, without asking any map site."));
-        });
+        void import("./map")
+          .catch(() => null)
+          .then((mod) => {
+            // A tab open across a new release may not find the map's code:
+            // the coordinates below still say where.
+            if (!mod) {
+              place.remove();
+              hero.classList.remove("has-map");
+              return;
+            }
+            const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}`;
+            place.append(mod.placeMap(latitude, longitude, `A map with a pin where it was taken: ${where}`));
+            // The map site is one click away on the Location row; this one asks no one.
+            place.append(el("figcaption", undefined, "Where it was taken — drawn here, without asking any map site."));
+          });
       }
     }
     if (!f.location && f.facts.length === 0) {

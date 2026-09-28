@@ -91,16 +91,28 @@ only when nothing but the page is behind it; a shading or a clipped image
 behind it is not taken into account. The clean copy writes a rewritten
 page's content uncompressed, so the file can grow.
 
-**WebAssembly size.** About 219 KB gzipped against a CI budget of 256,000
-bytes. It grew from 58 KB as ZIP, the explanations, the file map, the clean
+**Very large files in a phone's browser.** A file is read up to 2 GB in a
+tab. Making its clean copy holds the file, a copy handed to the reader and
+the result at once, so a movie of a gigabyte or more can take more memory
+than a phone gives a tab. When the browser ends the reader for it, the page
+says so and the next file starts afresh; the command line tool has no such
+limit.
+
+**WebAssembly size.** Two builds, chosen by a file's first bytes: about
+135 KB gzipped for pictures and movies (CI budget 150,000 bytes), and about
+289 KB for everything (budget 320,000), fetched only for a document. The
+whole grew from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
-MakerNotes, the PDF page walk with its fonts, repair and Office's hidden
-parts arrived, and came down as the build was worked on:
+MakerNotes, the PDF page walk with its fonts, repair, Office's hidden
+parts, email and Content Credentials arrived, and came down as the build
+was worked on:
 
 - hand-written readers and writers of decimal numbers in place of the
   standard float parsing and formatting (about 25 KB before compression);
 - sorted lists in place of hash maps and B-trees, and one sort key type
-  for the whole crate (9 KB gzipped);
+  for the whole crate (9 KB gzipped); a second key type, and `f64::clamp`,
+  whose check for a NaN bound keeps the float formatting in, cost 16 KB
+  when they crept back;
 - the browser's build optimised for size (`[profile.wasm]`, opt-level "s")
   except the DEFLATE decoder, which is a crate of its own at full speed:
   36 KB gzipped off, with parsing as fast as before — optimised for size,
