@@ -288,9 +288,7 @@ pub(super) fn check(
                 })
                 .map(|g| w.text_of(g))
                 .collect();
-            if let Some(says) = crate::eml::links::named(&words)
-                && base_domain(says.trim_start_matches("www.")) != base_domain(&to)
-            {
+            if crate::eml::links::says_elsewhere(&words, &to) {
                 let line = format!(
                     "page {number}: a link reads “{}” and goes to {to}",
                     words.trim()
@@ -465,14 +463,6 @@ pub(super) fn check(
 }
 
 /// A domain without its subdomains: `login.example.org` is `example.org`.
-fn base_domain(d: &str) -> &str {
-    let last = d.rfind('.').unwrap_or(0);
-    match d.get(..last).and_then(|h| h.rfind('.')) {
-        Some(i) => d.get(i + 1..).unwrap_or(d),
-        None => d,
-    }
-}
-
 fn fact(kind: &'static str, text: String, node: NodeId) -> DocumentFact {
     DocumentFact {
         kind,

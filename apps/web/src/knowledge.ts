@@ -14,11 +14,17 @@ export const COLOR_TYPES: Record<number, string> = {
 };
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-export const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded"], pdf: ["comments", "form", "attachments"] };
+export const KEPT: Record<string, string[]> = {
+  wasm: ["paths", "imports"],
+  zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded", "weblinks", "linkmismatch", "linkidn"],
+  // The copy keeps every object the document reaches, byte for byte: its
+  // links, and what it does when opened, with them.
+  pdf: ["comments", "form", "attachments", "weblinks", "linkmismatch", "opens", "scripts", "launch", "submits"],
+};
 export const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
-  pdf: "Kept: comments, form answers and attached files, which are part of the document. Delete them in a PDF editor — or flatten the form by printing to PDF — if they should not travel with it.",
-  zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.",
+  pdf: "Kept: comments, form answers, attached files, links, and anything it does when opened, which are part of the document. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.",
+  zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.",
 };
 
 /** Facts shown first in colour: what someone would least want to send. */

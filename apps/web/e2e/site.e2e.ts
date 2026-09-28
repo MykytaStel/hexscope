@@ -3,9 +3,15 @@
 // computer's screen and a phone's (playwright.config.ts).
 import { expect, test, type Page } from "@playwright/test";
 
+/** The landing page, once its script is running: its doors and pickers are in the page before it. */
+async function home(page: Page): Promise<void> {
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+}
+
 /** Opens a sample from its door on the landing page. */
 async function openDoor(page: Page, door: RegExp): Promise<void> {
-  await page.goto("./");
+  await home(page);
   await page.getByRole("button", { name: door }).click();
   await expect(page.locator(".verdict-title")).toBeVisible();
 }
@@ -114,7 +120,7 @@ const sample = (name: string) => new URL(`../public/samples/${name}`, import.met
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {
   const saved = catchDownloads(page);
-  await page.goto("./");
+  await home(page);
   await page.locator("#picker-empty").setInputFiles([sample("photo.jpg"), sample("report.docx"), sample("sample.png")]);
   const list = page.locator("#batch");
   await expect(list).toContainText("photo.jpg");
@@ -157,6 +163,7 @@ test("after one visit, it works offline — a document too", async ({ page, cont
   });
   await context.setOffline(true);
   await page.reload();
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
   await page.getByRole("button", { name: /Check a document before you send it/ }).click();
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
   await page.goto("./black-out-a-pdf.html");

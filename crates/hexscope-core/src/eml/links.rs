@@ -176,9 +176,25 @@ pub(crate) fn named(text: &str) -> Option<String> {
     ok.then(|| bare.to_string())
 }
 
+/// The registered part of a domain, near enough: its last two labels.
+/// `login.example-bank.com` → `example-bank.com`. Two-part suffixes such as
+/// `co.uk` are rare in links that lie, and too many to list.
+pub(crate) fn base_domain(d: &str) -> &str {
+    let last = d.rfind('.').unwrap_or(0);
+    match d.get(..last).and_then(|h| h.rfind('.')) {
+        Some(i) => d.get(i + 1..).unwrap_or(d),
+        None => d,
+    }
+}
+
+/// Whether a link's words name another site than the one it goes to.
+pub(crate) fn says_elsewhere(words: &str, to: &str) -> bool {
+    named(words).is_some_and(|says| base_domain(says.trim_start_matches("www.")) != base_domain(to))
+}
+
 /// A label written in punycode (RFC 3492), as its letters: `xn--exmple-bank-zij`
 /// is “exаmple-bank”, its second letter Cyrillic.
-pub(super) fn unpunycode(label: &str) -> Option<String> {
+pub(crate) fn unpunycode(label: &str) -> Option<String> {
     const BASE: u32 = 36;
     let input = label.strip_prefix("xn--")?;
     let (basic, rest) = match input.rfind('-') {
