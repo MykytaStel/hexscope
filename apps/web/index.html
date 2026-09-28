@@ -138,32 +138,49 @@
         </ul>
 
         <nav class="more-links" aria-label="More">
-          <p>
-            <span class="more-label">More samples</span>
-            <button class="link" data-sample="samples/cropped.jpg" data-name="cropped.jpg">a cropped photo</button> ·
-            <button class="link" data-sample="samples/photo.heic" data-name="photo.heic">an iPhone HEIC photo</button> ·
-            <button class="link" data-sample="samples/progressive.jpg" data-name="progressive.jpg">a progressive JPEG</button> ·
-            <button class="link" data-sample="samples/video.mov" data-name="video.mov">an iPhone video</button> ·
-            <button class="link" data-sample="samples/report.docx" data-name="report.docx">a Word document</button> ·
-            <button class="link" data-sample="samples/budget.xlsx" data-name="budget.xlsx">a spreadsheet</button> ·
-            <button class="link" data-sample="samples/report.pdf" data-name="report.pdf">an edited PDF</button> ·
-            <button class="link" data-sample="samples/message.eml" data-name="message.eml">an email</button> ·
-            <button class="link" data-sample="samples/hello.wasm" data-name="hello.wasm">a WebAssembly module</button>
-          </p>
-          <p>
-            <span class="more-label">Guides</span>
-            <a href="remove-location-from-photo.html">Remove the location from a photo</a> ·
-            <a href="black-out-a-pdf.html">Black out a PDF properly</a> ·
-            <a href="is-this-email-real.html">Is this email real?</a> ·
-            <a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a> ·
-            <a href="check-document-before-sending.html">Check a document before you send it</a> ·
-            <a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a> ·
-            <a href="pdf-hidden-versions.html">What an edited PDF still holds</a> ·
-            <a href="png-wont-open.html">Why a PNG won't open</a> ·
-            <a href="deflate.html">How DEFLATE works</a>
-          </p>
+          <section class="more-block">
+            <h2 class="more-title">Guides</h2>
+            <div class="guide-groups">
+              <p class="guide-group" id="guides-send">Before you send or trust a file</p>
+              <ul class="guide-list" aria-labelledby="guides-send">
+                <li><a href="remove-location-from-photo.html">Remove the location from a photo</a></li>
+                <li><a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a></li>
+                <li><a href="black-out-a-pdf.html">Black out a PDF properly</a></li>
+                <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+                <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+                <li><a href="pdf-hidden-versions.html">What an edited PDF still holds</a></li>
+                <li><a href="is-this-email-real.html">Is this email real?</a></li>
+              </ul>
+              <p class="guide-group" id="guides-how">How files work</p>
+              <ul class="guide-list" aria-labelledby="guides-how">
+                <li><a href="png-wont-open.html">Why a PNG won't open</a></li>
+                <li><a href="deflate.html">How DEFLATE works, step by step</a></li>
+              </ul>
+            </div>
+          </section>
+          <section class="more-block">
+            <h2 class="more-title">More samples to try</h2>
+            <ul class="sample-chips">
+              <li><button class="chip" data-sample="samples/cropped.jpg" data-name="cropped.jpg"><span class="chip-kind">JPG</span>a cropped photo</button></li>
+              <li><button class="chip" data-sample="samples/photo.heic" data-name="photo.heic"><span class="chip-kind">HEIC</span>an iPhone photo</button></li>
+              <li><button class="chip" data-sample="samples/video.mov" data-name="video.mov"><span class="chip-kind">MOV</span>an iPhone video</button></li>
+              <li><button class="chip" data-sample="samples/report.docx" data-name="report.docx"><span class="chip-kind">DOCX</span>a Word document</button></li>
+              <li><button class="chip" data-sample="samples/budget.xlsx" data-name="budget.xlsx"><span class="chip-kind">XLSX</span>a spreadsheet</button></li>
+              <li><button class="chip" data-sample="samples/report.pdf" data-name="report.pdf"><span class="chip-kind">PDF</span>an edited PDF</button></li>
+              <li><button class="chip" data-sample="samples/message.eml" data-name="message.eml"><span class="chip-kind">EML</span>an email</button></li>
+              <li><button class="chip" data-sample="samples/progressive.jpg" data-name="progressive.jpg"><span class="chip-kind">JPG</span>a progressive JPEG</button></li>
+              <li><button class="chip" data-sample="samples/hello.wasm" data-name="hello.wasm"><span class="chip-kind">WASM</span>a WebAssembly module</button></li>
+            </ul>
+          </section>
         </nav>
-        <p class="footnote">Open source · no accounts · no analytics · no uploads · <button class="link" data-shortcuts>Keyboard shortcuts</button> <kbd>?</kbd> · <button class="link" data-tour>Take the tour</button></p>
+        <footer class="footnote">
+          <span>Open source · no accounts · no analytics · no uploads</span>
+          <span class="footnote-links">
+            <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+            <button class="link" data-shortcuts>Keyboard shortcuts <kbd>?</kbd></button>
+            <button class="link" data-tour>Take the tour</button>
+          </span>
+        </footer>
       </div>
     </section>
 

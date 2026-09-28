@@ -127,6 +127,12 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   const told = el("dl", "demo-facts");
   told.hidden = true;
   side.append(kicker, told, bytesRow, caption);
+  // The card keeps the height of its tallest scene so far: the page below
+  // it never moves as one scene gives way to the next.
+  new ResizeObserver(() => {
+    const h = side.offsetHeight;
+    if (h > (parseFloat(side.style.minHeight) || 0)) side.style.minHeight = `${h}px`;
+  }).observe(side);
   host.replaceChildren(frame, side);
   host.hidden = false;
   const parts = { frame, overlay, pointer, bytesRow, caption };
