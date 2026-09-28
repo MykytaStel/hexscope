@@ -201,9 +201,9 @@ function repairedName(m: FileModel): string {
 /** Repairs in the worker and hands the copy to the browser as a download. */
 async function repairCopy(): Promise<RepairResult> {
   const m = model;
-  if (!m) return { bytes: new Uint8Array(0), fixed: [], error: "no file is open" };
+  if (!m) return { bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" };
   const r = await call({ type: "repair", bytes: m.bytes.slice() });
-  if (r.type !== "repaired") return { bytes: new Uint8Array(0), fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
+  if (r.type !== "repaired") return { bytes: new Uint8Array(0), name: "", fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
   if (!r.error) {
     const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
     const a = document.createElement("a");
@@ -212,7 +212,7 @@ async function repairCopy(): Promise<RepairResult> {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
-  return { bytes: r.bytes, fixed: r.fixed, error: r.error };
+  return { bytes: r.bytes, name: repairedName(m), fixed: r.fixed, error: r.error };
 }
 
 /** Saves bytes as a download. */

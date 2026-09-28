@@ -3174,3 +3174,21 @@ body[data-state="ready"] .viewswitch {
     margin-left: auto;
   }
 }
+
+/* Phones cannot hand a page a folder; they can hand it several photos. */
+.hero-several {
+  display: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hero-folder,
+  .hero-drop {
+    display: none;
+  }
+
+  .hero-several {
+    display: inline;
+  }
+}

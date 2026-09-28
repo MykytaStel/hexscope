@@ -192,11 +192,12 @@ export function verdict(m: FileModel): VerdictLine[] {
     });
   }
   if (damage.length === 0 && hidden.length === 0 && odd.length === 0) {
-    lines.unshift({
-      kind: "healthy",
-      text: "Looks healthy: every part reads the way the format says it should.",
-      node: -1,
-    });
+    // What it gives away is why someone opened it: health comes after that.
+    if (lines.some((l) => l.kind === "reveals")) {
+      lines.push({ kind: "healthy", text: "Otherwise healthy: every part reads the way the format says it should.", node: -1 });
+    } else {
+      lines.unshift({ kind: "healthy", text: "Looks healthy: every part reads the way the format says it should.", node: -1 });
+    }
   }
   return lines;
 }

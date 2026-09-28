@@ -282,6 +282,8 @@ export interface CleanResult {
 
 export interface RepairResult {
   bytes: Uint8Array;
+  /** What the copy is saved as. */
+  name: string;
   fixed: string[];
   error: string;
 }
@@ -527,7 +529,7 @@ export class Drawer {
         box.append(el("p", "hint", `No repaired copy: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", "Saved a repaired copy. What was done:"));
+      box.append(el("p", "clean-done", `Saved a repaired copy as “${r.name}” — look for it in your downloads. What was done:`));
       const ul = el("ul", "clean-list");
       for (const f of r.fixed) ul.append(el("li", undefined, f.charAt(0).toUpperCase() + f.slice(1)));
       const open = el("button", "btn", "Open the repaired copy");
@@ -1039,7 +1041,7 @@ export class Drawer {
         result.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      result.append(el("p", "clean-done", `${r.saved ? "Saved" : "Made"} a copy with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out, and nothing about who made the file. Removed:`));
+      result.append(el("p", "clean-done", `${r.saved ? `Saved “${r.name}”, a copy` : "Made a copy"} with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out and nothing about who made the file${r.saved ? " — look for it in your downloads" : ""}. Removed:`));
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
@@ -1113,7 +1115,7 @@ export class Drawer {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", r.saved ? "Saved a clean copy. Removed:" : "Made a clean copy. Removed:"));
+      box.append(el("p", "clean-done", r.saved ? `Saved a clean copy as “${r.name}” — look for it in your downloads. Removed:` : "Made a clean copy. Removed:"));
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
