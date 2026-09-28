@@ -871,6 +871,17 @@ window.addEventListener("drop", (e) => {
   openFiles([...(e.dataTransfer?.files ?? [])]);
 });
 
+// A picture copied to the clipboard — a screenshot, most often — opens as
+// if it were chosen. Pasting into a field stays pasting.
+window.addEventListener("paste", (e) => {
+  const t = e.target;
+  if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable)) return;
+  const files = [...(e.clipboardData?.files ?? [])];
+  if (files.length === 0) return;
+  e.preventDefault();
+  openFiles(files);
+});
+
 /** One file opens; several are listed. */
 function openFiles(files: File[]): void {
   if (files.length > 1) {

@@ -467,7 +467,8 @@ export class Drawer {
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
       li.append(el("span", "verdict-text", line.text));
-      if (line.node >= 0) {
+      // A file not read has no part to show.
+      if (line.node >= 0 && line.kind !== "unknown") {
         const show = el("button", "verdict-show", "Show me");
         show.addEventListener("click", () => this.onSelect(line.node));
         li.append(show);
@@ -482,7 +483,7 @@ export class Drawer {
       .filter((sl) => sl.role === Role.Hidden)
       .flatMap((sl) => findEmbedded(m.bytes, sl.start, sl.start + sl.len));
     if (hidden.length > 0) group.append(this.insideList(m, hidden, "Hidden in it"));
-    group.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    if (m.file.format !== "unknown") group.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
     if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) group.append(this.repairer());
     return group;
   }

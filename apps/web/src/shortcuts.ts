@@ -1,14 +1,26 @@
 // The keyboard, in one list: "?" opens it anywhere, and the landing page
 // links to it.
 
+/** The modifier for pasting on this computer. */
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+
 const KEYS: [string[], string][] = [
   [["O"], "Open a file"],
+  [[`${MOD} V`], "Check a picture you copied, such as a screenshot"],
   [["N"], "Go to the next problem"],
   [["/"], "Find text, or bytes in hex, in the file"],
   [["P"], "Watch the file decompress, byte by byte (PNG and ZIP entries)"],
   [["Backspace"], "Back up: out of an archive entry, or to the list of files"],
   [["Esc"], "Close the player, or clear the selection"],
   [["?"], "Show these keys"],
+];
+
+/** On a page or a picture to black out, once it has the focus. */
+const BOXES: [string[], string][] = [
+  [["←", "→", "↑", "↓"], "Move the box"],
+  [["Shift", "arrows"], "Make the box wider, narrower, taller or shorter"],
+  [["Alt", "arrows"], "The same, a point at a time"],
+  [["Enter"], "Black out what is under the box"],
 ];
 
 const TREE: [string[], string][] = [
@@ -59,6 +71,8 @@ export function openShortcuts(): void {
     table(KEYS),
     el("h3", undefined, "In the structure, once it has focus (Tab to it)"),
     table(TREE),
+    el("h3", undefined, "Blacking out, on a page or a picture (Tab to it)"),
+    table(BOXES),
     el("h3", undefined, "In the DEFLATE player"),
     table(PLAYER),
     close,
