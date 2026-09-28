@@ -129,6 +129,48 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en")} ${n === 1 ? one : many}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** Bytes shown per row around the first difference: narrow enough for a phone. */
+const ROW = 8;
+
+/**
+ * The bytes around where the two first differ, one file's row over the
+ * other's, the differing bytes marked; and the part of the first file the
+ * offset falls in.
+ */
+function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
+  const box = el("div", "compare-bytes");
+  const part = a.nodeAt(at);
+  if (part > 0) {
+    box.append(el("p", "hint", `In ${a.name}, that is in ${a.path(part).map((id) => a.label(id)).join(" › ")}.`));
+  }
+  const grid = el("div", "compare-rows");
+  grid.setAttribute("role", "img");
+  grid.setAttribute("aria-label", `Bytes of both files from offset 0x${at.toString(16).toUpperCase()}, the differing ones marked`);
+  const from = Math.max(0, Math.floor(at / ROW) * ROW - ROW);
+  const to = Math.min(Math.max(a.bytes.length, b.bytes.length), from + 4 * ROW);
+  const hex = (n: number) => n.toString(16).toUpperCase().padStart(2, "0");
+  for (let row = from; row < to; row += ROW) {
+    for (const [side, m, o] of [["A", a, b], ["B", b, a]] as const) {
+      const line = el("div", "compare-row");
+      line.append(el("span", "compare-side", side), el("span", "compare-offset", row.toString(16).toUpperCase().padStart(6, "0")));
+      const bytes = el("span", "compare-hex");
+      const text = el("span", "compare-ascii");
+      for (let i = row; i < row + ROW; i++) {
+        const v = i < m.bytes.length ? m.bytes[i] : -1;
+        const differs = i >= at && v !== (i < o.bytes.length ? o.bytes[i] : -1);
+        const cell = el(differs ? "mark" : "span", undefined, v < 0 ? "  " : hex(v));
+        const ch = el(differs ? "mark" : "span", undefined, v < 0 ? " " : v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : "·");
+        bytes.append(cell);
+        text.append(ch);
+      }
+      line.append(bytes, text);
+      grid.append(line);
+    }
+  }
+  box.append(grid, el("p", "hint", `A is ${a.name}, B is ${b.name}; past an end, blank.`));
+  return box;
+}
+
 /** Shows a comparison in a dialog. */
 export function showComparison(a: FileModel, b: FileModel, c: Comparison): void {
   const dialog = el("dialog", "report compare");
@@ -160,7 +202,7 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
       "p",
       undefined,
       `${a.name}: ${plural(c.problems.a, "problem", "problems")}${c.problems.damageA ? `, ${c.problems.damageA} damage` : ""}. ` +
-        `${b.name}: ${plural(c.problems.b, "problem", "problems")}${c.problems.damageB ? `, ${c.problems.damageB} damage` : ""}.`,
+        `${cap(b.name)}: ${plural(c.problems.b, "problem", "problems")}${c.problems.damageB ? `, ${c.problems.damageB} damage` : ""}.`,
     ),
   );
 
@@ -177,6 +219,7 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
             `The bytes first differ at offset 0x${c.firstDiff.toString(16).toUpperCase()}.`,
     ),
   );
+  if (c.firstDiff >= 0) structure.append(firstDifference(a, b, c.firstDiff));
   const list = (title: string, items: string[], more: number) => {
     if (items.length === 0) return;
     const d = el("details");
