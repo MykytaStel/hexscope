@@ -910,3 +910,64 @@ fn a_box_over_a_picture_takes_its_pixels_out() {
     // Beside it, the copy is made.
     assert!(crate::clean::redact(&fax, &[(1, [0.0, 0.0, 10.0, 10.0])], &[]).is_ok());
 }
+
+/// A dark box drawn over part of a scanned page is found, and the clean
+/// copy takes the picture's pixels there out, as it takes out text under a
+/// box.
+#[test]
+fn a_black_box_over_a_scan_is_found_and_cleaned() {
+    // Over the scan's bottom left: columns 0-5 and one more, rows 5-9 and
+    // one more, counted from the top.
+    let data = scanned_page("0 g 0 0 60 50 re f");
+    let doc = parse_pdf(&data);
+    assert!(
+        facts(&doc)
+            .iter()
+            .any(|(k, t)| *k == "covered"
+                && t.starts_with("page 1: a black box over part of a picture")),
+        "{:?}",
+        facts(&doc)
+    );
+    assert_eq!(problems(&doc.tree), ["a picture under a black box"]);
+    // The page is drawn, the box on it, to show what is under it.
+    assert_eq!(doc.blackouts.len(), 1);
+    assert_eq!(doc.blackouts[0].boxes, [[0.0, 0.0, 60.0, 50.0]]);
+    assert!(doc.blackouts[0].texts.is_empty());
+    let copy = crate::clean::clean(&data).unwrap();
+    let px = picture(&copy.bytes, 20);
+    for (i, &v) in px.iter().enumerate() {
+        let (x, y) = (i % 20, i / 20);
+        assert_eq!(v, if x < 7 && y >= 4 { 0 } else { 0xAA }, "pixel {x},{y}");
+    }
+    // The box is still drawn; the copy no longer holds what it hid, and
+    // says so: checked again, nothing is under it.
+    assert!(
+        problems(&parse_pdf(&copy.bytes).tree).is_empty(),
+        "{:?}",
+        problems(&parse_pdf(&copy.bytes).tree)
+    );
+    let again = crate::clean::clean(&copy.bytes).unwrap();
+    assert_eq!(picture(&again.bytes, 20), px);
+    assert!(
+        copy.removed
+            .iter()
+            .any(|r| r.what.starts_with("What a picture under the boxes showed")),
+        "{:?}",
+        copy.removed
+    );
+
+    // A frame round the page, a thin rule, a box beside the picture: not boxes over it.
+    for extra in [
+        "0 g 0 0 200 100 re f",
+        "0 g 0 50 200 1 re f",
+        "0 g 250 0 40 40 re f",
+        "0.9 g 0 0 50 50 re f",
+    ] {
+        let doc = parse_pdf(&scanned_page(extra));
+        assert!(
+            problems(&doc.tree).is_empty(),
+            "{extra}: {:?}",
+            problems(&doc.tree)
+        );
+    }
+}

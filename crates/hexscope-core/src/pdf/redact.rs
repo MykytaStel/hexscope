@@ -279,6 +279,46 @@ pub(super) fn check(
                 fact("covered", format!("page {number}: {words}"), warning),
             );
         }
+        // Boxes over pictures, less those a copy already blacked out under.
+        let over: Vec<Area> = w
+            .over_pictures
+            .iter()
+            .filter(|b| {
+                let mut cuts = Vec::new();
+                super::pictures::cuts(
+                    data,
+                    ctx,
+                    page.resources.as_ref(),
+                    &w.placed,
+                    std::slice::from_ref(*b),
+                    &mut budget,
+                    &mut cuts,
+                );
+                cuts.iter().any(|c| {
+                    c.unit
+                        .iter()
+                        .any(|u| !super::pictures::already_blacked(ctx, c.num, u))
+                })
+            })
+            .copied()
+            .collect();
+        let n = over.len();
+        if let Some((node, range)) = at
+            && n > 0
+        {
+            let warning = tree.warning(node, "a picture under a black box", range);
+            let text = if n == 1 {
+                format!(
+                    "page {number}: a black box over part of a picture, which still holds what the box hides"
+                )
+            } else {
+                format!(
+                    "page {number}: {n} black boxes over parts of a picture, which still holds what they hide"
+                )
+            };
+            tree.set_value(warning, Some(Value::Text(text.clone())));
+            insert_update(facts, fact("covered", text, warning));
+        }
         if let Some(&(_, node, _)) = p.marks.first() {
             let range = tree.get(node).range;
             let warning = tree.warning(node, "marked for redaction, never redacted", range);
@@ -296,7 +336,7 @@ pub(super) fn check(
             };
             insert_update(facts, fact("covered", text, warning));
         }
-        if (!covered.is_empty() || !p.marks.is_empty()) && drawn.len() < MAX_DRAWN_PAGES {
+        if (!covered.is_empty() || !p.marks.is_empty() || n > 0) && drawn.len() < MAX_DRAWN_PAGES {
             let blacked = |g: &Glyph| g.covered || g.marked;
             let pieces = w.pieces(blacked);
             let beside = |g: &Glyph| {
@@ -316,7 +356,7 @@ pub(super) fn check(
             drawn.push(Blackout {
                 page: number,
                 media: page.media,
-                boxes: w.boxes.iter().map(|a| a.0).collect(),
+                boxes: w.boxes.iter().chain(&over).map(|a| a.0).collect(),
                 texts: shown(pieces),
                 context: shown(context)
                     .into_iter()
@@ -440,8 +480,15 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
             .map(|(_, a)| Area(*a))
             .collect();
         let p = paint(data, ctx, &page, &mut budget, &mine);
-        if !p.marks.is_empty() {
-            let areas: Vec<Area> = p.marks.iter().map(|m| m.0).collect();
+        // Pictures lose their pixels under the marks, and under dark boxes
+        // drawn over them, as text under a box loses its letters.
+        if !p.marks.is_empty() || !p.walked.over_pictures.is_empty() {
+            let areas: Vec<Area> = p
+                .marks
+                .iter()
+                .map(|m| m.0)
+                .chain(p.walked.over_pictures.iter().copied())
+                .collect();
             super::pictures::cuts(
                 data,
                 ctx,
@@ -642,7 +689,8 @@ pub struct Blackout {
     pub page: usize,
     /// The page: left, bottom, right, top.
     pub media: [f64; 4],
-    /// The dark boxes over text, and marks for redaction, the same way round.
+    /// The dark boxes over text or over part of a picture, and marks for
+    /// redaction, the same way round.
     pub boxes: Vec<[f64; 4]>,
     /// Each covered piece of text and where it is; the text is empty when
     /// its font's codes do not read as letters.

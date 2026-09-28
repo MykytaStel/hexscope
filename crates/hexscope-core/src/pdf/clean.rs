@@ -138,7 +138,7 @@ pub(crate) fn clean_pdf_with(
             Edited::Written(dict, bytes) => pictures.push((cut.num, dict, bytes)),
             Edited::Jpeg => match painted.iter().find(|(n, _)| *n == cut.num) {
                 Some((_, jpeg)) => {
-                    pictures.push((cut.num, jpeg_dict(data, rec, jpeg), jpeg.clone()))
+                    pictures.push((cut.num, jpeg_dict(data, rec, jpeg, &cut.unit), jpeg.clone()))
                 }
                 None => return Err(CleanError::JpegUnderBox),
             },

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="A screenshot shows more than what you meant to share: notifications, tabs, names, the time — and a cropped one can still hold the whole picture. What to look for, and how to black it out properly, in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>What a screenshot gives away — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/what-a-screenshot-gives-away" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/what-a-screenshot-gives-away" />
+    <meta property="og:title" content="What a screenshot gives away" />
+    <meta property="og:description" content="Notifications, tabs, names and the parts you cropped: what a screenshot can give away, and how to black it out without uploading it." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Screenshots</p>
+        <h1>What a screenshot gives away</h1>
+        <p class="story-lede">
+          A screenshot records the whole screen, not the part you were thinking about. And the file can say more than the picture: when it was taken, sometimes by which app — and, from some editors, the part you cropped off. <a href="./">hexscope</a> names a screenshot as one, says what to look for, and blacks out parts of it properly.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a screenshot</a>
+          <a class="btn" href="./?sample=cropped.jpg">Try a cropped photo</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Look along the edges</h2>
+          <ul>
+            <li><strong>Notifications</strong> — who wrote, and the first line of what they wrote.</li>
+            <li><strong>Tabs, bookmarks and the address bar</strong> — what else you had open, and links that carry your account or an order number.</li>
+            <li><strong>Your name or photo</strong> in a corner, the network's name, the battery and the time.</li>
+            <li><strong>Other windows</strong>, and reflections in what is on the screen.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> What the file says</h2>
+          <p>Phones and computers mark their screenshots, and name them with the date and time they were taken; some phones add the app that was open. hexscope calls it a screenshot either way, so you know to look.</p>
+          <p>Cropping is not always cutting. Until 2023, Pixel's Markup and Windows' Snipping Tool could write the cropped picture over the old file and leave the rest of the old one after it — the part you cropped, recoverable. hexscope shows bytes after the end of a picture, and the clean copy drops them.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Black it out properly</h2>
+          <p>Blur and pixelation can sometimes be undone, and a highlighter that is not quite solid can be reversed by turning up the contrast. Use solid black. In hexscope, <em>Black out part of the picture</em> lets you drag boxes over what should go, and saves a new picture with the black in its pixels — and nothing of the original's hidden data at all.</p>
+          <p class="guide-note">The same goes for a screenshot pasted into a document: once it is in a PDF, a box drawn over it covers it and keeps it. hexscope finds a black box over a picture in a PDF, and its clean copy takes out what the box hid.</p>
+        </section>
+
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a screenshot now</a>
+          <span>Nothing leaves your browser.</span>
+        </p>
+        <p class="story-foot">The cropping flaw is CVE-2023-21036 (Pixel Markup) and CVE-2023-28303 (Windows Snipping Tool).</p>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="black-out-a-pdf.html">How to black out a PDF properly</a></li>
+            <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a></li>
+            <li><a href="is-this-email-real.html">Is this email real?</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+          </ul>
+          <p class="story-foot">
+            hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>:
+            you can read the code that reads your file.
+          </p>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

@@ -222,6 +222,15 @@ const MAX_DEPTH = 4;
  * browser has the JPEG codec. One that will not decode is left out, and
  * the core then makes no copy rather than one that keeps it.
  */
+/** `%PDF-` within the first kilobyte, as the core looks for it. */
+function isPdf(bytes: Uint8Array): boolean {
+  const head = bytes.subarray(0, 1024);
+  for (let i = 0; i + 5 <= head.length; i++) {
+    if (head[i] === 0x25 && head[i + 1] === 0x50 && head[i + 2] === 0x44 && head[i + 3] === 0x46 && head[i + 4] === 0x2d) return true;
+  }
+  return false;
+}
+
 async function paintJpegs(pdf: Uint8Array, found: Float64Array): Promise<{ nums: Uint32Array; lens: Uint32Array; bytes: Uint8Array }> {
   const nums: number[] = [];
   const parts: Uint8Array[] = [];
@@ -280,7 +289,19 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
-    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes, req.notes ?? false);
+    const wasm = await moduleFor(req.bytes);
+    // A PDF with a black box over a scanned JPEG: the picture is redrawn
+    // with the box in it, as when blacking out by hand.
+    let c = null;
+    if (isPdf(req.bytes)) {
+      const none = new Float64Array(0);
+      const found = wasm.jpegsUnder(req.bytes, none);
+      if (found.length > 0) {
+        const painted = await paintJpegs(req.bytes, found);
+        c = wasm.redactCopy(req.bytes, none, painted.nums, painted.lens, painted.bytes);
+      }
+    }
+    c ??= wasm.cleanCopy(req.bytes, req.notes ?? false);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });

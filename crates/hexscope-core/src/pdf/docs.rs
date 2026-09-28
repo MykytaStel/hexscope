@@ -345,6 +345,13 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "a picture under a black box",
+        hidden(
+            "ISO 32000-1 §8.9.5",
+            "A dark box drawn over part of a picture, such as a scanned page. The box hides it on screen and paper; the picture under it is whole, for anyone who takes it out.",
+        ),
+    ),
+    (
         "text under a black box",
         hidden(
             "ISO 32000-1 §8.5.3",
