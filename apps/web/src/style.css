@@ -2373,6 +2373,11 @@ kbd {
   font-family: Helvetica, Arial, sans-serif;
 }
 
+/* A scan's recognised words, under the picture of them. */
+.blackout-context.is-under-picture {
+  opacity: 0;
+}
+
 .blackout-unread {
   fill: none;
   stroke: #fff;

@@ -557,7 +557,7 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                 } else if places.is_empty() {
                     Err("none of it is on the pages as text")
                 } else {
-                    hexscope_core::clean::redact(&data, &places)
+                    hexscope_core::clean::redact(&data, &places, &[])
                         .map(|c| {
                             let mut what = vec![format!(
                                 "{} {} blacked out",

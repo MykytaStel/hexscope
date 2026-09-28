@@ -764,7 +764,7 @@ fn chosen_text_is_taken_out_and_boxed() {
         }
         seen += t.len();
     }
-    let copy = crate::clean::redact(&data, &[(1, area)]).unwrap();
+    let copy = crate::clean::redact(&data, &[(1, area)], &[]).unwrap();
     let after: String = super::page_texts(&copy.bytes)[0]
         .glyphs
         .iter()
@@ -774,5 +774,139 @@ fn chosen_text_is_taken_out_and_boxed() {
     assert!(after.contains("Amount:"), "{after}");
     assert!(after.contains("EUR"), "{after}");
     // Not a PDF: nothing to black out this way.
-    assert!(crate::clean::redact(b"\xFF\xD8\xFF", &[]).is_err());
+    assert!(crate::clean::redact(b"\xFF\xD8\xFF", &[], &[]).is_err());
+}
+
+/// A picture's pixels, from a copy: its data undone of Flate.
+fn picture(data: &[u8], width: i64) -> Vec<u8> {
+    let (_, ctx) = parse_with(data);
+    let rec = ctx
+        .objects
+        .iter()
+        .rev()
+        .find(|o| {
+            o.value.get("Subtype").and_then(Obj::name) == Some("Image")
+                && o.value.get("Width").and_then(Obj::int) == Some(width)
+        })
+        .unwrap();
+    let mut budget = facts::MAX_DECODED_TOTAL;
+    facts::decode(data, rec, None, &mut budget).unwrap()
+}
+
+/// A page with a scanned picture (Flate, rows predicted), a JPEG, and a
+/// form holding another picture, each where `extra` puts it.
+fn scanned_page(extra: &str) -> Vec<u8> {
+    use std::io::Write;
+    // 20 by 10 gray pixels of 0xAA, each row predicted as "the row above".
+    let mut rows = Vec::new();
+    for y in 0..10 {
+        rows.push(2u8);
+        rows.extend(std::iter::repeat_n(if y == 0 { 0xAA } else { 0 }, 20));
+    }
+    let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    z.write_all(&rows).unwrap();
+    let scan = z.finish().unwrap();
+    let content = format!(
+        "q 200 0 0 100 0 0 cm /Scan Do Q q 50 0 0 50 300 0 cm /Photo Do Q q 1 0 0 1 400 0 cm /Box Do Q {extra}"
+    );
+    pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 200] /Contents 4 0 R /Resources << /XObject << /Scan 5 0 R /Photo 6 0 R /Box 7 0 R /Fax 9 0 R >> >> >>".to_vec(),
+        stream("", content.as_bytes()),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 20 /Height 10 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /DecodeParms << /Predictor 12 /Columns 20 >>",
+            &scan,
+        ),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode",
+            &photo(),
+        ),
+        stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Matrix [1 0 0 1 10 10] /Resources << /XObject << /Inner 8 0 R >> >>",
+            b"q 40 0 0 40 0 0 cm /Inner Do Q",
+        ),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8",
+            &[0x55; 48],
+        ),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 8 /Height 8 /ImageMask true /Filter /CCITTFaxDecode",
+            &[0; 8],
+        ),
+    ])
+}
+
+/// A box over part of a scanned page takes the picture's pixels there out,
+/// not only covers them; a JPEG is painted by whoever has a JPEG codec; a
+/// picture that cannot be edited stops the copy.
+#[test]
+fn a_box_over_a_picture_takes_its_pixels_out() {
+    let data = scanned_page("");
+    assert!(problems(&parse_pdf(&data).tree).is_empty());
+    // The left half of the scan, top to bottom: pixels 0–9, and one more.
+    let copy = crate::clean::redact(&data, &[(1, [0.0, 0.0, 100.0, 100.0])], &[]).unwrap();
+    assert!(problems(&parse_pdf(&copy.bytes).tree).is_empty());
+    let px = picture(&copy.bytes, 20);
+    assert_eq!(px.len(), 200);
+    for (i, &v) in px.iter().enumerate() {
+        let x = i % 20;
+        assert_eq!(v, if x <= 10 { 0 } else { 0xAA }, "pixel {x},{}", i / 20);
+    }
+    assert!(
+        copy.removed[0]
+            .what
+            .starts_with("What a picture under the boxes showed"),
+        "{:?}",
+        copy.removed
+    );
+    // The same place again changes nothing more.
+    assert_eq!(picture(&copy.bytes, 20), px);
+
+    // Inside a form, followed: its picture at (410, 10), 40 points square.
+    let copy = crate::clean::redact(&data, &[(1, [405.0, 5.0, 430.0, 30.0])], &[]).unwrap();
+    // The box lies over its bottom left quarter; rows count from the top.
+    let inner = picture(&copy.bytes, 4);
+    assert_eq!(&inner[36..39], &[0, 0, 0]);
+    assert_eq!(&inner[..3], &[0x55, 0x55, 0x55]);
+    assert_eq!(&inner[45..], &[0x55, 0x55, 0x55]);
+
+    // A JPEG: said where, and painted by the caller.
+    let over_photo = [(1, [300.0, 25.0, 325.0, 50.0])];
+    let jpegs = crate::pdf::jpegs_under(&data, &over_photo);
+    assert_eq!(jpegs.len(), 1);
+    assert_eq!((jpegs[0].num, jpegs[0].width, jpegs[0].height), (6, 8, 8));
+    assert_eq!(jpegs[0].rects, [[0, 0, 5, 5]]);
+    let stored = &data[jpegs[0].start as usize..(jpegs[0].start + jpegs[0].len) as usize];
+    assert_eq!(stored, photo());
+    assert_eq!(
+        crate::clean::redact(&data, &over_photo, &[]).unwrap_err(),
+        crate::clean::CleanError::JpegUnderBox
+    );
+    let painted = b"\xFF\xD8painted\xFF\xD9".to_vec();
+    let copy = crate::clean::redact(&data, &over_photo, &[(6, painted.clone())]).unwrap();
+    assert!(super::find(&copy.bytes, &painted).is_some());
+    assert!(super::find(&copy.bytes, b"/ColorSpace /DeviceRGB").is_some());
+    // Nothing else under the box: the scan is left as it was.
+    assert!(crate::pdf::jpegs_under(&data, &[(1, [0.0, 0.0, 10.0, 10.0])]).is_empty());
+
+    // Shown to choose from: the scan as pixels, the JPEG where it is, the
+    // form's picture placed through the form.
+    let shown = crate::pdf::page_pictures(&data, 1);
+    assert_eq!(shown.len(), 3);
+    let (w, h, px) = shown[0].rgba.clone().unwrap();
+    assert_eq!((w, h, &px[..4]), (20, 10, &[0xAA, 0xAA, 0xAA, 255][..]));
+    assert_eq!(shown[0].matrix, [200.0, 0.0, 0.0, 100.0, 0.0, 0.0]);
+    assert_eq!(shown[1].jpeg.map(|j| j.1), Some(photo().len() as u64));
+    assert_eq!(shown[2].matrix, [40.0, 0.0, 0.0, 40.0, 410.0, 10.0]);
+    assert!(crate::pdf::page_pictures(&data, 2).is_empty());
+
+    // A fax picture under a box cannot be edited: no copy.
+    let fax = scanned_page("q 50 0 0 50 500 100 cm /Fax Do Q");
+    assert_eq!(
+        crate::clean::redact(&fax, &[(1, [510.0, 110.0, 520.0, 120.0])], &[]).unwrap_err(),
+        crate::clean::CleanError::PictureUnderBox
+    );
+    // Beside it, the copy is made.
+    assert!(crate::clean::redact(&fax, &[(1, [0.0, 0.0, 10.0, 10.0])], &[]).is_ok());
 }

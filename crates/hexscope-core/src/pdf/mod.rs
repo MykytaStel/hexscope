@@ -13,6 +13,7 @@ mod fonts;
 mod forms;
 mod lexer;
 mod page;
+pub(crate) mod pictures;
 pub(crate) mod redact;
 
 pub use redact::{Blackout, PageText};
@@ -74,6 +75,90 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
 pub fn page_texts(data: &[u8]) -> Vec<PageText> {
     let (_, ctx) = parse_with(data);
     redact::page_texts(data, &ctx)
+}
+
+/// A JPEG picture that areas to black out cover part of: its object, its
+/// size in pixels, where its bytes are in the file, and the pixel
+/// rectangles to paint black, `[x0, y0, x1, y1)` from the top left.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JpegUnder {
+    pub num: u32,
+    pub width: u32,
+    pub height: u32,
+    pub start: u64,
+    pub len: u64,
+    pub rects: Vec<[u32; 4]>,
+}
+
+/// The JPEG pictures that `areas` — page counted from 1, then `[left,
+/// bottom, right, top]` in its points — cover part of: the ones
+/// [`crate::clean::redact`] needs painted copies of.
+pub fn jpegs_under(data: &[u8], areas: &[(u32, [f64; 4])]) -> Vec<JpegUnder> {
+    let (_, ctx) = parse_with(data);
+    let rewrites = redact::rewrites(data, &ctx, areas);
+    rewrites
+        .cuts
+        .iter()
+        .filter_map(|cut| {
+            let rec = ctx.objects.iter().rev().find(|o| o.num == cut.num)?;
+            if !matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
+                return None;
+            }
+            let size = |k: &str| {
+                rec.value
+                    .get(k)
+                    .and_then(lexer::Obj::int)
+                    .and_then(|v| u32::try_from(v).ok())
+            };
+            let (width, height) = (size("Width")?, size("Height")?);
+            let (range, _) = rec.stream?;
+            Some(JpegUnder {
+                num: cut.num,
+                width,
+                height,
+                start: range.start,
+                len: range.len,
+                rects: pictures::pixels(&cut.unit, width, height),
+            })
+        })
+        .collect()
+}
+
+/// A picture a page draws, to be seen: where its unit square goes, and
+/// either where its JPEG bytes are in the file or its pixels as RGBA. A
+/// picture kept any other way is not shown.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PagePicture {
+    /// `[a b c d e f]`, from the unit square to the page (8.3.4).
+    pub matrix: [f64; 6],
+    /// Where the JPEG's bytes start, and how many.
+    pub jpeg: Option<(u64, u64)>,
+    /// Width, height and RGBA pixels, rows from the top.
+    pub rgba: Option<(u32, u32, Vec<u8>)>,
+}
+
+/// The pictures page `number`, counted from 1, draws, in the order drawn.
+pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
+    let (_, ctx) = parse_with(data);
+    redact::page_pictures(data, &ctx, number)
+        .into_iter()
+        .filter_map(|(num, matrix)| {
+            let rec = ctx.objects.iter().rev().find(|o| o.num == num)?;
+            if matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
+                let (range, _) = rec.stream?;
+                return Some(PagePicture {
+                    matrix,
+                    jpeg: Some((range.start, range.len)),
+                    rgba: None,
+                });
+            }
+            Some(PagePicture {
+                matrix,
+                jpeg: None,
+                rgba: Some(pictures::rgba(data, &ctx, rec)?),
+            })
+        })
+        .collect()
 }
 
 pub fn is_pdf(data: &[u8]) -> bool {

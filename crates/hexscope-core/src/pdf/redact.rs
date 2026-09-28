@@ -414,6 +414,11 @@ pub(crate) struct Rewrites {
     pub removed: u64,
     /// Redaction marks applied, by object number: each is now done.
     pub applied: Vec<u32>,
+    /// Pictures the marks cover part of: their pixels there go too.
+    pub cuts: Vec<super::pictures::Cut>,
+    /// Whether a mark covers a picture written into a page's content,
+    /// which cannot be edited.
+    pub inline: bool,
 }
 
 /// The page streams the clean copy rewrites. Covered, marked and hidden
@@ -424,6 +429,8 @@ pub(crate) struct Rewrites {
 pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rewrites {
     let mut out: Vec<(u32, Vec<u8>)> = Vec::new();
     let mut applied = Vec::new();
+    let mut cuts = Vec::new();
+    let mut inline = false;
     let mut removed = 0u64;
     let mut budget = BUDGET;
     for (i, page) in pages(data, ctx, &mut budget).into_iter().enumerate() {
@@ -433,6 +440,23 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
             .map(|(_, a)| Area(*a))
             .collect();
         let p = paint(data, ctx, &page, &mut budget, &mine);
+        if !p.marks.is_empty() {
+            let areas: Vec<Area> = p.marks.iter().map(|m| m.0).collect();
+            super::pictures::cuts(
+                data,
+                ctx,
+                page.resources.as_ref(),
+                &p.walked.placed,
+                &areas,
+                &mut budget,
+                &mut cuts,
+            );
+            inline |= p
+                .walked
+                .inline
+                .iter()
+                .any(|i| areas.iter().any(|a| i.inside(a) > 0.0));
+        }
         let edits = p.walked.edits(&p.content, unseen);
         if (edits.is_empty() && p.marks.is_empty()) || p.parts.is_empty() {
             continue;
@@ -473,7 +497,32 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
         streams: out,
         removed,
         applied,
+        cuts,
+        inline,
     }
+}
+
+/// The pictures page `number` (from 1) draws, each with the matrix that
+/// places its unit square: to show a scanned page while choosing what to
+/// black out on it.
+pub(crate) fn page_pictures(data: &[u8], ctx: &Ctx, number: u32) -> Vec<(u32, [f64; 6])> {
+    let mut budget = BUDGET;
+    let mut out = Vec::new();
+    let pages = pages(data, ctx, &mut budget);
+    let Some(page) = (number as usize).checked_sub(1).and_then(|i| pages.get(i)) else {
+        return out;
+    };
+    let p = paint(data, ctx, page, &mut budget, &[]);
+    super::pictures::visit(
+        data,
+        ctx,
+        page.resources.as_ref(),
+        &p.walked.placed,
+        &mut budget,
+        0,
+        &mut |rec, m| out.push((rec.num, *m)),
+    );
+    out
 }
 
 /// One page's visible text, glyph by glyph, where each lands: what a

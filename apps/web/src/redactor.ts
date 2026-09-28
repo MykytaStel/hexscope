@@ -6,7 +6,7 @@
 // drawn where each was. The search runs here, over each page's glyphs and
 // where they land; the core rewrites the pages.
 import type { PageArea } from "./model";
-import type { PageGlyphs } from "./worker";
+import type { PageGlyphs, PagePicture } from "./worker";
 
 /** One place to black out: which page, the boxes to draw, and the text around it. */
 export interface Match {
@@ -272,7 +272,43 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
  * black boxes over what will go. Dragging across it draws a box of one's
  * own, handed to `onBox` in the page's points.
  */
-export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area: PageArea) => void): HTMLElement {
+/** A page's picture ready to draw: an image's address, and the matrix that places its unit square. */
+export interface Shown {
+  href: string;
+  matrix: number[];
+}
+
+// Addresses made for pictures, let go when the next file's are made.
+let addresses: string[] = [];
+
+/** A page's pictures as images to draw: a JPEG as it is, pixels as a PNG. */
+export async function toShown(pictures: PagePicture[]): Promise<Shown[]> {
+  const out: Shown[] = [];
+  for (const p of pictures) {
+    let blob: Blob | null = null;
+    if (p.jpeg) blob = new Blob([p.jpeg as BlobPart], { type: "image/jpeg" });
+    else if (p.rgba && p.width && p.height) {
+      const c = document.createElement("canvas");
+      c.width = p.width;
+      c.height = p.height;
+      c.getContext("2d")?.putImageData(new ImageData(p.rgba as Uint8ClampedArray<ArrayBuffer>, p.width, p.height), 0, 0);
+      blob = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, "image/png"));
+    }
+    if (!blob) continue;
+    const href = URL.createObjectURL(blob);
+    addresses.push(href);
+    out.push({ href, matrix: p.matrix });
+  }
+  return out;
+}
+
+/** Lets go of every picture's address: a new file is open. */
+export function forgetPictures(): void {
+  for (const a of addresses) URL.revokeObjectURL(a);
+  addresses = [];
+}
+
+export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area: PageArea) => void, pictures?: Promise<Shown[]>): HTMLElement {
   const figure = document.createElement("figure");
   figure.className = "redact-figure";
   const [ml, mb, mr, mt] = p.media;
@@ -297,6 +333,11 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     "aria-label": `Page ${p.page} as the copy will show it; drag across it to black out more`,
   });
   pic.append(svg("rect", { class: "blackout-page", x: 0, y: 0, width: mr - ml, height: mt - mb }));
+  // The page's pictures, under its text: a scan is all picture. Each unit
+  // square placed by its matrix, turned the right way up for the screen.
+  const layer = svg("g", {});
+  pic.append(layer);
+  const runs: { node: SVGElement; box: PageArea }[] = [];
   // The text in runs along a line, each stretched to the width it takes.
   const a = p.areas;
   let run = "";
@@ -315,6 +356,7 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     });
     text.textContent = run;
     pic.append(text);
+    runs.push({ node: text, box });
   };
   for (let g = 0; g < p.texts.length; g++) {
     const area: PageArea = [a[g * 4], a[g * 4 + 1], a[g * 4 + 2], a[g * 4 + 3]];
@@ -334,6 +376,30 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
   for (const [l, b, r, t] of boxesToDraw) {
     pic.append(svg("rect", { class: "blackout-box", x: l - ml, y: y(t), width: r - l, height: t - b }));
   }
+  void pictures?.then((list) => {
+    for (const { href, matrix: [a, b, c, d, e, f] } of list) {
+      layer.append(
+        svg("image", {
+          href,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          preserveAspectRatio: "none",
+          transform: `matrix(${a} ${-b} ${-c} ${d} ${c + e - ml} ${mt - d - f})`,
+        }),
+      );
+      // Text under a picture is a scan's recognised words: the picture
+      // shows them already.
+      const xs = [e, a + e, c + e, a + c + e];
+      const ys = [f, b + f, d + f, b + d + f];
+      const [pl, pb, pr, pt] = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+      for (const r of runs) {
+        const [l, bb, rr, t] = r.box;
+        if (l >= pl - 1 && rr <= pr + 1 && bb >= pb - 1 && t <= pt + 1) r.node.classList.add("is-under-picture");
+      }
+    }
+  });
 
   // A box of one's own: from where the pointer goes down to where it comes up.
   const drawn = svg("rect", { class: "redact-drawing", x: 0, y: 0, width: 0, height: 0 });

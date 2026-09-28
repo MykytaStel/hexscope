@@ -5,6 +5,7 @@ mod bmff;
 pub mod clean;
 pub mod crc32;
 pub mod crypto;
+mod deflate;
 pub mod docs;
 pub mod document;
 pub mod eml;

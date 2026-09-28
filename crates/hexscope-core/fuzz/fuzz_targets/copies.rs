@@ -16,6 +16,6 @@ fuzz_target!(|data: &[u8]| {
         .collect();
     let _ = hexscope_core::clean::clean(file);
     let _ = hexscope_core::repair::repair(file);
-    let _ = hexscope_core::clean::redact(file, &areas);
+    let _ = hexscope_core::clean::redact(file, &areas, &[]);
     let _ = hexscope_core::pdf::page_texts(file);
 });

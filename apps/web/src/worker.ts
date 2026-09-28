@@ -16,6 +16,7 @@ export type WorkerRequest =
   | { id: number; type: "clean"; bytes: Uint8Array; notes?: boolean }
   | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
+  | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" };
@@ -27,6 +28,7 @@ export type WorkerResponse =
   | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
+  | { id: number; type: "pagePictures"; pictures: PagePicture[] }
   | { id: number; type: "steps"; steps: Float64Array }
   | { id: number; type: "located"; step: Float64Array }
   | { id: number; type: "blocks"; map: Float64Array; note: string }
@@ -40,6 +42,15 @@ export interface PageGlyphs {
   media: PageArea;
   areas: Float64Array;
   texts: string[];
+}
+
+/** A picture a page draws: where its unit square goes, and a JPEG's bytes or its pixels. */
+export interface PagePicture {
+  matrix: number[];
+  jpeg?: Uint8Array;
+  width?: number;
+  height?: number;
+  rgba?: Uint8ClampedArray;
 }
 
 const SEPARATOR = "\u001f";
@@ -203,6 +214,53 @@ function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
 
+
+/**
+ * The JPEG pictures under the areas to black out, each painted black there
+ * and encoded again: a PDF's scanned page keeps its pixels under a box, so
+ * the box goes into the picture. The core says which and where; the
+ * browser has the JPEG codec. One that will not decode is left out, and
+ * the core then makes no copy rather than one that keeps it.
+ */
+async function paintJpegs(pdf: Uint8Array, found: Float64Array): Promise<{ nums: Uint32Array; lens: Uint32Array; bytes: Uint8Array }> {
+  const nums: number[] = [];
+  const parts: Uint8Array[] = [];
+  for (let i = 0; i < found.length; ) {
+    const [num, width, height, start, len, count] = found.subarray(i, i + 6);
+    const rects = found.subarray(i + 6, i + 6 + 4 * count);
+    i += 6 + 4 * count;
+    try {
+      const bitmap = await createImageBitmap(new Blob([pdf.subarray(start, start + len) as BlobPart], { type: "image/jpeg" }), { imageOrientation: "none" });
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const g = canvas.getContext("2d");
+      if (!g) continue;
+      g.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      // The core counts in the picture's own size; the decoder may differ.
+      const sx = canvas.width / width;
+      const sy = canvas.height / height;
+      g.fillStyle = "#000";
+      for (let r = 0; r < rects.length; r += 4) {
+        const x0 = Math.floor(rects[r] * sx);
+        const y0 = Math.floor(rects[r + 1] * sy);
+        g.fillRect(x0, y0, Math.ceil(rects[r + 2] * sx) - x0, Math.ceil(rects[r + 3] * sy) - y0);
+      }
+      const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
+      nums.push(num);
+      parts.push(new Uint8Array(await blob.arrayBuffer()));
+    } catch {
+      // Not decoded: not painted.
+    }
+  }
+  const bytes = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    bytes.set(p, at);
+    at += p.length;
+  }
+  return { nums: Uint32Array.from(nums), lens: Uint32Array.from(parts, (p) => p.length), bytes };
+}
+
 async function handle(req: WorkerRequest): Promise<void> {
   if (req.type === "parse") {
     const bytes = new Uint8Array(await req.file.arrayBuffer());
@@ -244,8 +302,33 @@ async function handle(req: WorkerRequest): Promise<void> {
     return;
   }
 
+  if (req.type === "pagePictures") {
+    const t = (await loadFull()).pagePictures(req.bytes, req.page);
+    const pictures: PagePicture[] = [];
+    const moved: ArrayBuffer[] = [];
+    for (let i = 0; i < t.count; i++) {
+      const matrix = Array.from(t.matrix(i));
+      const at = t.jpeg(i);
+      if (at.length === 2) {
+        const jpeg = req.bytes.slice(at[0], at[0] + at[1]);
+        moved.push(jpeg.buffer);
+        pictures.push({ matrix, jpeg });
+        continue;
+      }
+      const [width, height] = t.size(i);
+      const rgba = new Uint8ClampedArray(t.rgba(i).buffer);
+      moved.push(rgba.buffer as ArrayBuffer);
+      pictures.push({ matrix, width, height, rgba });
+    }
+    t.free();
+    post({ id: req.id, type: "pagePictures", pictures }, moved);
+    return;
+  }
+
   if (req.type === "redact") {
-    const c = (await loadFull()).redactCopy(req.bytes, req.areas);
+    const wasm = await loadFull();
+    const painted = await paintJpegs(req.bytes, wasm.jpegsUnder(req.bytes, req.areas));
+    const c = wasm.redactCopy(req.bytes, req.areas, painted.nums, painted.lens, painted.bytes);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
