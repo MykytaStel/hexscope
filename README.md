@@ -123,8 +123,10 @@ and text no one can see: drawn invisibly, in white on white, off the page,
 or too small, such as instructions hidden in a CV for screening software.
 Comments are listed with their authors, a form's answers with their fields,
 and attached files by name — each opens as a file of its own. It marks
-what a PDF can run or hide: JavaScript, actions that start programs,
-attached files, data before the header or after the end. An encrypted PDF
+what a PDF can run or hide, and says it in words: the script it runs when
+opened, a program it asks to open, where its form's answers are sent, where
+its links go — and a link whose words name one site while it goes to
+another — attached files, data before the header or after the end. An encrypted PDF
 that opens without a password — most of them — is decrypted to read it, as a
 viewer would; one that needs a password is only named as such.
 
@@ -138,7 +140,9 @@ to its Live Photo video and its burst, and how long the phone had been on,
 which ties together every photo taken between two restarts. From XMP and
 IPTC, what an editor or an agency adds: the place typed in (a city, a
 country, with or without GPS), the caption, the original file's name and
-each step of the edit. When the
+each step of the edit. Whether AI made it, as its IPTC source type or its
+Content Credentials (C2PA) say, with the program that wrote them; and from
+an image generator's own notes, the prompt it was given and the model. When the
 embedded thumbnail is not the picture — the photo was cropped or edited and
 the camera's small copy was left as it was — the two are shown side by side:
 the thumbnail still shows what was taken out. Each
@@ -164,7 +168,8 @@ replaced by the space it took up, so every other letter stays where it was —
 and the marks are applied, as a redaction tool would; a picture under a box
 has its pixels there made black. A Word, Excel or PowerPoint file loses
 its document properties, and the photos in it their EXIF; a Word document
-has its tracked changes accepted and its comments deleted, as Word's Accept
+loses the text it hides — formatted as hidden, white on white, too small to
+read — and has its tracked changes accepted and its comments deleted, as Word's Accept
 All Changes and Delete All Comments would (a workbook's hidden sheets or a
 deck's notes are part of it and stay, and the page says so). The
 page lists what went, and *Open the clean copy* shows it in hexscope, so you
