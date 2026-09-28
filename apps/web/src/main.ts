@@ -11,17 +11,19 @@ import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
-import { misfit, verdict } from "./verdict";
-import { BatchView, cleanable, type BatchItem } from "./batch";
+import { verdict } from "./verdict";
+import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
-import { StoredZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
+import { MAX_FILE, cleanName, kindOf, phoneCanShare, redactedName, repairedName, saveAs, tooLarge } from "./files";
 import { showLegend } from "./legend";
+import { wireInputs } from "./inputs";
+import { cleanCopies } from "./batchclean";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -186,14 +188,6 @@ const drawer = new Drawer(
   (m) => picture.element(m),
 );
 
-/** "photo.jpg" → "photo-clean.jpg"; a HEIC named .jpg → "photo-clean.heic". */
-function cleanName(m: FileModel): string {
-  const base = m.name.split("/").pop() ?? m.name;
-  const dot = base.lastIndexOf(".");
-  const ext = misfit(m)?.fits ?? (dot > 0 ? base.slice(dot) : "");
-  return `${dot > 0 ? base.slice(0, dot) : base}-clean${ext}`;
-}
-
 /** Compares the file on screen with another, parsed aside. */
 async function compareWith(other: File): Promise<void> {
   const a = model;
@@ -206,36 +200,14 @@ async function compareWith(other: File): Promise<void> {
   }
 }
 
-/** "photo.jpg" → "photo-repaired.jpg", with the extension that fits. */
-function repairedName(m: FileModel): string {
-  return cleanName(m).replace(/-clean(\.[^.]*)?$/, "-repaired$1");
-}
-
 /** Repairs in the worker and hands the copy to the browser as a download. */
 async function repairCopy(): Promise<RepairResult> {
   const m = model;
   if (!m) return { bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" };
   const r = await call({ type: "repair", bytes: m.bytes.slice() });
   if (r.type !== "repaired") return { bytes: new Uint8Array(0), name: "", fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
-  if (!r.error) {
-    const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = repairedName(m);
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  }
+  if (!r.error) saveAs(repairedName(m), r.bytes);
   return { bytes: r.bytes, name: repairedName(m), fixed: r.fixed, error: r.error };
-}
-
-/** Saves bytes as a download. */
-function saveAs(name: string, bytes: Uint8Array): void {
-  const url = URL.createObjectURL(new Blob([bytes.slice() as BlobPart]));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /** A PDF's copy with chosen text blacked out, saved as the clean copy is. */
@@ -245,8 +217,8 @@ async function redactCopy(areas: Float64Array): Promise<CleanResult> {
   if (!m) return { ...none, error: "no file is open" };
   const r = await call({ type: "redact", bytes: m.bytes.slice(), areas });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
-  const base = cleanName(m).replace(/-clean(\.[^.]*)?$/, "-redacted$1");
-  const saved = !r.error && !phoneCanShare();
+  const base = redactedName(m);
+  const saved = !r.error && !phoneCanShare(base);
   if (saved) saveAs(base, r.bytes);
   return { bytes: r.bytes, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
 }
@@ -263,9 +235,7 @@ async function cleanCopy(notes = false): Promise<CleanResult> {
   const r = await call({ type: "clean", bytes: m.bytes.slice(), notes });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
   const name = cleanName(m);
-  const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;
-  const shareable = navigator.canShare?.({ files: [new File([], name)] }) ?? false;
-  const saved = !r.error && !(phone && shareable);
+  const saved = !r.error && !phoneCanShare(name);
   if (saved) saveAs(name, r.bytes);
   return { bytes: r.bytes, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
 }
@@ -495,40 +465,6 @@ const batchView = new BatchView($("batch"), {
   saveClean: (keepNames) => void saveBatchClean(keepNames),
 });
 
-/** A short name for the kind of file, beside its name in the list. */
-function kindOf(m: FileModel): string {
-  const first = m.value(0).split(" · ")[0];
-  switch (m.file.format) {
-    case "jpeg":
-      return "JPEG";
-    case "png":
-      return "PNG";
-    case "heif":
-    case "webp":
-    case "gif":
-    case "video":
-    case "pdf":
-      return first;
-    case "zip": {
-      // An Office document says which by its main part.
-      const labels = m.file.labels;
-      if (labels.includes("word/document.xml")) return "Word document";
-      if (labels.includes("xl/workbook.xml")) return "Excel workbook";
-      if (labels.includes("ppt/presentation.xml")) return "PowerPoint deck";
-      if (labels.includes("content.xml") && labels.includes("mimetype")) return "OpenDocument";
-      if (labels.includes("META-INF/container.xml")) return "EPUB book";
-      if (labels.includes("AndroidManifest.xml")) return "Android app";
-      return "ZIP";
-    }
-    case "wasm":
-      return "WebAssembly";
-    case "eml":
-      return "Email";
-    default:
-      return "";
-  }
-}
-
 /** Starts reading many files, and lists them. */
 function startBatch(files: File[]): void {
   ++loadId;
@@ -593,91 +529,10 @@ async function runBatch(): Promise<void> {
   }
 }
 
-/** Clean copies shared one file each, at most: past this, or this many bytes, they go as a ZIP. */
-const MAX_SHARED = 50;
-const MAX_SHARED_BYTES = 400 * 1024 * 1024;
-
-/** A phone that can share files: its copies go to the share sheet rather than a download. */
-function phoneCanShare(): boolean {
-  return (
-    matchMedia("(hover: none) and (pointer: coarse)").matches &&
-    (navigator.canShare?.({ files: [new File([], "photo.jpg", { type: "image/jpeg" })] }) ?? false)
-  );
-}
-
-/**
- * Makes a clean copy of every file that gives something away. On a
- * computer they are saved as one ZIP; on a phone that can share files,
- * they wait for "Share", one file each, so they can go straight to a chat.
- */
+/** Makes the clean copies of the list on screen, if it is still on screen when each is made. */
 async function saveBatchClean(keepNames: boolean): Promise<void> {
   const items = batch;
-  if (!items) return;
-  batchView.result = "Making the clean copies…";
-  const todo = items.filter((i) => cleanable(i) && !i.skip);
-  // Kept names keep a folder's own folders, in the ZIP.
-  const copyName = (i: BatchItem) => (keepNames ? i.file.webkitRelativePath || i.file.name : i.cleanName);
-  const bytesTotal = todo.reduce((n, i) => n + i.file.size, 0);
-  const share = phoneCanShare() && todo.length <= MAX_SHARED && bytesTotal <= MAX_SHARED_BYTES;
-  // Each copy goes into the archive as soon as it is made, and out of memory.
-  const zip = new StoredZip();
-  const shared: File[] = [];
-  const failed: string[] = [];
-  let nothing = 0;
-  let done = 0;
-  for (const item of todo) {
-    const r = await call({ type: "clean", bytes: new Uint8Array(await item.file.arrayBuffer()) });
-    if (batch !== items) return;
-    try {
-      if (r.type === "cleaned" && !r.error) {
-        if (share) shared.push(new File([r.bytes as BlobPart], copyName(item).split("/").pop() ?? item.cleanName, { type: item.file.type }));
-        else zip.add(copyName(item), r.bytes);
-      } else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
-      else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
-    } catch (e) {
-      failed.push(`${item.file.name}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    done++;
-    if (todo.length > 10) batchView.result = `Making the clean copies… ${done} of ${todo.length}`;
-  }
-  const said: string[] = [];
-  const name = "hexscope-clean-copies.zip";
-  const saveZip = (z: StoredZip) => {
-    const url = URL.createObjectURL(z.finish());
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
-  if (zip.size > 0) {
-    saveZip(zip);
-    said.push(`Saved ${zip.size === 1 ? "1 clean copy" : `${zip.size} clean copies`} as ${name}.`);
-  }
-  if (nothing > 0) said.push(`${nothing === 1 ? "1 file had" : `${nothing} files had`} nothing hexscope can remove.`);
-  if (failed.length > 0) said.push(`Not cleaned — ${failed.join("; ")}.`);
-  if (shared.length > 0) {
-    const n = shared.length === 1 ? "1 clean copy" : `${shared.length} clean copies`;
-    const shareBtn = document.createElement("button");
-    shareBtn.className = "btn btn-primary";
-    shareBtn.textContent = `Share ${n}`;
-    shareBtn.addEventListener("click", () => {
-      navigator.share({ files: shared }).catch(() => {
-        // Cancelled, or refused: the copies are still here to save.
-      });
-    });
-    const saveBtn = document.createElement("button");
-    saveBtn.className = "btn";
-    saveBtn.textContent = "Save as a ZIP";
-    saveBtn.addEventListener("click", async () => {
-      const z = new StoredZip();
-      for (const f of shared) z.add(f.name, new Uint8Array(await f.arrayBuffer()));
-      saveZip(z);
-    });
-    batchView.offer(`Made ${n}. ${said.join(" ")}`.trim() + " ", shareBtn, saveBtn);
-    return;
-  }
-  batchView.result = said.join(" ") || "Nothing to clean.";
+  if (items) await cleanCopies(items, keepNames, batchView, () => batch === items);
 }
 
 async function load(file: File): Promise<void> {
@@ -708,13 +563,6 @@ async function load(file: File): Promise<void> {
   arrive();
   // The first file ever opened here gets a short tour, once laid out.
   setTimeout(maybeTour, 350);
-}
-
-/** The largest file read in a tab: past it, browsers cannot hold it whole. */
-const MAX_FILE = 2 * 1024 ** 3 - 1;
-
-function tooLarge(file: File): string {
-  return `${file.name} is ${formatBytes(file.size)}: hexscope reads files up to 2 GB in a browser tab. The command line tool reads any size: hexscope check "${file.name}".`;
 }
 
 /** Puts a document on screen, with nothing selected. */
@@ -848,14 +696,6 @@ function loadFailed(message: string): void {
 
 // --- inputs -------------------------------------------------------------
 
-for (const id of ["picker", "picker-empty", "picker-folder"]) {
-  $<HTMLInputElement>(id).addEventListener("change", (e) => {
-    const input = e.target as HTMLInputElement;
-    const files = [...(input.files ?? [])];
-    input.value = ""; // so choosing the same file again still fires
-    openFiles(files);
-  });
-}
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]")) {
   btn.addEventListener("click", async () => {
     batch = null;
@@ -909,62 +749,8 @@ playBtn.addEventListener("click", () => {
   void openPlayer();
 });
 
-let dragDepth = 0;
-window.addEventListener("dragenter", (e) => {
-  e.preventDefault();
-  if (++dragDepth === 1) document.body.classList.add("is-dragging");
-});
-window.addEventListener("dragleave", () => {
-  if (--dragDepth === 0) document.body.classList.remove("is-dragging");
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  document.body.classList.remove("is-dragging");
-  openFiles([...(e.dataTransfer?.files ?? [])]);
-});
-
-// A picture copied to the clipboard — a screenshot, most often — opens as
-// if it were chosen. Pasting into a field stays pasting.
-window.addEventListener("paste", (e) => {
-  const t = e.target;
-  if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable)) return;
-  const files = [...(e.clipboardData?.files ?? [])];
-  if (files.length === 0) return;
-  e.preventDefault();
-  openFiles(files);
-});
-
-// The same from a button, for a phone, which has no keys to paste with:
-// the browser asks, then hands over what was copied.
-const pasteKey = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) btn.hidden = !navigator.clipboard?.read;
-document.addEventListener("click", (e) => {
-  if ((e.target as Element | null)?.closest?.("[data-paste]")) void pasteFromClipboard();
-});
-
-async function pasteFromClipboard(): Promise<void> {
-  let items: ClipboardItems;
-  try {
-    items = await navigator.clipboard.read();
-  } catch {
-    loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
-    return;
-  }
-  const files: File[] = [];
-  for (const item of items) {
-    const type = item.types.find((t) => t.startsWith("image/"));
-    if (!type) continue;
-    const blob = await item.getType(type);
-    files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
-  }
-  if (files.length === 0) {
-    loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
-    return;
-  }
-  openFiles(files);
-}
+// Every way a file comes in.
+wireInputs({ open: (files) => openFiles(files), fail: loadFailed });
 
 /** One file opens; several are listed. */
 function openFiles(files: File[]): void {

@@ -89,6 +89,35 @@ test("a file opened earlier in the tab opens again from the list", async ({ page
   await expect(page.locator(".recent-files")).toHaveCount(0);
 });
 
+const sample = (name: string) => new URL(`../public/samples/${name}`, import.meta.url).pathname;
+
+test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {
+  const saved = catchDownloads(page);
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([sample("photo.jpg"), sample("report.docx"), sample("sample.png")]);
+  const list = page.locator("#batch");
+  await expect(list).toContainText("photo.jpg");
+  await expect(list).toContainText("report.docx");
+  const save = page.locator("#batch .btn-clean");
+  await expect(save).toBeEnabled();
+  await save.click();
+  if (info.project.name === "computer") {
+    await expect.poll(() => saved).toEqual(["hexscope-clean-copies.zip"]);
+    await expect(list).toContainText(/Saved \d+ clean cop/);
+  } else {
+    // A phone that cannot share files saves the archive too.
+    await expect(list).toContainText(/clean cop/);
+  }
+});
+
+test("a broken picture: what is wrong, and a repaired copy", async ({ page }) => {
+  const saved = catchDownloads(page);
+  await openDoor(page, /Why won't it open/);
+  await expect(page.locator(".verdict-title")).toHaveText("This picture is damaged");
+  await page.locator(".btn-repair").click();
+  await expect.poll(() => saved).toEqual(["broken-repaired.png"]);
+});
+
 test("after one visit, it works offline — a document too", async ({ page, context }) => {
   await page.goto("./");
   await page.evaluate(async () => {

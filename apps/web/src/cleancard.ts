@@ -6,6 +6,7 @@ import { categories } from "./share";
 import { noun } from "./headline";
 import { el, formatBytes } from "./dom";
 import { LIMITS } from "./knowledge";
+import { typeOf } from "./files";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -50,34 +51,13 @@ export interface CleanActions {
   compare(other: File): void;
 }
 
-/** Media types by extension, for sharing a copy: a share sheet goes by type. */
-const TYPES: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  heic: "image/heic",
-  heif: "image/heif",
-  avif: "image/avif",
-  mp4: "video/mp4",
-  m4v: "video/mp4",
-  mov: "video/quicktime",
-  m4a: "audio/mp4",
-  pdf: "application/pdf",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  zip: "application/zip",
-  wasm: "application/wasm",
-};
-
 /**
  * A button that hands the copy to the device's share sheet — Messages,
  * Telegram, mail — or null where the browser cannot share such a file.
  * Its own button, because sharing must follow a tap of its own.
  */
 export function shareButton(name: string, bytes: Uint8Array): HTMLButtonElement | null {
-  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
-  const file = new File([bytes as BlobPart], name, { type: TYPES[ext] ?? "" });
+  const file = new File([bytes as BlobPart], name, { type: typeOf(name) });
   if (!navigator.canShare?.({ files: [file] })) return null;
   const b = el("button", "btn btn-primary", "Share the clean copy");
   b.title = "Send the copy on: to a chat, to mail, to another app";
