@@ -34,6 +34,7 @@ check:
                    location, serial, author, covered (default: reveals,hidden,damage);
                    none never fails
   --json           one JSON object per file, one per line
+  --sarif          one SARIF 2.1.0 log for all of them, for GitHub code scanning
   --all            list files hexscope does not read, and files with nothing to say
 
 clean:
@@ -99,6 +100,7 @@ struct Options {
     all: bool,
     in_place: bool,
     notes: bool,
+    sarif: bool,
     /// What `redact` blacks out, each wherever it appears.
     texts: Vec<String>,
     out: Option<PathBuf>,
@@ -112,6 +114,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         all: false,
         in_place: false,
         notes: false,
+        sarif: false,
         texts: Vec::new(),
         out: None,
         paths: Vec::new(),
@@ -130,6 +133,7 @@ fn options(args: &[String]) -> Result<Options, String> {
                     .collect();
             }
             "--json" => o.json = true,
+            "--sarif" => o.sarif = true,
             "--all" => o.all = true,
             "--in-place" => o.in_place = true,
             "--notes" => o.notes = true,
@@ -225,6 +229,7 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     let github = std::env::var("GITHUB_ACTIONS").is_ok_and(|v| v == "true");
     let mut failed = 0;
     let mut read = 0;
+    let mut results: Vec<(String, String)> = Vec::new();
     for path in files(&o.paths)? {
         let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         let s = summarize(&data);
@@ -236,7 +241,9 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         let tags = tags(&s);
         let fails = o.fail_on.iter().any(|f| tags.contains(&f.as_str()));
         failed += usize::from(fails);
-        if o.json {
+        if o.sarif {
+            results.extend(sarif_results(&path, &s));
+        } else if o.json {
             println!("{}", json(&path, &s));
         } else if !quiet || o.all {
             print!("{}", human(&path, &s));
@@ -247,7 +254,10 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             }
         }
     }
-    if !o.json {
+    if o.sarif {
+        println!("{}", sarif(&results));
+    }
+    if !o.json && !o.sarif {
         let fail_list = if o.fail_on.is_empty() {
             "nothing".to_string()
         } else {
@@ -367,6 +377,66 @@ fn json(path: &Path, s: &Summary) -> String {
         s.format,
         problems.join(","),
         facts.join(",")
+    )
+}
+
+/// A finding as a SARIF 2.1.0 result: damage an error, what is hidden or
+/// given away a warning, a broken rule a note; the part's bytes as a region.
+fn sarif_results(path: &Path, s: &Summary) -> Vec<(String, String)> {
+    let uri = json_str(&path.display().to_string().replace('\\', "/"));
+    let mut out = Vec::new();
+    for p in &s.problems {
+        let (rule, level) = match p.concern {
+            Concern::Damage => ("damage", "error"),
+            Concern::Hidden => ("hidden", "warning"),
+            Concern::Oddity => ("oddity", "note"),
+        };
+        out.push((rule.to_string(), format!(
+            "{{\"ruleId\":\"{rule}\",\"level\":\"{level}\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}},\"region\":{{\"byteOffset\":{},\"byteLength\":{}}}}}}}]}}",
+            json_str(&p.label),
+            p.offset,
+            p.len
+        )));
+    }
+    for (kind, text) in &s.facts {
+        out.push((format!("reveals/{kind}"), format!(
+            "{{\"ruleId\":\"reveals/{kind}\",\"level\":\"warning\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}}}}}}]}}",
+            json_str(&format!("reveals {kind}: {text}"))
+        )));
+    }
+    out
+}
+
+/// One SARIF log for every file read, for code scanning.
+fn sarif(results: &[(String, String)]) -> String {
+    // Every rule a result names, described once.
+    let mut ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let rules: Vec<String> = ids
+        .iter()
+        .map(|id| {
+            let text = match *id {
+                "damage" => "Part of the file is damaged".to_string(),
+                "hidden" => "Something is hidden or disguised".to_string(),
+                "oddity" => "A rule of the format is broken".to_string(),
+                other => format!("The file reveals {}", other.trim_start_matches("reveals/")),
+            };
+            format!(
+                "{{\"id\":\"{id}\",\"shortDescription\":{{\"text\":{}}}}}",
+                json_str(&text)
+            )
+        })
+        .collect();
+    format!(
+        "{{\"version\":\"2.1.0\",\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"runs\":[{{\"tool\":{{\"driver\":{{\"name\":\"hexscope\",\"version\":\"{}\",\"informationUri\":\"https://github.com/MykytaStel/hexscope\",\"rules\":[{}]}}}},\"results\":[{}]}}]}}",
+        env!("CARGO_PKG_VERSION"),
+        rules.join(","),
+        results
+            .iter()
+            .map(|(_, r)| r.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
     )
 }
 

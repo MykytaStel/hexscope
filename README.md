@@ -278,6 +278,7 @@ cargo install --locked --git https://github.com/MykytaStel/hexscope hexscope-cli
 hexscope check photos/                         # what each file gives away; exit 1 if anything
 hexscope check --fail-on location,serial site/ # fail only on these
 hexscope check --json report.pdf               # one JSON object per file
+hexscope check --sarif site/ > hexscope.sarif  # for GitHub code scanning
 hexscope clean --in-place site/images/         # strip what they give away
 hexscope repair broken.png                     # save what survived, as broken-repaired.png
 hexscope redact --text "Olena K" letter.pdf    # black out a name wherever it is on the pages
@@ -286,6 +287,16 @@ hexscope clean --notes deck.pptx               # also empty comments and speaker
 
 `--fail-on` takes `reveals`, `hidden`, `damage`, `oddity`, or kinds of fact
 such as `location`, `serial`, `author`, `covered`; `none` never fails.
+
+For GitHub's code scanning, upload the SARIF log: findings then show in the
+Security tab, with their history, and on pull requests.
+
+```yaml
+- run: hexscope check --sarif --fail-on none site/ > hexscope.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: hexscope.sarif
+```
 
 As a [pre-commit](https://pre-commit.com) hook, with `hexscope` installed as
 above:
