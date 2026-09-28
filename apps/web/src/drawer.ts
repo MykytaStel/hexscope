@@ -749,7 +749,15 @@ export class Drawer {
     const box = el("div", "advice");
     box.append(el("p", "advice-title", "What you can do"));
     const ul = el("ul");
-    for (const t of tips) ul.append(el("li", undefined, t));
+    for (const t of tips) {
+      const li = el("li", undefined, t.text);
+      if (t.guide) {
+        const a = el("a", "advice-guide", `${t.guide[1]} →`);
+        a.href = t.guide[0];
+        li.append(" ", a);
+      }
+      ul.append(li);
+    }
     box.append(ul);
     return box;
   }

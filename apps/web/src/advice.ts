@@ -17,17 +17,27 @@ interface Rule {
   /** File formats it is for; all when absent. */
   formats?: string[];
   text: string;
+  /** A guide that says more: its page, and what it is called. */
+  guide?: [string, string];
+}
+
+/** A tip, and the guide that says more about it. */
+export interface Tip {
+  text: string;
+  guide?: [string, string];
 }
 
 const RULES: Rule[] = [
   {
     when: ["screenshot"],
     text: "A screenshot shows whatever was on the screen: notifications and who sent them, other tabs, your name or photo in a corner, the time and the network. Look along its edges before sending it, and black out what should not go with “Black out part of the picture”.",
+    guide: ["what-a-screenshot-gives-away.html", "What a screenshot gives away"],
   },
   {
     when: ["replyto", "authfail"],
     formats: ["eml"],
     text: "If replies go to another domain, or the sender's domain did not vouch for the message, it may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
+    guide: ["is-this-email-real.html", "Is this email real?"],
   },
   {
     when: ["sentfrom", "computer"],
@@ -38,6 +48,7 @@ const RULES: Rule[] = [
     when: ["location"],
     formats: ["jpeg", "heif", "png", "webp", "gif"],
     text: "Instagram, Facebook and X usually remove the location when you post. Sending the photo itself keeps it: by email, as a file in Telegram or WhatsApp, through a cloud link, on a forum or a marketplace. For those, save a clean copy. To keep new photos from recording it, turn off location for the camera app.",
+    guide: ["remove-location-from-photo.html", "How to remove the location from a photo"],
   },
   {
     when: ["location"],
@@ -48,6 +59,7 @@ const RULES: Rule[] = [
     when: ["covered"],
     formats: ["pdf"],
     text: "A black box drawn over text, or over part of a scanned page, hides it only on screen and on paper: anyone can still select, copy or search the text, or take the picture out whole. Do not send this file. The clean copy takes out what is under the boxes — the letters, and the picture's pixels there — and applies any marks for redaction, leaving the rest in place; open it here to check.",
+    guide: ["black-out-a-pdf.html", "How to black out a PDF properly"],
   },
   {
     when: ["form", "attachments"],
@@ -123,12 +135,12 @@ const RULES: Rule[] = [
 ];
 
 /** The tips for this file, most pressing first. */
-export function advice(m: FileModel): string[] {
+export function advice(m: FileModel): Tip[] {
   const f = m.file;
   const kinds = new Set([...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)]);
   // Phones and computers that do not mark a screenshot still name it as one.
   if (SCREENSHOT_NAME.test(m.name.split("/").pop() ?? "")) kinds.add("screenshot");
   return RULES.filter((r) => (!r.formats || r.formats.includes(f.format)) && r.when.some((k) => kinds.has(k)))
     .slice(0, MAX)
-    .map((r) => r.text);
+    .map(({ text, guide }) => ({ text, guide }));
 }
