@@ -1122,6 +1122,13 @@ impl PageTexts {
             .map_or(Vec::new(), |p| p.glyphs.iter().flat_map(|g| g.0).collect())
     }
 
+    /// A page's dark boxes and marks for redaction, four numbers each.
+    pub fn boxes(&self, i: usize) -> Vec<f64> {
+        self.pages
+            .get(i)
+            .map_or(Vec::new(), |p| p.boxes.iter().flatten().copied().collect())
+    }
+
     /// A page's glyphs' text, joined by U+001F.
     pub fn texts(&self, i: usize) -> String {
         self.pages.get(i).map_or(String::new(), |p| {

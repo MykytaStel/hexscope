@@ -5,6 +5,8 @@
 
 /** The buttons it stands in for, the first found winning: what to do next. */
 const TARGETS: [string, string][] = [
+  // Places chosen to black out: that copy is what is being made.
+  [".redactor > .btn-primary:not([hidden])", "Save the blacked-out copy"],
   [".reveals .cleaner .btn-primary", "Share the clean copy"],
   [".reveals .btn-clean", "Save a clean copy"],
   [".btn-repair", "Save a repaired copy"],

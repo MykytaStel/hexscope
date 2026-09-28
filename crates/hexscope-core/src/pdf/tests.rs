@@ -747,6 +747,8 @@ fn chosen_text_is_taken_out_and_boxed() {
     let data = fixture("chrome-highlight.pdf");
     let pages = super::page_texts(&data);
     assert_eq!(pages.len(), 1);
+    // The black highlight is drawn with the page, as the copy keeps it.
+    assert!(!pages[0].boxes.is_empty());
     let text: String = pages[0].glyphs.iter().map(|g| g.1.as_str()).collect();
     assert!(text.contains("12,500"), "{text}");
     // The glyphs of "12,500", and the box around them.

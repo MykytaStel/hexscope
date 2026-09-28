@@ -581,6 +581,9 @@ pub struct PageText {
     /// `[left, bottom, right, top]` in the page's points.
     pub media: [f64; 4],
     pub glyphs: Vec<([f64; 4], String)>,
+    /// The dark boxes already on the page over text or a picture, and its
+    /// marks for redaction: black in the copy too, so shown with it.
+    pub boxes: Vec<[f64; 4]>,
 }
 
 /// Glyphs read for searching, at most, across the document.
@@ -605,6 +608,13 @@ pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
             page: i as u32 + 1,
             media: page.media,
             glyphs,
+            boxes: w
+                .boxes
+                .iter()
+                .chain(&w.over_pictures)
+                .chain(p.marks.iter().map(|m| &m.0))
+                .map(|a| a.0)
+                .collect(),
         });
     }
     out

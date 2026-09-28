@@ -26,6 +26,8 @@ export interface Searchable {
   glyph: Int32Array;
   areas: Float64Array;
   texts: string[];
+  /** The page's own dark boxes and marks, four numbers each: black in the copy too. */
+  boxes: Float64Array;
 }
 
 /** Characters of context either side of a match. */
@@ -61,7 +63,7 @@ export function searchable(pages: PageGlyphs[]): Searchable[] {
       const l = ch.toLowerCase();
       lower += l.length === ch.length ? l : ch;
     }
-    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts };
+    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts, boxes: p.boxes };
   });
 }
 
@@ -322,7 +324,9 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     er = Math.max(er, p.areas[g * 4 + 2]);
     et = Math.max(et, p.areas[g * 4 + 3]);
   }
-  for (const [l, b, r, t] of boxesToDraw) [el, eb, er, et] = [Math.min(el, l), Math.min(eb, b), Math.max(er, r), Math.max(et, t)];
+  const own: PageArea[] = [];
+  for (let i = 0; i + 4 <= p.boxes.length; i += 4) own.push([p.boxes[i], p.boxes[i + 1], p.boxes[i + 2], p.boxes[i + 3]]);
+  for (const [l, b, r, t] of [...own, ...boxesToDraw]) [el, eb, er, et] = [Math.min(el, l), Math.min(eb, b), Math.max(er, r), Math.max(et, t)];
   const view =
     el < er
       ? [Math.max(0, el - ml - 24), Math.max(0, mt - et - 24), Math.min(mr - ml, er - ml + 24), Math.min(mt - mb, mt - eb + 24)]
@@ -373,7 +377,8 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     box = [...area];
   }
   flush();
-  for (const [l, b, r, t] of boxesToDraw) {
+  // The page's own boxes, then the ones chosen: all black in the copy.
+  for (const [l, b, r, t] of [...own, ...boxesToDraw]) {
     pic.append(svg("rect", { class: "blackout-box", x: l - ml, y: y(t), width: r - l, height: t - b }));
   }
   void pictures?.then((list) => {
@@ -440,8 +445,61 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     start = null;
     drawn.style.display = "none";
   });
+
+  // The same with the keyboard: a box to move with the arrows, size with
+  // Shift and the arrows, and black out with Enter. It stays where it was
+  // left when the page is drawn again.
+  const [vx0, vy0, vx1, vy1] = view;
+  const kb = keyed.get(p.page) ?? (() => {
+    const w = Math.min(120, (vx1 - vx0) / 3);
+    return [vx0 + (vx1 - vx0 - w) / 2, vy0 + (vy1 - vy0) / 2 - 8, w, 16];
+  })();
+  const place = () => {
+    const [x, yy, w, h] = kb;
+    drawn.style.display = "";
+    drawn.setAttribute("x", String(x));
+    drawn.setAttribute("y", String(yy));
+    drawn.setAttribute("width", String(w));
+    drawn.setAttribute("height", String(h));
+  };
+  pic.tabIndex = 0;
+  pic.dataset.page = String(p.page);
+  pic.addEventListener("focus", () => {
+    place();
+    caption.textContent = `Page ${p.page} — arrows move the box, Shift and arrows size it, Alt for small steps, Enter blacks it out`;
+  });
+  pic.addEventListener("blur", () => {
+    if (!start) drawn.style.display = "none";
+    caption.textContent = hint;
+  });
+  pic.addEventListener("keydown", (e) => {
+    const step = e.altKey ? 1 : 6;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const move = moves[e.key];
+    if (move) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        kb[2] = Math.max(2, Math.min(mr - ml - kb[0], kb[2] + move[0]));
+        kb[3] = Math.max(2, Math.min(mt - mb - kb[1], kb[3] + move[1]));
+      } else {
+        kb[0] = Math.max(0, Math.min(mr - ml - kb[2], kb[0] + move[0]));
+        kb[1] = Math.max(0, Math.min(mt - mb - kb[3], kb[1] + move[1]));
+      }
+      keyed.set(p.page, kb);
+      place();
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      keyed.set(p.page, kb);
+      const [x, yy, w, h] = kb;
+      onBox([ml + x, mt - (yy + h), ml + x + w, mt - yy]);
+    }
+  });
+  const hint = `Page ${p.page} — drag across it to black out more, or use the keyboard`;
   const caption = document.createElement("figcaption");
-  caption.textContent = `Page ${p.page} — drag across it to black out more`;
+  caption.textContent = hint;
   figure.append(pic, caption);
   return figure;
 }
+
+/** Where the keyboard's box was left on each page, in the figure's units. */
+const keyed = new Map<number, number[]>();

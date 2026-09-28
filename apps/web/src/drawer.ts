@@ -902,6 +902,8 @@ export class Drawer {
     const picked = () => chosen.flatMap((c) => c.matches.filter((_, i) => c.ticks[i].checked));
 
     const drawPreview = () => {
+      // A page drawn on with the keyboard keeps the focus when drawn again.
+      const focused = preview.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.page : undefined;
       preview.replaceChildren();
       if (!pages) return;
       const marks = picked();
@@ -926,6 +928,7 @@ export class Drawer {
         });
         if (pick.options.length > 1) preview.append(pick);
       }
+      if (focused) preview.querySelector<SVGSVGElement>(`svg[data-page="${focused}"]`)?.focus();
     };
     const refresh = () => {
       const n = picked().length;
