@@ -1,7 +1,12 @@
 // hexscope's service worker. After the first visit the app keeps working
 // offline, and the installed app can receive a file from the share sheet.
-// It fetches nothing the page does not ask for, and sends nothing anywhere.
-const CACHE = "hexscope-v1";
+// It fetches only this site's own files, and sends nothing anywhere.
+
+// The build writes in its version and its files (vite.config.ts): a new
+// deploy is a new cache, and the old one goes once the new one is ready.
+const BUILD = "dev";
+const FILES = [];
+const CACHE = `hexscope-${BUILD}`;
 const SHARED = "hexscope-shared";
 
 // The samples are small, and the landing page offers them: kept from the
@@ -11,14 +16,23 @@ const SAMPLES = [
   "photo.heic", "photo.jpg", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf", "sample.png", "video.mov",
 ].map((n) => new URL(`samples/${n}`, self.registration.scope).href);
 
+const APP = FILES.map((n) => new URL(n, self.registration.scope).href);
+
+// The whole app, so it all works offline after one visit; the samples too,
+// unless the connection asks to save data. One file that fails to come does
+// not keep the rest out: it is fetched when first asked for.
 self.addEventListener("install", (event) => {
   self.skipWaiting();
-  if (self.navigator?.connection?.saveData) return;
+  const wanted = self.navigator?.connection?.saveData ? [] : [...APP, ...SAMPLES];
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(SAMPLES))
-      .catch(() => {}),
+    caches.open(CACHE).then((cache) =>
+      Promise.allSettled(
+        wanted.map(async (url) => {
+          const res = await fetch(url, { cache: "no-cache" });
+          if (res.ok && !res.redirected) await cache.put(url, res);
+        }),
+      ),
+    ),
   );
 });
 
@@ -49,7 +63,9 @@ self.addEventListener("fetch", (event) => {
 
 async function cacheFirst(req) {
   const cache = await caches.open(CACHE);
-  const hit = await cache.match(req);
+  // Kept by the install, asked for by the page as a module with an Origin
+  // header: a server's Vary would make the two differ, for the same bytes.
+  const hit = await cache.match(req, { ignoreVary: true });
   if (hit) return hit;
   const res = await fetch(req);
   if (res.ok) await cache.put(req, res.clone());
@@ -63,7 +79,13 @@ async function networkFirst(req) {
     if (res.ok) await cache.put(req, res.clone());
     return res;
   } catch (err) {
-    const hit = (await cache.match(req, { ignoreSearch: true })) ?? (req.mode === "navigate" ? await cache.match(new URL("./", self.registration.scope)) : undefined);
+    // A page asked for as `name.html` is kept as `name`, the address the
+    // host serves it at; anything else unknown opens the app.
+    const clean = new URL(req.url);
+    clean.pathname = clean.pathname.replace(/(index)?\.html$/, "");
+    const hit =
+      (await cache.match(req, { ignoreSearch: true, ignoreVary: true })) ??
+      (req.mode === "navigate" ? ((await cache.match(clean.href, { ignoreSearch: true, ignoreVary: true })) ?? (await cache.match(new URL("./", self.registration.scope)))) : undefined);
     if (hit) return hit;
     throw err;
   }
