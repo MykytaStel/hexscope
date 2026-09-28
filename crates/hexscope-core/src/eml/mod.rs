@@ -417,6 +417,18 @@ fn entity(
         multipart(data, body, to, boundary, tree, parts, depth, w);
         return;
     }
+    // A forwarded message: headers and a body of its own, shown, not judged.
+    if ctype == "message/rfc822" && depth < MAX_DEPTH {
+        let inner = tree.add(
+            Some(parent),
+            "forwarded message",
+            ByteRange::new(body as u64, len),
+            NodeKind::Container,
+            None,
+        );
+        entity(data, body, to, tree, inner, depth + 1, w);
+        return;
+    }
     let name = file_name(&dparams, &cparams);
     let is_file = disp == "attachment" || (name.is_some() && !ctype.starts_with("text/"));
     if is_file {
@@ -626,6 +638,35 @@ fn ipv4_all(s: &str) -> Vec<[u8; 4]> {
     out
 }
 
+/// IPv6 addresses written in brackets, as servers write them: `[2001:db8::1]`
+/// or `[IPv6:2001:db8::1]`.
+fn ipv6_all(s: &str) -> Vec<String> {
+    s.split('[')
+        .skip(1)
+        .filter_map(|t| t.split(']').next())
+        .map(|t| t.strip_prefix("IPv6:").unwrap_or(t))
+        .filter(|t| {
+            t.contains(':')
+                && t.len() >= 2
+                && t.len() <= 45
+                && t.bytes()
+                    .all(|b| b.is_ascii_hexdigit() || b == b':' || b == b'.')
+        })
+        .map(str::to_ascii_lowercase)
+        .collect()
+}
+
+/// An IPv6 address only its own network reaches: link-local, unique local, loopback.
+fn private6(ip: &str) -> bool {
+    ip == "::1"
+        || ip.starts_with("fe8")
+        || ip.starts_with("fe9")
+        || ip.starts_with("fea")
+        || ip.starts_with("feb")
+        || ip.starts_with("fc")
+        || ip.starts_with("fd")
+}
+
 /// Addresses no one reaches from the internet: a home or office network,
 /// the computer itself.
 fn private(ip: [u8; 4]) -> bool {
@@ -693,26 +734,33 @@ fn check(tree: &mut ParseTree, w: &Walk) -> Vec<DocumentFact> {
                 // Only the "from" half: "by" is the receiving server.
                 let from = h.value.split(" by ").next().unwrap_or("");
                 let all = ipv4_all(from);
-                (!all.is_empty()).then_some((all, *h, "Received"))
+                (!all.is_empty() || !ipv6_all(from).is_empty()).then_some((all, *h, "Received"))
             })
         });
     if let Some((all, h, from)) = origin {
         let show = |[a, b, c, d]: [u8; 4]| format!("{a}.{b}.{c}.{d}");
-        let public = all.iter().rev().find(|ip| !private(**ip));
-        let inner = all.iter().find(|ip| private(**ip));
+        let from_half = h.value.split(" by ").next().unwrap_or("");
+        let six = ipv6_all(from_half);
+        let public: Option<String> = all
+            .iter()
+            .rev()
+            .find(|ip| !private(**ip))
+            .map(|ip| show(*ip))
+            .or_else(|| six.iter().rev().find(|ip| !private6(ip)).cloned());
+        let inner: Option<String> = all
+            .iter()
+            .find(|ip| private(**ip))
+            .map(|ip| show(*ip))
+            .or_else(|| six.iter().find(|ip| private6(ip)).cloned());
         let text = match (public, inner) {
             (Some(p), Some(i)) => format!(
-                "{}, where the sender connected from, and {}, the computer's address on its own network, in the first server's {from} line",
-                show(*p),
-                show(*i)
+                "{p}, where the sender connected from, and {i}, the computer's address on its own network, in the first server's {from} line"
             ),
-            (Some(p), None) => format!(
-                "{}, where the sender connected from, in the first server's {from} line",
-                show(*p)
-            ),
+            (Some(p), None) => {
+                format!("{p}, where the sender connected from, in the first server's {from} line")
+            }
             (None, Some(i)) => format!(
-                "{}, an address on the sender's own network, in the first server's {from} line",
-                show(*i)
+                "{i}, an address on the sender's own network, in the first server's {from} line"
             ),
             (None, None) => String::new(),
         };
