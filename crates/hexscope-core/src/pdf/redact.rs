@@ -279,6 +279,44 @@ pub(super) fn check(
                 fact("covered", format!("page {number}: {words}"), warning),
             );
         }
+        // Boxes over pictures, less those a copy already blacked out under.
+        let n = w
+            .over_pictures
+            .iter()
+            .filter(|b| {
+                let mut cuts = Vec::new();
+                super::pictures::cuts(
+                    data,
+                    ctx,
+                    page.resources.as_ref(),
+                    &w.placed,
+                    std::slice::from_ref(*b),
+                    &mut budget,
+                    &mut cuts,
+                );
+                cuts.iter().any(|c| {
+                    c.unit
+                        .iter()
+                        .any(|u| !super::pictures::already_blacked(ctx, c.num, u))
+                })
+            })
+            .count();
+        if let Some((node, range)) = at
+            && n > 0
+        {
+            let warning = tree.warning(node, "a picture under a black box", range);
+            let text = if n == 1 {
+                format!(
+                    "page {number}: a black box over part of a picture, which still holds what the box hides"
+                )
+            } else {
+                format!(
+                    "page {number}: {n} black boxes over parts of a picture, which still holds what they hide"
+                )
+            };
+            tree.set_value(warning, Some(Value::Text(text.clone())));
+            insert_update(facts, fact("covered", text, warning));
+        }
         if let Some(&(_, node, _)) = p.marks.first() {
             let range = tree.get(node).range;
             let warning = tree.warning(node, "marked for redaction, never redacted", range);
@@ -440,8 +478,15 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
             .map(|(_, a)| Area(*a))
             .collect();
         let p = paint(data, ctx, &page, &mut budget, &mine);
-        if !p.marks.is_empty() {
-            let areas: Vec<Area> = p.marks.iter().map(|m| m.0).collect();
+        // Pictures lose their pixels under the marks, and under dark boxes
+        // drawn over them, as text under a box loses its letters.
+        if !p.marks.is_empty() || !p.walked.over_pictures.is_empty() {
+            let areas: Vec<Area> = p
+                .marks
+                .iter()
+                .map(|m| m.0)
+                .chain(p.walked.over_pictures.iter().copied())
+                .collect();
             super::pictures::cuts(
                 data,
                 ctx,

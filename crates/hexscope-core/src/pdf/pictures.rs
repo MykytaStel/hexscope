@@ -347,7 +347,51 @@ fn clear_bits(row: &mut [u8], mut from: usize, to: usize) {
 }
 
 /// Keys a picture written again no longer has, or has anew.
-const REWRITTEN: [&str; 5] = ["Filter", "DecodeParms", "Length", "DL", "FFilter"];
+const REWRITTEN: [&str; 6] = ["Filter", "DecodeParms", "Length", "DL", "FFilter", BLACKED];
+
+/// Where a picture written again says it was blacked out: rectangles of
+/// its unit square, four numbers each. A black box over one of them hides
+/// nothing any more, and the check says so by leaving it be.
+const BLACKED: &str = "HexscopeBlackedOut";
+
+/// The parts of picture `rec` blacked out by an earlier copy.
+fn blacked(rec: &ObjRec) -> Vec<[f64; 4]> {
+    let Some(Obj::Array(a)) = rec.value.get(BLACKED) else {
+        return Vec::new();
+    };
+    let v: Vec<f64> = a.iter().filter_map(|i| super::page::num(&i.obj)).collect();
+    v.as_chunks::<4>().0.to_vec()
+}
+
+/// The key that says so, for the parts already blacked out and `unit`.
+fn blacked_key(rec: &ObjRec, unit: &[[f64; 4]]) -> String {
+    let mut all = blacked(rec);
+    for u in unit {
+        if !all.contains(u) {
+            all.push(*u);
+        }
+    }
+    let nums: Vec<String> = all
+        .iter()
+        .flatten()
+        .map(|&v| crate::fixed::fixed(v, 4))
+        .collect();
+    format!("/{BLACKED} [{}]", nums.join(" "))
+}
+
+/// Whether the part `unit` of picture `num` was blacked out by an earlier
+/// copy, to within rounding.
+pub(super) fn already_blacked(ctx: &Ctx, num: u32, unit: &[f64; 4]) -> bool {
+    let Some(rec) = stream(ctx, num) else {
+        return false;
+    };
+    blacked(rec).iter().any(|b| {
+        b[0] <= unit[0] + 1e-3
+            && b[1] <= unit[1] + 1e-3
+            && b[2] >= unit[2] - 1e-3
+            && b[3] >= unit[3] - 1e-3
+    })
+}
 
 /// A picture's samples, undone of Flate and any predictor: rows from the
 /// top, each `row` bytes, `bpc` bits for each of `comps` components.
@@ -474,7 +518,11 @@ pub(crate) fn edit(data: &[u8], ctx: &Ctx, rec: &ObjRec, unit: &[[f64; 4]]) -> E
         data,
         rec,
         &REWRITTEN,
-        &format!("/Filter /FlateDecode /Length {}", packed.len()),
+        &format!(
+            "/Filter /FlateDecode /Length {} {}",
+            packed.len(),
+            blacked_key(rec, unit)
+        ),
     );
     Edited::Written(dict, packed)
 }
@@ -557,7 +605,7 @@ pub(crate) fn rgba(data: &[u8], ctx: &Ctx, rec: &ObjRec) -> Option<(u32, u32, Ve
 
 /// A JPEG picture `rec` replaced by `jpeg`, the caller's painted copy of it:
 /// in colour, eight bits, whatever it was before.
-pub(crate) fn jpeg_dict(data: &[u8], rec: &ObjRec, jpeg: &[u8]) -> Vec<u8> {
+pub(crate) fn jpeg_dict(data: &[u8], rec: &ObjRec, jpeg: &[u8], unit: &[[f64; 4]]) -> Vec<u8> {
     dict_without(
         data,
         rec,
@@ -570,10 +618,12 @@ pub(crate) fn jpeg_dict(data: &[u8], rec: &ObjRec, jpeg: &[u8]) -> Vec<u8> {
             "ColorSpace",
             "BitsPerComponent",
             "Decode",
+            BLACKED,
         ],
         &format!(
-            "/Filter /DCTDecode /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {}",
-            jpeg.len()
+            "/Filter /DCTDecode /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} {}",
+            jpeg.len(),
+            blacked_key(rec, unit)
         ),
     )
 }

@@ -59,7 +59,9 @@ yourself* searches the letters a page draws; words that are part of an image
 over them instead takes the picture's pixels there out too. A name split by
 a line break is found only when typed with a space where the break is.
 
-**Pictures under a box.** Pictures kept with Flate or uncompressed are
+**Pictures under a box.** A dark box drawn over part of a large picture —
+a scanned page — is found when it covers less than a third of it; a box
+over a picture inside a form is not. Pictures kept with Flate or uncompressed are
 edited in the core; JPEGs are redrawn by the browser, so the command line
 refuses a box over a JPEG rather than keep it whole. A box over a JBIG2,
 CCITT or JPEG 2000 picture, or one written into the page's content, makes

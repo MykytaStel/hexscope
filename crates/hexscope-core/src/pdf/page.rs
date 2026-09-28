@@ -175,6 +175,9 @@ pub(super) struct Walked {
     pub placed: Vec<(String, [f64; 6])>,
     /// Where each picture written into the content itself (8.9.7) lands.
     pub inline: Vec<Area>,
+    /// Dark boxes filled over part of a large picture drawn before them:
+    /// a box over a scanned page, hiding what the picture still holds.
+    pub over_pictures: Vec<Area>,
 }
 
 impl Walked {
@@ -559,6 +562,12 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     if fills.len() < MAX_GLYPHS {
                         fills.push((*area, dark));
                     }
+                    if dark
+                        && w.over_pictures.len() < MAX_BOXES
+                        && over_picture(area, &images, &media)
+                    {
+                        w.over_pictures.push(*area);
+                    }
                     if !dark || work > MAX_WORK {
                         continue;
                     }
@@ -719,6 +728,19 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
         }
     }
     w
+}
+
+/// Whether a dark box hides part of a picture: it lies on one drawn before
+/// it that fills a good part of the page, and covers only some of it — a
+/// box over a name on a scan, not a frame, a rule, or a dark background.
+fn over_picture(area: &Area, images: &[Area], media: &Area) -> bool {
+    let [l, b, r, t] = area.0;
+    if r - l < 8.0 || t - b < 4.0 {
+        return false;
+    }
+    images.iter().any(|i| {
+        i.size() >= 0.1 * media.size() && area.inside(i) >= 0.9 && area.size() <= 0.3 * i.size()
+    })
 }
 
 /// The box a path of straight lines makes, when it makes one: four corners
