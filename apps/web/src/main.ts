@@ -1,5 +1,6 @@
 import "./style.css";
-import { Drawer, formatBytes, type CleanResult, type RepairResult } from "./drawer";
+import { Drawer, type CleanResult, type RepairResult } from "./drawer";
+import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
