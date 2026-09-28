@@ -17,6 +17,7 @@ import { StoredZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
+import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
@@ -573,6 +574,10 @@ async function runBatch(): Promise<void> {
   }
   // Paused and resumed while a file was being read: finish the rest.
   if (batch && batch === items && !batchPaused && batch.some((i) => i.state === "waiting")) void runBatch();
+  else if (batch && batch === items && batch.every((i) => i.state === "done" || i.state === "failed")) {
+    const telling = batch.filter((i) => i.reveals.length > 0).length;
+    announce(`${batch.length} files read. ${telling === 0 ? "None reveals anything about you." : `${telling} reveal something about you.`}`);
+  }
 }
 
 /** Clean copies shared one file each, at most: past this, or this many bytes, they go as a ZIP. */
@@ -723,6 +728,10 @@ function arrive(): void {
   if (!model) return;
   if (model.problems.length > 0) nextProblem();
   else if (model.file.location) select(model.file.location.node);
+  // Heard, and where the keyboard starts: what was found.
+  const lines = verdict(model).map((l) => l.text);
+  announce(`${model.name} is open. ${lines.join(" ")}`);
+  drawer.focusVerdict();
 }
 
 /** Opens a ZIP entry as a document of its own, one level down. */

@@ -3193,3 +3193,84 @@ body[data-state="ready"] .viewswitch {
     display: inline;
   }
 }
+
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast (Windows' contrast themes): backgrounds give way to the
+   system's colours, so what a background alone marked gets an outline or a
+   border — the selected part, a verdict, a tag — in colours the system
+   chose. */
+@media (forced-colors: active) {
+  .row.is-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .row.is-hover {
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
+  }
+
+  .verdict-line,
+  .tag,
+  .problems,
+  .location-badge,
+  .door,
+  .advice,
+  .redact-hit {
+    border: 1px solid CanvasText;
+  }
+
+  .verdict-line::before,
+  .problems::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  /* A page drawn to black out, and a picture's boxes: black is the point. */
+  .redact-figure svg,
+  .blackout svg,
+  .blackpicture-canvas,
+  .compare-rows {
+    forced-color-adjust: none;
+  }
+}
+
+/* A finger needs more room than a pointer: small buttons that stand on
+   their own grow to 32 points high, ticks to 20. Links inside a sentence
+   stay part of it. */
+@media (pointer: coarse) {
+  .verdict-show,
+  .blackout-toggle,
+  .report-link,
+  .compare-pick,
+  .hero-folder,
+  .hero-paste,
+  .redact-head .link,
+  .drawer-file button.link:not(.reveal-link) {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .drawer-file summary {
+    padding-block: 7px;
+  }
+
+  .redact-list input[type="checkbox"],
+  .cleaner input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+}

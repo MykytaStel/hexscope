@@ -10,6 +10,7 @@ import { saveStructure } from "./export";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type PageArea, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
+import { announce, done } from "./announce";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -358,6 +359,11 @@ export class Drawer {
     return p;
   }
 
+  /** Moves the keyboard to what was found, without scrolling the page away. */
+  focusVerdict(): void {
+    this.file.querySelector<HTMLElement>(".verdict-title")?.focus({ preventScroll: true });
+  }
+
   showFile(m: FileModel | null): void {
     this.file.replaceChildren();
     if (!m) return;
@@ -463,7 +469,9 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
-    group.append(el("h2", undefined, "What hexscope found"));
+    const title = el("h2", "verdict-title", "What hexscope found");
+    title.tabIndex = -1;
+    group.append(title);
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
@@ -531,7 +539,7 @@ export class Drawer {
         box.append(el("p", "hint", `No repaired copy: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", `Saved a repaired copy as “${r.name}” — look for it in your downloads. What was done:`));
+      box.append(done(`Saved a repaired copy as “${r.name}” — look for it in your downloads. What was done:`));
       const ul = el("ul", "clean-list");
       for (const f of r.fixed) ul.append(el("li", undefined, f.charAt(0).toUpperCase() + f.slice(1)));
       const open = el("button", "btn", "Open the repaired copy");
@@ -890,6 +898,8 @@ export class Drawer {
     const presets = el("div", "redact-presets");
     const list = el("div", "redact-list");
     const status = el("p", "hint redact-status");
+    // "not on the pages", "Reading the pages…": heard as they change.
+    status.setAttribute("role", "status");
     const preview = el("div", "redact-preview");
     const save = el("button", "btn btn-primary", "Save a blacked-out copy");
     save.hidden = true;
@@ -983,6 +993,7 @@ export class Drawer {
     const addBox = (p: Searchable, area: PageArea) => {
       const text = textIn(p, area);
       addBlock("Boxes you drew", [{ page: p.page, areas: [area], before: "", text, after: "" }]);
+      announce(`A box drawn on page ${p.page}${text ? `, over “${text}”` : ""}.`);
     };
 
     form.addEventListener("submit", async (e) => {
@@ -1002,6 +1013,7 @@ export class Drawer {
       status.textContent = "";
       input.value = "";
       addBlock(`“${term}”`, matches);
+      announce(`“${term}”: ${matches.length === 1 ? "1 place" : `${matches.length} places`} found, each ticked to black out.`);
     });
     for (const preset of PRESETS) {
       const b = el("button", "btn redact-preset", preset.label);
@@ -1018,6 +1030,7 @@ export class Drawer {
         }
         status.textContent = "";
         addBlock(preset.name, matches);
+      announce(`${preset.name}: ${matches.length === 1 ? "1 place" : `${matches.length} places`} found, each ticked to black out.`);
       });
       presets.append(b);
     }
@@ -1043,7 +1056,7 @@ export class Drawer {
         result.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      result.append(el("p", "clean-done", `${r.saved ? `Saved “${r.name}”, a copy` : "Made a copy"} with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out and nothing about who made the file${r.saved ? " — look for it in your downloads" : ""}. Removed:`));
+      result.append(done(`${r.saved ? `Saved “${r.name}”, a copy` : "Made a copy"} with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out and nothing about who made the file${r.saved ? " — look for it in your downloads" : ""}. Removed:`));
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
@@ -1117,7 +1130,7 @@ export class Drawer {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      box.append(el("p", "clean-done", r.saved ? `Saved a clean copy as “${r.name}” — look for it in your downloads. Removed:` : "Made a clean copy. Removed:"));
+      box.append(done(r.saved ? `Saved a clean copy as “${r.name}” — look for it in your downloads. Removed:` : "Made a clean copy. Removed:"));
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
