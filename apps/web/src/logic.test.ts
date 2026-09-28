@@ -12,6 +12,7 @@ import { verdict, misfit } from "./verdict";
 import { advice } from "./advice";
 import { categories, categoryCount } from "./share";
 import { address, mailRoute, receivedBy } from "./emailpath";
+import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from "./files";
 
 const here = (path: string) => new URL(path, import.meta.url);
 
@@ -127,6 +128,37 @@ group("a share card", () => {
   it("counts categories, never the same one twice", () => {
     expect(categoryCount(["location", "location", "serial"])).toBe(2);
     expect(categoryCount(["nothing-we-know"])).toBe(0);
+  });
+});
+
+group("file names and kinds", () => {
+  it("names a copy after the file, with the extension that fits its bytes", () => {
+    expect(cleanName(open("photo.jpg"))).toBe("photo-clean.jpg");
+    const png = new Uint8Array(readFileSync(here("../public/samples/sample.png")));
+    expect(cleanName(open("holiday.jpg", png))).toBe("holiday-clean.png");
+    expect(repairedName(open("broken.png"))).toBe("broken-repaired.png");
+    expect(redactedName(open("redacted.pdf"))).toBe("redacted-redacted.pdf");
+    expect(cleanName(open("folder/no-extension", png))).toBe("no-extension-clean");
+  });
+
+  it("says what kind of file it is in a word", () => {
+    expect(kindOf(open("report.docx"))).toBe("Word document");
+    expect(kindOf(open("budget.xlsx"))).toBe("Excel workbook");
+    expect(kindOf(open("message.eml"))).toBe("Email");
+    expect(kindOf(open("photo.jpg"))).toBe("JPEG");
+    expect(kindOf(open("deflate-demo.zip"))).toBe("ZIP");
+  });
+
+  it("types a copy by its extension, for a share sheet", () => {
+    expect(typeOf("a.JPG")).toBe("image/jpeg");
+    expect(typeOf("a.docx")).toMatch(/wordprocessingml/);
+    expect(typeOf("noext")).toBe("");
+  });
+
+  it("says what reads a file too large for a tab", () => {
+    expect(tooLarge({ name: "movie.mov", size: 3 * 1024 ** 3 })).toBe(
+      'movie.mov is 3.0 GB: hexscope reads files up to 2 GB in a browser tab. The command line tool reads any size: hexscope check "movie.mov".',
+    );
   });
 });
 
