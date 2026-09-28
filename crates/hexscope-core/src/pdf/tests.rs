@@ -999,10 +999,7 @@ fn what_a_pdf_does_when_opened_is_said() {
             .find(|(kind, _)| *kind == k)
             .map(|(_, t)| t.to_string())
     };
-    assert_eq!(
-        get("opens").as_deref(),
-        Some("it runs a script")
-    );
+    assert_eq!(get("opens").as_deref(), Some("it runs a script"));
     assert!(
         get("scripts")
             .unwrap()
