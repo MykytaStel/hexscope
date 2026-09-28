@@ -78,9 +78,25 @@ fn a_forgery_is_named_by_its_replies_and_its_domain() {
         problems(&doc.tree),
         [
             "replies go to another domain",
-            "the sender's domain did not vouch for it"
+            "the sender's domain did not vouch for it",
+            "a link goes somewhere other than it says",
+            "a link to an address in lookalike letters",
+            "an attachment that runs or opens a site"
         ]
     );
+    // Its links: where each goes, the one that says otherwise, the one in
+    // lookalike letters; and the page named as a PDF.
+    assert!(f.contains(&(
+        "linkmismatch",
+        "a link reads “www.example-bank.com/verify” and goes to login.example.info".to_string()
+    )));
+    assert!(
+        f.iter()
+            .any(|(k, t)| *k == "linkidn" && t.contains("shown as “ex\u{430}mple-bank.com”")),
+        "{f:?}"
+    );
+    assert!(f.iter().any(|(k, t)| *k == "riskyfile"
+        && t.starts_with("“invoice.pdf.html” is named to look like a .pdf")));
     assert!(
         f.contains(&(
             "sentfrom",

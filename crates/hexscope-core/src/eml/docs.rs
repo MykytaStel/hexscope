@@ -144,6 +144,27 @@ const HEADER: Doc = msg(
 
 const PROBLEMS: Table = &[
     (
+        "a link goes somewhere other than it says",
+        Doc::new(
+            "A link whose words name one site while it goes to another: the way most phishing gets a click. Type the address yourself instead.",
+        )
+        .concern(Concern::Hidden),
+    ),
+    (
+        "a link to an address in lookalike letters",
+        Doc::new(
+            "A link to an address written with letters from other alphabets (punycode, xn--), which can look exactly like a familiar site.",
+        )
+        .concern(Concern::Hidden),
+    ),
+    (
+        "an attachment that runs or opens a site",
+        Doc::new(
+            "A file that is a program, a shortcut, a disk image, macros, or a web page — not a document to read. Opened, it can run, or show a sign-in page for any site.",
+        )
+        .concern(Concern::Hidden),
+    ),
+    (
         "replies go to another domain",
         Doc::new(
             "Replies go to a different domain than the one the message says it is from — a common sign of a message pretending to be someone else.",

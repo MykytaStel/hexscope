@@ -70,8 +70,11 @@ straight to the share sheet on a phone.
 **Reads emails.** An `.eml` file shows the address the sender connected
 from, the computer's name in the message ID, the mail app, the sender's
 time zone, and whether the sender's domain vouched for the message or its
-replies go elsewhere — the signs of a forgery. Attached files open as files
-of their own.
+replies go elsewhere — the signs of a forgery. It lists where every link
+goes, names a link whose words say one site and whose address is another,
+shows an address in lookalike letters as it would read, and names an
+attachment that is a program or a web page dressed as a document. Attached
+files open as files of their own.
 
 **Finds files inside files.** Data after the end of a picture is searched
 for another file's start — a ZIP behind a JPEG is named in the verdict —

@@ -54,7 +54,7 @@ const KEPT_NOTE: Record<string, string> = {
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail"];
+const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -193,6 +193,10 @@ const FACT_LABELS: Record<string, string> = {
   mailer: "Mail app",
   timezone: "Time zone",
   replyto: "Replies go to",
+  weblinks: "Links",
+  linkmismatch: "Link goes elsewhere",
+  linkidn: "Lookalike address",
+  riskyfile: "Risky attachment",
   returnpath: "Bounces",
   auth: "Sender checks",
   authfail: "Sender checks",

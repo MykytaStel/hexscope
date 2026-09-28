@@ -51,7 +51,9 @@ read no further.
 read from the first server's `Received` line (IPv4 and bracketed IPv6) and
 `X-Originating-IP` (IPv4). Only the message's own header is checked for
 forgery signs; a forwarded message inside it is shown with its own headers,
-not judged. An email is not cleaned: its attached files are, once opened.
+not judged. Links are read from the web-page parts: where each goes, as
+written — a shortener or a redirect is not followed, since nothing is
+looked up. An email is not cleaned: its attached files are, once opened.
 
 **Blacking out by search finds text, not pictures.** *Black out text
 yourself* searches the letters a page draws; words that are part of an image

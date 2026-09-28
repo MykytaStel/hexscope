@@ -58,6 +58,9 @@
             <li><strong>Replies go somewhere else.</strong> A message from your bank whose replies go to another domain is asking you to answer someone who is not your bank.</li>
             <li><strong>The domain did not vouch for it.</strong> SPF, DKIM and DMARC are how a domain says which servers send its mail and signs it. When the checks fail for the domain in the From line, the message may not be from there.</li>
             <li><strong>Bounces go elsewhere.</strong> Mailing services do this honestly; a personal message doing it is worth a second look.</li>
+            <li><strong>A link says one site and goes to another.</strong> Its words read <code>www.example-bank.com</code>; the link itself goes somewhere else. hexscope lists where every link goes, and names the ones that say otherwise.</li>
+            <li><strong>An address in lookalike letters.</strong> <code>exаmple-bank.com</code> with a Cyrillic “а” is another site. hexscope shows such an address both ways.</li>
+            <li><strong>A file that is not a document.</strong> A web page, a program, a disk image — often named <code>invoice.pdf.html</code> to look like a PDF.</li>
           </ul>
           <p class="guide-note">Passing is not proof. <code>examp1e-bank.com</code> can vouch for its own mail perfectly. Read the domain letter by letter, and when a message asks for money, a password or a code, ask the sender another way — a number you already have.</p>
         </section>
@@ -70,7 +73,7 @@
 
         <section>
           <h2><span class="num">4</span> What it does not do</h2>
-          <p>hexscope looks up nothing: it does not ask the domain's servers, visit links or check an address against a list. It reads what the message itself says, and the checks the receiving server recorded. Only the message's own headers are judged; a forwarded message inside it is shown, not judged.</p>
+          <p>hexscope looks up nothing: it does not ask the domain's servers, visit links or check an address against a list. It reads what the message itself says, and the checks the receiving server recorded; a link through a shortener or a redirect shows only its first stop. Only the message's own headers are judged; a forwarded message inside it is shown, not judged.</p>
         </section>
 
         <p class="story-cta">

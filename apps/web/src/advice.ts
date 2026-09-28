@@ -34,6 +34,12 @@ const RULES: Rule[] = [
     guide: ["what-a-screenshot-gives-away.html", "What a screenshot gives away"],
   },
   {
+    when: ["linkmismatch", "linkidn", "riskyfile"],
+    formats: ["eml"],
+    text: "A link that says one site and goes to another, an address in lookalike letters, a file that is a program or a web page: each is how a fake message gets what it wants. Do not click or open them. To visit the site, type its address yourself.",
+    guide: ["is-this-email-real.html", "Is this email real?"],
+  },
+  {
     when: ["replyto", "authfail"],
     formats: ["eml"],
     text: "If replies go to another domain, or the sender's domain did not vouch for the message, it may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
