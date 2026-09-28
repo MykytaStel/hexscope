@@ -129,7 +129,7 @@ fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
 
 /// A top-level object by number, the latest one.
 fn top(ctx: &Ctx, n: u32) -> Option<&ObjRec> {
-    ctx.objects.iter().rev().find(|o| o.num == n)
+    ctx.latest(n)
 }
 
 /// A page's content, its streams read as one (7.8.2), and where each
@@ -699,16 +699,20 @@ pub(super) fn earlier_text(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>
             .filter(|t| !t.is_empty())
             .collect()
     };
-    // Each content stream's latest version, and the ones it replaced. Pages
-    // are few beside objects, so a scan per page is cheap; a cap keeps a
-    // file of endless content streams from making it slow.
+    // Each content stream's latest version, and the ones it replaced. Only
+    // a number written more than once has earlier versions, and the index
+    // says which without a scan; a cap keeps a file of endless content
+    // streams from making it slow.
     let contents = objects
         .iter()
         .enumerate()
-        .filter(|(_, o)| is_content(o))
+        .filter(|(_, o)| is_content(o) && ctx.rewritten(o.num))
         .take(MAX_PAGES * 2);
     for (i, latest) in contents {
-        if objects[i + 1..].iter().any(|l| l.num == latest.num) {
+        if !ctx
+            .latest(latest.num)
+            .is_some_and(|l| std::ptr::eq(l, latest))
+        {
             continue;
         }
         let earlier: Vec<&ObjRec> = objects[..i]

@@ -60,12 +60,7 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
         .get(index)
         .ok_or("there is no such attachment")?;
     let num = stream.ok_or("its bytes are not in the file")?;
-    let rec = ctx
-        .objects
-        .iter()
-        .rev()
-        .find(|o| o.num == num)
-        .ok_or("its bytes are not in the file")?;
+    let rec = ctx.latest(num).ok_or("its bytes are not in the file")?;
     let mut budget = facts::MAX_DECODED_TOTAL;
     facts::decode(data, rec, ctx.crypt.as_ref(), &mut budget)
         .ok_or("it is compressed in a way hexscope does not read, or larger than it opens")
@@ -101,7 +96,7 @@ pub fn jpegs_under(data: &[u8], areas: &[(u32, [f64; 4])]) -> Vec<JpegUnder> {
         .cuts
         .iter()
         .filter_map(|cut| {
-            let rec = ctx.objects.iter().rev().find(|o| o.num == cut.num)?;
+            let rec = ctx.latest(cut.num)?;
             if !matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
                 return None;
             }
@@ -144,7 +139,7 @@ pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
     redact::page_pictures(data, &ctx, number)
         .into_iter()
         .filter_map(|(num, matrix)| {
-            let rec = ctx.objects.iter().rev().find(|o| o.num == num)?;
+            let rec = ctx.latest(num)?;
             if matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
                 let (range, _) = rec.stream?;
                 return Some(PagePicture {
@@ -203,6 +198,100 @@ pub(crate) struct Ctx {
     items: NextItem,
     /// The key, when the document is encrypted and opens without a password.
     pub crypt: Option<crypt::Decryptor>,
+    /// Each object number's latest record, `(number, index in objects)`, by
+    /// number; and the numbers written more than once. Built once the file is
+    /// read, so a lookup is a binary search rather than a scan of every object.
+    by_num: Vec<(u64, usize)>,
+    repeated: Vec<(u64, usize)>,
+    /// How many objects the index covers: a lookup past it scans.
+    indexed: usize,
+    /// Which object stream holds each packed object, `(number, index of the
+    /// stream in objects)`: worked out the first time a packed object is
+    /// looked for, each stream unpacked once.
+    packed: std::cell::OnceCell<Vec<(u64, usize)>>,
+}
+
+impl Ctx {
+    /// Indexes the objects read so far by number.
+    fn index(&mut self) {
+        let mut all: Vec<(u64, usize)> = self
+            .objects
+            .iter()
+            .enumerate()
+            .map(|(i, o)| (u64::from(o.num), i))
+            .collect();
+        all.sort_unstable();
+        let mut repeated = Vec::new();
+        // Of each number, the last written wins, as a reader takes it.
+        all.dedup_by(|later, kept| {
+            let same = later.0 == kept.0;
+            if same {
+                if repeated.last().map(|r: &(u64, usize)| r.0) != Some(kept.0) {
+                    repeated.push((kept.0, 0));
+                }
+                kept.1 = later.1;
+            }
+            same
+        });
+        self.by_num = all;
+        self.repeated = repeated;
+        self.indexed = self.objects.len();
+    }
+
+    /// The latest top-level object numbered `num`.
+    pub(crate) fn latest(&self, num: u32) -> Option<&ObjRec> {
+        if self.indexed != self.objects.len() {
+            return self.objects.iter().rev().find(|o| o.num == num);
+        }
+        let i = self
+            .by_num
+            .binary_search_by_key(&u64::from(num), |&(n, _)| n)
+            .ok()?;
+        self.objects.get(self.by_num[i].1)
+    }
+
+    /// Whether `num` was written more than once: an edit, or a new version.
+    pub(crate) fn rewritten(&self, num: u32) -> bool {
+        if self.indexed != self.objects.len() {
+            return self
+                .objects
+                .iter()
+                .filter(|o| o.num == num)
+                .nth(1)
+                .is_some();
+        }
+        self.repeated
+            .binary_search_by_key(&u64::from(num), |&(n, _)| n)
+            .is_ok()
+    }
+
+    /// The object stream that holds packed object `num`, latest first.
+    pub(crate) fn packed_in(&self, data: &[u8], num: u32) -> Option<&ObjRec> {
+        let table = self.packed.get_or_init(|| {
+            let mut budget = facts::MAX_DECODED_TOTAL;
+            let mut all: Vec<(u64, usize)> = Vec::new();
+            for (i, rec) in self.objects.iter().enumerate() {
+                if let Some((_, packed)) =
+                    facts::unpack(data, rec, self.crypt.as_ref(), &mut budget)
+                {
+                    all.extend(packed.iter().map(|&(n, ..)| (u64::from(n), i)));
+                }
+            }
+            all.sort_unstable();
+            all.dedup_by(|later, kept| {
+                let same = later.0 == kept.0;
+                if same {
+                    kept.1 = later.1;
+                }
+                same
+            });
+            all
+        });
+        let i = table
+            .binary_search_by_key(&u64::from(num), |&(n, _)| n)
+            .ok()?;
+        self.objects.get(table[i].1)
+    }
 }
 
 /// The next line that starts an item, remembering the last search the way
@@ -396,6 +485,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     // page, one for the rest. Neither is an edit.
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
+    ctx.index();
     let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
     let mut attachments = Vec::new();
     let blackouts = if !encrypted || ctx.crypt.is_some() {
@@ -1111,7 +1201,7 @@ fn unlock(tree: &mut ParseTree, ctx: &mut Ctx) -> (crypt::Lock, NodeId) {
     };
     // The encryption dictionary: an object of its own, or written in place.
     let (dict, dict_num, node) = match latest("Encrypt") {
-        Some(Obj::Ref(n, _)) => match ctx.objects.iter().rev().find(|o| o.num == *n) {
+        Some(Obj::Ref(n, _)) => match ctx.latest(*n) {
             Some(rec) => (rec.value.clone(), Some(rec.num), rec.node),
             None => return (crypt::Lock::Unknown, 0),
         },

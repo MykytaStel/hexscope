@@ -30,7 +30,7 @@ fn file_name(ctx: &Ctx, o: &Obj) -> Option<String> {
 }
 
 fn latest(ctx: &Ctx, n: u32) -> Option<&ObjRec> {
-    ctx.objects.iter().rev().find(|o| o.num == n)
+    ctx.latest(n)
 }
 
 /// A script's text, from a string or a stream, on one line and short.

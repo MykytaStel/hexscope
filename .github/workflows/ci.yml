@@ -28,6 +28,11 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all
+      # Large files within a time budget, in a release build: a long movie,
+      # PDFs of ten thousand pages, archives and emails of thousands of parts.
+      # A failure is work growing faster than the file.
+      - name: Large files within budget
+        run: cargo test --release -p hexscope-core --test big -- --nocapture
       - name: Builds for the browser target
         run: cargo check -p hexscope-core -p hexscope-wasm --target wasm32-unknown-unknown
 

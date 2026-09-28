@@ -84,11 +84,7 @@ fn add(out: &mut Vec<Cut>, num: u32, unit: [f64; 4]) {
 
 /// The top-level object `num`, when it is a stream.
 fn stream(ctx: &Ctx, num: u32) -> Option<&ObjRec> {
-    ctx.objects
-        .iter()
-        .rev()
-        .find(|o| o.num == num)
-        .filter(|o| o.stream.is_some())
+    ctx.latest(num).filter(|o| o.stream.is_some())
 }
 
 /// Calls `f` with each picture drawn by `placed` through `resources`, and
