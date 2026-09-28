@@ -46,11 +46,11 @@ function fact(grid: HTMLElement, key: string, value: string, mono = false): void
 }
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
-const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides"], pdf: ["comments", "form", "attachments"] };
+const KEPT: Record<string, string[]> = { wasm: ["paths", "imports"], zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded"], pdf: ["comments", "form", "attachments"] };
 const KEPT_NOTE: Record<string, string> = {
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
   pdf: "Kept: comments, form answers and attached files, which are part of the document. Delete them in a PDF editor — or flatten the form by printing to PDF — if they should not travel with it.",
-  zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files. Remove them in Excel or PowerPoint, then save.",
+  zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.",
 };
 
 /** Bytes of a part copied at most: past this, it is a file, not a snippet. */
@@ -266,6 +266,7 @@ const FACT_LABELS: Record<string, string> = {
   form: "Form answers",
   attachments: "Attached files",
   hiddensheets: "Hidden sheets",
+  embedded: "File inside",
   hiddencells: "Hidden rows and columns",
   links: "Links to files",
   notes: "Speaker notes",
@@ -1164,7 +1165,7 @@ export class Drawer {
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
-      zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
+      zip: "Removes the document's properties, the camera data and location of every photo in it, and the properties of a workbook or deck kept inside it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
       webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
       gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",

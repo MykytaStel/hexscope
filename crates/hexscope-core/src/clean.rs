@@ -106,7 +106,7 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Webp(doc) => clean_webp(data, &doc),
         Document::Gif(doc) => clean_gif(data, &doc),
-        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options),
+        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options, false),
         Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
         Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
@@ -757,14 +757,42 @@ fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
     clean(&bytes).ok()
 }
 
-fn clean_zip(data: &[u8], doc: &ZipDocument, options: CleanOptions) -> Result<Cleaned, CleanError> {
-    use crate::zip::office::MAX_PHOTOS;
+/// A Word, Excel or PowerPoint file kept inside a document, such as the
+/// workbook behind a chart, cleaned as a file of its own. `inside` is set
+/// for it, so a file inside that one is left as it is: a document that
+/// holds itself cannot send this round for ever.
+fn clean_embedded(data: &[u8], e: &crate::zip::ZipEntry, options: CleanOptions) -> Option<Cleaned> {
+    use crate::zip::office::{MAX_PART, is_embedded};
+    if !is_embedded(&e.name) || e.uncompressed > MAX_PART {
+        return None;
+    }
+    let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
+    if !bytes.starts_with(&crate::zip::MAGIC) {
+        return None;
+    }
+    clean_zip(&bytes, &crate::zip::parse_zip(&bytes), options, true).ok()
+}
+
+fn clean_zip(
+    data: &[u8],
+    doc: &ZipDocument,
+    options: CleanOptions,
+    inside: bool,
+) -> Result<Cleaned, CleanError> {
+    use crate::zip::office::{MAX_EMBEDDED, MAX_PHOTOS, is_embedded};
     let tree = &doc.tree;
-    let mut photos = 0;
+    let (mut photos, mut files) = (0, 0);
     let media: Vec<Option<Cleaned>> = doc
         .entries
         .iter()
         .map(|e| {
+            if is_embedded(&e.name) {
+                if inside || files >= MAX_EMBEDDED {
+                    return None;
+                }
+                files += 1;
+                return clean_embedded(data, e, options);
+            }
             if photos >= MAX_PHOTOS || !crate::zip::office::is_media(&e.name) {
                 return None;
             }
@@ -820,8 +848,13 @@ fn clean_zip(data: &[u8], doc: &ZipDocument, options: CleanOptions) -> Result<Cl
                     (0, &xml[..], crc32(xml), xml.len() as u64)
                 }
                 (Some(c), None) => {
+                    let what = if crate::zip::office::is_media(&e.name) {
+                        "what the photo reveals"
+                    } else {
+                        "who made it, and what else it reveals"
+                    };
                     removed.push(Removed {
-                        what: format!("{}: what the photo reveals", e.name),
+                        what: format!("{}: {what}", e.name),
                         bytes: c.removed.iter().map(|r| r.bytes).sum(),
                     });
                     (0, &c.bytes[..], crc32(&c.bytes), c.bytes.len() as u64)

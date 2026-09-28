@@ -29,7 +29,8 @@ const MAX_NAMES: usize = 4;
 pub struct DocumentFact {
     /// title, author, editor, created, modified, revisions, editing,
     /// company, application, template, comments, tracked, deleted, or
-    /// photoplace and photo for a photo in it with and without a location.
+    /// photoplace and photo for a photo in it with and without a location,
+    /// embedded for a file kept inside it.
     pub kind: &'static str,
     pub text: String,
     pub node: NodeId,
@@ -128,7 +129,130 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
     }
     sheets_and_slides(data, entries, &mut facts);
     facts.extend(photo_facts(data, entries));
+    facts.extend(embedded_facts(data, entries));
     facts
+}
+
+/// Entries that hold files kept whole inside a Word, Excel or PowerPoint
+/// file: the workbook behind a chart, an object pasted in.
+pub(crate) fn is_embedded(name: &str) -> bool {
+    !name.ends_with('/')
+        && ["word/embeddings/", "xl/embeddings/", "ppt/embeddings/"]
+            .iter()
+            .any(|dir| name.starts_with(dir))
+}
+
+/// Files kept inside a document, read and cleaned at most.
+pub(crate) const MAX_EMBEDDED: usize = 16;
+
+/// Files kept whole inside the document: the workbook behind a chart, a
+/// spreadsheet or a deck pasted in as an object. Each goes wherever the
+/// document goes, all of it — every sheet of the workbook, not only the
+/// numbers the chart shows — with its own sheet names and author.
+#[inline(never)]
+fn embedded_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
+    let read = |e: &ZipEntry, max: u64| {
+        (e.uncompressed <= max)
+            .then(|| extract(data, e, max).ok())
+            .flatten()
+    };
+    // Which chart draws from which file: its number, and its links.
+    let charts: Vec<(String, String)> = entries
+        .iter()
+        .filter(|e| e.name.contains("/charts/_rels/chart"))
+        .filter_map(|e| {
+            let xml = String::from_utf8_lossy(&read(e, MAX_PROPS)?).into_owned();
+            Some((number(e.name.trim_end_matches(".rels")), xml))
+        })
+        .collect();
+    let mut out = Vec::new();
+    let inside = entries
+        .iter()
+        .filter(|e| is_embedded(&e.name))
+        .take(MAX_EMBEDDED);
+    for e in inside {
+        let file = e.name.rsplit('/').next().unwrap_or(&e.name);
+        let bytes = read(e, MAX_PART).unwrap_or_default();
+        let ext = file.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+        let noun = match ext.as_str() {
+            "xlsx" | "xlsm" | "xlsb" | "xls" => "Excel workbook",
+            "docx" | "docm" | "doc" => "Word document",
+            "pptx" | "pptm" | "sldx" | "ppt" => "PowerPoint deck",
+            _ if bytes.starts_with(b"%PDF") => "PDF",
+            _ if bytes.starts_with(&[0xD0, 0xCF, 0x11, 0xE0]) => "object from another program",
+            _ => "file",
+        };
+        let drawn: Vec<&str> = charts
+            .iter()
+            .filter(|(_, xml)| {
+                tags(xml, "Relationship").iter().any(|t| {
+                    attribute(t, "Target").is_some_and(|to| to.rsplit('/').next() == Some(file))
+                })
+            })
+            .map(|(n, _)| n.as_str())
+            .collect();
+        let mut what = if drawn.is_empty() {
+            let a = if noun.starts_with(['A', 'E', 'I', 'O', 'U', 'o']) {
+                "an"
+            } else {
+                "a"
+            };
+            format!("“{file}”: {a} {noun}")
+        } else {
+            format!(
+                "“{file}”: the whole {noun} behind {} {}",
+                if drawn.len() == 1 { "chart" } else { "charts" },
+                drawn.join(", ")
+            )
+        };
+        // A document of its own: its sheets, and who made it.
+        let mut authors = Vec::new();
+        if bytes.starts_with(&super::MAGIC) {
+            let (_, parts) = super::read_entries(&bytes);
+            let part = |name: &str| {
+                let e = parts.iter().find(|e| e.name == name)?;
+                let b = extract(&bytes, e, MAX_PROPS).ok()?;
+                Some(String::from_utf8_lossy(&b).into_owned())
+            };
+            if let Some(xml) = part("xl/workbook.xml") {
+                let sheets: Vec<String> = tags(&xml, "sheet")
+                    .into_iter()
+                    .filter_map(|t| {
+                        let hidden = attribute(t, "state").is_some_and(|s| s != "visible");
+                        let n = attribute(t, "name")?;
+                        Some(format!("“{n}”{}", if hidden { " (hidden)" } else { "" }))
+                    })
+                    .collect();
+                if !sheets.is_empty() {
+                    let more = sheets.len().saturating_sub(MAX_NAMES);
+                    let mut list = sheets[..sheets.len() - more].join(", ");
+                    if more > 0 {
+                        list = format!("{list} and {more} more");
+                    } else if let Some(i) = list.rfind(", ") {
+                        list.replace_range(i..i + 2, " and ");
+                    }
+                    what = format!(
+                        "{what}, {} {list}",
+                        if sheets.len() == 1 { "sheet" } else { "sheets" }
+                    );
+                }
+            }
+            if let Some(xml) = part("docProps/core.xml") {
+                authors.extend(element_text(&xml, "dc:creator"));
+                authors.extend(element_text(&xml, "cp:lastModifiedBy"));
+            }
+        }
+        authors.retain(|a: &String| !a.trim().is_empty());
+        if !authors.is_empty() {
+            what = by(format!("{what}, made"), &authors);
+        }
+        out.push(DocumentFact {
+            kind: "embedded",
+            text: cap(what),
+            node: e.node,
+        });
+    }
+    out
 }
 
 /// Every element's text: `<a:t>one</a:t>…<a:t>two</a:t>`.
@@ -765,6 +889,83 @@ mod tests {
             (0x04, V::Rational(vec![(151, 1), (12, 1), (0, 1)])),
         ];
         crate::jpeg::testing::jpeg_with_exif(Some(&build(s)))
+    }
+
+    /// A chart pasted into Word keeps the whole workbook it was drawn
+    /// from: every sheet, and who made it.
+    #[test]
+    fn a_workbook_behind_a_chart_is_named_with_its_sheets() {
+        let workbook = build(&Archive {
+            entries: vec![
+                Entry::new(
+                    "xl/workbook.xml",
+                    br#"<workbook><sheets><sheet name="Chart data" sheetId="1"/><sheet name="Salaries" sheetId="2" state="hidden"/></sheets></workbook>"#,
+                    8,
+                ),
+                Entry::new(
+                    "docProps/core.xml",
+                    b"<cp:coreProperties><dc:creator>Olena Koval</dc:creator></cp:coreProperties>",
+                    8,
+                ),
+            ],
+            ..Default::default()
+        })
+        .bytes;
+        let rels = r#"<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="../embeddings/Microsoft_Excel_Worksheet.xlsx"/></Relationships>"#;
+        let facts = facts_of(vec![
+            Entry::new("word/document.xml", b"<w:document/>", 8),
+            Entry::new("word/charts/_rels/chart1.xml.rels", rels.as_bytes(), 8),
+            Entry::new(
+                "word/embeddings/Microsoft_Excel_Worksheet.xlsx",
+                &workbook,
+                0,
+            ),
+            Entry::new(
+                "word/embeddings/oleObject1.bin",
+                b"\xD0\xCF\x11\xE0 rest",
+                0,
+            ),
+        ]);
+        let embedded: Vec<&str> = facts
+            .iter()
+            .filter(|(k, _)| *k == "embedded")
+            .map(|(_, t)| t.as_str())
+            .collect();
+        assert_eq!(
+            embedded,
+            [
+                "“Microsoft_Excel_Worksheet.xlsx”: the whole Excel workbook behind chart 1, sheets “Chart data” and “Salaries” (hidden), made by Olena Koval",
+                "“oleObject1.bin”: an object from another program",
+            ]
+        );
+        // The clean copy cleans the workbook too: its sheets stay, its
+        // author does not.
+        let doc = build(&Archive {
+            entries: vec![
+                Entry::new("word/document.xml", b"<w:document/>", 8),
+                Entry::new("word/charts/_rels/chart1.xml.rels", rels.as_bytes(), 8),
+                Entry::new(
+                    "word/embeddings/Microsoft_Excel_Worksheet.xlsx",
+                    &workbook,
+                    0,
+                ),
+            ],
+            ..Default::default()
+        })
+        .bytes;
+        let c = crate::clean::clean(&doc).unwrap();
+        assert!(c.removed.iter().any(|r| {
+            r.what
+                .starts_with("word/embeddings/Microsoft_Excel_Worksheet.xlsx: who made it")
+        }));
+        let after = parse_zip(&c.bytes).facts;
+        let fact = after.iter().find(|f| f.kind == "embedded").unwrap();
+        assert!(
+            fact.text
+                .ends_with("sheets “Chart data” and “Salaries” (hidden)"),
+            "{}",
+            fact.text
+        );
     }
 
     fn facts_of(entries: Vec<Entry>) -> Vec<(&'static str, String)> {
