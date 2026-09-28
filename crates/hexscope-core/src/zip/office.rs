@@ -130,7 +130,119 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
     sheets_and_slides(data, entries, &mut facts);
     facts.extend(photo_facts(data, entries));
     facts.extend(embedded_facts(data, entries));
+    facts.extend(word_links(data, entries));
     facts
+}
+
+/// Sites named in a line, at most; the rest are counted.
+const MAX_SITES: usize = 4;
+
+/// Where a Word document's links go: each `<w:hyperlink>` in the body, by
+/// its relationship to an outside address. A link whose words name another
+/// site than it goes to — the heart of a phishing document — and an address
+/// in lookalike letters are named on their own, as in an email or a PDF.
+#[inline(never)]
+fn word_links(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
+    use crate::eml::links::{host, says_elsewhere, shown, unpunycode};
+    let read = |name: &str| {
+        let e = entries
+            .iter()
+            .find(|e| e.name == name && e.uncompressed <= MAX_PART)?;
+        let b = extract(data, e, MAX_PART).ok()?;
+        Some((String::from_utf8_lossy(&b).into_owned(), e.node))
+    };
+    let (Some((rels, _)), Some((body, node))) = (
+        read("word/_rels/document.xml.rels"),
+        read("word/document.xml"),
+    ) else {
+        return Vec::new();
+    };
+    // Relationship id → outside address.
+    let targets: Vec<(String, String)> = tags(&rels, "Relationship")
+        .into_iter()
+        .filter(|t| attribute(t, "TargetMode").as_deref() == Some("External"))
+        .filter_map(|t| Some((attribute(t, "Id")?, attribute(t, "Target")?)))
+        .collect();
+    let (mut count, mut sites, mut elsewhere, mut lookalike) = (
+        0usize,
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    );
+    let mut from = 0;
+    while let Some((start, open)) = find_tag(&body, from, "w:hyperlink") {
+        from = open;
+        let tag = &body[start..open];
+        let Some(id) = attribute(tag, "r:id") else {
+            continue;
+        };
+        let Some((_, to)) = targets.iter().find(|(i, _)| *i == id) else {
+            continue;
+        };
+        let Some(site) = host(to) else { continue };
+        let end = body[open..]
+            .find("</w:hyperlink>")
+            .map_or(body.len(), |e| open + e);
+        let words = texts(&body[open..end], "w:t").join("");
+        count += 1;
+        if !sites.contains(&site) {
+            sites.push(site.clone());
+        }
+        if says_elsewhere(&words, &site) {
+            let line = format!("a link reads “{}” and goes to {site}", words.trim());
+            if !elsewhere.contains(&line) {
+                elsewhere.push(line);
+            }
+        }
+        if site.split('.').any(|l| unpunycode(l).is_some()) && !lookalike.contains(&site) {
+            lookalike.push(site.clone());
+        }
+        from = end;
+    }
+    let mut out = Vec::new();
+    if count == 0 {
+        return out;
+    }
+    let listed = |v: &[String]| {
+        let more = v.len().saturating_sub(MAX_SITES);
+        let shown = v[..v.len() - more].join(", ");
+        if more > 0 {
+            format!("{shown} and {more} more")
+        } else {
+            shown
+        }
+    };
+    let fact = |kind, text: String| DocumentFact {
+        kind,
+        text: cap(text),
+        node,
+    };
+    out.push(fact(
+        "weblinks",
+        format!("{} to {}", plural(count, "link,", "links,"), listed(&sites)),
+    ));
+    if !elsewhere.is_empty() {
+        let more = elsewhere.len().saturating_sub(2);
+        let mut text = elsewhere[..elsewhere.len().min(2)].join("; ");
+        if more > 0 {
+            text.push_str(&format!("; and {more} more"));
+        }
+        out.push(fact("linkmismatch", text));
+    }
+    if !lookalike.is_empty() {
+        let text = lookalike
+            .iter()
+            .map(|h| {
+                format!(
+                    "{h}, shown as “{}”: letters of other alphabets that pass for Latin ones",
+                    shown(h)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        out.push(fact("linkidn", text));
+    }
+    out
 }
 
 /// Entries that hold files kept whole inside a Word, Excel or PowerPoint
@@ -965,6 +1077,36 @@ mod tests {
                 .ends_with("sheets “Chart data” and “Salaries” (hidden)"),
             "{}",
             fact.text
+        );
+    }
+
+    /// A Word document whose link says one bank and goes to another site.
+    #[test]
+    fn a_word_link_that_says_one_site_and_goes_to_another() {
+        let rels = r#"<Relationships><Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://login.example.info/verify" TargetMode="External"/><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://xn--exmple-bank-zij.com/" TargetMode="External"/><Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://www.example-bank.com/help" TargetMode="External"/></Relationships>"#;
+        let body = r#"<w:document><w:body><w:p><w:hyperlink r:id="rId8" w:history="1"><w:r><w:t>www.example-</w:t></w:r><w:r><w:t>bank.com</w:t></w:r></w:hyperlink></w:p><w:p><w:hyperlink r:id="rId9"><w:r><w:t>Help</w:t></w:r></w:hyperlink><w:hyperlink r:id="rId10"><w:r><w:t>example-bank.com/help</w:t></w:r></w:hyperlink><w:hyperlink w:anchor="top"><w:r><w:t>Top</w:t></w:r></w:hyperlink></w:p></w:body></w:document>"#;
+        let facts = facts_of(vec![
+            Entry::new("word/document.xml", body.as_bytes(), 8),
+            Entry::new("word/_rels/document.xml.rels", rels.as_bytes(), 8),
+        ]);
+        let get = |k: &str| {
+            facts
+                .iter()
+                .find(|(kind, _)| *kind == k)
+                .map(|(_, t)| t.as_str())
+        };
+        assert_eq!(
+            get("weblinks"),
+            Some("3 links, to login.example.info, xn--exmple-bank-zij.com, www.example-bank.com")
+        );
+        assert_eq!(
+            get("linkmismatch"),
+            Some("a link reads “www.example-bank.com” and goes to login.example.info")
+        );
+        assert!(
+            get("linkidn")
+                .unwrap()
+                .starts_with("xn--exmple-bank-zij.com, shown as “ex\u{430}mple-bank.com”")
         );
     }
 
