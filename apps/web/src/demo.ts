@@ -129,7 +129,14 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   side.append(kicker, told, bytesRow, caption);
   // The card keeps the height of its tallest scene so far: the page below
   // it never moves as one scene gives way to the next.
+  // At another width the scenes wrap differently: start again from what
+  // this width needs, not a narrower one's height.
+  let width = 0;
   new ResizeObserver(() => {
+    if (side.offsetWidth !== width) {
+      width = side.offsetWidth;
+      side.style.minHeight = "";
+    }
     const h = side.offsetHeight;
     if (h > (parseFloat(side.style.minHeight) || 0)) side.style.minHeight = `${h}px`;
   }).observe(side);

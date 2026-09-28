@@ -995,6 +995,36 @@ input {
   background: rgb(0 0 0 / 0.45);
 }
 
+/* The × in every dialog's corner: the way out, where people look for it. */
+.dialog-x {
+  /* Sticky, so a long dialog scrolled down still shows its way out. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  float: right;
+  margin: -8px -8px 0 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialog-x:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+
+
 .report h2 {
   margin: 0 0 6px;
   font-size: 17px;
@@ -1245,7 +1275,7 @@ a.btn {
 
 .facts {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: 5px 16px;
   margin: 0;
 }
@@ -1684,7 +1714,14 @@ body[data-state="empty"] .layout {
 .footnote-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  align-items: baseline;
+  gap: 6px 18px;
+}
+
+.footnote-links .link,
+.footnote-links a {
+  font-size: inherit;
+  line-height: 1.5;
 }
 
 .footnote a {
@@ -2267,9 +2304,11 @@ body.is-playing .drawer-file {
   fill: currentColor;
 }
 
+/* Names take what they need, up to two fifths: a long one wraps rather than
+   squeezing what it names into a column of single words. */
 .reveal-list {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: 2px 14px;
   margin: 0;
   align-items: baseline;
@@ -2840,9 +2879,11 @@ body:has(.reveals) .layout {
    with the part under the pointer below. The player needs the width, so it
    takes the bottom, as it always has. */
 @media (min-width: 901px) {
+  /* The tree and the details give way first on a narrow desktop: the bytes
+     between them need room for a row and its text. */
   .layout,
   body:has(.reveals) .layout {
-    grid-template-columns: 260px minmax(0, 1fr) clamp(340px, 28vw, 420px);
+    grid-template-columns: clamp(200px, 20vw, 260px) minmax(0, 1fr) clamp(320px, 30vw, 420px);
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -2872,7 +2913,7 @@ body:has(.reveals) .layout {
   }
 
   body.is-playing .layout {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: clamp(200px, 20vw, 260px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) 400px;
   }
 
@@ -2971,7 +3012,7 @@ body[data-state="ready"] .viewswitch {
   }
 
   .demo-side {
-    min-height: 250px;
+    min-height: 195px;
   }
 
   body[data-state="ready"] .viewswitch {
@@ -3998,7 +4039,26 @@ body[data-state="ready"] .viewswitch {
   color: var(--muted);
 }
 
-/* The narrowest phones wrap the clean copy's sentence into more lines. */
+/* Room for the tallest scene at each width, measured: narrower columns
+   wrap the clean copy's sentence into more lines. */
+@media (max-width: 600px) {
+  .demo-side {
+    min-height: 215px;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-side {
+    min-height: 235px;
+  }
+}
+
+@media (max-width: 400px) {
+  .demo-side {
+    min-height: 250px;
+  }
+}
+
 @media (max-width: 360px) {
   .demo-side {
     min-height: 320px;

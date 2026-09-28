@@ -5,6 +5,7 @@
 import type { FileModel } from "./model";
 import { decodePicture, drawn } from "./thumbnail";
 import { done } from "./announce";
+import { dismissable } from "./dialogs";
 
 /** The largest side the picture is shown at while boxes are drawn; the copy is made at full size. */
 const SHOWN = 1600;
@@ -40,6 +41,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   if (!bitmap) {
     dialog.append(el("p", "hint", "This browser cannot draw this picture, so it cannot be blacked out here. Safari reads HEIC photos; other browsers may not."), close);
     document.body.append(dialog);
+    dismissable(dialog, true);
     dialog.showModal();
     return;
   }
@@ -193,5 +195,6 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   bar.append(save, undo, close);
   dialog.append(hint, canvas, bar, result);
   document.body.append(dialog);
+  dismissable(dialog, true);
   dialog.showModal();
 }
