@@ -78,7 +78,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["hiddentext"],
-    formats: ["pdf"],
+    formats: ["pdf", "zip"],
     text: "Text no one can see on the page is still read by search, by screen readers and by programs that read the file — hiring systems and AI tools among them. If you did not put it there, ask who did. The clean copy removes it.",
   },
   {

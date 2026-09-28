@@ -722,14 +722,24 @@ fn revise(
         });
     }
     let (out, n) = accept(xml);
-    (n > 0).then(|| {
-        let what = if n == 1 {
-            "1 tracked change or comment mark".to_string()
+    // Text no reader sees — hidden, white, too small — goes too.
+    let (out, hidden) = crate::zip::revise::drop_hidden(&out);
+    let mut said = Vec::new();
+    if n > 0 {
+        said.push(if n == 1 {
+            "1 tracked change or comment mark, accepted or removed".to_string()
         } else {
-            format!("{n} tracked changes and comment marks")
-        };
-        (out.into_bytes(), format!("{what}, accepted or removed"))
-    })
+            format!("{n} tracked changes and comment marks, accepted or removed")
+        });
+    }
+    if hidden > 0 {
+        said.push(if hidden == 1 {
+            "1 piece of text no one can see".to_string()
+        } else {
+            format!("{hidden} pieces of text no one can see")
+        });
+    }
+    (!said.is_empty()).then(|| (out.into_bytes(), said.join("; ")))
 }
 
 /// A photo placed in an Office document, cleaned like one opened on its

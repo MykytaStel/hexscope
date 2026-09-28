@@ -124,6 +124,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         let tracked = what.map(|w| format!("{}, not accepted yet", by(w, &authors)));
         push("tracked", tracked, node);
         push("deleted", deleted_text(&xml), node);
+        push("hiddentext", unseen_text(&xml), node);
     }
     sheets_and_slides(data, entries, &mut facts);
     facts.extend(photo_facts(data, entries));
@@ -460,6 +461,33 @@ fn deleted_text(xml: &str) -> Option<String> {
     }
     let out = out.trim().to_string();
     (!out.is_empty()).then(|| cap(format!("“{out}”")))
+}
+
+/// Text in the document no one reading it sees, kind by kind:
+/// `hidden: “…”; in white: “…”`.
+fn unseen_text(xml: &str) -> Option<String> {
+    use super::revise::{Unseen, hidden_runs};
+    let runs = hidden_runs(xml);
+    let mut parts = Vec::new();
+    for (kind, words) in [
+        (Unseen::Hidden, "formatted as hidden"),
+        (Unseen::White, "in white on white"),
+        (Unseen::Tiny, "too small to read"),
+    ] {
+        let text: String = runs
+            .iter()
+            .filter(|r| r.2 == kind)
+            .map(|r| decode(&r.3))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !text.is_empty() {
+            let short: String = text.chars().take(MAX_TEXT / 2).collect();
+            let more = if short.len() < text.len() { "…" } else { "" };
+            parts.push(format!("{words}: “{short}{more}”"));
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
 /// `3 comments by Olena and Petro`: distinct authors in order of appearance.

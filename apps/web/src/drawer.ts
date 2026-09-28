@@ -709,8 +709,13 @@ export class Drawer {
       // A sentence reads better in the body font; only coordinates and codes are set in mono.
       if (!covered) dd.querySelector(".reveal-link")?.classList.remove("is-strong");
       // Hidden text is shown as if selected: that is how someone finds it.
-      const ghost = fact.kind === "hiddentext" ? /^(.*?: )“(.*)”$/.exec(fact.text) : null;
-      if (ghost) dd.querySelector(".reveal-link")?.replaceChildren(ghost[1], el("mark", "ghost-text", ghost[2]));
+      // Each kind — "hidden: “…”; in white on white: “…”" — marked on its own.
+      const ghosts = fact.kind === "hiddentext" ? [...fact.text.matchAll(/([^;“]*?: )“([^”]*)”/g)] : [];
+      if (ghosts.length > 0) {
+        dd.querySelector(".reveal-link")?.replaceChildren(
+          ...ghosts.flatMap((g, i) => [...(i ? ["; "] : []), g[1].trimStart(), el("mark", "ghost-text", g[2])]),
+        );
+      }
       // Deleted text looks the way Word marks it: struck through.
       const deleted = fact.kind === "deleted" || fact.kind === "earlier" ? /^“(.*)”$/.exec(fact.text) : null;
       if (deleted) {
