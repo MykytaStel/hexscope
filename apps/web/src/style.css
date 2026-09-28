@@ -32,6 +32,8 @@
   --tint-warning: #d69e00;
   /* Warning text: the tint, dark enough to read on a light page. */
   --warning-text: #855f00;
+  /* Green for words: the tint itself is too light on white. */
+  --ok-text: #15803d;
   --tint-error: #c81e1e;
   --alpha-base: 0.1;
   --alpha-selected: 0.22;
@@ -72,6 +74,7 @@
     --alpha-selected: 0.27;
     --alpha-hover: 0.4;
     --warning-text: var(--tint-warning);
+    --ok-text: var(--tint-sig);
   }
 }
 
@@ -107,6 +110,7 @@
   --alpha-selected: 0.27;
   --alpha-hover: 0.4;
   --warning-text: var(--tint-warning);
+  --ok-text: var(--tint-sig);
 }
 
 :root[data-theme="light"] {
@@ -1083,7 +1087,7 @@ a.btn {
 .clean-done {
   margin: 0 0 6px;
   font-weight: 600;
-  color: var(--tint-sig);
+  color: var(--ok-text);
 }
 
 .clean-list {
@@ -3668,7 +3672,7 @@ body[data-state="ready"] .viewswitch {
   margin-top: 6px;
   overflow-wrap: anywhere;
   font: 11.5px var(--mono);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .ba-arrow {
@@ -3816,4 +3820,66 @@ body[data-state="ready"] .viewswitch {
     bottom: -17px;
     transform: none;
   }
+}
+
+/* What the colours in the bytes mean: one button, bottom left, over the bytes. */
+.hex-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 6;
+  max-width: min(320px, calc(100% - 40px));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  font-size: 12.5px;
+}
+
+.hex-legend summary {
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.hex-legend ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0 4px 6px;
+  list-style: none;
+}
+
+.hex-legend button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hex-legend button:hover {
+  background: var(--row-hover);
+}
+
+.hex-legend-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.makeup-said {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
 }

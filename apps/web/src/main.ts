@@ -20,6 +20,7 @@ import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
+import { showLegend } from "./legend";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -725,6 +726,7 @@ function show(m: FileModel): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
+  showLegend($("hex"), m, point);
   search.reset();
   minimap.setModel(m);
   tree.setModel(m);
