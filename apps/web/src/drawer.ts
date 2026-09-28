@@ -17,7 +17,7 @@ import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KEPT_NOTE, KIND_NAMES, REPAIRABLE, STRONG, degrees, mapLink, openReason, playReason } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
-import { beforeAfter, cleanLimits, isAudio, shareButton, type CleanActions } from "./cleancard";
+import { beforeAfter, cleanLimits, copyPictureButton, isAudio, shareButton, type CleanActions } from "./cleancard";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -94,7 +94,11 @@ export class Drawer {
         cta.hidden = true;
         clean.closest(".cleaner")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
-      answer.querySelector(".verdict-lines")?.after(cta);
+      // A picture can also go straight to a chat: copied clean, no file at all.
+      const copy = copyPictureButton(m);
+      const row = el("div", "verdict-actions");
+      row.append(cta, ...(copy ? [copy] : []));
+      answer.querySelector(".verdict-lines")?.after(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor(m));
@@ -915,6 +919,8 @@ export class Drawer {
       diff.title = "What the copy took out, part by part";
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
       actions.append(open, diff);
+      const copy = copyPictureButton(m);
+      if (copy) actions.prepend(copy);
       box.append(limits);
     });
     return box;

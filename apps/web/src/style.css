@@ -1168,10 +1168,20 @@ a.btn {
 }
 
 /* What to do about it, under the answer. */
-.verdict-cta {
-  height: 40px;
+.verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin: 4px 0 10px;
-  padding: 0 18px;
+}
+
+.verdict-actions .btn {
+  height: 40px;
+  padding: 0 16px;
+}
+
+.verdict-cta {
   font-size: 15px;
 }
 

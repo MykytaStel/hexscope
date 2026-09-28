@@ -38,7 +38,9 @@ in the page from Natural Earth's coastline, so no map site is asked; an
 email shows its way to you — who it says it is from and whether that domain
 vouched for it, where it set out from, each server — and marks where a
 reply, a link or an attachment would lead off it. A clean copy ends on the
-file and the copy side by side: what it gave away, and what is left. A file named for another format (a HEIC
+file and the copy side by side: what it gave away, and what is left. A picture can
+also be copied clean — drawn again from its pixels onto the clipboard, with
+nothing else — to paste straight into a chat. A file named for another format (a HEIC
 photo saved as .jpg) is told so, with the extension that fits it; that is
 often the whole reason a file "won't open". Every part of every file then explains
 itself at two depths, both always shown: one plain sentence first ("The
