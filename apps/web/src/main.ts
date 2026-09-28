@@ -417,7 +417,9 @@ function showFileInfo(m: FileModel): void {
     // "PDF 1.7 · 12 objects · 2 revisions"
     chips.push(...m.value(0).split(" · "));
   } else if (f.format === "zip") {
-    chips.push("ZIP", m.value(0));
+    // A document by what it is; an archive by what is in it.
+    const kind = kindOf(m);
+    chips.push(...(kind === "ZIP" ? ["ZIP", m.value(0)] : [kind]));
   } else if (f.format === "eml") {
     chips.push("Email");
     if (f.attachments.length > 0) chips.push(f.attachments.length === 1 ? "1 attachment" : `${f.attachments.length} attachments`);
@@ -499,6 +501,9 @@ function kindOf(m: FileModel): string {
       if (labels.includes("word/document.xml")) return "Word document";
       if (labels.includes("xl/workbook.xml")) return "Excel workbook";
       if (labels.includes("ppt/presentation.xml")) return "PowerPoint deck";
+      if (labels.includes("content.xml") && labels.includes("mimetype")) return "OpenDocument";
+      if (labels.includes("META-INF/container.xml")) return "EPUB book";
+      if (labels.includes("AndroidManifest.xml")) return "Android app";
       return "ZIP";
     }
     case "wasm":
