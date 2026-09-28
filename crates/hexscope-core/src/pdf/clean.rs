@@ -131,7 +131,7 @@ pub(crate) fn clean_pdf_with(
     }
     let mut pictures: Vec<(u32, Vec<u8>, Vec<u8>)> = Vec::new();
     for cut in &cuts {
-        let Some(rec) = ctx.objects.iter().rev().find(|o| o.num == cut.num) else {
+        let Some(rec) = ctx.latest(cut.num) else {
             continue;
         };
         match edit(data, &ctx, rec, &cut.unit) {

@@ -87,7 +87,7 @@ pub(super) fn collect(
             Found::Packed(dict, _) => dict.get("Metadata").cloned(),
         })
         .and_then(|m| match m {
-            Obj::Ref(n, _) => ctx.objects.iter().rev().find(|o| o.num == n),
+            Obj::Ref(n, _) => ctx.latest(n),
             _ => None,
         });
     let xmp = catalog_xmp.or_else(|| {
@@ -183,15 +183,15 @@ pub(super) fn resolve<'a>(
     budget: &mut u64,
 ) -> Option<Found<'a>> {
     let crypt = ctx.crypt.as_ref();
-    if let Some(rec) = ctx.objects.iter().rev().find(|o| o.num == num) {
+    if let Some(rec) = ctx.latest(num) {
         return Some(Found::Top(rec));
     }
-    ctx.objects.iter().rev().find_map(|rec| {
-        let (bytes, packed) = unpack(data, rec, crypt, budget)?;
-        let &(_, start, end) = packed.iter().find(|&&(n, ..)| n == num)?;
-        let value = Lexer::new(&bytes[..end], start).value()?;
-        Some(Found::Packed(value.obj, rec.stream?.1))
-    })
+    // One stream to unpack, found from an index, not each in turn.
+    let rec = ctx.packed_in(data, num)?;
+    let (bytes, packed) = unpack(data, rec, crypt, budget)?;
+    let &(_, start, end) = packed.iter().find(|&&(n, ..)| n == num)?;
+    let value = Lexer::new(&bytes[..end], start).value()?;
+    Some(Found::Packed(value.obj, rec.stream?.1))
 }
 
 /// One object in an object stream: its number, and the start and end of its
