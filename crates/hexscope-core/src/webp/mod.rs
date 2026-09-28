@@ -226,6 +226,7 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
                 );
                 facts.fill_from(crate::exif::xmp::from_xmp(&text, node));
             }
+            "C2PA" => facts.fill_from(crate::exif::c2pa::from_manifest(payload, node)),
             "ICCP" => field(
                 &mut tree,
                 node,

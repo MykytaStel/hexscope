@@ -179,6 +179,7 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
                 chunk.data,
                 chunk.data_range.start,
             )),
+            b"caBX" => exif.fill_from(crate::exif::c2pa::from_manifest(chunk.data, node)),
             b"pHYs" => decode_phys(&chunk, &mut tree, node),
             b"gAMA" => decode_gama(&chunk, &mut tree, node),
             b"tRNS" => decode_trns(&chunk, &mut tree, node, ihdr.map(|h| h.color_type)),
@@ -256,7 +257,7 @@ fn text_facts(notes: &[TextNote]) -> PhotoFacts {
             "Creation Time" => set(&mut f.taken, text, node),
             "Source" => set(&mut f.camera, text, node),
             "XML:com.adobe.xmp" => f.fill_from(crate::exif::xmp::from_xmp(text, node)),
-            _ => {}
+            other => f.fill_from(crate::exif::c2pa::from_generator_note(other, text, node)),
         }
     }
     f

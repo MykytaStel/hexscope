@@ -170,6 +170,10 @@ fn clean_webp(data: &[u8], doc: &crate::webp::WebpDocument) -> Result<Cleaned, C
                 what: "XMP: editing history, author and place names".into(),
                 bytes: n.range.len,
             }),
+            "C2PA" => removed.push(Removed {
+                what: "Content Credentials: who or what made it, and how it was edited".into(),
+                bytes: n.range.len,
+            }),
             "data after the end of the image" => removed.push(Removed {
                 what: "data after the end of the image".into(),
                 bytes: n.range.len,
@@ -290,6 +294,7 @@ fn jpeg_what(label: &str) -> String {
         (_, "XMP") => "XMP: editing history, author and place names".into(),
         (_, "Photoshop") => "Photoshop and IPTC: captions, keywords, credits".into(),
         (_, "MPF") => "an index of extra pictures stored in the file".into(),
+        (_, "JUMBF") => "Content Credentials: who or what made it, and how it was edited".into(),
         (_, "JFXX") => "a JFIF thumbnail".into(),
         ("COM", _) => "a comment".into(),
         ("data after the end of the image", _) => "data after the end of the picture".into(),
@@ -462,6 +467,10 @@ fn clean_png(data: &[u8], doc: &PngDocument) -> Result<Cleaned, CleanError> {
             }),
             "tIME" => removed.push(Removed {
                 what: "the time it was last changed".into(),
+                bytes: n.range.len,
+            }),
+            "caBX" => removed.push(Removed {
+                what: "Content Credentials: who or what made it, and how it was edited".into(),
                 bytes: n.range.len,
             }),
             "data after the end of the image" => removed.push(Removed {

@@ -188,6 +188,9 @@ const FACT_LABELS: Record<string, string> = {
   linked: "Linked shots",
   names: "Function names",
   screenshot: "Screenshot",
+  ai: "Made with AI",
+  credentials: "Content Credentials",
+  prompt: "Prompt",
   sentfrom: "Sent from",
   computer: "Computer's name",
   mailer: "Mail app",
@@ -1107,10 +1110,10 @@ export class Drawer {
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
       zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
-      webp: "Leaves out the EXIF and XMP chunks: camera, place, dates, editing history. The picture is copied byte for byte.",
+      webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
       gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
-      png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
+      png: "Removes the text notes — an image generator's prompt among them — EXIF, XMP, Content Credentials and the time it was last changed. The pixels are copied byte for byte.",
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
@@ -1119,7 +1122,7 @@ export class Drawer {
     const note =
       (isAudio(m) ? "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte." : undefined) ??
       notes[format] ??
-      "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
+      "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.";
     const limits = cleanLimits(m);
     box.append(button, el("p", "hint", note));
     // A workbook's or a deck's comments and notes are its content: gone only when asked.
