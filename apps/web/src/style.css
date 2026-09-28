@@ -2128,7 +2128,7 @@ body.is-playing .drawer-file {
 .compare-side,
 .compare-offset {
   margin-right: 10px;
-  color: var(--hex-offset);
+  color: var(--faint);
 }
 
 .compare-hex span,
@@ -2802,8 +2802,7 @@ body[data-state="ready"] .viewswitch {
 }
 
 .demo-facts.is-clean dd {
-  color: var(--faint);
-  opacity: 0.7;
+  color: var(--muted);
   text-decoration: line-through;
   text-decoration-color: var(--tint-sig);
 }
@@ -3173,5 +3172,23 @@ body[data-state="ready"] .viewswitch {
 
   body[data-state="ready"] .actions {
     margin-left: auto;
+  }
+}
+
+/* Phones cannot hand a page a folder; they can hand it several photos. */
+.hero-several {
+  display: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hero-folder,
+  .hero-drop {
+    display: none;
+  }
+
+  .hero-several {
+    display: inline;
   }
 }

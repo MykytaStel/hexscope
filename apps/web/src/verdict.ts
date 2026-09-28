@@ -129,6 +129,43 @@ const REVEALS: Record<string, string> = {
  * away, then minor rule-breaking. Composed only from what the parse already
  * found; it is not a scan for malware, and says so where it is shown.
  */
+/** What hexscope reads, for a file it does not. */
+const READS = "it reads photos, videos, PDFs, Word, Excel and PowerPoint files, ZIP archives and emails";
+
+/** Kinds of file hexscope does not read, known by their first bytes: what to call one, and what to say. */
+const OTHERS: [RegExp, string, string?][] = [
+  [/^ID3|^\xff[\xfb\xf3\xf2]/, "an MP3 recording"],
+  [/^RIFF....WAVE/s, "a WAV recording"],
+  [/^OggS/, "an Ogg recording"],
+  [/^fLaC/, "a FLAC recording"],
+  [/^Rar!/, "a RAR archive"],
+  [/^7z\xbc\xaf/, "a 7-Zip archive"],
+  [/^\x1f\x8b/, "a gzip archive"],
+  [
+    /^\xd0\xcf\x11\xe0/,
+    "an old Word, Excel or PowerPoint file (.doc, .xls or .ppt)",
+    "These keep the author, the company and often earlier text too: save it again as .docx, .xlsx or .pptx, and check that.",
+  ],
+  [/^\{\\rtf/, "a Rich Text document"],
+  [/^%!PS/, "a PostScript file"],
+  [/^BM/, "a BMP picture"],
+  [/^(II\*\x00|MM\x00\*)/, "a TIFF picture or a camera's raw file"],
+  [/^\x00\x00\x00\x0cjP/, "a JPEG 2000 picture"],
+  [/^MZ/, "a Windows program"],
+  [/^\x7fELF/, "a Linux program"],
+  [/^(\xcf\xfa\xed\xfe|\xca\xfe\xba\xbe)/, "a Mac program"],
+  [/^SQLite format 3/, "an SQLite database"],
+];
+
+/** A file hexscope does not read, named when its first bytes say what it is. */
+function other(bytes: Uint8Array): string {
+  const head = String.fromCharCode(...bytes.subarray(0, 16));
+  const known = OTHERS.find(([re]) => re.test(head));
+  if (!known) return `hexscope does not know this kind of file: ${READS}.`;
+  const [, what, note] = known;
+  return `This looks like ${what}. hexscope does not read it: ${READS}.${note ? ` ${note}` : ""}`;
+}
+
 export function verdict(m: FileModel): VerdictLine[] {
   const f = m.file;
   if (f.format === "unknown") {
@@ -141,7 +178,7 @@ export function verdict(m: FileModel): VerdictLine[] {
           ? "Plain text: not a format hexscope takes apart. Its words read in the column beside the bytes."
           : label === "empty file"
             ? "The file is empty: there is not a single byte in it. A download or a copy may have stopped before it began."
-            : `hexscope does not read this format${label ? `: ${label}` : ""}.`,
+            : other(m.bytes),
         node: message ?? -1,
       },
     ];
@@ -192,11 +229,12 @@ export function verdict(m: FileModel): VerdictLine[] {
     });
   }
   if (damage.length === 0 && hidden.length === 0 && odd.length === 0) {
-    lines.unshift({
-      kind: "healthy",
-      text: "Looks healthy: every part reads the way the format says it should.",
-      node: -1,
-    });
+    // What it gives away is why someone opened it: health comes after that.
+    if (lines.some((l) => l.kind === "reveals")) {
+      lines.push({ kind: "healthy", text: "Otherwise healthy: every part reads the way the format says it should.", node: -1 });
+    } else {
+      lines.unshift({ kind: "healthy", text: "Looks healthy: every part reads the way the format says it should.", node: -1 });
+    }
   }
   return lines;
 }

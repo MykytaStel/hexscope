@@ -201,9 +201,9 @@ function repairedName(m: FileModel): string {
 /** Repairs in the worker and hands the copy to the browser as a download. */
 async function repairCopy(): Promise<RepairResult> {
   const m = model;
-  if (!m) return { bytes: new Uint8Array(0), fixed: [], error: "no file is open" };
+  if (!m) return { bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" };
   const r = await call({ type: "repair", bytes: m.bytes.slice() });
-  if (r.type !== "repaired") return { bytes: new Uint8Array(0), fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
+  if (r.type !== "repaired") return { bytes: new Uint8Array(0), name: "", fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
   if (!r.error) {
     const url = URL.createObjectURL(new Blob([r.bytes.slice() as BlobPart]));
     const a = document.createElement("a");
@@ -212,7 +212,7 @@ async function repairCopy(): Promise<RepairResult> {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
-  return { bytes: r.bytes, fixed: r.fixed, error: r.error };
+  return { bytes: r.bytes, name: repairedName(m), fixed: r.fixed, error: r.error };
 }
 
 /** Saves bytes as a download. */
@@ -417,7 +417,9 @@ function showFileInfo(m: FileModel): void {
     // "PDF 1.7 · 12 objects · 2 revisions"
     chips.push(...m.value(0).split(" · "));
   } else if (f.format === "zip") {
-    chips.push("ZIP", m.value(0));
+    // A document by what it is; an archive by what is in it.
+    const kind = kindOf(m);
+    chips.push(...(kind === "ZIP" ? ["ZIP", m.value(0)] : [kind]));
   } else if (f.format === "eml") {
     chips.push("Email");
     if (f.attachments.length > 0) chips.push(f.attachments.length === 1 ? "1 attachment" : `${f.attachments.length} attachments`);
@@ -499,6 +501,9 @@ function kindOf(m: FileModel): string {
       if (labels.includes("word/document.xml")) return "Word document";
       if (labels.includes("xl/workbook.xml")) return "Excel workbook";
       if (labels.includes("ppt/presentation.xml")) return "PowerPoint deck";
+      if (labels.includes("content.xml") && labels.includes("mimetype")) return "OpenDocument";
+      if (labels.includes("META-INF/container.xml")) return "EPUB book";
+      if (labels.includes("AndroidManifest.xml")) return "Android app";
       return "ZIP";
     }
     case "wasm":
