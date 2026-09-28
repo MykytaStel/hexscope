@@ -17,6 +17,7 @@ import { StoredZip } from "./zipwrite";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
+import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
@@ -35,10 +36,12 @@ new ActionBar().watch(document.getElementById("drawer")!);
 // Light, dark or the system's, beside Open.
 document.querySelector('[data-opens="picker"]')?.before(themeButton());
 
-// The file pickers: buttons that open hidden inputs.
-for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-opens]")) {
-  button.addEventListener("click", () => document.getElementById(button.dataset.opens ?? "")?.click());
-}
+// The file pickers: buttons that open hidden inputs — wherever they are,
+// the summary's own included, drawn after the page loaded.
+document.addEventListener("click", (e) => {
+  const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
+  if (button) document.getElementById(button.dataset.opens ?? "")?.click();
+});
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -553,9 +556,10 @@ async function runBatch(): Promise<void> {
       item.state = "reading";
       if (document.body.dataset.state === "batch") batchView.render(items!);
       try {
-        const [r, buffer] = await Promise.all([call({ type: "parse", file: item.file }), item.file.arrayBuffer()]);
+        if (item.file.size > MAX_FILE) throw new Error(tooLarge(item.file));
+        const r = await call({ type: "parse", file: item.file });
         if (r.type !== "parsed") throw new Error(r.type === "error" ? r.message : "unexpected reply");
-        const m = new FileModel(r.result, new Uint8Array(buffer), item.file.name);
+        const m = new FileModel(r.result, r.bytes, item.file.name);
         item.kind = kindOf(m);
         item.lines = verdict(m);
         item.reveals = categories(m);
@@ -572,6 +576,10 @@ async function runBatch(): Promise<void> {
   }
   // Paused and resumed while a file was being read: finish the rest.
   if (batch && batch === items && !batchPaused && batch.some((i) => i.state === "waiting")) void runBatch();
+  else if (batch && batch === items && batch.every((i) => i.state === "done" || i.state === "failed")) {
+    const telling = batch.filter((i) => i.reveals.length > 0).length;
+    announce(`${batch.length} files read. ${telling === 0 ? "None reveals anything about you." : `${telling} reveal something about you.`}`);
+  }
 }
 
 /** Clean copies shared one file each, at most: past this, or this many bytes, they go as a ZIP. */
@@ -666,9 +674,13 @@ async function load(file: File): Promise<void> {
   $("fileinfo").textContent = `Parsing ${file.name}…`;
   $("load-error").hidden = true;
 
-  // The main thread keeps its own view of the bytes for drawing; parsing
-  // happens entirely in the worker.
-  const [response, buffer] = await Promise.all([call({ type: "parse", file }), file.arrayBuffer()]);
+  if (file.size > MAX_FILE) {
+    loadFailed(tooLarge(file));
+    return;
+  }
+  // Parsing happens entirely in the worker, which hands the bytes back for
+  // drawing once it is done with them.
+  const response = await call({ type: "parse", file });
   if (id !== loadId) return; // a newer file was dropped meanwhile
 
   if (response.type !== "parsed") {
@@ -678,10 +690,17 @@ async function load(file: File): Promise<void> {
   }
 
   levels = [];
-  show(new FileModel(response.result, new Uint8Array(buffer), file.name));
+  show(new FileModel(response.result, response.bytes, file.name));
   arrive();
   // The first file ever opened here gets a short tour, once laid out.
   setTimeout(maybeTour, 350);
+}
+
+/** The largest file read in a tab: past it, browsers cannot hold it whole. */
+const MAX_FILE = 2 * 1024 ** 3 - 1;
+
+function tooLarge(file: File): string {
+  return `${file.name} is ${formatBytes(file.size)}: hexscope reads files up to 2 GB in a browser tab. The command line tool reads any size: hexscope check "${file.name}".`;
 }
 
 /** Puts a document on screen, with nothing selected. */
@@ -711,6 +730,10 @@ function arrive(): void {
   if (!model) return;
   if (model.problems.length > 0) nextProblem();
   else if (model.file.location) select(model.file.location.node);
+  // Heard, and where the keyboard starts: what was found.
+  const lines = verdict(model).map((l) => l.text);
+  announce(`${model.name} is open. ${lines.join(" ")}`);
+  drawer.focusVerdict();
 }
 
 /** Opens a ZIP entry as a document of its own, one level down. */
@@ -901,29 +924,31 @@ window.addEventListener("paste", (e) => {
 // The same from a button, for a phone, which has no keys to paste with:
 // the browser asks, then hands over what was copied.
 const pasteKey = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) {
-  btn.hidden = !navigator.clipboard?.read;
-  btn.addEventListener("click", async () => {
-    let items: ClipboardItems;
-    try {
-      items = await navigator.clipboard.read();
-    } catch {
-      loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
-      return;
-    }
-    const files: File[] = [];
-    for (const item of items) {
-      const type = item.types.find((t) => t.startsWith("image/"));
-      if (!type) continue;
-      const blob = await item.getType(type);
-      files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
-    }
-    if (files.length === 0) {
-      loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
-      return;
-    }
-    openFiles(files);
-  });
+for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) btn.hidden = !navigator.clipboard?.read;
+document.addEventListener("click", (e) => {
+  if ((e.target as Element | null)?.closest?.("[data-paste]")) void pasteFromClipboard();
+});
+
+async function pasteFromClipboard(): Promise<void> {
+  let items: ClipboardItems;
+  try {
+    items = await navigator.clipboard.read();
+  } catch {
+    loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
+    return;
+  }
+  const files: File[] = [];
+  for (const item of items) {
+    const type = item.types.find((t) => t.startsWith("image/"));
+    if (!type) continue;
+    const blob = await item.getType(type);
+    files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
+  }
+  if (files.length === 0) {
+    loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
+    return;
+  }
+  openFiles(files);
 }
 
 /** One file opens; several are listed. */

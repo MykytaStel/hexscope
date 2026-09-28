@@ -22,7 +22,7 @@ export type WorkerRequest =
   | { id: number; type: "blocks" };
 
 export type WorkerResponse =
-  | { id: number; type: "parsed"; result: ParsedFile }
+  | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
@@ -286,7 +286,9 @@ async function handle(req: WorkerRequest): Promise<void> {
     for (const p of stack) p.free();
     stack = [parsed];
     if (isMedia(bytes)) prefetchFull();
-    post({ id: req.id, type: "parsed", result }, transfers(result));
+    // The parser keeps its own copy: these bytes go to the page, moved, not
+    // copied, so a large file is held twice at most rather than three times.
+    post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
     return;
   }
 
@@ -421,11 +423,20 @@ async function handle(req: WorkerRequest): Promise<void> {
 }
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  handle(event.data).catch((err: unknown) =>
+  handle(event.data).catch((err: unknown) => {
+    // Out of memory, the WebAssembly stops for good: start the next file
+    // on a fresh one, and say what happened in words.
+    const text = err instanceof Error ? err.message : String(err);
+    const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
+    if (crashed) {
+      full = null;
+      media = null;
+      stack = [];
+    }
     post({
       id: event.data.id,
       type: "error",
-      message: err instanceof Error ? err.message : String(err),
-    }),
-  );
+      message: crashed ? "it needs more memory than this browser tab has. Close other tabs and try again, or use the command line tool" : text,
+    });
+  });
 };

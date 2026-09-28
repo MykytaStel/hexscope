@@ -4,6 +4,7 @@
 // clean copy can remove, removed by hand.
 import type { FileModel } from "./model";
 import { decodePicture, drawn } from "./thumbnail";
+import { done } from "./announce";
 
 /** The largest side the picture is shown at while boxes are drawn; the copy is made at full size. */
 const SHOWN = 1600;
@@ -178,7 +179,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
     const stem = (m.name.split("/").pop() ?? m.name).replace(/\.[^.]*$/, "");
     const name = `${stem}-blacked-out.${png ? "png" : "jpg"}`;
     result.append(
-      el("p", "clean-done", `Made ${name}: ${boxes.length === 1 ? "1 box" : `${boxes.length} boxes`} in its pixels, and no camera data, place or thumbnail.`),
+      done(`Made ${name}: ${boxes.length === 1 ? "1 box" : `${boxes.length} boxes`} in its pixels, and no camera data, place or thumbnail.`),
     );
     copy.deliver(name, new Uint8Array(await blob.arrayBuffer()), result);
   });

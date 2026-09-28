@@ -9,6 +9,7 @@
 //! it, or replies go somewhere else, is what tells a forgery.
 
 pub(crate) mod docs;
+mod links;
 #[cfg(test)]
 mod tests;
 
@@ -23,6 +24,8 @@ const MAX_DEPTH: usize = 8;
 const MAX_SHOWN: usize = 300;
 /// Names and addresses quoted in a fact, at most.
 const MAX_QUOTED: usize = 4;
+/// Web-page text read for its links, at most, across the message.
+const MAX_HTML: usize = 4 * 1024 * 1024;
 
 #[derive(Debug)]
 pub struct EmlDocument {
@@ -373,6 +376,8 @@ struct Walk {
     attached: Vec<Attached>,
     /// Every part's headers, for the checks after.
     top: Vec<Header>,
+    /// Each web-page part's text, decoded, and its node: for its links.
+    html: Vec<(String, NodeId)>,
 }
 
 /// Reads one entity — headers, then a body that may be parts — between
@@ -447,13 +452,27 @@ fn entity(
             encoding,
         });
     } else {
-        tree.add(
+        let node = tree.add(
             Some(parent),
             "body",
             ByteRange::new(body as u64, len),
             NodeKind::Field,
             Some(Value::Text(format!("{ctype} · {len} bytes"))),
         );
+        // A web page's links are read after: decoded, within bounds.
+        let held: usize = w.html.iter().map(|h| h.0.len()).sum();
+        if ctype == "text/html"
+            && let Some(raw) = data.get(body..to)
+            && held + raw.len() <= MAX_HTML
+        {
+            let bytes = match encoding.as_str() {
+                "base64" => base64(raw),
+                "quoted-printable" => quoted(raw),
+                _ => raw.to_vec(),
+            };
+            w.html
+                .push((String::from_utf8_lossy(&bytes).into_owned(), node));
+        }
     }
 }
 
@@ -544,6 +563,7 @@ pub fn parse_eml(data: &[u8]) -> EmlDocument {
         parts: 0,
         attached: Vec::new(),
         top: Vec::new(),
+        html: Vec::new(),
     };
     entity(data, 0, data.len(), &mut tree, root, 0, &mut w);
     let subject = header(&w.top, "Subject").map(|h| decode_words(&h.value));
@@ -580,6 +600,7 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
         parts: 0,
         attached: Vec::new(),
         top: Vec::new(),
+        html: Vec::new(),
     };
     entity(data, 0, data.len(), &mut tree, root, 0, &mut w);
     let a = w.attached.get(index).ok_or("there is no such attachment")?;
@@ -920,6 +941,100 @@ fn check(tree: &mut ParseTree, w: &Walk) -> Vec<DocumentFact> {
             ),
             node,
         );
+    }
+
+    // What its links and files would do if opened.
+    let mut sites: Vec<String> = Vec::new();
+    let mut elsewhere: Vec<String> = Vec::new();
+    let mut lookalike: Vec<String> = Vec::new();
+    let mut first: Option<NodeId> = None;
+    let mut count = 0;
+    for (html, node) in &w.html {
+        for l in links::links(html) {
+            let Some(to) = links::host(&l.href) else {
+                continue;
+            };
+            count += 1;
+            first.get_or_insert(*node);
+            if !sites.contains(&to) {
+                sites.push(to.clone());
+            }
+            if let Some(says) = links::named(&l.text)
+                && base(says.trim_start_matches("www.")) != base(&to)
+            {
+                let line = format!("a link reads “{}” and goes to {to}", l.text);
+                if !elsewhere.contains(&line) {
+                    elsewhere.push(line);
+                }
+            }
+            if to.split('.').any(|label| label.starts_with("xn--")) && !lookalike.contains(&to) {
+                lookalike.push(to);
+            }
+        }
+    }
+    if let Some(node) = first {
+        let range = tree.get(node).range;
+        let shown: Vec<String> = sites.iter().take(MAX_QUOTED).cloned().collect();
+        let more = sites.len().saturating_sub(MAX_QUOTED);
+        fact(
+            "weblinks",
+            format!(
+                "{count} {} to {}{}",
+                if count == 1 { "link," } else { "links," },
+                shown.join(", "),
+                if more > 0 {
+                    format!(" and {more} more")
+                } else {
+                    String::new()
+                }
+            ),
+            node,
+        );
+        if !elsewhere.is_empty() {
+            tree.warning(node, "a link goes somewhere other than it says", range);
+            let more = elsewhere.len().saturating_sub(2);
+            fact(
+                "linkmismatch",
+                format!(
+                    "{}{}",
+                    elsewhere[..elsewhere.len().min(2)].join("; "),
+                    if more > 0 {
+                        format!("; and {more} more")
+                    } else {
+                        String::new()
+                    }
+                ),
+                node,
+            );
+        }
+        if !lookalike.is_empty() {
+            tree.warning(node, "a link to an address in lookalike letters", range);
+            fact(
+                "linkidn",
+                lookalike
+                    .iter()
+                    .map(|h| format!("{h}, shown as “{}”: letters of other alphabets that pass for Latin ones", links::shown(h)))
+                    .collect::<Vec<_>>()
+                    .join("; "),
+                node,
+            );
+        }
+    }
+    let risky: Vec<String> = w
+        .attached
+        .iter()
+        .filter_map(|a| links::risky(&a.name))
+        .collect();
+    if !risky.is_empty()
+        && let Some(node) = tree
+            .nodes()
+            .iter()
+            .find(|x| x.label == "attachment")
+            .map(|x| x.id)
+    {
+        let range = tree.get(node).range;
+        tree.warning(node, "an attachment that runs or opens a site", range);
+        fact("riskyfile", risky.join("; "), node);
     }
     facts
 }
