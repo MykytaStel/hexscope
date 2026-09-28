@@ -392,7 +392,9 @@ export class Drawer {
     private readonly picture: (m: FileModel) => HTMLElement | null,
   ) {
     this.node = el("section", "drawer-node");
+    this.node.setAttribute("aria-label", "The part selected");
     this.file = el("section", "drawer-file");
+    this.file.setAttribute("aria-label", "What was found");
     host.append(this.node, this.file);
   }
 
