@@ -374,7 +374,11 @@ function updateProblems(): void {
     (id) => model!.kind(id) === Kind.Error || model!.doc(id)?.concern === Concern.Damage,
   );
   problemsBtn.dataset.severity = damaged ? "error" : "warning";
-  problemsBtn.textContent = `${n} ${n === 1 ? "problem" : "problems"}`;
+  const word = document.createElement("span");
+  word.className = "problems-word";
+  word.textContent = n === 1 ? " problem" : " problems";
+  problemsBtn.replaceChildren(String(n), word);
+  problemsBtn.setAttribute("aria-label", `${n}${word.textContent}: jump to the next`);
   problemsBtn.title = "Jump to the next problem (N)";
 }
 

@@ -2627,6 +2627,16 @@ body[data-state="ready"] .viewswitch {
     display: none;
   }
 
+  /* The count alone: the dot's colour says how bad. */
+  .problems-word {
+    display: none;
+  }
+
+  .problems {
+    padding: 0 10px 0 9px;
+    gap: 6px;
+  }
+
   .viewswitch button {
     border: 0;
     background: transparent;
@@ -3094,4 +3104,64 @@ body[data-state="ready"] .viewswitch {
 .clean-also input {
   margin: 0 6px 0 0;
   vertical-align: -2px;
+}
+
+/* The narrowest phones: the top bar's buttons closer together. */
+@media (max-width: 360px) {
+  .topbar,
+  .actions {
+    gap: 6px;
+  }
+
+  .topbar {
+    padding: 0 8px;
+  }
+
+  .viewswitch button {
+    padding: 6px 8px;
+  }
+
+  .actions .btn {
+    padding: 0 9px;
+  }
+}
+
+/* Phones: the buttons fill the bar, so the open file's name gets a line of
+   its own under them rather than being squeezed out. */
+@media (max-width: 640px) {
+  body[data-state="ready"] {
+    grid-template-rows: auto 1fr;
+  }
+
+  body[data-state="ready"] .topbar {
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding-top: 8px;
+    padding-bottom: 6px;
+  }
+
+  body[data-state="ready"] .fileinfo {
+    order: 10;
+    flex: 1 0 100%;
+    gap: 8px;
+    padding-top: 4px;
+    font-size: 13px;
+  }
+
+  /* There is room for what it is, after its name; the name comes first. */
+  body[data-state="ready"] .fileinfo .filename {
+    flex: none;
+    max-width: 75%;
+  }
+
+  body[data-state="ready"] .fileinfo .meta {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  body[data-state="ready"] .actions {
+    margin-left: auto;
+  }
 }
