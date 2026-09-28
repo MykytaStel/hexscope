@@ -730,8 +730,10 @@ input {
   pointer-events: none;
 }
 
+/* Room for the tallest scene, the photo's facts, from the start. */
 .demo-side {
   min-width: 0;
+  min-height: 180px;
 }
 
 .demo-kicker {
@@ -1553,23 +1555,102 @@ body[data-state="empty"] .layout {
   margin-top: 2px;
 }
 
+/* Guides and more samples, under a line: what to read, what else to try. */
 .more-links {
-  margin-top: 26px;
   display: grid;
-  gap: 8px;
-  font-size: 13.5px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 28px;
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.more-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.guide-groups {
+  display: grid;
+  gap: 4px;
+}
+
+.guide-group {
+  margin: 8px 0 0;
+  font-size: 12px;
   color: var(--faint);
 }
 
-.more-links p {
-  margin: 0;
+.guide-group:first-child {
+  margin-top: 0;
 }
 
-.more-label {
-  display: inline-block;
-  min-width: 100px;
+.guide-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 2px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.more-links .guide-list a {
+  display: block;
+  padding: 5px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.more-links .guide-list a::after {
+  content: " →";
+  color: var(--faint);
+}
+
+.more-links .guide-list a:hover {
+  color: var(--accent);
+}
+
+.sample-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 3px 11px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip-kind {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
   color: var(--muted);
-  font-weight: 600;
+  font: 600 10.5px var(--mono);
+  letter-spacing: 0.02em;
 }
 
 .more-links a,
@@ -1578,9 +1659,26 @@ body[data-state="empty"] .layout {
 }
 
 .footnote {
-  margin: 30px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin: 32px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
   color: var(--faint);
   font-size: 12.5px;
+  text-align: left;
+}
+
+.footnote-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.footnote a {
+  color: var(--accent);
 }
 
 .link {
@@ -2843,7 +2941,8 @@ body[data-state="ready"] .viewswitch {
   /* A compact card beside its words, so the ways in stay near the top. */
   .demo {
     grid-template-columns: 112px minmax(0, 1fr);
-    align-items: center;
+    /* The picture stays put while the words beside it change. */
+    align-items: start;
     gap: 14px;
     padding: 12px;
   }
@@ -2859,6 +2958,10 @@ body[data-state="ready"] .viewswitch {
   .demo-caption {
     font-size: 12.5px;
     min-height: 0;
+  }
+
+  .demo-side {
+    min-height: 250px;
   }
 
   body[data-state="ready"] .viewswitch {
@@ -2926,7 +3029,8 @@ body[data-state="ready"] .viewswitch {
   }
 
   .doors,
-  .geek-list {
+  .geek-list,
+  .more-links {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -3882,4 +3986,11 @@ body[data-state="ready"] .viewswitch {
   font-size: 13.5px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* The narrowest phones wrap the clean copy's sentence into more lines. */
+@media (max-width: 360px) {
+  .demo-side {
+    min-height: 320px;
+  }
 }
