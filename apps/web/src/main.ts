@@ -19,6 +19,7 @@ import { maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
+import { recentFiles, remember } from "./recent";
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -41,6 +42,13 @@ document.querySelector('[data-opens="picker"]')?.before(themeButton());
 document.addEventListener("click", (e) => {
   const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
   if (button) document.getElementById(button.dataset.opens ?? "")?.click();
+  // A file opened earlier in this tab, from the summary's list.
+  const again = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-recent]");
+  const file = again ? recentFiles()[Number(again.dataset.recent)] : undefined;
+  if (file) {
+    batch = null;
+    void load(file);
+  }
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -692,6 +700,7 @@ async function load(file: File): Promise<void> {
   }
 
   levels = [];
+  remember(file);
   show(new FileModel(response.result, response.bytes, file.name));
   arrive();
   // The first file ever opened here gets a short tour, once laid out.

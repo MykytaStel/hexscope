@@ -11,6 +11,7 @@ import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type PageArea, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 import { announce, done } from "./announce";
+import { recentFiles } from "./recent";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -522,7 +523,26 @@ export class Drawer {
         deflate.append(bar, legend);
       }
     }
-    this.file.append(this.nextFile());
+    this.file.append(this.nextFile(), this.recent());
+  }
+
+  /** The other files opened in this tab, to go back to; hidden when there are none. */
+  private recent(): HTMLElement {
+    const group = el("div", "group recent-files");
+    const files = recentFiles();
+    group.hidden = files.length === 0;
+    group.append(el("h2", undefined, "Opened in this tab"));
+    const ul = el("ul", "recent-list");
+    files.forEach((f, i) => {
+      const b = el("button", "recent-file");
+      b.dataset.recent = String(i);
+      b.append(el("span", "recent-name", f.name), el("span", "recent-size", formatBytes(f.size)));
+      const li = el("li");
+      li.append(b);
+      ul.append(li);
+    });
+    group.append(ul, el("p", "recent-note", "Kept only while this tab is open, and never sent anywhere."));
+    return group;
   }
 
   /** Where to go once done with this file: another one, chosen or pasted. */

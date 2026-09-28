@@ -3330,3 +3330,52 @@ body[data-state="ready"] .viewswitch {
   margin-top: 8px;
   font-size: 12.5px;
 }
+
+/* The other files opened in this tab: one tap back to each. */
+.recent-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.recent-file {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-file:hover {
+  background: var(--row-hover);
+}
+
+.recent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-size {
+  flex: none;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.recent-note {
+  margin: 8px 0 0;
+  color: var(--faint);
+  font-size: 12.5px;
+}
