@@ -13,6 +13,7 @@ import { verdict } from "./verdict";
 import { announce, done } from "./announce";
 import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
+import { emailPath } from "./emailpath";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -768,18 +769,41 @@ export class Drawer {
     };
     const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
-    // The picture it is about, small, beside the heading: which photo this is.
-    if (["jpeg", "png", "heif", "webp", "gif"].includes(f.format)) {
-      void decodePicture(m).then((b) => {
-        if (!b) return;
-        const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 128);
-        c.className = "reveal-picture";
-        c.setAttribute("role", "img");
-        c.setAttribute("aria-label", "The picture");
-        const head = el("div", "reveal-head");
-        title.replaceWith(head);
-        head.append(title, c);
-      });
+    // An email's way from its sender to you, drawn, with what is wrong on it.
+    if (f.format === "eml") {
+      const path = emailPath(m, (id) => this.onSelect(id));
+      if (path) group.append(path);
+    }
+    // The picture it is about, and where it was taken, drawn: what the
+    // numbers below mean, before reading them.
+    const pictured = ["jpeg", "png", "heif", "webp", "gif"].includes(f.format);
+    if (pictured || f.location) {
+      const hero = el("div", f.location ? "reveal-hero has-map" : "reveal-hero");
+      group.append(hero);
+      if (pictured) {
+        const frame = el("div", "reveal-picture-frame");
+        hero.append(frame);
+        void decodePicture(m).then((b) => {
+          if (!b) return frame.remove();
+          const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 480);
+          c.className = "reveal-picture";
+          c.setAttribute("role", "img");
+          c.setAttribute("aria-label", "The picture");
+          frame.append(c);
+        });
+      }
+      if (f.location) {
+        const { latitude, longitude } = f.location;
+        const place = el("figure", "place-map");
+        hero.append(place);
+        // Loaded only for a file that says where: the coastline is 20 KB.
+        void import("./map").then(({ placeMap }) => {
+          const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}`;
+          place.append(placeMap(latitude, longitude, `A map with a pin where it was taken: ${where}`));
+          // The map site is one click away on the Location row; this one asks no one.
+          place.append(el("figcaption", undefined, "Where it was taken — drawn here, without asking any map site."));
+        });
+      }
     }
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the
