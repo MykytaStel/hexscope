@@ -38,3 +38,7 @@ apps/web/.local/
 # Wrangler's local state (pages dev, login cache)
 .wrangler/
 crates/*/fuzz/corpus/
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
