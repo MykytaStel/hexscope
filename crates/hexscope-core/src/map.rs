@@ -212,6 +212,17 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             l if l.starts_with("custom section · ") => Role::Metadata,
             _ => Role::Structure,
         }),
+        Format::Webp if depth == 1 => Some(match label {
+            "VP8" | "VP8L" | "ALPH" | "ANMF" => Role::Content,
+            "EXIF" | "XMP" => Role::Metadata,
+            _ => Role::Structure,
+        }),
+        Format::Gif if depth == 1 => Some(match label {
+            l if l.starts_with("frame ") => Role::Content,
+            "comment" => Role::Metadata,
+            l if l.starts_with("application · XMP") => Role::Metadata,
+            _ => Role::Structure,
+        }),
         // A message's header says who and where; its text and files are it.
         Format::Eml => match label {
             "headers" => Some(Role::Metadata),
@@ -360,7 +371,7 @@ mod tests {
         let cut = slices_of(&png[..png.len() - 20]);
         assert!(cut.iter().any(|s| s.role == Role::Damaged), "{cut:?}");
 
-        let unknown = slices_of(b"GIF89a just a header");
+        let unknown = slices_of(b"\x1F\x8B\x08 a gzip header, no more");
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].role, Role::Structure);
     }

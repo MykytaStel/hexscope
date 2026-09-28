@@ -138,6 +138,8 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         }),
         Format::Jpeg => crate::jpeg::docs::describe(label, problem),
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
+        Format::Webp => crate::webp::docs::describe(label, problem),
+        Format::Gif => crate::gif::docs::describe(label, problem),
         Format::Pdf if cfg!(feature = "documents") => {
             crate::pdf::docs::describe(tree, node, problem)
         }

@@ -67,18 +67,33 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC and AVIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
             }
         }
     }
 }
 
+/// What a clean copy may take out beyond what it always does.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CleanOptions {
+    /// Empty Excel's and PowerPoint's comments and speaker notes, and the
+    /// names of who wrote them. They are part of the document, so only when
+    /// asked.
+    pub comments_and_notes: bool,
+}
+
 pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
+    clean_with(data, CleanOptions::default())
+}
+
+pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanError> {
     let mut cleaned = match parse(data) {
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
-        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc),
+        Document::Webp(doc) => clean_webp(data, &doc),
+        Document::Gif(doc) => clean_gif(data, &doc),
+        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options),
         Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
         Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
@@ -105,6 +120,107 @@ pub fn redact(data: &[u8], areas: &[(u32, [f64; 4])]) -> Result<Cleaned, CleanEr
         return Err(CleanError::Unsupported);
     }
     crate::pdf::clean::clean_pdf_with(data, areas)
+}
+
+// --- WebP and GIF --------------------------------------------------------------
+
+/// A WebP without its EXIF and XMP chunks, the extended header's flags for
+/// them cleared, and the RIFF size made right.
+fn clean_webp(data: &[u8], doc: &crate::webp::WebpDocument) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let mut body = b"WEBP".to_vec();
+    let mut removed = Vec::new();
+    for &id in &tree.get(root).children {
+        let n = tree.get(id);
+        let bytes = data
+            .get(n.range.start as usize..n.range.end() as usize)
+            .ok_or(CleanError::Damaged)?;
+        match n.label.as_str() {
+            "RIFF header" => {}
+            "EXIF" => removed.push(Removed {
+                what: "EXIF: camera, time, location, serial numbers".into(),
+                bytes: n.range.len,
+            }),
+            "XMP" => removed.push(Removed {
+                what: "XMP: editing history, author and place names".into(),
+                bytes: n.range.len,
+            }),
+            "data after the end of the image" => removed.push(Removed {
+                what: "data after the end of the image".into(),
+                bytes: n.range.len,
+            }),
+            _ if n.kind == NodeKind::Warning => {}
+            "VP8X" => {
+                let mut chunk = bytes.to_vec();
+                // Bit 3 says EXIF, bit 2 XMP: neither is there now.
+                if let Some(flags) = chunk.get_mut(8) {
+                    *flags &= !0x0C;
+                }
+                body.extend_from_slice(&chunk);
+            }
+            _ => body.extend_from_slice(bytes),
+        }
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let size = u32::try_from(body.len()).map_err(|_| CleanError::Damaged)?;
+    let mut out = b"RIFF".to_vec();
+    out.extend_from_slice(&size.to_le_bytes());
+    out.extend_from_slice(&body);
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
+}
+
+/// A GIF without its comments and XMP; timing, looping and colour profiles
+/// stay, and every frame is copied byte for byte.
+fn clean_gif(data: &[u8], doc: &crate::gif::GifDocument) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    if tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let mut out = Vec::with_capacity(data.len());
+    let mut removed = Vec::new();
+    for &id in &tree.get(root).children {
+        let n = tree.get(id);
+        let bytes = data
+            .get(n.range.start as usize..n.range.end() as usize)
+            .ok_or(CleanError::Damaged)?;
+        match n.label.as_str() {
+            "comment" => removed.push(Removed {
+                what: "comments".into(),
+                bytes: n.range.len,
+            }),
+            l if l.starts_with("application · XMP") => removed.push(Removed {
+                what: "XMP: editing history, author and place names".into(),
+                bytes: n.range.len,
+            }),
+            "data after the end of the image" => removed.push(Removed {
+                what: "data after the end of the image".into(),
+                bytes: n.range.len,
+            }),
+            _ if n.kind == NodeKind::Warning => {}
+            // The screen descriptor's node covers only its fields; its
+            // colour table and the header are nodes of their own.
+            _ => out.extend_from_slice(bytes),
+        }
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
 }
 
 // --- WebAssembly -------------------------------------------------------------
@@ -537,10 +653,31 @@ fn replacement(name: &str) -> Option<(&'static str, &'static str)> {
 /// A Word part with its tracked changes accepted and its comments' marks
 /// gone, or a part of comments emptied, and what that did; `None` when the
 /// part is neither, or has nothing to take out.
-fn revise(data: &[u8], e: &crate::zip::ZipEntry) -> Option<(Vec<u8>, String)> {
+fn revise(
+    data: &[u8],
+    e: &crate::zip::ZipEntry,
+    options: CleanOptions,
+) -> Option<(Vec<u8>, String)> {
     use crate::zip::office::MAX_PART;
-    use crate::zip::revise::{accept, emptied, is_comments, is_story};
-    if !(is_story(&e.name) || is_comments(&e.name)) || e.uncompressed > MAX_PART {
+    use crate::zip::revise::{accept, blank_notes, emptied, is_comments, is_story};
+    if e.uncompressed > MAX_PART {
+        return None;
+    }
+    // Excel's and PowerPoint's comments and notes, when asked for.
+    if options.comments_and_notes && blank_notes(&e.name, "").is_some() {
+        let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
+        let xml = std::str::from_utf8(&bytes).ok()?;
+        let (out, n) = blank_notes(&e.name, xml)?;
+        let what = if e.name.starts_with("ppt/notesSlides/") {
+            "the speaker's notes"
+        } else if e.name.contains("uthor") || e.name.contains("person") {
+            "who wrote the comments"
+        } else {
+            "comments"
+        };
+        return (n > 0).then(|| (out.into_bytes(), format!("{what}, emptied")));
+    }
+    if !(is_story(&e.name) || is_comments(&e.name)) {
         return None;
     }
     let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
@@ -580,7 +717,7 @@ fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
     clean(&bytes).ok()
 }
 
-fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
+fn clean_zip(data: &[u8], doc: &ZipDocument, options: CleanOptions) -> Result<Cleaned, CleanError> {
     use crate::zip::office::MAX_PHOTOS;
     let tree = &doc.tree;
     let mut photos = 0;
@@ -595,8 +732,11 @@ fn clean_zip(data: &[u8], doc: &ZipDocument) -> Result<Cleaned, CleanError> {
             clean_media(data, e)
         })
         .collect();
-    let revised: Vec<Option<(Vec<u8>, String)>> =
-        doc.entries.iter().map(|e| revise(data, e)).collect();
+    let revised: Vec<Option<(Vec<u8>, String)>> = doc
+        .entries
+        .iter()
+        .map(|e| revise(data, e, options))
+        .collect();
     if !doc.entries.iter().any(|e| replacement(&e.name).is_some())
         && media.iter().all(Option::is_none)
         && revised.iter().all(Option::is_none)
@@ -1006,6 +1146,47 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    /// A deck exported by Keynote: its speaker notes stay in the clean copy
+    /// unless asked for, and then are emptied, with the deck still whole.
+    #[test]
+    fn keynote_notes_go_only_when_asked() {
+        let deck = std::fs::read(format!(
+            "{}/tests/fixtures/keynote.pptx",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        let has = |b: &[u8]| {
+            crate::zip::parse_zip(b)
+                .facts
+                .iter()
+                .any(|f| f.kind == "notes")
+        };
+        assert!(has(&deck));
+        let kept = clean(&deck);
+        // Nothing else to take out of this deck: the notes are its content.
+        assert!(kept.is_err() || has(&kept.unwrap().bytes));
+        let gone = clean_with(
+            &deck,
+            CleanOptions {
+                comments_and_notes: true,
+            },
+        )
+        .unwrap();
+        assert!(!has(&gone.bytes), "{:?}", gone.removed);
+        assert!(
+            gone.removed
+                .iter()
+                .any(|r| r.what.contains("speaker's notes, emptied"))
+        );
+        assert!(
+            !crate::zip::parse_zip(&gone.bytes)
+                .tree
+                .nodes()
+                .iter()
+                .any(|n| n.kind == NodeKind::Error)
+        );
     }
 
     #[test]

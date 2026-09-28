@@ -61,6 +61,7 @@ fn photo(facts: &PhotoFacts, out: &mut Vec<(&'static str, String)>) {
         ("shutter", &facts.shutter),
         ("uptime", &facts.uptime),
         ("linked", &facts.linked),
+        ("screenshot", &facts.screenshot),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {
@@ -102,6 +103,14 @@ pub fn summarize(data: &[u8]) -> Summary {
         Document::Heif(d) => {
             photo(&d.facts, &mut facts);
             "heif"
+        }
+        Document::Webp(d) => {
+            photo(&d.facts, &mut facts);
+            "webp"
+        }
+        Document::Gif(d) => {
+            photo(&d.facts, &mut facts);
+            "gif"
         }
         Document::Video(d) => {
             photo(&d.facts, &mut facts);

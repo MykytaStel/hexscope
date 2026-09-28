@@ -77,6 +77,13 @@ pub(crate) fn from_xmp(xml: &str, node: NodeId) -> PhotoFacts {
     .find_map(|k| get(k));
     set(&mut f.original, original, node);
     set(&mut f.history, history(xml), node);
+    // iPhones and Macs write "Screenshot" as the comment of their own.
+    if get("exif:UserComment").is_some_and(|c| c.contains("Screenshot")) {
+        f.screenshot = Some(Fact {
+            text: "marked as a screenshot".into(),
+            node,
+        });
+    }
     f
 }
 
@@ -204,6 +211,16 @@ fn resource(mut b: &[u8], id: u16) -> Option<&[u8]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_mac_or_iphone_screenshot_says_so() {
+        let xmp = r#"<x:xmpmeta><rdf:RDF><rdf:Description xmlns:exif="http://ns.adobe.com/exif/1.0/"><exif:UserComment>Screenshot</exif:UserComment></rdf:Description></rdf:RDF></x:xmpmeta>"#;
+        assert_eq!(
+            from_xmp(xmp, 3).screenshot.map(|f| (f.text, f.node)),
+            Some(("marked as a screenshot".to_string(), 3))
+        );
+        assert!(from_xmp("<x:xmpmeta/>", 3).screenshot.is_none());
+    }
 
     const LIGHTROOM: &str = r#"<x:xmpmeta><rdf:RDF><rdf:Description
         xmp:CreatorTool="Adobe Photoshop Lightroom Classic 14.0 (Macintosh)"

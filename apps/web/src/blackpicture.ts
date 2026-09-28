@@ -26,7 +26,7 @@ export interface PictureCopy {
 
 /** Whether a picture can be blacked out here: one the browser can decode. */
 export function canBlackOut(m: FileModel): boolean {
-  return m.file.format === "jpeg" || m.file.format === "png" || m.file.format === "heif";
+  return ["jpeg", "png", "heif", "webp", "gif"].includes(m.file.format);
 }
 
 export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise<void> {
@@ -114,7 +114,8 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
         fctx.fillRect(l, t, Math.ceil(x1 * full.width) - l, Math.ceil(y1 * full.height) - t);
       }
     }
-    const png = m.file.format === "png";
+    // Pictures drawn in few colours stay sharp as PNG; photographs go as JPEG.
+    const png = m.file.format === "png" || m.file.format === "gif";
     const blob = await new Promise<Blob | null>((resolve) => full.toBlob(resolve, png ? "image/png" : "image/jpeg", 0.92));
     save.textContent = "Make the copy";
     refresh();

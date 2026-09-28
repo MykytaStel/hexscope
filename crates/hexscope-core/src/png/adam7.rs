@@ -72,12 +72,16 @@ pub fn deinterlace(raw: &[u8], ihdr: &Ihdr) -> Result<Vec<u8>, UnfilterError> {
     let passes = passes(ihdr).ok_or(UnfilterError::BadDimensions)?;
     let stride = ihdr.stride().ok_or(UnfilterError::BadDimensions)?;
     let bits = ihdr.channels() * ihdr.bit_depth as usize;
-    let mut out = vec![
-        0u8;
-        stride
-            .checked_mul(ihdr.height as usize)
-            .ok_or(UnfilterError::BadDimensions)?
-    ];
+    let size = stride
+        .checked_mul(ihdr.height as usize)
+        .ok_or(UnfilterError::BadDimensions)?;
+    // Every byte of the picture comes from a byte of the data, so a header
+    // that claims more than the data holds is found out before memory for
+    // it is asked for.
+    if size > raw.len() {
+        return Err(UnfilterError::ShortData);
+    }
+    let mut out = vec![0u8; size];
     for p in passes {
         if p.width == 0 || p.height == 0 {
             continue;
@@ -173,5 +177,23 @@ mod tests {
             assert!(interlaced.pixels.is_some(), "{name} has pixels");
             assert_eq!(interlaced.pixels, plain.pixels, "{name} and {twin}");
         }
+    }
+
+    /// Found by fuzzing: an interlaced PNG whose header claims 2.2 billion
+    /// rows asked for 8.8 GB before looking at its data. It is refused as
+    /// short, at once.
+    #[test]
+    fn a_header_taller_than_its_data_asks_for_no_memory() {
+        let data = std::fs::read(format!(
+            "{}/tests/fixtures/tall-interlaced.png",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        let doc = crate::png::parse_png(&data);
+        assert!(doc.pixels.is_none());
+        assert!(doc.tree.nodes().iter().any(|n| matches!(
+            n.kind,
+            crate::model::NodeKind::Error | crate::model::NodeKind::Warning
+        )));
     }
 }

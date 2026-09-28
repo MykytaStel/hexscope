@@ -157,6 +157,88 @@ pub(crate) fn is_comments(name: &str) -> bool {
     )
 }
 
+/// The words of Excel's and PowerPoint's comments and speaker notes, and
+/// the names of who wrote them: text elements emptied, name attributes
+/// blanked, every element kept, so the file opens as it did — with empty
+/// comments and notes. Returns the part and how many were emptied; `None`
+/// for any other part.
+pub(crate) fn blank_notes(name: &str, xml: &str) -> Option<(String, usize)> {
+    let xml_part = name.ends_with(".xml");
+    let (elements, attrs): (&[&str], &[&str]) = if name.starts_with("ppt/notesSlides/") && xml_part
+    {
+        (&["a:t"], &[])
+    } else if (name.starts_with("xl/comments") || name.starts_with("xl/threadedComments/"))
+        && xml_part
+    {
+        (&["t", "author", "text"], &[])
+    } else if name.starts_with("ppt/comments/") && xml_part {
+        (&["p:text", "a:t"], &[])
+    } else if matches!(
+        name,
+        "xl/persons/person.xml" | "ppt/commentAuthors.xml" | "ppt/authors.xml"
+    ) {
+        (&[], &["name", "initials", "displayName", "userId"])
+    } else {
+        return None;
+    };
+    let mut n = 0;
+    let mut out = xml.to_string();
+    for tag in elements {
+        out = empty_all(&out, tag, &mut n);
+    }
+    for attr in attrs {
+        out = blank_attr(&out, attr, &mut n);
+    }
+    Some((out, n))
+}
+
+/// Empties every `<name …>…</name>`, keeping its tags.
+fn empty_all(xml: &str, name: &str, count: &mut usize) -> String {
+    let close = format!("</{name}>");
+    let mut out = String::with_capacity(xml.len());
+    let mut at = 0;
+    while let Some((_, end, empty)) = next_tag(xml, at, name) {
+        out.push_str(&xml[at..end]);
+        at = end;
+        if empty {
+            continue;
+        }
+        let Some(i) = xml[end..].find(&close) else {
+            break;
+        };
+        if i > 0 {
+            *count += 1;
+        }
+        at = end + i;
+    }
+    out.push_str(&xml[at..]);
+    out
+}
+
+/// Blanks every ` name="…"` attribute's value.
+fn blank_attr(xml: &str, name: &str, count: &mut usize) -> String {
+    let mut out = String::with_capacity(xml.len());
+    let mut at = 0;
+    loop {
+        let found = [format!(" {name}=\""), format!(" {name}='")]
+            .into_iter()
+            .filter_map(|p| xml.get(at..)?.find(&p).map(|i| (at + i + p.len(), p)))
+            .min_by_key(|(i, _)| *i);
+        let Some((start, p)) = found else { break };
+        let q = if p.ends_with('"') { '"' } else { '\'' };
+        let Some(len) = xml[start..].find(q) else {
+            break;
+        };
+        out.push_str(&xml[at..start]);
+        if len > 0 {
+            *count += 1;
+        }
+        at = start + len;
+    }
+    out.push_str(&xml[at..]);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +287,33 @@ mod tests {
         ] {
             let _ = accept(s);
             let _ = emptied(s);
+        }
+    }
+
+    #[test]
+    fn comments_and_notes_are_emptied_in_place() {
+        let notes = r#"<p:notes><p:sp><p:cNvPr id="175" name="Shape 175"/><a:p><a:r><a:t>Don't mention the layoffs</a:t></a:r></a:p></p:sp></p:notes>"#;
+        let (out, n) = blank_notes("ppt/notesSlides/notesSlide1.xml", notes).unwrap();
+        assert_eq!(
+            out,
+            r#"<p:notes><p:sp><p:cNvPr id="175" name="Shape 175"/><a:p><a:r><a:t></a:t></a:r></a:p></p:sp></p:notes>"#
+        );
+        assert_eq!(n, 1);
+        let xl = r#"<comments><authors><author>Olena Koval</author></authors><commentList><comment ref="B2" authorId="0"><text><r><t xml:space="preserve">Too high</t></r></text></comment></commentList></comments>"#;
+        let (out, _) = blank_notes("xl/comments1.xml", xl).unwrap();
+        assert!(!out.contains("Olena") && !out.contains("Too high"), "{out}");
+        assert!(out.contains(r#"<comment ref="B2" authorId="0">"#), "{out}");
+        let people = r#"<p:cmAuthorLst><p:cmAuthor id="0" name="Olena Koval" initials='OK' lastIdx="1"/></p:cmAuthorLst>"#;
+        let (out, n) = blank_notes("ppt/commentAuthors.xml", people).unwrap();
+        assert_eq!(
+            out,
+            r#"<p:cmAuthorLst><p:cmAuthor id="0" name="" initials='' lastIdx="1"/></p:cmAuthorLst>"#
+        );
+        assert_eq!(n, 2);
+        assert!(blank_notes("word/document.xml", "<w:t>x</w:t>").is_none());
+        for s in ["<a:t", "<a:t>", " name=\"", "<t>x</t", " name='x"] {
+            let _ = blank_notes("xl/comments1.xml", s);
+            let _ = blank_notes("ppt/authors.xml", s);
         }
     }
 }

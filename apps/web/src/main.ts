@@ -239,11 +239,11 @@ async function redactCopy(areas: Float64Array): Promise<CleanResult> {
  * share files, where the copy waits for "Share" or "Save": a download
  * there is a dialog in the way of sending it on.
  */
-async function cleanCopy(): Promise<CleanResult> {
+async function cleanCopy(notes = false): Promise<CleanResult> {
   const m = model;
   const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
   if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "clean", bytes: m.bytes.slice() });
+  const r = await call({ type: "clean", bytes: m.bytes.slice(), notes });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
   const name = cleanName(m);
   const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;
@@ -394,6 +394,9 @@ function showFileInfo(m: FileModel): void {
     chips.push("JPEG");
     if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
     if (f.facts.length > 0 || f.location) chips.push("EXIF");
+  } else if (f.format === "webp" || f.format === "gif") {
+    chips.push(...m.value(0).split(" · "));
+    if (f.facts.length > 0 || f.location) chips.push("Metadata");
   } else if (f.format === "heif") {
     chips.push(m.value(0).split(" · ")[0]);
     if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
@@ -477,6 +480,8 @@ function kindOf(m: FileModel): string {
     case "png":
       return "PNG";
     case "heif":
+    case "webp":
+    case "gif":
     case "video":
     case "pdf":
       return first;

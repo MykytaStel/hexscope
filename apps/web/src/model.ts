@@ -34,7 +34,7 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
-  format: "png" | "jpeg" | "heif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "unknown";
+  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */
@@ -149,6 +149,23 @@ const CHUNK_TINTS: Record<string, Tint> = {
   DHT: "plte",
   SOS: "idat",
   "scan data": "idat",
+  // WebP
+  "RIFF header": "sig",
+  VP8X: "ihdr",
+  VP8: "idat",
+  VP8L: "idat",
+  ALPH: "idat",
+  ANMF: "idat",
+  ANIM: "ihdr",
+  ICCP: "plte",
+  EXIF: "text",
+  XMP: "text",
+  // GIF
+  header: "sig",
+  "logical screen descriptor": "ihdr",
+  "global colour table": "plte",
+  comment: "text",
+  trailer: "iend",
 };
 
 /** "APP1 · EXIF" is keyed by "APP1"; every SOFn is a frame header. */
@@ -202,6 +219,8 @@ function isVideoMetadata(label: string): boolean {
 }
 
 function chunkTint(label: string): Tint {
+  if (label.startsWith("frame ")) return "idat";
+  if (label.startsWith("application · XMP")) return "text";
   const key = label.split(" · ")[0];
   if (/^SOF\d+$/.test(key)) return "ihdr";
   return CHUNK_TINTS[key] ?? "anc";

@@ -7,7 +7,7 @@
 
 #![forbid(unsafe_code)]
 
-use hexscope_core::clean::clean;
+use hexscope_core::clean::{CleanOptions, clean_with};
 use hexscope_core::docs::describe;
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
@@ -867,6 +867,20 @@ pub fn parse(bytes: &[u8]) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Webp(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "webp";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
+        Document::Gif(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "gif";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
         Document::Video(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "video";
@@ -986,10 +1000,16 @@ impl CleanCopy {
 }
 
 /// Makes a copy of `bytes` without what it reveals about the people behind
-/// it: see `hexscope_core::clean`.
+/// it: see `hexscope_core::clean`. `notes` also empties Excel's and
+/// PowerPoint's comments and speaker notes.
 #[wasm_bindgen(js_name = cleanCopy)]
-pub fn clean_copy(bytes: &[u8]) -> CleanCopy {
-    into_copy(clean(bytes))
+pub fn clean_copy(bytes: &[u8], notes: bool) -> CleanCopy {
+    into_copy(clean_with(
+        bytes,
+        CleanOptions {
+            comments_and_notes: notes,
+        },
+    ))
 }
 
 /// A copy, or why there is none, as the page reads it.
@@ -1203,6 +1223,7 @@ fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
         ("shutter", &facts.shutter),
         ("uptime", &facts.uptime),
         ("linked", &facts.linked),
+        ("screenshot", &facts.screenshot),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {
@@ -1586,9 +1607,9 @@ mod tests {
 
     #[test]
     fn an_unknown_file_is_named_not_ignored() {
-        let parsed = parse(b"GIF89a not decoded");
+        let parsed = parse(b"\x1F\x8B\x08 not decoded");
         assert_eq!(parsed.format(), "unknown");
-        assert!(parsed.labels.contains("GIF"));
+        assert!(parsed.labels.contains("gzip"));
         assert!(parsed.facts().is_empty() && parsed.location().is_empty());
     }
 
@@ -1690,7 +1711,7 @@ mod tests {
         assert_eq!(parsed.format(), "video");
         assert_eq!(parsed.dimensions(), vec![64, 48]);
         assert_eq!(parsed.location().len(), 4);
-        let c = clean_copy(&mov);
+        let c = clean_copy(&mov, false);
         assert_eq!(c.error(), "");
         assert!(parse(&c.bytes()).location().is_empty());
     }
@@ -1920,17 +1941,17 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
         )
         .unwrap();
-        let c = clean_copy(&photo);
+        let c = clean_copy(&photo, false);
         assert_eq!(c.error(), "");
         assert!(c.removed().starts_with("EXIF"));
         let again = parse(&c.bytes());
         assert!(again.facts().is_empty());
         assert!(again.location().is_empty());
 
-        let refused = clean_copy(b"GIF89a not cleaned");
+        let refused = clean_copy(b"\x1F\x8B\x08 not cleaned", false);
         assert!(refused.bytes().is_empty());
         assert!(refused.error().contains("WebAssembly modules only"));
-        let bare = clean_copy(&fixture("basn2c08.png"));
+        let bare = clean_copy(&fixture("basn2c08.png"), false);
         assert!(bare.error().contains("nothing in it"));
     }
 

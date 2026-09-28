@@ -10,6 +10,7 @@ pub mod document;
 pub mod eml;
 pub mod exif;
 mod fixed;
+pub mod gif;
 pub mod heif;
 /// DEFLATE and zlib, from their own crate: see `hexscope-inflate`.
 pub use hexscope_inflate as inflate;
@@ -23,6 +24,7 @@ pub mod repair;
 pub mod summary;
 pub mod video;
 pub mod wasm;
+pub mod webp;
 pub mod zip;
 
 pub use document::{Document, Format, parse};

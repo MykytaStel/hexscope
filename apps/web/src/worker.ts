@@ -13,7 +13,7 @@ export type WorkerRequest =
   | { id: number; type: "open"; index: number }
   | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; bytes: Uint8Array }
+  | { id: number; type: "clean"; bytes: Uint8Array; notes?: boolean }
   | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
@@ -59,12 +59,14 @@ const loadMedia = () =>
     return m as unknown as Module;
   }));
 
-/** Whether the small build reads these bytes: PNG, JPEG, and the ISO boxes of HEIF and MP4. */
+/** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, and the ISO boxes of HEIF and MP4. */
 function isMedia(b: Uint8Array): boolean {
   const png = b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
   const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
   const iso = b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70;
-  return png || jpeg || iso;
+  const webp = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45;
+  const gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38;
+  return png || jpeg || iso || webp || gif;
 }
 const moduleFor = (b: Uint8Array) => (isMedia(b) ? loadMedia() : loadFull());
 
@@ -220,7 +222,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
-    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes);
+    const c = (await moduleFor(req.bytes)).cleanCopy(req.bytes, req.notes ?? false);
     const parts = c.removed ? c.removed.split(SEPARATOR) : [];
     const removed = [];
     for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });

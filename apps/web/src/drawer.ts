@@ -136,7 +136,7 @@ const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01]
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 function cleanLimits(m: FileModel): HTMLElement {
   const format = m.file.format;
-  const kind = format === "jpeg" || format === "heif" || format === "png" ? "photo" : isAudio(m) ? "audio" : format;
+  const kind = ["jpeg", "heif", "png", "webp", "gif"].includes(format) ? "photo" : isAudio(m) ? "audio" : format;
   const items = [...(LIMITS[kind] ?? [])];
   const base = m.name.split("/").pop() ?? m.name;
   if (DATED.test(base)) {
@@ -185,6 +185,7 @@ const FACT_LABELS: Record<string, string> = {
   uptime: "Phone on for",
   linked: "Linked shots",
   names: "Function names",
+  screenshot: "Screenshot",
   sentfrom: "Sent from",
   computer: "Computer's name",
   mailer: "Mail app",
@@ -286,8 +287,8 @@ export interface RepairResult {
 }
 
 export interface CleanActions {
-  /** Makes the copy and saves it; resolves with what was done. */
-  clean(): Promise<CleanResult>;
+  /** Makes the copy and saves it; resolves with what was done. `notes` also empties a workbook's or a deck's comments and notes. */
+  clean(notes?: boolean): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
   open(bytes: Uint8Array): void;
   /** Opens a file found inside this one. */
@@ -579,6 +580,8 @@ export class Drawer {
     const heading: Record<string, string> = {
       jpeg: "What this photo reveals",
       heif: "What this photo reveals",
+      webp: "What this image reveals",
+      gif: "What this image reveals",
       png: "What this image reveals",
       video: "What this video reveals",
       wasm: "What this module reveals",
@@ -587,7 +590,7 @@ export class Drawer {
     const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // The picture it is about, small, beside the heading: which photo this is.
-    if (f.format === "jpeg" || f.format === "png" || f.format === "heif") {
+    if (["jpeg", "png", "heif", "webp", "gif"].includes(f.format)) {
       void decodePicture(m).then((b) => {
         if (!b) return;
         const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 128);
@@ -619,6 +622,9 @@ export class Drawer {
       group.append(el("p", "hint", none));
       if (removable) group.append(this.cleaner(m));
       if (canBlackOut(m)) group.append(this.blackOutButton(m));
+      // A screenshot with no metadata still shows what was on the screen.
+      const tips = this.tips(m);
+      if (tips) group.append(tips);
       return group;
     }
 
@@ -688,6 +694,7 @@ export class Drawer {
       const word = f.format === "zip" && f.labels.includes("word/document.xml");
       if (KEPT[f.format]?.includes(fact.kind) && !(word && fact.kind === "comments")) {
         dd.dataset.kept = "";
+        dd.dataset.kind = fact.kind;
         (dd.previousElementSibling as HTMLElement | null)?.setAttribute("data-kept", "");
       }
     }
@@ -707,17 +714,22 @@ export class Drawer {
       group.append(this.cleaner(m));
     }
     if (canBlackOut(m)) group.append(this.blackOutButton(m));
-    const tips = advice(m);
-    if (tips.length > 0) {
-      const box = el("div", "advice");
-      box.append(el("p", "advice-title", "What you can do"));
-      const ul = el("ul");
-      for (const t of tips) ul.append(el("li", undefined, t));
-      box.append(ul);
-      group.append(box);
-    }
+    const tips = this.tips(m);
+    if (tips) group.append(tips);
     if (categories(m).length > 0) group.append(this.sharer(m));
     return group;
+  }
+
+  /** What to do about what was found, or null when there is nothing to say. */
+  private tips(m: FileModel): HTMLElement | null {
+    const tips = advice(m);
+    if (tips.length === 0) return null;
+    const box = el("div", "advice");
+    box.append(el("p", "advice-title", "What you can do"));
+    const ul = el("ul");
+    for (const t of tips) ul.append(el("li", undefined, t));
+    box.append(ul);
+    return box;
   }
 
   /**
@@ -1024,6 +1036,8 @@ export class Drawer {
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
       zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
+      webp: "Leaves out the EXIF and XMP chunks: camera, place, dates, editing history. The picture is copied byte for byte.",
+      gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
       png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
       video:
@@ -1036,11 +1050,30 @@ export class Drawer {
       notes[format] ??
       "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
     const limits = cleanLimits(m);
-    box.append(button, el("p", "hint", note), limits);
+    box.append(button, el("p", "hint", note));
+    // A workbook's or a deck's comments and notes are its content: gone only when asked.
+    const word = m.file.labels.includes("word/document.xml");
+    const extras = format === "zip" && !word && m.file.facts.some((x) => x.kind === "notes" || x.kind === "comments");
+    const also = el("input");
+    if (extras) {
+      also.type = "checkbox";
+      const label = el("label", "clean-also");
+      label.append(also, " Also empty the comments and the speaker's notes, and who wrote them");
+      box.append(label);
+    }
+    box.append(limits);
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Making the copy…";
-      const r = await this.cleaning.clean();
+      const notes = extras && also.checked;
+      // What goes with them is struck out with the rest.
+      if (notes) {
+        for (const e of box.closest(".reveals")?.querySelectorAll<HTMLElement>("[data-kept]") ?? []) {
+          const kind = e.dataset.kind ?? e.nextElementSibling?.getAttribute("data-kind");
+          if (kind === "notes" || kind === "comments") delete e.dataset.kept;
+        }
+      }
+      const r = await this.cleaning.clean(notes);
       box.replaceChildren();
       if (r.error) {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
@@ -1066,7 +1099,10 @@ export class Drawer {
       }
       box.append(ul);
       if (box.closest(".reveals")?.querySelector(".reveal-list [data-kept]")) {
-        box.append(el("p", "hint", KEPT_NOTE[format] ?? "What is not struck out is part of the file's content, and stays."));
+        const kept = notes
+          ? "Kept: what is part of a workbook or a deck itself — hidden sheets, rows and slides, links to other files. Delete them in Excel or PowerPoint, then save."
+          : KEPT_NOTE[format];
+        box.append(el("p", "hint", kept ?? "What is not struck out is part of the file's content, and stays."));
       }
       if (r.orientation > 1) {
         box.append(el("p", "hint", "Kept only the orientation, so the picture stays the right way up."));
