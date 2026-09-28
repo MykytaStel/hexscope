@@ -4,7 +4,23 @@
 const CACHE = "hexscope-v1";
 const SHARED = "hexscope-shared";
 
-self.addEventListener("install", () => self.skipWaiting());
+// The samples are small, and the landing page offers them: kept from the
+// start, so they open offline too — unless the connection asks to save data.
+const SAMPLES = [
+  "broken.png", "budget.xlsx", "cropped.jpg", "deflate-demo.zip", "hello.wasm", "message.eml", "phishing.eml",
+  "photo.heic", "photo.jpg", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf", "sample.png", "video.mov",
+].map((n) => new URL(`samples/${n}`, self.registration.scope).href);
+
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  if (self.navigator?.connection?.saveData) return;
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(SAMPLES))
+      .catch(() => {}),
+  );
+});
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(

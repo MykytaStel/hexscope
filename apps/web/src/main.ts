@@ -766,9 +766,25 @@ async function loadSample(path: string, name: string): Promise<void> {
   // worker, and must not parse its own file over this one.
   document.body.dataset.state = "loading";
   $("fileinfo").textContent = `Opening ${name}…`;
+  let res: Response | null = null;
+  // A dropped connection gets a second try before it is said.
+  for (let attempt = 0; attempt < 2 && !res; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 800));
+    res = await fetch(path).catch(() => null);
+  }
+  if (!res) {
+    loadFailed(
+      navigator.onLine
+        ? `Could not download the sample ${name}: the connection dropped. Try again in a moment.`
+        : `Could not download the sample ${name}: you are offline, and it has not been saved for offline use yet. Your own files still open.`,
+    );
+    return;
+  }
+  if (!res.ok) {
+    loadFailed(`Could not download the sample ${name}: the site answered ${res.status}. Try again in a moment.`);
+    return;
+  }
   try {
-    const res = await fetch(path);
-    if (!res.ok) throw new Error(`the sample answered ${res.status}`);
     await load(new File([await res.blob()], name));
   } catch (e) {
     loadFailed(`Could not open ${name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -881,6 +897,34 @@ window.addEventListener("paste", (e) => {
   e.preventDefault();
   openFiles(files);
 });
+
+// The same from a button, for a phone, which has no keys to paste with:
+// the browser asks, then hands over what was copied.
+const pasteKey = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
+for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-paste]")) {
+  btn.hidden = !navigator.clipboard?.read;
+  btn.addEventListener("click", async () => {
+    let items: ClipboardItems;
+    try {
+      items = await navigator.clipboard.read();
+    } catch {
+      loadFailed(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
+      return;
+    }
+    const files: File[] = [];
+    for (const item of items) {
+      const type = item.types.find((t) => t.startsWith("image/"));
+      if (!type) continue;
+      const blob = await item.getType(type);
+      files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
+    }
+    if (files.length === 0) {
+      loadFailed("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
+      return;
+    }
+    openFiles(files);
+  });
+}
 
 /** One file opens; several are listed. */
 function openFiles(files: File[]): void {

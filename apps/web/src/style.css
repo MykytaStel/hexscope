@@ -1566,7 +1566,8 @@ body[data-state="batch"] .layout {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.hero-folder {
+.hero-folder,
+.hero-paste {
   cursor: pointer;
 }
 
