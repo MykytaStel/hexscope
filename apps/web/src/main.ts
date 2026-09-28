@@ -113,13 +113,13 @@ const picture = new PictureView({
 // On a phone the file opens on its summary; the tree and the bytes are a
 // tap away, and anything that points into the bytes goes there.
 const narrow = matchMedia("(max-width: 900px)");
-/** The view a wide screen opens on: the three panes, unless the person chose the summary. */
+/** The view a wide screen opens on: the answer, unless the person chose the bytes. */
 const VIEW = "hexscope.view";
 function wideView(): "summary" | "bytes" {
   try {
-    return localStorage.getItem(VIEW) === "summary" ? "summary" : "bytes";
+    return localStorage.getItem(VIEW) === "bytes" ? "bytes" : "summary";
   } catch {
-    return "bytes";
+    return "summary";
   }
 }
 function setView(view: "summary" | "bytes"): void {
@@ -385,12 +385,13 @@ function updateProblems(): void {
     (id) => model!.kind(id) === Kind.Error || model!.doc(id)?.concern === Concern.Damage,
   );
   problemsBtn.dataset.severity = damaged ? "error" : "warning";
+  // Damage is a problem; something hidden or a rule bent is a finding.
   const word = document.createElement("span");
   word.className = "problems-word";
-  word.textContent = n === 1 ? " problem" : " problems";
+  word.textContent = damaged ? (n === 1 ? " problem" : " problems") : n === 1 ? " finding" : " findings";
   problemsBtn.replaceChildren(String(n), word);
   problemsBtn.setAttribute("aria-label", `${n}${word.textContent}: jump to the next`);
-  problemsBtn.title = "Jump to the next problem (N)";
+  problemsBtn.title = `Jump to the next ${damaged ? "problem" : "finding"} (N)`;
 }
 
 function nextProblem(): void {

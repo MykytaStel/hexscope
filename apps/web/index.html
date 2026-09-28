@@ -76,15 +76,13 @@
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
               <span><strong>Nothing is uploaded.</strong> The file never leaves this tab: no account, no tracking. <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads it.</span>
             </p>
-            <ul class="formats" aria-label="What it opens">
-              <li>JPEG</li><li>HEIC</li><li>PNG</li><li>AVIF</li><li>WebP</li><li>GIF</li><li>MP4</li><li>MOV</li><li>PDF</li><li>Word, Excel</li><li>ZIP</li><li>Email</li><li>WASM</li>
-            </ul>
+            <p class="formats">Reads photos and pictures (JPEG, HEIC, PNG, AVIF, WebP, GIF), videos, PDFs, Word, Excel and PowerPoint, ZIP, emails and WebAssembly.</p>
           </div>
           <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
         </div>
 
         <h2 class="doors-title">Before you send</h2>
-        <div class="doors">
+        <div class="doors doors-main">
           <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
             <span class="door-title">Check a photo</span>
@@ -100,7 +98,7 @@
         </div>
 
         <h2 class="doors-title">Before you trust an email</h2>
-        <div class="doors">
+        <div class="doors doors-main">
           <button class="door" data-sample="samples/phishing.eml" data-name="phishing.eml">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.2c0 4.6 3.1 8.2 7.5 9.8 4.4-1.6 7.5-5.2 7.5-9.8V6z" /><path d="M9.9 9.6a2.2 2.2 0 1 1 3.1 2c-.6.3-1 .8-1 1.4v.4" /><circle cx="12" cy="16.2" r="0.6" class="fill" /></svg>
             <span class="door-title">Is this email real?</span>
@@ -117,7 +115,7 @@
 
         <h2 class="doors-title">Look inside</h2>
         <p class="doors-lede">Why a file won't open, and how it is built: every byte explained, with where its format defines it.</p>
-        <div class="doors">
+        <div class="doors doors-compact">
           <button class="door" data-sample="samples/broken.png" data-name="broken.png">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
             <span class="door-title">Why won't it open?</span>
