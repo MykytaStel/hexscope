@@ -454,8 +454,10 @@ The job needs a `CLOUDFLARE_API_TOKEN` repository secret — an API token with
 *Account → Cloudflare Pages → Edit* — and deploys nothing until it exists.
 
 It installs as an app and works offline after the first visit: a service
-worker (`apps/web/public/sw.js`) caches the page and its hashed assets, and
-fetches nothing the page does not ask for. On Android, the installed app
+worker (`apps/web/public/sw.js`) keeps the whole app — both WebAssembly
+builds, the player, the guides and the samples — under a version the build
+writes in (`vite.config.ts`), so a deploy replaces the old files rather than
+adding to them. It fetches only the site's own files, and sends nothing. On Android, the installed app
 appears in the share sheet; a shared file waits in a cache for the page to
 open it, and never touches the network. The link preview and icons are
 rendered from `scripts/brand/*.html` by `sh scripts/make-brand-images.sh`.
