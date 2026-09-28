@@ -18,15 +18,12 @@ const MAX_HASHED = 1 << 16;
 export async function parseAside(file: File): Promise<FileModel> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   try {
-    const [response, buffer] = await Promise.all([
-      new Promise<WorkerResponse>((resolve) => {
-        worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => resolve(e.data), { once: true });
-        worker.postMessage({ id: 1, type: "parse", file } as WorkerRequest);
-      }),
-      file.arrayBuffer(),
-    ]);
+    const response = await new Promise<WorkerResponse>((resolve) => {
+      worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => resolve(e.data), { once: true });
+      worker.postMessage({ id: 1, type: "parse", file } as WorkerRequest);
+    });
     if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
-    return new FileModel(response.result, new Uint8Array(buffer), file.name);
+    return new FileModel(response.result, response.bytes, file.name);
   } finally {
     worker.terminate();
   }

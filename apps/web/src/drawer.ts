@@ -23,7 +23,8 @@ const COLOR_TYPES: Record<number, string> = {
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 ** 3).toFixed(1)} GB`;
 }
 
 const hex = (n: number) => `0x${n.toString(16).toUpperCase()}`;

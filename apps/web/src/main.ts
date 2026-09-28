@@ -553,9 +553,10 @@ async function runBatch(): Promise<void> {
       item.state = "reading";
       if (document.body.dataset.state === "batch") batchView.render(items!);
       try {
-        const [r, buffer] = await Promise.all([call({ type: "parse", file: item.file }), item.file.arrayBuffer()]);
+        if (item.file.size > MAX_FILE) throw new Error(tooLarge(item.file));
+        const r = await call({ type: "parse", file: item.file });
         if (r.type !== "parsed") throw new Error(r.type === "error" ? r.message : "unexpected reply");
-        const m = new FileModel(r.result, new Uint8Array(buffer), item.file.name);
+        const m = new FileModel(r.result, r.bytes, item.file.name);
         item.kind = kindOf(m);
         item.lines = verdict(m);
         item.reveals = categories(m);
@@ -666,9 +667,13 @@ async function load(file: File): Promise<void> {
   $("fileinfo").textContent = `Parsing ${file.name}…`;
   $("load-error").hidden = true;
 
-  // The main thread keeps its own view of the bytes for drawing; parsing
-  // happens entirely in the worker.
-  const [response, buffer] = await Promise.all([call({ type: "parse", file }), file.arrayBuffer()]);
+  if (file.size > MAX_FILE) {
+    loadFailed(tooLarge(file));
+    return;
+  }
+  // Parsing happens entirely in the worker, which hands the bytes back for
+  // drawing once it is done with them.
+  const response = await call({ type: "parse", file });
   if (id !== loadId) return; // a newer file was dropped meanwhile
 
   if (response.type !== "parsed") {
@@ -678,10 +683,17 @@ async function load(file: File): Promise<void> {
   }
 
   levels = [];
-  show(new FileModel(response.result, new Uint8Array(buffer), file.name));
+  show(new FileModel(response.result, response.bytes, file.name));
   arrive();
   // The first file ever opened here gets a short tour, once laid out.
   setTimeout(maybeTour, 350);
+}
+
+/** The largest file read in a tab: past it, browsers cannot hold it whole. */
+const MAX_FILE = 2 * 1024 ** 3 - 1;
+
+function tooLarge(file: File): string {
+  return `${file.name} is ${formatBytes(file.size)}: hexscope reads files up to 2 GB in a browser tab. The command line tool reads any size: hexscope check "${file.name}".`;
 }
 
 /** Puts a document on screen, with nothing selected. */
