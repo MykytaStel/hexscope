@@ -92,6 +92,18 @@ pub fn is_zip(data: &[u8]) -> bool {
 
 /// Parses a ZIP archive. Never fails: damage is recorded as nodes.
 pub fn parse_zip(data: &[u8]) -> ZipDocument {
+    let (tree, entries) = read_entries(data);
+    let facts = office::document_facts(data, &entries);
+    ZipDocument {
+        tree,
+        entries,
+        facts,
+    }
+}
+
+/// An archive's entries, and the tree that places them: no facts, so an
+/// archive inside a document is read without reading what is inside it.
+pub(crate) fn read_entries(data: &[u8]) -> (ParseTree, Vec<ZipEntry>) {
     let mut tree = ParseTree::new();
     let len = data.len() as u64;
     let root = tree.add(
@@ -116,12 +128,7 @@ pub fn parse_zip(data: &[u8]) -> ZipDocument {
     let n = entries.len();
     let count = format!("{n} {}", if n == 1 { "entry" } else { "entries" });
     tree.set_value(root, Some(Value::Text(count)));
-    let facts = office::document_facts(data, &entries);
-    ZipDocument {
-        tree,
-        entries,
-        facts,
-    }
+    (tree, entries)
 }
 
 fn reader_at(data: &[u8], pos: u64) -> Reader<'_> {

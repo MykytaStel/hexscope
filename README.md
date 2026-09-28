@@ -97,7 +97,9 @@ text a tracked deletion still holds though no page shows it; and every photo
 placed in it says where it was taken and with what camera. A workbook names
 its hidden sheets, hidden rows and columns, its comments' authors and the
 files it links to on its author's disk; a deck, its speaker notes, hidden
-slides and comments.
+slides and comments. A file kept inside — above all the workbook behind a
+pasted chart, which travels whole, every sheet of it — is named with its
+sheets and its author.
 
 **Shows where a video was recorded.** MP4 and QuickTime movies are read box
 by box. An iPhone's video keeps its location, make, model, software and date
@@ -167,7 +169,7 @@ for redaction and hidden from view is taken out of the page — each glyph
 replaced by the space it took up, so every other letter stays where it was —
 and the marks are applied, as a redaction tool would; a picture under a box
 has its pixels there made black. A Word, Excel or PowerPoint file loses
-its document properties, and the photos in it their EXIF; a Word document
+its document properties, and the photos and workbooks in it theirs; a Word document
 loses the text it hides — formatted as hidden, white on white, too small to
 read — and has its tracked changes accepted and its comments deleted, as Word's Accept
 All Changes and Delete All Comments would (a workbook's hidden sheets or a

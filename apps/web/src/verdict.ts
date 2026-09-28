@@ -98,6 +98,7 @@ const REVEALS: Record<string, string> = {
   deleted: "text that was deleted",
   form: "what was filled into its form",
   attachments: "files attached to it",
+  embedded: "whole files kept inside it",
   hiddensheets: "sheets hidden from view",
   hiddencells: "hidden rows and columns",
   links: "paths on the author's computer",

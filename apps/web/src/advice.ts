@@ -101,6 +101,11 @@ const RULES: Rule[] = [
     text: "Hiding a sheet, a row or a slide only folds it away: whoever opens the file can unhide it in a click, and speaker notes travel with every copy of a deck. Delete what should not be sent, rather than hiding it; Excel's links to other files name where they are on your computer — break them (Data → Edit Links) before sending.",
   },
   {
+    when: ["embedded"],
+    formats: ["zip"],
+    text: "A chart pasted from Excel brings the whole workbook with it: every sheet and every number, not only the ones the chart shows, and who made it. Anyone can open it (right-click the chart → Edit Data). To send only the picture, paste the chart as a picture (Paste Special → Picture); otherwise delete what the workbook should not hold. The clean copy takes out who made the workbook, not its sheets — open it here to see them.",
+  },
+  {
     when: ["photoplace"],
     formats: ["zip", "pdf"],
     text: "A photo placed in a document keeps its own location and camera data. The clean copy removes it from every photo inside.",
