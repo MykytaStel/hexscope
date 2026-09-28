@@ -9,7 +9,7 @@
 //! it, or replies go somewhere else, is what tells a forgery.
 
 pub(crate) mod docs;
-mod links;
+pub(crate) mod links;
 #[cfg(test)]
 mod tests;
 

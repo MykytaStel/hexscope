@@ -107,6 +107,113 @@ pub(crate) fn accept(xml: &str) -> (String, usize) {
     (out, n)
 }
 
+/// Why a run of text is not seen on the page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Unseen {
+    /// Formatted as hidden (§17.3.2.41): Word shows it only when asked to.
+    Hidden,
+    /// White, where nothing in the document is shaded dark behind it.
+    White,
+    /// Under a point high: a speck, or nothing, on the page.
+    Tiny,
+}
+
+/// The value of `w:val` in a tag, when it has one.
+fn val(tag: &str) -> Option<&str> {
+    let at = tag.find("w:val=\"")? + 7;
+    tag.get(at..)?.split('"').next()
+}
+
+/// Whether anything in the document is shaded or coloured behind its text,
+/// so white letters could be meant to show: a page colour, a shaded cell or
+/// paragraph, a highlight.
+fn shaded(xml: &str) -> bool {
+    xml.contains("<w:background")
+        || xml.contains("<w:highlight")
+        || xml.match_indices("<w:shd").any(|(i, _)| {
+            let tag = &xml[i..xml[i..].find('>').map_or(xml.len(), |e| i + e)];
+            let fill = tag
+                .find("w:fill=\"")
+                .and_then(|a| tag[a + 8..].split('"').next());
+            !matches!(fill, None | Some("auto" | "FFFFFF" | "ffffff"))
+        })
+}
+
+/// Every run of text no one reading the page sees — hidden, white where
+/// nothing is shaded, or too small — as where it lies in `xml`, why, and its
+/// text as written. A run with no text is not counted.
+pub(crate) fn hidden_runs(xml: &str) -> Vec<(usize, usize, Unseen, String)> {
+    let white_counts = !shaded(xml);
+    let mut out = Vec::new();
+    let mut at = 0;
+    while let Some((start, end, empty)) = next_tag(xml, at, "w:r") {
+        at = end;
+        if empty {
+            continue;
+        }
+        let Some(close) = xml[end..].find("</w:r>").map(|i| end + i + 6) else {
+            break;
+        };
+        at = close;
+        let run = &xml[start..close];
+        let props = run
+            .find("<w:rPr>")
+            .and_then(|p| run[p..].find("</w:rPr>").map(|q| &run[p..p + q]))
+            .unwrap_or("");
+        let tag_of = |name: &str| next_tag(props, 0, name).map(|(s, e, _)| &props[s..e]);
+        let on = |name: &str| {
+            tag_of(name).is_some_and(|t| !matches!(val(t), Some("0" | "false" | "off")))
+        };
+        let why = if on("w:vanish") || on("w:specVanish") {
+            Some(Unseen::Hidden)
+        } else if tag_of("w:sz")
+            .and_then(val)
+            .and_then(|v| v.parse::<u32>().ok())
+            .is_some_and(|half| half <= 2)
+        {
+            Some(Unseen::Tiny)
+        } else if white_counts
+            && tag_of("w:color")
+                .and_then(val)
+                .is_some_and(|c| c.eq_ignore_ascii_case("FFFFFF"))
+        {
+            Some(Unseen::White)
+        } else {
+            None
+        };
+        let Some(why) = why else { continue };
+        let mut text = String::new();
+        let mut t = 0;
+        while let Some((_, te, e)) = next_tag(run, t, "w:t") {
+            t = te;
+            if e {
+                continue;
+            }
+            if let Some(stop) = run[te..].find("</w:t>") {
+                text.push_str(&run[te..te + stop]);
+                t = te + stop;
+            }
+        }
+        if !text.trim().is_empty() {
+            out.push((start, close, why, text));
+        }
+    }
+    out
+}
+
+/// The part with its unseen runs taken out, and how many went.
+pub(crate) fn drop_hidden(xml: &str) -> (String, usize) {
+    let runs = hidden_runs(xml);
+    let mut out = String::with_capacity(xml.len());
+    let mut at = 0;
+    for (start, end, ..) in &runs {
+        out.push_str(&xml[at..*start]);
+        at = *end;
+    }
+    out.push_str(&xml[at..]);
+    (out, runs.len())
+}
+
 /// A part with its root element kept and everything in it gone: an empty
 /// list of comments, or of people, that the document's relationships can
 /// still point at.
@@ -315,5 +422,35 @@ mod tests {
             let _ = blank_notes("xl/comments1.xml", s);
             let _ = blank_notes("ppt/authors.xml", s);
         }
+    }
+
+    #[test]
+    fn text_no_one_sees_is_found_and_taken_out() {
+        let doc = r#"<w:body><w:p><w:r><w:t>Seen.</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>secret note</w:t></w:r><w:r><w:rPr><w:vanish w:val="0"/></w:rPr><w:t>shown</w:t></w:r><w:r><w:rPr><w:color w:val="FFFFFF"/></w:rPr><w:t>hire me</w:t></w:r><w:r><w:rPr><w:sz w:val="2"/></w:rPr><w:t>tiny</w:t></w:r><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>normal</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t> </w:t></w:r></w:p></w:body>"#;
+        let runs = hidden_runs(doc);
+        let found: Vec<(Unseen, &str)> = runs.iter().map(|r| (r.2, r.3.as_str())).collect();
+        assert_eq!(
+            found,
+            [
+                (Unseen::Hidden, "secret note"),
+                (Unseen::White, "hire me"),
+                (Unseen::Tiny, "tiny")
+            ]
+        );
+        let (out, n) = drop_hidden(doc);
+        assert_eq!(n, 3);
+        assert!(out.contains("Seen.") && out.contains("shown") && out.contains("normal"));
+        assert!(!out.contains("secret") && !out.contains("hire me") && !out.contains("tiny"));
+        // White text on a dark cell is a design, not a secret.
+        let shaded = doc.replace(
+            "<w:body>",
+            r#"<w:body><w:tc><w:tcPr><w:shd w:fill="1F3864"/></w:tcPr></w:tc>"#,
+        );
+        assert!(hidden_runs(&shaded).iter().all(|r| r.2 != Unseen::White));
+        let light = doc.replace(
+            "<w:body>",
+            r#"<w:body><w:shd w:val="clear" w:fill="auto"/>"#,
+        );
+        assert!(hidden_runs(&light).iter().any(|r| r.2 == Unseen::White));
     }
 }

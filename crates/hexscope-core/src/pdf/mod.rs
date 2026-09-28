@@ -5,6 +5,7 @@
 //! the file holds rather than what a viewer draws: every object, including
 //! the ones an incremental update replaced, which are still there.
 
+mod actions;
 pub(crate) mod clean;
 pub mod crypt;
 pub(crate) mod docs;
@@ -400,6 +401,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let blackouts = if !encrypted || ctx.crypt.is_some() {
         redact::earlier_text(data, &ctx, &mut facts);
         attachments = forms::check(data, &ctx, &mut facts);
+        actions::check(data, &ctx, &mut facts);
         redact::check(data, &mut tree, &ctx, &mut facts)
     } else {
         Vec::new()

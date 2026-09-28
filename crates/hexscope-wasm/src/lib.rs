@@ -1336,6 +1336,9 @@ fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
         ("uptime", &facts.uptime),
         ("linked", &facts.linked),
         ("screenshot", &facts.screenshot),
+        ("ai", &facts.ai),
+        ("credentials", &facts.credentials),
+        ("prompt", &facts.prompt),
     ];
     for (kind, fact) in listed {
         if let Some(f) = fact {

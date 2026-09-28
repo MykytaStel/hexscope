@@ -50,7 +50,7 @@ fn is_sof(m: u8) -> bool {
 
 /// What an APPn segment holds, from the identifier its payload starts with.
 fn app_kind(payload: &[u8]) -> Option<&'static str> {
-    const KNOWN: [(&[u8], &str); 8] = [
+    const KNOWN: [(&[u8], &str); 9] = [
         (b"Exif\0\0", "EXIF"),
         (b"http://ns.adobe.com/xap/1.0/\0", "XMP"),
         (b"JFIF\0", "JFIF"),
@@ -59,6 +59,8 @@ fn app_kind(payload: &[u8]) -> Option<&'static str> {
         (b"MPF\0", "MPF"),
         (b"Photoshop 3.0\0", "Photoshop"),
         (b"Adobe", "Adobe"),
+        // APP11's JPEG Universal Metadata boxes: Content Credentials.
+        (b"JP", "JUMBF"),
     ];
     KNOWN
         .iter()
@@ -434,6 +436,10 @@ fn decode_segment(
                 payload.len() as u64 - ID,
                 Value::Text(shown),
             );
+        }
+        0xEB if app_kind(payload) == Some("JUMBF") => {
+            doc.facts
+                .fill_from(crate::exif::c2pa::from_manifest(payload, node));
         }
         0xED if app_kind(payload) == Some("Photoshop") => {
             let resources = payload.get(14..).unwrap_or_default();

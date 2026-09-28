@@ -170,6 +170,10 @@ fn clean_webp(data: &[u8], doc: &crate::webp::WebpDocument) -> Result<Cleaned, C
                 what: "XMP: editing history, author and place names".into(),
                 bytes: n.range.len,
             }),
+            "C2PA" => removed.push(Removed {
+                what: "Content Credentials: who or what made it, and how it was edited".into(),
+                bytes: n.range.len,
+            }),
             "data after the end of the image" => removed.push(Removed {
                 what: "data after the end of the image".into(),
                 bytes: n.range.len,
@@ -290,6 +294,7 @@ fn jpeg_what(label: &str) -> String {
         (_, "XMP") => "XMP: editing history, author and place names".into(),
         (_, "Photoshop") => "Photoshop and IPTC: captions, keywords, credits".into(),
         (_, "MPF") => "an index of extra pictures stored in the file".into(),
+        (_, "JUMBF") => "Content Credentials: who or what made it, and how it was edited".into(),
         (_, "JFXX") => "a JFIF thumbnail".into(),
         ("COM", _) => "a comment".into(),
         ("data after the end of the image", _) => "data after the end of the picture".into(),
@@ -462,6 +467,10 @@ fn clean_png(data: &[u8], doc: &PngDocument) -> Result<Cleaned, CleanError> {
             }),
             "tIME" => removed.push(Removed {
                 what: "the time it was last changed".into(),
+                bytes: n.range.len,
+            }),
+            "caBX" => removed.push(Removed {
+                what: "Content Credentials: who or what made it, and how it was edited".into(),
                 bytes: n.range.len,
             }),
             "data after the end of the image" => removed.push(Removed {
@@ -713,14 +722,24 @@ fn revise(
         });
     }
     let (out, n) = accept(xml);
-    (n > 0).then(|| {
-        let what = if n == 1 {
-            "1 tracked change or comment mark".to_string()
+    // Text no reader sees — hidden, white, too small — goes too.
+    let (out, hidden) = crate::zip::revise::drop_hidden(&out);
+    let mut said = Vec::new();
+    if n > 0 {
+        said.push(if n == 1 {
+            "1 tracked change or comment mark, accepted or removed".to_string()
         } else {
-            format!("{n} tracked changes and comment marks")
-        };
-        (out.into_bytes(), format!("{what}, accepted or removed"))
-    })
+            format!("{n} tracked changes and comment marks, accepted or removed")
+        });
+    }
+    if hidden > 0 {
+        said.push(if hidden == 1 {
+            "1 piece of text no one can see".to_string()
+        } else {
+            format!("{hidden} pieces of text no one can see")
+        });
+    }
+    (!said.is_empty()).then(|| (out.into_bytes(), said.join("; ")))
 }
 
 /// A photo placed in an Office document, cleaned like one opened on its

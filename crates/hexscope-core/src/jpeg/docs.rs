@@ -39,6 +39,7 @@ const TABLE: Table = &[
     ("APP* · ICC", t81("A colour profile: how the picture's colours should look on any screen.", "T.81 §B.2.4.6")),
     ("APP* · MPF", t81("Multi-picture format: this file holds more pictures, such as a depth map or a second exposure.", "T.81 §B.2.4.6")),
     ("APP* · Photoshop", t81("Photoshop's data: captions, keywords and settings it saved.", "T.81 §B.2.4.6")),
+    ("APP* · JUMBF", Doc::new("Content Credentials (C2PA): a signed record of who or what made the picture and how it was edited, AI included.").cite("C2PA 2.1 §11.3.1", "https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html")),
     ("APP* · Adobe", t81("Adobe's note on how the colours were transformed.", "T.81 §B.2.4.6")),
     ("APP*", t81("Application data: a segment programs use for their own information.", "T.81 §B.2.4.6")),
     ("marker 0x*", t81("A marker the JPEG standard does not assign.", "T.81 §B.1.1.3")),

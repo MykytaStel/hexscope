@@ -10,6 +10,7 @@ use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 use tags::tag_name;
 
+pub(crate) mod c2pa;
 pub(crate) mod docs;
 mod makernote;
 mod tags;
@@ -58,6 +59,13 @@ pub struct PhotoFacts {
     /// That it is a screenshot, as iPhones and Macs mark theirs: its
     /// UserComment says so.
     pub screenshot: Option<Fact>,
+    /// That AI made it, or helped: from IPTC's source type, Content
+    /// Credentials, or an image generator's own notes.
+    pub ai: Option<Fact>,
+    /// Content Credentials (C2PA), and the program that wrote them.
+    pub credentials: Option<Fact>,
+    /// The prompt an image generator was given.
+    pub prompt: Option<Fact>,
     /// IFD0's Orientation, 1 to 8: how to turn the picture upright. Not a
     /// fact about anyone, but a clean copy must keep it.
     pub orientation: Option<u16>,
@@ -83,6 +91,9 @@ impl PhotoFacts {
         self.original = self.original.take().or(other.original);
         self.history = self.history.take().or(other.history);
         self.screenshot = self.screenshot.take().or(other.screenshot);
+        self.ai = self.ai.take().or(other.ai);
+        self.credentials = self.credentials.take().or(other.credentials);
+        self.prompt = self.prompt.take().or(other.prompt);
         self.orientation = self.orientation.take().or(other.orientation);
     }
 }

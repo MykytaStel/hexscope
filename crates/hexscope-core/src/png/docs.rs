@@ -156,6 +156,11 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "caBX",
+        Doc::new("Content Credentials (C2PA): a signed record of who or what made the picture and how it was edited, AI included.")
+            .cite("C2PA 2.1 §11.3.2", "https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html"),
+    ),
+    (
         "eXIf",
         png(
             "Camera metadata in the EXIF format, the same kind a JPEG photo carries.",

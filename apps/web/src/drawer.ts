@@ -54,7 +54,7 @@ const KEPT_NOTE: Record<string, string> = {
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile"];
+const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "opens", "launch"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -188,12 +188,19 @@ const FACT_LABELS: Record<string, string> = {
   linked: "Linked shots",
   names: "Function names",
   screenshot: "Screenshot",
+  ai: "Made with AI",
+  credentials: "Content Credentials",
+  prompt: "Prompt",
   sentfrom: "Sent from",
   computer: "Computer's name",
   mailer: "Mail app",
   timezone: "Time zone",
   replyto: "Replies go to",
   weblinks: "Links",
+  opens: "When opened",
+  scripts: "Scripts",
+  launch: "Opens a program",
+  submits: "Form goes to",
   linkmismatch: "Link goes elsewhere",
   linkidn: "Lookalike address",
   riskyfile: "Risky attachment",
@@ -706,8 +713,13 @@ export class Drawer {
       // A sentence reads better in the body font; only coordinates and codes are set in mono.
       if (!covered) dd.querySelector(".reveal-link")?.classList.remove("is-strong");
       // Hidden text is shown as if selected: that is how someone finds it.
-      const ghost = fact.kind === "hiddentext" ? /^(.*?: )“(.*)”$/.exec(fact.text) : null;
-      if (ghost) dd.querySelector(".reveal-link")?.replaceChildren(ghost[1], el("mark", "ghost-text", ghost[2]));
+      // Each kind — "hidden: “…”; in white on white: “…”" — marked on its own.
+      const ghosts = fact.kind === "hiddentext" ? [...fact.text.matchAll(/([^;“]*?: )“([^”]*)”/g)] : [];
+      if (ghosts.length > 0) {
+        dd.querySelector(".reveal-link")?.replaceChildren(
+          ...ghosts.flatMap((g, i) => [...(i ? ["; "] : []), g[1].trimStart(), el("mark", "ghost-text", g[2])]),
+        );
+      }
       // Deleted text looks the way Word marks it: struck through.
       const deleted = fact.kind === "deleted" || fact.kind === "earlier" ? /^“(.*)”$/.exec(fact.text) : null;
       if (deleted) {
@@ -1107,10 +1119,10 @@ export class Drawer {
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
       zip: "Removes the document's properties, and the camera data and location of every photo in it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
-      webp: "Leaves out the EXIF and XMP chunks: camera, place, dates, editing history. The picture is copied byte for byte.",
+      webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
       gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
       heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
-      png: "Removes the text notes, EXIF, XMP and the time it was last changed. The pixels are copied byte for byte.",
+      png: "Removes the text notes — an image generator's prompt among them — EXIF, XMP, Content Credentials and the time it was last changed. The pixels are copied byte for byte.",
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
@@ -1119,7 +1131,7 @@ export class Drawer {
     const note =
       (isAudio(m) ? "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte." : undefined) ??
       notes[format] ??
-      "Removes the camera data, location, serial numbers, the maker's notes, thumbnail and comments. The picture itself is copied unchanged.";
+      "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.";
     const limits = cleanLimits(m);
     box.append(button, el("p", "hint", note));
     // A workbook's or a deck's comments and notes are its content: gone only when asked.

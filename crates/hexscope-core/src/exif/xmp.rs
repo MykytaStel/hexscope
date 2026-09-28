@@ -77,6 +77,15 @@ pub(crate) fn from_xmp(xml: &str, node: NodeId) -> PhotoFacts {
     .find_map(|k| get(k));
     set(&mut f.original, original, node);
     set(&mut f.history, history(xml), node);
+    // Google, Meta and Adobe say when AI made a picture, in IPTC's words.
+    if let Some(words) =
+        get("Iptc4xmpExt:DigitalSourceType").and_then(|v| super::c2pa::source_type(&v))
+    {
+        f.ai = Some(Fact {
+            text: format!("{words}, its IPTC metadata says"),
+            node,
+        });
+    }
     // iPhones and Macs write "Screenshot" as the comment of their own.
     if get("exif:UserComment").is_some_and(|c| c.contains("Screenshot")) {
         f.screenshot = Some(Fact {
