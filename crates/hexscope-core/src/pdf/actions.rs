@@ -78,17 +78,22 @@ pub(super) fn check(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>) {
     // The latest version of each object — what a viewer uses — in the
     // order the file has them.
     // By number, the last met first within each; one of each; file order.
-    let mut order: Vec<(u32, usize)> = ctx
+    // One sort key type, (u64, usize), for the whole crate: each other one
+    // is another copy of the sort in the wasm build.
+    let mut order: Vec<(u64, usize)> = ctx
         .objects
         .iter()
         .enumerate()
-        .map(|(i, o)| (o.num, usize::MAX - i))
+        .map(|(i, o)| (u64::from(o.num), usize::MAX - i))
         .collect();
     order.sort_unstable();
     order.dedup_by_key(|(n, _)| *n);
-    let mut current: Vec<usize> = order.into_iter().map(|(_, i)| usize::MAX - i).collect();
+    let mut current: Vec<(u64, usize)> = order
+        .into_iter()
+        .map(|(_, i)| ((usize::MAX - i) as u64, 0))
+        .collect();
     current.sort_unstable();
-    for rec in current.into_iter().map(|i| &ctx.objects[i]) {
+    for rec in current.into_iter().map(|(i, _)| &ctx.objects[i as usize]) {
         // An action is an object of its own, or written into a link's /A.
         let inline = match rec.value.get("A") {
             Some(a @ Obj::Dict(_)) => Some(a),

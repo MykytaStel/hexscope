@@ -195,12 +195,15 @@ pub(crate) enum Edited {
 /// pixel more all round, so nothing half covered stays.
 pub(crate) fn pixels(unit: &[[f64; 4]], width: u32, height: u32) -> Vec<[u32; 4]> {
     let (w, h) = (f64::from(width), f64::from(height));
+    // Not `clamp`: its check for a NaN bound keeps float formatting in the
+    // wasm build, 20 KB of it.
+    let fit = |v: f64, max: f64| v.max(0.0).min(max) as u32;
     unit.iter()
         .map(|&[u0, v0, u1, v1]| {
-            let x0 = ((u0 * w).floor() - 1.0).clamp(0.0, w) as u32;
-            let x1 = ((u1 * w).ceil() + 1.0).clamp(0.0, w) as u32;
-            let y0 = (((1.0 - v1) * h).floor() - 1.0).clamp(0.0, h) as u32;
-            let y1 = (((1.0 - v0) * h).ceil() + 1.0).clamp(0.0, h) as u32;
+            let x0 = fit((u0 * w).floor() - 1.0, w);
+            let x1 = fit((u1 * w).ceil() + 1.0, w);
+            let y0 = fit(((1.0 - v1) * h).floor() - 1.0, h);
+            let y1 = fit(((1.0 - v0) * h).ceil() + 1.0, h);
             [x0, y0, x1, y1]
         })
         .filter(|r| r[0] < r[2] && r[1] < r[3])
