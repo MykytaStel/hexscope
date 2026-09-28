@@ -16,6 +16,9 @@ const PRESSING = [
   "prompt", "linkmismatch", "linkidn", "riskyfile", "replyto", "authfail", "opens", "launch",
 ];
 
+/** What a file does when opened, rather than what it tells. */
+const ACTIONS = ["opens", "launch", "scripts", "submits"];
+
 /** A message that may not be from who it says. */
 const FORGED = ["replyto", "authfail", "linkmismatch", "linkidn", "riskyfile"];
 
@@ -60,6 +63,7 @@ export function headline(m: FileModel): Headline {
   if (count > 0) {
     return { tone: pressing ? "danger" : "warning", text: `This ${n} gives away ${count} ${count === 1 ? "thing" : "things"}` };
   }
+  if (ACTIONS.some((k) => kinds.has(k))) return { tone: "danger", text: `This ${n} does more than show pages` };
   if (has("hidden")) return { tone: "danger", text: `Something is hidden in this ${n}` };
   if (has("misnamed")) return { tone: "warning", text: `This ${n} has the wrong name` };
   return { tone: "ok", text: `Nothing personal found in this ${n}` };

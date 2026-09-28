@@ -24,8 +24,7 @@ export class ActionBar {
       if (e.isIntersecting) this.inView.add(e.target);
       else this.inView.delete(e.target);
     }
-    this.seen = [...this.inView].some((el) => el === this.target || (el.classList.contains("verdict-cta") && !(el as HTMLElement).hidden && this.target?.classList.contains("btn-clean")));
-    this.show();
+    this.recount();
   });
   private readonly changes = new MutationObserver(() => this.pick());
 
@@ -68,18 +67,37 @@ export class ActionBar {
       }
     }
     if (found !== this.target) {
-      if (this.target) this.visible.unobserve(this.target);
+      if (this.target) this.forget(this.target);
       this.target = found;
       this.seen = true;
       if (found) this.visible.observe(found);
     }
-    const cta = this.root?.querySelector(".verdict-cta");
-    if (cta && cta !== this.cta) {
-      if (this.cta) this.visible.unobserve(this.cta);
+    // A new file's verdict button replaces the last one's.
+    const cta = this.root?.querySelector(".verdict-cta") ?? null;
+    if (cta !== this.cta) {
+      if (this.cta) this.forget(this.cta);
       this.cta = cta;
-      this.visible.observe(cta);
+      if (cta) this.visible.observe(cta);
     }
     this.button.textContent = label;
+    // Until the observer says where a new button is, it counts as seen: no flash of the bar.
+    this.show();
+  }
+
+  /** Stops watching an element, and forgets it was in view: it may never say otherwise. */
+  private forget(el: Element): void {
+    this.visible.unobserve(el);
+    this.inView.delete(el);
+  }
+
+  /** Seen: the button itself, or — for a clean copy — the verdict's own button for the same thing. */
+  private recount(): void {
+    const t = this.target;
+    this.seen =
+      !!t &&
+      [...this.inView].some(
+        (el) => el.isConnected && (el === t || (el === this.cta && !(el as HTMLElement).hidden && t.classList.contains("btn-clean"))),
+      );
     this.show();
   }
 
