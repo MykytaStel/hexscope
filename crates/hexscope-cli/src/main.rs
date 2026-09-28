@@ -24,6 +24,7 @@ Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
   hexscope clean [options] PATH...    save copies without what they give away
   hexscope repair [options] PATH...   save copies of damaged files with what survived
+  hexscope redact --text WORDS PATH... save PDFs with WORDS taken out of their pages
 
 PATH is a file or a folder, read with everything inside it.
 
@@ -40,6 +41,10 @@ clean:
   --notes          also empty Excel's and PowerPoint's comments and speaker notes
   --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT);
                    for a single file, --out can name the copy itself: --out copy.jpg
+
+redact (PDF):
+  --text WORDS     black out every place WORDS appear; give it more than once for more
+  --out DIR        write the copies into DIR (default: beside each file, as NAME-redacted.EXT)
 
 repair:
   --out DIR        write the copies into DIR (default: beside each file, as NAME-repaired.EXT);
@@ -81,6 +86,7 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
         "check" => check(rest),
         "clean" => copies(rest, Make::Clean),
         "repair" => copies(rest, Make::Repair),
+        "redact" => copies(rest, Make::Redact),
         // A bare path checks it, as the page would.
         _ => check(args),
     }
@@ -93,6 +99,8 @@ struct Options {
     all: bool,
     in_place: bool,
     notes: bool,
+    /// What `redact` blacks out, each wherever it appears.
+    texts: Vec<String>,
     out: Option<PathBuf>,
     paths: Vec<PathBuf>,
 }
@@ -104,6 +112,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         all: false,
         in_place: false,
         notes: false,
+        texts: Vec::new(),
         out: None,
         paths: Vec::new(),
     };
@@ -124,6 +133,11 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--all" => o.all = true,
             "--in-place" => o.in_place = true,
             "--notes" => o.notes = true,
+            "--text" => o.texts.push(
+                it.next()
+                    .ok_or("--text needs the words to black out")?
+                    .clone(),
+            ),
             "--out" => {
                 o.out = Some(PathBuf::from(
                     it.next()
@@ -361,6 +375,7 @@ fn json(path: &Path, s: &Summary) -> String {
 enum Make {
     Clean,
     Repair,
+    Redact,
 }
 
 /// The copy's own name, when `--out` gives one: a single file, and a path
@@ -395,6 +410,106 @@ fn target(path: &Path, o: &Options, suffix: &str) -> PathBuf {
     }
 }
 
+/// Where each of `texts` appears on a PDF's pages, as boxes to black out:
+/// the page's letters in order, a space put where the gap between two says
+/// there is one, matched ignoring case and how words are spaced — as the
+/// page's own search does.
+fn places(data: &[u8], texts: &[String]) -> Vec<(u32, [f64; 4])> {
+    const PAD: f64 = 0.6;
+    let mut out = Vec::new();
+    for page in hexscope_core::pdf::page_texts(data) {
+        // Each character, lower case, and the glyph it came from.
+        let mut chars: Vec<(char, Option<usize>)> = Vec::new();
+        let g = &page.glyphs;
+        for (i, (area, text)) in g.iter().enumerate() {
+            if let Some((prev, _)) = i.checked_sub(1).and_then(|p| g.get(p)) {
+                let h = (area[3] - area[1]).max(prev[3] - prev[1]).max(0.01);
+                let same_line = (area[1] - prev[1]).abs() < 0.3 * h;
+                let gap = area[0] - prev[2];
+                let spaced = chars.last().is_some_and(|c| c.0.is_whitespace())
+                    || text.starts_with(char::is_whitespace);
+                if (!same_line || gap > 0.2 * h) && !spaced && !text.is_empty() {
+                    chars.push((' ', None));
+                }
+            }
+            for c in text.chars() {
+                let lower = c.to_lowercase().next().unwrap_or(c);
+                chars.push((if lower.is_whitespace() { ' ' } else { lower }, Some(i)));
+            }
+        }
+        for query in texts {
+            let words: Vec<Vec<char>> = query
+                .split_whitespace()
+                .map(|w| {
+                    w.chars()
+                        .map(|c| c.to_lowercase().next().unwrap_or(c))
+                        .collect()
+                })
+                .collect();
+            let Some(first) = words.first() else { continue };
+            let mut at = 0;
+            while at < chars.len() {
+                let word_at = |k: usize, w: &[char]| {
+                    w.iter()
+                        .enumerate()
+                        .all(|(j, c)| chars.get(k + j).is_some_and(|x| x.0 == *c))
+                };
+                if !word_at(at, first) {
+                    at += 1;
+                    continue;
+                }
+                let mut end = at + first.len();
+                let mut ok = true;
+                for w in words.iter().skip(1) {
+                    let mut k = end;
+                    while chars.get(k).is_some_and(|c| c.0 == ' ') {
+                        k += 1;
+                    }
+                    if k == end || !word_at(k, w) {
+                        ok = false;
+                        break;
+                    }
+                    end = k + w.len();
+                }
+                if !ok {
+                    at += 1;
+                    continue;
+                }
+                // The glyphs matched, a box per line they run along.
+                let mut boxes: Vec<[f64; 4]> = Vec::new();
+                let mut last = None;
+                for (_, glyph) in chars.get(at..end).unwrap_or(&[]) {
+                    let Some(i) = glyph.filter(|i| Some(*i) != last) else {
+                        continue;
+                    };
+                    last = Some(i);
+                    let Some(([l, b, r, t], _)) = g.get(i) else {
+                        continue;
+                    };
+                    let h = t - b;
+                    match boxes.last_mut() {
+                        Some(bx)
+                            if (bx[1] - b).abs() < 0.3 * h.max(0.01) + PAD
+                                && l - bx[2] < 1.5 * h =>
+                        {
+                            *bx = [
+                                bx[0].min(l - PAD),
+                                bx[1].min(b - PAD),
+                                bx[2].max(r + PAD),
+                                bx[3].max(t + PAD),
+                            ];
+                        }
+                        _ => boxes.push([l - PAD, b - PAD, r + PAD, t + PAD]),
+                    }
+                }
+                out.extend(boxes.into_iter().map(|b| (page.page, b)));
+                at = end;
+            }
+        }
+    }
+    out
+}
+
 fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     let o = options(args)?;
     match (&o.out, out_file(&o)) {
@@ -408,6 +523,9 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             }
         }
         _ => {}
+    }
+    if matches!(kind, Make::Redact) && o.texts.is_empty() {
+        return Err("redact needs what to black out: --text \"a name\"".into());
     }
     if o.in_place && matches!(kind, Make::Repair) {
         return Err("repair keeps the damaged file: use --out, or the default beside it".into());
@@ -432,16 +550,36 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             Make::Repair => repair(&data)
                 .map(|r| (r.bytes, r.fixed))
                 .map_err(|e| e.reason()),
+            Make::Redact => {
+                let places = places(&data, &o.texts);
+                if !hexscope_core::pdf::is_pdf(&data) {
+                    Err("hexscope redacts PDFs")
+                } else if places.is_empty() {
+                    Err("none of it is on the pages as text")
+                } else {
+                    hexscope_core::clean::redact(&data, &places)
+                        .map(|c| {
+                            let mut what = vec![format!(
+                                "{} {} blacked out",
+                                places.len(),
+                                if places.len() == 1 { "place" } else { "places" }
+                            )];
+                            what.extend(c.removed.into_iter().map(|r| r.what));
+                            (c.bytes, what)
+                        })
+                        .map_err(|e| e.reason())
+                }
+            }
         };
         match result {
             Ok((bytes, what)) => {
                 let to = target(
                     &path,
                     &o,
-                    if matches!(kind, Make::Clean) {
-                        "clean"
-                    } else {
-                        "repaired"
+                    match kind {
+                        Make::Clean => "clean",
+                        Make::Repair => "repaired",
+                        Make::Redact => "redacted",
                     },
                 );
                 std::fs::write(&to, bytes).map_err(|e| format!("{}: {e}", to.display()))?;
@@ -458,7 +596,8 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                     || reason.starts_with("nothing in it") => {}
             Err(reason)
                 if reason.starts_with("hexscope cleans")
-                    || reason.starts_with("hexscope repairs") => {}
+                    || reason.starts_with("hexscope repairs")
+                    || reason.starts_with("hexscope redacts") => {}
             Err(reason) => {
                 eprintln!("hexscope: {}: not done, as {reason}", path.display());
                 failed += 1;
