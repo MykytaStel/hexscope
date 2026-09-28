@@ -141,7 +141,7 @@ pub(super) fn links(html: &str) -> Vec<Link> {
 }
 
 /// The host a link goes to, lower case, for web links only.
-pub(super) fn host(href: &str) -> Option<String> {
+pub(crate) fn host(href: &str) -> Option<String> {
     let lower = href.trim().to_ascii_lowercase();
     let rest = lower
         .strip_prefix("https://")
@@ -154,7 +154,7 @@ pub(super) fn host(href: &str) -> Option<String> {
 
 /// The site a link's words name, when they name one: a web address, or a
 /// bare domain such as `example-bank.com`.
-pub(super) fn named(text: &str) -> Option<String> {
+pub(crate) fn named(text: &str) -> Option<String> {
     let t = text.trim().trim_end_matches(['/', '.', ',']);
     if let Some(h) = host(t) {
         return Some(h);
@@ -238,7 +238,7 @@ pub(super) fn unpunycode(label: &str) -> Option<String> {
 }
 
 /// A host as it would be shown: each punycode label as its letters.
-pub(super) fn shown(host: &str) -> String {
+pub(crate) fn shown(host: &str) -> String {
     host.split('.')
         .map(|l| unpunycode(l).unwrap_or_else(|| l.to_string()))
         .collect::<Vec<_>>()

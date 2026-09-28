@@ -255,10 +255,52 @@ pub(super) fn check(
     let mut authors: Vec<String> = Vec::new();
     let mut comments = 0;
     let mut comment_node = None;
+    // Links whose words name one site while they go to another.
+    let mut elsewhere: Vec<String> = Vec::new();
+    let mut elsewhere_node = None;
     for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
         let number = i + 1;
         let p = paint(data, ctx, page, &mut budget, &[]);
         let w = &p.walked;
+        for (a, node, _) in p.annots.iter().filter(|(a, ..)| subtype(a) == "Link") {
+            let action = match a.get("A") {
+                Some(Obj::Ref(n, _)) => top(ctx, *n).map(|r| r.value.clone()),
+                Some(d @ Obj::Dict(_)) => Some(d.clone()),
+                _ => None,
+            };
+            let Some(Obj::Str(uri)) = action.as_ref().and_then(|d| d.get("URI")) else {
+                continue;
+            };
+            let (Some(to), Some(area)) = (crate::eml::links::host(&text(uri)), rect(a)) else {
+                continue;
+            };
+            // The words drawn inside the link's box.
+            let words: String = w
+                .glyphs
+                .iter()
+                .filter(|g| !unseen(g))
+                .filter(|g| {
+                    let (x, y) = (
+                        (g.area.0[0] + g.area.0[2]) / 2.0,
+                        (g.area.0[1] + g.area.0[3]) / 2.0,
+                    );
+                    x >= area.0[0] && x <= area.0[2] && y >= area.0[1] && y <= area.0[3]
+                })
+                .map(|g| w.text_of(g))
+                .collect();
+            if let Some(says) = crate::eml::links::named(&words)
+                && base_domain(says.trim_start_matches("www.")) != base_domain(&to)
+            {
+                let line = format!(
+                    "page {number}: a link reads “{}” and goes to {to}",
+                    words.trim()
+                );
+                if !elsewhere.contains(&line) {
+                    elsewhere.push(line);
+                }
+                elsewhere_node.get_or_insert(*node);
+            }
+        }
         // The warnings hang on the page's first content stream.
         let at = p.parts.first().map(|(rec, ..)| {
             (
@@ -402,6 +444,16 @@ pub(super) fn check(
             }
         }
     }
+    if let Some(node) = elsewhere_node {
+        let range = tree.get(node).range;
+        tree.warning(node, "a link goes somewhere other than it says", range);
+        let more = elsewhere.len().saturating_sub(2);
+        let mut text = elsewhere[..elsewhere.len().min(2)].join("; ");
+        if more > 0 {
+            text.push_str(&format!("; and {more} more"));
+        }
+        insert_update(facts, fact("linkmismatch", text, node));
+    }
     if let Some(node) = comment_node {
         let what = format!(
             "{comments} {}",
@@ -410,6 +462,15 @@ pub(super) fn check(
         insert_update(facts, fact("comments", by(what, &authors), node));
     }
     drawn
+}
+
+/// A domain without its subdomains: `login.example.org` is `example.org`.
+fn base_domain(d: &str) -> &str {
+    let last = d.rfind('.').unwrap_or(0);
+    match d.get(..last).and_then(|h| h.rfind('.')) {
+        Some(i) => d.get(i + 1..).unwrap_or(d),
+        None => d,
+    }
 }
 
 fn fact(kind: &'static str, text: String, node: NodeId) -> DocumentFact {

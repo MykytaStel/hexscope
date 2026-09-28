@@ -331,6 +331,13 @@ const TABLE: Table = &[
             .concern(Concern::Oddity),
     ),
     (
+        "a link goes somewhere other than it says",
+        hidden(
+            "ISO 32000-1 §12.5.6.5",
+            "A link whose words name one site while it goes to another: the way phishing gets a click. Type the address yourself instead.",
+        ),
+    ),
+    (
         "the document runs JavaScript",
         hidden(
             "ISO 32000-1 §12.6.4.16",

@@ -77,6 +77,11 @@ const RULES: Rule[] = [
     text: "A filled-in form keeps its answers as data, and attached files ride along inside: anyone who opens the file can read both, whatever the pages show. If only the pages should be sent, print the PDF to a new PDF, which flattens the form and leaves attachments behind.",
   },
   {
+    when: ["opens", "launch", "linkmismatch", "scripts", "submits"],
+    formats: ["pdf"],
+    text: "This PDF does more than show pages: it runs a script, asks to open a program, sends a form's answers away, or has a link that says one site and goes to another. If you did not expect that, open it with scripts turned off (Acrobat: Preferences → JavaScript), never let it start a program, and type any address yourself.",
+  },
+  {
     when: ["hiddentext"],
     formats: ["pdf", "zip"],
     text: "Text no one can see on the page is still read by search, by screen readers and by programs that read the file — hiring systems and AI tools among them. If you did not put it there, ask who did. The clean copy removes it.",
