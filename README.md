@@ -60,7 +60,9 @@ tacked onto the end of an image, stands out at a glance.
 
 **Black out what you choose.** In a PDF, type a name or a number: every
 place it appears is listed, and the copy takes the ticked ones out of the
-page — the letters themselves — with a black box where each was. In a
+page — the letters themselves — with a black box where each was. On a
+scanned page, draw a box over what should go, with the pointer or the
+keyboard: the copy makes the picture's own pixels there black. In a
 photo, drag boxes over faces, plates or an address; the copy is a new
 picture with the boxes in its pixels and no metadata. Every copy can go
 straight to the share sheet on a phone.
@@ -110,8 +112,10 @@ shows who wrote it, with which programs, when, and its editing history, from
 the document information and the XMP metadata, compressed or not, and what
 each JPEG photo on its pages says: where, with which camera. It finds
 "redactions" that hide nothing: text a black box was painted over, which is
-still in the page to select and copy, and areas marked for redaction that
-were never applied — and shows the text, drawn on the page where it sits —
+still in the page to select and copy, a black box drawn over part of a
+scanned page, which leaves the picture whole under it, and areas marked for
+redaction that were never applied — and shows the text, or the picture,
+drawn on the page where it sits —
 and text no one can see: drawn invisibly, in white on white, off the page,
 or too small, such as instructions hidden in a CV for screening software.
 Comments are listed with their authors, a form's answers with their fields,
@@ -154,7 +158,8 @@ earlier versions an edit left behind; its photos' EXIF is zeroed where it
 lies, leaving the pictures untouched. Text under black boxes, under marks
 for redaction and hidden from view is taken out of the page — each glyph
 replaced by the space it took up, so every other letter stays where it was —
-and the marks are applied, as a redaction tool would. A Word, Excel or PowerPoint file loses
+and the marks are applied, as a redaction tool would; a picture under a box
+has its pixels there made black. A Word, Excel or PowerPoint file loses
 its document properties, and the photos in it their EXIF; a Word document
 has its tracked changes accepted and its comments deleted, as Word's Accept
 All Changes and Delete All Comments would (a workbook's hidden sheets or a

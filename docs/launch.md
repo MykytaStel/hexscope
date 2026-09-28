@@ -5,18 +5,22 @@ hand, from the author's own accounts.
 
 ## Before posting
 
-- [ ] https://hexscope.pages.dev and /deflate load, on a phone too.
-- [ ] Every sample works: photo, broken image, document, compression, HEIC,
-      progressive JPEG, video, edited PDF, WebAssembly module.
-- [ ] Pointing at a pixel of a PNG marks its bytes; pointing at an IDAT
-      byte marks its pixels. The same for an interlaced PNG, and its pass
-      slider plays.
-- [ ] Pointing at a JPEG marks its block's bytes; "Where the bits go"
-      lights it; the progressive sample's scan slider plays.
-- [ ] The landing demo shows both scenes: the PNG pixels, then the JPEG
-      arriving scan by scan.
-- [ ] The guides load: /remove-location-from-photo, /pdf-hidden-versions,
-      /png-wont-open.
+- [ ] https://hexscope.pages.dev loads on a phone and a computer, in both
+      themes, and the landing demo plays: a photo's facts, then struck out.
+- [ ] Every door works: a photo, a blacked-out PDF, a fake bank email, a
+      sample email, a broken image, compression.
+- [ ] A photo from the phone's own library: its location shows, and the
+      clean copy is shared or saved without it.
+- [ ] A real PDF blacked out by drawing boxes (Preview, Word → PDF, a scan):
+      hexscope finds what is under them, and its copy no longer holds it.
+- [ ] Black out text yourself, on a text page and on a scan; the copy
+      opened again says nothing is hidden.
+- [ ] Several photos at once: the list, then clean copies (shared on a
+      phone, a ZIP on a computer).
+- [ ] The guides load: /black-out-a-pdf, /is-this-email-real,
+      /what-a-screenshot-gives-away, /remove-location-from-photo,
+      /check-document-before-sending, /hidden-text-in-pdf,
+      /pdf-hidden-versions, /png-wont-open, /deflate.
 - [ ] The repo README opens on what it is and links the site.
 - [ ] A few hours free after posting, to answer comments.
 
@@ -27,90 +31,96 @@ not the repo; the site links the code.
 
 **Title** (HN allows 80 characters):
 
+> Show HN: Hexscope – see what a file gives away before you send it
+
+Or, for the redaction side:
+
+> Show HN: Hexscope – find the text under a PDF's black boxes, and remove it
+
+Or, for the curious:
+
 > Show HN: Hexscope – point at a pixel, see the bits that made it
-
-Or, for the JPEG side:
-
-> Show HN: Hexscope – see which bytes of a JPEG draw which part of the photo
-
-Or, if the DEFLATE story reads better on the day:
-
-> Show HN: Hexscope – watch DEFLATE decompress, bit by bit, in the browser
 
 **Text:**
 
-> hexscope takes a file apart in your browser: every byte, what it means,
-> where the file is broken, and what it says about you. PNG, JPEG, HEIC,
-> AVIF, MP4/MOV, PDF and ZIP (so also .docx, .apk, .epub) for now.
+> hexscope reads a file in your browser and tells you what it says about
+> you before you send it: where a photo was taken and the camera's serial
+> number, the text still under a PDF's black boxes, the comments and
+> tracked changes in a Word file, the hidden sheets in a workbook, the
+> address and computer name in an email's headers. Then it saves a copy
+> without them. Nothing is uploaded; there is no account and no server.
 >
-> The part I most wanted to exist: point at a pixel of a PNG and see the
-> DEFLATE step that wrote it — a literal, or a copy of 258 bytes from
-> exactly one row up — with the bits that hold it marked in the file, and
-> the reverse, from a byte to the pixels it became. Behind it is a
-> step-by-step DEFLATE player: every decision, the bits it read, the
-> Huffman code, which bytes a back-reference copies. There is a short
-> visual explainer built on it: https://hexscope.pages.dev/deflate
+> The part I cared most about is blacking out. A box drawn over a name in a
+> PDF hides it on screen and leaves it in the file, and a box over a
+> scanned page leaves the picture whole. hexscope finds both, shows what
+> anyone can still read or see under them, and its copy takes out the
+> letters — and the picture's pixels — rather than covering them. You can
+> also black out by search (names, emails, phone numbers, card numbers),
+> or draw boxes on the page, scans included.
 >
-> A JPEG has no bytes per pixel, so there it works by block: it reads the
-> Huffman-coded scans (no pixel decoding) to find where each 16×16 block
-> starts, marks the bytes that draw the part of the photo you point at, and
-> lights the photo by what each block costs. A progressive JPEG sends every
-> block a little at a time over ten or so scans; hexscope maps all of them,
-> and a slider shows the photo after each one — blurry at 7% of the file.
-> Interlaced PNGs get the same slider for their seven passes.
+> For emails it reads the saved .eml: where replies really go, whether the
+> sender's domain vouched for it, and where it was sent from.
 >
-> Other things it does: shows what a photo reveals (GPS, camera serial
-> number, owner) and saves a copy without it, without re-encoding the
-> picture; shows that an edited PDF usually still holds its earlier
-> version, and writes one without it; names what a ZIP can hide (data
-> before the archive, local headers that disagree with the central
-> directory, overlapping entries); explains every field in one sentence,
-> with a link to the spec section.
+> Under it is a parser that explains every byte: pick any part and it says
+> what it is in one sentence, with the spec section. Point at a pixel of a
+> PNG and see the DEFLATE step that wrote it; point at part of a JPEG and
+> see the bytes that draw it. There is a step-by-step DEFLATE player and an
+> explainer built on it: https://hexscope.pages.dev/deflate
 >
-> It is Rust compiled to WebAssembly (about 210 KB gzipped), no runtime
-> dependencies in the core — even the MD5, RC4, AES and SHA-2 for
-> encrypted PDFs are written out — fuzzed, and it never uploads anything.
-> The source is here: https://github.com/MykytaStel/hexscope
+> Formats: JPEG, PNG, HEIC/AVIF, WebP, GIF, MP4/MOV, PDF, Word/Excel/
+> PowerPoint and other ZIPs, email, WebAssembly. It is Rust compiled to
+> WebAssembly — about 130 KB gzipped for pictures and movies, the rest
+> loaded when a document is opened — with no runtime dependencies in the
+> core, fuzzed, and never panics on any input. The same core is a command
+> line tool, a GitHub Action and a pre-commit hook, for checking what goes
+> into a repository or onto a site.
 >
-> I'd love to hear which formats you'd want next, and where it gets things
-> wrong.
+> Source: https://github.com/MykytaStel/hexscope — I'd love to hear where
+> it gets things wrong, and which files you'd check with it.
 
 ## Reddit
 
-**r/rust** — *Show: a DEFLATE decoder you can step through, in Rust + WASM*
+**r/privacy** — *Blacked out a PDF by drawing boxes? The text is still
+there — how to check, and remove it, without uploading the file.* Link the
+guide: https://hexscope.pages.dev/black-out-a-pdf. A second post, another
+week: *Check what your photos reveal before you send them* —
+https://hexscope.pages.dev/remove-location-from-photo.
 
-> I wrote a PNG/JPEG/ZIP parser and a pausable DEFLATE decoder in Rust
-> (no runtime deps, `forbid(unsafe_code)`, fuzzed, never panics on any
-> input) and put a browser UI on it. The decoder emits one step per
-> decision and resumes from checkpoints, so the player can seek anywhere in
-> a 10 MB stream. Explainer: https://hexscope.pages.dev/deflate — code:
-> https://github.com/MykytaStel/hexscope. Feedback on the decoder design
-> very welcome.
+**r/scams** or **r/phishing** — *How to tell from its headers whether an
+email is from who it says, without clicking anything:*
+https://hexscope.pages.dev/is-this-email-real. Ask the moderators first if
+the rules want it.
+
+**r/rust** — *Show: a file inspector in Rust + WASM that never panics, and
+redacts PDFs properly*
+
+> The core parses JPEG, PNG, HEIF, MP4, PDF, ZIP/Office, email and WASM with
+> no runtime dependencies (even the deflate encoder, MD5, RC4, AES and
+> SHA-2 are written out), `forbid(unsafe_code)`, fuzzed in CI. The browser
+> gets two builds — pictures only, and everything — chosen by the file's
+> first bytes. Redaction rewrites page content glyph by glyph and zeroes
+> the pixels of pictures under a box. Code:
+> https://github.com/MykytaStel/hexscope — feedback on the design very
+> welcome.
 
 **r/programming** — link post to https://hexscope.pages.dev/deflate, titled
 *How DEFLATE works, visually — step through a real decompression in the
 browser*.
 
-**r/privacy** — *Check what your photos reveal,
-and remove it, without uploading them anywhere.* Link the guide rather than
-the app: https://hexscope.pages.dev/remove-location-from-photo — or, for a
-second post, https://hexscope.pages.dev/pdf-hidden-versions (*Deleted from a
-PDF, but still inside it*).
-
 ## What to record
 
 A short clip or GIF, for the posts that allow one:
 
-1. The landing page as it opens: the demo's pointer over the PNG, then the
-   JPEG sharpening scan by scan, with the file bar filling.
-2. The progressive sample: press Play on the scan slider, then turn on
-   "Where the bits go" — grass lights up, the sky goes dark.
+1. The sample blacked-out PDF: the verdict, then the page with the names
+   showing under the boxes, then "Show as a viewer does".
+2. A scan with a box drawn over a name: the name visible through the box's
+   outline; the clean copy; the copy opened again, nothing hidden.
 3. The sample photo: its location, then "Remove it — save a clean copy",
    and the facts struck out.
 
 ## Answering
 
 - Thank people, answer what was asked, and say plainly what it does not do
-  yet.
+  yet (docs/known-issues.md).
 - Bugs go straight into GitHub issues; link them in the reply.
 - No argument about other tools. Say what hexscope does differently.
