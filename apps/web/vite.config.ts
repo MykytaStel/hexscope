@@ -46,7 +46,27 @@ function precache(): Plugin {
   };
 }
 
+/**
+ * The headers the host sends for every page (public/_headers, the "/*"
+ * block), sent by `vite preview` too: the end-to-end tests then run under
+ * the same Content-Security-Policy as the site, and catch what it blocks.
+ */
+function siteHeaders(): Record<string, string> {
+  const lines = readFileSync(page("public/_headers"), "utf8").split("\n");
+  const out: Record<string, string> = {};
+  let inAll = false;
+  for (const line of lines) {
+    if (!line.startsWith(" ")) inAll = line.trim() === "/*";
+    else if (inAll) {
+      const at = line.indexOf(":");
+      if (at > 0) out[line.slice(0, at).trim()] = line.slice(at + 1).trim();
+    }
+  }
+  return out;
+}
+
 export default defineConfig({
+  preview: { headers: siteHeaders() },
   // Relative asset paths so the build works from any subpath, e.g. GitHub Pages.
   base: "./",
   worker: { format: "es" },

@@ -60,17 +60,39 @@ export interface PagePicture {
 type Module = typeof import("./wasm/hexscope_wasm.js");
 let full: Promise<Module> | null = null;
 let media: Promise<Module> | null = null;
+/**
+ * Why a parser could not be had, in words. A failed load is not kept: the
+ * next file tries again, so a dropped connection is not the end of the tab.
+ * A tab open across a new release asks for files the site no longer has.
+ */
+function unavailable(): Error {
+  return new Error(
+    navigator.onLine
+      ? "hexscope was updated while this page was open. Reload the page to read it"
+      : "you are offline, and this part of hexscope has not been saved for offline use yet",
+  );
+}
 const loadFull = () =>
-  (full ??= import("./wasm/hexscope_wasm.js").then(async (m) => {
-    await m.default();
-    return m;
-  }));
+  (full ??= import("./wasm/hexscope_wasm.js")
+    .then(async (m) => {
+      await m.default();
+      return m;
+    })
+    .catch(() => {
+      full = null;
+      throw unavailable();
+    }));
 const loadMedia = () =>
-  (media ??= import("./wasm-media/hexscope_wasm.js").then(async (m) => {
-    await m.default();
-    // The same interface, less what documents need.
-    return m as unknown as Module;
-  }));
+  (media ??= import("./wasm-media/hexscope_wasm.js")
+    .then(async (m) => {
+      await m.default();
+      // The same interface, less what documents need.
+      return m as unknown as Module;
+    })
+    .catch(() => {
+      media = null;
+      throw unavailable();
+    }));
 
 /** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, and the ISO boxes of HEIF and MP4. */
 function isMedia(b: Uint8Array): boolean {

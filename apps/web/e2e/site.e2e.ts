@@ -3,6 +3,23 @@
 // computer's screen and a phone's (playwright.config.ts).
 import { expect, test, type Page } from "@playwright/test";
 
+// Whatever the page throws, and whatever its Content-Security-Policy blocks,
+// fails the test that met it.
+let problems: string[] = [];
+test.beforeEach(({ page }) => {
+  problems = [];
+  page.on("pageerror", (e) => problems.push(`error: ${e.message}`));
+  page.on("console", (m) => {
+    if (m.type() === "error" && !/net::ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(m.text())) problems.push(`console: ${m.text()}`);
+  });
+  page.on("load", () =>
+    void page
+      .evaluate(() => document.addEventListener("securitypolicyviolation", (e) => console.error(`CSP blocked ${e.violatedDirective}: ${e.blockedURI}`)))
+      .catch(() => {}),
+  );
+});
+test.afterEach(() => expect(problems).toEqual([]));
+
 /** The landing page, once its script is running: its doors and pickers are in the page before it. */
 async function home(page: Page): Promise<void> {
   await page.goto("./");

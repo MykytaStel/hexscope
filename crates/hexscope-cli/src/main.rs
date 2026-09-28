@@ -459,6 +459,32 @@ fn out_file(o: &Options) -> Option<PathBuf> {
     }
 }
 
+/// Writes a copy so that it is there whole or not at all: into a file
+/// beside it first, then renamed over it in one step. With `--in-place`
+/// that is the person's own file — a full disk or a Ctrl-C halfway must
+/// not leave it cut short. The copy keeps the permissions of what it
+/// replaces.
+fn write_whole(to: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let dir = to
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let name = to
+        .file_name()
+        .map_or_else(|| "copy".into(), |n| n.to_string_lossy().into_owned());
+    let part = dir.join(format!(".{name}.hexscope-{}.part", std::process::id()));
+    let written = std::fs::write(&part, bytes)
+        .and_then(|()| match std::fs::metadata(to) {
+            Ok(meta) => std::fs::set_permissions(&part, meta.permissions()),
+            Err(_) => Ok(()),
+        })
+        .and_then(|()| std::fs::rename(&part, to));
+    if written.is_err() {
+        let _ = std::fs::remove_file(&part);
+    }
+    written
+}
+
 /// Where a copy goes: beside the file, into `--out`, or over it.
 fn target(path: &Path, o: &Options, suffix: &str) -> PathBuf {
     if o.in_place {
@@ -652,7 +678,7 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                         Make::Redact => "redacted",
                     },
                 );
-                std::fs::write(&to, bytes).map_err(|e| format!("{}: {e}", to.display()))?;
+                write_whole(&to, &bytes).map_err(|e| format!("{}: {e}", to.display()))?;
                 println!("{} → {}", path.display(), to.display());
                 for w in what {
                     println!("  {w}");
