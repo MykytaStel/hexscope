@@ -166,3 +166,20 @@ fn redact_takes_words_off_a_pdfs_pages() {
     assert_eq!(code, 2, "{err}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn sarif_is_one_log_for_code_scanning() {
+    let (code, out, _) = run(&[
+        "check",
+        "--sarif",
+        &fixture("redacted.pdf"),
+        &fixture("photo.jpg"),
+    ]);
+    assert_eq!(code, 1);
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.starts_with("{\"version\":\"2.1.0\""), "{out}");
+    assert!(out.contains("\"ruleId\":\"reveals/location\""), "{out}");
+    assert!(out.contains("\"id\":\"reveals/location\""), "{out}");
+    assert!(out.contains("\"byteOffset\":"), "{out}");
+    assert!(out.contains("photo.jpg"));
+}

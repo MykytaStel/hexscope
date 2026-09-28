@@ -3320,3 +3320,13 @@ body[data-state="ready"] .viewswitch {
     height: 22px;
   }
 }
+
+/* Copy a part's bytes: a quiet line under its facts. */
+.copy-bytes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
