@@ -267,10 +267,22 @@ hexscope check --fail-on location,serial site/ # fail only on these
 hexscope check --json report.pdf               # one JSON object per file
 hexscope clean --in-place site/images/         # strip what they give away
 hexscope repair broken.png                     # save what survived, as broken-repaired.png
+hexscope redact --text "Olena K" letter.pdf    # black out a name wherever it is on the pages
+hexscope clean --notes deck.pptx               # also empty comments and speaker notes
 ```
 
 `--fail-on` takes `reveals`, `hidden`, `damage`, `oddity`, or kinds of fact
 such as `location`, `serial`, `author`, `covered`; `none` never fails.
+
+As a [pre-commit](https://pre-commit.com) hook, with `hexscope` installed as
+above:
+
+```yaml
+- repo: https://github.com/MykytaStel/hexscope
+  rev: main
+  hooks:
+    - id: hexscope-check   # stop the commit; or hexscope-clean to strip in place
+```
 
 As a GitHub Action, it stops a photo with a location, or a PDF with a black
 box that hides nothing, from being published — each finding is annotated on

@@ -161,6 +161,10 @@ const drawer = new Drawer(
       const r = await call({ type: "pageTexts", bytes: model ? model.bytes.slice() : new Uint8Array(0) });
       return r.type === "pageTexts" ? r.pages : [];
     },
+    pictures: async (page) => {
+      const r = await call({ type: "pagePictures", bytes: model ? model.bytes.slice() : new Uint8Array(0), page });
+      return r.type === "pagePictures" ? r.pictures : [];
+    },
     redact: redactCopy,
     repair: repairCopy,
     compare: (other) => void compareWith(other),

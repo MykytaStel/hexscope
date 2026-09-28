@@ -170,6 +170,11 @@ pub(super) struct Walked {
     text: String,
     /// The dark boxes that cover some text, and the marks.
     pub boxes: Vec<Area>,
+    /// Each XObject drawn — a picture or a form — by its name in the
+    /// page's resources, with the matrix that places its unit square.
+    pub placed: Vec<(String, [f64; 6])>,
+    /// Where each picture written into the content itself (8.9.7) lands.
+    pub inline: Vec<Area>,
 }
 
 impl Walked {
@@ -577,6 +582,11 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
             // An image, or a form: what white text could show against.
             b"Do" => {
                 let a = Area::of(&gs.ctm, 0.0, 0.0, 1.0, 1.0);
+                if let Some(name) = ops.last().and_then(|o| o.obj.name())
+                    && w.placed.len() < MAX_BOXES
+                {
+                    w.placed.push((name.to_string(), gs.ctm));
+                }
                 painted.push(a);
                 images.push(a);
                 if fills.len() < MAX_GLYPHS {
@@ -673,7 +683,12 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     }
                 }
             }
-            b"BI" => skip_inline_image(&mut lx),
+            b"BI" => {
+                if w.inline.len() < MAX_BOXES {
+                    w.inline.push(Area::of(&gs.ctm, 0.0, 0.0, 1.0, 1.0));
+                }
+                skip_inline_image(&mut lx);
+            }
             _ => {}
         }
         ops.clear();

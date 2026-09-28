@@ -10,6 +10,7 @@
 
 use super::facts::{MAX_DECODED_TOTAL, is_photo, unpack};
 use super::lexer::{Lexer, Obj};
+use super::pictures::{Edited, edit, jpeg_dict};
 use super::{ObjRec, parse_with};
 use crate::clean::{CleanError, Cleaned, Removed};
 use crate::model::NodeKind;
@@ -70,7 +71,7 @@ impl<'a> Current<'a> {
 }
 
 pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
-    clean_pdf_with(data, &[])
+    clean_pdf_with(data, &[], &[])
 }
 
 /// The clean copy, with `extra` areas blacked out as well: page number
@@ -78,6 +79,7 @@ pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
 pub(crate) fn clean_pdf_with(
     data: &[u8],
     extra: &[(u32, [f64; 4])],
+    painted: &[(u32, Vec<u8>)],
 ) -> Result<Cleaned, CleanError> {
     let (doc, ctx) = parse_with(data);
     if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
@@ -119,7 +121,30 @@ pub(crate) fn clean_pdf_with(
         streams: rewritten,
         removed: taken_out,
         applied,
+        cuts,
+        inline,
     } = super::redact::rewrites(data, &ctx, extra);
+    // Pictures under the boxes, their pixels there zeroed: each written
+    // again, dictionary and data.
+    if inline {
+        return Err(CleanError::PictureUnderBox);
+    }
+    let mut pictures: Vec<(u32, Vec<u8>, Vec<u8>)> = Vec::new();
+    for cut in &cuts {
+        let Some(rec) = ctx.objects.iter().rev().find(|o| o.num == cut.num) else {
+            continue;
+        };
+        match edit(data, &ctx, rec, &cut.unit) {
+            Edited::Written(dict, bytes) => pictures.push((cut.num, dict, bytes)),
+            Edited::Jpeg => match painted.iter().find(|(n, _)| *n == cut.num) {
+                Some((_, jpeg)) => {
+                    pictures.push((cut.num, jpeg_dict(data, rec, jpeg), jpeg.clone()))
+                }
+                None => return Err(CleanError::JpegUnderBox),
+            },
+            Edited::Cannot => return Err(CleanError::PictureUnderBox),
+        }
+    }
 
     // Everything the catalog reaches, and nothing else.
     let mut reached = vec![false; current.0.len()];
@@ -173,6 +198,12 @@ pub(crate) fn clean_pdf_with(
                             .as_bytes(),
                         );
                         out.extend_from_slice(EMPTY_XMP);
+                        out.extend_from_slice(b"\nendstream");
+                    }
+                    Some(_) if let Some((_, dict, bytes)) = pictures.iter().find(|p| p.0 == n) => {
+                        out.extend_from_slice(dict);
+                        out.extend_from_slice(b"\nstream\n");
+                        out.extend_from_slice(bytes);
                         out.extend_from_slice(b"\nendstream");
                     }
                     // Written anew, and so uncompressed: a dictionary of its own.
@@ -285,6 +316,22 @@ pub(crate) fn clean_pdf_with(
                     }
                 ),
                 bytes: taken_out,
+            },
+        );
+    }
+    if !pictures.is_empty() {
+        removed.insert(
+            usize::from(taken_out > 0),
+            Removed {
+                what: format!(
+                    "What {} under the boxes showed",
+                    if pictures.len() == 1 {
+                        "a picture".to_string()
+                    } else {
+                        format!("{} pictures", pictures.len())
+                    }
+                ),
+                bytes: pictures.iter().map(|p| p.2.len() as u64).sum(),
             },
         );
     }

@@ -47,16 +47,23 @@ read no further.
 
 ## Limits by design
 
-**Emails: IPv4, top-level header.** The address a message was sent from is
-read from the first server's `Received` line and `X-Originating-IP`, IPv4
-only; an IPv6 origin is not named. Only the message's own header is checked
-for forgery signs; a forwarded message inside it is shown, not judged. An
-email is not cleaned: its attached files are, once opened.
+**Emails: the top-level header.** The address a message was sent from is
+read from the first server's `Received` line (IPv4 and bracketed IPv6) and
+`X-Originating-IP` (IPv4). Only the message's own header is checked for
+forgery signs; a forwarded message inside it is shown with its own headers,
+not judged. An email is not cleaned: its attached files are, once opened.
 
 **Blacking out by search finds text, not pictures.** *Black out text
 yourself* searches the letters a page draws; words that are part of an image
-— a scan, a screenshot — are not found, and the page says so. A name split
-by a line break is found only when typed with a space where the break is.
+— a scan, a screenshot — are not found, and the page says so: a box drawn
+over them instead takes the picture's pixels there out too. A name split by
+a line break is found only when typed with a space where the break is.
+
+**Pictures under a box.** Pictures kept with Flate or uncompressed are
+edited in the core; JPEGs are redrawn by the browser, so the command line
+refuses a box over a JPEG rather than keep it whole. A box over a JBIG2,
+CCITT or JPEG 2000 picture, or one written into the page's content, makes
+no copy at all, and says why. A JPEG redrawn is saved in colour.
 
 **Large archives.** Up to 100,000 entries are read. Past the first 2,000,
 entries get no field-level nodes, only their entry, data and central record:

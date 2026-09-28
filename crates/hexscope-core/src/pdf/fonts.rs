@@ -128,7 +128,7 @@ impl Font {
 pub(super) type Fonts = Vec<(String, Font)>;
 
 /// Resolves an indirect object, or returns a direct one as it is.
-fn deref(data: &[u8], ctx: &Ctx, obj: &Obj, budget: &mut u64) -> Option<Obj> {
+pub(super) fn deref(data: &[u8], ctx: &Ctx, obj: &Obj, budget: &mut u64) -> Option<Obj> {
     match obj {
         Obj::Ref(n, _) => match resolve(data, ctx, *n, budget)? {
             Found::Top(rec) => Some(rec.value.clone()),

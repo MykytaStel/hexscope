@@ -131,3 +131,40 @@ fn broken_messages_still_make_a_tree() {
         let _ = attachment_bytes(data, 0);
     }
 }
+
+#[test]
+fn ipv6_origins_and_forwarded_messages() {
+    let msg = b"Received: from [IPv6:fe80::1c2b] (laptop.lan [2001:db8:85a3::8a2e:370:7334])\r\n\tby mx.example.net; Mon, 14 Sep 2026 18:33:01 +0000\r\nFrom: a@example.org\r\nDate: Mon, 14 Sep 2026 18:33:00 +0000\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nSee below.\r\n--b\r\nContent-Type: message/rfc822\r\n\r\nFrom: first@example.com\r\nSubject: the original\r\n\r\nHello\r\n--b--\r\n";
+    let doc = parse_eml(msg);
+    let f = facts(&doc);
+    assert!(
+        f.contains(&(
+            "sentfrom",
+            "2001:db8:85a3::8a2e:370:7334, where the sender connected from, and fe80::1c2b, the computer's address on its own network, in the first server's Received line".to_string()
+        )),
+        "{f:?}"
+    );
+    assert!(f.contains(&("computer", "laptop.lan".to_string())), "{f:?}");
+    let fwd = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.label == "forwarded message")
+        .expect("forwarded");
+    // Its own headers, under it.
+    let inner: Vec<&str> = doc
+        .tree
+        .nodes()
+        .iter()
+        .filter(|n| {
+            n.parent
+                .is_some_and(|p| doc.tree.get(p).parent == Some(fwd.id))
+        })
+        .map(|n| n.label.as_str())
+        .collect();
+    assert!(
+        inner.contains(&"From") && inner.contains(&"Subject"),
+        "{inner:?}"
+    );
+    assert!(problems(&doc.tree).is_empty());
+}

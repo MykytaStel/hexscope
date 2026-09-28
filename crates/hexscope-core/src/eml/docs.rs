@@ -48,6 +48,13 @@ const PARTS: Table = &[
             .cite("RFC 2045 §5", RFC2045),
     ),
     (
+        "forwarded message",
+        Doc::new(
+            "A message sent along inside this one, whole: headers and body of its own. Its lines say who sent it first, not who sent this.",
+        )
+        .cite("RFC 2046 §5.2.1", RFC2046),
+    ),
+    (
         "attachment",
         Doc::new(
             "A file sent with the message, written out as text — base64, most often. It opens here as a file of its own.",

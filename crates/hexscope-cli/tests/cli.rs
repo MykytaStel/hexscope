@@ -136,3 +136,33 @@ fn github_annotations_and_usage_errors() {
     assert_eq!(code, 0);
     assert!(out.starts_with("hexscope "));
 }
+
+#[test]
+fn redact_takes_words_off_a_pdfs_pages() {
+    let dir = std::env::temp_dir().join(format!("hexscope-cli-redact-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::copy(fixture("chrome-highlight.pdf"), dir.join("letter.pdf")).unwrap();
+    std::fs::copy(fixture("photo.jpg"), dir.join("photo.jpg")).unwrap();
+    let pdf = dir.join("letter.pdf");
+    let (code, out, err) = run(&["redact", "--text", "settlement", pdf.to_str().unwrap()]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("1 place blacked out"), "{out}");
+    let copy = dir.join("letter-redacted.pdf");
+    let texts = hexscope_core::pdf::page_texts(&std::fs::read(&copy).unwrap());
+    let words: String = texts
+        .iter()
+        .flat_map(|p| p.glyphs.iter().map(|g| g.1.as_str()))
+        .collect();
+    assert!(!words.to_lowercase().contains("settlement"), "{words}");
+    assert!(!words.is_empty());
+
+    // Words that are not there make no copy and say so; a photo in the
+    // folder is left alone.
+    let (code, _, err) = run(&["redact", "--text", "no such words", dir.to_str().unwrap()]);
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("none of it is on the pages as text"), "{err}");
+    assert!(!err.contains("photo.jpg"), "{err}");
+    let (code, _, err) = run(&["redact", pdf.to_str().unwrap()]);
+    assert_eq!(code, 2, "{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

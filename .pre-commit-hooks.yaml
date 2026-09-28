@@ -1,0 +1,23 @@
+# For pre-commit (https://pre-commit.com). The hooks run the hexscope
+# command already installed on the machine:
+#   cargo install --locked --git https://github.com/MykytaStel/hexscope hexscope-cli
+
+# Stops a commit of a file that gives something away — a photo with where
+# it was taken, a PDF with a black box that hides nothing — or is damaged.
+- id: hexscope-check
+  name: hexscope check
+  description: Stop committing files that give away locations, serial numbers, authors or hidden text.
+  entry: hexscope check
+  language: system
+  files: (?i)\.(jpe?g|jpe|jfif|png|heic|heif|hif|avif|webp|gif|mp4|m4v|mov|qt|3gp|3g2|m4a|pdf|docx|docm|xlsx|xlsm|pptx|pptm|odt|ods|odp|epub)$
+  require_serial: true
+
+# Replaces each such file with its clean copy; the commit stops so the
+# cleaned files can be looked at and added.
+- id: hexscope-clean
+  name: hexscope clean
+  description: Strip what staged photos, PDFs and documents give away, in place.
+  entry: hexscope clean --in-place
+  language: system
+  files: (?i)\.(jpe?g|jpe|jfif|png|heic|heif|hif|avif|webp|gif|mp4|m4v|mov|qt|3gp|3g2|m4a|pdf|docx|docm|xlsx|xlsm|pptx|pptm|odt|ods|odp|epub)$
+  require_serial: true

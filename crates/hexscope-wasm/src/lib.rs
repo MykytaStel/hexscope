@@ -1032,19 +1032,66 @@ fn into_copy(
     }
 }
 
-/// A PDF's clean copy with chosen areas blacked out: `areas` is five
-/// numbers per area — the page, counted from 1, then left, bottom, right
-/// and top in its points. See `hexscope_core::clean::redact`.
 #[cfg(feature = "documents")]
-#[wasm_bindgen(js_name = redactCopy)]
-pub fn redact_copy(bytes: &[u8], areas: &[f64]) -> CleanCopy {
-    let areas: Vec<(u32, [f64; 4])> = areas
+fn page_areas(areas: &[f64]) -> Vec<(u32, [f64; 4])> {
+    areas
         .as_chunks::<5>()
         .0
         .iter()
         .map(|[page, l, b, r, t]| (*page as u32, [*l, *b, *r, *t]))
-        .collect();
-    into_copy(hexscope_core::clean::redact(bytes, &areas))
+        .collect()
+}
+
+/// A PDF's clean copy with chosen areas blacked out: `areas` is five
+/// numbers per area — the page, counted from 1, then left, bottom, right
+/// and top in its points. The JPEG pictures under them come painted, as
+/// `jpegsUnder` asked: object numbers, each one's length, and their bytes
+/// one after another. See `hexscope_core::clean::redact`.
+#[cfg(feature = "documents")]
+#[wasm_bindgen(js_name = redactCopy)]
+pub fn redact_copy(
+    bytes: &[u8],
+    areas: &[f64],
+    nums: &[u32],
+    lens: &[u32],
+    painted: &[u8],
+) -> CleanCopy {
+    let mut given = Vec::new();
+    let mut at = 0usize;
+    for (&num, &len) in nums.iter().zip(lens) {
+        let end = at.saturating_add(len as usize);
+        if let Some(b) = painted.get(at..end) {
+            given.push((num, b.to_vec()));
+        }
+        at = end;
+    }
+    into_copy(hexscope_core::clean::redact(
+        bytes,
+        &page_areas(areas),
+        &given,
+    ))
+}
+
+/// The JPEG pictures chosen areas cover part of, which the caller paints:
+/// for each, its object number, width, height, where its bytes start, how
+/// many there are, how many rectangles, then each rectangle's `x0 y0 x1
+/// y1` in pixels from the top left. See `hexscope_core::pdf::jpegs_under`.
+#[cfg(feature = "documents")]
+#[wasm_bindgen(js_name = jpegsUnder)]
+pub fn jpegs_under(bytes: &[u8], areas: &[f64]) -> Vec<f64> {
+    let mut out = Vec::new();
+    for j in hexscope_core::pdf::jpegs_under(bytes, &page_areas(areas)) {
+        out.extend([
+            f64::from(j.num),
+            f64::from(j.width),
+            f64::from(j.height),
+            j.start as f64,
+            j.len as f64,
+            j.rects.len() as f64,
+        ]);
+        out.extend(j.rects.iter().flatten().map(|&v| f64::from(v)));
+    }
+    out
 }
 
 /// Every page's visible text, glyph by glyph, for choosing what to black out.
@@ -1093,6 +1140,64 @@ impl PageTexts {
 pub fn page_texts(bytes: &[u8]) -> PageTexts {
     PageTexts {
         pages: hexscope_core::pdf::page_texts(bytes),
+    }
+}
+
+/// The pictures a PDF page draws, to show a scanned page while choosing
+/// what to black out on it.
+#[cfg(feature = "documents")]
+#[wasm_bindgen]
+pub struct PagePictures {
+    pictures: Vec<hexscope_core::pdf::PagePicture>,
+}
+
+#[cfg(feature = "documents")]
+#[wasm_bindgen]
+impl PagePictures {
+    #[wasm_bindgen(getter)]
+    pub fn count(&self) -> usize {
+        self.pictures.len()
+    }
+
+    /// `[a b c d e f]`, from the picture's unit square to the page.
+    pub fn matrix(&self, i: usize) -> Vec<f64> {
+        self.pictures
+            .get(i)
+            .map_or(Vec::new(), |p| p.matrix.to_vec())
+    }
+
+    /// Where a JPEG's bytes start and how many there are; empty when the
+    /// picture comes as pixels.
+    pub fn jpeg(&self, i: usize) -> Vec<f64> {
+        self.pictures
+            .get(i)
+            .and_then(|p| p.jpeg)
+            .map_or(Vec::new(), |(s, n)| vec![s as f64, n as f64])
+    }
+
+    /// Width and height of a picture that comes as pixels.
+    pub fn size(&self, i: usize) -> Vec<u32> {
+        self.pictures
+            .get(i)
+            .and_then(|p| p.rgba.as_ref())
+            .map_or(Vec::new(), |(w, h, _)| vec![*w, *h])
+    }
+
+    /// Its RGBA pixels, rows from the top.
+    pub fn rgba(&self, i: usize) -> Vec<u8> {
+        self.pictures
+            .get(i)
+            .and_then(|p| p.rgba.as_ref())
+            .map_or(Vec::new(), |(_, _, px)| px.clone())
+    }
+}
+
+/// See `hexscope_core::pdf::page_pictures`.
+#[cfg(feature = "documents")]
+#[wasm_bindgen(js_name = pagePictures)]
+pub fn page_pictures(bytes: &[u8], page: u32) -> PagePictures {
+    PagePictures {
+        pictures: hexscope_core::pdf::page_pictures(bytes, page),
     }
 }
 

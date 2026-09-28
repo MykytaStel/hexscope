@@ -359,7 +359,7 @@ const TABLE: Table = &[
     ),
     (
         "data after the end of the image",
-        Doc::new("Bytes after IEND. Viewers ignore them, so files made to be two formats at once, or to carry something unseen, keep it here.")
+        Doc::new("Bytes after IEND, which viewers ignore: data hidden on purpose, or the rest of a screenshot some editors cropped, such as Pixel's Markup in 2023.")
             .cite("PNG §5.6", "https://www.w3.org/TR/png-3/#5ChunkOrdering")
             .concern(Concern::Hidden),
     ),

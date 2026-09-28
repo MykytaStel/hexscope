@@ -1,7 +1,7 @@
-import { areasOf, find, findPreset, pageFigure, PRESETS, searchable, textIn, type Match, type Searchable } from "./redactor";
+import { areasOf, find, findPreset, pageFigure, PRESETS, searchable, textIn, forgetPictures, toShown, type Match, type Searchable, type Shown } from "./redactor";
 import { canBlackOut, openBlackPicture } from "./blackpicture";
 import { findEmbedded, type Embedded } from "./embedded";
-import type { PageGlyphs } from "./worker";
+import type { PageGlyphs, PagePicture } from "./worker";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
@@ -295,6 +295,8 @@ export interface CleanActions {
   openInside(bytes: Uint8Array, name: string): void;
   /** Every page's visible glyphs, for searching. */
   pages(): Promise<PageGlyphs[]>;
+  /** The pictures a page draws, counted from 1: a scanned page, to see where to draw. */
+  pictures(page: number): Promise<PagePicture[]>;
   /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
   redact(areas: Float64Array): Promise<CleanResult>;
   /** Saves bytes as a download. */
@@ -864,6 +866,17 @@ export class Drawer {
 
     let pages: Searchable[] | null = null;
     const load = async () => (pages ??= searchable(await this.cleaning.pages()));
+    // Each page's pictures, fetched once, when the page is first shown.
+    forgetPictures();
+    const shown = new Map<number, Promise<Shown[]>>();
+    const picturesOf = (n: number) => {
+      let p = shown.get(n);
+      if (!p) {
+        p = this.cleaning.pictures(n).then(toShown).catch(() => []);
+        shown.set(n, p);
+      }
+      return p;
+    };
     // Every search kept, each place with its tick; boxes drawn are one more.
     const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[]; block: HTMLElement }[] = [];
     // Pages shown to draw on, beyond those with something ticked.
@@ -881,7 +894,7 @@ export class Drawer {
         const p = pages[n - 1];
         if (!p) continue;
         const areas = marks.filter((m) => m.page === n).flatMap((m) => m.areas);
-        preview.append(pageFigure(p, areas, (area) => addBox(p, area)));
+        preview.append(pageFigure(p, areas, (area) => addBox(p, area), picturesOf(n)));
       }
       // Any other page, to draw a box on.
       if (pages.length > 0) {

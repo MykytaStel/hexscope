@@ -2105,6 +2105,54 @@ body.is-playing .drawer-file {
   color: var(--accent);
 }
 
+.compare-rows {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--hex-bg);
+  color: var(--hex-text);
+  font: 12px/1.5 var(--mono);
+  white-space: pre;
+}
+
+.compare-row:nth-child(4n + 3),
+.compare-row:nth-child(4n + 4) {
+  opacity: 0.85;
+}
+
+.compare-row:nth-child(2n) {
+  margin-bottom: 4px;
+}
+
+.compare-side,
+.compare-offset {
+  margin-right: 10px;
+  color: var(--hex-offset);
+}
+
+.compare-hex span,
+.compare-hex mark {
+  margin-right: 0.5ch;
+}
+
+.compare-ascii {
+  margin-left: 1ch;
+}
+
+.compare-rows mark {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--tint-warning) 30%, transparent);
+  color: inherit;
+}
+
+@media (max-width: 400px) {
+  .compare-rows {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
 .compare-pick {
   display: inline-block;
   margin-top: 8px;
@@ -2323,6 +2371,11 @@ kbd {
 .blackout-context {
   fill: #444;
   font-family: Helvetica, Arial, sans-serif;
+}
+
+/* A scan's recognised words, under the picture of them. */
+.blackout-context.is-under-picture {
+  opacity: 0;
 }
 
 .blackout-unread {

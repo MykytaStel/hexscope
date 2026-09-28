@@ -49,6 +49,13 @@ pub enum CleanError {
     Unreadable,
     /// Not a format this can clean.
     Unsupported,
+    /// A box covers part of a picture kept in a way this cannot edit —
+    /// JBIG2, CCITT, JPEG 2000 — which would still show what is under it.
+    PictureUnderBox,
+    /// A box covers part of a JPEG picture, and no painted copy of it was
+    /// given: only a caller with a JPEG codec can black one out — the
+    /// browser can, the command line cannot.
+    JpegUnderBox,
 }
 
 impl CleanError {
@@ -68,6 +75,12 @@ impl CleanError {
             }
             CleanError::Unsupported => {
                 "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
+            }
+            CleanError::PictureUnderBox => {
+                "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
+            }
+            CleanError::JpegUnderBox => {
+                "a box covers part of a JPEG picture on the page that was not redrawn, so the copy would still hold what is under the box — hexscope in the browser redraws it"
             }
         }
     }
@@ -115,11 +128,19 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
 /// number counted from 1 and `[left, bottom, right, top]` in its points.
 /// What is under them is taken out of the page, not only covered, and a
 /// black box drawn in its place.
-pub fn redact(data: &[u8], areas: &[(u32, [f64; 4])]) -> Result<Cleaned, CleanError> {
+///
+/// Pictures under them lose their pixels there too. A JPEG picture needs a
+/// JPEG codec, so it is painted by the caller: [`crate::pdf::pictures_under`]
+/// says which and where, and `painted` gives each back, by object number.
+pub fn redact(
+    data: &[u8],
+    areas: &[(u32, [f64; 4])],
+    painted: &[(u32, Vec<u8>)],
+) -> Result<Cleaned, CleanError> {
     if !crate::pdf::is_pdf(data) {
         return Err(CleanError::Unsupported);
     }
-    crate::pdf::clean::clean_pdf_with(data, areas)
+    crate::pdf::clean::clean_pdf_with(data, areas, painted)
 }
 
 // --- WebP and GIF --------------------------------------------------------------
