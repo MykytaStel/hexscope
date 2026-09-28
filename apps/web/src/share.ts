@@ -62,6 +62,12 @@ const CATEGORIES: [string, string][] = [
   ["debug", "debug info from its source"],
 ];
 
+/** How many of the categories these fact kinds fall in. */
+export function categoryCount(kinds: Iterable<string>): number {
+  const set = new Set(kinds);
+  return CATEGORIES.filter(([k]) => set.has(k)).length;
+}
+
 /** The categories a file gives away, in order. */
 export function categories(m: FileModel): string[] {
   const kinds = new Set([...(m.file.location ? ["location"] : []), ...m.file.facts.map((f) => f.kind)]);

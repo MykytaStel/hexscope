@@ -26,7 +26,7 @@ const STEPS: Step[] = [
   {
     target: "#tree, .viewswitch",
     title: "Every byte, explained",
-    text: "The structure, part by part: hover or tap anything and it says what it is and where the format defines it.",
+    text: "“Bytes” shows the structure, part by part: hover or tap anything and it says what it is and where the format defines it.",
   },
   {
     target: ".brand",

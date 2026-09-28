@@ -7,11 +7,12 @@ import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { saveStructure } from "./export";
-import { categories, share } from "./share";
+import { categories, categoryCount, share } from "./share";
 import { Concern, FileModel, Kind, Role, type PageArea, type ZipEntryInfo } from "./model";
 import { verdict } from "./verdict";
 import { announce, done } from "./announce";
 import { recentFiles } from "./recent";
+import { headline, noun } from "./headline";
 
 const KIND_NAMES = ["Container", "Field", "Warning", "Error"];
 const COLOR_TYPES: Record<number, string> = {
@@ -179,6 +180,41 @@ function isAudio(m: FileModel): boolean {
 
 /** A name with a date in it, the way phones and messengers name files: `IMG_20260614_183207`, `Screenshot 2026-06-14 at 18.32`. */
 const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01])/;
+
+/** The file and its clean copy side by side: what it gave away, what is left, and their sizes. */
+function beforeAfter(m: FileModel, r: CleanResult, left: number): HTMLElement {
+  const before = categories(m).length;
+  const card = el("div", "before-after");
+  const side = (tone: string, label: string, count: number, what: string, name: string, size: number) => {
+    const s = el("div", `ba-side ${tone}`);
+    const n = el("span", "ba-count", String(count));
+    s.append(el("span", "ba-label", label), n, el("span", "ba-what", what), el("span", "ba-file", `${name} · ${formatBytes(size)}`));
+    return [s, n] as const;
+  };
+  const base = m.name.split("/").pop() ?? m.name;
+  const [was] = side("is-before", "Before", before, before === 1 ? "thing it gave away" : "things it gave away", base, m.bytes.length);
+  const [now, count] = side(
+    left === 0 ? "is-after is-clear" : "is-after",
+    "Clean copy",
+    left,
+    left === 0 ? "left" : `left — part of the ${noun(m)} itself`,
+    r.name,
+    r.bytes.length,
+  );
+  card.append(was, el("span", "ba-arrow", "→"), now);
+  // The number counts down from what it was, unless motion is unwelcome.
+  if (before > left && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let shown = before;
+    count.textContent = String(shown);
+    const step = () => {
+      shown -= 1;
+      count.textContent = String(shown);
+      if (shown > left) setTimeout(step, Math.max(40, 420 / (before - left)));
+    };
+    setTimeout(step, 250);
+  }
+  return card;
+}
 
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 function cleanLimits(m: FileModel): HTMLElement {
@@ -430,11 +466,26 @@ export class Drawer {
 
     // What someone came to know first: the verdict, then what the file gives
     // away, then the picture; how it is made, after.
-    this.file.append(this.verdict(m));
+    const answer = this.verdict(m);
+    this.file.append(answer);
     // A photo, a video or a PDF always gets the card, if only to say it gives
     // nothing away; an archive only when it is a document with properties.
     if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
       this.file.append(this.reveals(m));
+    }
+    // What to do about it, right under the answer: it presses the clean
+    // copy's own button, further down, where the result is said.
+    const clean = this.file.querySelector<HTMLButtonElement>(".reveals .btn-clean");
+    if (clean) {
+      const cta = el("button", "btn btn-primary verdict-cta", "Remove it — save a clean copy");
+      cta.title = clean.title;
+      clean.classList.add("is-echo");
+      cta.addEventListener("click", () => {
+        clean.click();
+        cta.hidden = true;
+        clean.closest(".cleaner")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      answer.querySelector(".verdict-lines")?.after(cta);
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor(m));
@@ -563,7 +614,9 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
-    const title = el("h2", "verdict-title", "What hexscope found");
+    const head = headline(m);
+    group.append(el("p", "verdict-label", "What hexscope found"));
+    const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     group.append(title);
     const list = el("ul", "verdict-lines");
@@ -1229,7 +1282,10 @@ export class Drawer {
         box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
         return;
       }
-      box.append(done(r.saved ? `Saved a clean copy as “${r.name}” — look for it in your downloads. Removed:` : "Made a clean copy. Removed:"));
+      // Before and after, side by side: the number that was the headline, and what is left of it.
+      const kept = [...(box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dd[data-kept]") ?? [])].map((e) => e.dataset.kind ?? "");
+      box.append(beforeAfter(m, r, categoryCount(kept)));
+      box.append(done(r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy."));
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
@@ -1238,6 +1294,8 @@ export class Drawer {
         e.style.transitionDelay = `${Math.floor(i / 2) * 70}ms`;
         e.classList.add("is-removed");
       });
+      const removed = el("details", "clean-removed");
+      removed.append(el("summary", undefined, `What was removed · ${formatBytes(r.removed.reduce((n, x) => n + x.bytes, 0))}`));
       const ul = el("ul", "clean-list");
       for (const item of r.removed) {
         const li = el("li");
@@ -1247,7 +1305,9 @@ export class Drawer {
         li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
         ul.append(li);
       }
-      box.append(ul);
+      removed.append(ul);
+      const actions = el("div", "clean-actions");
+      box.append(actions, removed);
       if (box.closest(".reveals")?.querySelector(".reveal-list [data-kept]")) {
         const kept = notes
           ? "Kept: what is part of a workbook or a deck itself — hidden sheets, rows and slides, links to other files. Delete them in Excel or PowerPoint, then save."
@@ -1262,16 +1322,17 @@ export class Drawer {
       open.addEventListener("click", () => this.cleaning.open(r.bytes));
       // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
       const sharer = shareButton(r.name, r.bytes);
-      if (sharer) box.append(sharer);
+      if (sharer) actions.append(sharer);
       if (!r.saved) {
         const save = el("button", "btn", "Save it");
         save.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
-        box.append(save);
+        actions.append(save);
       }
       const diff = el("button", "btn", "Compare with the original");
       diff.title = "What the copy took out, part by part";
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
-      box.append(open, diff, limits);
+      actions.append(open, diff);
+      box.append(limits);
     });
     return box;
   }

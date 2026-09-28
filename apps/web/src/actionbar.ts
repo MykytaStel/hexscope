@@ -17,8 +17,14 @@ export class ActionBar {
   private readonly button = document.createElement("button");
   private target: HTMLElement | null = null;
   private seen = true;
+  // Seen: the button itself, or the verdict's own button for the same thing.
+  private readonly inView = new Set<Element>();
   private readonly visible = new IntersectionObserver((entries) => {
-    for (const e of entries) if (e.target === this.target) this.seen = e.isIntersecting;
+    for (const e of entries) {
+      if (e.isIntersecting) this.inView.add(e.target);
+      else this.inView.delete(e.target);
+    }
+    this.seen = [...this.inView].some((el) => el === this.target || (el.classList.contains("verdict-cta") && !(el as HTMLElement).hidden && this.target?.classList.contains("btn-clean")));
     this.show();
   });
   private readonly changes = new MutationObserver(() => this.pick());
@@ -48,6 +54,7 @@ export class ActionBar {
   }
 
   private root: HTMLElement | null = null;
+  private cta: Element | null = null;
 
   private pick(): void {
     let found: HTMLElement | null = null;
@@ -65,6 +72,12 @@ export class ActionBar {
       this.target = found;
       this.seen = true;
       if (found) this.visible.observe(found);
+    }
+    const cta = this.root?.querySelector(".verdict-cta");
+    if (cta && cta !== this.cta) {
+      if (this.cta) this.visible.unobserve(this.cta);
+      this.cta = cta;
+      this.visible.observe(cta);
     }
     this.button.textContent = label;
     this.show();
