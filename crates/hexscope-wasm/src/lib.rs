@@ -1218,6 +1218,8 @@ pub fn page_texts(bytes: &[u8]) -> PageTexts {
 #[wasm_bindgen]
 pub struct PagePictures {
     pictures: Vec<hexscope_core::pdf::PagePicture>,
+    /// The page each is on, counted from 1.
+    pages: Vec<u32>,
 }
 
 #[cfg(feature = "documents")]
@@ -1226,6 +1228,11 @@ impl PagePictures {
     #[wasm_bindgen(getter)]
     pub fn count(&self) -> usize {
         self.pictures.len()
+    }
+
+    /// The page picture `i` is on, counted from 1.
+    pub fn page(&self, i: usize) -> u32 {
+        self.pages.get(i).copied().unwrap_or(0)
     }
 
     /// `[a b c d e f]`, from the picture's unit square to the page.
@@ -1265,9 +1272,22 @@ impl PagePictures {
 #[cfg(feature = "documents")]
 #[wasm_bindgen(js_name = pagePictures)]
 pub fn page_pictures(bytes: &[u8], page: u32) -> PagePictures {
+    let pictures = hexscope_core::pdf::page_pictures(bytes, page);
     PagePictures {
-        pictures: hexscope_core::pdf::page_pictures(bytes, page),
+        pages: vec![page; pictures.len()],
+        pictures,
     }
+}
+
+/// Every picture the first `pages` pages draw, each once: see
+/// `hexscope_core::pdf::pictures`.
+#[cfg(feature = "documents")]
+#[wasm_bindgen(js_name = pdfPictures)]
+pub fn pdf_pictures(bytes: &[u8], pages: u32) -> PagePictures {
+    let (pages, pictures) = hexscope_core::pdf::pictures(bytes, pages)
+        .into_iter()
+        .unzip();
+    PagePictures { pictures, pages }
 }
 
 /// A damaged file's copy with what survived put back in order.

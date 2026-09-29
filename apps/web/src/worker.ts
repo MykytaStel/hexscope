@@ -22,7 +22,8 @@ export type WorkerRequest =
   | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
-  | { id: number; type: "blocks" };
+  | { id: number; type: "blocks" }
+  | { id: number; type: "codes"; picture?: Blob; pdf?: Uint8Array; entries?: { index: number; name: string }[] };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
@@ -38,6 +39,7 @@ export type WorkerResponse =
   | { id: number; type: "inflated"; bytes: Uint8Array }
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
+  | { id: number; type: "codes"; codes: { text: string; where: string; box: [number, number, number, number] }[] }
   | { id: number; type: "error"; message: string };
 
 /** One page's visible glyphs: where each lands, four numbers each, and its text. */
@@ -176,6 +178,63 @@ function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob): 
   c.free();
 }
 
+/** A picture's longer side, at most, when looking for QR codes in it: a code in a large photo is still many pixels a module. */
+const CODE_SCAN = 2400;
+/** Pages of a PDF whose pictures are looked through for codes. */
+const PDF_PAGES = 30;
+
+/** A picture's brightness, one byte a pixel, scaled down if it is large; null when the browser cannot decode it. */
+async function brightness(image: Blob | ImageData): Promise<{ lum: Uint8Array; width: number; height: number } | null> {
+  const bitmap = await createImageBitmap(image).catch(() => null);
+  if (!bitmap) return null;
+  const scale = Math.min(1, CODE_SCAN / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  g.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  const { luminance } = await import("./qr/index");
+  return { lum: luminance(g.getImageData(0, 0, width, height).data, width, height), width, height };
+}
+
+/** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
+async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Extract<WorkerResponse, { type: "codes" }>["codes"]> {
+  const { findCodes } = await import("./qr/index");
+  const current = stack[stack.length - 1];
+  const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
+  const look = async (image: Blob | ImageData, where: string) => {
+    const p = await brightness(image);
+    if (!p) return;
+    for (const c of findCodes(p.lum, p.width, p.height)) {
+      if (found.some((f) => f.text === c.text)) continue;
+      const xs = c.corners.map((q) => q.x / p.width);
+      const ys = c.corners.map((q) => q.y / p.height);
+      found.push({ text: c.text, where, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+    }
+  };
+  if (req.picture) await look(req.picture, "");
+  if (req.pdf) {
+    const t = (await loadFull()).pdfPictures(req.pdf, PDF_PAGES);
+    for (let i = 0; i < t.count; i++) {
+      const where = `the picture on page ${t.page(i)}`;
+      const at = t.jpeg(i);
+      if (at.length === 2) {
+        await look(new Blob([req.pdf.subarray(at[0], at[0] + at[1]) as BlobPart], { type: "image/jpeg" }), where);
+      } else {
+        const [width, height] = t.size(i);
+        if (width >= 21 && height >= 21) await look(new ImageData(new Uint8ClampedArray(t.rgba(i).buffer as ArrayBuffer), width, height), where);
+      }
+    }
+    t.free();
+  }
+  for (const e of req.entries ?? []) {
+    const bytes = current?.extractEntry(e.index);
+    if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name);
+  }
+  return found;
+}
+
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
 
@@ -288,6 +347,11 @@ async function handle(req: WorkerRequest): Promise<void> {
     const bytes = r.bytes;
     post({ id: req.id, type: "repaired", bytes, fixed: r.fixed ? r.fixed.split(SEPARATOR) : [], error: r.error }, [bytes.buffer]);
     r.free();
+    return;
+  }
+
+  if (req.type === "codes") {
+    post({ id: req.id, type: "codes", codes: await codes(req) });
     return;
   }
 

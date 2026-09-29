@@ -138,23 +138,45 @@ pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
     let (_, ctx) = parse_with(data);
     redact::page_pictures(data, &ctx, number)
         .into_iter()
-        .filter_map(|(num, matrix)| {
-            let rec = ctx.latest(num)?;
-            if matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
-                let (range, _) = rec.stream?;
-                return Some(PagePicture {
-                    matrix,
-                    jpeg: Some((range.start, range.len)),
-                    rgba: None,
-                });
-            }
-            Some(PagePicture {
-                matrix,
-                jpeg: None,
-                rgba: Some(pictures::rgba(data, &ctx, rec)?),
-            })
-        })
+        .filter_map(|(num, matrix)| picture(data, &ctx, num, matrix))
         .collect()
+}
+
+/// The pictures the first `pages` pages draw, each once, with the page it
+/// is first on: to look through for what a picture holds, such as a QR code.
+pub fn pictures(data: &[u8], pages: u32) -> Vec<(u32, PagePicture)> {
+    let (_, ctx) = parse_with(data);
+    let mut seen = Vec::new();
+    let mut out = Vec::new();
+    for (page, num, matrix) in redact::pictures_by_page(data, &ctx, 0, pages) {
+        if seen.contains(&num) {
+            continue;
+        }
+        seen.push(num);
+        if let Some(p) = picture(data, &ctx, num, matrix) {
+            out.push((page, p));
+        }
+    }
+    out
+}
+
+/// A picture object as a page draws it: a JPEG's place in the file, or
+/// its pixels.
+fn picture(data: &[u8], ctx: &Ctx, num: u32, matrix: [f64; 6]) -> Option<PagePicture> {
+    let rec = ctx.latest(num)?;
+    if matches!(pictures::edit_kind(rec), pictures::Kind::Jpeg) {
+        let (range, _) = rec.stream?;
+        return Some(PagePicture {
+            matrix,
+            jpeg: Some((range.start, range.len)),
+            rgba: None,
+        });
+    }
+    Some(PagePicture {
+        matrix,
+        jpeg: None,
+        rgba: Some(pictures::rgba(data, ctx, rec)?),
+    })
 }
 
 pub fn is_pdf(data: &[u8]) -> bool {

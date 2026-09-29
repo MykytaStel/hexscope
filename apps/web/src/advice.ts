@@ -33,6 +33,16 @@ const RULES: Rule[] = [
     text: "A picture an image generator made carries the prompt it was given, the program and often the model — and Content Credentials name who or what made it and how it was edited. Whoever gets the file can read them. The clean copy leaves them out; to be open that AI made it, say so where you post it.",
   },
   {
+    when: ["qrwifi", "qrsecret"],
+    text: "Anyone who has the picture can scan the code: a Wi-Fi code lets them onto the network, and a two-factor code lets them make your sign-in codes. Black the code out with “Black out part of the picture” before sending. If a two-factor code has been sent already, turn two-factor off and on again for that account, to get a new secret.",
+  },
+  {
+    when: ["qrtrick", "qrlink"],
+    formats: ["eml", "msg", "pdf"],
+    text: "A QR code in a message or a document is a link your email's checks do not see, opened on a phone where the address is hard to read — a common way to send people to a fake sign-in page. Do not scan it to sign in, pay or “verify”; go to the site by typing its address yourself.",
+    guide: ["is-this-email-real.html", "Is this email real?"],
+  },
+  {
     when: ["screenshot"],
     text: "A screenshot shows whatever was on the screen: notifications and who sent them, other tabs, your name or photo in a corner, the time and the network. Look along its edges before sending it, and black out what should not go with “Black out part of the picture”.",
     guide: ["what-a-screenshot-gives-away.html", "What a screenshot gives away"],

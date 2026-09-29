@@ -129,6 +129,12 @@ const REVEALS: Record<string, string> = {
   timezone: "the sender's time zone",
   sourcemap: "where its source is",
   debug: "debug info from its source",
+  qrwifi: "a Wi-Fi password, in a QR code",
+  qrsecret: "a two-factor secret, in a QR code",
+  qrplace: "a place, in a QR code",
+  qrcontact: "contact details, in a QR code",
+  qrtrick: "a QR code that hides where it goes",
+  qrlink: "where a QR code leads",
 };
 
 /**

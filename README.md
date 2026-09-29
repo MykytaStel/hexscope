@@ -92,6 +92,14 @@ a compound file, a property to a stream — is read from the headers it
 arrived with, its text and its files' names, and judged as the same
 message saved as `.eml` would be.
 
+**Reads QR codes.** hexscope has its own QR reader (ISO/IEC 18004, no
+library): it finds codes in a picture, in a PDF's pictures, and in the
+pictures inside a message or a document, and says what each holds — where
+a link really goes, with a lookalike address, an `@` in it or a bare
+number named for what they are; a Wi-Fi network and its password; a
+two-factor secret; a contact card; a place. A picture's codes open the
+blacking-out editor with a box already over each.
+
 **Reads old Office files.** A Word, Excel or PowerPoint 97–2003 file is a
 compound file too: its sectors, its directory and its streams are drawn,
 and its property streams say who wrote it, who saved it last, for which

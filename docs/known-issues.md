@@ -57,6 +57,13 @@ looked up. An email is not cleaned: its attached files are, once opened.
 An Outlook message saved before it was sent has no headers to read; its
 text is read from its plain or HTML body, not from compressed RTF.
 
+**QR codes in pictures only.** Codes are looked for in pictures: a photo
+or screenshot, the pictures on a PDF's first 30 pages, and up to 30
+pictures inside a message or a document. A code a PDF draws with lines
+and boxes rather than as a picture is not found, nor one smaller than
+about two pixels a module or badly out of focus. A link is judged by how
+it is written; where a short link ends up is not looked up.
+
 **Old Office files: their properties, not their text.** In a Word, Excel
 or PowerPoint 97–2003 file, the summary streams are read and blanked; the
 document itself — its text, comments, tracked changes, and text kept from

@@ -600,8 +600,11 @@ export class Drawer {
 
   /** Opens the picture to black out what it shows: faces, plates, an address. */
   private blackOutButton(m: FileModel): HTMLElement {
-    const b = el("button", "link blackout-open", "Black out part of the picture…");
-    b.title = "Draw boxes over what the picture itself shows, and save a new picture with them in it";
+    const codes = m.codeBoxes.length;
+    const b = el("button", codes ? "btn blackout-open" : "link blackout-open", codes ? `Black out the QR code${codes > 1 ? "s" : ""}…` : "Black out part of the picture…");
+    b.title = codes
+      ? "Opens the picture with a box over each code, ready to save as a new picture"
+      : "Draw boxes over what the picture itself shows, and save a new picture with them in it";
     b.addEventListener("click", () =>
       void openBlackPicture(m, {
         deliver: (name, bytes, into) => {

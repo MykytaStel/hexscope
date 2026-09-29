@@ -274,3 +274,22 @@ test("an Outlook message is read as an email, and an old Word file is cleaned", 
   await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("0");
   if (saved.length > 0) expect(saved).toEqual(["plan-clean.doc"]);
 });
+
+test("a QR code: a Wi-Fi password named, and blacked out in a new picture", async ({ page }) => {
+  const saved = catchDownloads(page);
+  await page.goto("./?sample=wifi.png");
+  await expect(page.locator(".verdict-title")).toHaveText("This picture gives away 1 thing");
+  await expect(page.locator(".reveal-list")).toContainText("its password “correct horse battery staple”");
+  await page.getByRole("button", { name: "Black out the QR code…" }).click();
+  await page.getByRole("button", { name: "Make the copy" }).click();
+  await page.getByRole("button", { name: "Open the copy" }).click();
+  await expect(page.locator(".verdict-title")).toHaveText("Nothing personal found in this picture");
+  if (saved.length > 0) expect(saved).toEqual(["wifi-blacked-out.png"]);
+});
+
+test("a QR code in a PDF that goes to a lookalike address", async ({ page }) => {
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles(new URL("../src/qr/fixtures/invoice.pdf", import.meta.url).pathname);
+  await expect(page.locator(".reveal-list")).toContainText("shown as “exаmple-bank.com”");
+  await expect(page.locator(".reveal-list")).toContainText("in the picture on page 1");
+});

@@ -14,13 +14,14 @@ export interface Headline {
 const PRESSING = [
   "location", "photoplace", "covered", "hiddentext", "deleted", "earlier", "updates",
   "prompt", "linkmismatch", "linkidn", "riskyfile", "replyto", "authfail", "opens", "launch",
+  "qrwifi", "qrsecret", "qrtrick", "qrplace",
 ];
 
 /** What a file does when opened, rather than what it tells. */
 const ACTIONS = ["opens", "launch", "scripts", "submits"];
 
 /** A message that may not be from who it says. */
-const FORGED = ["replyto", "authfail", "linkmismatch", "linkidn", "riskyfile"];
+const FORGED = ["replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "qrtrick"];
 
 /** What the file is, in a word a person would use. */
 export function noun(m: FileModel): string {
