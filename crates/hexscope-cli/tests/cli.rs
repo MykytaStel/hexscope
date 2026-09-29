@@ -219,3 +219,45 @@ fn clean_in_place_replaces_the_file_whole() {
     assert_eq!(left, [std::ffi::OsString::from("photo.jpg")]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A phone's video with its picture and sound grown to `size` bytes.
+fn long_video(size: usize) -> Vec<u8> {
+    let src = std::fs::read(fixture("iphone.mov")).unwrap();
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at + 8 <= src.len() {
+        let len = u32::from_be_bytes(src[at..at + 4].try_into().unwrap()) as usize;
+        if &src[at + 4..at + 8] == b"mdat" {
+            out.extend_from_slice(&(8 + size as u32).to_be_bytes());
+            out.extend_from_slice(&src[at + 4..at + len]);
+            out.extend((len..8 + size).map(|i| i as u8));
+        } else {
+            out.extend_from_slice(&src[at..at + len]);
+        }
+        at += len;
+    }
+    out
+}
+
+#[test]
+fn a_long_video_is_checked_and_cleaned_without_its_media_in_memory() {
+    let dir = std::env::temp_dir().join(format!("hexscope-long-video-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let video = dir.join("long.mov");
+    let data = long_video(80 << 20);
+    std::fs::write(&video, &data).unwrap();
+
+    let (code, out, _) = run(&["check", video.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(out.contains("reveals  location:"), "{out}");
+
+    let (code, out, err) = run(&["clean", video.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}{err}");
+    let copy = std::fs::read(dir.join("long-clean.mov")).unwrap();
+    assert_eq!(copy.len(), data.len());
+    let media = 36..data.len() - 1389;
+    assert!(copy[media.clone()] == data[media]);
+    let (code, out, _) = run(&["check", dir.join("long-clean.mov").to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

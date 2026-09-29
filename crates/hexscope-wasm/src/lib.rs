@@ -861,7 +861,9 @@ fn gaps(pairs: &[f64]) -> Vec<Gap> {
 #[wasm_bindgen(js_name = parseMovie)]
 pub fn parse_movie(bytes: &[u8], gaps_at: &[f64]) -> Parsed {
     let gaps = gaps(gaps_at);
-    let len = bytes.len() as u64 + gaps.iter().map(|g| g.len).sum::<u64>();
+    let len = gaps
+        .iter()
+        .fold(bytes.len() as u64, |n, g| n.saturating_add(g.len));
     parsed(
         Document::Video(parse_video_gapped(bytes, &gaps)),
         bytes,

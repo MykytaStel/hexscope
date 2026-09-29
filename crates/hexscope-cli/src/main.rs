@@ -10,11 +10,17 @@
 
 #![forbid(unsafe_code)]
 
-use hexscope_core::clean::{CleanOptions, clean_with};
+mod movie;
+
+use hexscope_core::Document;
+use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
 use hexscope_core::docs::Concern;
 use hexscope_core::repair::repair;
-use hexscope_core::summary::{Summary, summarize};
+use hexscope_core::summary::{Summary, summarize, summary_of};
+use hexscope_core::video::parse_video_gapped;
 use std::fmt::Write as _;
+use std::fs::File;
+use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -231,8 +237,11 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     let mut read = 0;
     let mut results: Vec<(String, String)> = Vec::new();
     for path in files(&o.paths)? {
-        let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let s = summarize(&data);
+        let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
+        let s = match movie::read(&path).map_err(failed_to_read)? {
+            Some(m) => summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
+            None => summarize(&std::fs::read(&path).map_err(failed_to_read)?),
+        };
         let quiet = s.problems.is_empty() && s.facts.is_empty();
         if s.format == "unknown" && !o.all {
             continue;
@@ -464,7 +473,10 @@ fn out_file(o: &Options) -> Option<PathBuf> {
 /// that is the person's own file — a full disk or a Ctrl-C halfway must
 /// not leave it cut short. The copy keeps the permissions of what it
 /// replaces.
-fn write_whole(to: &Path, bytes: &[u8]) -> std::io::Result<()> {
+fn write_whole(
+    to: &Path,
+    write: impl FnOnce(&mut BufWriter<File>) -> std::io::Result<()>,
+) -> std::io::Result<()> {
     let dir = to
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
@@ -473,7 +485,12 @@ fn write_whole(to: &Path, bytes: &[u8]) -> std::io::Result<()> {
         .file_name()
         .map_or_else(|| "copy".into(), |n| n.to_string_lossy().into_owned());
     let part = dir.join(format!(".{name}.hexscope-{}.part", std::process::id()));
-    let written = std::fs::write(&part, bytes)
+    let written = File::create(&part)
+        .and_then(|f| {
+            let mut out = BufWriter::new(f);
+            write(&mut out)?;
+            out.into_inner()?.sync_all()
+        })
         .and_then(|()| match std::fs::metadata(to) {
             Ok(meta) => std::fs::set_permissions(&part, meta.permissions()),
             Err(_) => Ok(()),
@@ -606,6 +623,57 @@ fn places(data: &[u8], texts: &[String]) -> Vec<(u32, [f64; 4])> {
     out
 }
 
+enum Done {
+    Made,
+    Failed,
+    Nothing,
+}
+
+/// Writes a copy that was made, or says why none was.
+fn finish(
+    path: &Path,
+    o: &Options,
+    kind: Make,
+    result: Result<(Vec<u8>, Vec<String>), &str>,
+    write: impl FnOnce(&[u8], &mut BufWriter<File>) -> std::io::Result<()>,
+) -> Result<Done, String> {
+    match result {
+        Ok((bytes, what)) => {
+            let to = target(
+                path,
+                o,
+                match kind {
+                    Make::Clean => "clean",
+                    Make::Repair => "repaired",
+                    Make::Redact => "redacted",
+                },
+            );
+            write_whole(&to, |out| write(&bytes, out))
+                .map_err(|e| format!("{}: {e}", to.display()))?;
+            println!("{} → {}", path.display(), to.display());
+            for w in what {
+                println!("  {w}");
+            }
+            Ok(Done::Made)
+        }
+        // A file with nothing to do is not a failure; one that could not be
+        // done is said, and counted.
+        Err(reason)
+            if reason.starts_with("there is nothing")
+                || reason.starts_with("nothing in it")
+                || reason.starts_with("hexscope cleans")
+                || reason.starts_with("hexscope repairs")
+                || reason.starts_with("hexscope redacts") =>
+        {
+            Ok(Done::Nothing)
+        }
+        Err(reason) => {
+            eprintln!("hexscope: {}: not done, as {reason}", path.display());
+            Ok(Done::Failed)
+        }
+    }
+}
+
 fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     let o = options(args)?;
     match (&o.out, out_file(&o)) {
@@ -628,6 +696,20 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     }
     let (mut made, mut failed) = (0, 0);
     for path in files(&o.paths)? {
+        if matches!(kind, Make::Clean)
+            && let Some(m) = movie::read(&path).map_err(|e| format!("{}: {e}", path.display()))?
+        {
+            let result = clean_video_gapped(&m.given, &m.gaps)
+                .map(|c| (c.bytes, c.removed.into_iter().map(|r| r.what).collect()))
+                .map_err(|e| e.reason());
+            let write = |copy: &[u8], out: &mut BufWriter<File>| m.write_copy(copy, &path, out);
+            match finish(&path, &o, kind, result, write)? {
+                Done::Made => made += 1,
+                Done::Failed => failed += 1,
+                Done::Nothing => {}
+            }
+            continue;
+        }
         let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         let result = match kind {
             Make::Clean => clean_with(
@@ -667,37 +749,11 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                 }
             }
         };
-        match result {
-            Ok((bytes, what)) => {
-                let to = target(
-                    &path,
-                    &o,
-                    match kind {
-                        Make::Clean => "clean",
-                        Make::Repair => "repaired",
-                        Make::Redact => "redacted",
-                    },
-                );
-                write_whole(&to, &bytes).map_err(|e| format!("{}: {e}", to.display()))?;
-                println!("{} → {}", path.display(), to.display());
-                for w in what {
-                    println!("  {w}");
-                }
-                made += 1;
-            }
-            // A file with nothing to do is not a failure; one that could
-            // not be done is said, and counted.
-            Err(reason)
-                if reason.starts_with("there is nothing")
-                    || reason.starts_with("nothing in it") => {}
-            Err(reason)
-                if reason.starts_with("hexscope cleans")
-                    || reason.starts_with("hexscope repairs")
-                    || reason.starts_with("hexscope redacts") => {}
-            Err(reason) => {
-                eprintln!("hexscope: {}: not done, as {reason}", path.display());
-                failed += 1;
-            }
+        let write = |copy: &[u8], out: &mut BufWriter<File>| out.write_all(copy);
+        match finish(&path, &o, kind, result, write)? {
+            Done::Made => made += 1,
+            Done::Failed => failed += 1,
+            Done::Nothing => {}
         }
     }
     eprintln!(

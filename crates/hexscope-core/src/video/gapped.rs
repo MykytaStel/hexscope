@@ -92,8 +92,8 @@ impl Shrunk {
             .iter()
             .take_while(|h| h.stand_in < at)
             .map(|h| h.len - 1)
-            .sum();
-        at + past
+            .fold(0, u64::saturating_add);
+        at.saturating_add(past)
     }
 
     fn range_in_file(&self, r: ByteRange) -> ByteRange {
