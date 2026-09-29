@@ -1,6 +1,5 @@
 // What the colours in the bytes mean, for this file: each colour it uses,
-// named for its format, and a way to the first part in it. Folded to one
-// button until asked for, so the bytes keep the room.
+// named for its format, and a way to the first part in it.
 import type { FileModel, Tint } from "./model";
 
 /** What each colour is, per format; `*` for pictures and anything else. */
@@ -41,9 +40,12 @@ const ALWAYS: Partial<Record<Tint, string>> = {
   error: "Damaged",
 };
 
-/** The legend for `m`, placed in `pane`; replaces any earlier one. */
-export function showLegend(pane: HTMLElement, m: FileModel, select: (id: number) => void): void {
-  pane.querySelector(".hex-legend")?.remove();
+let closing: AbortController | null = null;
+
+/** The legend for `m`, placed in `host`; replaces any earlier one. */
+export function showLegend(host: HTMLElement, m: FileModel, select: (id: number) => void): void {
+  host.replaceChildren();
+  closing?.abort();
   // The first node of each colour, in file order.
   const first = new Map<Tint, number>();
   for (let i = 1; i < m.count; i++) {
@@ -68,10 +70,26 @@ export function showLegend(pane: HTMLElement, m: FileModel, select: (id: number)
     swatch.className = "hex-legend-swatch";
     swatch.style.background = `var(--tint-${tint})`;
     b.append(swatch, names[tint] ?? tint);
-    b.addEventListener("click", () => select(node));
+    b.addEventListener("click", () => {
+      box.open = false;
+      select(node);
+    });
     li.append(b);
     list.append(li);
   }
   box.append(summary, list);
-  pane.append(box);
+  host.append(box);
+
+  closing = new AbortController();
+  const { signal } = closing;
+  document.addEventListener("pointerdown", (e) => {
+    if (box.open && !box.contains(e.target as Node)) box.open = false;
+  }, { signal });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && box.open) {
+      e.stopPropagation();
+      box.open = false;
+      summary.focus();
+    }
+  }, { signal });
 }

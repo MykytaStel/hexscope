@@ -334,8 +334,33 @@ input {
 }
 
 .pane-hex {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--hex-bg);
+}
+
+/* Over the bytes, not on them: the colours, what is under the pointer, find. */
+.hex-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.hex-bar-find {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.hex-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .pane-drawer {
@@ -377,18 +402,29 @@ input {
 }
 
 .status {
-  position: absolute;
-  right: 30px;
-  bottom: 12px;
-  z-index: 1;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
   font: 12px var(--mono);
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status:empty::before {
+  content: "Point at a byte to see which part it is";
+  color: var(--faint);
+  font-family: var(--font);
+}
+
+@media (hover: none) {
+  .status:empty::before {
+    content: "Tap a byte to see which part it is";
+  }
+}
+
+.hex-bar:has(.search:not([hidden])) .status {
+  display: none;
 }
 
 /* --- tree ----------------------------------------------------------------- */
@@ -2550,24 +2586,15 @@ body.is-playing .drawer-file {
   cursor: pointer;
 }
 
-/* Find in the file: over the top right of the bytes. */
-.search,
-.search-open {
-  position: absolute;
-  top: 8px;
-  right: 22px;
-  z-index: 6;
-}
-
 .search {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 4px 4px 8px;
+  min-width: 0;
+  padding: 1px 2px 1px 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
+  background: var(--bg);
 }
 
 .search[hidden] {
@@ -2579,12 +2606,17 @@ body.is-playing .drawer-file {
 }
 
 .search input {
-  width: min(220px, 40vw);
+  flex: 0 1 220px;
+  min-width: 0;
   border: 0;
   background: none;
   color: var(--text);
   font: 13px var(--mono);
   outline: none;
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
 }
 
 .search-count {
@@ -2593,6 +2625,12 @@ body.is-playing .drawer-file {
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .search-count {
+    min-width: 0;
+  }
 }
 
 .search-step,
@@ -3984,33 +4022,44 @@ body[data-state="ready"] .viewswitch {
   }
 }
 
-/* What the colours in the bytes mean: one button, bottom left, over the bytes. */
+/* What the colours in the bytes mean: a list that opens under its button. */
 .hex-legend {
+  position: relative;
+  font-size: 12.5px;
+}
+
+.hex-legend ul {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
+  top: calc(100% + 6px);
+  left: 0;
   z-index: 6;
-  max-width: min(320px, calc(100% - 40px));
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  list-style: none;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 6px 4px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
-  font-size: 12.5px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
 }
 
 .hex-legend summary {
   padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   cursor: pointer;
   color: var(--muted);
   font-weight: 600;
+  white-space: nowrap;
+  list-style-position: inside;
 }
 
-.hex-legend ul {
-  display: grid;
-  gap: 1px;
-  margin: 0;
-  padding: 0 4px 6px;
-  list-style: none;
+.hex-legend summary:hover,
+.hex-legend[open] summary {
+  color: var(--text);
 }
 
 .hex-legend button {

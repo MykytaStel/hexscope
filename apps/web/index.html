@@ -49,7 +49,12 @@
     <main class="layout">
       <aside class="pane pane-tree" id="tree" aria-label="Structure"></aside>
       <section class="pane pane-hex" id="hex" aria-label="Bytes">
-        <div class="status" id="status" hidden></div>
+        <div class="hex-bar">
+          <div class="hex-bar-legend" id="hex-legend"></div>
+          <div class="status" id="status"></div>
+          <div class="hex-bar-find" id="hex-find"></div>
+        </div>
+        <div class="hex-body" id="hex-body"></div>
       </section>
       <section class="pane pane-drawer" id="drawer" aria-label="Details"></section>
     </main>

@@ -74,16 +74,15 @@ const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
 const locationBtn = $<HTMLButtonElement>("location");
 
-const hex = new HexView($("hex"), {
+const hex = new HexView($("hex-body"), {
   onHover: (id, offset) => {
     setHover(id);
     status.textContent = offset >= 0 && model ? describeOffset(offset) : "";
     picture.fromByte(offset);
-    status.hidden = !status.textContent;
   },
   onSelect: select,
 });
-const minimap = new Minimap($("hex"), { onJump: (offset) => hex.scrollToOffset(offset) });
+const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: (id) => point(id) });
 const picture = new PictureView({
@@ -321,7 +320,7 @@ function selectInPlace(id: number): void {
 }
 
 // Find in the file: each match marked in the bytes, its part selected.
-const search = new SearchBar($("hex"), {
+const search = new SearchBar($("hex-find"), {
   bytes: () => model?.bytes ?? null,
   show: (start, end) => {
     hex.setHead(start, end);
@@ -338,7 +337,7 @@ const search = new SearchBar($("hex"), {
   open.setAttribute("aria-label", "Find in the file");
   open.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>';
   open.addEventListener("click", () => search.open());
-  $("hex").append(open);
+  $("hex-find").append(open);
 }
 
 /** Selects a node another view led to, and lights up its bytes. */
@@ -575,7 +574,7 @@ function show(m: FileModel): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
-  showLegend($("hex"), m, point);
+  showLegend($("hex-legend"), m, point);
   search.reset();
   minimap.setModel(m);
   tree.setModel(m);
