@@ -24,7 +24,7 @@ for (const scheme of ["dark", "light"] as const) {
       await check(page, "landing");
     });
 
-    for (const sample of ["photo.jpg", "redacted.pdf", "phishing.eml", "budget.xlsx", "broken.png"]) {
+    for (const sample of ["photo.jpg", "redacted.pdf", "phishing.eml", "phishing.msg", "plan.doc", "budget.xlsx", "broken.png"]) {
       test(`a file: ${sample}`, async ({ page }) => {
         page.on("download", (d) => void d.cancel());
         await page.goto(`./?sample=${sample}`);

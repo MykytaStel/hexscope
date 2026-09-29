@@ -75,7 +75,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents, old Word, Excel and PowerPoint files, and WebAssembly modules only"
             }
             CleanError::PictureUnderBox => {
                 "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
@@ -111,6 +111,7 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
         Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
+        Document::Cfb(doc) if cfg!(feature = "documents") => clean_cfb(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     cleaned.removed = merged(cleaned.removed);
@@ -589,6 +590,41 @@ fn clean_video(data: &[u8], doc: &VideoDocument) -> Result<Cleaned, CleanError> 
     if let Some(i) = removed.iter().position(|r| r.what == "the location") {
         let place = removed.remove(i);
         removed.insert(0, place);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
+}
+
+// --- Office 97–2003 -------------------------------------------------------------
+
+/// A Word, Excel or PowerPoint 97–2003 file with its properties and unused
+/// sectors overwritten with zeros where they are, so nothing else moves.
+fn clean_cfb(data: &[u8], doc: &crate::cfb::CfbDocument) -> Result<Cleaned, CleanError> {
+    if !doc.kind.is_office() {
+        return Err(CleanError::Unsupported);
+    }
+    if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    let blanks = crate::cfb::blanks(data);
+    if blanks.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut out = data.to_vec();
+    let mut removed = Vec::new();
+    for (what, spans) in blanks {
+        let mut bytes = 0;
+        for (at, len) in spans {
+            out[at as usize..(at + len) as usize].fill(0);
+            bytes += len;
+        }
+        removed.push(Removed {
+            what: what.into(),
+            bytes,
+        });
     }
     Ok(Cleaned {
         bytes: out,

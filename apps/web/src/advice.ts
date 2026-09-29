@@ -39,7 +39,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["linkmismatch", "linkidn", "riskyfile"],
-    formats: ["eml"],
+    formats: ["eml", "msg"],
     text: "A link that says one site and goes to another, an address in lookalike letters, a file that is a program or a web page: each is how a fake message gets what it wants. Do not click or open them. To visit the site, type its address yourself.",
     guide: ["is-this-email-real.html", "Is this email real?"],
   },
@@ -50,13 +50,13 @@ const RULES: Rule[] = [
   },
   {
     when: ["replyto", "authfail"],
-    formats: ["eml"],
+    formats: ["eml", "msg"],
     text: "If replies go to another domain, or the sender's domain did not vouch for the message, it may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
     guide: ["is-this-email-real.html", "Is this email real?"],
   },
   {
     when: ["sentfrom", "computer"],
-    formats: ["eml"],
+    formats: ["eml", "msg"],
     text: "The first server wrote down where the message was sent from — often a home or office address, which says roughly where the sender was — and some mail apps put the computer's name in the message's ID. Webmail such as Gmail usually leaves the sender's address out; a desktop mail app sending through its provider may not.",
   },
   {
@@ -140,7 +140,7 @@ const RULES: Rule[] = [
   },
   {
     when: ["author", "editor", "company"],
-    formats: ["zip"],
+    formats: ["zip", "office97"],
     text: "Word, Excel and PowerPoint write the name of the account that made and saved a file. The clean copy removes it; in Office, File → Info → Check for Issues → Inspect Document does too.",
   },
   {

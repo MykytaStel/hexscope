@@ -64,7 +64,15 @@
             ".gif",
             "audio/mp4",
             ".m4a",
-            ".epub"
+            ".epub",
+            "application/msword",
+            ".doc",
+            "application/vnd.ms-excel",
+            ".xls",
+            "application/vnd.ms-powerpoint",
+            ".ppt",
+            "application/vnd.ms-outlook",
+            ".msg"
           ]
         }
       ]
@@ -129,6 +137,22 @@
         ],
         "application/wasm": [
           ".wasm"
+        ],
+        "application/msword": [
+          ".doc",
+          ".dot"
+        ],
+        "application/vnd.ms-excel": [
+          ".xls",
+          ".xlt"
+        ],
+        "application/vnd.ms-powerpoint": [
+          ".ppt",
+          ".pps",
+          ".pot"
+        ],
+        "application/vnd.ms-outlook": [
+          ".msg"
         ]
       }
     }

@@ -2,6 +2,16 @@
 // named for its format, and a way to the first part in it.
 import type { FileModel, Tint } from "./model";
 
+/** A compound file's colours: Office 97–2003 and Outlook's messages. */
+const COMPOUND: Partial<Record<Tint, string>> = {
+  sig: "Header",
+  ihdr: "Tables: which sectors hold what, and the directory",
+  plte: "The mini stream, where small streams are kept",
+  idat: "Streams: the document, a message's text and files",
+  text: "Properties: who, when; a message's headers",
+  anc: "Free and unused sectors",
+};
+
 /** What each colour is, per format; `*` for pictures and anything else. */
 const NAMES: Record<string, Partial<Record<Tint, string>>> = {
   "*": {
@@ -32,6 +42,9 @@ const NAMES: Record<string, Partial<Record<Tint, string>>> = {
   video: { sig: "File type", ihdr: "Movie boxes: tracks, timing", idat: "Media data: picture and sound", text: "Metadata: place, device, software", anc: "Other boxes" },
   wasm: { sig: "Magic and version", ihdr: "Sections: types, imports, exports", idat: "Code and data", text: "Custom sections: names, tools, debug info", anc: "Other parts" },
   eml: { anc: "Headers and parts" },
+  msg: COMPOUND,
+  office97: COMPOUND,
+  cfb: COMPOUND,
 };
 
 const ALWAYS: Partial<Record<Tint, string>> = {

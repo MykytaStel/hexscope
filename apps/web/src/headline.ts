@@ -38,7 +38,10 @@ export function noun(m: FileModel): string {
     case "pdf":
       return "PDF";
     case "eml":
+    case "msg":
       return "email";
+    case "office97":
+      return "document";
     case "wasm":
       return "module";
     case "zip":
@@ -61,7 +64,7 @@ export function headline(m: FileModel): Headline {
   const kinds = new Set([...(m.file.location ? ["location"] : []), ...m.file.facts.map((f) => f.kind)]);
   const has = (k: string) => lines.some((l) => l.kind === k);
   if (has("damage")) return { tone: "danger", text: `This ${n} is damaged` };
-  if (m.file.format === "eml" && FORGED.some((k) => kinds.has(k))) {
+  if (n === "email" && FORGED.some((k) => kinds.has(k))) {
     return { tone: "danger", text: "This email may not be from who it says" };
   }
   const count = categories(m).length;

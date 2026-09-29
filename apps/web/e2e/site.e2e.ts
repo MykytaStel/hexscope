@@ -260,3 +260,17 @@ test("the bytes have a bar of their own: nothing sits on them", async ({ page },
   await page.keyboard.type("hexscope");
   await expect(page.locator(".search-count")).toHaveText(/^1 of \d+$/);
 });
+
+test("an Outlook message is read as an email, and an old Word file is cleaned", async ({ page }) => {
+  const saved = catchDownloads(page);
+  await page.goto("./?sample=phishing.msg");
+  await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
+  await expect(page.locator(".reveal-list")).toContainText("invoice.pdf.html");
+
+  await page.goto("./?sample=plan.doc");
+  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 2 things");
+  await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("0");
+  if (saved.length > 0) expect(saved).toEqual(["plan-clean.doc"]);
+});

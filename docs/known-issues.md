@@ -54,6 +54,14 @@ forgery signs; a forwarded message inside it is shown with its own headers,
 not judged. Links are read from the web-page parts: where each goes, as
 written — a shortener or a redirect is not followed, since nothing is
 looked up. An email is not cleaned: its attached files are, once opened.
+An Outlook message saved before it was sent has no headers to read; its
+text is read from its plain or HTML body, not from compressed RTF.
+
+**Old Office files: their properties, not their text.** In a Word, Excel
+or PowerPoint 97–2003 file, the summary streams are read and blanked; the
+document itself — its text, comments, tracked changes, and text kept from
+before a fast save — is not parsed. Saving it as `.docx`, `.xlsx` or
+`.pptx` and checking that copy shows those.
 
 **Blacking out by search finds text, not pictures.** *Black out text
 yourself* searches the letters a page draws; words that are part of an image
@@ -100,13 +108,13 @@ browser ends the reader for it, the page says so and the next file starts
 afresh; the command line tool has no such limit.
 
 **WebAssembly size.** Two builds, chosen by a file's first bytes: about
-137 KB gzipped for pictures and movies (CI budget 150,000 bytes), and about
-291 KB for everything (budget 320,000), fetched only for a document. The
+125 KB gzipped for pictures and movies (CI budget 140,000 bytes), and about
+265 KB for everything (budget 290,000), fetched only for a document. The
 whole grew from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
 MakerNotes, the PDF page walk with its fonts, repair, Office's hidden
-parts, email and Content Credentials arrived, and came down as the build
-was worked on:
+parts, email, Content Credentials and compound files arrived, and came
+down as the build was worked on:
 
 - hand-written readers and writers of decimal numbers in place of the
   standard float parsing and formatting (about 25 KB before compression);
@@ -117,7 +125,10 @@ was worked on:
 - the browser's build optimised for size (`[profile.wasm]`, opt-level "s")
   except the DEFLATE decoder, which is a crate of its own at full speed:
   36 KB gzipped off, with parsing as fast as before — optimised for size,
-  a 16 MB PNG took 715 ms against 467.
+  a 16 MB PNG took 715 ms against 467;
+- then opt-level "z": 41 KB more off the documents' build and 12 KB off
+  the pictures', for parsing outside DEFLATE up to half as long again (a
+  5,000-page PDF, parsed and cleaned, 103 to 148 ms).
 
 `wasm-opt -O3` saved 7% gzipped and made parsing a 10 MB PNG five to six
 times slower in the browser; it is not used. The biggest single part left

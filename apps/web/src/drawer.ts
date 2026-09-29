@@ -79,7 +79,7 @@ export class Drawer {
     this.file.append(answer);
     // A photo, a video or a PDF always gets the card, if only to say it gives
     // nothing away; an archive only when it is a document with properties.
-    if ((f.format !== "zip" && f.format !== "unknown") || f.facts.length > 0) {
+    if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
       this.file.append(this.reveals(m));
     }
     // What to do about it, right under the answer: it presses the clean
@@ -332,6 +332,7 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
       eml: "What this email reveals",
+      msg: "What this email reveals",
     };
     const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
@@ -492,7 +493,7 @@ export class Drawer {
     // An encrypted PDF is not rewritten: the copy would drop its protection.
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
-    } else if (f.format === "eml") {
+    } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else {
@@ -845,6 +846,8 @@ export class Drawer {
       video:
         "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
       wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
+      office97:
+        "Blanks the document's properties where they lie — title, author, last editor, company, template, dates, editing time — and the sectors no part uses, where deleted text can remain. Nothing else in the file moves.",
       pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data.",
     };
     const note =

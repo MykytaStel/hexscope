@@ -60,6 +60,12 @@ export function kindOf(m: FileModel): string {
       return "WebAssembly";
     case "eml":
       return "Email";
+    case "msg":
+      return "Outlook message";
+    case "office97":
+      return first.replace(" 97–2003 document", " 97–2003").replace(" 97–2003 workbook", " 97–2003").replace(" 97–2003 presentation", " 97–2003");
+    case "cfb":
+      return "Compound file";
     default:
       return "";
   }
@@ -85,6 +91,10 @@ const TYPES: Record<string, string> = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   zip: "application/zip",
   wasm: "application/wasm",
+  doc: "application/msword",
+  xls: "application/vnd.ms-excel",
+  ppt: "application/vnd.ms-powerpoint",
+  msg: "application/vnd.ms-outlook",
 };
 
 /** The media type a file's name says, or "" when unknown. */

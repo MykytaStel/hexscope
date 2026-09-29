@@ -96,6 +96,9 @@ function noun(m: FileModel): string {
       return "image";
     case "video":
       return "video";
+    case "eml":
+    case "msg":
+      return "email";
     default:
       return "document";
   }

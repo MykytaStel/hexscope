@@ -1,5 +1,6 @@
 //! Recognising a file's format and parsing it with the right module.
 
+use crate::cfb::{self, CfbDocument, parse_cfb};
 use crate::eml::{self, EmlDocument, parse_eml};
 use crate::gif::{self, GifDocument, parse_gif};
 use crate::heif::{self, HeifDocument, parse_heif};
@@ -24,6 +25,7 @@ pub enum Format {
     Zip,
     Wasm,
     Eml,
+    Cfb,
     Unknown,
 }
 
@@ -41,6 +43,7 @@ pub enum Document {
     Zip(ZipDocument),
     Wasm(WasmDocument),
     Eml(EmlDocument),
+    Cfb(CfbDocument),
     Unknown(ParseTree),
 }
 
@@ -57,6 +60,7 @@ impl Document {
             Document::Zip(d) => &d.tree,
             Document::Wasm(d) => &d.tree,
             Document::Eml(d) => &d.tree,
+            Document::Cfb(d) => &d.tree,
             Document::Unknown(t) => t,
         }
     }
@@ -73,6 +77,7 @@ impl Document {
             Document::Zip(_) => Format::Zip,
             Document::Wasm(_) => Format::Wasm,
             Document::Eml(_) => Format::Eml,
+            Document::Cfb(_) => Format::Cfb,
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -108,6 +113,9 @@ pub fn parse(data: &[u8]) -> Document {
     }
     if documents && pdf::is_pdf(data) {
         return Document::Pdf(parse_pdf(data));
+    }
+    if documents && cfb::is_cfb(data) {
+        return Document::Cfb(parse_cfb(data));
     }
     // After the images, whose files may carry a ZIP on their end: an
     // archive is what the file is only when nothing earlier claimed it.

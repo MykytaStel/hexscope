@@ -129,9 +129,9 @@ jobs:
           test "$(echo "$sizes" | wc -l)" -eq 2
           media=$(echo "$sizes" | head -1)
           full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 150000), $full for everything (budget 320000)."
-          test "$media" -le 150000
-          test "$full" -le 320000
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290000)."
+          test "$media" -le 140000
+          test "$full" -le 290000
       - uses: actions/upload-artifact@v7
         with:
           name: hexscope-site
