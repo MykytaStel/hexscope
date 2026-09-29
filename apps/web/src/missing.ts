@@ -8,6 +8,7 @@ export class Missing {
   /** `[start, end)`, in file order. */
   readonly ranges: [number, number][] = [];
   private readonly loaded = new Set<number>();
+  private reading = false;
 
   /** From `[start, len, …]`. */
   constructor(flat: Float64Array) {
@@ -45,6 +46,26 @@ export class Missing {
   /** Marks the chunks read by [`wanted`]'s ranges as here. */
   filled(ranges: [number, number][]): void {
     for (const [a] of ranges) this.loaded.add(Math.floor(a / CHUNK));
+  }
+
+  /**
+   * Reads what `[start, end)` lacks from `source` into `bytes`. False when
+   * there was nothing to read, a read is already under way, or the file
+   * could not be read — moved or changed on disk.
+   */
+  async fill(bytes: Uint8Array, source: Blob, start: number, end: number): Promise<boolean> {
+    const wanted = this.wanted(start, end);
+    if (wanted.length === 0 || this.reading) return false;
+    this.reading = true;
+    try {
+      for (const [a, b] of wanted) bytes.set(new Uint8Array(await source.slice(a, b).arrayBuffer()), a);
+      this.filled(wanted);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.reading = false;
+    }
   }
 
   /** The parts of `[0, length)` read with the file, between the missing ranges. */

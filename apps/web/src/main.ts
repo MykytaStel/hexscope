@@ -1,5 +1,5 @@
 import "./style.css";
-import { Drawer, type CleanResult, type RepairResult } from "./drawer";
+import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
@@ -20,7 +20,8 @@ import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
-import { MAX_FILE, cleanName, kindOf, phoneCanShare, redactedName, repairedName, saveAs, tooLarge } from "./files";
+import { MAX_FILE, cleanName, kindOf, phoneCanShare, repairedName, saveAs, tooLarge } from "./files";
+import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { cleanCopies } from "./batchclean";
@@ -56,6 +57,7 @@ document.addEventListener("click", (e) => {
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
 
 let model: FileModel | null = null;
 /** The documents above the one on screen: the file, then each entry opened. */
@@ -81,7 +83,13 @@ const hex = new HexView($("hex-body"), {
     picture.fromByte(offset);
   },
   onSelect: select,
-  onNeed: (start, end) => void fillIn(start, end),
+  onNeed: (start, end) => {
+    const m = model;
+    if (!m?.missing || !m.source) return;
+    void m.missing.fill(m.bytes, m.source, start, end).then((read) => {
+      if (read && m === model) hex.redraw();
+    });
+  },
 });
 const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
@@ -165,7 +173,7 @@ const drawer = new Drawer(
   (entry) => void openEntry(entry),
   setHover,
   {
-    clean: cleanCopy,
+    clean: (notes) => (model ? cleanCopy(model, notes) : noFile()),
     open: (copy) => void load(new File([copy], model ? cleanName(model) : "file-clean")),
     save: saveAs,
     openInside: (bytes, name) => void openInside(bytes, name),
@@ -177,8 +185,8 @@ const drawer = new Drawer(
       const r = await call({ type: "pagePictures", bytes: model ? model.bytes.slice() : new Uint8Array(0), page });
       return r.type === "pagePictures" ? r.pictures : [];
     },
-    redact: redactCopy,
-    repair: repairCopy,
+    redact: (areas) => (model ? redactCopy(model, areas) : noFile()),
+    repair: () => (model ? repairCopy(model) : Promise.resolve({ bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" })),
     compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
   },
@@ -197,66 +205,6 @@ async function compareWith(other: File): Promise<void> {
   }
 }
 
-let filling = false;
-
-/** Reads the part of a large movie's media that the bytes view has reached. */
-async function fillIn(start: number, end: number): Promise<void> {
-  const m = model;
-  if (!m?.missing || !m.source || filling) return;
-  const wanted = m.missing.wanted(start, end);
-  if (wanted.length === 0) return;
-  filling = true;
-  try {
-    for (const [a, b] of wanted) m.bytes.set(new Uint8Array(await m.source.slice(a, b).arrayBuffer()), a);
-    m.missing.filled(wanted);
-  } catch {
-    // The file moved or changed on disk: its bytes stay as dots.
-    return;
-  } finally {
-    filling = false;
-  }
-  if (m === model) hex.redraw();
-}
-
-/** Repairs in the worker and hands the copy to the browser as a download. */
-async function repairCopy(): Promise<RepairResult> {
-  const m = model;
-  if (!m) return { bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" };
-  const r = await call({ type: "repair", bytes: m.bytes.slice() });
-  if (r.type !== "repaired") return { bytes: new Uint8Array(0), name: "", fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
-  if (!r.error) saveAs(repairedName(m), r.bytes);
-  return { bytes: r.bytes, name: repairedName(m), fixed: r.fixed, error: r.error };
-}
-
-/** A PDF's copy with chosen text blacked out, saved as the clean copy is. */
-async function redactCopy(areas: Float64Array): Promise<CleanResult> {
-  const m = model;
-  const none = { copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0 };
-  if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "redact", bytes: m.bytes.slice(), areas });
-  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
-  const base = redactedName(m);
-  const saved = !r.error && !phoneCanShare(base);
-  if (saved) saveAs(base, r.copy);
-  return { copy: r.copy, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
-}
-
-/**
- * Makes the copy in the worker and saves it — except on a phone that can
- * share files, where the copy waits for "Share" or "Save": a download
- * there is a dialog in the way of sending it on.
- */
-async function cleanCopy(notes = false): Promise<CleanResult> {
-  const m = model;
-  const none = { copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0 };
-  if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "clean", source: m.source ?? new Blob([m.bytes as BlobPart]), notes });
-  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
-  const name = cleanName(m);
-  const saved = !r.error && !phoneCanShare(name);
-  if (saved) saveAs(name, r.copy);
-  return { copy: r.copy, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
-}
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {
