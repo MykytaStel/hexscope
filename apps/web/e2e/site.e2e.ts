@@ -104,9 +104,32 @@ test("the desktop landing keeps the example beside the words", async ({ page }, 
     side: document.querySelector(".demo-side")!.getBoundingClientRect().toJSON(),
     heroHeight: document.querySelector(".hero")!.getBoundingClientRect().height,
   }));
-  expect(Math.abs(composition.frame.y - composition.side.y)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      composition.frame.y + composition.frame.height / 2 - (composition.side.y + composition.side.height / 2),
+    ),
+  ).toBeLessThanOrEqual(1);
   expect(composition.frame.x).toBeLessThan(composition.side.x);
   expect(composition.heroHeight).toBeLessThanOrEqual(380);
+});
+
+test("the tablet landing centers short demo scenes in their reserved height", async ({ page }) => {
+  await page.setViewportSize({ width: 645, height: 800 });
+  await home(page);
+  await expect(page.locator(".demo-side")).toBeVisible();
+  const spacing = await page.locator(".demo-side").evaluate((side) => {
+    const sideBox = side.getBoundingClientRect();
+    const visible = [...side.children].filter((child) => getComputedStyle(child).display !== "none");
+    const contentTop = Math.min(...visible.map((child) => child.getBoundingClientRect().top));
+    const contentBottom = Math.max(...visible.map((child) => child.getBoundingClientRect().bottom));
+    return {
+      above: contentTop - sideBox.top,
+      below: sideBox.bottom - contentBottom,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+    };
+  });
+  expect(Math.abs(spacing.above - spacing.below)).toBeLessThanOrEqual(24);
+  expect(spacing.overflow).toBeLessThanOrEqual(0);
 });
 
 test("the landing page keeps its type readable on a phone", async ({ page }) => {

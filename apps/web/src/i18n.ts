@@ -380,6 +380,15 @@ function ruleWord(count: number): string {
   return "правил";
 }
 
+function ukrainianCountWord(count: number, one: string, few: string, many: string): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
+}
+
 export function translateText(value: string, locale: Locale): string {
   if (locale === "en") return value;
   if (UK[value]) return UK[value];
@@ -436,10 +445,14 @@ export function translateText(value: string, locale: Locale): string {
   match = /^Pixel (\d+), (\d+): part of a copy of (\d+) bytes from (.+) — (\d+) bits say so\.$/.exec(value);
   if (match) {
     const distance = match[4]
-      .replace(/^exactly one row$/, "рівно на один рядок вище")
-      .replace(/^exactly (\d+) rows up$/, "на $1 рядків вище")
-      .replace(/^(\d+) bytes back$/, "на $1 байтів раніше");
-    return `Піксель ${match[1]}, ${match[2]}: частина копії з ${match[3]} байтів, узятої ${distance}; на це вказують ${match[5]} біти.`;
+      .replace(/^exactly one row up$/, "рівно на один рядок вище")
+      .replace(/^exactly (\d+) rows up$/, (_phrase, count: string) =>
+        `рівно на ${count} ${ukrainianCountWord(Number(count), "рядок", "рядки", "рядків")} вище`,
+      )
+      .replace(/^(\d+) bytes back$/, (_phrase, count: string) =>
+        `на ${count} ${ukrainianCountWord(Number(count), "байт", "байти", "байтів")} раніше`,
+      );
+    return `Піксель ${match[1]}, ${match[2]}: частина копії з ${match[3]} байтів, узятої ${distance}; це закодовано у ${match[5]} бітах.`;
   }
   match = /^What was removed · (.+)$/.exec(value);
   if (match) return `Що видалено · ${match[1]}`;
