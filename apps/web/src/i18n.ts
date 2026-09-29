@@ -156,6 +156,8 @@ const UK: Record<string, string> = {
   "Other ways": "Інші способи",
   "For the curious": "Для допитливих",
   "For the curious: look inside a file": "Для допитливих: зазирнути всередину файла",
+  "Selected part": "Вибрана частина",
+  "Supported formats": "Підтримувані формати",
   "Guides and more sample files": "Посібники та інші приклади файлів",
   "More about the file: what it is made of, its picture, its structure": "Детальніше про файл: склад, зображення та структура",
   "What this photo reveals": "Що розкриває це фото",

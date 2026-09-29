@@ -62,6 +62,165 @@ test("the landing page holds still while its demonstration plays", async ({ page
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
 });
 
+test("the landing page keeps its three everyday examples in one aligned grid", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the desktop arrangement is checked at desktop widths");
+  await home(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const grid = page.locator(".doors-main");
+  await expect(grid).toHaveCount(1);
+  const doors = grid.locator(":scope > .door");
+  await expect(doors).toHaveCount(3);
+  const rows = await doors.evaluateAll((elements) => elements.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(rows).size).toBe(1);
+});
+
+test("the desktop doors line up their text and actions", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the card row is checked in its desktop arrangement");
+  await home(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const rows = await page.locator(".doors-main .door").evaluateAll((doors) =>
+    [".door-title", ".door-text", ".door-go"].map((selector) =>
+      doors.map((door) => Math.round(door.querySelector(selector)!.getBoundingClientRect().top)),
+    ),
+  );
+  for (const row of rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(1);
+});
+
+test("the landing page uses the available desktop canvas", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "wide-canvas composition is desktop-only");
+  await home(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const width = await page.locator(".empty-card").evaluate((e) => e.getBoundingClientRect().width);
+  expect(width).toBeGreaterThanOrEqual(1080);
+});
+
+test("the desktop landing keeps the example beside the words", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "desktop demo composition is checked at desktop widths");
+  await home(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator(".demo-frame")).toBeVisible();
+  const composition = await page.evaluate(() => ({
+    frame: document.querySelector(".demo-frame")!.getBoundingClientRect().toJSON(),
+    side: document.querySelector(".demo-side")!.getBoundingClientRect().toJSON(),
+    heroHeight: document.querySelector(".hero")!.getBoundingClientRect().height,
+  }));
+  expect(Math.abs(composition.frame.y - composition.side.y)).toBeLessThanOrEqual(1);
+  expect(composition.frame.x).toBeLessThan(composition.side.x);
+  expect(composition.heroHeight).toBeLessThanOrEqual(380);
+});
+
+test("the landing page keeps its type readable on a phone", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".demo-fact").first()).toBeAttached();
+  const type = await page.evaluate(() => ({
+    title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
+    introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
+    example: parseFloat(getComputedStyle(document.querySelector(".doors-main .door-text")!).fontSize),
+    demoLabel: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
+    demoFact: parseFloat(getComputedStyle(document.querySelector(".demo-fact")!).fontSize),
+    demoFactValue: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+    bodyFont: getComputedStyle(document.body).fontFamily,
+    codeFont: getComputedStyle(document.querySelector(".tree")!).fontFamily,
+  }));
+  expect(type.title).toBeGreaterThanOrEqual(30);
+  expect(type.introduction).toBeGreaterThanOrEqual(16);
+  expect(type.example).toBeGreaterThanOrEqual(14);
+  expect(type.demoLabel).toBeGreaterThanOrEqual(12);
+  expect(type.demoFact).toBeGreaterThanOrEqual(12);
+  expect(type.demoFactValue).toBeGreaterThanOrEqual(12);
+  expect(type.bodyFont).toContain("system-ui");
+  expect(type.codeFont).toContain("monospace");
+});
+
+test("supported file types are available without crowding the mobile start", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const formats = page.locator(".formats-disclosure");
+  await expect(formats).toBeVisible();
+  await expect(formats.locator("summary")).toHaveText("Supported formats");
+  expect(await formats.evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+  await formats.locator("summary").click();
+  await expect(formats.locator(".formats")).toBeVisible();
+});
+
+test("the phone brings the main actions before supporting detail", async ({ page }) => {
+  await home(page);
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const actions = await page.locator(".hero-actions").boundingBox();
+    expect(actions, `missing main actions at ${width}px`).not.toBeNull();
+    expect(actions!.y + actions!.height, `main actions leave the first screen at ${width}px`).toBeLessThan(844);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+  }
+  const doors = await page.locator(".doors-main").boundingBox();
+  const proof = await page.locator(".landing-proof").boundingBox();
+  expect(doors).not.toBeNull();
+  expect(proof).not.toBeNull();
+  expect(proof!.y).toBeGreaterThan(doors!.y + doors!.height);
+});
+
+test("the landing page fits the viewport across responsive breakpoints", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "one browser sweeps the full width matrix");
+  await home(page);
+  const widths = [320, 360, 390, 430, 600, 768, 900, 901, 1024, 1280, 1440, 1920];
+  const check = async (where: string) => {
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 900 });
+      const result = await page.evaluate(() => {
+        const visible = [...document.querySelectorAll(".pane-tree, .pane-hex, .pane-drawer")].filter(
+          (e) => getComputedStyle(e).display !== "none",
+        );
+        const outside = visible
+          .map((e) => ({ name: e.className, left: e.getBoundingClientRect().left, right: e.getBoundingClientRect().right }))
+          .filter((r) => r.left < -1 || r.right > innerWidth + 1);
+        return { overflow: document.documentElement.scrollWidth - innerWidth, outside };
+      });
+      expect(result.overflow, `${where}: document overflow at ${width}px`).toBeLessThanOrEqual(0);
+      expect(result.outside, `${where}: a pane leaves the viewport at ${width}px`).toEqual([]);
+    }
+  };
+
+  await check("landing");
+  await openDoor(page, /Check a photo/);
+  await check("summary");
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await check("bytes");
+});
+
+test("the desktop summary uses a composed wide layout", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "desktop summary is checked at desktop widths");
+  await openDoor(page, /Check a photo/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const width = await page.locator(".drawer-file").evaluate((e) => e.getBoundingClientRect().width);
+  expect(width).toBeGreaterThanOrEqual(1000);
+});
+
+test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the compact tree is specific to touch screens");
+  await openDoor(page, /Check a photo/);
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  const treeHeight = await page.locator(".pane-tree").evaluate((e) => e.getBoundingClientRect().height);
+  expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
+});
+
+test("the selected byte explanation is labeled apart from the file summary", async ({ page }) => {
+  await openDoor(page, /Check a photo/);
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator(".row").first().click();
+  await expect(page.locator(".drawer-node .node-label")).toHaveText("Selected part");
+});
+
+test("the pinned byte label remains readable", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the pinned label is checked in the desktop details pane");
+  await openDoor(page, /Check a photo/);
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await expect(page.locator(".drawer-node .pin")).toBeVisible();
+  const pinSize = await page.locator(".drawer-node .pin").evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  expect(pinSize).toBeGreaterThanOrEqual(12);
+});
+
 test("the landing page has two clear actions, three everyday doors, and a remembered Ukrainian choice", async ({ page }) => {
   await home(page);
   await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
@@ -72,6 +231,7 @@ test("the landing page has two clear actions, three everyday doors, and a rememb
 
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+  await expect(page.locator(".formats-disclosure > summary")).toHaveText("Підтримувані формати");
   await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас, перш ніж надіслати його");
   await page.getByRole("button", { name: "Switch language to English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");

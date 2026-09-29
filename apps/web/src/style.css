@@ -3,6 +3,21 @@
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
+  /* A small type and spacing scale for the parts people read first. */
+  --type-caption: 12px;
+  --type-small: 14px;
+  --type-body: 15px;
+  --type-reading: clamp(16px, 1.2vw, 18px);
+  --type-card-title: 17px;
+  --type-display: clamp(32px, 3.1vw, 44px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
   --bg: #f6f6f4;
   --panel: #ffffff;
   --panel-2: #fafaf8;
@@ -135,7 +150,7 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 var(--font);
+  font: var(--type-body)/1.5 var(--font);
   display: grid;
   grid-template-rows: 52px 1fr;
   overflow: hidden;
@@ -440,7 +455,7 @@ input {
 /* Rows are absolutely placed by the virtualised list; see tree.ts. */
 .tree {
   position: relative;
-  font: 12.5px/1 var(--mono);
+  font: 13px/1.1 var(--mono);
 }
 
 .row {
@@ -524,7 +539,7 @@ input {
 
 .drawer-node,
 .drawer-file {
-  padding: 16px 20px;
+  padding: var(--space-4) clamp(20px, 2vw, 32px);
   overflow: auto;
 }
 
@@ -534,12 +549,12 @@ input {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   align-content: start;
-  gap: 16px 28px;
+  gap: var(--space-4) var(--space-5);
 }
 
 .drawer-file h2 {
   margin: 0 0 8px;
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -576,7 +591,7 @@ input {
   margin-left: 6px;
   padding: 1px 7px;
   border-radius: 999px;
-  font: 600 10.5px var(--font);
+  font: 600 var(--type-caption) var(--font);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--accent);
@@ -603,6 +618,15 @@ input {
 .problem.is-hidden {
   color: color-mix(in srgb, var(--tint-plte) 85%, var(--text));
   background: color-mix(in srgb, var(--tint-plte) 12%, transparent);
+}
+
+.node-label {
+  margin: 0 0 var(--space-2);
+  color: var(--faint);
+  font-size: var(--type-caption);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* What a node is, in plain words: read before the technical facts. */
@@ -699,6 +723,8 @@ input {
 
 .demo {
   display: grid;
+  grid-template-columns: clamp(128px, 10vw, 148px) minmax(0, 1fr);
+  align-items: start;
   gap: 12px;
   margin: 0;
   padding: 14px;
@@ -777,14 +803,14 @@ input {
 /* Room for the tallest scene, the photo's facts, from the start. */
 .demo-side {
   min-width: 0;
-  min-height: 180px;
+  min-height: 250px;
 }
 
 .demo-kicker {
   margin: 0 0 6px;
   color: var(--accent);
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--type-caption);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1182,7 +1208,7 @@ a.btn {
 
 .verdict-label {
   margin: 0 0 4px;
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1196,7 +1222,7 @@ a.btn {
   align-items: center;
   gap: 10px;
   margin: 0 0 12px;
-  font-size: 22px;
+  font-size: clamp(22px, 1.7vw, 24px);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.01em;
@@ -1374,33 +1400,35 @@ body[data-state="empty"] .layout {
 }
 
 .empty-card {
-  max-width: 1000px;
-  padding: 44px 24px 36px;
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  padding: clamp(36px, 3.5vw, 48px) clamp(24px, 4vw, 40px) 48px;
 }
 
 /* The opening: what it does and the way in on the left, it doing it on the right. */
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 52px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: clamp(24px, 2.5vw, 36px);
   /* Top, not centred: the demonstration grows as it plays, and the words
      beside it should not move. */
   align-items: start;
-  margin-bottom: 44px;
+  margin-bottom: 0;
 }
 
 .hero h1 {
-  margin: 0 0 14px;
-  font-size: 36px;
-  line-height: 1.12;
-  letter-spacing: -0.025em;
+  max-width: 18ch;
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-display);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .empty-card .lede {
   max-width: 540px;
-  margin: 0 0 24px;
-  font-size: 16.5px;
-  line-height: 1.55;
+  margin: 0 0 var(--space-5);
+  font-size: var(--type-reading);
+  line-height: 1.5;
   color: var(--muted);
 }
 
@@ -1414,7 +1442,7 @@ body[data-state="empty"] .layout {
 .hero-other-ways {
   position: relative;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--type-small);
 }
 
 .hero-other-ways > summary,
@@ -1447,8 +1475,9 @@ body[data-state="empty"] .layout {
 }
 
 .btn-big {
-  padding: 11px 22px;
-  font-size: 15px;
+  min-height: 44px;
+  padding: 10px 20px;
+  font-size: var(--type-small);
 }
 
 .load-error {
@@ -1464,13 +1493,21 @@ body[data-state="empty"] .layout {
   display: none;
 }
 
+.landing-proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  align-items: start;
+  gap: var(--space-4) var(--space-6);
+  margin: var(--space-6) 0 0;
+}
+
 .empty-card .promise {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: flex-start;
-  max-width: 520px;
-  margin: 22px 0 18px;
-  font-size: 13.5px;
+  max-width: 700px;
+  margin: 0;
+  font-size: var(--type-small);
   line-height: 1.5;
   color: var(--muted);
 }
@@ -1488,16 +1525,24 @@ body[data-state="empty"] .layout {
 }
 
 .formats {
-  max-width: 520px;
-  margin: 0;
+  max-width: 700px;
+  margin: var(--space-2) 0 0;
   color: var(--faint);
-  font-size: 12.5px;
+  font-size: var(--type-small);
   line-height: 1.5;
 }
 
+.formats-disclosure > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--type-small);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .doors-title {
-  margin: 30px 0 4px;
-  font-size: 13px;
+  margin: var(--space-6) 0 var(--space-2);
+  font-size: var(--type-caption);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1506,7 +1551,7 @@ body[data-state="empty"] .layout {
 }
 
 .doors-title + .doors {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .doors-lede {
@@ -1548,15 +1593,16 @@ body[data-state="empty"] .layout {
 
 .doors-main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .door {
   display: grid;
   align-content: start;
-  gap: 6px;
-  padding: 16px;
+  gap: var(--space-2);
+  padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--panel);
   color: var(--text);
   font: inherit;
@@ -1586,26 +1632,26 @@ body[data-state="empty"] .layout {
 
 .door-title {
   font-weight: 650;
-  font-size: 15px;
+  font-size: var(--type-card-title);
 }
 
 .door-text {
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--type-small);
+  line-height: 1.5;
 }
 
 .door-go {
   margin-top: 4px;
   color: var(--accent);
-  font-size: 13px;
+  font-size: var(--type-small);
   font-weight: 600;
 }
 
 /* The everyday doors: the reason most people came, so the largest. */
 .doors-main .door {
-  gap: 8px;
-  padding: 20px;
+  gap: var(--space-2);
+  padding: 22px;
 }
 
 .doors-main .door-icon {
@@ -1618,11 +1664,13 @@ body[data-state="empty"] .layout {
 }
 
 .doors-main .door-title {
-  font-size: 16.5px;
+  font-size: var(--type-card-title);
+  min-height: 3em;
 }
 
 .doors-main .door-text {
-  font-size: 13.5px;
+  font-size: var(--type-small);
+  min-height: 4.5em;
 }
 
 /* For the curious: rows, lighter, below the everyday ones. */
@@ -3016,7 +3064,7 @@ body:has(.reveals) .layout {
      between them need room for a row and its text. */
   .layout,
   body:has(.reveals) .layout {
-    grid-template-columns: clamp(200px, 20vw, 260px) minmax(0, 1fr) clamp(320px, 30vw, 420px);
+    grid-template-columns: clamp(220px, 18vw, 280px) minmax(0, 1fr) clamp(340px, 26vw, 460px);
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -3046,11 +3094,11 @@ body:has(.reveals) .layout {
   }
 
   body.is-playing .layout {
-    grid-template-columns: clamp(200px, 20vw, 260px) minmax(0, 1fr);
+    grid-template-columns: clamp(220px, 18vw, 280px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) 400px;
   }
 
-  /* The summary alone: one readable column, the tree and bytes a click away. */
+  /* The summary alone: a readable measure, with a desktop two-column layout below. */
   body[data-view="summary"]:not(.is-playing) .pane-tree,
   body[data-view="summary"]:not(.is-playing) .pane-hex,
   body[data-view="summary"]:not(.is-playing) .drawer-node {
@@ -3068,8 +3116,9 @@ body:has(.reveals) .layout {
 
   body[data-view="summary"]:not(.is-playing) .drawer-file {
     width: 100%;
-    max-width: 760px;
+    max-width: 980px;
     margin: 0 auto;
+    gap: var(--space-5);
   }
 
   body.is-playing .pane-drawer {
@@ -3078,6 +3127,37 @@ body:has(.reveals) .layout {
     border-left: 0;
     border-top: 1px solid var(--border);
     display: grid;
+  }
+}
+
+/* On a full desktop, the answer and its evidence read together in two columns. */
+@media (min-width: 1100px) {
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    width: min(100%, 1360px);
+    max-width: 1360px;
+    grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+    align-content: start;
+    gap: var(--space-6) clamp(32px, 4vw, 64px);
+    padding: clamp(28px, 3vw, 48px) clamp(28px, 4vw, 64px);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .verdict {
+    grid-column: 1;
+    align-self: start;
+    margin: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .reveals {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    padding-left: clamp(24px, 3vw, 40px);
+    border-left: 1px solid var(--border);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .redactor,
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .more-details {
+    grid-column: 1 / -1;
   }
 }
 
@@ -3114,12 +3194,37 @@ body[data-state="ready"] .viewswitch {
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-    margin-bottom: 32px;
+    gap: var(--space-5);
+    margin-bottom: 0;
+  }
+
+  .empty-card {
+    width: 100%;
+    max-width: none;
+    padding: 28px 20px 44px;
   }
 
   .hero h1 {
-    font-size: 28px;
+    max-width: 20ch;
+    font-size: clamp(30px, 4.2vw, 34px);
+  }
+
+  .landing-proof {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+
+  .doors-title {
+    margin-top: var(--space-5);
+  }
+
+  .doors-main {
+    gap: var(--space-3);
+  }
+
+  .doors-main .door {
+    padding: 18px;
   }
 
   /* A compact card beside its words, so the ways in stay near the top. */
@@ -3134,7 +3239,7 @@ body[data-state="ready"] .viewswitch {
   }
 
   .demo-kicker {
-    font-size: 11px;
+    font-size: var(--type-caption);
   }
 
   .demo-bytes {
@@ -3246,7 +3351,7 @@ body[data-state="ready"] .viewswitch {
   body.is-playing .layout,
   body:has(.reveals) .layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 22vh minmax(0, 1fr) auto;
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) auto;
   }
 
   .pane-tree {
@@ -3340,11 +3445,11 @@ body[data-state="ready"] .viewswitch {
   .demo-fact {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    font-size: 11.5px;
+    font-size: 12px;
   }
 
   .demo-fact dd {
-    font-size: 11.5px;
+    font-size: 12px;
   }
 }
 
