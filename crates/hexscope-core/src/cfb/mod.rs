@@ -7,6 +7,7 @@
 pub(crate) mod docs;
 mod msg;
 mod props;
+mod rtf;
 #[cfg(test)]
 mod tests;
 

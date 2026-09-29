@@ -89,6 +89,13 @@ fn stream(ctx: &Ctx, num: u32) -> Option<&ObjRec> {
 
 /// Calls `f` with each picture drawn by `placed` through `resources`, and
 /// the matrix that places it — following forms into their own pictures.
+/// What `visit` meets through a page's XObjects.
+pub(super) enum Seen<'a> {
+    Picture(&'a ObjRec),
+    /// The dark boxes a form fills, in the form's own space.
+    Boxes(&'a [Area]),
+}
+
 pub(super) fn visit(
     data: &[u8],
     ctx: &Ctx,
@@ -96,7 +103,7 @@ pub(super) fn visit(
     placed: &[(String, [f64; 6])],
     budget: &mut u64,
     depth: u32,
-    f: &mut dyn FnMut(&ObjRec, &[f64; 6]),
+    f: &mut dyn FnMut(Seen<'_>, &[f64; 6]),
 ) {
     let xobjects = resources
         .and_then(|r| deref(data, ctx, r, budget))
@@ -110,7 +117,7 @@ pub(super) fn visit(
             continue;
         };
         match rec.value.get("Subtype").and_then(Obj::name) {
-            Some("Image") => f(rec, m),
+            Some("Image") => f(Seen::Picture(rec), m),
             // A form is as large as its box, not the unit square: its own
             // pictures are each looked at.
             Some("Form") if depth < MAX_DEPTH => {
@@ -126,6 +133,7 @@ pub(super) fn visit(
                     _ => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
                 };
                 let inner = walk(&content, &Vec::new(), Area([0.0, 0.0, 0.0, 0.0]), &[]);
+                f(Seen::Boxes(&inner.dark), &then(&matrix, m));
                 let placed: Vec<(String, [f64; 6])> = inner
                     .placed
                     .into_iter()
@@ -158,7 +166,8 @@ pub(super) fn cuts(
     budget: &mut u64,
     out: &mut Vec<Cut>,
 ) {
-    visit(data, ctx, resources, placed, budget, 0, &mut |rec, m| {
+    visit(data, ctx, resources, placed, budget, 0, &mut |seen, m| {
+        let Seen::Picture(rec) = seen else { return };
         let masks: Vec<u32> = ["SMask", "Mask"]
             .iter()
             .filter_map(|k| match rec.value.get(k) {

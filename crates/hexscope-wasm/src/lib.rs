@@ -1279,6 +1279,48 @@ pub fn page_pictures(bytes: &[u8], page: u32) -> PagePictures {
     }
 }
 
+/// The dark boxes pages fill, where there are enough to be a QR code drawn
+/// in boxes: see `hexscope_core::pdf::shapes`.
+#[cfg(feature = "documents")]
+#[wasm_bindgen]
+pub struct PdfShapes {
+    pages: Vec<(u32, [f64; 4], Vec<[f64; 4]>)>,
+}
+
+#[cfg(feature = "documents")]
+#[wasm_bindgen]
+impl PdfShapes {
+    #[wasm_bindgen(getter)]
+    pub fn count(&self) -> usize {
+        self.pages.len()
+    }
+
+    /// The page, counted from 1.
+    pub fn page(&self, i: usize) -> u32 {
+        self.pages.get(i).map_or(0, |p| p.0)
+    }
+
+    /// Its media box: left, bottom, right, top.
+    pub fn media(&self, i: usize) -> Vec<f64> {
+        self.pages.get(i).map_or(Vec::new(), |p| p.1.to_vec())
+    }
+
+    /// Its dark boxes, four numbers each: left, bottom, right, top.
+    pub fn boxes(&self, i: usize) -> Vec<f64> {
+        self.pages
+            .get(i)
+            .map_or(Vec::new(), |p| p.2.iter().flatten().copied().collect())
+    }
+}
+
+#[cfg(feature = "documents")]
+#[wasm_bindgen(js_name = pdfShapes)]
+pub fn pdf_shapes(bytes: &[u8], pages: u32) -> PdfShapes {
+    PdfShapes {
+        pages: hexscope_core::pdf::shapes(bytes, pages),
+    }
+}
+
 /// Every picture the first `pages` pages draw, each once: see
 /// `hexscope_core::pdf::pictures`.
 #[cfg(feature = "documents")]

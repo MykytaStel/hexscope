@@ -160,6 +160,13 @@ pub fn pictures(data: &[u8], pages: u32) -> Vec<(u32, PagePicture)> {
     out
 }
 
+/// The dark boxes the first `pages` pages fill, with each page's number and
+/// media box: to look for a QR code drawn in boxes rather than as a picture.
+pub fn shapes(data: &[u8], pages: u32) -> Vec<(u32, [f64; 4], Vec<[f64; 4]>)> {
+    let (_, ctx) = parse_with(data);
+    redact::shapes_by_page(data, &ctx, pages)
+}
+
 /// A picture object as a page draws it: a JPEG's place in the file, or
 /// its pixels.
 fn picture(data: &[u8], ctx: &Ctx, num: u32, matrix: [f64; 6]) -> Option<PagePicture> {

@@ -23,6 +23,8 @@ const MAX_OPERANDS: usize = 32;
 const MAX_WORK: u64 = 50_000_000;
 /// Boxes kept to draw a page.
 const MAX_BOXES: usize = 200;
+/// Dark shapes kept per page: a code drawn in boxes is a few thousand.
+const MAX_SHAPES: usize = 20_000;
 /// The darkest a fill can be and still hide nothing: 0 is black, 1 white.
 const DARK: f64 = 0.25;
 /// The lightest a fill can be and still show on white paper.
@@ -62,7 +64,7 @@ pub(super) struct Area(pub [f64; 4]);
 
 impl Area {
     /// The area a rectangle covers once `m` has placed it.
-    fn of(m: &Matrix, x: f64, y: f64, w: f64, h: f64) -> Self {
+    pub(super) fn of(m: &Matrix, x: f64, y: f64, w: f64, h: f64) -> Self {
         let corners = [
             apply(m, x, y),
             apply(m, x + w, y),
@@ -178,6 +180,8 @@ pub(super) struct Walked {
     /// Dark boxes filled over part of a large picture drawn before them:
     /// a box over a scanned page, hiding what the picture still holds.
     pub over_pictures: Vec<Area>,
+    /// Every dark box filled: what a QR code drawn in boxes is made of.
+    pub dark: Vec<Area>,
 }
 
 impl Walked {
@@ -561,6 +565,9 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     }
                     if fills.len() < MAX_GLYPHS {
                         fills.push((*area, dark));
+                    }
+                    if dark && w.dark.len() < MAX_SHAPES {
+                        w.dark.push(*area);
                     }
                     if dark
                         && w.over_pictures.len() < MAX_BOXES

@@ -5,6 +5,7 @@ message — a compound file (MS-CFB, version 3) with each property a stream
 those of apps/web/public/samples/phishing.eml.
 
     python3 scripts/make-sample-msg.py crates/hexscope-core/tests/fixtures/phishing.msg
+    python3 scripts/make-sample-msg.py crates/hexscope-core/tests/fixtures/phishing-rtf.msg --rtf
 """
 
 import struct
@@ -87,7 +88,34 @@ def build(tree):
     return entries, bytes(mini)
 
 
+def lzfu(raw):
+    """Compressed RTF (MS-OXRTFCP) of literals only, then the end marker."""
+    out = bytearray()
+    prebuf = 207
+    for i in range(0, len(raw), 8):
+        out.append(0)
+        out.extend(raw[i:i + 8])
+    end = (prebuf + len(raw)) % 4096
+    if len(raw) % 8 == 0:
+        out.append(1)
+    else:
+        out[-(len(raw) % 8) - 1] = 1 << (len(raw) % 8)
+    out.extend([end >> 4, (end & 0xF) << 4])
+    return struct.pack("<IIII", len(out) + 12, len(raw), 0x75465A4C, 0) + bytes(out)
+
+
+RTF = (
+    r"{\rtf1\ansi\ansicpg1252\fromhtml1 {\*\htmltag64 <p>}\htmlrtf {\htmlrtf0 Confirm your details.{\*\htmltag84 "
+    r'<a href="https://login.example.info/verify?id=7Q1">}\htmlrtf {\htmlrtf0 www.example-bank.com/verify{\*\htmltag92 </a>}'
+    r"\htmlrtf }\htmlrtf0 {\*\htmltag72 </p>}}"
+).encode()
+
+
 def main(out):
+    # With --rtf, the body is only RTF, as Outlook keeps most messages.
+    if "--rtf" in sys.argv:
+        TREE[:] = [t for t in TREE if t[0] not in ("__substg1.0_10130102", "__substg1.0_1000001F")]
+        TREE.append(prop("10090102", lzfu(RTF)))
     entries, mini = build(TREE)
     minifat = []
     for e in entries[1:]:
