@@ -70,11 +70,17 @@
             <div class="hero-actions">
               <button type="button" class="btn btn-primary btn-big" data-opens="picker-empty">Choose a file</button>
               <input type="file" id="picker-empty" multiple hidden />
-              <button type="button" class="link hero-folder" data-opens="picker-folder">or a whole folder</button>
-              <input type="file" id="picker-folder" webkitdirectory hidden />
-              <button type="button" class="link hero-paste" data-paste hidden>or paste a copied picture</button>
-              <span class="hero-several">— pick several at once, if you like</span>
-              <span class="hero-drop">— or drop them anywhere on this page</span>
+              <button type="button" class="btn btn-big" data-sample="samples/photo.jpg" data-name="photo.jpg">Try a sample</button>
+              <details class="hero-other-ways">
+                <summary>Other ways to open a file</summary>
+                <div class="hero-other-actions">
+                  <button type="button" class="link hero-folder" data-opens="picker-folder">Choose a whole folder</button>
+                  <input type="file" id="picker-folder" webkitdirectory hidden />
+                  <button type="button" class="link hero-paste" data-paste hidden>Paste a copied picture</button>
+                  <span class="hero-several">You can pick several files at once.</span>
+                  <span class="hero-drop">You can also drop files anywhere on this page.</span>
+                </div>
+              </details>
             </div>
             <p class="load-error" id="load-error" role="alert" hidden></p>
             <p class="promise">
@@ -102,47 +108,47 @@
           </button>
         </div>
 
-        <h2 class="doors-title">Before you trust an email</h2>
-        <div class="doors doors-main">
+        <div class="doors doors-main doors-email">
           <button class="door" data-sample="samples/phishing.eml" data-name="phishing.eml">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.2c0 4.6 3.1 8.2 7.5 9.8 4.4-1.6 7.5-5.2 7.5-9.8V6z" /><path d="M9.9 9.6a2.2 2.2 0 1 1 3.1 2c-.6.3-1 .8-1 1.4v.4" /><circle cx="12" cy="16.2" r="0.6" class="fill" /></svg>
-            <span class="door-title">Is this email real?</span>
-            <span class="door-text">Where replies really go, whether the sender's domain vouched for it, and the server it came from.</span>
-            <span class="door-go">Try a fake bank email →</span>
-          </button>
-          <button class="door" data-sample="samples/message.eml" data-name="message.eml">
-            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6.5 8.5-6.5" /></svg>
-            <span class="door-title">What an email says about its sender</span>
-            <span class="door-text">The address it was sent from, the computer's name, the time zone — in the headers of every message, yours too.</span>
-            <span class="door-go">Try a sample email →</span>
+            <span class="door-title">Check an email before you trust it</span>
+            <span class="door-text">See where replies go, whether sender checks passed, and which server sent it.</span>
+            <span class="door-go">Try a suspicious email →</span>
           </button>
         </div>
 
-        <h2 class="doors-title">Look inside</h2>
-        <p class="doors-lede">Why a file won't open, and how it is built: every byte explained, with where its format defines it.</p>
-        <div class="doors doors-compact">
-          <button class="door" data-sample="samples/broken.png" data-name="broken.png">
-            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
-            <span class="door-title">Why won't it open?</span>
-            <span class="door-text">The exact bytes that break a file, and what they should have been.</span>
-            <span class="door-go">Try a broken image →</span>
-          </button>
-          <button class="door" data-sample="samples/sample.png" data-name="sample.png" data-then="play">
-            <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M10 8.5v7l5.5-3.5z" class="fill" /></svg>
-            <span class="door-title">Watch compression work</span>
-            <span class="door-text">Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.</span>
-            <span class="door-go">Play it →</span>
-          </button>
-        </div>
-        <ul class="geek-list">
-          <li><strong>Bytes view</strong> — the structure beside the hex, every part with its spec reference</li>
-          <li><strong>Find</strong> <kbd>/</kbd> — text or hex, and the part of the file it falls in</li>
-          <li><strong>Compare</strong> — two files, or a file and its clean copy</li>
-          <li><strong>JSON</strong> — the whole structure, with its explanations</li>
-          <li><strong>Command line and CI</strong> — the same checks in <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">a CLI and a GitHub Action</a></li>
-        </ul>
+        <details class="geek-more">
+          <summary>For the curious: look inside a file</summary>
+          <div class="geek-more-content">
+            <h2 class="doors-title">Look inside</h2>
+            <p class="doors-lede">Why a file won't open, and how it is built: every byte explained, with where its format defines it.</p>
+            <div class="doors doors-compact">
+              <button class="door" data-sample="samples/broken.png" data-name="broken.png">
+                <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
+                <span class="door-title">Why won't it open?</span>
+                <span class="door-text">The exact bytes that break a file, and what they should have been.</span>
+                <span class="door-go">Try a broken image →</span>
+              </button>
+              <button class="door" data-sample="samples/sample.png" data-name="sample.png" data-then="play">
+                <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M10 8.5v7l5.5-3.5z" class="fill" /></svg>
+                <span class="door-title">Watch compression work</span>
+                <span class="door-text">Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.</span>
+                <span class="door-go">Play it →</span>
+              </button>
+            </div>
+            <ul class="geek-list">
+              <li><strong>Bytes view</strong> — the structure beside the hex, every part with its spec reference</li>
+              <li><strong>Find</strong> <kbd>/</kbd> — text or hex, and the part of the file it falls in</li>
+              <li><strong>Compare</strong> — two files, or a file and its clean copy</li>
+              <li><strong>JSON</strong> — the whole structure, with its explanations</li>
+              <li><strong>Command line and CI</strong> — the same checks in <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">a CLI and a GitHub Action</a></li>
+            </ul>
+          </div>
+        </details>
 
-        <nav class="more-links" aria-label="More">
+        <details class="landing-more">
+          <summary>Guides and more sample files</summary>
+          <nav class="more-links" aria-label="More">
           <section class="more-block">
             <h2 class="more-title">Guides</h2>
             <div class="guide-groups">
@@ -180,7 +186,8 @@
               <li><button class="chip" data-sample="samples/hello.wasm" data-name="hello.wasm"><span class="chip-kind">WASM</span>a WebAssembly module</button></li>
             </ul>
           </section>
-        </nav>
+          </nav>
+        </details>
         <footer class="footnote">
           <span>Open source · no accounts · no analytics · no uploads</span>
           <span class="footnote-links">

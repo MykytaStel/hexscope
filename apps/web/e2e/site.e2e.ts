@@ -30,7 +30,12 @@ async function home(page: Page): Promise<void> {
 /** Opens a sample from its door on the landing page. */
 async function openDoor(page: Page, door: RegExp): Promise<void> {
   await home(page);
-  await page.getByRole("button", { name: door }).click();
+  let target = page.getByRole("button", { name: door });
+  if ((await target.count()) === 0) {
+    await page.locator(".geek-more > summary").click();
+    target = page.getByRole("button", { name: door });
+  }
+  await target.click();
   await expect(page.locator(".verdict-title")).toBeVisible();
 }
 
@@ -57,6 +62,45 @@ test("the landing page holds still while its demonstration plays", async ({ page
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
 });
 
+test("the landing page has two clear actions, three everyday doors, and a remembered Ukrainian choice", async ({ page }) => {
+  await home(page);
+  await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try a sample", exact: true })).toBeVisible();
+  await expect(page.locator(".doors-main .door")).toHaveCount(3);
+  expect(await page.locator(".geek-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+  expect(await page.locator(".landing-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+  await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас, перш ніж надіслати його");
+  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("h1")).toHaveText("See what a file gives away before you send it");
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+  await page.reload();
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+  await expect(page.getByRole("button", { name: "Вибрати файл" })).toBeVisible();
+  await page.locator(".doors-main .door").first().click();
+  await expect(page.locator(".verdict-title")).toContainText("Фото розкриває");
+  await expect(page.locator(".verdict-lines .is-reveals")).toContainText("Розкриває місце зйомки");
+  await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити дані");
+  await expect(page.locator(".advice")).toContainText("Серійний номер є в кожному фото з цього фотоапарата.");
+  await expect(page.locator(".advice")).toContainText("Ім’я власника береться з налаштувань фотоапарата.");
+});
+
+test("English guides disclose their language while shared controls can be Ukrainian", async ({ page }) => {
+  await page.goto("./is-this-email-real.html");
+  await expect(page.locator(".guide-language-note")).toBeHidden();
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
+  await expect(page.locator(".guide-language-note")).toHaveText("Цей посібник поки доступний лише англійською. Елементи керування сторінкою перекладені українською.");
+  await expect(page.getByRole("link", { name: "Відкрити файл" })).toBeVisible();
+  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await expect(page.locator(".guide-language-note")).toBeHidden();
+});
+
 test("nothing scrolls sideways", async ({ page }) => {
   await page.goto("./");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
@@ -68,6 +112,12 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
   await expect(page.locator(".verdict-title")).toHaveText(/^This photo gives away \d+ things$/);
+  await expect(page.locator(".more-details > summary")).toHaveText("For the curious");
+  await expect(page.locator(".makeup")).toBeHidden();
+  await expect(page.locator(".sharer")).toBeHidden();
+  await expect(page.locator(".cleaner .btn-clean")).toBeHidden();
+  await expect(page.locator(".verdict-actions .verdict-cta")).toBeVisible();
+  await expect(page.locator(".tour")).toContainText("fact in the summary");
   // Where the keyboard starts: the answer.
   await expect(page.locator(".verdict-title")).toBeFocused();
   await expect(page.locator(".place-map svg")).toBeVisible();
@@ -81,7 +131,7 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
 });
 
 test("a fake bank email: why it may not be real, drawn on its way", async ({ page }) => {
-  await openDoor(page, /Is this email real/);
+  await openDoor(page, /Check an email before you trust it/);
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
   await expect(page.locator(".mail-route .mail-stop").first()).toContainText("security@example-bank.com");
   await expect(page.locator(".mail-off .mail-stop.is-bad")).toHaveCount(3);
@@ -117,6 +167,7 @@ test("a photo copied as a clean picture: pixels only, nothing else", async ({ pa
   test.skip(info.project.name !== "computer", "the clipboard is granted on the computer's browser");
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openDoor(page, /Check a photo/);
+  await page.locator(".other-ways > summary").click();
   await page.getByRole("button", { name: "Copy a clean picture" }).first().click();
   await expect(page.getByRole("button", { name: /Copied/ })).toBeVisible();
   const chunks = await page.evaluate(async () => {

@@ -240,6 +240,14 @@ input {
   flex: none;
 }
 
+.language-button {
+  min-width: 42px;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1140,19 +1148,6 @@ a.btn {
   filter: brightness(1.08);
 }
 
-/* The verdict already offers it: here it is the second way to the same. */
-.btn-clean.is-echo {
-  background: var(--panel);
-  border-color: var(--border);
-  color: var(--text);
-}
-
-.btn-clean.is-echo:hover {
-  background: var(--panel-2);
-  border-color: var(--faint);
-  filter: none;
-}
-
 .clean-done {
   margin: 0 0 6px;
   font-weight: 600;
@@ -1219,7 +1214,7 @@ a.btn {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent);
 }
 
-.drawer-file h2.verdict-title.is-danger { --tone: var(--tint-gps); }
+.drawer-file h2.verdict-title.is-danger { --tone: var(--tint-error); }
 .drawer-file h2.verdict-title.is-warning { --tone: var(--tint-warning); }
 .drawer-file h2.verdict-title.is-ok { --tone: var(--tint-sig); }
 .drawer-file h2.verdict-title.is-neutral { --tone: var(--tint-iend); }
@@ -1282,9 +1277,9 @@ a.btn {
   transform: translateY(-1px);
 }
 
-.verdict-line.is-damage { --tone: var(--tint-error); }
-.verdict-line.is-hidden { --tone: var(--tint-plte); }
-.verdict-line.is-reveals { --tone: var(--tint-gps); }
+.verdict-line.is-damage,
+.verdict-line.is-hidden { --tone: var(--tint-error); }
+.verdict-line.is-reveals,
 .verdict-line.is-oddity,
 .verdict-line.is-misnamed { --tone: var(--tint-warning); }
 .verdict-line.is-healthy { --tone: var(--tint-sig); }
@@ -1416,6 +1411,29 @@ body[data-state="empty"] .layout {
   gap: 10px 16px;
 }
 
+.hero-other-ways {
+  position: relative;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hero-other-ways > summary,
+.geek-more > summary,
+.landing-more > summary {
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hero-other-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 8px;
+}
+
 .hero-drop {
   color: var(--faint);
   font-size: 13.5px;
@@ -1528,6 +1546,10 @@ body[data-state="empty"] .layout {
   text-align: left;
 }
 
+.doors-main {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .door {
   display: grid;
   align-content: start;
@@ -1630,6 +1652,23 @@ body[data-state="empty"] .layout {
 
 .doors-compact .door-go {
   margin-top: 2px;
+}
+
+.geek-more,
+.landing-more {
+  margin-top: 22px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.geek-more-content {
+  padding-top: 8px;
+}
+
+.landing-more .more-links {
+  margin-top: 16px;
 }
 
 /* Guides and more samples, under a line: what to read, what else to try. */
@@ -1852,7 +1891,7 @@ body[data-state="batch"] .layout {
 }
 
 .batch-title.is-danger,
-.batch-answer.is-danger { --tone: var(--tint-gps); }
+.batch-answer.is-danger { --tone: var(--tint-error); }
 .batch-title.is-warning,
 .batch-answer.is-warning { --tone: var(--tint-warning); }
 .batch-title.is-ok,
@@ -1992,8 +2031,8 @@ body[data-state="batch"] .layout {
 }
 
 .tag.is-damage { --tone: var(--tint-error); }
-.tag.is-hidden { --tone: var(--tint-plte); }
-.tag.is-reveals { --tone: var(--tint-gps); }
+.tag.is-hidden { --tone: var(--tint-error); }
+.tag.is-reveals { --tone: var(--tint-warning); }
 .tag.is-oddity { --tone: var(--tint-warning); }
 .tag.is-healthy { --tone: var(--tint-sig); }
 
@@ -3543,9 +3582,9 @@ body[data-state="ready"] .viewswitch {
   font-size: 13px;
 }
 
-/* On a phone: how the file is made, folded under one line. */
+/* Technical detail stays in one disclosure after the file's answer. */
 .more-details {
-  margin: 4px 0 12px;
+  margin: 12px 0;
   border-top: 1px solid var(--border);
 }
 
@@ -3554,6 +3593,20 @@ body[data-state="ready"] .viewswitch {
   cursor: pointer;
   font-weight: 600;
   color: var(--muted);
+}
+
+.other-ways {
+  font-size: 13px;
+}
+
+.other-ways > summary {
+  padding: 8px 0;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.other-ways .btn {
+  margin: 4px 0 8px;
 }
 
 /* The one thing to do, at the bottom of a phone's screen. */
@@ -4170,4 +4223,16 @@ body[data-state="ready"] .viewswitch {
   .demo-side {
     min-height: 320px;
   }
+}
+
+/* The summary names the file in a word; the bytes give every detail, and
+   the count of findings to step through. */
+.fileinfo .meta-full,
+body[data-view="bytes"] .fileinfo .meta-plain,
+body[data-view="summary"] .problems {
+  display: none;
+}
+
+body[data-view="bytes"] .fileinfo .meta-full {
+  display: inline;
 }

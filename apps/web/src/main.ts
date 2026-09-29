@@ -21,11 +21,15 @@ import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
-import { MAX_FILE, cleanName, kindOf, phoneCanShare, repairedName, saveAs, tooLarge } from "./files";
+import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, tooLarge } from "./files";
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { cleanCopies } from "./batchclean";
+import { installLocale, languageButton } from "./i18n";
+
+installLocale();
+document.querySelector(".topbar .actions")?.prepend(languageButton());
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
@@ -412,9 +416,16 @@ function showFileInfo(m: FileModel): void {
     name.append(crumb, sep);
   });
   name.append(m.name);
+  // The summary says what the file is in a word; the bytes, every detail.
   const meta = document.createElement("span");
   meta.className = "meta";
-  meta.textContent = chips.join("  ·  ");
+  const plain = document.createElement("span");
+  plain.className = "meta-plain";
+  plain.textContent = `${kindWord(m)}  ·  ${formatBytes(m.bytes.length)}`;
+  const full = document.createElement("span");
+  full.className = "meta-full";
+  full.textContent = chips.join("  ·  ");
+  meta.append(plain, full);
   info.replaceChildren(name, meta);
 
   // A location is not damage, so it gets its own badge rather than joining

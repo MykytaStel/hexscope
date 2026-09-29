@@ -7,3 +7,10 @@ try {
 } catch (e) {
   // No storage: the system's theme.
 }
+try {
+  var savedLanguage = localStorage.getItem("hexscope.language");
+  var ukrainian = savedLanguage === "uk" || (savedLanguage !== "en" && navigator.languages.some((language) => language.toLowerCase().startsWith("uk")));
+  document.documentElement.lang = ukrainian ? "uk" : "en";
+} catch (e) {
+  // English remains the default when storage or browser language is unavailable.
+}
