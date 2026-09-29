@@ -1,3 +1,5 @@
+import { Missing } from "./missing";
+
 /** Node kinds, matching the codes `hexscope-wasm` emits. */
 export const Kind = { Container: 0, Field: 1, Warning: 2, Error: 3 } as const;
 export type Kind = (typeof Kind)[keyof typeof Kind];
@@ -34,6 +36,8 @@ export interface ParsedFile {
   /** Bits per byte, 0 to 8, for consecutive windows of `entropyWindow` bytes. */
   entropy: Float32Array;
   entropyWindow: number;
+  /** A large movie's media, not read with the rest: `[start, len, …]`. */
+  missing: Float64Array;
   format: "png" | "jpeg" | "heif" | "webp" | "gif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
@@ -249,11 +253,17 @@ export class FileModel {
   /** Entry index by entry node, for finding the entry a node sits in. */
   private readonly entryByNode = new Map<number, number>();
 
+  /** A large movie's media, read when looked at; null when every byte is here. */
+  readonly missing: Missing | null;
+
   constructor(
     readonly file: ParsedFile,
     readonly bytes: Uint8Array,
     readonly name: string,
+    /** The file itself, when this is one; not an entry opened inside another. */
+    readonly source: Blob | null = null,
   ) {
+    this.missing = file.missing.length > 0 ? new Missing(file.missing) : null;
     const { parents, kinds, starts, lens } = file;
     const n = parents.length;
     this.count = n;

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="hexscope reads your files in your browser and sends them nowhere. What happens to a file you open, and three ways to check it yourself." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Your files stay on your device — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/your-files-stay-private" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.pages.dev/your-files-stay-private" />
+    <meta property="og:title" content="Your files stay on your device" />
+    <meta property="og:description" content="What happens to a file you open in hexscope, and how to check for yourself that it goes nowhere." />
+    <meta property="og:image" content="https://hexscope.pages.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Privacy</p>
+        <h1>Your files stay on your device</h1>
+        <p class="story-lede">
+          A tool that finds what your files give away should not be one more place they go. hexscope reads a file in your browser, makes its clean copy there, and sends it nowhere. You do not have to take that on trust: here is how to check.
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What happens to a file you open</h2>
+          <ul>
+            <li>Your browser reads it into this tab. The parser, compiled from hexscope's Rust code to WebAssembly, takes it apart in a background thread of the same tab.</li>
+            <li>The clean copy is made there too, and your browser saves it or hands it to the share sheet, as it would any download.</li>
+            <li>When you close the tab, it is gone. Nothing of it is kept: the list of files opened lives in the tab's memory only.</li>
+          </ul>
+          <p>There are no accounts, no cookies, no analytics and no ads. The site is a set of static files; like any website, its host sees that a browser asked for the page, and never what is opened with it.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Check it yourself</h2>
+          <ul>
+            <li><strong>Watch the network.</strong> Open your browser's developer tools (F12, or ⌥⌘I on a Mac), choose <em>Network</em>, then open a file. Nothing is sent: the only requests are for hexscope's own parts, the first time they are needed.</li>
+            <li><strong>Go offline.</strong> After one visit, turn off Wi-Fi and open a file. It works, clean copy and all — which it could not if the file went anywhere.</li>
+            <li><strong>Read the page's own rules.</strong> Every page is served with a Content-Security-Policy that lets it talk to its own site only (<code>connect-src 'self'</code>) and submit no forms (<code>form-action 'none'</code>). Your browser enforces it: even a mistake in hexscope could not send a file to another site.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Or do without the website</h2>
+          <p>hexscope is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>: you can read the code that reads your file, build the site yourself, or use the command-line tool, which does the same on your own computer and a whole folder at a time.</p>
+          <p class="guide-note">hexscope finds what it knows how to read: where a photo was taken, who wrote a document, the text under a PDF's black boxes. It is not a virus scanner, and a clean copy removes what hexscope can name — it says what it could not remove.</p>
+        </section>
+
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file</a>
+          <span>Nothing leaves your browser.</span>
+        </p>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="black-out-a-pdf.html">How to black out a PDF properly</a></li>
+            <li><a href="is-this-email-real.html">Is this email real?</a></li>
+          </ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

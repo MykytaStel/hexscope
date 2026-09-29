@@ -74,7 +74,12 @@ fn photo(facts: &PhotoFacts, out: &mut Vec<(&'static str, String)>) {
 }
 
 pub fn summarize(data: &[u8]) -> Summary {
-    let doc = parse(data);
+    summary_of(&parse(data))
+}
+
+/// The summary of a document already read, such as a movie given without
+/// its media.
+pub fn summary_of(doc: &Document) -> Summary {
     let tree = doc.tree();
     let problems = tree
         .nodes()
@@ -94,7 +99,7 @@ pub fn summarize(data: &[u8]) -> Summary {
         })
         .collect();
     let mut facts = Vec::new();
-    let format = match &doc {
+    let format = match doc {
         Document::Png(d) => {
             photo(&d.facts, &mut facts);
             "png"

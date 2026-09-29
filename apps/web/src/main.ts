@@ -1,5 +1,5 @@
 import "./style.css";
-import { Drawer, type CleanResult, type RepairResult } from "./drawer";
+import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
 import { Minimap } from "./minimap";
@@ -12,6 +12,7 @@ import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
 import { verdict } from "./verdict";
+import { headline } from "./headline";
 import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
 import { openShortcuts } from "./shortcuts";
@@ -20,7 +21,8 @@ import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
-import { MAX_FILE, cleanName, kindOf, phoneCanShare, redactedName, repairedName, saveAs, tooLarge } from "./files";
+import { MAX_FILE, cleanName, kindOf, phoneCanShare, repairedName, saveAs, tooLarge } from "./files";
+import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { cleanCopies } from "./batchclean";
@@ -56,6 +58,7 @@ document.addEventListener("click", (e) => {
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
 
 let model: FileModel | null = null;
 /** The documents above the one on screen: the file, then each entry opened. */
@@ -74,16 +77,22 @@ const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
 const locationBtn = $<HTMLButtonElement>("location");
 
-const hex = new HexView($("hex"), {
+const hex = new HexView($("hex-body"), {
   onHover: (id, offset) => {
     setHover(id);
     status.textContent = offset >= 0 && model ? describeOffset(offset) : "";
     picture.fromByte(offset);
-    status.hidden = !status.textContent;
   },
   onSelect: select,
+  onNeed: (start, end) => {
+    const m = model;
+    if (!m?.missing || !m.source) return;
+    void m.missing.fill(m.bytes, m.source, start, end).then((read) => {
+      if (read && m === model) hex.redraw();
+    });
+  },
 });
-const minimap = new Minimap($("hex"), { onJump: (offset) => hex.scrollToOffset(offset) });
+const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: (id) => point(id) });
 const picture = new PictureView({
@@ -165,11 +174,8 @@ const drawer = new Drawer(
   (entry) => void openEntry(entry),
   setHover,
   {
-    clean: cleanCopy,
-    open: (bytes) => {
-      const name = model ? cleanName(model) : "file-clean";
-      void load(new File([bytes as BlobPart], name));
-    },
+    clean: (notes) => (model ? cleanCopy(model, notes) : noFile()),
+    open: (copy) => void load(new File([copy], model ? cleanName(model) : "file-clean")),
     save: saveAs,
     openInside: (bytes, name) => void openInside(bytes, name),
     pages: async () => {
@@ -180,8 +186,8 @@ const drawer = new Drawer(
       const r = await call({ type: "pagePictures", bytes: model ? model.bytes.slice() : new Uint8Array(0), page });
       return r.type === "pagePictures" ? r.pictures : [];
     },
-    redact: redactCopy,
-    repair: repairCopy,
+    redact: (areas) => (model ? redactCopy(model, areas) : noFile()),
+    repair: () => (model ? repairCopy(model) : Promise.resolve({ bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" })),
     compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void load(new File([bytes as BlobPart], model ? repairedName(model) : "file-repaired")),
   },
@@ -200,45 +206,6 @@ async function compareWith(other: File): Promise<void> {
   }
 }
 
-/** Repairs in the worker and hands the copy to the browser as a download. */
-async function repairCopy(): Promise<RepairResult> {
-  const m = model;
-  if (!m) return { bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" };
-  const r = await call({ type: "repair", bytes: m.bytes.slice() });
-  if (r.type !== "repaired") return { bytes: new Uint8Array(0), name: "", fixed: [], error: r.type === "error" ? r.message : "unexpected reply" };
-  if (!r.error) saveAs(repairedName(m), r.bytes);
-  return { bytes: r.bytes, name: repairedName(m), fixed: r.fixed, error: r.error };
-}
-
-/** A PDF's copy with chosen text blacked out, saved as the clean copy is. */
-async function redactCopy(areas: Float64Array): Promise<CleanResult> {
-  const m = model;
-  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
-  if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "redact", bytes: m.bytes.slice(), areas });
-  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
-  const base = redactedName(m);
-  const saved = !r.error && !phoneCanShare(base);
-  if (saved) saveAs(base, r.bytes);
-  return { bytes: r.bytes, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
-}
-
-/**
- * Makes the copy in the worker and saves it — except on a phone that can
- * share files, where the copy waits for "Share" or "Save": a download
- * there is a dialog in the way of sending it on.
- */
-async function cleanCopy(notes = false): Promise<CleanResult> {
-  const m = model;
-  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
-  if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "clean", bytes: m.bytes.slice(), notes });
-  if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
-  const name = cleanName(m);
-  const saved = !r.error && !phoneCanShare(name);
-  if (saved) saveAs(name, r.bytes);
-  return { bytes: r.bytes, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
-}
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
   onHead: (start, end, follow) => {
@@ -321,8 +288,9 @@ function selectInPlace(id: number): void {
 }
 
 // Find in the file: each match marked in the bytes, its part selected.
-const search = new SearchBar($("hex"), {
+const search = new SearchBar($("hex-find"), {
   bytes: () => model?.bytes ?? null,
+  parts: () => (model?.missing ? model.missing.read(model.bytes.length) : null),
   show: (start, end) => {
     hex.setHead(start, end);
     if (start < 0 || !model) return;
@@ -338,7 +306,7 @@ const search = new SearchBar($("hex"), {
   open.setAttribute("aria-label", "Find in the file");
   open.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>';
   open.addEventListener("click", () => search.open());
-  $("hex").append(open);
+  $("hex-find").append(open);
 }
 
 /** Selects a node another view led to, and lights up its bytes. */
@@ -471,7 +439,7 @@ function startBatch(files: File[]): void {
   closePlayer();
   model = null;
   levels = [];
-  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], reveals: [], cleanName: file.name, note: "", skip: false }));
+  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], headline: null, reveals: [], cleanName: file.name, note: "", skip: false }));
   batchView.result = "";
   showBatch();
 }
@@ -509,6 +477,7 @@ async function runBatch(): Promise<void> {
         const m = new FileModel(r.result, r.bytes, item.file.name);
         item.kind = kindOf(m);
         item.lines = verdict(m);
+        item.headline = headline(m);
         item.reveals = categories(m);
         item.cleanName = cleanName(m);
         item.state = "done";
@@ -559,7 +528,7 @@ async function load(file: File): Promise<void> {
 
   levels = [];
   remember(file);
-  show(new FileModel(response.result, response.bytes, file.name));
+  show(new FileModel(response.result, response.bytes, file.name, file));
   arrive();
   // The first file ever opened here gets a short tour, once laid out.
   setTimeout(maybeTour, 350);
@@ -575,7 +544,7 @@ function show(m: FileModel): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
-  showLegend($("hex"), m, point);
+  showLegend($("hex-legend"), m, point);
   search.reset();
   minimap.setModel(m);
   tree.setModel(m);
@@ -729,6 +698,17 @@ async function openShared(): Promise<void> {
   await load(new File([await res.blob()], name));
 }
 
+// Files opened with the installed app from the computer's own file manager.
+interface LaunchParams {
+  files: FileSystemFileHandle[];
+}
+function openLaunched(): void {
+  const queue = (window as Window & { launchQueue?: { setConsumer(f: (p: LaunchParams) => void): void } }).launchQueue;
+  queue?.setConsumer(async ({ files }) => {
+    if (files.length > 0) openFiles(await Promise.all(files.map((f) => f.getFile())));
+  });
+}
+
 // Offline after the first visit, and installable. Only in production: in
 // development the cache would serve stale modules.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
@@ -798,4 +778,5 @@ document.body.dataset.state = "empty";
 // What a link asked to open goes first; only a page still empty shows the demo.
 openLinkedSample();
 void openShared();
+openLaunched();
 setTimeout(() => void startDemo($("demo")), 0);

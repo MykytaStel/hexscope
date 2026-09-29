@@ -30,12 +30,12 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
   let nothing = 0;
   let done = 0;
   for (const item of todo) {
-    const r = await call({ type: "clean", bytes: new Uint8Array(await item.file.arrayBuffer()) });
+    const r = await call({ type: "clean", source: item.file });
     if (!current()) return;
     try {
       if (r.type === "cleaned" && !r.error) {
-        if (share) shared.push(new File([r.bytes as BlobPart], copyName(item).split("/").pop() ?? item.cleanName, { type: item.file.type }));
-        else zip.add(copyName(item), r.bytes);
+        if (share) shared.push(new File([r.copy], copyName(item).split("/").pop() ?? item.cleanName, { type: item.file.type }));
+        else await zip.add(copyName(item), r.copy);
       } else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
       else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
     } catch (e) {
@@ -68,7 +68,7 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
     saveBtn.textContent = "Save as a ZIP";
     saveBtn.addEventListener("click", async () => {
       const z = new StoredZip();
-      for (const f of shared) z.add(f.name, new Uint8Array(await f.arrayBuffer()));
+      for (const f of shared) await z.add(f.name, f);
       saveZip(z);
     });
     view.offer(`Made ${n}. ${said.join(" ")}`.trim() + " ", shareBtn, saveBtn);

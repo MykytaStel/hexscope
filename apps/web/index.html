@@ -49,7 +49,12 @@
     <main class="layout">
       <aside class="pane pane-tree" id="tree" aria-label="Structure"></aside>
       <section class="pane pane-hex" id="hex" aria-label="Bytes">
-        <div class="status" id="status" hidden></div>
+        <div class="hex-bar">
+          <div class="hex-bar-legend" id="hex-legend"></div>
+          <div class="status" id="status"></div>
+          <div class="hex-bar-find" id="hex-find"></div>
+        </div>
+        <div class="hex-body" id="hex-body"></div>
       </section>
       <section class="pane pane-drawer" id="drawer" aria-label="Details"></section>
     </main>
@@ -176,6 +181,7 @@
         <footer class="footnote">
           <span>Open source · no accounts · no analytics · no uploads</span>
           <span class="footnote-links">
+            <a href="your-files-stay-private.html">How your files stay private</a>
             <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
             <button class="link" data-shortcuts title="Or press ? anywhere">Keyboard shortcuts</button>
             <button class="link" data-tour>Take the tour</button>

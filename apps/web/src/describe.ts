@@ -31,6 +31,7 @@ export function describe(parsed: Parsed): ParsedFile {
     composition: parsed.composition,
     entropy: new Float32Array(0),
     entropyWindow: 0,
+    missing: new Float64Array(0),
     format: parsed.format as ParsedFile["format"],
     dimensions: null,
     orientation: parsed.orientation,

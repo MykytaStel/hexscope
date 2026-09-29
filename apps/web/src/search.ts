@@ -7,6 +7,8 @@ const MAX_MATCHES = 10_000;
 
 export interface SearchHooks {
   bytes(): Uint8Array | null;
+  /** The parts of the bytes there are to search, when not all of them: a large movie without its media. */
+  parts?(): [number, number][] | null;
   /** Shows one match; `-1` clears. */
   show(start: number, end: number): void;
 }
@@ -128,11 +130,16 @@ export class SearchBar {
       this.hooks.show(-1, -1);
       return;
     }
-    this.matches = findAll(bytes, q.bytes, !q.hex);
+    const parts = this.hooks.parts?.() ?? null;
+    this.matches = [];
+    for (const [a, b] of parts ?? [[0, bytes.length]]) {
+      for (const i of findAll(bytes.subarray(a, b), q.bytes, !q.hex)) this.matches.push(a + i);
+      if (this.matches.length >= MAX_MATCHES) break;
+    }
     this.length = q.bytes.length;
     this.at = -1;
     if (this.matches.length === 0) {
-      this.count.textContent = "not found";
+      this.count.textContent = parts ? "not found outside the media" : "not found";
       this.hooks.show(-1, -1);
       return;
     }

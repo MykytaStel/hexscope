@@ -15,9 +15,16 @@ const CRC_TABLE = (() => {
 
 const DOS_DATE = (0 << 9) | (1 << 5) | 1; // 1980-01-01
 
-export function crc32(bytes: Uint8Array): number {
-  let c = 0xffffffff;
+function crcStep(c: number, bytes: Uint8Array): number {
   for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return c;
+}
+
+/** The CRC of a file read a piece at a time, so a large one is never held whole. */
+async function crcOf(data: Blob): Promise<number> {
+  const reader = data.stream().getReader();
+  let c = 0xffffffff;
+  for (let r = await reader.read(); !r.done; r = await reader.read()) c = crcStep(c, r.value);
   return (c ^ 0xffffffff) >>> 0;
 }
 
@@ -34,7 +41,7 @@ export class StoredZip {
   private count = 0;
 
   /** Adds a file. A second `photo.jpg` becomes `photo (2).jpg`. Throws past what a plain ZIP can say (4 GB, 65,535 entries). */
-  add(fileName: string, bytes: Uint8Array): void {
+  async add(fileName: string, data: Blob): Promise<void> {
     if (this.count >= 0xffff) throw new Error("too many files for one ZIP");
     let unique = fileName;
     const dot = fileName.lastIndexOf(".");
@@ -43,9 +50,9 @@ export class StoredZip {
     this.seen.add(unique.toLowerCase());
 
     const name = new TextEncoder().encode(unique);
-    const crc = crc32(bytes);
-    const size = bytes.length;
+    const size = data.size;
     if (this.offset + 30 + name.length + size > 0xffffffff) throw new Error("too large for one ZIP");
+    const crc = await crcOf(data);
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, 0x04034b50, true);
     local.setUint16(4, 20, true);
@@ -58,7 +65,7 @@ export class StoredZip {
     local.setUint32(22, size, true);
     local.setUint16(26, name.length, true);
     local.setUint16(28, 0, true);
-    this.parts.push(local.buffer, name as BlobPart, new Blob([bytes as BlobPart]));
+    this.parts.push(local.buffer, name as BlobPart, data);
 
     const cd = new DataView(new ArrayBuffer(46));
     cd.setUint32(0, 0x02014b50, true);

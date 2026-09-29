@@ -9,8 +9,16 @@ hand, from the author's own accounts.
       themes, and the landing demo plays: a photo's facts, then struck out.
 - [ ] Every door works: a photo, a blacked-out PDF, a fake bank email, a
       sample email, a broken image, compression.
+- [ ] Each opens on its one-line answer with "Remove it — save a clean
+      copy" under it; a photo shows its map, an email its way to you, and a
+      clean copy ends on before and after.
 - [ ] A photo from the phone's own library: its location shows, and the
       clean copy is shared or saved without it.
+- [ ] A long video from the phone (a gigabyte or more): it opens in a
+      moment, the bytes view scrolls into its picture and sound, and the
+      clean copy saves at its full size without the place.
+- [ ] Installed on a computer, hexscope is offered in the file manager's
+      "Open with", and opens the file.
 - [ ] A real PDF blacked out by drawing boxes (Preview, Word → PDF, a scan):
       hexscope finds what is under them, and its copy no longer holds it.
 - [ ] Black out text yourself, on a text page and on a scan; the copy
@@ -20,7 +28,8 @@ hand, from the author's own accounts.
 - [ ] The guides load: /black-out-a-pdf, /is-this-email-real,
       /what-a-screenshot-gives-away, /remove-location-from-photo,
       /check-document-before-sending, /hidden-text-in-pdf,
-      /pdf-hidden-versions, /png-wont-open, /deflate.
+      /pdf-hidden-versions, /png-wont-open, /deflate,
+      /your-files-stay-private.
 - [ ] The repo README opens on what it is and links the site.
 - [ ] A few hours free after posting, to answer comments.
 

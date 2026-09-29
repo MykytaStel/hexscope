@@ -48,6 +48,12 @@ export function noun(m: FileModel): string {
   }
 }
 
+/** The answer as a row of a list says it, where the row names the file: "Gives away 4 things". */
+export function listed(h: Headline): string {
+  const t = h.text.replace(/^This \S+ (is )?/, "").replace(/ in this \S+$/, "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 export function headline(m: FileModel): Headline {
   const lines = verdict(m);
   if (m.file.format === "unknown") return { tone: "neutral", text: "Not a kind of file hexscope reads" };

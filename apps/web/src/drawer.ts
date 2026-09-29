@@ -124,6 +124,7 @@ export class Drawer {
       if (interlace) fact(grid, "Layout", "Interlaced (Adam7)");
     }
     fact(grid, "Parsed in", `${f.parseMs.toFixed(1)} ms`);
+    if (m.missing) fact(grid, "Read", `All but the picture and sound, ${formatBytes(m.missing.total)}: those are read where the bytes view shows them`);
     fileGroup.append(grid);
     const report = el("button", "link report-link", "Report a problem with this file");
     report.title = "Shows the file's layout, without its content, to paste into a bug report";
@@ -134,8 +135,10 @@ export class Drawer {
     const inside = el("button", "link report-link", "Find files inside");
     inside.title = "Looks through every byte for the start of another file: pictures, archives, documents";
     inside.addEventListener("click", () => {
-      const found = findEmbedded(m.bytes, 0, m.bytes.length, m.file.format === "zip" ? ["zip"] : []);
-      const list = found.length > 0 ? this.insideList(m, found, "Files inside") : el("p", "hint", "No other file starts anywhere in it.");
+      const parts = m.missing ? m.missing.read(m.bytes.length) : [[0, m.bytes.length]];
+      const found = parts.flatMap(([a, b]) => findEmbedded(m.bytes, a, b, m.file.format === "zip" ? ["zip"] : []));
+      const nowhere = m.missing ? "No other file starts anywhere outside the picture and sound." : "No other file starts anywhere in it.";
+      const list = found.length > 0 ? this.insideList(m, found, "Files inside") : el("p", "hint", nowhere);
       inside.replaceWith(list);
     });
     fileGroup.append(report, save, inside);
@@ -614,7 +617,7 @@ export class Drawer {
           const open = el("button", "btn", "Open the copy");
           open.addEventListener("click", () => {
             into.closest("dialog")?.close();
-            this.cleaning.open(bytes);
+            this.cleaning.open(new Blob([bytes as BlobPart]));
           });
           into.append(open);
         },
@@ -812,16 +815,16 @@ export class Drawer {
         ul.append(li);
       }
       result.append(ul);
-      const sharer = shareButton(r.name, r.bytes);
+      const sharer = shareButton(r.name, r.copy);
       if (sharer) result.append(sharer);
       if (!r.saved) {
         const again = el("button", "btn", "Save it");
-        again.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
+        again.addEventListener("click", () => this.cleaning.save(r.name, r.copy));
         result.append(again);
       }
       const open = el("button", "btn", "Open the copy");
       open.title = "Check it yourself: search it for what you blacked out";
-      open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      open.addEventListener("click", () => this.cleaning.open(r.copy));
       result.append(open);
     });
     return group;
@@ -915,18 +918,18 @@ export class Drawer {
       }
       const open = el("button", "btn", "Open the clean copy");
       open.title = "Check it yourself: the card should now be empty";
-      open.addEventListener("click", () => this.cleaning.open(r.bytes));
+      open.addEventListener("click", () => this.cleaning.open(r.copy));
       // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
-      const sharer = shareButton(r.name, r.bytes);
+      const sharer = shareButton(r.name, r.copy);
       if (sharer) actions.append(sharer);
       if (!r.saved) {
         const save = el("button", "btn", "Save it");
-        save.addEventListener("click", () => this.cleaning.save(r.name, r.bytes));
+        save.addEventListener("click", () => this.cleaning.save(r.name, r.copy));
         actions.append(save);
       }
       const diff = el("button", "btn", "Compare with the original");
       diff.title = "What the copy took out, part by part";
-      diff.addEventListener("click", () => this.cleaning.compare(new File([r.bytes as BlobPart], "the clean copy")));
+      diff.addEventListener("click", () => this.cleaning.compare(new File([r.copy], "the clean copy")));
       actions.append(open, diff);
       const copy = copyPictureButton(m);
       if (copy) actions.prepend(copy);
@@ -1002,7 +1005,8 @@ export class Drawer {
       grid.append(el("dt", undefined, "Spec"), dd);
     }
     this.node.append(grid);
-    if (len > 0 && len <= MAX_COPIED) this.node.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
+    const here = !m.missing || m.missing.wanted(start, start + len).length === 0;
+    if (len > 0 && len <= MAX_COPIED && here) this.node.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
 
     const entry = m.entryOf(id);
     if (entry >= 0) this.node.append(this.entry(m, entry));
