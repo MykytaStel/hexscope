@@ -8,6 +8,9 @@
 //! it was recorded. Each is read, and each is noted for the clean copy.
 
 pub(crate) mod docs;
+pub mod gapped;
+
+pub use gapped::{Gap, parse_video_gapped};
 
 use crate::bmff::{BoxBody, Fields, be, fourcc, walk};
 use crate::exif::{Fact, Location, PhotoFacts};
@@ -55,14 +58,18 @@ pub struct VideoDocument {
 /// boxes with a size that fits. HEIF, which also has `ftyp`, is told apart
 /// before this is asked.
 pub fn is_video(data: &[u8]) -> bool {
-    if data.get(4..8) == Some(b"ftyp") {
+    starts_a_video(data, data.len() as u64)
+}
+
+/// [`is_video`] for a file of `len` bytes, from its first bytes alone.
+pub fn starts_a_video(head: &[u8], len: u64) -> bool {
+    if head.get(4..8) == Some(b"ftyp") {
         return true;
     }
-    let (Some(size), Some(typ)) = (be(data, 0, 4), data.get(4..8)) else {
+    let (Some(size), Some(typ)) = (be(head, 0, 4), head.get(4..8)) else {
         return false;
     };
-    QUICKTIME_FIRST.iter().any(|t| t.as_slice() == typ)
-        && (size == 1 || (8..=data.len() as u64).contains(&size))
+    QUICKTIME_FIRST.iter().any(|t| t.as_slice() == typ) && (size == 1 || (8..=len).contains(&size))
 }
 
 #[derive(Default)]

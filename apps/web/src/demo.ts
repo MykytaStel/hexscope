@@ -194,9 +194,9 @@ async function photoScene(): Promise<Said | null> {
       // To the minute: the seconds and time zone only make the line longer.
       if (fact) facts.push([name, kind === "taken" ? fact.text.slice(0, 16) : fact.text]);
     }
-    const c = await call({ type: "clean", bytes: bytes.slice() });
+    const c = await call({ type: "clean", source: new Blob([bytes as BlobPart]) });
     if (c.type !== "cleaned" || c.error || !idle()) return null;
-    const again = await call({ type: "parse", file: new File([c.bytes as BlobPart], "photo.jpg") });
+    const again = await call({ type: "parse", file: new File([c.copy], "photo.jpg") });
     if (again.type !== "parsed") return null;
     const kinds = TOLD.map(([k]) => k);
     const left = again.result.facts.filter((x) => kinds.includes(x.kind)).length + (again.result.location ? 1 : 0);

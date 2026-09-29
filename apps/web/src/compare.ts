@@ -66,6 +66,22 @@ export interface Comparison {
   counts: { onlyA: number; onlyB: number; changed: number; same: number };
   /** The first offset where the bytes differ; -1 when one is the start of the other and they are the same length. */
   firstDiff: number;
+  /** Whether a large movie's media was compared by its length alone. */
+  mediaByLength: boolean;
+}
+
+/** Whether any of `[start, start + len)` is media the page has not read. */
+const unread = (m: FileModel, start: number, len: number) => m.missing !== null && m.missing.wanted(start, start + len).length > 0;
+
+/** The first offset below `n` where the bytes differ, a large movie's media aside; `n` when there is none. */
+function diffAt(a: FileModel, b: FileModel, n: number): number {
+  const media = [...(a.missing?.ranges ?? []), ...(b.missing?.ranges ?? [])].sort((x, y) => x[0] - y[0]);
+  let i = 0;
+  for (const [from, to] of [...media, [n, n]]) {
+    for (const stop = Math.min(from, n); i < stop; i++) if (a.bytes[i] !== b.bytes[i]) return i;
+    i = Math.max(i, to);
+  }
+  return n;
 }
 
 export function compare(a: FileModel, b: FileModel): Comparison {
@@ -85,6 +101,7 @@ export function compare(a: FileModel, b: FileModel): Comparison {
     changed: [],
     counts: { onlyA: 0, onlyB: 0, changed: 0, same: 0 },
     firstDiff: -1,
+    mediaByLength: a.missing !== null || b.missing !== null,
   };
   for (const [path, ia] of pa) {
     const ib = pb.get(path);
@@ -98,7 +115,8 @@ export function compare(a: FileModel, b: FileModel): Comparison {
     // A container differs by what is under it: its own bytes would count
     // every change below it again.
     const leaf = !a.hasChildren(ia) && !b.hasChildren(ib);
-    if (va !== vb || (leaf && (a.len(ia) !== b.len(ib) || digest(a, ia) !== digest(b, ib)))) {
+    const read = !unread(a, a.start(ia), a.len(ia)) && !unread(b, b.start(ib), b.len(ib));
+    if (va !== vb || (leaf && (a.len(ia) !== b.len(ib) || (read && digest(a, ia) !== digest(b, ib))))) {
       out.counts.changed++;
       if (out.changed.length < MAX_LISTED) out.changed.push({ path, a: va, b: vb });
     } else {
@@ -111,8 +129,7 @@ export function compare(a: FileModel, b: FileModel): Comparison {
     if (out.onlyB.length < MAX_LISTED) out.onlyB.push(path);
   }
   const n = Math.min(a.bytes.length, b.bytes.length);
-  let i = 0;
-  while (i < n && a.bytes[i] === b.bytes[i]) i++;
+  const i = diffAt(a, b, n);
   out.firstDiff = i === n && a.bytes.length === b.bytes.length ? -1 : i;
   return out;
 }
@@ -217,6 +234,7 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
             `The bytes first differ at offset 0x${c.firstDiff.toString(16).toUpperCase()}.`,
     ),
   );
+  if (c.mediaByLength) structure.append(el("p", "hint", "The picture and sound of a large movie are compared by their length, not byte by byte."));
   if (c.firstDiff >= 0) structure.append(firstDifference(a, b, c.firstDiff));
   const list = (title: string, items: string[], more: number) => {
     if (items.length === 0) return;

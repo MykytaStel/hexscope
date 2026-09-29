@@ -7,7 +7,7 @@
 
 #![forbid(unsafe_code)]
 
-use hexscope_core::clean::{CleanOptions, clean_with};
+use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
 use hexscope_core::docs::describe;
 use hexscope_core::exif::PhotoFacts;
 use hexscope_core::inflate::{
@@ -16,6 +16,7 @@ use hexscope_core::inflate::{
 use hexscope_core::map::{composition, entropy as window_entropy};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
+use hexscope_core::video::{Gap, parse_video_gapped};
 use hexscope_core::zip::{ExtractError, ZipEntry, extract};
 use hexscope_core::{Document, Format, parse as parse_any};
 use wasm_bindgen::prelude::*;
@@ -832,9 +833,52 @@ fn encode(step: &Step, out: &mut Vec<f64>) {
 /// as warning and error nodes, and an unsupported format still gets a tree.
 #[wasm_bindgen]
 pub fn parse(bytes: &[u8]) -> Parsed {
-    let doc = parse_any(bytes);
+    parsed(parse_any(bytes), bytes, bytes.len() as u64)
+}
+
+/// Whether a file of `len` bytes that starts with `head` is an MP4 or
+/// QuickTime movie, and so can be read by [`parse_movie`].
+#[wasm_bindgen(js_name = isMovie)]
+pub fn is_movie(head: &[u8], len: f64) -> bool {
+    !hexscope_core::heif::is_heif(head) && hexscope_core::video::starts_a_video(head, len as u64)
+}
+
+/// `[at, len]` pairs: each box whose body was left out of the bytes.
+fn gaps(pairs: &[f64]) -> Vec<Gap> {
+    pairs
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[at, len]| Gap {
+            at: at as u64,
+            len: len as u64,
+        })
+        .collect()
+}
+
+/// A movie too large to hold, given without the bodies of the boxes in
+/// `gaps`: see `hexscope_core::video::parse_video_gapped`.
+#[wasm_bindgen(js_name = parseMovie)]
+pub fn parse_movie(bytes: &[u8], gaps_at: &[f64]) -> Parsed {
+    let gaps = gaps(gaps_at);
+    let len = bytes.len() as u64 + gaps.iter().map(|g| g.len).sum::<u64>();
+    parsed(
+        Document::Video(parse_video_gapped(bytes, &gaps)),
+        bytes,
+        len,
+    )
+}
+
+/// The clean copy of a movie given as [`parse_movie`] takes it: the bytes
+/// given, changed; each left-out body goes back after its header.
+#[wasm_bindgen(js_name = cleanMovie)]
+pub fn clean_movie(bytes: &[u8], gaps_at: &[f64]) -> CleanCopy {
+    into_copy(clean_video_gapped(bytes, &gaps(gaps_at)))
+}
+
+fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
     let docs = DocTables::build(doc.tree(), doc.format());
-    let slices: Vec<f64> = composition(doc.tree(), doc.format(), bytes.len() as u64)
+    let slices: Vec<f64> = composition(doc.tree(), doc.format(), len)
         .iter()
         .flat_map(|s| {
             [

@@ -11,7 +11,8 @@ use crate::heif::HeifDocument;
 use crate::jpeg::JpegDocument;
 use crate::model::{ByteRange, NodeKind};
 use crate::png::PngDocument;
-use crate::video::{Scrub, VideoDocument};
+use crate::video::gapped::Shrunk;
+use crate::video::{Gap, Scrub, VideoDocument, parse_video};
 use crate::zip::ZipDocument;
 use crate::zip::write::{Part, assemble, header_of};
 
@@ -112,15 +113,31 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
-    // Two blocks of the same kind, such as a second EXIF segment, are one line.
-    let mut merged: Vec<Removed> = Vec::new();
-    for r in cleaned.removed.drain(..) {
-        match merged.iter_mut().find(|m| m.what == r.what) {
+    cleaned.removed = merged(cleaned.removed);
+    Ok(cleaned)
+}
+
+/// Two blocks of the same kind, such as a second EXIF segment, are one line.
+fn merged(removed: Vec<Removed>) -> Vec<Removed> {
+    let mut out: Vec<Removed> = Vec::new();
+    for r in removed {
+        match out.iter_mut().find(|m| m.what == r.what) {
             Some(m) => m.bytes += r.bytes,
-            None => merged.push(r),
+            None => out.push(r),
         }
     }
-    cleaned.removed = merged;
+    out
+}
+
+/// A clean copy of a movie given without the bodies of the boxes in `gaps`,
+/// as [`crate::video::parse_video_gapped`] reads it. The copy is of the bytes
+/// given; each body goes back after its header unchanged.
+pub fn clean_video_gapped(data: &[u8], gaps: &[Gap]) -> Result<Cleaned, CleanError> {
+    let shrunk = Shrunk::new(data, gaps).ok_or(CleanError::Damaged)?;
+    let doc = parse_video(&shrunk.bytes);
+    let mut cleaned = clean_video(&shrunk.bytes, &doc)?;
+    cleaned.bytes = shrunk.unshrink(&cleaned.bytes).ok_or(CleanError::Damaged)?;
+    cleaned.removed = merged(cleaned.removed);
     Ok(cleaned)
 }
 

@@ -12,7 +12,7 @@ import { announce } from "./announce";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
-  bytes: Uint8Array;
+  copy: Blob;
   /** What the copy is called when saved. */
   name: string;
   /** Whether it was saved already; if not, it waits for Share or Save. */
@@ -34,7 +34,7 @@ export interface CleanActions {
   /** Makes the copy and saves it; resolves with what was done. `notes` also empties a workbook's or a deck's comments and notes. */
   clean(notes?: boolean): Promise<CleanResult>;
   /** Opens the copy in hexscope, to check it. */
-  open(bytes: Uint8Array): void;
+  open(copy: Blob): void;
   /** Opens a file found inside this one. */
   openInside(bytes: Uint8Array, name: string): void;
   /** Every page's visible glyphs, for searching. */
@@ -43,8 +43,8 @@ export interface CleanActions {
   pictures(page: number): Promise<PagePicture[]>;
   /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
   redact(areas: Float64Array): Promise<CleanResult>;
-  /** Saves bytes as a download. */
-  save(name: string, bytes: Uint8Array): void;
+  /** Saves a copy as a download. */
+  save(name: string, data: Uint8Array | Blob): void;
   /** Makes a repaired copy and saves it; resolves with what was done. */
   repair(): Promise<RepairResult>;
   /** Opens the repaired copy in hexscope. */
@@ -58,8 +58,8 @@ export interface CleanActions {
  * Telegram, mail — or null where the browser cannot share such a file.
  * Its own button, because sharing must follow a tap of its own.
  */
-export function shareButton(name: string, bytes: Uint8Array): HTMLButtonElement | null {
-  const file = new File([bytes as BlobPart], name, { type: typeOf(name) });
+export function shareButton(name: string, data: Uint8Array | Blob): HTMLButtonElement | null {
+  const file = new File([data as BlobPart], name, { type: typeOf(name) });
   if (!navigator.canShare?.({ files: [file] })) return null;
   const b = el("button", "btn btn-primary", "Share the clean copy");
   b.title = "Send the copy on: to a chat, to mail, to another app";
@@ -99,7 +99,7 @@ export function beforeAfter(m: FileModel, r: CleanResult, left: number): HTMLEle
     left,
     left === 0 ? "left" : `left — part of the ${noun(m)} itself`,
     r.name,
-    r.bytes.length,
+    r.copy.size,
   );
   card.append(was, el("span", "ba-arrow", "→"), now);
   // The number counts down from what it was, unless motion is unwelcome.

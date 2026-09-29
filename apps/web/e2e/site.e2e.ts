@@ -1,6 +1,7 @@
 // What a person does on the site, in a real browser: open a sample, read
 // the answer, save a clean copy, check an email, go offline. Run on a
 // computer's screen and a phone's (playwright.config.ts).
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 // Whatever the page throws, and whatever its Content-Security-Policy blocks,
@@ -207,4 +208,53 @@ test("after one visit, it works offline — a document too", async ({ page, cont
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
   await page.goto("./black-out-a-pdf.html");
   await expect(page).toHaveTitle(/black out a PDF/i);
+});
+
+/** The sample video with its picture and sound grown to `size` bytes, written where the test keeps its files. */
+function longVideo(path: string, size: number): string {
+  const src = readFileSync(sample("video.mov"));
+  const parts: Buffer[] = [];
+  for (let at = 0; at + 8 <= src.length; ) {
+    const len = src.readUInt32BE(at);
+    if (src.toString("latin1", at + 4, at + 8) === "mdat") {
+      const box = Buffer.alloc(8 + size);
+      box.writeUInt32BE(8 + size, 0);
+      src.copy(box, 4, at + 4, at + len);
+      parts.push(box);
+    } else parts.push(src.subarray(at, at + len));
+    at += len;
+  }
+  writeFileSync(path, Buffer.concat(parts));
+  return path;
+}
+
+test("a long video: read without its picture and sound, and cleaned all the same", async ({ page }, info) => {
+  const path = longVideo(info.outputPath("long-video.mov"), 80 << 20);
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles(path);
+  await expect(page.locator(".verdict-title")).toHaveText(/^This video gives away \d+ things$/);
+  await expect(page.locator("dt", { hasText: "Read" }).locator("+ dd")).toContainText("All but the picture and sound");
+
+  const download = page.waitForEvent("download").catch(() => null);
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("0");
+  const d = info.project.name === "computer" ? await download : null;
+  if (d) {
+    expect(d.suggestedFilename()).toBe("long-video-clean.mov");
+    expect(statSync(await d.path()).size).toBe(statSync(path).size);
+  }
+});
+
+test("the bytes have a bar of their own: nothing sits on them", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the bytes are a tab of their own on a phone");
+  await openDoor(page, /Check a photo/);
+  await page.locator("#viewswitch button", { hasText: "Bytes" }).click();
+  const bytes = (await page.locator(".hex-scroller").boundingBox())!;
+  for (const part of [".hex-legend", ".search-open"]) {
+    const box = (await page.locator(part).boundingBox())!;
+    expect(box.y + box.height, part).toBeLessThanOrEqual(bytes.y);
+  }
+  await page.keyboard.press("/");
+  await page.keyboard.type("hexscope");
+  await expect(page.locator(".search-count")).toHaveText(/^1 of \d+$/);
 });

@@ -1,9 +1,10 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import type { Parsed } from "./wasm/hexscope_wasm.js";
+import type { CleanCopy, Parsed } from "./wasm/hexscope_wasm.js";
 import type { PageArea, ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
+import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -14,7 +15,7 @@ export type WorkerRequest =
   | { id: number; type: "open"; index: number }
   | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; bytes: Uint8Array; notes?: boolean }
+  | { id: number; type: "clean"; source: Blob; notes?: boolean }
   | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
@@ -26,7 +27,7 @@ export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
-  | { id: number; type: "cleaned"; bytes: Uint8Array; removed: { what: string; bytes: number }[]; orientation: number; error: string }
+  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
   | { id: number; type: "pagePictures"; pictures: PagePicture[] }
@@ -143,6 +144,7 @@ const transfers = (r: ParsedFile): Transferable[] => [
   r.composition.buffer,
   r.entropy.buffer,
   r.rowFilters.buffer,
+  r.missing.buffer,
   ...(r.preview ? [r.preview.pixels.buffer] : []),
 ];
 
@@ -154,6 +156,23 @@ function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
   result.entropy = wasm.entropy(bytes, ENTROPY_BINS);
   const bins = Math.max(1, Math.min(ENTROPY_BINS, Math.floor(bytes.length / 256)));
   result.entropyWindow = Math.ceil(bytes.length / bins);
+}
+
+/** A movie read in parts, when `file` is one large enough to need it. */
+async function largeMovie(file: Blob): Promise<Movie | null> {
+  if (file.size < LARGE_MOVIE) return null;
+  const wasm = await loadMedia();
+  return readMovie(file, (head, len) => wasm.isMovie(head, len));
+}
+
+/** Answers with a copy the parser made, as a file made by `wrap`. */
+function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob): void {
+  const parts = c.removed ? c.removed.split(SEPARATOR) : [];
+  const removed = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
+  const copy = c.error ? new Blob([]) : wrap(c.bytes);
+  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error });
+  c.free();
 }
 
 /** Nested documents opened from archives are kept for the way back. */
@@ -217,6 +236,22 @@ async function paintJpegs(pdf: Uint8Array, found: Float64Array): Promise<{ nums:
 
 async function handle(req: WorkerRequest): Promise<void> {
   if (req.type === "parse") {
+    const movie = await largeMovie(req.file);
+    if (movie) {
+      const wasm = await loadMedia();
+      const t0 = performance.now();
+      const parsed = wasm.parseMovie(movie.given, movie.gaps);
+      const result = describe(parsed);
+      result.parseMs = performance.now() - t0;
+      const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0]);
+      result.entropy = e.values;
+      result.entropyWindow = e.window;
+      result.missing = movie.missing;
+      for (const p of stack) p.free();
+      stack = [parsed];
+      post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
+      return;
+    }
     const bytes = new Uint8Array(await req.file.arrayBuffer());
     const wasm = await moduleFor(bytes);
     // Timed from the call into WASM through reading every array back out, so
@@ -236,25 +271,27 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
-    const wasm = await moduleFor(req.bytes);
+    const movie = await largeMovie(req.source);
+    if (movie) {
+      const source = req.source;
+      postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source));
+      return;
+    }
+    const bytes = new Uint8Array(await req.source.arrayBuffer());
+    const wasm = await moduleFor(bytes);
     // A PDF with a black box over a scanned JPEG: the picture is redrawn
     // with the box in it, as when blacking out by hand.
     let c = null;
-    if (isPdf(req.bytes)) {
+    if (isPdf(bytes)) {
       const none = new Float64Array(0);
-      const found = wasm.jpegsUnder(req.bytes, none);
+      const found = wasm.jpegsUnder(bytes, none);
       if (found.length > 0) {
-        const painted = await paintJpegs(req.bytes, found);
-        c = wasm.redactCopy(req.bytes, none, painted.nums, painted.lens, painted.bytes);
+        const painted = await paintJpegs(bytes, found);
+        c = wasm.redactCopy(bytes, none, painted.nums, painted.lens, painted.bytes);
       }
     }
-    c ??= wasm.cleanCopy(req.bytes, req.notes ?? false);
-    const parts = c.removed ? c.removed.split(SEPARATOR) : [];
-    const removed = [];
-    for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
-    const bytes = c.bytes;
-    post({ id: req.id, type: "cleaned", bytes, removed, orientation: c.orientationKept, error: c.error }, [bytes.buffer]);
-    c.free();
+    c ??= wasm.cleanCopy(bytes, req.notes ?? false);
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
     return;
   }
 
@@ -297,12 +334,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     const wasm = await loadFull();
     const painted = await paintJpegs(req.bytes, wasm.jpegsUnder(req.bytes, req.areas));
     const c = wasm.redactCopy(req.bytes, req.areas, painted.nums, painted.lens, painted.bytes);
-    const parts = c.removed ? c.removed.split(SEPARATOR) : [];
-    const removed = [];
-    for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
-    const bytes = c.bytes;
-    post({ id: req.id, type: "cleaned", bytes, removed, orientation: 0, error: c.error }, [bytes.buffer]);
-    c.free();
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
     return;
   }
 

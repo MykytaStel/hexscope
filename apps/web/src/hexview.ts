@@ -5,6 +5,8 @@ import { FileModel, Kind, type Tint } from "./model";
 export interface HexCallbacks {
   onHover(id: number, offset: number): void;
   onSelect(id: number): void;
+  /** Bytes in view the page does not have yet: a large movie's media. */
+  onNeed?(start: number, end: number): void;
 }
 
 const ROW_H = 22;
@@ -145,6 +147,11 @@ export class HexView {
   }
 
   /** Marks the bytes the DEFLATE player is reading; `-1` clears it. */
+  /** Draws again: bytes that were missing have arrived. */
+  redraw(): void {
+    this.schedule();
+  }
+
   setHead(start: number, end: number): void {
     if (start === this.head[0] && end === this.head[1]) return;
     this.head = [start, end];
@@ -350,6 +357,9 @@ export class HexView {
 
     const ids = new Int32Array(this.perRow);
     const levels = new Uint8Array(this.perRow);
+    const missing = m.missing;
+    let needFrom = -1;
+    let needTo = -1;
 
     for (let r = 0; r < visible; r++) {
       const row = firstRow + r;
@@ -384,6 +394,13 @@ export class HexView {
       for (let i = 0; i < count; i++) {
         const b = bytes[base + i];
         const hx = this.hexX(i);
+        if (missing && !missing.has(base + i)) {
+          if (needFrom < 0) needFrom = base + i;
+          needTo = base + i + 1;
+          ctx.fillStyle = p.zero;
+          ctx.fillText("··", hx, cy);
+          continue;
+        }
         ctx.fillStyle = b === 0 ? p.zero : p.text;
         ctx.fillText(HEX[b], hx, cy);
         const printable = b >= 0x20 && b < 0x7f;
@@ -444,6 +461,7 @@ export class HexView {
         }
       }
     }
+    if (needFrom >= 0) this.cb.onNeed?.(needFrom, needTo);
     if (this.flashing) {
       if (performance.now() - this.flashing.t0 < FLASH_MS) this.schedule();
       else this.flashing = null;

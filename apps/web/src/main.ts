@@ -81,6 +81,7 @@ const hex = new HexView($("hex-body"), {
     picture.fromByte(offset);
   },
   onSelect: select,
+  onNeed: (start, end) => void fillIn(start, end),
 });
 const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
 hex.onView = (start, end) => minimap.setView(start, end);
@@ -165,10 +166,7 @@ const drawer = new Drawer(
   setHover,
   {
     clean: cleanCopy,
-    open: (bytes) => {
-      const name = model ? cleanName(model) : "file-clean";
-      void load(new File([bytes as BlobPart], name));
-    },
+    open: (copy) => void load(new File([copy], model ? cleanName(model) : "file-clean")),
     save: saveAs,
     openInside: (bytes, name) => void openInside(bytes, name),
     pages: async () => {
@@ -199,6 +197,27 @@ async function compareWith(other: File): Promise<void> {
   }
 }
 
+let filling = false;
+
+/** Reads the part of a large movie's media that the bytes view has reached. */
+async function fillIn(start: number, end: number): Promise<void> {
+  const m = model;
+  if (!m?.missing || !m.source || filling) return;
+  const wanted = m.missing.wanted(start, end);
+  if (wanted.length === 0) return;
+  filling = true;
+  try {
+    for (const [a, b] of wanted) m.bytes.set(new Uint8Array(await m.source.slice(a, b).arrayBuffer()), a);
+    m.missing.filled(wanted);
+  } catch {
+    // The file moved or changed on disk: its bytes stay as dots.
+    return;
+  } finally {
+    filling = false;
+  }
+  if (m === model) hex.redraw();
+}
+
 /** Repairs in the worker and hands the copy to the browser as a download. */
 async function repairCopy(): Promise<RepairResult> {
   const m = model;
@@ -212,14 +231,14 @@ async function repairCopy(): Promise<RepairResult> {
 /** A PDF's copy with chosen text blacked out, saved as the clean copy is. */
 async function redactCopy(areas: Float64Array): Promise<CleanResult> {
   const m = model;
-  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
+  const none = { copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0 };
   if (!m) return { ...none, error: "no file is open" };
   const r = await call({ type: "redact", bytes: m.bytes.slice(), areas });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
   const base = redactedName(m);
   const saved = !r.error && !phoneCanShare(base);
-  if (saved) saveAs(base, r.bytes);
-  return { bytes: r.bytes, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
+  if (saved) saveAs(base, r.copy);
+  return { copy: r.copy, name: base, saved, removed: r.removed, orientation: 0, error: r.error };
 }
 
 /**
@@ -229,14 +248,14 @@ async function redactCopy(areas: Float64Array): Promise<CleanResult> {
  */
 async function cleanCopy(notes = false): Promise<CleanResult> {
   const m = model;
-  const none = { bytes: new Uint8Array(0), name: "", saved: false, removed: [], orientation: 0 };
+  const none = { copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0 };
   if (!m) return { ...none, error: "no file is open" };
-  const r = await call({ type: "clean", bytes: m.bytes.slice(), notes });
+  const r = await call({ type: "clean", source: m.source ?? new Blob([m.bytes as BlobPart]), notes });
   if (r.type !== "cleaned") return { ...none, error: r.type === "error" ? r.message : "unexpected reply" };
   const name = cleanName(m);
   const saved = !r.error && !phoneCanShare(name);
-  if (saved) saveAs(name, r.bytes);
-  return { bytes: r.bytes, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
+  if (saved) saveAs(name, r.copy);
+  return { copy: r.copy, name, saved, removed: r.removed, orientation: r.orientation, error: r.error };
 }
 const playBtn = $<HTMLButtonElement>("play");
 const player = new Player($("drawer"), {
@@ -322,6 +341,7 @@ function selectInPlace(id: number): void {
 // Find in the file: each match marked in the bytes, its part selected.
 const search = new SearchBar($("hex-find"), {
   bytes: () => model?.bytes ?? null,
+  parts: () => (model?.missing ? model.missing.read(model.bytes.length) : null),
   show: (start, end) => {
     hex.setHead(start, end);
     if (start < 0 || !model) return;
@@ -558,7 +578,7 @@ async function load(file: File): Promise<void> {
 
   levels = [];
   remember(file);
-  show(new FileModel(response.result, response.bytes, file.name));
+  show(new FileModel(response.result, response.bytes, file.name, file));
   arrive();
   // The first file ever opened here gets a short tour, once laid out.
   setTimeout(maybeTour, 350);
