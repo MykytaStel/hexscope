@@ -62,6 +62,69 @@ test("the landing page holds still while its demonstration plays", async ({ page
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
 });
 
+test("the phone demo keeps its copy readable in both languages", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+  await home(page);
+  await expect(page.locator(".demo-caption")).toBeVisible();
+
+  const check = async (language: string) => {
+    for (const width of [360, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const measurement = await page.evaluate(() => {
+        const side = document.querySelector(".demo-side")!;
+        const caption = document.querySelector(".demo-caption")!;
+        const sideBox = side.getBoundingClientRect();
+        const captionBox = caption.getBoundingClientRect();
+        return {
+          captionSize: parseFloat(getComputedStyle(caption).fontSize),
+          kickerSize: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
+          left: captionBox.left - sideBox.left,
+          right: sideBox.right - captionBox.right,
+          overflow: document.documentElement.scrollWidth - innerWidth,
+        };
+      });
+      expect(measurement.captionSize, `${language} caption at ${width}px`).toBeGreaterThanOrEqual(14);
+      expect(measurement.kickerSize, `${language} label at ${width}px`).toBeGreaterThanOrEqual(12);
+      expect(measurement.left, `${language} caption left edge at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(measurement.right, `${language} caption right edge at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(measurement.overflow, `${language} page overflow at ${width}px`).toBeLessThanOrEqual(0);
+    }
+  };
+
+  await check("English");
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page.locator(".demo-caption")).toBeVisible();
+  await check("Ukrainian");
+});
+
+test("the short demo scene reserves no disproportionate empty band", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await home(page);
+  await expect(page.locator(".demo-caption")).toBeVisible();
+
+  for (const width of [360, 390, 645, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.waitForTimeout(60);
+    const spacing = await page.locator(".demo-side").evaluate((side) => {
+      const sideBox = side.getBoundingClientRect();
+      const children = [...side.children]
+        .filter((child) => getComputedStyle(child).display !== "none" && child.getBoundingClientRect().height > 0)
+        .map((child) => child.getBoundingClientRect());
+      const contentTop = Math.min(...children.map((box) => box.top));
+      const contentBottom = Math.max(...children.map((box) => box.bottom));
+      return {
+        above: contentTop - sideBox.top,
+        below: sideBox.bottom - contentBottom,
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+    expect(spacing.above, `demo content above at ${width}px`).toBeGreaterThanOrEqual(-1);
+    expect(spacing.below, `demo content below at ${width}px`).toBeGreaterThanOrEqual(-1);
+    expect(spacing.above + spacing.below, `unused demo space at ${width}px`).toBeLessThanOrEqual(80);
+    expect(spacing.overflow, `page overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+});
+
 test("the landing page keeps its three everyday examples in one aligned grid", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "the desktop arrangement is checked at desktop widths");
   await home(page);
@@ -133,9 +196,21 @@ test("the tablet landing centers short demo scenes in their reserved height", as
 });
 
 test("the landing page keeps its type readable on a phone", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".demo-fact").first()).toBeAttached();
+  const light = await page.evaluate(() => ({
+    page: getComputedStyle(document.body).backgroundColor,
+    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
+  }));
+  expect(light).toEqual({ page: "rgb(246, 246, 244)", demo: "rgb(255, 255, 255)" });
+  await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
+  const dark = await page.evaluate(() => ({
+    page: getComputedStyle(document.body).backgroundColor,
+    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
+  }));
+  expect(dark).toEqual({ page: "rgb(15, 15, 17)", demo: "rgb(22, 22, 24)" });
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
@@ -154,6 +229,22 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
   expect(type.demoFactValue).toBeGreaterThanOrEqual(12);
   expect(type.bodyFont).toContain("system-ui");
   expect(type.codeFont).toContain("monospace");
+});
+
+test("shared routes only request their current stylesheets", async ({ page }) => {
+  const stylesheetUrls = () =>
+    page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((url) => new URL(url).pathname.endsWith(".css")),
+    );
+
+  await home(page);
+  expect(await stylesheetUrls()).toHaveLength(1);
+  await page.goto("./check-document-before-sending.html");
+  await page.waitForLoadState("networkidle");
+  expect(await stylesheetUrls()).toHaveLength(3);
 });
 
 test("supported file types are available without crowding the mobile start", async ({ page }) => {
