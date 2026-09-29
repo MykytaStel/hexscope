@@ -10,6 +10,7 @@ pub(crate) mod clean;
 pub mod crypt;
 pub(crate) mod docs;
 pub(crate) mod facts;
+mod filters;
 mod fonts;
 mod forms;
 mod lexer;

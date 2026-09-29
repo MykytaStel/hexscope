@@ -4,7 +4,6 @@
 use super::crypt::Decryptor;
 use super::lexer::{Lexer, Obj};
 use super::{Ctx, ObjRec};
-use crate::inflate::{NoTrace, inflate, zlib_decompress};
 use crate::model::{NodeId, ParseTree, Value};
 use crate::zip::DocumentFact;
 use crate::zip::office::{MAX_PHOTOS, element_text, photo_says};
@@ -261,23 +260,36 @@ pub(super) fn decode(
         _ => None,
     };
     let raw = decrypted.as_deref().unwrap_or(stored);
-    let flate = match dict.get("Filter") {
-        None => false,
-        Some(Obj::Name(n)) => n == "FlateDecode",
-        Some(Obj::Array(a)) => a.len() == 1 && a[0].obj.name() == Some("FlateDecode"),
+    let filters: Vec<&str> = match dict.get("Filter") {
+        None => Vec::new(),
+        Some(Obj::Name(n)) => vec![n.as_str()],
+        Some(Obj::Array(a)) => a.iter().map(|i| i.obj.name()).collect::<Option<_>>()?,
         Some(_) => return None,
     };
-    if !flate {
+    if filters.is_empty() {
         let fits = raw.len() as u64 <= limit;
         *budget -= if fits { raw.len() as u64 } else { limit };
         return fits.then(|| raw.to_vec());
     }
-    // Some writers get the Adler-32 wrong; the data is still good.
-    let out = zlib_decompress(raw, limit, &mut NoTrace)
-        .ok()
-        .or_else(|| inflate(raw.get(2..)?, limit, &mut NoTrace).ok());
-    *budget -= out.as_ref().map_or(limit, |o| o.len() as u64);
-    out
+    let parms: Vec<&Obj> = match dict.get("DecodeParms").or_else(|| dict.get("DP")) {
+        Some(Obj::Array(a)) => a.iter().map(|i| &i.obj).collect(),
+        Some(p) => vec![p],
+        None => Vec::new(),
+    };
+    let mut out = raw.to_vec();
+    for (i, f) in filters.iter().enumerate() {
+        if super::filters::is_picture(f) {
+            break;
+        }
+        let decoded = super::filters::undo(f, parms.get(i).copied(), &out, limit);
+        let Some(decoded) = decoded else {
+            *budget -= limit;
+            return None;
+        };
+        out = decoded;
+    }
+    *budget -= (out.len() as u64).min(limit);
+    (out.len() as u64 <= limit).then_some(out)
 }
 
 /// A dictionary with its own strings decrypted. Strings inside an object
