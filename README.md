@@ -14,7 +14,8 @@ is uploaded anywhere. The file never leaves the tab.
 
 > **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
 > HEIC and AVIF, WebP and GIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`), emails saved as `.eml` and WebAssembly are supported. Guides: [removing a photo's
+> `.epub`), Word, Excel and PowerPoint 97–2003 (`.doc`, `.xls`, `.ppt`), emails saved as `.eml`,
+> Outlook's `.msg` and WebAssembly are supported. Guides: [removing a photo's
 > location](https://hexscope.pages.dev/remove-location-from-photo), [what an
 > edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
 > [why a PNG won't open](https://hexscope.pages.dev/png-wont-open).
@@ -86,7 +87,17 @@ replies go elsewhere — the signs of a forgery. It lists where every link
 goes, names a link whose words say one site and whose address is another,
 shows an address in lookalike letters as it would read, and names an
 attachment that is a program or a web page dressed as a document. Attached
-files open as files of their own.
+files open as files of their own. A message saved from Outlook as `.msg` —
+a compound file, a property to a stream — is read from the headers it
+arrived with, its text and its files' names, and judged as the same
+message saved as `.eml` would be.
+
+**Reads old Office files.** A Word, Excel or PowerPoint 97–2003 file is a
+compound file too: its sectors, its directory and its streams are drawn,
+and its property streams say who wrote it, who saved it last, for which
+company, from which template's path, when, and for how long. The clean
+copy blanks those where they lie, and the sectors no stream uses, where
+deleted text can remain; nothing else in the file moves.
 
 **Finds files inside files.** Data after the end of a picture is searched
 for another file's start — a ZIP behind a JPEG is named in the verdict —
@@ -367,8 +378,8 @@ case, since every byte becomes its own decoding step:
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
 | A 200 MB video, parsed | 1.4 ms | — |
-| The page and the parser for pictures and movies, gzipped | ~200 KB (WebAssembly 137 KB) | — |
-| The parser for documents, loaded when one is opened | 291 KB | — |
+| The page and the parser for pictures and movies, gzipped | ~190 KB (WebAssembly 125 KB) | — |
+| The parser for documents, loaded when one is opened | 265 KB | — |
 
 The byte view draws only the rows on screen, so file size does not affect
 scrolling. A video over 64 MB is read without its picture and sound: every

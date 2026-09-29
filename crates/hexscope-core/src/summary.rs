@@ -136,6 +136,10 @@ pub fn summary_of(doc: &Document) -> Summary {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             "wasm"
         }
+        Document::Cfb(d) => {
+            facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
+            d.kind.format()
+        }
         Document::Eml(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             "eml"

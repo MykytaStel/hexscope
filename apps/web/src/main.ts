@@ -372,8 +372,10 @@ function showFileInfo(m: FileModel): void {
     // A document by what it is; an archive by what is in it.
     const kind = kindOf(m);
     chips.push(...(kind === "ZIP" ? ["ZIP", m.value(0)] : [kind]));
-  } else if (f.format === "eml") {
-    chips.push("Email");
+  } else if (f.format === "office97" || f.format === "cfb") {
+    chips.push(m.value(0).charAt(0).toUpperCase() + m.value(0).slice(1));
+  } else if (f.format === "eml" || f.format === "msg") {
+    chips.push(f.format === "msg" ? "Outlook message" : "Email");
     if (f.attachments.length > 0) chips.push(f.attachments.length === 1 ? "1 attachment" : `${f.attachments.length} attachments`);
   } else if (f.format === "wasm") {
     // "WebAssembly · 82 functions · “hello”"
@@ -574,7 +576,7 @@ async function openEntry(entry: number): Promise<void> {
   if (!parent) return;
   // A PDF's attachment by its name; an archive's entry by its node's.
   const name =
-    parent.file.format === "pdf" || parent.file.format === "eml"
+    ["pdf", "eml", "msg"].includes(parent.file.format)
       ? (parent.file.attachments[entry] ?? "attachment")
       : parent.label(parent.entry(entry).node);
   closePlayer();

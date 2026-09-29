@@ -12,13 +12,16 @@ opt-level = 3
 lto = true
 codegen-units = 1
 
-# The browser's build: optimised for size, 15% smaller gzipped (255 to
-# 217 KB), except the DEFLATE decoder, where a large PNG spends its time:
-# optimised for size it took half as long again (a 16 MB PNG: 467 to 715 ms).
-# The command line keeps the release profile.
+# The browser's build: optimised for size, what every visitor downloads
+# first. "z" over "s" took the documents' build from 307 to 265 KB gzipped
+# and the pictures' from 138 to 125, for parsing up to half as long again
+# (a 5,000-page PDF, parsed and cleaned: 103 to 148 ms) — still a blink. The
+# DEFLATE decoder, where a large PNG spends its time, is optimised for speed:
+# for size it took half as long again (a 16 MB PNG: 467 to 715 ms). The
+# command line keeps the release profile.
 [profile.wasm]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"
 
 [profile.wasm.package.hexscope-inflate]
 opt-level = 3

@@ -28,6 +28,8 @@ const EXTENSIONS: Record<string, string[]> = {
   zip: ["zip", "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "odt", "ods", "odp", "epub", "apk", "aab", "jar", "war", "xpi", "ipa", "whl", "nupkg", "kmz", "3mf", "usdz"],
   wasm: ["wasm"],
   eml: ["eml", "msg822", "mbox"],
+  msg: ["msg"],
+  office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -42,6 +44,8 @@ const NAMES: Record<string, [string, string]> = {
   zip: ["a ZIP archive", ".zip"],
   wasm: ["a WebAssembly module", ".wasm"],
   eml: ["an email", ".eml"],
+  msg: ["an Outlook message", ".msg"],
+  office97: ["a Word, Excel or PowerPoint 97–2003 file", ".doc"],
 };
 
 /** A name's extension that says another format than the bytes, what they are, and the extension that fits them. */
@@ -134,7 +138,7 @@ const REVEALS: Record<string, string> = {
  * found; it is not a scan for malware, and says so where it is shown.
  */
 /** What hexscope reads, for a file it does not. */
-const READS = "it reads photos, videos, PDFs, Word, Excel and PowerPoint files, ZIP archives and emails";
+const READS = "it reads photos, videos, PDFs, Word, Excel and PowerPoint files, ZIP archives, emails and Outlook messages";
 
 /** Kinds of file hexscope does not read, known by their first bytes: what to call one, and what to say. */
 const OTHERS: [RegExp, string, string?][] = [
@@ -145,11 +149,6 @@ const OTHERS: [RegExp, string, string?][] = [
   [/^Rar!/, "a RAR archive"],
   [/^7z\xbc\xaf/, "a 7-Zip archive"],
   [/^\x1f\x8b/, "a gzip archive"],
-  [
-    /^\xd0\xcf\x11\xe0/,
-    "an old Word, Excel or PowerPoint file (.doc, .xls or .ppt)",
-    "These keep the author, the company and often earlier text too: save it again as .docx, .xlsx or .pptx, and check that.",
-  ],
   [/^\{\\rtf/, "a Rich Text document"],
   [/^%!PS/, "a PostScript file"],
   [/^BM/, "a BMP picture"],

@@ -153,6 +153,9 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Eml if cfg!(feature = "documents") => {
             crate::eml::docs::describe(tree, node, problem)
         }
+        Format::Cfb if cfg!(feature = "documents") => {
+            crate::cfb::docs::describe(tree, node, problem)
+        }
         Format::Unknown => crate::document::docs(label),
         _ => None,
     }

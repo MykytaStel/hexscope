@@ -13,7 +13,8 @@ const SHARED = "hexscope-shared";
 // start, so they open offline too — unless the connection asks to save data.
 const SAMPLES = [
   "broken.png", "budget.xlsx", "cropped.jpg", "deflate-demo.zip", "hello.wasm", "message.eml", "phishing.eml",
-  "photo.heic", "photo.jpg", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf", "sample.png", "video.mov",
+  "phishing.msg", "photo.heic", "photo.jpg", "plan.doc", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf",
+  "sample.png", "video.mov",
 ].map((n) => new URL(`samples/${n}`, self.registration.scope).href);
 
 const APP = FILES.map((n) => new URL(n, self.registration.scope).href);

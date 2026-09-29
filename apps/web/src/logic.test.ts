@@ -25,6 +25,24 @@ function open(name: string, bytes?: Uint8Array): FileModel {
   return new FileModel(describe(parse(b)), b, name);
 }
 
+group("an Outlook message and an old Word file", () => {
+  it("reads a message saved from Outlook as the email it came as", () => {
+    const m = open("phishing.msg");
+    expect(m.file.format).toBe("msg");
+    expect(headline(m)).toEqual({ tone: "danger", text: "This email may not be from who it says" });
+    expect(m.file.attachments).toEqual(["invoice.pdf.html"]);
+    expect(advice(m).some((a) => a.text.startsWith("A link that says one site"))).toBe(true);
+  });
+
+  it("names who wrote an old Word file, and cleans it", () => {
+    const m = open("plan.doc");
+    expect(m.file.format).toBe("office97");
+    expect(headline(m).text).toBe("This document gives away 2 things");
+    expect(kindOf(m)).toBe("Word 97–2003");
+    expect(misfit(m)).toBeNull();
+  });
+});
+
 group("the headline", () => {
   it("is said shorter in a list of files, where the row names the file", () => {
     expect(listed(headline(open("photo.jpg")))).toMatch(/^Gives away \d+ things$/);

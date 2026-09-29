@@ -38,7 +38,7 @@ export interface ParsedFile {
   entropyWindow: number;
   /** A large movie's media, not read with the rest: `[start, len, …]`. */
   missing: Float64Array;
-  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "unknown";
+  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "video" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "unknown";
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */
@@ -174,6 +174,17 @@ const CHUNK_TINTS: Record<string, Tint> = {
 
 /** "APP1 · EXIF" is keyed by "APP1"; every SOFn is a frame header. */
 /** An archive's top level: its entries, then its directory and end records. */
+/** A compound file's parts: its tables, its property streams and a message's headers, the rest. */
+function compoundTint(label: string): Tint {
+  if (label === "header") return "sig";
+  if (["FAT", "DIFAT", "mini FAT", "directory"].includes(label)) return "ihdr";
+  if (label === "mini stream") return "plte";
+  if (label === "free sectors" || label === "unclaimed sectors") return "anc";
+  const own = label.slice(label.lastIndexOf("› ") + 1).trim();
+  if (own.endsWith("SummaryInformation") || /^(internet headers|subject|sender's|to|cc|bcc|sent for)/.test(own)) return "text";
+  return "idat";
+}
+
 function zipTint(label: string): Tint {
   if (label === "central directory") return "ihdr";
   if (label.includes("end of central directory") || label === "ZIP64 locator") return "iend";
@@ -313,8 +324,11 @@ export class FileModel {
     // every byte on every frame. Anything under a GPS node gets the GPS
     // colour: that is the part of a photo people most need to see.
     this.tints = new Array(n);
+    const compound = file.format === "msg" || file.format === "office97" || file.format === "cfb";
     const topTint =
-      file.format === "zip"
+      compound
+        ? compoundTint
+        : file.format === "zip"
         ? zipTint
         : file.format === "heif" || file.format === "video"
           ? boxTint
@@ -331,6 +345,7 @@ export class FileModel {
       else if (file.format === "heif" && isHeifMetadata(file.labels[i])) this.tints[i] = "text";
       else if (file.format === "video" && isVideoMetadata(file.labels[i])) this.tints[i] = "text";
       else if (file.format === "pdf") this.tints[i] = pdfTint(file.labels[i], file.values[i]) ?? (p > 0 ? this.tints[p] : "anc");
+      else if (compound && file.labels[p] === "mini stream") this.tints[i] = compoundTint(file.labels[i]);
       else if (p === 0) this.tints[i] = topTint(file.labels[i]);
       else this.tints[i] = this.tints[p] === "warning" || this.tints[p] === "error" ? topTint(file.labels[this.top[i]]) : this.tints[p];
     }

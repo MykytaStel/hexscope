@@ -899,7 +899,7 @@ fn date(raw: String) -> String {
     }
 }
 
-fn duration(minutes: u64) -> String {
+pub(crate) fn duration(minutes: u64) -> String {
     match (minutes / 60, minutes % 60) {
         (0, m) => format!("{m} min"),
         (h, 0) => format!("{h} h"),

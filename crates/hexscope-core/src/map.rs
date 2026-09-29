@@ -223,6 +223,21 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             l if l.starts_with("application · XMP") => Role::Metadata,
             _ => Role::Structure,
         }),
+        // A compound file's tables hold it together; its property streams
+        // and a message's headers say who and when; the rest is the document.
+        Format::Cfb if depth == 1 => Some(match label {
+            "header" | "FAT" | "DIFAT" | "directory" | "mini FAT" | "free sectors" => {
+                Role::Structure
+            }
+            l if l.ends_with("SummaryInformation") || l == "internet headers" => Role::Metadata,
+            _ => Role::Content,
+        }),
+        Format::Cfb if depth == 2 => match label {
+            l if l.ends_with("SummaryInformation") || l == "internet headers" => {
+                Some(Role::Metadata)
+            }
+            _ => None,
+        },
         // A message's header says who and where; its text and files are it.
         Format::Eml => match label {
             "headers" => Some(Role::Metadata),

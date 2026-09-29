@@ -619,6 +619,10 @@ impl Parsed {
                 hexscope_core::eml::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
             }
+            None if !self.attachment_names.is_empty() && self.format == "msg" => {
+                hexscope_core::cfb::attachment_bytes(&self.pdf_source, index as usize)
+                    .map_err(str::to_string)
+            }
             None if !self.attachment_names.is_empty() => {
                 hexscope_core::pdf::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
@@ -978,6 +982,18 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
         Document::Eml(doc) if cfg!(feature = "documents") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "eml";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            if !doc.attachments.is_empty() {
+                parsed.pdf_source = bytes.to_vec();
+                parsed.attachment_names = doc.attachments.iter().map(|n| sanitise(n)).collect();
+            }
+            parsed
+        }
+        Document::Cfb(doc) if cfg!(feature = "documents") => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = doc.kind.format();
             for f in &doc.facts {
                 parsed.facts.push((f.kind, sanitise(&f.text), f.node));
             }
