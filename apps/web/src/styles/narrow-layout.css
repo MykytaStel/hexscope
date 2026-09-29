@@ -1,0 +1,234 @@
+/* --- narrow windows ----------------------------------------------------------- */
+
+/* The summary / bytes switch: on a phone it is how the bytes are reached;
+   on a wide screen, a way to see only the summary. */
+.viewswitch {
+  display: none;
+}
+
+body[data-state="ready"] .viewswitch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.viewswitch button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.viewswitch button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    margin-bottom: 0;
+  }
+
+  .empty-card {
+    width: 100%;
+    max-width: none;
+    padding: 28px 20px 44px;
+  }
+
+  .hero h1 {
+    max-width: 20ch;
+    font-size: clamp(30px, 4.2vw, 34px);
+  }
+
+  .landing-proof {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+
+  .doors-title {
+    margin-top: var(--space-5);
+  }
+
+  .doors-main {
+    gap: var(--space-3);
+  }
+
+  .doors-main .door {
+    padding: 18px;
+  }
+
+  /* A compact card beside its words. Center each changing scene in the
+     height reserved for the longest one, so short scenes do not leave a
+     heavy, empty band underneath. */
+  .demo {
+    grid-template-columns: clamp(112px, 24vw, 200px) minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .demo-kicker {
+    font-size: var(--type-caption);
+  }
+
+  .demo-bytes {
+    font-size: 12px;
+  }
+
+  .demo-caption {
+    font-size: 12.5px;
+    min-height: 0;
+  }
+
+  .demo-side {
+    min-height: 210px;
+  }
+
+  body[data-state="ready"] .viewswitch {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+
+  /* Room in the top bar for the switch: the mark alone, and "Open". The
+     theme is chosen on the start page. */
+  body[data-state="ready"] .brand-name,
+  body[data-state="ready"] .theme-button,
+  .open-long {
+    display: none;
+  }
+
+  /* The count alone: the dot's colour says how bad. */
+  .problems-word {
+    display: none;
+  }
+
+  .problems {
+    padding: 0 10px 0 9px;
+    gap: 6px;
+  }
+
+  .viewswitch button {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .viewswitch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  /* Summary: what the file is and says, the whole height. */
+  body[data-view="summary"]:not(.is-playing) .pane-tree,
+  body[data-view="summary"]:not(.is-playing) .pane-hex,
+  body[data-view="summary"]:not(.is-playing) .drawer-node {
+    display: none;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .pane-drawer {
+    max-height: none;
+    border-top: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    border-top: 0;
+  }
+
+  /* Bytes: the tree, the bytes, and what the pointed-at part is. */
+  body[data-view="bytes"] .drawer-file {
+    display: none;
+  }
+
+  .doors,
+  .geek-list,
+  .more-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 110px auto;
+  }
+
+  .player-codes {
+    max-height: 240px;
+  }
+
+  /* Rows size to their content; the drawer scrolls instead of squeezing them. */
+  .drawer-player {
+    grid-template-rows: none;
+  }
+
+  /* Playing, the player is what the user came for: give it the room. */
+  body.is-playing .pane-drawer {
+    /* Block, not grid: a grid track would shrink the player to fit, where
+       the drawer should scroll it. */
+    display: block;
+    max-height: 62vh;
+  }
+
+  .layout,
+  body.is-playing .layout,
+  body:has(.reveals) .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) auto;
+  }
+
+  .pane-tree {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pane-drawer,
+  .pane-drawer:has(.reveals),
+  .drawer-file:has(.reveals) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pane-drawer {
+    max-height: 32vh;
+    overflow: auto;
+  }
+
+  .drawer-file {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .topbar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+
+  .fileinfo .meta,
+  .btn-play .btn-label,
+  .location-badge .badge-label {
+    display: none;
+  }
+
+  .player-bar {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .player-speed input {
+    width: 90px;
+  }
+}
+

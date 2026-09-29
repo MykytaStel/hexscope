@@ -1,0 +1,518 @@
+/* Phones cannot hand a page a folder; they can hand it several photos. */
+.hero-several {
+  display: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hero-folder,
+  .hero-drop {
+    display: none;
+  }
+
+  .hero-several {
+    display: inline;
+  }
+}
+
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast (Windows' contrast themes): backgrounds give way to the
+   system's colours, so what a background alone marked gets an outline or a
+   border — the selected part, a verdict, a tag — in colours the system
+   chose. */
+@media (forced-colors: active) {
+  .row.is-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .row.is-hover {
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
+  }
+
+  .verdict-line,
+  .tag,
+  .problems,
+  .location-badge,
+  .door,
+  .advice,
+  .redact-hit {
+    border: 1px solid CanvasText;
+  }
+
+  .verdict-line::before,
+  .problems::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  /* A page drawn to black out, and a picture's boxes: black is the point. */
+  .redact-figure svg,
+  .blackout svg,
+  .blackpicture-canvas,
+  .compare-rows {
+    forced-color-adjust: none;
+  }
+}
+
+/* A finger needs more room than a pointer: small buttons that stand on
+   their own grow to 32 points high, ticks to 20. Links inside a sentence
+   stay part of it. */
+@media (pointer: coarse) {
+  .verdict-show,
+  .blackout-toggle,
+  .report-link,
+  .compare-pick,
+  .hero-folder,
+  .hero-paste,
+  .redact-head .link,
+  .drawer-file button.link:not(.reveal-link) {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .drawer-file summary {
+    padding-block: 7px;
+  }
+
+  .redact-list input[type="checkbox"],
+  .cleaner input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Another file, from the end of the summary: on a phone, where the top
+   bar's Open is far away and there are no keys to paste with. */
+.next-file {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .next-file {
+    display: block;
+  }
+}
+
+/* A tick before a file in the list: whether it goes into the clean copies. */
+.batch-list li.has-pick {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-pick {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.batch-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.batch-keep[hidden] {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .batch-pick {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Copy a part's bytes: a quiet line under its facts. */
+.copy-bytes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+/* The other files opened in this tab: one tap back to each. */
+.recent-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.recent-file {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-file:hover {
+  background: var(--row-hover);
+}
+
+.recent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-size {
+  flex: none;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.recent-note {
+  margin: 8px 0 0;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+
+/* The file and its clean copy, side by side. */
+.before-after {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.ba-side {
+  --tone: var(--tint-gps);
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--border));
+  background: color-mix(in srgb, var(--tone) 9%, var(--panel));
+}
+
+.ba-side.is-after {
+  --tone: var(--tint-warning);
+}
+
+.ba-side.is-clear {
+  --tone: var(--tint-sig);
+}
+
+.ba-label {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.ba-count {
+  font-size: 34px;
+  font-weight: 750;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+}
+
+.ba-what {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ba-file {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font: 11.5px var(--mono);
+  color: var(--muted);
+}
+
+.ba-arrow {
+  align-self: center;
+  color: var(--faint);
+  font-size: 18px;
+}
+
+.clean-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.clean-removed {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.clean-removed summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.clean-removed .clean-list {
+  margin-top: 8px;
+}
+
+/* An email's way to you: stops left to right, what leaves the way below. */
+.mail-path {
+  margin: 0 0 14px;
+}
+
+.mail-route,
+.mail-off {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mail-off {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.mail-stop {
+  --tone: var(--border);
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--tone);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 12.5px;
+}
+
+/* An arrow to the next stop on the way. */
+.mail-route .mail-stop:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  right: -17px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--faint);
+}
+
+.mail-stop.is-bad {
+  --tone: color-mix(in srgb, var(--tint-gps) 55%, var(--border));
+  background: color-mix(in srgb, var(--tint-gps) 8%, var(--panel));
+}
+
+.mail-stop.is-good {
+  --tone: color-mix(in srgb, var(--tint-sig) 50%, var(--border));
+}
+
+.mail-stop.is-more {
+  align-content: center;
+  color: var(--faint);
+  border-style: dashed;
+}
+
+.mail-stop-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.mail-stop-main {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 600 13px var(--mono);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.mail-stop-main:disabled {
+  cursor: default;
+}
+
+.mail-stop-main:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.mail-stop-note {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.mail-stop.is-bad .mail-stop-note:last-child {
+  color: var(--tint-gps);
+}
+
+.mail-path figcaption {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* On a phone the way runs down, one stop under the next. */
+@media (max-width: 520px) {
+  .mail-route {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .mail-route .mail-stop:not(:last-child)::after {
+    content: "↓";
+    right: auto;
+    left: 16px;
+    top: auto;
+    bottom: -17px;
+    transform: none;
+  }
+}
+
+/* What the colours in the bytes mean: a list that opens under its button. */
+.hex-legend {
+  position: relative;
+  font-size: 12.5px;
+}
+
+.hex-legend ul {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 6;
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  list-style: none;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
+}
+
+.hex-legend summary {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  list-style-position: inside;
+}
+
+.hex-legend summary:hover,
+.hex-legend[open] summary {
+  color: var(--text);
+}
+
+.hex-legend button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hex-legend button:hover {
+  background: var(--row-hover);
+}
+
+.hex-legend-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.makeup-said {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Room for the tallest scene at each width, measured: narrower columns
+   wrap the clean copy's sentence into more lines. */
+@media (max-width: 600px) {
+  .demo-side {
+    min-height: 215px;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-side {
+    min-height: 235px;
+  }
+}
+
+@media (max-width: 400px) {
+  .demo-side {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 360px) {
+  .demo-side {
+    min-height: 320px;
+  }
+}
+
+/* The summary names the file in a word; the bytes give every detail, and
+   the count of findings to step through. */
+.fileinfo .meta-full,
+body[data-view="bytes"] .fileinfo .meta-plain,
+body[data-view="summary"] .problems {
+  display: none;
+}
+
+body[data-view="bytes"] .fileinfo .meta-full {
+  display: inline;
+}

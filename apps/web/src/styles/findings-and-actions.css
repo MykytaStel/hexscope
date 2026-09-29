@@ -1,0 +1,988 @@
+/* --- share ------------------------------------------------------------------------ */
+
+.sharer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+
+.sharer .hint {
+  margin: 0;
+}
+
+/* --- clean copy ---------------------------------------------------------------- */
+
+.cleaner {
+  margin-top: 10px;
+}
+
+.batch-action {
+  margin: 6px 6px 0 0;
+}
+
+.cleaner > .btn {
+  margin: 0 6px 8px 0;
+}
+
+.btn-clean {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-clean:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.clean-done {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--ok-text);
+}
+
+.clean-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+
+.clean-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clean-size {
+  flex: none;
+  font-family: var(--mono);
+  color: var(--faint);
+}
+
+/* --- verdict ---------------------------------------------------------------- */
+
+/* The answer people came for: across the whole panel, above the details. */
+.drawer-file .verdict {
+  grid-column: 1 / -1;
+  margin-bottom: 14px;
+}
+
+.verdict-label {
+  margin: 0 0 4px;
+  font-size: var(--type-caption);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+/* The answer in one line, large, coloured by how much it matters. */
+.drawer-file h2.verdict-title {
+  --tone: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: clamp(22px, 1.7vw, 24px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--text);
+}
+
+.drawer-file h2.verdict-title::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.drawer-file h2.verdict-title.is-danger { --tone: var(--tint-error); }
+.drawer-file h2.verdict-title.is-warning { --tone: var(--tint-warning); }
+.drawer-file h2.verdict-title.is-ok { --tone: var(--tint-sig); }
+.drawer-file h2.verdict-title.is-neutral { --tone: var(--tint-iend); }
+
+.verdict-title:focus {
+  outline: none;
+}
+
+.verdict-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+/* What to do about it, under the answer. */
+.verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.verdict-actions .btn {
+  height: 40px;
+  padding: 0 16px;
+}
+
+.verdict-cta {
+  font-size: 15px;
+}
+
+
+.verdict-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.verdict-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+  --tone: var(--muted);
+  background: color-mix(in srgb, var(--tone) 11%, transparent);
+}
+
+.verdict-line::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  transform: translateY(-1px);
+}
+
+.verdict-line.is-damage,
+.verdict-line.is-hidden { --tone: var(--tint-error); }
+.verdict-line.is-reveals,
+.verdict-line.is-oddity,
+.verdict-line.is-misnamed { --tone: var(--tint-warning); }
+.verdict-line.is-healthy { --tone: var(--tint-sig); }
+.verdict-line.is-unknown { --tone: var(--tint-iend); }
+
+.verdict-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.verdict-show {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.verdict-show:hover {
+  text-decoration: underline;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
+  gap: 5px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--faint);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.facts dd.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.split {
+  display: flex;
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.split-lit {
+  background: var(--tint-anc);
+}
+
+.split-match {
+  background: var(--tint-idat);
+}
+
+.split-legend {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --- states --------------------------------------------------------------- */
+
+.empty,
+.dropzone,
+.loading {
+  position: fixed;
+  inset: 52px 0 0;
+  display: none;
+  place-items: center;
+}
+
+body[data-state="empty"] .empty {
+  display: grid;
+  background: var(--bg);
+}
+
+body[data-state="empty"] .layout {
+  visibility: hidden;
+}
+
+.empty {
+  overflow-y: auto;
+}
+
+.empty-card {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  padding: clamp(36px, 3.5vw, 48px) clamp(24px, 4vw, 40px) 48px;
+}
+
+/* The opening: what it does and the way in on the left, it doing it on the right. */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: clamp(24px, 2.5vw, 36px);
+  /* Top, not centred: the demonstration grows as it plays, and the words
+     beside it should not move. */
+  align-items: start;
+  margin-bottom: 0;
+}
+
+.hero h1 {
+  max-width: 18ch;
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-display);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.empty-card .lede {
+  max-width: 540px;
+  margin: 0 0 var(--space-5);
+  font-size: var(--type-reading);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.hero-other-ways {
+  position: relative;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+.hero-other-ways > summary,
+.geek-more > summary,
+.landing-more > summary {
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hero-other-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 8px;
+}
+
+.hero-drop {
+  color: var(--faint);
+  font-size: 13.5px;
+}
+
+/* Nothing to drag on a touch screen. */
+@media (pointer: coarse) {
+  .hero-drop {
+    display: none;
+  }
+}
+
+.btn-big {
+  min-height: 44px;
+  padding: 10px 20px;
+  font-size: var(--type-small);
+}
+
+.load-error {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tint-error) 14%, transparent);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.load-error[hidden] {
+  display: none;
+}
+
+.landing-proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  align-items: start;
+  gap: var(--space-4) var(--space-6);
+  margin: var(--space-6) 0 0;
+}
+
+.empty-card .promise {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  max-width: 700px;
+  margin: 0;
+  font-size: var(--type-small);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.promise svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  fill: var(--tint-sig);
+}
+
+.promise strong {
+  color: var(--text);
+}
+
+.formats {
+  max-width: 700px;
+  margin: var(--space-2) 0 0;
+  color: var(--faint);
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.formats-disclosure > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--type-small);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.doors-title {
+  margin: var(--space-6) 0 var(--space-2);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-align: left;
+}
+
+.doors-title + .doors {
+  margin-top: 0;
+}
+
+.doors-lede {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: left;
+}
+
+/* What else the curious get, below their doors. */
+.geek-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: left;
+}
+
+.geek-list strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.geek-list a {
+  color: var(--accent);
+}
+
+.doors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  text-align: left;
+}
+
+.doors-main {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.door {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.door:hover {
+  border-color: var(--accent);
+}
+
+.door-icon {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 2px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.door-icon .fill {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.door-title {
+  font-weight: 650;
+  font-size: var(--type-card-title);
+}
+
+.door-text {
+  color: var(--muted);
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.door-go {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: var(--type-small);
+  font-weight: 600;
+}
+
+/* The everyday doors: the reason most people came, so the largest. */
+.doors-main .door {
+  gap: var(--space-2);
+  padding: 22px;
+}
+
+.doors-main .door-icon {
+  width: 38px;
+  height: 38px;
+  margin-bottom: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.doors-main .door-title {
+  font-size: var(--type-card-title);
+  min-height: 3em;
+}
+
+.doors-main .door-text {
+  font-size: var(--type-small);
+  min-height: 4.5em;
+}
+
+/* For the curious: rows, lighter, below the everyday ones. */
+.doors-compact .door {
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 3px;
+  padding: 12px 14px;
+  background: transparent;
+}
+
+.doors-compact .door > * {
+  grid-column: 2;
+}
+
+.doors-compact .door-icon {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.doors-compact .door-title {
+  font-size: 14px;
+}
+
+.doors-compact .door-go {
+  margin-top: 2px;
+}
+
+.geek-more,
+.landing-more {
+  margin-top: 22px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.geek-more-content {
+  padding-top: 8px;
+}
+
+.landing-more .more-links {
+  margin-top: 16px;
+}
+
+/* Guides and more samples, under a line: what to read, what else to try. */
+.more-links {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 28px;
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.more-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.guide-groups {
+  display: grid;
+  gap: 4px;
+}
+
+.guide-group {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.guide-group:first-child {
+  margin-top: 0;
+}
+
+.guide-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 2px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.more-links .guide-list a {
+  display: block;
+  padding: 5px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.more-links .guide-list a::after {
+  content: " →";
+  color: var(--faint);
+}
+
+.more-links .guide-list a:hover {
+  color: var(--accent);
+}
+
+.sample-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 3px 11px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip-kind {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: 600 10.5px var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.more-links a,
+.empty-card .promise a {
+  color: var(--accent);
+}
+
+.footnote {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin: 32px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.footnote-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+}
+
+.footnote-links .link,
+.footnote-links a {
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+.footnote a {
+  color: var(--accent);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+body.is-dragging .dropzone {
+  display: grid;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.dropzone div {
+  padding: 36px 56px;
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Many files: the list, in place of the workspace. */
+.batch {
+  position: fixed;
+  inset: 52px 0 0;
+  display: none;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+body[data-state="batch"] .batch {
+  display: block;
+}
+
+body[data-state="batch"] .layout {
+  visibility: hidden;
+}
+
+.batch-card {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.batch-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.batch-label {
+  grid-column: 1;
+  margin: 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.batch-title,
+.batch-answer {
+  --tone: var(--tint-iend);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-title::before,
+.batch-answer::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.batch-title.is-danger,
+.batch-answer.is-danger { --tone: var(--tint-error); }
+.batch-title.is-warning,
+.batch-answer.is-warning { --tone: var(--tint-warning); }
+.batch-title.is-ok,
+.batch-answer.is-ok { --tone: var(--tint-sig); }
+
+.batch-head h2 {
+  grid-column: 1;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.batch-summary {
+  grid-column: 1;
+  margin: 0;
+  color: var(--muted);
+}
+
+.batch-head .btn-clean {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+.batch-result {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.batch-result:empty {
+  display: none;
+}
+
+.batch-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.batch-filter button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.batch-filter button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.hero-folder,
+.hero-paste {
+  cursor: pointer;
+}
+
+.batch-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.batch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.batch-row:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.batch-row:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.batch-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-meta {
+  color: var(--faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.batch-answer {
+  grid-column: 1 / -1;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.batch-answer::before {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.batch-tags {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  --tone: var(--faint);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  color: color-mix(in srgb, var(--tone) 75%, var(--text));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tag.is-damage { --tone: var(--tint-error); }
+.tag.is-hidden { --tone: var(--tint-error); }
+.tag.is-reveals { --tone: var(--tint-warning); }
+.tag.is-oddity { --tone: var(--tint-warning); }
+.tag.is-healthy { --tone: var(--tint-sig); }
+
+@media (max-width: 600px) {
+  .batch-card {
+    padding: 20px 16px 40px;
+  }
+
+  .batch-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batch-head .btn-clean {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    margin-top: 8px;
+  }
+}
+
+body[data-state="loading"] .loading {
+  display: grid;
+  z-index: 5;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+/* Keyboard focus, always visible: a ring in the accent colour, only when
+   the keyboard put it there. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+

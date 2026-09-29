@@ -1,0 +1,383 @@
+/* --- layout B: tree | bytes, details drawer underneath -------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 250px;
+  min-height: 0;
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-tree {
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  overflow: auto;
+}
+
+.pane-hex {
+  display: flex;
+  flex-direction: column;
+  background: var(--hex-bg);
+}
+
+/* Over the bytes, not on them: the colours, what is under the pointer, find. */
+.hex-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.hex-bar-find {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.hex-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane-drawer {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 600px);
+  overflow: hidden;
+}
+
+/* --- hex canvas ----------------------------------------------------------- */
+
+.hex-scroller {
+  position: absolute;
+  inset: 0 14px 0 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* The whole file by entropy, beside the hex view; also a way to jump. */
+.minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* A canvas is a replaced element: top and bottom alone do not stretch it. */
+  height: 100%;
+  width: 14px;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.hex-canvas {
+  position: sticky;
+  top: 0;
+  display: block;
+}
+
+.status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 12px var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status:empty::before {
+  content: "Point at a byte to see which part it is";
+  color: var(--faint);
+  font-family: var(--font);
+}
+
+@media (hover: none) {
+  .status:empty::before {
+    content: "Tap a byte to see which part it is";
+  }
+}
+
+.hex-bar:has(.search:not([hidden])) .status {
+  display: none;
+}
+
+/* --- tree ----------------------------------------------------------------- */
+
+/* Rows are absolutely placed by the virtualised list; see tree.ts. */
+.tree {
+  position: relative;
+  font: 13px/1.1 var(--mono);
+}
+
+.row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px 0 calc(var(--depth) * 14px + 8px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.row.is-hover {
+  background: var(--row-hover);
+}
+
+.row.is-selected {
+  background: var(--row-selected);
+}
+
+.row.is-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.twisty {
+  width: 12px;
+  flex: none;
+  color: var(--faint);
+  text-align: center;
+  font-size: 10px;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--tint-anc);
+}
+
+.row[data-tint="sig"] .swatch { background: var(--tint-sig); }
+.row[data-tint="ihdr"] .swatch { background: var(--tint-ihdr); }
+.row[data-tint="plte"] .swatch { background: var(--tint-plte); }
+.row[data-tint="idat"] .swatch { background: var(--tint-idat); }
+.row[data-tint="iend"] .swatch { background: var(--tint-iend); }
+.row[data-tint="text"] .swatch { background: var(--tint-text); }
+.row[data-tint="gps"] .swatch { background: var(--tint-gps); }
+.row[data-tint="warning"] .swatch { background: var(--tint-warning); border-radius: 50%; }
+.row[data-tint="error"] .swatch { background: var(--tint-error); border-radius: 50%; }
+
+.label {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row.is-warning .label { color: var(--warning-text); }
+.row.is-error .label { color: var(--tint-error); }
+
+.value {
+  margin-left: auto;
+  padding-left: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* --- drawer --------------------------------------------------------------- */
+
+.drawer-node,
+.drawer-file {
+  padding: var(--space-4) clamp(20px, 2vw, 32px);
+  overflow: auto;
+}
+
+.drawer-file {
+  border-left: 1px solid var(--border);
+  background: var(--panel-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-content: start;
+  gap: var(--space-4) var(--space-5);
+}
+
+.drawer-file h2 {
+  margin: 0 0 8px;
+  font-size: var(--type-caption);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+
+
+.hint {
+  margin: 0;
+  color: var(--faint);
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font: 13px var(--mono);
+  color: var(--muted);
+}
+
+.crumb.is-current {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sep {
+  color: var(--faint);
+}
+
+.pin {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font: 600 var(--type-caption) var(--font);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--row-selected);
+}
+
+.problem {
+  margin: -4px 0 12px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-weight: 500;
+}
+
+.problem.is-error {
+  color: var(--tint-error);
+  background: color-mix(in srgb, var(--tint-error) 11%, transparent);
+}
+
+.problem.is-warning {
+  color: color-mix(in srgb, var(--tint-warning) 80%, var(--text));
+  background: color-mix(in srgb, var(--tint-warning) 13%, transparent);
+}
+
+.problem.is-hidden {
+  color: color-mix(in srgb, var(--tint-plte) 85%, var(--text));
+  background: color-mix(in srgb, var(--tint-plte) 12%, transparent);
+}
+
+.node-label {
+  margin: 0 0 var(--space-2);
+  color: var(--faint);
+  font-size: var(--type-caption);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* What a node is, in plain words: read before the technical facts. */
+.explain {
+  margin: -4px 0 12px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.spec-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.spec-link:hover {
+  text-decoration: underline;
+}
+
+/* --- what it's made of -------------------------------------------------------- */
+
+.role-0 { --role: var(--tint-idat); }
+.role-1 { --role: var(--tint-text); }
+.role-2 { --role: var(--tint-gps); }
+.role-3 { --role: var(--tint-ihdr); }
+.role-4 { --role: var(--tint-plte); }
+.role-5 { --role: var(--tint-error); }
+
+.drawer-file .makeup {
+  grid-column: 1 / -1;
+  margin-bottom: 14px;
+}
+
+.makeup-bar {
+  display: flex;
+  height: 10px;
+  margin-bottom: 8px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.makeup-part {
+  min-width: 1px;
+  background: var(--role);
+  cursor: pointer;
+}
+
+.makeup-part:hover {
+  filter: brightness(1.2);
+}
+
+.makeup-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.makeup-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.makeup-row.is-link {
+  cursor: pointer;
+}
+
+.makeup-row.is-link:hover .makeup-name {
+  text-decoration: underline;
+}
+
+.makeup-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--role);
+}
+
+.makeup-pct {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.makeup-size {
+  font-family: var(--mono);
+  color: var(--faint);
+}
+
