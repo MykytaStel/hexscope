@@ -266,6 +266,8 @@ export class FileModel {
 
   /** A large movie's media, read when looked at; null when every byte is here. */
   readonly missing: Missing | null;
+  /** Where QR codes are in the picture, `[left, top, right, bottom]` as shares of its size: what to black out. */
+  readonly codeBoxes: [number, number, number, number][] = [];
 
   constructor(
     readonly file: ParsedFile,

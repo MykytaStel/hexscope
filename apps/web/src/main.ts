@@ -476,7 +476,8 @@ async function runBatch(): Promise<void> {
         if (item.file.size > MAX_FILE) throw new Error(tooLarge(item.file));
         const r = await call({ type: "parse", file: item.file });
         if (r.type !== "parsed") throw new Error(r.type === "error" ? r.message : "unexpected reply");
-        const m = new FileModel(r.result, r.bytes, item.file.name);
+        const m = new FileModel(r.result, r.bytes, item.file.name, item.file);
+        await (await import("./qrfacts")).addCodeFacts(m);
         item.kind = kindOf(m);
         item.lines = verdict(m);
         item.headline = headline(m);
@@ -556,6 +557,19 @@ function show(m: FileModel): void {
   setView(openingView());
   updateProblems();
   playBtn.hidden = !canPlay();
+  void lookForCodes(m);
+}
+
+/** QR codes, looked for once the file is on screen: its card is drawn again with what they say. */
+async function lookForCodes(m: FileModel): Promise<void> {
+  const { addCodeFacts } = await import("./qrfacts");
+  if (!(await addCodeFacts(m)) || m !== model) return;
+  // A clean copy made meanwhile keeps its card; the codes show when the file is next drawn.
+  const drawerEl = $("drawer");
+  if (drawerEl.querySelector(".before-after, .clean-list")) return;
+  const focused = drawerEl.contains(document.activeElement);
+  drawer.showFile(m);
+  if (focused) drawer.focusVerdict();
 }
 
 /** Opens on the answer to the question the person came with: a damaged file

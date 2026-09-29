@@ -14,7 +14,7 @@ const SHARED = "hexscope-shared";
 const SAMPLES = [
   "broken.png", "budget.xlsx", "cropped.jpg", "deflate-demo.zip", "hello.wasm", "message.eml", "phishing.eml",
   "phishing.msg", "photo.heic", "photo.jpg", "plan.doc", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf",
-  "sample.png", "video.mov",
+  "sample.png", "video.mov", "wifi.png",
 ].map((n) => new URL(`samples/${n}`, self.registration.scope).href);
 
 const APP = FILES.map((n) => new URL(n, self.registration.scope).href);

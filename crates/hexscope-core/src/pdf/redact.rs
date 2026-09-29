@@ -604,22 +604,41 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
 /// places its unit square: to show a scanned page while choosing what to
 /// black out on it.
 pub(crate) fn page_pictures(data: &[u8], ctx: &Ctx, number: u32) -> Vec<(u32, [f64; 6])> {
+    let start = number.saturating_sub(1);
+    pictures_by_page(data, ctx, start, 1)
+        .into_iter()
+        .map(|(_, num, m)| (num, m))
+        .collect()
+}
+
+/// The pictures pages `first + 1` to `first + count` draw: each with its
+/// page, counted from 1, its object and where it goes.
+pub(crate) fn pictures_by_page(
+    data: &[u8],
+    ctx: &Ctx,
+    first: u32,
+    count: u32,
+) -> Vec<(u32, u32, [f64; 6])> {
     let mut budget = BUDGET;
     let mut out = Vec::new();
     let pages = pages(data, ctx, &mut budget);
-    let Some(page) = (number as usize).checked_sub(1).and_then(|i| pages.get(i)) else {
-        return out;
-    };
-    let p = paint(data, ctx, page, &mut budget, &[]);
-    super::pictures::visit(
-        data,
-        ctx,
-        page.resources.as_ref(),
-        &p.walked.placed,
-        &mut budget,
-        0,
-        &mut |rec, m| out.push((rec.num, *m)),
-    );
+    for (i, page) in pages
+        .iter()
+        .enumerate()
+        .skip(first as usize)
+        .take(count as usize)
+    {
+        let p = paint(data, ctx, page, &mut budget, &[]);
+        super::pictures::visit(
+            data,
+            ctx,
+            page.resources.as_ref(),
+            &p.walked.placed,
+            &mut budget,
+            0,
+            &mut |rec, m| out.push((i as u32 + 1, rec.num, *m)),
+        );
+    }
     out
 }
 

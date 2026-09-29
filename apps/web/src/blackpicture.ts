@@ -31,6 +31,7 @@ export function canBlackOut(m: FileModel): boolean {
   return ["jpeg", "png", "heif", "webp", "gif"].includes(m.file.format);
 }
 
+/** Opens the editor on `m`, with the boxes of any QR codes found in it already drawn. */
 export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise<void> {
   const bitmap = await decodePicture(m);
   const dialog = el("dialog", "report blackpicture");
@@ -51,7 +52,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   canvas.width = base.width;
   canvas.height = base.height;
   const ctx = canvas.getContext("2d");
-  const boxes: Box[] = [];
+  const boxes: Box[] = m.codeBoxes.map((b) => [...b] as Box);
   let drawing: Box | null = null;
   const draw = () => {
     if (!ctx) return;

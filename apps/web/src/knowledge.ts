@@ -14,21 +14,36 @@ export const COLOR_TYPES: Record<number, string> = {
 };
 
 /** Facts a clean copy keeps, because they are part of what the file does. */
+/** What QR codes say: the picture's pixels, so a clean copy keeps them. */
+const QR = ["qrwifi", "qrsecret", "qrtrick", "qrplace", "qrcontact", "qrlink", "qrtext"];
+
 export const KEPT: Record<string, string[]> = {
+  jpeg: QR,
+  png: QR,
+  heif: QR,
+  webp: QR,
+  gif: QR,
   wasm: ["paths", "imports"],
-  zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded", "weblinks", "linkmismatch", "linkidn"],
+  zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded", "weblinks", "linkmismatch", "linkidn", ...QR],
   // The copy keeps every object the document reaches, byte for byte: its
   // links, and what it does when opened, with them.
-  pdf: ["comments", "form", "attachments", "weblinks", "linkmismatch", "opens", "scripts", "launch", "submits"],
+  pdf: ["comments", "form", "attachments", "weblinks", "linkmismatch", "opens", "scripts", "launch", "submits", ...QR],
 };
+const QR_KEPT = "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.";
+
 export const KEPT_NOTE: Record<string, string> = {
+  jpeg: QR_KEPT,
+  png: QR_KEPT,
+  heif: QR_KEPT,
+  webp: QR_KEPT,
+  gif: QR_KEPT,
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
   pdf: "Kept: comments, form answers, attached files, links, and anything it does when opened, which are part of the document. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.",
   zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.",
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-export const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "opens", "launch"];
+export const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "opens", "launch", "qrwifi", "qrsecret", "qrtrick"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 export function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -139,6 +154,13 @@ export const FACT_LABELS: Record<string, string> = {
   deleted: "Deleted text",
   photoplace: "Photo inside",
   photo: "Photo inside",
+  qrwifi: "Wi-Fi in a QR code",
+  qrsecret: "2FA secret in a QR code",
+  qrtrick: "QR code",
+  qrplace: "Place in a QR code",
+  qrcontact: "Contact in a QR code",
+  qrlink: "QR code",
+  qrtext: "QR code",
 };
 
 /** Why an entry cannot be played, or null when it can. */
