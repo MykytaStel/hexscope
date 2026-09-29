@@ -8,7 +8,7 @@
 //! 4.2, inside Photoshop's image resources).
 
 use super::{Fact, PhotoFacts};
-use crate::model::NodeId;
+use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::pdf::facts::{xmp_date, xmp_text};
 
 /// Longest fact kept, in characters.
@@ -200,6 +200,115 @@ pub(crate) fn from_photoshop(resources: &[u8], node: NodeId) -> PhotoFacts {
 
 /// One image resource's data by its id (Photoshop's `8BIM` blocks: a
 /// signature, an id, a padded Pascal name, a length, the padded data).
+/// IPTC's datasets in record 2, the one that describes the picture.
+const DATASETS: [(u8, &str); 29] = [
+    (0, "Record Version"),
+    (5, "Object Name"),
+    (7, "Edit Status"),
+    (10, "Urgency"),
+    (15, "Category"),
+    (20, "Supplemental Category"),
+    (25, "Keywords"),
+    (40, "Special Instructions"),
+    (55, "Date Created"),
+    (60, "Time Created"),
+    (62, "Digital Creation Date"),
+    (63, "Digital Creation Time"),
+    (65, "Originating Program"),
+    (70, "Program Version"),
+    (80, "By-line"),
+    (85, "By-line Title"),
+    (90, "City"),
+    (92, "Sub-location"),
+    (95, "Province/State"),
+    (100, "Country Code"),
+    (101, "Country"),
+    (103, "Original Transmission Reference"),
+    (105, "Headline"),
+    (110, "Credit"),
+    (115, "Source"),
+    (116, "Copyright Notice"),
+    (118, "Contact"),
+    (120, "Caption/Abstract"),
+    (122, "Writer/Editor"),
+];
+
+/// Photoshop's image resources people meet, by ID.
+const RESOURCES: [(u16, &str); 12] = [
+    (0x03ED, "resolution"),
+    (0x0404, "IPTC"),
+    (0x0406, "JPEG quality"),
+    (0x0408, "grid and guides"),
+    (0x0409, "thumbnail"),
+    (0x040A, "copyright flag"),
+    (0x040B, "URL"),
+    (0x040C, "thumbnail"),
+    (0x040F, "ICC profile"),
+    (0x0421, "version"),
+    (0x0422, "EXIF"),
+    (0x0424, "XMP"),
+];
+
+/// Photoshop's image resources in an APP13 segment as nodes under
+/// `parent`, and the IPTC fields one by one. `at` is where `resources`
+/// starts in the file.
+pub(crate) fn photoshop_tree(tree: &mut ParseTree, parent: NodeId, resources: &[u8], at: u64) {
+    let mut i = 0;
+    while resources.len() >= i + 12 && &resources[i..i + 4] == b"8BIM" {
+        let id = u16::from_be_bytes([resources[i + 4], resources[i + 5]]);
+        let name = (1 + resources[i + 6] as usize + 1) & !1;
+        let head = i + 6 + name;
+        let Some(len) = resources
+            .get(head..head + 4)
+            .map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize)
+        else {
+            break;
+        };
+        let end = (head + 4).saturating_add(len).min(resources.len());
+        let label = match RESOURCES.iter().find(|r| r.0 == id) {
+            Some((_, n)) => format!("resource · {n}"),
+            None => format!("resource · 0x{id:04X}"),
+        };
+        let node = tree.add(
+            Some(parent),
+            label,
+            ByteRange::new(at + i as u64, (end - i) as u64),
+            NodeKind::Container,
+            Some(Value::Bytes(len as u64)),
+        );
+        if id == 0x0404 {
+            iptc_tree(tree, node, &resources[head + 4..end], at + head as u64 + 4);
+        }
+        i = (end + 1) & !1;
+    }
+}
+
+fn iptc_tree(tree: &mut ParseTree, parent: NodeId, iim: &[u8], at: u64) {
+    let mut i = 0;
+    while i + 5 <= iim.len() && iim[i] == 0x1C {
+        let (record, dataset) = (iim[i + 1], iim[i + 2]);
+        let len = u16::from_be_bytes([iim[i + 3], iim[i + 4]]) as usize;
+        if len & 0x8000 != 0 {
+            break;
+        }
+        let end = (i + 5 + len).min(iim.len());
+        let label = match DATASETS.iter().find(|d| record == 2 && d.0 == dataset) {
+            Some((_, n)) => format!("IPTC · {n}"),
+            None => format!("IPTC · {record}:{dataset}"),
+        };
+        let text = String::from_utf8_lossy(&iim[i + 5..end]);
+        let shown: String = text.chars().filter(|c| !c.is_control()).take(200).collect();
+        tree.add(
+            Some(parent),
+            label,
+            ByteRange::new(at + i as u64, (end - i) as u64),
+            NodeKind::Field,
+            Some(Value::Text(shown)),
+        );
+        i = end;
+    }
+}
+
 fn resource(mut b: &[u8], id: u16) -> Option<&[u8]> {
     while b.len() >= 12 && &b[..4] == b"8BIM" {
         let this = u16::from_be_bytes([b[4], b[5]]);
@@ -306,6 +415,40 @@ mod tests {
         assert_eq!(text(&f.owner), Some("Petro Ivanenko"));
         assert_eq!(text(&f.place), Some("Kyiv, Ukraine"));
         assert_eq!(text(&f.caption), Some("Press photo"));
+    }
+
+    #[test]
+    fn iptc_fields_are_laid_out_one_by_one() {
+        let resources = iptc(&[(80, "Petro Ivanenko"), (90, "Kyiv"), (7, "x")]);
+        let mut tree = ParseTree::new();
+        let root = tree.add(
+            None,
+            "APP13",
+            ByteRange::new(0, 500),
+            NodeKind::Container,
+            None,
+        );
+        photoshop_tree(&mut tree, root, &resources, 100);
+        let labels: Vec<_> = tree
+            .nodes()
+            .iter()
+            .skip(1)
+            .map(|n| (n.label.as_str(), n.range.start))
+            .collect();
+        assert_eq!(labels[0], ("resource · resolution", 100));
+        assert_eq!(labels[1].0, "resource · IPTC");
+        assert_eq!(
+            &labels[2..].iter().map(|l| l.0).collect::<Vec<_>>(),
+            &["IPTC · By-line", "IPTC · City", "IPTC · Edit Status"]
+        );
+        assert_eq!(
+            tree.get(3).value,
+            Some(Value::Text("Petro Ivanenko".into()))
+        );
+        // Cut anywhere, it never reads past the end.
+        for cut in 0..resources.len() {
+            photoshop_tree(&mut tree, root, &resources[..cut], 0);
+        }
     }
 
     #[test]
