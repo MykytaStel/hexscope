@@ -24,17 +24,17 @@ are read; other makers' are shown as one range. Nikon encrypts parts of its
 note (ShotInfo, LensData) with the camera's serial number and shutter count;
 those parts are named, not decrypted.
 
-**IPTC.** Photoshop's APP13 segment is named but not decoded.
-
 **PDFs with a password.** A PDF that opens without a password (RC4 40 or
 128, AES-128, AES-256) is decrypted to read what it says, as any viewer
 would. One that needs a password is only named as such; hexscope does not
 ask for passwords. No encrypted PDF gets a clean copy: rewriting it would
 drop the protection its author chose.
 
-**PDF filters other than Flate.** Object streams and XMP compressed any
-other way are not read. Neither are predictors, so the entries of a
-cross-reference stream are not shown one by one.
+**Cross-reference streams, entry by entry.** Streams behind Flate, LZW,
+ASCII hex, ASCII base-85 and run-length filters are read, with their PNG
+and TIFF predictors; a cross-reference stream is read as a whole, its
+entries not shown one by one. A stream kept with a filter named by an
+indirect object is not read.
 
 **HEIF items built from other items.** An item stored by construction
 method 2 is assembled from other items' bytes; it is named, not assembled.
@@ -55,14 +55,16 @@ not judged. Links are read from the web-page parts: where each goes, as
 written — a shortener or a redirect is not followed, since nothing is
 looked up. An email is not cleaned: its attached files are, once opened.
 An Outlook message saved before it was sent has no headers to read; its
-text is read from its plain or HTML body, not from compressed RTF.
+body is read from its HTML, its compressed RTF — the HTML inside it, or
+its hyperlink fields — or its plain text.
 
-**QR codes in pictures only.** Codes are looked for in pictures: a photo
-or screenshot, the pictures on a PDF's first 30 pages, and up to 30
-pictures inside a message or a document. A code a PDF draws with lines
-and boxes rather than as a picture is not found, nor one smaller than
-about two pixels a module or badly out of focus. A link is judged by how
-it is written; where a short link ends up is not looked up.
+**QR codes.** Codes are looked for in a photo or screenshot, in the
+pictures and the filled boxes of a PDF's first 30 pages — forms
+included — and in up to 30 pictures inside a message or a document. A
+code drawn with strokes or curves rather than filled boxes is not found,
+nor one smaller than about two pixels a module or badly out of focus. A
+link is judged by how it is written; where a short link ends up is not
+looked up.
 
 **Old Office files: their properties, not their text.** In a Word, Excel
 or PowerPoint 97–2003 file, the summary streams are read and blanked; the

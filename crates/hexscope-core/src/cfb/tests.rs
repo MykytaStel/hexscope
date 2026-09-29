@@ -133,3 +133,16 @@ fn a_damaged_compound_file_says_so_and_never_panics() {
         let _ = parse_cfb(&d);
     }
 }
+
+#[test]
+fn a_message_kept_as_rtf_has_its_links_checked_too() {
+    // scripts/make-sample-msg.py --rtf: the body in compressed RTF alone.
+    let doc = parse_cfb(&fixture("phishing-rtf.msg"));
+    let link = doc
+        .facts
+        .iter()
+        .find(|f| f.kind == "linkmismatch")
+        .expect("a misleading link");
+    assert!(link.text.contains("login.example.info"), "{}", link.text);
+    assert_eq!(doc.tree.get(link.node).label, "RTF");
+}

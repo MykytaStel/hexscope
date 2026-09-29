@@ -636,7 +636,11 @@ pub(crate) fn pictures_by_page(
             &p.walked.placed,
             &mut budget,
             0,
-            &mut |rec, m| out.push((i as u32 + 1, rec.num, *m)),
+            &mut |seen, m| {
+                if let super::pictures::Seen::Picture(rec) = seen {
+                    out.push((i as u32 + 1, rec.num, *m));
+                }
+            },
         );
     }
     out
@@ -802,6 +806,49 @@ fn words(pieces: &[(Area, String)]) -> String {
             if n == 1 { "piece" } else { "pieces" }
         )
     }
+}
+
+/// Dark boxes fewer than this on a page are not a code drawn in boxes.
+const MIN_SHAPES: usize = 30;
+
+/// The dark boxes pages `1` to `count` fill, their forms' too, in each
+/// page's space; only pages with enough of them to be a QR code drawn in
+/// boxes. Each with its page, counted from 1, and its media box.
+pub(crate) fn shapes_by_page(
+    data: &[u8],
+    ctx: &Ctx,
+    count: u32,
+) -> Vec<(u32, [f64; 4], Vec<[f64; 4]>)> {
+    let mut budget = BUDGET;
+    let mut out = Vec::new();
+    for (i, page) in pages(data, ctx, &mut budget)
+        .iter()
+        .enumerate()
+        .take(count as usize)
+    {
+        let p = paint(data, ctx, page, &mut budget, &[]);
+        let mut shapes: Vec<[f64; 4]> = p.walked.dark.iter().map(|a| a.0).collect();
+        super::pictures::visit(
+            data,
+            ctx,
+            page.resources.as_ref(),
+            &p.walked.placed,
+            &mut budget,
+            0,
+            &mut |seen, m| {
+                if let super::pictures::Seen::Boxes(boxes) = seen {
+                    for b in boxes {
+                        let [l, bt, r, t] = b.0;
+                        shapes.push(Area::of(m, l, bt, r - l, t - bt).0);
+                    }
+                }
+            },
+        );
+        if shapes.len() >= MIN_SHAPES {
+            out.push((i as u32 + 1, page.media, shapes));
+        }
+    }
+    out
 }
 
 #[cfg(test)]

@@ -227,6 +227,28 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Ex
       }
     }
     t.free();
+    // A code a page draws in boxes, as label and invoice makers do: the boxes painted, then read.
+    const shapes = (await loadFull()).pdfShapes(req.pdf, PDF_PAGES);
+    for (let i = 0; i < shapes.count; i++) {
+      const [left, bottom, right, top] = shapes.media(i);
+      const scale = Math.min(4, CODE_SCAN / Math.max(right - left, top - bottom));
+      const width = Math.ceil((right - left) * scale);
+      const height = Math.ceil((top - bottom) * scale);
+      const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
+      if (!g) continue;
+      g.fillStyle = "#fff";
+      g.fillRect(0, 0, width, height);
+      g.fillStyle = "#000";
+      const boxes = shapes.boxes(i);
+      for (let k = 0; k + 3 < boxes.length; k += 4) {
+        const x = (boxes[k] - left) * scale;
+        const y = (top - boxes[k + 3]) * scale;
+        g.fillRect(x, y, (boxes[k + 2] - boxes[k]) * scale, (boxes[k + 3] - boxes[k + 1]) * scale);
+      }
+      const image = g.getImageData(0, 0, width, height);
+      await look(image, `a code drawn on page ${shapes.page(i)}`);
+    }
+    shapes.free();
   }
   for (const e of req.entries ?? []) {
     const bytes = current?.extractEntry(e.index);

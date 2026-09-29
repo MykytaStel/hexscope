@@ -72,6 +72,11 @@ pub fn deinterlace(raw: &[u8], ihdr: &Ihdr) -> Result<Vec<u8>, UnfilterError> {
     let passes = passes(ihdr).ok_or(UnfilterError::BadDimensions)?;
     let stride = ihdr.stride().ok_or(UnfilterError::BadDimensions)?;
     let bits = ihdr.channels() * ihdr.bit_depth as usize;
+    // Pixels of 1, 2 or 4 bits pack whole into bytes, larger ones fill
+    // whole bytes; a damaged header can claim anything else.
+    if !(matches!(bits, 1 | 2 | 4) || (bits >= 8 && bits.is_multiple_of(8))) {
+        return Err(UnfilterError::BadDimensions);
+    }
     let size = stride
         .checked_mul(ihdr.height as usize)
         .ok_or(UnfilterError::BadDimensions)?;
@@ -123,6 +128,19 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap()
+    }
+
+    #[test]
+    fn a_depth_no_picture_can_have_is_refused_not_obeyed() {
+        // Found by the fuzzer: 3 bits a pixel, which no byte divides.
+        let ihdr = Ihdr {
+            width: 4,
+            height: 4,
+            bit_depth: 3,
+            color_type: 0,
+            interlace: 1,
+        };
+        assert!(deinterlace(&[0; 64], &ihdr).is_err());
     }
 
     #[test]

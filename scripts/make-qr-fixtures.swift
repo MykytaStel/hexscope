@@ -94,3 +94,31 @@ do {
   pdf.endPDFPage()
   pdf.closePDF()
 }
+
+// A code drawn in boxes, one filled square a module, as label and invoice
+// generators draw them: on page 1 straight on the page, on page 2 inside a
+// form (Quartz writes a CGLayer as one).
+do {
+  let url = out.appendingPathComponent("vector-qr.pdf")
+  var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+  let pdf = CGContext(url as CFURL, mediaBox: &box, nil)!
+  let qr = code("https://example.com/parking/fine?plate=AA1234", "M")
+  let cg = context.createCGImage(qr, from: qr.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray())!
+  let data = CFDataGetBytePtr(cg.dataProvider!.data)!
+  let n = cg.width
+  func modules(_ g: CGContext, _ origin: CGPoint, _ size: CGFloat) {
+    g.setFillColor(gray: 0, alpha: 1)
+    for y in 0..<n { for x in 0..<n where data[y * cg.bytesPerRow + x] < 128 {
+      g.fill(CGRect(x: origin.x + CGFloat(x) * size, y: origin.y + CGFloat(n - 1 - y) * size, width: size, height: size))
+    } }
+  }
+  pdf.beginPDFPage(nil)
+  modules(pdf, CGPoint(x: 60, y: 600), 4)
+  pdf.endPDFPage()
+  pdf.beginPDFPage(nil)
+  let layer = CGLayer(pdf, size: CGSize(width: CGFloat(n) * 3, height: CGFloat(n) * 3), auxiliaryInfo: nil)!
+  modules(layer.context!, .zero, 3)
+  pdf.draw(layer, at: CGPoint(x: 300, y: 400))
+  pdf.endPDFPage()
+  pdf.closePDF()
+}

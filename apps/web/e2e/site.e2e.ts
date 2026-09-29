@@ -293,3 +293,12 @@ test("a QR code in a PDF that goes to a lookalike address", async ({ page }) => 
   await expect(page.locator(".reveal-list")).toContainText("shown as “exаmple-bank.com”");
   await expect(page.locator(".reveal-list")).toContainText("in the picture on page 1");
 });
+
+test("a QR code a PDF draws in boxes, and an Outlook message kept as RTF", async ({ page }) => {
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles(new URL("../src/qr/fixtures/vector-qr.pdf", import.meta.url).pathname);
+  await expect(page.locator(".reveal-list")).toContainText("in a code drawn on page 1");
+  await page.locator("#picker").setInputFiles(new URL("../../../crates/hexscope-core/tests/fixtures/phishing-rtf.msg", import.meta.url).pathname);
+  await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
+  await expect(page.locator(".reveal-list")).toContainText("goes to login.example.info");
+});

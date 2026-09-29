@@ -1024,3 +1024,33 @@ fn what_a_pdf_does_when_opened_is_said() {
             .any(|p| p == "a link goes somewhere other than it says")
     );
 }
+
+/// A page whose content is written in ASCII hex, then run-length: white
+/// text on it is found as it would be in a plain stream.
+#[test]
+fn content_behind_filters_other_than_flate_is_read() {
+    let content = b"BT 1 1 1 rg /F1 12 Tf 72 700 Td (Offer up to 20,000) Tj ET";
+    let mut run = Vec::new();
+    for chunk in content.chunks(128) {
+        run.push(chunk.len() as u8 - 1);
+        run.extend_from_slice(chunk);
+    }
+    run.push(128);
+    let hex: String = run.iter().map(|b| format!("{b:02X}")).collect::<String>() + ">";
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_vec(),
+        stream("/Filter [/ASCIIHexDecode /RunLengthDecode]", hex.as_bytes()),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+    ]);
+    let doc = parse_pdf(&data);
+    assert!(
+        facts(&doc).contains(&(
+            "hiddentext",
+            "page 1, in white on white: “Offer up to 20,000”"
+        )),
+        "{:?}",
+        facts(&doc)
+    );
+}

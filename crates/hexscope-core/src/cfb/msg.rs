@@ -46,7 +46,7 @@ pub(crate) fn label(name: &str) -> Option<String> {
         "1035" => "message id",
         "1000" => "text",
         "1013" => "HTML",
-        "1009" => "RTF, compressed",
+        "1009" => "RTF",
         "3001" => "display name",
         "3003" => "address",
         "39FE" => "SMTP address",
@@ -130,7 +130,14 @@ pub(crate) fn read(c: &Compound) -> Message {
     let Some((headers_at, headers)) = text(c, 0, "007D") else {
         return Message { facts, attachments };
     };
-    let html = text(c, 0, "1013");
+    // The HTML body; else the RTF one, which carries the HTML of a message
+    // that came as HTML, or links of its own; else the plain text.
+    let rtf = || {
+        let i = c.find(0, "__substg1.0_10090102")?;
+        let html = super::rtf::to_html(&super::rtf::decompress(&c.read(&c.entries[i], MAX_TEXT))?);
+        Some((i, html))
+    };
+    let html = text(c, 0, "1013").or_else(rtf);
     let plain = text(c, 0, "1000");
     let (body_at, body, form) = match (&html, &plain) {
         (Some((i, t)), _) => (Some(*i), t.as_str(), "text/html"),

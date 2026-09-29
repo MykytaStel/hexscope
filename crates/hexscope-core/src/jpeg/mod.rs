@@ -443,6 +443,7 @@ fn decode_segment(
         }
         0xED if app_kind(payload) == Some("Photoshop") => {
             let resources = payload.get(14..).unwrap_or_default();
+            crate::exif::xmp::photoshop_tree(tree, node, resources, at + 14);
             doc.facts
                 .fill_from(crate::exif::xmp::from_photoshop(resources, node));
         }

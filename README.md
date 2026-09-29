@@ -93,7 +93,8 @@ arrived with, its text and its files' names, and judged as the same
 message saved as `.eml` would be.
 
 **Reads QR codes.** hexscope has its own QR reader (ISO/IEC 18004, no
-library): it finds codes in a picture, in a PDF's pictures, and in the
+library): it finds codes in a picture, in a PDF's pictures and in codes a
+PDF draws as boxes, and in the
 pictures inside a message or a document, and says what each holds — where
 a link really goes, with a lookalike address, an `@` in it or a bare
 number named for what they are; a Wi-Fi network and its password; a
