@@ -82,40 +82,43 @@
                 </div>
               </details>
             </div>
-            <p class="load-error" id="load-error" role="alert" hidden></p>
-            <p class="promise">
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
-              <span><strong>Nothing is uploaded.</strong> The file never leaves this tab: no account, no tracking. <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads it.</span>
-            </p>
-            <p class="formats">Reads photos and pictures (JPEG, HEIC, PNG, AVIF, WebP, GIF), videos, PDFs, Word, Excel and PowerPoint — old .doc, .xls and .ppt too — ZIP, emails, Outlook messages and WebAssembly.</p>
-          </div>
-          <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
+          <p class="load-error" id="load-error" role="alert" hidden></p>
         </div>
+        <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
+      </div>
 
-        <h2 class="doors-title">Before you send</h2>
-        <div class="doors doors-main">
-          <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
+      <h2 class="doors-title">Before you send</h2>
+      <div class="doors doors-main">
+        <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
             <span class="door-title">Check a photo</span>
             <span class="door-text">Where it was taken, the camera's serial number, the owner's name — and how to remove them.</span>
             <span class="door-go">Try a sample photo →</span>
-          </button>
-          <button class="door" data-sample="samples/redacted.pdf" data-name="redacted.pdf">
+        </button>
+        <button class="door" data-sample="samples/redacted.pdf" data-name="redacted.pdf">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><rect x="8.5" y="11" width="7" height="2.4" class="fill" /><rect x="8.5" y="15.5" width="5" height="2.4" class="fill" /></svg>
             <span class="door-title">Check a document before you send it</span>
             <span class="door-text">Black boxes that hide nothing, deleted text still inside, comments and who wrote them — in PDFs and Word files.</span>
             <span class="door-go">Try a blacked-out PDF →</span>
-          </button>
-        </div>
-
-        <div class="doors doors-main doors-email">
-          <button class="door" data-sample="samples/phishing.eml" data-name="phishing.eml">
+        </button>
+        <button class="door" data-sample="samples/phishing.eml" data-name="phishing.eml">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.2c0 4.6 3.1 8.2 7.5 9.8 4.4-1.6 7.5-5.2 7.5-9.8V6z" /><path d="M9.9 9.6a2.2 2.2 0 1 1 3.1 2c-.6.3-1 .8-1 1.4v.4" /><circle cx="12" cy="16.2" r="0.6" class="fill" /></svg>
             <span class="door-title">Check an email before you trust it</span>
             <span class="door-text">See where replies go, whether sender checks passed, and which server sent it.</span>
             <span class="door-go">Try a suspicious email →</span>
-          </button>
-        </div>
+        </button>
+      </div>
+
+      <div class="landing-proof">
+        <p class="promise">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
+          <span><strong>Nothing is uploaded.</strong> The file never leaves this tab: no account, no tracking. <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads it.</span>
+        </p>
+        <details class="formats-disclosure">
+          <summary>Supported formats</summary>
+          <p class="formats">Reads photos and pictures (JPEG, HEIC, PNG, AVIF, WebP, GIF), videos, PDFs, Word, Excel and PowerPoint — old .doc, .xls and .ppt too — ZIP, emails, Outlook messages and WebAssembly.</p>
+        </details>
+      </div>
 
         <details class="geek-more">
           <summary>For the curious: look inside a file</summary>

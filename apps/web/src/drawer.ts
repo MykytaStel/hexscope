@@ -994,6 +994,7 @@ export class Drawer {
     }
 
     const crumbs = el("nav", "crumbs");
+    this.node.append(el("p", "node-label", "Selected part"));
     const path = m.path(id);
     path.forEach((p, i) => {
       if (i > 0) crumbs.append(el("span", "sep", "›"));
