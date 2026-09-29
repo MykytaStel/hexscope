@@ -91,16 +91,17 @@ only when nothing but the page is behind it; a shading or a clipped image
 behind it is not taken into account. The clean copy writes a rewritten
 page's content uncompressed, so the file can grow.
 
-**Very large files in a phone's browser.** A file is read up to 2 GB in a
-tab. Making its clean copy holds the file, a copy handed to the reader and
-the result at once, so a movie of a gigabyte or more can take more memory
-than a phone gives a tab. When the browser ends the reader for it, the page
-says so and the next file starts afresh; the command line tool has no such
-limit.
+**Very large files in a browser.** A file is read up to 2 GB in a tab. A
+video over 64 MB is read without its picture and sound, so it needs a few
+megabytes whatever its size. Any other file is held whole, and its clean
+copy holds the file and the copy at once: a PDF or an archive of a
+gigabyte or more can take more memory than a phone gives a tab. When the
+browser ends the reader for it, the page says so and the next file starts
+afresh; the command line tool has no such limit.
 
 **WebAssembly size.** Two builds, chosen by a file's first bytes: about
-135 KB gzipped for pictures and movies (CI budget 150,000 bytes), and about
-289 KB for everything (budget 320,000), fetched only for a document. The
+137 KB gzipped for pictures and movies (CI budget 150,000 bytes), and about
+291 KB for everything (budget 320,000), fetched only for a document. The
 whole grew from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
 MakerNotes, the PDF page walk with its fonts, repair, Office's hidden

@@ -366,11 +366,16 @@ case, since every byte becomes its own decoding step:
 | Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
 | Hover to highlight | ~0.09 ms | 16 ms |
 | Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| The page and the parser for pictures and movies, gzipped | ~190 KB (WebAssembly 123 KB) | — |
-| The parser for documents, loaded when one is opened | 242 KB | — |
+| A 200 MB video, parsed | 1.4 ms | — |
+| The page and the parser for pictures and movies, gzipped | ~200 KB (WebAssembly 137 KB) | — |
+| The parser for documents, loaded when one is opened | 291 KB | — |
 
 The byte view draws only the rows on screen, so file size does not affect
-scrolling. The player never holds the stream's steps in memory: it asks for
+scrolling. A video over 64 MB is read without its picture and sound: every
+box but the media is read and parsed, the byte view reads the media from
+the file where it is shown, and the clean copy is written from the changed
+boxes and the media as it is — so a long video needs a few megabytes of
+memory, not its size, in the browser and on the command line alike. The player never holds the stream's steps in memory: it asks for
 them in small batches, and the decoder resumes from the nearest checkpoint.
 
 ## How it is built
@@ -471,7 +476,10 @@ builds, the player, the guides and the samples — under a version the build
 writes in (`vite.config.ts`), so a deploy replaces the old files rather than
 adding to them. It fetches only the site's own files, and sends nothing. On Android, the installed app
 appears in the share sheet; a shared file waits in a cache for the page to
-open it, and never touches the network. The link preview and icons are
+open it, and never touches the network. On a computer, the installed app
+opens files from the file manager ("Open with"). What happens to a file,
+and how to check that it goes nowhere, is on
+[its own page](https://hexscope.pages.dev/your-files-stay-private). The link preview and icons are
 rendered from `scripts/brand/*.html` by `sh scripts/make-brand-images.sh`.
 
 `apps/web/public/_headers` sets the response headers: a CSP that lets the page

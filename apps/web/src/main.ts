@@ -748,6 +748,17 @@ async function openShared(): Promise<void> {
   await load(new File([await res.blob()], name));
 }
 
+// Files opened with the installed app from the computer's own file manager.
+interface LaunchParams {
+  files: FileSystemFileHandle[];
+}
+function openLaunched(): void {
+  const queue = (window as Window & { launchQueue?: { setConsumer(f: (p: LaunchParams) => void): void } }).launchQueue;
+  queue?.setConsumer(async ({ files }) => {
+    if (files.length > 0) openFiles(await Promise.all(files.map((f) => f.getFile())));
+  });
+}
+
 // Offline after the first visit, and installable. Only in production: in
 // development the cache would serve stale modules.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
@@ -817,4 +828,5 @@ document.body.dataset.state = "empty";
 // What a link asked to open goes first; only a page still empty shows the demo.
 openLinkedSample();
 void openShared();
+openLaunched();
 setTimeout(() => void startDemo($("demo")), 0);

@@ -89,6 +89,7 @@ export default defineConfig({
         blackout: page("black-out-a-pdf.html"),
         email: page("is-this-email-real.html"),
         screenshot: page("what-a-screenshot-gives-away.html"),
+        privacy: page("your-files-stay-private.html"),
       },
     },
   },

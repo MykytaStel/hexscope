@@ -40,6 +40,12 @@ for (const scheme of ["dark", "light"] as const) {
       });
     }
 
+    test("the privacy page", async ({ page }) => {
+      await page.goto("./your-files-stay-private");
+      await expect(page.locator("h1")).toHaveText("Your files stay on your device");
+      await check(page, "privacy");
+    });
+
     test("the keyboard list", async ({ page }, info) => {
       test.skip(info.project.name !== "computer", "keys are for a computer");
       await page.goto("./");
