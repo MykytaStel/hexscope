@@ -10,6 +10,8 @@ export interface HexCallbacks {
 }
 
 const ROW_H = 22;
+/** The widest row: past 32 bytes, a row is too long to read across. */
+const MAX_PER_ROW = 32;
 const FONT_PX = 13;
 /** The smallest the text shrinks to, on a narrow phone. */
 const MIN_FONT_PX = 10;
@@ -85,8 +87,10 @@ export class HexView {
   /** Font size and side padding: smaller on a screen too narrow for 8 bytes a row. */
   private fontPx = FONT_PX;
   private padX = PAD_X;
-  /** 16 bytes per row, or 8 when 16 would not fit the width. */
+  /** Bytes per row: as many groups of 8 as fit, up to 32. */
   private perRow = 16;
+  /** Space left of the grid, so a grid narrower than the view sits in its middle. */
+  private left = 0;
   /** Hex digits in the offset column: enough for the file, at least six. */
   private offsetDigits = 8;
   /** Told the byte range on screen after every draw, e.g. by the minimap. */
@@ -237,8 +241,9 @@ export class HexView {
   }
 
   private hexX(i: number): number {
-    const base = this.padX + this.ch * (this.offsetDigits + 3);
-    return base + i * this.ch * 3 + (i >= 8 ? this.ch : 0);
+    const base = this.left + this.padX + this.ch * (this.offsetDigits + 3);
+    // A space between each group of 8.
+    return base + i * this.ch * 3 + Math.floor(Math.min(i, this.perRow - 1) / 8) * this.ch;
   }
 
   private asciiX(i: number): number {
@@ -252,7 +257,7 @@ export class HexView {
 
   /** Character columns a row takes: offset, hex, gap, text. */
   private columns(perRow: number): number {
-    return this.offsetDigits + 3 + perRow * 3 + (perRow > 8 ? 1 : 0) + 2 + perRow;
+    return this.offsetDigits + 3 + perRow * 3 + Math.floor((perRow - 1) / 8) + 2 + perRow;
   }
 
   private resize(): void {
@@ -277,7 +282,9 @@ export class HexView {
       this.ctx.font = `${this.fontPx}px ${MONO}`;
       this.ch = this.ctx.measureText("0").width;
     }
-    const perRow = this.viewW >= this.widthFor(16) ? 16 : 8;
+    let perRow = 8;
+    while (perRow < MAX_PER_ROW && this.viewW >= this.widthFor(perRow + 8)) perRow += 8;
+    this.left = Math.max(0, Math.floor((this.viewW - this.widthFor(perRow)) / 2));
     // Keep the same byte at the top of the view if the row width changes.
     const keepByte =
       perRow !== this.perRow
@@ -370,7 +377,7 @@ export class HexView {
       const count = Math.min(this.perRow, bytes.length - base);
 
       ctx.fillStyle = p.offset;
-      ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), this.padX, cy);
+      ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), this.left + this.padX, cy);
 
       // Pass 1: owner and emphasis for each byte in the row.
       for (let i = 0; i < count; i++) {
@@ -385,7 +392,7 @@ export class HexView {
         const f = p.fill[m.tint(ids[i])];
         ctx.fillStyle = levels[i] === 2 ? f.hover : levels[i] === 1 ? f.selected : f.base;
         const bridge =
-          i === 7 && i + 1 < count && ids[i + 1] === ids[i] && levels[i + 1] === levels[i] ? ch : 0;
+          i % 8 === 7 && i + 1 < count && ids[i + 1] === ids[i] && levels[i + 1] === levels[i] ? ch : 0;
         ctx.fillRect(this.hexX(i) - ch * 0.5, y + 1, ch * 3 + bridge, ROW_H - 2);
         ctx.fillRect(this.asciiX(i), y + 1, ch, ROW_H - 2);
       }

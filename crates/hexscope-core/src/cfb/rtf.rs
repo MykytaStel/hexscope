@@ -165,7 +165,9 @@ pub(crate) fn to_html(rtf: &[u8]) -> String {
             }
             Token::Star => starred = true,
             Token::Word(w, n) => {
-                let top = stack.last_mut().expect("never empty");
+                let Some(top) = stack.last_mut() else {
+                    continue;
+                };
                 match w {
                     b"htmltag" if starred => {
                         top.tag = true;

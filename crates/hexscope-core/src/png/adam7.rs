@@ -74,7 +74,7 @@ pub fn deinterlace(raw: &[u8], ihdr: &Ihdr) -> Result<Vec<u8>, UnfilterError> {
     let bits = ihdr.channels() * ihdr.bit_depth as usize;
     // Pixels of 1, 2 or 4 bits pack whole into bytes, larger ones fill
     // whole bytes; a damaged header can claim anything else.
-    if !(matches!(bits, 1 | 2 | 4) || (bits >= 8 && bits % 8 == 0)) {
+    if !(matches!(bits, 1 | 2 | 4) || (bits >= 8 && bits.is_multiple_of(8))) {
         return Err(UnfilterError::BadDimensions);
     }
     let size = stride
