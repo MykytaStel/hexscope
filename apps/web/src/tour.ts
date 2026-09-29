@@ -16,7 +16,7 @@ const STEPS: Step[] = [
   {
     target: ".group.verdict",
     title: "What hexscope found",
-    text: "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” goes to the bytes.",
+    text: "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” takes you to the fact in the summary, or to its bytes when there isn't one.",
   },
   {
     target: ".group.reveals",
@@ -143,7 +143,6 @@ export function maybeTour(): void {
     count.textContent = `${i + 1} of ${steps.length}`;
     next.textContent = i === steps.length - 1 ? "Done" : "Next";
     requestAnimationFrame(place);
-    next.focus();
   };
   function onKey(e: KeyboardEvent): void {
     if (e.key === "Escape") {

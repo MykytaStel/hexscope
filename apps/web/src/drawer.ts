@@ -11,7 +11,7 @@ import { Concern, FileModel, Kind, Role, type PageArea } from "./model";
 import { verdict } from "./verdict";
 import { announce, done } from "./announce";
 import { recentFiles } from "./recent";
-import { headline } from "./headline";
+import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
@@ -97,18 +97,21 @@ export class Drawer {
       // A picture can also go straight to a chat: copied clean, no file at all.
       const copy = copyPictureButton(m);
       const row = el("div", "verdict-actions");
-      row.append(cta, ...(copy ? [copy] : []));
+      row.append(cta);
+      if (copy) {
+        const otherWays = el("details", "other-ways");
+        otherWays.append(el("summary", undefined, "Other ways"), copy);
+        row.append(otherWays);
+      }
       answer.querySelector(".verdict-lines")?.after(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor(m));
-    // On a phone, how the file is made waits under one line, so what to do
-    // about it is not scrolled past.
-    const more = matchMedia("(max-width: 900px)").matches ? el("details", "more-details") : null;
-    const later = (e: HTMLElement) => (more ?? this.file).append(e);
-    // What it is made of stays in sight: how much is the thing itself, and
-    // how much is about it, says why a file is heavier than it looks.
-    this.file.append(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
+    // Technical detail is available in one place, after the useful answer.
+    const more = el("details", "more-details");
+    more.append(el("summary", undefined, "For the curious"));
+    const later = (e: HTMLElement) => more.append(e);
+    more.append(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
     const picture = this.picture(m);
     if (picture) later(picture);
 
@@ -156,10 +159,9 @@ export class Drawer {
     fileGroup.append(input);
     fileGroup.append(pick);
     later(fileGroup);
-    if (more) {
-      more.prepend(el("summary", undefined, "More about the file: what it is made of, its picture, its structure"));
-      this.file.append(more);
-    }
+    const share = this.file.querySelector<HTMLElement>(".reveals .sharer");
+    if (share) more.append(share);
+    this.file.append(more);
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -237,6 +239,10 @@ export class Drawer {
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     group.append(title);
+    // A message that may be forged: what to do comes before why.
+    if (noun(m) === "email" && head.tone === "danger") {
+      group.append(el("p", "verdict-do", "Do not reply, open its files or follow its links. If it matters, ask the sender another way — a number or address you already have."));
+    }
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
@@ -244,7 +250,7 @@ export class Drawer {
       // A file not read has no part to show.
       if (line.node >= 0 && line.kind !== "unknown") {
         const show = el("button", "verdict-show", "Show me");
-        show.addEventListener("click", () => this.onSelect(line.node));
+        show.addEventListener("click", () => this.showLine(line.node));
         li.append(show);
       }
       list.append(li);
@@ -260,6 +266,25 @@ export class Drawer {
     if (m.file.format !== "unknown") group.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
     if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) group.append(this.repairer());
     return group;
+  }
+
+  /**
+   * Where a verdict line points: in the summary, the fact it names, brought
+   * into view; otherwise, or for a part with no fact, its bytes.
+   */
+  private showLine(node: number): void {
+    const row = this.file.querySelector<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
+    const label = row?.previousElementSibling as HTMLElement | null;
+    if (!row || !label || document.body.dataset.view === "bytes") {
+      this.onSelect(node);
+      return;
+    }
+    label.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    for (const e of [label, row]) {
+      e.classList.remove("is-flash");
+      void e.offsetWidth;
+      e.classList.add("is-flash");
+    }
   }
 
   /** Files found inside this one, each to open or save. */
@@ -414,6 +439,7 @@ export class Drawer {
       link.title = "Show where in the file this is";
       link.addEventListener("click", () => this.onSelect(node));
       dd.append(link);
+      dd.dataset.node = String(node);
       list.append(el("dt", strong ? "is-strong" : undefined, label), dd);
       return dd;
     };
@@ -560,7 +586,7 @@ export class Drawer {
           ),
         );
         box.hidden = false;
-        this.addVerdict("hidden", `Something is hidden: the thumbnail inside the file shows the photo before it was ${what}.`, c.node);
+        this.addVerdict("hidden", `Hidden in it: the small copy inside the file still shows the photo before it was ${what}.`, c.node);
       }
       c.thumbnail.close();
       c.picture.close();
@@ -839,6 +865,8 @@ export class Drawer {
     const format = m.file.format;
     const box = el("div", "cleaner");
     const button = el("button", "btn btn-clean", "Remove it — save a clean copy");
+    // The visible action is in the verdict; this control runs the existing clean-copy flow.
+    button.hidden = true;
     button.title = "Makes the copy in this tab: nothing is uploaded";
     const notes: Record<string, string> = {
       zip: "Removes the document's properties, the camera data and location of every photo in it, and the properties of a workbook or deck kept inside it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",

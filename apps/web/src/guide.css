@@ -34,6 +34,10 @@
   border-radius: 0 6px 6px 0;
 }
 
+.guide-language-note {
+  margin-top: 0;
+}
+
 .guide-more {
   margin-top: 48px;
   padding-top: 20px;

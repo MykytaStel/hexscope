@@ -31,7 +31,35 @@ export function redactedName(m: FileModel): string {
   return cleanName(m).replace(/-clean(\.[^.]*)?$/, "-redacted$1");
 }
 
-/** A short name for the kind of file, beside its name in a list. */
+/** What the file is, as a person would say it: "Photo", "Word document". */
+export function kindWord(m: FileModel): string {
+  switch (m.file.format) {
+    case "jpeg":
+    case "heif":
+      return "Photo";
+    case "png":
+    case "webp":
+    case "gif":
+      return "Picture";
+    case "video":
+      return / audio\b/.test(m.value(0)) ? "Recording" : "Video";
+    case "pdf":
+      return "PDF";
+    case "eml":
+    case "msg":
+      return "Email";
+    case "wasm":
+      return "WebAssembly module";
+    case "unknown":
+      return "File";
+    default: {
+      const kind = kindOf(m);
+      return kind === "ZIP" ? "Archive" : kind || "File";
+    }
+  }
+}
+
+/** A short technical name for the format, beside the file's name in a list. */
 export function kindOf(m: FileModel): string {
   const first = m.value(0).split(" · ")[0];
   switch (m.file.format) {

@@ -210,11 +210,12 @@ export function verdict(m: FileModel): VerdictLine[] {
       node: damage[0],
     });
   }
+  const email = f.format === "eml" || f.format === "msg";
   if (hidden.length > 0) {
     const more = hidden.length > 1 ? `, and ${plural(hidden.length - 1, "more thing", "more things")}` : "";
     lines.push({
       kind: "hidden",
-      text: `Something is hidden or disguised: ${m.label(hidden[0])}${more}.`,
+      text: `${email ? "Possible signs of impersonation" : "Hidden in it"}: ${m.label(hidden[0])}${more}.`,
       node: hidden[0],
     });
   }
@@ -227,7 +228,9 @@ export function verdict(m: FileModel): VerdictLine[] {
     // "Show me" goes to the first thing named.
     const top = kinds.find((k) => REVEALS[k]);
     const first = top === "location" ? (f.location?.node ?? -1) : (f.facts.find((x) => x.kind === top)?.node ?? -1);
-    lines.push({ kind: "reveals", text: `Reveals ${list(given.slice(0, 4))}.`, node: first });
+    // A message is read by whoever got it: what it says is about its sender.
+    const lead = email ? "Tells you about its sender: " : "Reveals ";
+    lines.push({ kind: "reveals", text: `${lead}${list(given.slice(0, 4))}.`, node: first });
   }
 
   if (odd.length > 0 && damage.length === 0) {
@@ -240,9 +243,9 @@ export function verdict(m: FileModel): VerdictLine[] {
   if (damage.length === 0 && hidden.length === 0 && odd.length === 0) {
     // What it gives away is why someone opened it: health comes after that.
     if (lines.some((l) => l.kind === "reveals")) {
-      lines.push({ kind: "healthy", text: "Otherwise healthy: every part reads the way the format says it should.", node: -1 });
+      lines.push({ kind: "healthy", text: "The file itself is fine: nothing in it is damaged.", node: -1 });
     } else {
-      lines.unshift({ kind: "healthy", text: "Looks healthy: every part reads the way the format says it should.", node: -1 });
+      lines.unshift({ kind: "healthy", text: "The file is fine: nothing in it is damaged or out of place.", node: -1 });
     }
   }
   return lines;
