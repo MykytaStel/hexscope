@@ -1822,9 +1822,48 @@ body[data-state="batch"] .layout {
   margin-bottom: 18px;
 }
 
+.batch-label {
+  grid-column: 1;
+  margin: 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.batch-title,
+.batch-answer {
+  --tone: var(--tint-iend);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-title::before,
+.batch-answer::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.batch-title.is-danger,
+.batch-answer.is-danger { --tone: var(--tint-gps); }
+.batch-title.is-warning,
+.batch-answer.is-warning { --tone: var(--tint-warning); }
+.batch-title.is-ok,
+.batch-answer.is-ok { --tone: var(--tint-sig); }
+
 .batch-head h2 {
+  grid-column: 1;
   margin: 0;
   font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 .batch-summary {
@@ -1835,7 +1874,7 @@ body[data-state="batch"] .layout {
 
 .batch-head .btn-clean {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
 }
 
 .batch-result {
@@ -1921,6 +1960,18 @@ body[data-state="batch"] .layout {
   color: var(--faint);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.batch-answer {
+  grid-column: 1 / -1;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.batch-answer::before {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
 }
 
 .batch-tags {

@@ -165,6 +165,8 @@ test("several files: listed, then clean copies of those that give something away
   const list = page.locator("#batch");
   await expect(list).toContainText("photo.jpg");
   await expect(list).toContainText("report.docx");
+  await expect(page.locator(".batch-title")).toHaveText("2 of 3 files need a look");
+  await expect(page.locator(".batch-row", { hasText: "sample.png" }).locator(".batch-answer")).toHaveText("Nothing personal found");
   const save = page.locator("#batch .btn-clean");
   await expect(save).toBeEnabled();
   await save.click();

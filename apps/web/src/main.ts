@@ -12,6 +12,7 @@ import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
 import { verdict } from "./verdict";
+import { headline } from "./headline";
 import { BatchView, type BatchItem } from "./batch";
 import { categories } from "./share";
 import { openShortcuts } from "./shortcuts";
@@ -438,7 +439,7 @@ function startBatch(files: File[]): void {
   closePlayer();
   model = null;
   levels = [];
-  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], reveals: [], cleanName: file.name, note: "", skip: false }));
+  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], headline: null, reveals: [], cleanName: file.name, note: "", skip: false }));
   batchView.result = "";
   showBatch();
 }
@@ -476,6 +477,7 @@ async function runBatch(): Promise<void> {
         const m = new FileModel(r.result, r.bytes, item.file.name);
         item.kind = kindOf(m);
         item.lines = verdict(m);
+        item.headline = headline(m);
         item.reveals = categories(m);
         item.cleanName = cleanName(m);
         item.state = "done";

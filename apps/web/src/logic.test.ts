@@ -7,7 +7,7 @@ import { beforeAll, describe as group, expect, it } from "vitest";
 import { initSync, parse } from "./wasm/hexscope_wasm.js";
 import { describe } from "./describe";
 import { FileModel } from "./model";
-import { headline } from "./headline";
+import { headline, listed } from "./headline";
 import { verdict, misfit } from "./verdict";
 import { advice } from "./advice";
 import { categories, categoryCount } from "./share";
@@ -26,6 +26,13 @@ function open(name: string, bytes?: Uint8Array): FileModel {
 }
 
 group("the headline", () => {
+  it("is said shorter in a list of files, where the row names the file", () => {
+    expect(listed(headline(open("photo.jpg")))).toMatch(/^Gives away \d+ things$/);
+    expect(listed(headline(open("phishing.eml")))).toBe("May not be from who it says");
+    expect(listed(headline(open("broken.png")))).toBe("Damaged");
+    expect(listed(headline(open("sample.png")))).toBe("Nothing personal found");
+  });
+
   it("counts what a photo gives away, in red for a place", () => {
     const h = headline(open("photo.jpg"));
     expect(h.tone).toBe("danger");

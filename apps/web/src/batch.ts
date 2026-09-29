@@ -3,6 +3,7 @@
 // photos or documents can be checked before it is sent. Each opens as a
 // file of its own, with a way back; all the clean copies save as one ZIP.
 import type { VerdictLine } from "./verdict";
+import { listed, type Headline } from "./headline";
 
 export interface BatchItem {
   file: File;
@@ -10,6 +11,8 @@ export interface BatchItem {
   /** Shown beside the name: "JPEG", "PDF 1.7". */
   kind: string;
   lines: VerdictLine[];
+  /** The answer a single file opens on; null until it is read. */
+  headline: Headline | null;
   /** What it gives away, as categories: "where it was taken". */
   reveals: string[];
   /** The clean copy's name, for the ZIP. */
@@ -62,7 +65,6 @@ function tags(item: BatchItem): HTMLElement[] {
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   for (const r of item.reveals.slice(0, 4)) out.push(el("span", "tag is-reveals", cap(r)));
   if (item.reveals.length > 4) out.push(el("span", "tag is-reveals", `+${item.reveals.length - 4} more`));
-  if (out.length === 0) out.push(el("span", "tag is-healthy", "Nothing found"));
   return out;
 }
 
@@ -120,17 +122,28 @@ export class BatchView {
 
     const card = el("div", "batch-card");
     const head = el("div", "batch-head");
-    const title = el("h2", undefined, plural(items.length, "file", "files"));
+    const label = el("p", "batch-label", plural(items.length, "file", "files"));
+    const flagged = items.filter((i) => i.state === "failed" || i.headline?.tone === "danger" || i.headline?.tone === "warning");
+    const tone = busy ? "neutral" : flagged.some((i) => i.state === "failed" || i.headline?.tone === "danger") ? "danger" : flagged.length ? "warning" : "ok";
+    const title = el(
+      "h2",
+      `batch-title is-${tone}`,
+      busy
+        ? `Reading ${done.length + 1} of ${items.length}…`
+        : flagged.length
+          ? `${flagged.length} of ${plural(items.length, "file needs", "files need")} a look`
+          : `Nothing personal found in ${items.length === 1 ? "this file" : `these ${items.length} files`}`,
+    );
     const summary = el("p", "batch-summary");
     if (busy) {
-      summary.textContent = `Reading ${done.length + 1} of ${items.length}… Nothing leaves this tab.`;
+      summary.textContent = "Nothing leaves this tab.";
     } else {
       const parts = [
         revealing ? `${revealing} ${revealing === 1 ? "reveals" : "reveal"} something about you` : "",
         hidden ? `${hidden} ${hidden === 1 ? "hides" : "hide"} something` : "",
         damaged ? `${damaged} damaged` : "",
       ].filter(Boolean);
-      summary.textContent = parts.length ? `${parts.join(" · ")}.` : "None of them gives anything away.";
+      summary.textContent = parts.length ? `${parts.join(" · ")}.` : "Every one can be sent as it is.";
     }
     const phone = this.hooks.canShareCopies();
     const chosen = items.filter((i) => cleanable(i) && !i.skip).length;
@@ -149,7 +162,7 @@ export class BatchView {
     box.addEventListener("change", () => (this.keepNames = box.checked));
     keep.append(box, " Keep the original names");
     keep.hidden = busy || chosen === 0;
-    head.append(title, summary, save, keep, this.status);
+    head.append(label, title, summary, save, keep, this.status);
 
     const isProblem = (i: BatchItem) =>
       i.state === "failed" || i.lines.some((l) => l.kind === "damage" || l.kind === "hidden" || l.kind === "misnamed");
@@ -186,9 +199,14 @@ export class BatchView {
       // In a folder, where it is in the folder.
       const name = el("span", "batch-name", item.file.webkitRelativePath || item.file.name);
       const meta = el("span", "batch-meta", [item.kind, size(item.file.size)].filter(Boolean).join(" · "));
-      const found = el("span", "batch-tags");
-      found.append(...tags(item));
-      row.append(name, meta, found);
+      row.append(name, meta);
+      if (item.headline) row.append(el("span", `batch-answer is-${item.headline.tone}`, listed(item.headline)));
+      const found = tags(item);
+      if (found.length > 0) {
+        const box = el("span", "batch-tags");
+        box.append(...found);
+        row.append(box);
+      }
       row.addEventListener("click", () => this.hooks.open(i));
       // Whether this one goes into the clean copies.
       if (cleanable(item)) {
