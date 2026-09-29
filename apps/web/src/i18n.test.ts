@@ -30,4 +30,16 @@ describe("the interface language", () => {
     );
     expect(translateText("photo.jpg is open. Reveals where it was taken.", "uk")).toBe("photo.jpg відкрито. Розкриває місце зйомки.");
   });
+
+  it("translates every copy distance in the pixel explanation", () => {
+    expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from exactly one row up — 9 bits say so.", "uk")).toBe(
+      "Піксель 9, 27: частина копії з 258 байтів, узятої рівно на один рядок вище; це закодовано у 9 бітах.",
+    );
+    expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from exactly 3 rows up — 9 bits say so.", "uk")).toContain(
+      "рівно на 3 рядки вище",
+    );
+    expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from 193 bytes back — 9 bits say so.", "uk")).toContain(
+      "на 193 байти раніше",
+    );
+  });
 });

@@ -724,7 +724,7 @@ input {
 .demo {
   display: grid;
   grid-template-columns: clamp(128px, 10vw, 148px) minmax(0, 1fr);
-  align-items: start;
+  align-items: center;
   gap: 12px;
   margin: 0;
   padding: 14px;
@@ -802,6 +802,9 @@ input {
 
 /* Room for the tallest scene, the photo's facts, from the start. */
 .demo-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
   min-height: 250px;
 }
@@ -3227,13 +3230,12 @@ body[data-state="ready"] .viewswitch {
     padding: 18px;
   }
 
-  /* A compact card beside its words, so the ways in stay near the top. */
-  /* The picture grows with the screen, to about the height the words
-     beside it keep for their longest scene: no empty band under it. */
+  /* A compact card beside its words. Center each changing scene in the
+     height reserved for the longest one, so short scenes do not leave a
+     heavy, empty band underneath. */
   .demo {
     grid-template-columns: clamp(112px, 24vw, 200px) minmax(0, 1fr);
-    /* The picture stays put while the words beside it change. */
-    align-items: start;
+    align-items: center;
     gap: 14px;
     padding: 12px;
   }
