@@ -31,6 +31,21 @@ describe("the interface language", () => {
     expect(translateText("photo.jpg is open. Reveals where it was taken.", "uk")).toBe("photo.jpg відкрито. Розкриває місце зйомки.");
   });
 
+  it("translates both clean-copy captions in the photo demonstration", () => {
+    expect(translateText("Same photo. Camera details removed in your browser.", "uk")).toBe(
+      "Те саме фото. Дані камери видалено у вашому браузері.",
+    );
+    expect(translateText("Same photo. 1 bytes removed in your browser.", "uk")).toBe(
+      "Те саме фото. У вашому браузері видалено 1 байт.",
+    );
+    expect(translateText("Same photo. 24 bytes removed in your browser.", "uk")).toBe(
+      "Те саме фото. У вашому браузері видалено 24 байти.",
+    );
+    expect(translateText("Same photo. 25 bytes removed in your browser.", "uk")).toBe(
+      "Те саме фото. У вашому браузері видалено 25 байтів.",
+    );
+  });
+
   it("translates every copy distance in the pixel explanation", () => {
     expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from exactly one row up — 9 bits say so.", "uk")).toBe(
       "Піксель 9, 27: частина копії з 258 байтів, узятої рівно на один рядок вище; це закодовано у 9 бітах.",

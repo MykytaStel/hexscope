@@ -271,7 +271,7 @@ body[data-state="empty"] .layout {
 /* The opening: what it does and the way in on the left, it doing it on the right. */
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.9fr);
   gap: clamp(24px, 2.5vw, 36px);
   /* Top, not centred: the demonstration grows as it plays, and the words
      beside it should not move. */
@@ -299,7 +299,7 @@ body[data-state="empty"] .layout {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 16px;
+  gap: var(--space-2) var(--space-4);
 }
 
 .hero-other-ways {
@@ -321,7 +321,7 @@ body[data-state="empty"] .layout {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 14px;
+  gap: var(--space-2) var(--space-3);
   margin-top: 8px;
 }
 
@@ -985,4 +985,3 @@ body[data-state="loading"] .loading {
     animation: none !important;
   }
 }
-

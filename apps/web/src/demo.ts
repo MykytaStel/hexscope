@@ -222,16 +222,18 @@ async function tell(said: Said, image: HTMLCanvasElement, kicker: HTMLElement, t
   told.classList.remove("is-clean");
   told.hidden = false;
   p.caption.textContent = "A photo, as a camera or phone saves it. Inside it:";
-  await sleep(FACT_MS);
-  // Every row is there from the start, unseen, so the card keeps its size as they appear.
+  // Reserve the measured height before the first fact appears, so the page below does not jump.
   const rows = said.facts.map(([name, value]) => {
     const row = el("div", "demo-fact");
+    row.setAttribute("aria-hidden", "true");
     row.append(el("dt", undefined, name), el("dd", undefined, value));
     return row;
   });
   told.replaceChildren(...rows);
+  await sleep(FACT_MS);
   for (const row of rows) {
     if (!idle()) return;
+    row.removeAttribute("aria-hidden");
     row.classList.add("is-shown");
     await sleep(FACT_MS);
   }
@@ -242,8 +244,8 @@ async function tell(said: Said, image: HTMLCanvasElement, kicker: HTMLElement, t
   told.classList.add("is-clean");
   p.caption.textContent =
     said.left === 0
-      ? `The clean copy: the same picture, and none of that — ${said.removedBytes.toLocaleString("en")} bytes of it removed, in your browser.`
-      : "The clean copy: the same picture, with its camera data removed, in your browser.";
+      ? `Same photo. ${said.removedBytes.toLocaleString("en")} bytes removed in your browser.`
+      : "Same photo. Camera details removed in your browser.";
   await sleep(DWELL_MS * 1.5);
 }
 

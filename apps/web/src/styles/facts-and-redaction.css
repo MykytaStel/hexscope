@@ -11,7 +11,7 @@
 
 .demo-fact {
   display: grid;
-  grid-template-columns: 7.5em minmax(0, 1fr);
+  grid-template-columns: 8em minmax(0, 1fr);
   gap: 8px;
   font-size: 13px;
   opacity: 0;
@@ -47,11 +47,11 @@
   .demo-fact {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    font-size: 12px;
+    font-size: var(--type-small);
   }
 
   .demo-fact dd {
-    font-size: 12px;
+    font-size: var(--type-small);
   }
 }
 
@@ -424,4 +424,3 @@
     margin-left: auto;
   }
 }
-

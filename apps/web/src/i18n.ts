@@ -55,6 +55,7 @@ const UK: Record<string, string> = {
   "A photo, as a camera or phone saves it. Inside it:": "Фото таким, як його зберігає камера чи телефон. Усередині:",
   "Anyone you send it to can read all of that.": "Усе це зможе прочитати кожен, кому ви надішлете фото.",
   "The clean copy: the same picture, with its camera data removed, in your browser.": "Очищена копія: те саме зображення без даних фотоапарата, створена у вашому браузері.",
+  "Same photo. Camera details removed in your browser.": "Те саме фото. Дані камери видалено у вашому браузері.",
   "WebAssembly module": "Модуль WebAssembly",
   "Word document": "Документ Word",
   "Excel workbook": "Таблиця Excel",
@@ -434,6 +435,11 @@ export function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]}% файла`;
   match = /^The clean copy: the same picture, and none of that — (.+) bytes of it removed, in your browser\.$/.exec(value);
   if (match) return `Очищена копія: те саме зображення без цих даних — видалено ${match[1]} байтів у вашому браузері.`;
+  match = /^Same photo\. ([\d,]+) bytes removed in your browser\.$/.exec(value);
+  if (match) {
+    const count = Number(match[1].replaceAll(",", ""));
+    return `Те саме фото. У вашому браузері видалено ${count.toLocaleString("uk")} ${ukrainianCountWord(count, "байт", "байти", "байтів")}.`;
+  }
   match = /^Scan 1 of (\d+): (\d+)% of the file, and the whole photo is there already — blurry, each block just its average\.$/.exec(value);
   if (match) return `Скан 1 із ${match[1]}: ${match[2]}% файла. Фото вже ціле, але розмите: кожен блок показує свій середній колір.`;
   match = /^All (\d+) scans: every detail\. hexscope shows which bytes draw which block, in each scan\.$/.exec(value);

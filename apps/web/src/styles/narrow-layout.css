@@ -64,14 +64,12 @@ body[data-state="ready"] .viewswitch {
     padding: 18px;
   }
 
-  /* A compact card beside its words. Center each changing scene in the
-     height reserved for the longest one, so short scenes do not leave a
-     heavy, empty band underneath. */
+  /* At tablet widths, the preview and its explanation still fit on one row. */
   .demo {
     grid-template-columns: clamp(112px, 24vw, 200px) minmax(0, 1fr);
     align-items: center;
-    gap: 14px;
-    padding: 12px;
+    gap: var(--space-3);
+    padding: var(--space-3);
   }
 
   .demo-kicker {
@@ -80,15 +78,6 @@ body[data-state="ready"] .viewswitch {
 
   .demo-bytes {
     font-size: 12px;
-  }
-
-  .demo-caption {
-    font-size: 12.5px;
-    min-height: 0;
-  }
-
-  .demo-side {
-    min-height: 210px;
   }
 
   body[data-state="ready"] .viewswitch {
@@ -232,3 +221,14 @@ body[data-state="ready"] .viewswitch {
   }
 }
 
+@media (max-width: 600px) {
+  .demo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .demo-frame {
+    width: clamp(120px, 32vw, 148px);
+    justify-self: center;
+  }
+}

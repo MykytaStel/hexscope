@@ -4,9 +4,9 @@
   display: grid;
   grid-template-columns: clamp(128px, 10vw, 148px) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   margin: 0;
-  padding: 14px;
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--panel);
@@ -79,17 +79,16 @@
   pointer-events: none;
 }
 
-/* Room for the tallest scene, the photo's facts, from the start. */
+/* Copy changes with the image; the demo observer keeps its tallest scene in view. */
 .demo-side {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  min-height: 250px;
 }
 
 .demo-kicker {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-1);
   color: var(--accent);
   font-weight: 600;
   font-size: var(--type-caption);
@@ -119,9 +118,8 @@
 }
 
 .demo-caption {
-  margin: 8px 0 0;
-  min-height: 4.4em;
-  font-size: 13.5px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-small);
   line-height: 1.45;
   color: var(--muted);
 }
@@ -416,4 +414,3 @@ a.btn {
     display: inline;
   }
 }
-

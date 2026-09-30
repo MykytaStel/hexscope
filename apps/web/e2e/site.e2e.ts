@@ -95,6 +95,15 @@ test("the phone demo keeps its copy readable in both languages", async ({ page }
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(page.locator(".demo-caption")).toBeVisible();
   await check("Ukrainian");
+  const caption = page.locator(".demo-caption");
+  await caption.evaluate((element) => {
+    element.textContent = "Same photo. Camera details removed in your browser.";
+  });
+  await expect(caption).toHaveText("Те саме фото. Дані камери видалено у вашому браузері.");
+  await caption.evaluate((element) => {
+    element.textContent = "Same photo. 24 bytes removed in your browser.";
+  });
+  await expect(caption).toHaveText("Те саме фото. У вашому браузері видалено 24 байти.");
 });
 
 test("the short demo scene reserves no disproportionate empty band", async ({ page }) => {
@@ -176,6 +185,47 @@ test("the desktop landing keeps the example beside the words", async ({ page }, 
   expect(composition.heroHeight).toBeLessThanOrEqual(380);
 });
 
+test("the desktop demo gives photo facts room to wrap as words", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "desktop fact wrapping is checked across desktop widths");
+  await home(page);
+  await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
+
+  for (const width of [901, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator(".demo-side").evaluate((side) => {
+      const labelLines = [...side.querySelectorAll(".demo-fact dt")].map((label) => {
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        return range.getClientRects().length;
+      });
+      const valueLines = [...side.querySelectorAll(".demo-fact dd")].map((value) => {
+        const range = document.createRange();
+        range.selectNodeContents(value);
+        return range.getClientRects().length;
+      });
+      return { width: side.getBoundingClientRect().width, labelLines, valueLines };
+    });
+    expect(layout.width, `photo facts column at ${width}px`).toBeGreaterThanOrEqual(220);
+    expect(Math.max(...layout.labelLines), `longest photo label at ${width}px`).toBeLessThanOrEqual(1);
+    expect(Math.max(...layout.valueLines), `longest photo value at ${width}px`).toBeLessThanOrEqual(2);
+  }
+
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  for (const width of [901, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator(".demo-side").evaluate((side) => {
+      const lines = (selector: string) => [...side.querySelectorAll(selector)].map((item) => {
+        const range = document.createRange();
+        range.selectNodeContents(item);
+        return range.getClientRects().length;
+      });
+      return { labelLines: lines(".demo-fact dt"), valueLines: lines(".demo-fact dd") };
+    });
+    expect(Math.max(...layout.labelLines), `Ukrainian photo label at ${width}px`).toBeLessThanOrEqual(2);
+    expect(Math.max(...layout.valueLines), `Ukrainian photo value at ${width}px`).toBeLessThanOrEqual(2);
+  }
+});
+
 test("the tablet landing centers short demo scenes in their reserved height", async ({ page }) => {
   await page.setViewportSize({ width: 645, height: 800 });
   await home(page);
@@ -216,8 +266,14 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
     example: parseFloat(getComputedStyle(document.querySelector(".doors-main .door-text")!).fontSize),
     demoLabel: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
+    demoCaption: parseFloat(getComputedStyle(document.querySelector(".demo-caption")!).fontSize),
     demoFact: parseFloat(getComputedStyle(document.querySelector(".demo-fact")!).fontSize),
     demoFactValue: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+    primaryActionHeight: Math.min(
+      ...[...document.querySelectorAll<HTMLButtonElement>(".hero-actions .btn-big")].map((button) =>
+        button.getBoundingClientRect().height,
+      ),
+    ),
     bodyFont: getComputedStyle(document.body).fontFamily,
     codeFont: getComputedStyle(document.querySelector(".tree")!).fontFamily,
   }));
@@ -225,10 +281,26 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
   expect(type.introduction).toBeGreaterThanOrEqual(16);
   expect(type.example).toBeGreaterThanOrEqual(14);
   expect(type.demoLabel).toBeGreaterThanOrEqual(12);
-  expect(type.demoFact).toBeGreaterThanOrEqual(12);
-  expect(type.demoFactValue).toBeGreaterThanOrEqual(12);
+  expect.soft(type.demoCaption).toBeGreaterThanOrEqual(14);
+  expect.soft(type.demoFact).toBeGreaterThanOrEqual(14);
+  expect.soft(type.demoFactValue).toBeGreaterThanOrEqual(14);
+  expect(type.primaryActionHeight).toBeGreaterThanOrEqual(44);
   expect(type.bodyFont).toContain("system-ui");
   expect(type.codeFont).toContain("monospace");
+});
+
+test("the tablet demo keeps photo facts at reading size", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect(page.locator(".demo-fact").first()).toBeAttached();
+  const type = await page.evaluate(() => ({
+    label: parseFloat(getComputedStyle(document.querySelector(".demo-fact dt")!).fontSize),
+    value: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+    overflow: document.documentElement.scrollWidth - innerWidth,
+  }));
+  expect(type.label).toBeGreaterThanOrEqual(14);
+  expect(type.value).toBeGreaterThanOrEqual(14);
+  expect(type.overflow).toBeLessThanOrEqual(0);
 });
 
 test("shared routes only request their current stylesheets", async ({ page }) => {

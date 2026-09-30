@@ -479,32 +479,6 @@
   color: var(--muted);
 }
 
-/* Room for the tallest scene at each width, measured: narrower columns
-   wrap the clean copy's sentence into more lines. */
-@media (max-width: 600px) {
-  .demo-side {
-    min-height: 215px;
-  }
-}
-
-@media (max-width: 480px) {
-  .demo-side {
-    min-height: 235px;
-  }
-}
-
-@media (max-width: 400px) {
-  .demo-side {
-    min-height: 250px;
-  }
-}
-
-@media (max-width: 360px) {
-  .demo-side {
-    min-height: 320px;
-  }
-}
-
 /* The summary names the file in a word; the bytes give every detail, and
    the count of findings to step through. */
 .fileinfo .meta-full,
