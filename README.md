@@ -435,7 +435,6 @@ Three rules hold across the parser:
 Open problems are listed in [`docs/known-issues.md`](docs/known-issues.md);
 how to find your way around the code, and how to add to it, is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
-The original design and plan are in [`docs/superpowers/`](docs/superpowers/).
 
 ## Developing
 

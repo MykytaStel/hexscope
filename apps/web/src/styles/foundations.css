@@ -1,0 +1,164 @@
+:root {
+  color-scheme: light dark;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* A small type and spacing scale for the parts people read first. */
+  --type-caption: 12px;
+  --type-small: 14px;
+  --type-body: 15px;
+  --type-reading: clamp(16px, 1.2vw, 18px);
+  --type-card-title: 17px;
+  --type-display: clamp(32px, 3.1vw, 44px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --panel-2: #fafaf8;
+  --border: #e4e3de;
+  --text: #1c1c1e;
+  --muted: #5d5d62;
+  --faint: #6f6f74;
+  --accent: #1d4ed8;
+  /* Text on the accent colour. */
+  --on-accent: #fff;
+  --row-hover: rgba(37, 99, 235, 0.07);
+  --row-selected: rgba(37, 99, 235, 0.13);
+
+  /* Canvas colours. Tints must be six-digit hex: the renderer parses them. */
+  --hex-bg: #ffffff;
+  --hex-text: #1f1f22;
+  --hex-zero: #bdbdc2;
+  --hex-offset: #a4a4aa;
+  --tint-sig: #16a34a;
+  --tint-ihdr: #2563eb;
+  --tint-plte: #9333ea;
+  --tint-idat: #ea7a0c;
+  --tint-iend: #8e8e93;
+  --tint-text: #0e9aa7;
+  --tint-anc: #5b6475;
+  --tint-gps: #c42a60;
+  --tint-warning: #d69e00;
+  /* Warning text: the tint, dark enough to read on a light page. */
+  --warning-text: #855f00;
+  /* Green for words: the tint itself is too light on white. */
+  --ok-text: #15803d;
+  --tint-error: #c81e1e;
+  --alpha-base: 0.1;
+  --alpha-selected: 0.22;
+  --alpha-hover: 0.34;
+}
+
+/* Dark: when the system is, unless light was chosen; or when dark was chosen. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f0f11;
+    --panel: #161618;
+    --panel-2: #1a1a1d;
+    --border: #28282c;
+    --text: #ececef;
+    --muted: #a1a1aa;
+    --faint: #878791;
+    --accent: #6b9bff;
+    --on-accent: #0b1020;
+    --row-hover: rgba(107, 155, 255, 0.09);
+    --row-selected: rgba(107, 155, 255, 0.17);
+
+    --hex-bg: #131315;
+    --hex-text: #e4e4e7;
+    --hex-zero: #4d4d55;
+    --hex-offset: #5d5d66;
+    --tint-sig: #34d17a;
+    --tint-ihdr: #5b8cff;
+    --tint-plte: #b57bff;
+    --tint-idat: #ffa53d;
+    --tint-iend: #9a9aa2;
+    --tint-text: #2fc6d1;
+    --tint-anc: #8a93a6;
+    --tint-gps: #ff5c9a;
+    --tint-warning: #ffd23f;
+    --tint-error: #ff5a5f;
+    --alpha-base: 0.13;
+    --alpha-selected: 0.27;
+    --alpha-hover: 0.4;
+    --warning-text: var(--tint-warning);
+    --ok-text: var(--tint-sig);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0f11;
+  --panel: #161618;
+  --panel-2: #1a1a1d;
+  --border: #28282c;
+  --text: #ececef;
+  --muted: #a1a1aa;
+  --faint: #878791;
+  --accent: #6b9bff;
+  --on-accent: #0b1020;
+  --row-hover: rgba(107, 155, 255, 0.09);
+  --row-selected: rgba(107, 155, 255, 0.17);
+
+  --hex-bg: #131315;
+  --hex-text: #e4e4e7;
+  --hex-zero: #4d4d55;
+  --hex-offset: #5d5d66;
+  --tint-sig: #34d17a;
+  --tint-ihdr: #5b8cff;
+  --tint-plte: #b57bff;
+  --tint-idat: #ffa53d;
+  --tint-iend: #9a9aa2;
+  --tint-text: #2fc6d1;
+  --tint-anc: #8a93a6;
+  --tint-gps: #ff5c9a;
+  --tint-warning: #ffd23f;
+  --tint-error: #ff5a5f;
+  --alpha-base: 0.13;
+  --alpha-selected: 0.27;
+  --alpha-hover: 0.4;
+  --warning-text: var(--tint-warning);
+  --ok-text: var(--tint-sig);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Component display rules must never override the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: var(--type-body)/1.5 var(--font);
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+

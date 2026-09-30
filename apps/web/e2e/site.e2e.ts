@@ -62,6 +62,78 @@ test("the landing page holds still while its demonstration plays", async ({ page
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
 });
 
+test("the phone demo keeps its copy readable in both languages", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+  await home(page);
+  await expect(page.locator(".demo-caption")).toBeVisible();
+
+  const check = async (language: string) => {
+    for (const width of [360, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const measurement = await page.evaluate(() => {
+        const side = document.querySelector(".demo-side")!;
+        const caption = document.querySelector(".demo-caption")!;
+        const sideBox = side.getBoundingClientRect();
+        const captionBox = caption.getBoundingClientRect();
+        return {
+          captionSize: parseFloat(getComputedStyle(caption).fontSize),
+          kickerSize: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
+          left: captionBox.left - sideBox.left,
+          right: sideBox.right - captionBox.right,
+          overflow: document.documentElement.scrollWidth - innerWidth,
+        };
+      });
+      expect(measurement.captionSize, `${language} caption at ${width}px`).toBeGreaterThanOrEqual(14);
+      expect(measurement.kickerSize, `${language} label at ${width}px`).toBeGreaterThanOrEqual(12);
+      expect(measurement.left, `${language} caption left edge at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(measurement.right, `${language} caption right edge at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(measurement.overflow, `${language} page overflow at ${width}px`).toBeLessThanOrEqual(0);
+    }
+  };
+
+  await check("English");
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page.locator(".demo-caption")).toBeVisible();
+  await check("Ukrainian");
+  const caption = page.locator(".demo-caption");
+  await caption.evaluate((element) => {
+    element.textContent = "Same photo. Camera details removed in your browser.";
+  });
+  await expect(caption).toHaveText("Те саме фото. Дані камери видалено у вашому браузері.");
+  await caption.evaluate((element) => {
+    element.textContent = "Same photo. 24 bytes removed in your browser.";
+  });
+  await expect(caption).toHaveText("Те саме фото. У вашому браузері видалено 24 байти.");
+});
+
+test("the short demo scene reserves no disproportionate empty band", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await home(page);
+  await expect(page.locator(".demo-caption")).toBeVisible();
+
+  for (const width of [360, 390, 645, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.waitForTimeout(60);
+    const spacing = await page.locator(".demo-side").evaluate((side) => {
+      const sideBox = side.getBoundingClientRect();
+      const children = [...side.children]
+        .filter((child) => getComputedStyle(child).display !== "none" && child.getBoundingClientRect().height > 0)
+        .map((child) => child.getBoundingClientRect());
+      const contentTop = Math.min(...children.map((box) => box.top));
+      const contentBottom = Math.max(...children.map((box) => box.bottom));
+      return {
+        above: contentTop - sideBox.top,
+        below: sideBox.bottom - contentBottom,
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+    expect(spacing.above, `demo content above at ${width}px`).toBeGreaterThanOrEqual(-1);
+    expect(spacing.below, `demo content below at ${width}px`).toBeGreaterThanOrEqual(-1);
+    expect(spacing.above + spacing.below, `unused demo space at ${width}px`).toBeLessThanOrEqual(80);
+    expect(spacing.overflow, `page overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+});
+
 test("the landing page keeps its three everyday examples in one aligned grid", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "the desktop arrangement is checked at desktop widths");
   await home(page);
@@ -113,6 +185,47 @@ test("the desktop landing keeps the example beside the words", async ({ page }, 
   expect(composition.heroHeight).toBeLessThanOrEqual(380);
 });
 
+test("the desktop demo gives photo facts room to wrap as words", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "desktop fact wrapping is checked across desktop widths");
+  await home(page);
+  await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
+
+  for (const width of [901, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator(".demo-side").evaluate((side) => {
+      const labelLines = [...side.querySelectorAll(".demo-fact dt")].map((label) => {
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        return range.getClientRects().length;
+      });
+      const valueLines = [...side.querySelectorAll(".demo-fact dd")].map((value) => {
+        const range = document.createRange();
+        range.selectNodeContents(value);
+        return range.getClientRects().length;
+      });
+      return { width: side.getBoundingClientRect().width, labelLines, valueLines };
+    });
+    expect(layout.width, `photo facts column at ${width}px`).toBeGreaterThanOrEqual(220);
+    expect(Math.max(...layout.labelLines), `longest photo label at ${width}px`).toBeLessThanOrEqual(1);
+    expect(Math.max(...layout.valueLines), `longest photo value at ${width}px`).toBeLessThanOrEqual(2);
+  }
+
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  for (const width of [901, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator(".demo-side").evaluate((side) => {
+      const lines = (selector: string) => [...side.querySelectorAll(selector)].map((item) => {
+        const range = document.createRange();
+        range.selectNodeContents(item);
+        return range.getClientRects().length;
+      });
+      return { labelLines: lines(".demo-fact dt"), valueLines: lines(".demo-fact dd") };
+    });
+    expect(Math.max(...layout.labelLines), `Ukrainian photo label at ${width}px`).toBeLessThanOrEqual(2);
+    expect(Math.max(...layout.valueLines), `Ukrainian photo value at ${width}px`).toBeLessThanOrEqual(2);
+  }
+});
+
 test("the tablet landing centers short demo scenes in their reserved height", async ({ page }) => {
   await page.setViewportSize({ width: 645, height: 800 });
   await home(page);
@@ -133,16 +246,34 @@ test("the tablet landing centers short demo scenes in their reserved height", as
 });
 
 test("the landing page keeps its type readable on a phone", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".demo-fact").first()).toBeAttached();
+  const light = await page.evaluate(() => ({
+    page: getComputedStyle(document.body).backgroundColor,
+    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
+  }));
+  expect(light).toEqual({ page: "rgb(246, 246, 244)", demo: "rgb(255, 255, 255)" });
+  await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
+  const dark = await page.evaluate(() => ({
+    page: getComputedStyle(document.body).backgroundColor,
+    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
+  }));
+  expect(dark).toEqual({ page: "rgb(15, 15, 17)", demo: "rgb(22, 22, 24)" });
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
     example: parseFloat(getComputedStyle(document.querySelector(".doors-main .door-text")!).fontSize),
     demoLabel: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
+    demoCaption: parseFloat(getComputedStyle(document.querySelector(".demo-caption")!).fontSize),
     demoFact: parseFloat(getComputedStyle(document.querySelector(".demo-fact")!).fontSize),
     demoFactValue: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+    primaryActionHeight: Math.min(
+      ...[...document.querySelectorAll<HTMLButtonElement>(".hero-actions .btn-big")].map((button) =>
+        button.getBoundingClientRect().height,
+      ),
+    ),
     bodyFont: getComputedStyle(document.body).fontFamily,
     codeFont: getComputedStyle(document.querySelector(".tree")!).fontFamily,
   }));
@@ -150,10 +281,42 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
   expect(type.introduction).toBeGreaterThanOrEqual(16);
   expect(type.example).toBeGreaterThanOrEqual(14);
   expect(type.demoLabel).toBeGreaterThanOrEqual(12);
-  expect(type.demoFact).toBeGreaterThanOrEqual(12);
-  expect(type.demoFactValue).toBeGreaterThanOrEqual(12);
+  expect.soft(type.demoCaption).toBeGreaterThanOrEqual(14);
+  expect.soft(type.demoFact).toBeGreaterThanOrEqual(14);
+  expect.soft(type.demoFactValue).toBeGreaterThanOrEqual(14);
+  expect(type.primaryActionHeight).toBeGreaterThanOrEqual(44);
   expect(type.bodyFont).toContain("system-ui");
   expect(type.codeFont).toContain("monospace");
+});
+
+test("the tablet demo keeps photo facts at reading size", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect(page.locator(".demo-fact").first()).toBeAttached();
+  const type = await page.evaluate(() => ({
+    label: parseFloat(getComputedStyle(document.querySelector(".demo-fact dt")!).fontSize),
+    value: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+    overflow: document.documentElement.scrollWidth - innerWidth,
+  }));
+  expect(type.label).toBeGreaterThanOrEqual(14);
+  expect(type.value).toBeGreaterThanOrEqual(14);
+  expect(type.overflow).toBeLessThanOrEqual(0);
+});
+
+test("shared routes only request their current stylesheets", async ({ page }) => {
+  const stylesheetUrls = () =>
+    page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((url) => new URL(url).pathname.endsWith(".css")),
+    );
+
+  await home(page);
+  expect(await stylesheetUrls()).toHaveLength(1);
+  await page.goto("./check-document-before-sending.html");
+  await page.waitForLoadState("networkidle");
+  expect(await stylesheetUrls()).toHaveLength(3);
 });
 
 test("supported file types are available without crowding the mobile start", async ({ page }) => {

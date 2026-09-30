@@ -1,0 +1,416 @@
+/* --- landing demonstration ----------------------------------------------------- */
+
+.demo {
+  display: grid;
+  grid-template-columns: clamp(128px, 10vw, 148px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  text-align: left;
+}
+
+.demo[hidden] {
+  display: none;
+}
+
+.demo-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  container-type: size;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.demo-image,
+.demo-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.demo-image {
+  image-rendering: pixelated;
+}
+
+.demo-image.is-photo {
+  image-rendering: auto;
+}
+
+/* How much of the file the JPEG scene has read. */
+.demo-bar {
+  flex: 1 0 100%;
+  height: 6px;
+  margin: 4px 0 2px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+
+.demo-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 400ms ease-out;
+}
+
+.demo-share {
+  color: var(--muted);
+}
+
+.demo-pointer {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5);
+  transition: transform 450ms cubic-bezier(0.3, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+/* Copy changes with the image; the demo observer keeps its tallest scene in view. */
+.demo-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.demo-kicker {
+  margin: 0 0 var(--space-1);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--type-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.demo-bytes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font: 13px var(--mono);
+  color: var(--faint);
+}
+
+.demo-offset {
+  margin-right: 6px;
+}
+
+.demo-byte.is-hit {
+  color: #fff;
+  /* Solid, and dark enough for white on it in either theme. */
+  background: #b3204f;
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+.demo-caption {
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-small);
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+
+/* --- picture ---------------------------------------------------------------------- */
+
+.picture-frame {
+  position: relative;
+  margin: 4px 0 8px;
+  cursor: crosshair;
+  /* A checkerboard behind transparent pixels. */
+  background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--border) 0 50%) 0 0 / 12px 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.picture-image,
+.picture-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.picture-image {
+  image-rendering: pixelated;
+}
+
+.picture-overlay {
+  pointer-events: none;
+}
+
+.picture-caption {
+  margin: 0;
+  min-height: 3.2em;
+}
+
+/* A JPEG's tools under its picture: the bits layer. */
+.picture-tools {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.btn-small {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A progressive JPEG, scan by scan. */
+.buildup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 8px;
+}
+
+.buildup > .hint {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
+.buildup-label {
+  flex: 1 1 160px;
+  display: flex;
+}
+
+.buildup-label input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.buildup-says {
+  flex: 1 0 100%;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.scan-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 2ch 1fr auto;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scan-row:hover {
+  background: var(--panel-2);
+}
+
+.scan-row[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+.scan-n,
+.scan-bits {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-zero {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+/* A thumbnail that is not the picture, beside it. */
+.thumbcheck {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tint-gps) 9%, transparent);
+}
+
+.thumb-title {
+  margin: 0 0 8px;
+  font-weight: 650;
+}
+
+.thumb-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.thumb-pair figure {
+  margin: 0;
+}
+
+.thumb-pair canvas {
+  display: block;
+  max-width: 160px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.thumb-pair figcaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thumbcheck .hint {
+  margin: 10px 0 0;
+}
+
+.thumb-ok {
+  color: var(--muted);
+}
+
+/* What to do about what a file reveals. */
+.advice {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.advice-title {
+  margin: 0 0 4px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.advice ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.advice li + li {
+  margin-top: 6px;
+}
+
+/* A bug report's structure, to read before sharing. */
+.report-link {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.report {
+  width: min(680px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.report::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+/* The × in every dialog's corner: the way out, where people look for it. */
+.dialog-x {
+  /* Sticky, so a long dialog scrolled down still shows its way out. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  float: right;
+  margin: -8px -8px 0 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialog-x:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+
+
+.report h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.report-text {
+  width: 100%;
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: 12px/1.5 var(--mono);
+  white-space: pre;
+  resize: vertical;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+/* Links to the bytes, where the bytes are a view away. */
+.only-narrow {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .only-narrow {
+    display: inline;
+  }
+}

@@ -1,0 +1,108 @@
+/* --- wide windows ------------------------------------------------------------- */
+
+/* The structure and the bytes on the left; on the right, the whole height,
+   what the file is and says — the verdict, what it reveals, its picture —
+   with the part under the pointer below. The player needs the width, so it
+   takes the bottom, as it always has. */
+@media (min-width: 901px) {
+  /* The tree and the details give way first on a narrow desktop: the bytes
+     between them need room for a row and its text. */
+  .layout,
+  body:has(.reveals) .layout {
+    grid-template-columns: clamp(220px, 18vw, 280px) minmax(0, 1fr) clamp(340px, 26vw, 460px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .pane-drawer,
+  .pane-drawer:has(.reveals) {
+    grid-column: 3;
+    grid-row: 1;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .drawer-file,
+  .drawer-file:has(.reveals) {
+    flex: 1 1 auto;
+    min-height: 0;
+    border-left: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .drawer-node {
+    order: 1;
+    flex: 0 0 auto;
+    max-height: 45%;
+    border-top: 1px solid var(--border);
+  }
+
+  body.is-playing .layout {
+    grid-template-columns: clamp(220px, 18vw, 280px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 400px;
+  }
+
+  /* The summary alone: a readable measure, with a desktop two-column layout below. */
+  body[data-view="summary"]:not(.is-playing) .pane-tree,
+  body[data-view="summary"]:not(.is-playing) .pane-hex,
+  body[data-view="summary"]:not(.is-playing) .drawer-node {
+    display: none;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .pane-drawer {
+    grid-column: 1;
+    border-left: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    gap: var(--space-5);
+  }
+
+  body.is-playing .pane-drawer {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    display: grid;
+  }
+}
+
+/* On a full desktop, the answer and its evidence read together in two columns. */
+@media (min-width: 1100px) {
+  body[data-view="summary"]:not(.is-playing) .drawer-file {
+    width: min(100%, 1360px);
+    max-width: 1360px;
+    grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+    align-content: start;
+    gap: var(--space-6) clamp(32px, 4vw, 64px);
+    padding: clamp(28px, 3vw, 48px) clamp(28px, 4vw, 64px);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .verdict {
+    grid-column: 1;
+    align-self: start;
+    margin: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .reveals {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    padding-left: clamp(24px, 3vw, 40px);
+    border-left: 1px solid var(--border);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .redactor,
+  body[data-view="summary"]:not(.is-playing) .drawer-file > .more-details {
+    grid-column: 1 / -1;
+  }
+}
+
