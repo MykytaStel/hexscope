@@ -11,7 +11,7 @@
 
 .demo-fact {
   display: grid;
-  grid-template-columns: 8em minmax(0, 1fr);
+  grid-template-columns: 10em minmax(0, 1fr);
   gap: 8px;
   font-size: 13px;
   opacity: 0;
@@ -48,6 +48,27 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     font-size: var(--type-small);
+  }
+
+  .demo-fact dd {
+    font-size: var(--type-small);
+  }
+}
+
+/* On phones and narrow desktops the clean-copy caption can be three lines;
+   reserve those lines before it changes so the page below stays still. */
+@media (max-width: 600px), (min-width: 901px) and (max-width: 1100px) {
+  .demo-caption {
+    min-height: 4.35em;
+  }
+}
+
+/* A narrow desktop has little room beside the preview. Stack each label over
+   its value until the facts column has enough width to read across. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .demo-fact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
   .demo-fact dd {
