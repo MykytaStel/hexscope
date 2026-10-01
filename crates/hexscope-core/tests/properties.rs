@@ -176,7 +176,7 @@ proptest! {
         edits in proptest::collection::vec((any::<usize>(), any::<u8>()), 1..16),
         cut in any::<usize>(),
     ) {
-        let mut bytes = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/web/public/samples/hello.wasm")).unwrap();
+        let mut bytes = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/site-samples/hello.wasm")).unwrap();
         let len = bytes.len();
         for (at, b) in edits {
             bytes[at % len] = b;

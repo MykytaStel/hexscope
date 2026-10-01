@@ -1,10 +1,11 @@
 [package]
 name = "hexscope-wasm"
-version = "0.1.0"
+version.workspace = true
 description = "WebAssembly bridge exposing hexscope-core to the browser"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 publish = false
 
 [lib]

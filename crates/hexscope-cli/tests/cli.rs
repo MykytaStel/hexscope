@@ -5,10 +5,7 @@ use std::process::Command;
 const BIN: &str = env!("CARGO_BIN_EXE_hexscope");
 
 fn fixture(name: &str) -> String {
-    format!(
-        "{}/../hexscope-core/tests/fixtures/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    )
+    format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))
 }
 
 fn run(args: &[&str]) -> (i32, String, String) {

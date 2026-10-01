@@ -758,7 +758,7 @@ mod tests {
 
     fn fixture(name: &str) -> Vec<u8> {
         std::fs::read(format!(
-            "{}/../../apps/web/public/samples/{name}",
+            "{}/tests/fixtures/site-samples/{name}",
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap()

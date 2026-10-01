@@ -50,7 +50,7 @@ fn an_ordinary_message_says_where_from_on_what_and_when() {
     assert_eq!(
         photo,
         std::fs::read(format!(
-            "{}/../../apps/web/public/samples/photo.jpg",
+            "{}/tests/fixtures/site-samples/photo.jpg",
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap()

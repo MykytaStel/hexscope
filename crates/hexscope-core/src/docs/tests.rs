@@ -10,10 +10,12 @@ use std::path::Path;
 pub(crate) fn fixtures() -> Vec<(String, Vec<u8>)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
+    // Keep a snapshot of the site's public examples inside this crate so the
+    // published package's own tests do not depend on the monorepo layout.
     for dir in [
         "tests/fixtures/pngsuite",
         "tests/fixtures",
-        "../../apps/web/public/samples",
+        "tests/fixtures/site-samples",
     ] {
         for entry in std::fs::read_dir(root.join(dir)).unwrap() {
             let path = entry.unwrap().path();
