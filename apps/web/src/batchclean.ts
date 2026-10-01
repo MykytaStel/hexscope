@@ -3,7 +3,7 @@
 // they go into one ZIP, written as they are made; on a phone that shares
 // files, they wait for "Share", one file each.
 import { call } from "./rpc";
-import { cleanable, type BatchItem, type BatchView } from "./batch";
+import { cleanable, type BatchItem } from "./batch";
 import { StoredZip } from "./zipwrite";
 import { phoneCanShare, saveAs } from "./files";
 
@@ -11,12 +11,18 @@ import { phoneCanShare, saveAs } from "./files";
 const MAX_SHARED = 50;
 const MAX_SHARED_BYTES = 400 * 1024 * 1024;
 
+/** The batch output needed while clean copies are made. */
+export interface CleanCopiesView {
+  result: string;
+  offer(text: string, ...actions: HTMLButtonElement[]): void;
+}
+
 /**
  * Makes a clean copy of every file that gives something away. On a
  * computer they are saved as one ZIP; on a phone that can share files,
  * they wait for "Share", one file each, so they can go straight to a chat.
  */
-export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: BatchView, current: () => boolean): Promise<void> {
+export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: CleanCopiesView, current: () => boolean): Promise<void> {
   view.result = "Making the clean copies…";
   const todo = items.filter((i) => cleanable(i) && !i.skip);
   // Kept names keep a folder's own folders, in the ZIP.
