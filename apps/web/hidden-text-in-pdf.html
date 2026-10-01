@@ -55,7 +55,7 @@
         <section>
           <h2><span class="num">3</span> Find it</h2>
           <p>Open the PDF in hexscope. Hidden text appears under <em>What this document reveals</em> as <em>Hidden text</em>, page by page, with how it is hidden and what it says, and the verdict opens on <em>Something is hidden or disguised</em>. Each finding links to the page content that holds it.</p>
-          <p>Text in a font whose codes are not letters is counted rather than shown, and text inside form XObjects is not read yet.</p>
+          <p>Text in a font whose codes do not map to letters is counted rather than guessed. hexscope follows nested form XObjects using their own resources, but marks a page incomplete when a form cannot be fully read or safely isolated; in that case it will not make a PDF copy that could leave hidden text behind.</p>
         </section>
 
         <section>

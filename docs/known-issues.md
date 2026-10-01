@@ -98,15 +98,19 @@ as hovering does; elsewhere, hovering over a byte to see what it is has no
 touch equivalent yet beyond tapping to select it.
 
 **What a PDF page hides is found glyph by glyph, within limits.** A page is
-walked as a viewer paints it, each glyph placed with its font's widths
-(`/Widths`, `/W`, or Adobe's tables for Helvetica, Times and Courier) and
-read through `/ToUnicode`; a font with neither is estimated at half its size
-per code, and a composite font without `/ToUnicode` is counted, not read.
-Content drawn by form XObjects is not followed, so a box or text inside a
-form is not seen, and the clean copy leaves it. White text counts as hidden
-only when nothing but the page is behind it; a shading or a clipped image
-behind it is not taken into account. The clean copy writes a rewritten
-page's content uncompressed, so the file can grow.
+walked in paint order, including nested Form XObjects, each glyph placed
+with its font's widths (`/Widths`, `/W`, or Adobe's tables for Helvetica,
+Times and Courier) and read through `/ToUnicode`; a font with neither is
+estimated at half its size per code, and a composite font without
+`/ToUnicode` is counted, not read. Form text uses its resource scope and
+transformed `/BBox`; traversal stops at four nested forms, 10,000 form calls
+per document, 200,000 glyphs per page and 64 MiB of decoded content. If a
+form cannot be fully read or safely isolated, the page is marked incomplete
+and PDF cleaning refuses to make a copy. Glyph areas are axis-aligned, and
+the visibility check does not implement arbitrary clipping paths,
+transparency groups or shadings; those can affect what appears behind text.
+The clean copy writes rewritten page and form content uncompressed, so the
+file can grow.
 
 **Very large files in a browser.** A file is read up to 2 GB in a tab. A
 video over 64 MB is read without its picture and sound, so it needs a few
