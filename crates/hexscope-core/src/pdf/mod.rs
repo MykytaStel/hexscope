@@ -12,6 +12,7 @@ pub(crate) mod docs;
 pub(crate) mod facts;
 mod filters;
 mod fonts;
+mod form_rewrite;
 mod forms;
 mod lexer;
 mod page;

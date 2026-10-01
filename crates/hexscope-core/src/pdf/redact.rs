@@ -18,7 +18,7 @@
 use super::facts::{Found, cap, decode, insert_update, resolve, text};
 use super::fonts::{Fonts, page_fonts};
 use super::lexer::Obj;
-use super::page::{Area, Glyph, Hidden, Walked, apply_edits, num, readable, walk};
+use super::page::{Area, Glyph, Hidden, StreamEdit, Walked, apply_edits, num, readable, walk};
 use super::{Ctx, ObjRec};
 use crate::model::{NodeId, ParseTree, Value};
 use crate::zip::DocumentFact;
@@ -57,16 +57,17 @@ const COMMENTS: [&str; 14] = [
 ];
 
 /// One page as the checks need it.
-struct Page {
-    dict: Obj,
-    node: NodeId,
-    media: [f64; 4],
-    resources: Option<Obj>,
+pub(super) struct Page {
+    pub num: u32,
+    pub(super) dict: Obj,
+    pub(super) node: NodeId,
+    pub(super) media: [f64; 4],
+    pub(super) resources: Option<Obj>,
 }
 
 /// The pages in reading order, from the catalog down the page tree (7.7.3),
 /// each with the size and resources it may inherit (7.7.3.4).
-fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
+pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
     let mut out = Vec::new();
     let Some(root) = ctx.trailers.iter().rev().find_map(|t| match t.get("Root") {
         Some(Obj::Ref(n, _)) => Some(*n),
@@ -116,6 +117,7 @@ fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
                 );
             }
             _ if dict.get("Type").and_then(Obj::name) == Some("Page") => out.push(Page {
+                num: n,
                 dict,
                 node,
                 media,
@@ -240,6 +242,7 @@ fn paint<'a>(
         ctx,
         page.resources.clone(),
         version,
+        page.num,
         budget,
         invocations,
         &source_parts,
@@ -525,18 +528,32 @@ fn by(what: String, authors: &[String]) -> String {
 }
 
 /// What the clean copy writes differently, page by page.
+pub(crate) struct ContentRewrite {
+    pub(super) page: u32,
+    pub(super) object: u32,
+    pub(super) bytes: Vec<u8>,
+}
+
 pub(crate) struct Rewrites {
-    /// The new content of each page stream rewritten, by object number.
-    pub streams: Vec<(u32, Vec<u8>)>,
+    /// Decoded page streams rewritten, identified by page and object.
+    pub(super) streams: Vec<ContentRewrite>,
+    /// All source-aware text edits, including page and form streams.
+    pub(super) source_edits: Vec<StreamEdit>,
+    /// Redactions in form streams, with the invocation that reaches each one.
+    pub(super) form_edits: Vec<StreamEdit>,
+    /// Page streams prefixed with `q\n` before their decoded contents.
+    pub(super) prefixed_streams: Vec<(u32, u32)>,
+    /// Pages whose Form XObject traversal stopped early.
+    pub(super) incomplete_pages: Vec<u32>,
     /// Glyphs taken out.
-    pub removed: u64,
+    pub(super) removed: u64,
     /// Redaction marks applied, by object number: each is now done.
-    pub applied: Vec<u32>,
+    pub(super) applied: Vec<u32>,
     /// Pictures the marks cover part of: their pixels there go too.
-    pub cuts: Vec<super::pictures::Cut>,
+    pub(super) cuts: Vec<super::pictures::Cut>,
     /// Whether a mark covers a picture written into a page's content,
     /// which cannot be edited.
-    pub inline: bool,
+    pub(super) inline: bool,
 }
 
 /// The page streams the clean copy rewrites. Covered, marked and hidden
@@ -545,7 +562,11 @@ pub(crate) struct Rewrites {
 /// as applying the redaction would. `extra` are more areas to black out
 /// the same way, by page number counted from 1: what a person chose.
 pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rewrites {
-    let mut out: Vec<(u32, Vec<u8>)> = Vec::new();
+    let mut out: Vec<ContentRewrite> = Vec::new();
+    let mut source_edits = Vec::new();
+    let mut form_edits = Vec::new();
+    let mut prefixed_streams = Vec::new();
+    let mut incomplete_pages = Vec::new();
     let mut applied = Vec::new();
     let mut cuts = Vec::new();
     let mut inline = false;
@@ -559,6 +580,9 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
             .map(|(_, a)| Area(*a))
             .collect();
         let p = paint(data, ctx, &page, &mut budget, &mut invocations, &mine);
+        if !p.walked.complete {
+            incomplete_pages.push(page.num);
+        }
         // Pictures lose their pixels under the marks, and under dark boxes
         // drawn over them, as text under a box loses its letters.
         if !p.marks.is_empty() || !p.walked.over_pictures.is_empty() {
@@ -583,7 +607,18 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
                 .iter()
                 .any(|i| areas.iter().any(|a| i.inside(a) > 0.0));
         }
-        let edits = p.walked.edits(&p.content, unseen);
+        let edits = p.walked.edits(unseen);
+        source_edits.extend(edits.iter().cloned());
+        let direct: Vec<_> = edits
+            .iter()
+            .filter(|edit| edit.target.calls.is_empty())
+            .collect();
+        form_edits.extend(
+            edits
+                .iter()
+                .filter(|edit| !edit.target.calls.is_empty())
+                .cloned(),
+        );
         if (edits.is_empty() && p.marks.is_empty()) || p.parts.is_empty() {
             continue;
         }
@@ -591,15 +626,17 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
         applied.extend(p.marks.iter().filter_map(|m| m.2));
         let last = p.parts.len() - 1;
         for (k, &(rec, start, end)) in p.parts.iter().enumerate() {
-            let mine: Vec<(usize, usize, Vec<u8>)> = edits
+            let mine: Vec<(usize, usize, Vec<u8>)> = direct
                 .iter()
-                .filter(|e| e.0 >= start && e.1 <= end)
-                .map(|(s, e, b)| (s - start, e - start, b.clone()))
+                .filter(|edit| edit.target.object == rec.num)
+                .filter(|edit| edit.end <= end - start)
+                .map(|edit| (edit.start, edit.end, edit.replacement.clone()))
                 .collect();
             let mut bytes = apply_edits(&p.content[start..end], &mine);
             if !p.marks.is_empty() {
                 if k == 0 {
                     bytes.splice(0..0, b"q\n".iter().copied());
+                    prefixed_streams.push((page.num, rec.num));
                 }
                 if k == last {
                     bytes.extend_from_slice(b"\nQ\nq 0 g");
@@ -613,14 +650,30 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
                     bytes.extend_from_slice(b" f Q\n");
                 }
             }
-            if !mine.is_empty() || !p.marks.is_empty() {
-                out.retain(|(n, _)| *n != rec.num);
-                out.push((rec.num, bytes));
+            let selected_form_call = form_edits.iter().any(|edit| {
+                edit.target.page == page.num
+                    && edit
+                        .target
+                        .calls
+                        .first()
+                        .is_some_and(|site| site.owner == rec.num)
+            });
+            if !mine.is_empty() || !p.marks.is_empty() || selected_form_call {
+                out.retain(|rewrite| !(rewrite.page == page.num && rewrite.object == rec.num));
+                out.push(ContentRewrite {
+                    page: page.num,
+                    object: rec.num,
+                    bytes,
+                });
             }
         }
     }
     Rewrites {
         streams: out,
+        source_edits,
+        form_edits,
+        prefixed_streams,
+        incomplete_pages,
         removed,
         applied,
         cuts,

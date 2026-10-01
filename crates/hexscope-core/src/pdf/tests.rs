@@ -942,6 +942,88 @@ fn form_walk_marks_undecodable_or_unbounded_content_incomplete() {
 }
 
 #[test]
+fn incomplete_form_walk_never_returns_a_clean_copy() {
+    let build = |page_content: &[u8], resources: &str, extra: Vec<Vec<u8>>| {
+        let mut objects = vec![
+            b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+            format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources {resources} >>").into_bytes(),
+            stream("", page_content),
+        ];
+        objects.extend(extra);
+        pdf_of(&objects)
+    };
+    let one_form = |form_dict: &str, form_content: &[u8]| {
+        build(
+            b"/Fm Do",
+            "<< /XObject << /Fm 5 0 R >> >>",
+            vec![stream(form_dict, form_content)],
+        )
+    };
+    let mut cases = vec![
+        one_form(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Filter /MadeUpDecode",
+            b"BT (hidden) Tj ET",
+        ),
+        one_form(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100]",
+            b"BT (hidden) Tj ET",
+        ),
+        build(b"/Missing Do", "<< >>", Vec::new()),
+        one_form(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /Self 5 0 R >> >>",
+            b"/Self Do",
+        ),
+    ];
+
+    let mut depth_objects = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << /XObject << /Fm 5 0 R >> >> >>".to_vec(),
+        stream("", b"/Fm Do"),
+    ];
+    for num in 5..=9 {
+        depth_objects.push(stream(
+            &format!("/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /Next {} 0 R >> >>", num + 1),
+            b"/Next Do",
+        ));
+    }
+    depth_objects.push(stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 100 100]",
+        b"BT (hidden) Tj ET",
+    ));
+    cases.push(pdf_of(&depth_objects));
+
+    let mut calls = Vec::new();
+    for _ in 0..10_001 {
+        calls.extend_from_slice(b"/Fm Do\n");
+    }
+    cases.push(build(
+        &calls,
+        "<< /XObject << /Fm 5 0 R >> >>",
+        vec![stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100]",
+            b"BT (hidden) Tj ET",
+        )],
+    ));
+
+    for data in cases {
+        assert!(!super::page_texts(&data)[0].complete);
+        assert!(matches!(
+            crate::clean::clean(&data),
+            Err(crate::clean::CleanError::FormContentIncomplete)
+        ));
+        assert!(matches!(
+            crate::clean::redact(&data, &[(1, [0.0, 0.0, 10.0, 10.0])], &[]),
+            Err(crate::clean::CleanError::FormContentIncomplete)
+        ));
+    }
+    let reason = crate::clean::CleanError::FormContentIncomplete.reason();
+    assert!(reason.contains("no copy was made"), "{reason}");
+    assert!(reason.contains("form content"), "{reason}");
+}
+
+#[test]
 fn legacy_form_text_uses_page_resources_when_own_resources_exist() {
     let mut data = pdf_of(&[
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -980,6 +1062,152 @@ fn rotated_form_bbox_hides_text_outside_its_transformed_clip() {
     let text: String = page.glyphs.iter().map(|g| g.1.as_str()).collect();
     assert!(page.complete);
     assert!(!text.contains('N'), "{text}");
+}
+
+#[test]
+fn redacting_one_shared_form_appearance_preserves_the_other() {
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R /Resources 7 0 R >>"
+            .to_vec(),
+        stream(
+            "",
+            b"q 1 0 0 1 10 10 cm /Fm Do Q q 1 0 0 1 120 10 cm /Fm Do Q",
+        ),
+        stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources 9 0 R",
+            b"BT /F1 10 Tf 1 0 0 1 5 20 Tm (SECRET) Tj ET",
+        ),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        b"<< /XObject 8 0 R >>".to_vec(),
+        b"<< /Fm 5 0 R >>".to_vec(),
+        b"<< /Font << /F1 6 0 R >> >>".to_vec(),
+    ]);
+
+    let clean = crate::clean::redact(&data, &[(1, [14.0, 27.0, 60.0, 42.0])], &[]).unwrap();
+    let text: String = super::page_texts(&clean.bytes)[0]
+        .glyphs
+        .iter()
+        .map(|g| g.1.as_str())
+        .collect();
+    assert_eq!(text.matches("SECRET").count(), 1, "{text}");
+
+    let (_, ctx) = parse_with(&clean.bytes);
+    let form_streams = ctx
+        .objects
+        .iter()
+        .filter(|rec| rec.value.get("Subtype").and_then(super::Obj::name) == Some("Form"))
+        .filter_map(|rec| {
+            let mut budget = facts::MAX_DECODED_TOTAL;
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        form_streams.len(),
+        2,
+        "one clone must isolate the selected call"
+    );
+    assert!(
+        form_streams
+            .iter()
+            .any(|bytes| bytes.windows(6).any(|w| w == b"SECRET"))
+    );
+    assert!(
+        form_streams
+            .iter()
+            .any(|bytes| !bytes.windows(6).any(|w| w == b"SECRET"))
+    );
+}
+
+#[test]
+fn redacting_a_nested_shared_form_changes_only_the_selected_page() {
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 8 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 250 100] /Contents 4 0 R /Resources << /XObject << /Fm 5 0 R >> >> >>".to_vec(),
+        stream("", b"q 1 0 0 1 10 10 cm /Fm Do Q"),
+        stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+            b"/In Do",
+        ),
+        stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /Font << /F1 7 0 R >> >>",
+            b"BT /F1 10 Tf 1 0 0 1 5 20 Tm (SECRET) Tj ET",
+        ),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 250 100] /Contents 9 0 R /Resources << /XObject << /Fm 10 0 R >> >> >>".to_vec(),
+        stream("", b"q 1 0 0 1 120 10 cm /Fm Do Q"),
+        stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+            b"/In Do",
+        ),
+    ]);
+
+    let clean = crate::clean::redact(&data, &[(1, [14.0, 27.0, 60.0, 42.0])], &[]).unwrap();
+    let pages = super::page_texts(&clean.bytes);
+    let text = |page: &super::PageText| {
+        page.glyphs
+            .iter()
+            .map(|glyph| glyph.1.as_str())
+            .collect::<String>()
+    };
+    assert_eq!(pages.len(), 2);
+    assert!(!text(&pages[0]).contains("SECRET"));
+    assert!(text(&pages[1]).contains("SECRET"));
+
+    let (_, ctx) = parse_with(&clean.bytes);
+    let inner_forms = ctx
+        .objects
+        .iter()
+        .filter(|rec| {
+            rec.value.get("Subtype").and_then(super::Obj::name) == Some("Form")
+                && rec
+                    .value
+                    .get("Resources")
+                    .and_then(|res| res.get("Font"))
+                    .is_some()
+        })
+        .filter_map(|rec| {
+            let mut budget = facts::MAX_DECODED_TOTAL;
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(inner_forms.len(), 2, "the selected inner form is cloned");
+    assert!(
+        inner_forms
+            .iter()
+            .any(|bytes| bytes.windows(6).any(|w| w == b"SECRET"))
+    );
+    assert!(
+        inner_forms
+            .iter()
+            .any(|bytes| !bytes.windows(6).any(|w| w == b"SECRET"))
+    );
+}
+
+#[test]
+fn redacting_a_shared_page_stream_changes_only_the_selected_page() {
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 6 0 R >> >> >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 6 0 R >> >> >>".to_vec(),
+        stream("", b"BT /F1 12 Tf 72 700 Td (SECRET) Tj ET"),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+    ]);
+
+    let clean = crate::clean::redact(&data, &[(1, [70.0, 695.0, 110.0, 715.0])], &[]).unwrap();
+    let pages = super::page_texts(&clean.bytes);
+    let text = |page: &super::PageText| {
+        page.glyphs
+            .iter()
+            .map(|glyph| glyph.1.as_str())
+            .collect::<String>()
+    };
+    assert_eq!(pages.len(), 2);
+    assert!(!text(&pages[0]).contains("SECRET"));
+    assert!(text(&pages[1]).contains("SECRET"));
 }
 
 /// A picture's pixels, from a copy: its data undone of Flate.

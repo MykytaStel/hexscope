@@ -57,6 +57,9 @@ pub enum CleanError {
     /// given: only a caller with a JPEG codec can black one out — the
     /// browser can, the command line cannot.
     JpegUnderBox,
+    /// A marked PDF page contains form content hexscope could not inspect
+    /// completely, so a clean copy might leave text behind.
+    FormContentIncomplete,
 }
 
 impl CleanError {
@@ -82,6 +85,9 @@ impl CleanError {
             }
             CleanError::JpegUnderBox => {
                 "a box covers part of a JPEG picture on the page that was not redrawn, so the copy would still hold what is under the box — hexscope in the browser redraws it"
+            }
+            CleanError::FormContentIncomplete => {
+                "no copy was made because hexscope could not fully inspect or isolate form content on a PDF page"
             }
         }
     }

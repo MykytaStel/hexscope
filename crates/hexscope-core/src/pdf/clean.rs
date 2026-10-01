@@ -23,6 +23,12 @@ enum Source<'a> {
     Top(&'a ObjRec),
     /// Unpacked from an object stream: its value's bytes, and the value.
     Packed(Vec<u8>, Obj),
+    /// A page, content, or form object written by copy-on-write redaction.
+    Rewritten {
+        body: Vec<u8>,
+        value: Obj,
+        generation: u16,
+    },
 }
 
 /// The current version of every object, sorted by number: of the versions
@@ -49,6 +55,7 @@ impl<'a> Current<'a> {
                 Some(last) if last.0 == v.0 => {
                     let wins = match v.2 {
                         Source::Packed(..) => true,
+                        Source::Rewritten { .. } => true,
                         Source::Top(_) => last.1 <= v.1,
                     };
                     if wins {
@@ -114,16 +121,31 @@ pub(crate) fn clean_pdf_with(
         }
         versions.push((rec.num, rec.start, Source::Top(rec)));
     }
-    let current = Current::new(versions);
     // Pages with text under black boxes, marked for redaction, or hidden:
     // their content written again without it.
     let super::redact::Rewrites {
-        streams: rewritten,
+        streams,
+        source_edits,
+        form_edits,
+        prefixed_streams,
+        incomplete_pages,
         removed: taken_out,
         applied,
         cuts,
         inline,
     } = super::redact::rewrites(data, &ctx, extra);
+    if !incomplete_pages.is_empty() {
+        return Err(CleanError::FormContentIncomplete);
+    }
+    let rewrite_plan = super::form_rewrite::plan_form_rewrites(
+        data,
+        &ctx,
+        &streams,
+        &source_edits,
+        &form_edits,
+        &prefixed_streams,
+    )
+    .map_err(|_| CleanError::FormContentIncomplete)?;
     // Pictures under the boxes, their pixels there zeroed: each written
     // again, dictionary and data.
     if inline {
@@ -146,6 +168,41 @@ pub(crate) fn clean_pdf_with(
         }
     }
 
+    // The new objects are inserted before indexing so the graph walk sees
+    // every cloned page, stream, form, and resource binding.
+    for replacement in rewrite_plan.replacements {
+        versions.retain(|(num, _, _)| *num != replacement.num);
+        let value = Lexer::new(&replacement.body, 0)
+            .value()
+            .ok_or(CleanError::Damaged)?
+            .obj;
+        versions.push((
+            replacement.num,
+            u64::MAX,
+            Source::Rewritten {
+                body: replacement.body,
+                value,
+                generation: replacement.generation,
+            },
+        ));
+    }
+    for added in rewrite_plan.added {
+        let value = Lexer::new(&added.body, 0)
+            .value()
+            .ok_or(CleanError::Damaged)?
+            .obj;
+        versions.push((
+            added.num,
+            u64::MAX,
+            Source::Rewritten {
+                body: added.body,
+                value,
+                generation: 0,
+            },
+        ));
+    }
+    let current = Current::new(versions);
+
     // Everything the catalog reaches, and nothing else.
     let mut reached = vec![false; current.0.len()];
     let mut queue = vec![root];
@@ -157,6 +214,7 @@ pub(crate) fn clean_pdf_with(
         match &current.0[i].2 {
             Source::Top(rec) => refs(&rec.value, &mut queue),
             Source::Packed(_, obj) => refs(obj, &mut queue),
+            Source::Rewritten { value, .. } => refs(value, &mut queue),
         }
     }
 
@@ -183,6 +241,14 @@ pub(crate) fn clean_pdf_with(
             continue;
         }
         match source {
+            Source::Rewritten {
+                body, generation, ..
+            } => {
+                out.extend_from_slice(format!("{n} {generation} obj\n").as_bytes());
+                out.extend_from_slice(body);
+                out.extend_from_slice(b"\nendobj\n");
+                offsets.push((n, *generation, at));
+            }
             Source::Top(rec) => {
                 let gen_ = rec.gen_;
                 out.extend_from_slice(format!("{n} {gen_} obj\n").as_bytes());
@@ -204,14 +270,6 @@ pub(crate) fn clean_pdf_with(
                         out.extend_from_slice(dict);
                         out.extend_from_slice(b"\nstream\n");
                         out.extend_from_slice(bytes);
-                        out.extend_from_slice(b"\nendstream");
-                    }
-                    // Written anew, and so uncompressed: a dictionary of its own.
-                    Some(_) if let Some((_, content)) = rewritten.iter().find(|(k, _)| *k == n) => {
-                        out.extend_from_slice(
-                            format!("<< /Length {} >>\nstream\n", content.len()).as_bytes(),
-                        );
-                        out.extend_from_slice(content);
                         out.extend_from_slice(b"\nendstream");
                     }
                     Some((range, _)) => {
@@ -273,8 +331,11 @@ pub(crate) fn clean_pdf_with(
     let (mut info_bytes, mut earlier, mut unused) = (0u64, 0u64, 0u64);
     for rec in &ctx.objects {
         let ty = rec.value.get("Type").and_then(Obj::name);
-        let superseded =
-            !matches!(current.get(rec.num), Some(Source::Top(r)) if std::ptr::eq(*r, rec));
+        let superseded = match current.get(rec.num) {
+            Some(Source::Top(current)) => !std::ptr::eq(*current, rec),
+            Some(Source::Rewritten { .. }) => false,
+            Some(Source::Packed(..)) | None => true,
+        };
         if Some(rec.num) == info {
             // Counted below, wherever its current version is.
         } else if matches!(ty, Some("XRef" | "ObjStm")) {
@@ -288,6 +349,7 @@ pub(crate) fn clean_pdf_with(
     match info.and_then(|n| current.get(n)) {
         Some(Source::Top(rec)) => info_bytes = length(rec),
         Some(Source::Packed(text, _)) => info_bytes = text.len() as u64,
+        Some(Source::Rewritten { body, .. }) => info_bytes = body.len() as u64,
         None => {}
     }
     if info_bytes > 0 {

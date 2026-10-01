@@ -138,7 +138,6 @@ pub(super) struct Glyph {
     /// An area marked for redaction lies over it.
     pub marked: bool,
     pub hidden: Option<Hidden>,
-    pub source: StreamPath,
 }
 
 /// One exact XObject name operand in the stream that invokes a form.
@@ -154,6 +153,16 @@ pub(super) struct FormSite {
 pub(super) struct StreamPath {
     pub calls: Vec<FormSite>,
     pub object: u32,
+    /// The page object that selected this invocation; content streams can be shared.
+    pub page: u32,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct StreamEdit {
+    pub target: StreamPath,
+    pub start: usize,
+    pub end: usize,
+    pub replacement: Vec<u8>,
 }
 
 /// How a string came to be shown, so it can be written again.
@@ -175,14 +184,12 @@ enum Shown {
 /// One string in the content and its glyphs.
 #[derive(Debug, Clone)]
 struct Run {
-    /// The bytes a rewrite replaces.
-    start: usize,
-    end: usize,
     shown: Shown,
     glyphs: (usize, usize),
     source: StreamPath,
     local_start: usize,
     local_end: usize,
+    quote_values: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 /// A page, painted.
@@ -257,15 +264,10 @@ impl Walked {
         out
     }
 
-    /// The edits that take out the glyphs `remove` picks and leave every
-    /// other glyph where it was: `(start, end, replacement)` in the content,
-    /// in order. A string loses its chosen glyphs to TJ adjustments that
-    /// move the pen as far as they did.
-    pub fn edits(
-        &self,
-        content: &[u8],
-        remove: impl Fn(&Glyph) -> bool,
-    ) -> Vec<(usize, usize, Vec<u8>)> {
+    /// The edits that remove selected glyphs, tied to the decoded stream
+    /// that owns each byte range. A string loses its chosen glyphs to TJ
+    /// adjustments that move the pen as far as they did.
+    pub fn edits(&self, remove: impl Fn(&Glyph) -> bool) -> Vec<StreamEdit> {
         let mut out = Vec::new();
         for run in &self.runs {
             let glyphs = &self.glyphs[run.glyphs.0..run.glyphs.1];
@@ -301,17 +303,27 @@ impl Walked {
             }
             flush_gap(&mut parts, &mut gap);
             let inner = parts.join(" ");
-            let bytes =
-                |r: (usize, usize)| String::from_utf8_lossy(&content[r.0..r.1]).into_owned();
             let replacement = match run.shown {
                 Shown::Item => inner,
                 Shown::Tj => format!("[{inner}] TJ"),
                 Shown::Quote => format!("T* [{inner}] TJ"),
-                Shown::DoubleQuote { aw, ac } => {
-                    format!("{} Tw {} Tc T* [{inner}] TJ", bytes(aw), bytes(ac))
-                }
+                Shown::DoubleQuote { .. } => run.quote_values.as_ref().map_or_else(
+                    || format!("T* [{inner}] TJ"),
+                    |(aw, ac)| {
+                        format!(
+                            "{} Tw {} Tc T* [{inner}] TJ",
+                            String::from_utf8_lossy(aw),
+                            String::from_utf8_lossy(ac)
+                        )
+                    },
+                ),
             };
-            out.push((run.start, run.end, replacement.into_bytes()));
+            out.push(StreamEdit {
+                target: run.source.clone(),
+                start: run.local_start,
+                end: run.local_end,
+                replacement: replacement.into_bytes(),
+            });
         }
         // Runs are met in the order of the content: the edits are in order.
         out
@@ -426,6 +438,7 @@ impl Default for PaintState {
 struct FormWalk<'a> {
     data: &'a [u8],
     ctx: &'a Ctx,
+    page: u32,
     page_resources: Option<Obj>,
     version: Option<String>,
     budget: &'a mut u64,
@@ -486,6 +499,7 @@ impl FormClip {
 
 fn source_span(
     calls: &[FormSite],
+    page: u32,
     source_owner: Option<u32>,
     source_parts: &[(u32, usize, usize)],
     start: usize,
@@ -496,6 +510,7 @@ fn source_span(
             StreamPath {
                 calls: calls.to_vec(),
                 object,
+                page,
             },
             start,
             end,
@@ -508,6 +523,7 @@ fn source_span(
         StreamPath {
             calls: calls.to_vec(),
             object,
+            page,
         },
         start - part_start,
         end.min(part_end) - part_start,
@@ -634,9 +650,7 @@ fn follow_form(
 
     let bbox = form_bbox(&rec.value)?;
     let matrix = form_matrix(&rec.value)?;
-    let Some(bytes) = decode(forms.data, rec, forms.ctx.crypt.as_ref(), forms.budget) else {
-        return None;
-    };
+    let bytes = decode(forms.data, rec, forms.ctx.crypt.as_ref(), forms.budget)?;
     let child_resources = match rec.value.get("Resources") {
         Some(resources) => Some(deref_obj(forms.data, forms.ctx, resources, forms.budget)?),
         None => resources.cloned().or_else(|| forms.page_resources.clone()),
@@ -651,6 +665,7 @@ fn follow_form(
     );
     let span = source_span(
         &forms.calls,
+        forms.page,
         source_owner,
         source_parts,
         name_item.range.start as usize,
@@ -725,6 +740,7 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
 /// A page's content, with its resource scope and the document objects needed
 /// to follow form XObjects. `parts` maps the concatenated page content back to
 /// the streams that own its bytes.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn walk_page(
     content: &[u8],
     fonts: &Fonts,
@@ -734,6 +750,7 @@ pub(super) fn walk_page(
     ctx: &Ctx,
     resources: Option<Obj>,
     version: Option<String>,
+    page: u32,
     budget: &mut u64,
     invocations: &mut usize,
     parts: &[(u32, usize, usize)],
@@ -744,6 +761,7 @@ pub(super) fn walk_page(
     let mut forms = FormWalk {
         data,
         ctx,
+        page,
         page_resources,
         version,
         budget,
@@ -868,7 +886,8 @@ fn walk_stream(
             let first = w.glyphs.len();
             let white = gs.fill.is_some_and(|l| l >= WHITE);
             let dark_text = gs.fill.is_some_and(|l| l <= DARK) && gs.mode != 3 && gs.mode != 7;
-            let source = source_span(&calls, source_owner, source_parts, at.0, at.1);
+            let page = forms.as_deref().map_or(0, |forms| forms.page);
+            let source = source_span(&calls, page, source_owner, source_parts, at.0, at.1);
             let (source, local_start, local_end) = match source {
                 Some(source) => source,
                 None => {
@@ -877,6 +896,7 @@ fn walk_stream(
                         StreamPath {
                             calls: calls.clone(),
                             object: source_owner.unwrap_or(0),
+                            page,
                         },
                         at.0,
                         at.1,
@@ -951,7 +971,6 @@ fn walk_stream(
                     covered: on_dark.is_some() && hidden.is_none(),
                     marked: false,
                     hidden,
-                    source: source.clone(),
                 });
                 if let Some(b) = on_dark
                     && hidden.is_none()
@@ -962,14 +981,20 @@ fn walk_stream(
                 }
                 *tm = translate(advance, tm);
             }
+            let quote_values = match shown {
+                Shown::DoubleQuote { aw, ac } => Some((
+                    content.get(aw.0..aw.1).unwrap_or_default().to_vec(),
+                    content.get(ac.0..ac.1).unwrap_or_default().to_vec(),
+                )),
+                _ => None,
+            };
             w.runs.push(Run {
-                start: at.0,
-                end: at.1,
                 shown,
                 glyphs: (first, w.glyphs.len()),
                 source,
                 local_start,
                 local_end,
+                quote_values,
             });
         };
         let next_line = |tm: &mut Matrix, tlm: &mut Matrix, tx: f64, ty: f64| {
@@ -1424,7 +1449,7 @@ mod tests {
     fn a_rewrite_takes_out_the_covered_glyphs_and_keeps_the_rest_in_place() {
         let page = "BT /F1 12 Tf 72 700 Td (Name: Olena) Tj [(Hi) -120 (there)] TJ 0 -14 Td 1 2 (x) \" ET 0 g 108 695 29 16 re f";
         let w = walked(page);
-        let edits = w.edits(page.as_bytes(), |g| g.covered);
+        let edits = local_edits(w.edits(|g| g.covered));
         let out = String::from_utf8(apply_edits(page.as_bytes(), &edits)).unwrap();
         // Five glyphs of 6 points at 12 points: -500 each, one number.
         assert!(out.contains("[<4E616D653A20> -2500] TJ"), "{out}");
@@ -1451,7 +1476,7 @@ mod tests {
         let w = walked(page);
         let out = String::from_utf8(apply_edits(
             page.as_bytes(),
-            &w.edits(page.as_bytes(), |g| g.covered),
+            &local_edits(w.edits(|g| g.covered)),
         ))
         .unwrap();
         assert_eq!(
@@ -1540,8 +1565,15 @@ mod tests {
             let _ = w.pieces(|g| g.covered || g.hidden.is_some());
             let _ = apply_edits(
                 s.as_bytes(),
-                &w.edits(s.as_bytes(), |g| g.hidden.is_some() || g.covered),
+                &local_edits(w.edits(|g| g.hidden.is_some() || g.covered)),
             );
         }
+    }
+
+    fn local_edits(edits: Vec<StreamEdit>) -> Vec<(usize, usize, Vec<u8>)> {
+        edits
+            .into_iter()
+            .map(|edit| (edit.start, edit.end, edit.replacement))
+            .collect()
     }
 }
