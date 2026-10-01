@@ -13,6 +13,9 @@ import { advice } from "./advice";
 import { categories, categoryCount } from "./share";
 import { address, mailRoute, receivedBy } from "./emailpath";
 import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from "./files";
+import { searchable } from "./redactor";
+import type { PageGlyphs } from "./worker";
+import { translateText } from "./i18n";
 
 const here = (path: string) => new URL(path, import.meta.url);
 
@@ -24,6 +27,32 @@ function open(name: string, bytes?: Uint8Array): FileModel {
   const b = bytes ?? new Uint8Array(readFileSync(here(`../public/samples/${name}`)));
   return new FileModel(describe(parse(b)), b, name);
 }
+
+group("incomplete PDF form checks", () => {
+  it("preserves incompleteness through search and describes why cleaning can fail", () => {
+    const page: PageGlyphs = {
+      media: [0, 0, 100, 100],
+      areas: new Float64Array(0),
+      texts: [],
+      boxes: new Float64Array(0),
+      complete: false,
+    };
+    expect(searchable([page])[0].complete).toBe(false);
+
+    const bytes = new Uint8Array(readFileSync(here("../e2e/fixtures/incomplete-form.pdf")));
+    const lines = verdict(open("incomplete-form.pdf", bytes));
+    expect(lines).toContainEqual(expect.objectContaining({ kind: "warning" }));
+    expect(translateText("Some PDF form content could not be fully checked. Search may miss text.", "uk")).toBe(
+      "Не весь вміст PDF-форм вдалося перевірити. Пошук може пропустити текст.",
+    );
+    expect(
+      translateText(
+        "no copy was made because hexscope could not fully inspect or isolate form content on a PDF page",
+        "uk",
+      ),
+    ).toBe("Копію не створено: hexscope не зміг повністю перевірити або відокремити вміст форм на сторінці PDF");
+  });
+});
 
 group("an Outlook message and an old Word file", () => {
   it("reads a message saved from Outlook as the email it came as", () => {

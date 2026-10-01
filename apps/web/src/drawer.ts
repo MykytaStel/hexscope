@@ -667,6 +667,13 @@ export class Drawer {
         "Type a name, a number or an address, or pick a kind below: every place it appears is found. The copy takes it out of the pages — not only covers it — and draws a black box where it was.",
       ),
     );
+    const incomplete = el(
+      "p",
+      "problem is-warning redact-incomplete",
+      "Some PDF form content could not be fully checked. Search may miss text.",
+    );
+    incomplete.hidden = true;
+    incomplete.setAttribute("role", "alert");
     const form = el("form", "redact-form");
     const input = el("input");
     input.type = "search";
@@ -685,10 +692,14 @@ export class Drawer {
     const save = el("button", "btn btn-primary", "Save a blacked-out copy");
     save.hidden = true;
     const result = el("div", "cleaner");
-    group.append(form, presets, status, list, preview, save, result);
+    group.append(incomplete, form, presets, status, list, preview, save, result);
 
     let pages: Searchable[] | null = null;
-    const load = async () => (pages ??= searchable(await this.cleaning.pages()));
+    const load = async () => {
+      pages ??= searchable(await this.cleaning.pages());
+      incomplete.hidden = pages.every((page) => page.complete);
+      return pages;
+    };
     const picturesOf = (n: number) => this.picturesOf(m, n);
     // Every search kept, each place with its tick; boxes drawn are one more.
     const chosen: { term: string; matches: Match[]; ticks: HTMLInputElement[]; block: HTMLElement }[] = [];
@@ -834,7 +845,8 @@ export class Drawer {
       refresh();
       result.replaceChildren();
       if (r.error) {
-        result.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
+        const message = r.error.startsWith("no copy was made because ") ? `${r.error}.` : `No copy was made: ${r.error}.`;
+        result.append(el("p", "problem is-warning", message));
         return;
       }
       result.append(done(`${r.saved ? `Saved “${r.name}”, a copy` : "Made a copy"} with ${marks.length === 1 ? "1 place" : `${marks.length} places`} blacked out and nothing about who made the file${r.saved ? " — look for it in your downloads" : ""}. Removed:`));
@@ -912,7 +924,8 @@ export class Drawer {
       const r = await this.cleaning.clean(notes);
       box.replaceChildren();
       if (r.error) {
-        box.append(el("p", "problem is-warning", `No copy was made: ${r.error}.`));
+        const message = r.error.startsWith("no copy was made because ") ? `${r.error}.` : `No copy was made: ${r.error}.`;
+        box.append(el("p", "problem is-warning", message));
         return;
       }
       // Before and after, side by side: the number that was the headline, and what is left of it.

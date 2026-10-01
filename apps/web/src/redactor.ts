@@ -26,6 +26,7 @@ export interface Searchable {
   glyph: Int32Array;
   areas: Float64Array;
   texts: string[];
+  complete: boolean;
   /** The page's own dark boxes and marks, four numbers each: black in the copy too. */
   boxes: Float64Array;
 }
@@ -63,7 +64,7 @@ export function searchable(pages: PageGlyphs[]): Searchable[] {
       const l = ch.toLowerCase();
       lower += l.length === ch.length ? l : ch;
     }
-    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts, boxes: p.boxes };
+    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts, complete: p.complete, boxes: p.boxes };
   });
 }
 
