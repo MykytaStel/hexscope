@@ -168,6 +168,26 @@ pub(super) fn page_fonts(
     out
 }
 
+/// The fonts a form can name from its own resources and, in PDF 1.1 and
+/// earlier, from the invoking page's resources. Form-local names win.
+pub(super) fn page_fonts_with_fallback(
+    data: &[u8],
+    ctx: &Ctx,
+    resources: Option<&Obj>,
+    fallback: Option<&Obj>,
+    budget: &mut u64,
+) -> Fonts {
+    let mut out = page_fonts(data, ctx, resources, budget);
+    if let Some(fallback) = fallback {
+        for (name, font) in page_fonts(data, ctx, Some(fallback), budget) {
+            if !out.iter().any(|(known, _)| known == &name) && out.len() < MAX_FONTS {
+                out.push((name, font));
+            }
+        }
+    }
+    out
+}
+
 fn font(data: &[u8], ctx: &Ctx, dict: &Obj, budget: &mut u64) -> Font {
     let mut f = Font::estimated();
     let base = dict.get("BaseFont").and_then(Obj::name).unwrap_or("");

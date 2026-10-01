@@ -213,10 +213,15 @@ fn paint<'a>(
     ctx: &'a Ctx,
     page: &Page,
     budget: &mut u64,
+    invocations: &mut usize,
     extra: &[Area],
 ) -> Painted<'a> {
     let fonts: Fonts = page_fonts(data, ctx, page.resources.as_ref(), budget);
     let (content, parts) = content(data, ctx, &page.dict, budget);
+    let source_parts: Vec<(u32, usize, usize)> = parts
+        .iter()
+        .map(|(rec, start, end)| (rec.num, *start, *end))
+        .collect();
     let annots = annotations(ctx, page);
     let mut marks: Vec<(Area, NodeId, Option<u32>)> = annots
         .iter()
@@ -225,7 +230,20 @@ fn paint<'a>(
         .collect();
     marks.extend(extra.iter().map(|a| (*a, page.node, None)));
     let areas: Vec<Area> = marks.iter().map(|m| m.0).collect();
-    let walked = walk(&content, &fonts, Area(page.media), &areas);
+    let version = super::effective_version(data, ctx, super::pdf_header_version(data).as_deref());
+    let walked = super::page::walk_page(
+        &content,
+        &fonts,
+        Area(page.media),
+        &areas,
+        data,
+        ctx,
+        page.resources.clone(),
+        version,
+        budget,
+        invocations,
+        &source_parts,
+    );
     Painted {
         content,
         parts,
@@ -251,6 +269,7 @@ pub(super) fn check(
 ) -> Vec<Blackout> {
     let mut drawn = Vec::new();
     let mut budget = BUDGET;
+    let mut invocations = 0;
     let mut hidden_facts = 0;
     let mut authors: Vec<String> = Vec::new();
     let mut comments = 0;
@@ -260,7 +279,7 @@ pub(super) fn check(
     let mut elsewhere_node = None;
     for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
         let number = i + 1;
-        let p = paint(data, ctx, page, &mut budget, &[]);
+        let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let w = &p.walked;
         for (a, node, _) in p.annots.iter().filter(|(a, ..)| subtype(a) == "Link") {
             let action = match a.get("A") {
@@ -306,6 +325,14 @@ pub(super) fn check(
                 rec.stream.map_or(tree.get(rec.node).range, |s| s.0),
             )
         });
+
+        if !w.complete {
+            let (node, range) = at.unwrap_or((page.node, tree.get(page.node).range));
+            let warning = tree.warning(node, "PDF form content could not be fully checked", range);
+            let text = format!("page {number}: some form content could not be fully checked");
+            tree.set_value(warning, Some(Value::Text(text.clone())));
+            insert_update(facts, fact("form-incomplete", text, warning));
+        }
 
         let covered = w.pieces(|g| g.covered);
         if let Some((node, range)) = at
@@ -524,13 +551,14 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
     let mut inline = false;
     let mut removed = 0u64;
     let mut budget = BUDGET;
+    let mut invocations = 0;
     for (i, page) in pages(data, ctx, &mut budget).into_iter().enumerate() {
         let mine: Vec<Area> = extra
             .iter()
             .filter(|(n, _)| *n as usize == i + 1)
             .map(|(_, a)| Area(*a))
             .collect();
-        let p = paint(data, ctx, &page, &mut budget, &mine);
+        let p = paint(data, ctx, &page, &mut budget, &mut invocations, &mine);
         // Pictures lose their pixels under the marks, and under dark boxes
         // drawn over them, as text under a box loses its letters.
         if !p.marks.is_empty() || !p.walked.over_pictures.is_empty() {
@@ -621,6 +649,7 @@ pub(crate) fn pictures_by_page(
 ) -> Vec<(u32, u32, [f64; 6])> {
     let mut budget = BUDGET;
     let mut out = Vec::new();
+    let mut invocations = 0;
     let pages = pages(data, ctx, &mut budget);
     for (i, page) in pages
         .iter()
@@ -628,7 +657,7 @@ pub(crate) fn pictures_by_page(
         .skip(first as usize)
         .take(count as usize)
     {
-        let p = paint(data, ctx, page, &mut budget, &[]);
+        let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         super::pictures::visit(
             data,
             ctx,
@@ -654,6 +683,8 @@ pub struct PageText {
     pub page: u32,
     /// `[left, bottom, right, top]` in the page's points.
     pub media: [f64; 4],
+    /// Whether every supported form invocation on this page was inspected.
+    pub complete: bool,
     pub glyphs: Vec<([f64; 4], String)>,
     /// The dark boxes already on the page over text or a picture, and its
     /// marks for redaction: black in the copy too, so shown with it.
@@ -666,9 +697,10 @@ const MAX_SEARCHED: usize = 500_000;
 pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
     let mut out = Vec::new();
     let mut budget = BUDGET;
+    let mut invocations = 0;
     let mut total = 0;
     for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
-        let p = paint(data, ctx, page, &mut budget, &[]);
+        let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let w = &p.walked;
         let glyphs: Vec<([f64; 4], String)> = w
             .glyphs
@@ -682,6 +714,7 @@ pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
             page: i as u32 + 1,
             media: page.media,
             glyphs,
+            complete: w.complete,
             boxes: w
                 .boxes
                 .iter()
@@ -821,12 +854,13 @@ pub(crate) fn shapes_by_page(
 ) -> Vec<(u32, [f64; 4], Vec<[f64; 4]>)> {
     let mut budget = BUDGET;
     let mut out = Vec::new();
+    let mut invocations = 0;
     for (i, page) in pages(data, ctx, &mut budget)
         .iter()
         .enumerate()
         .take(count as usize)
     {
-        let p = paint(data, ctx, page, &mut budget, &[]);
+        let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let mut shapes: Vec<[f64; 4]> = p.walked.dark.iter().map(|a| a.0).collect();
         super::pictures::visit(
             data,

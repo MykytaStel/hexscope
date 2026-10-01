@@ -10,7 +10,9 @@
 //! [`super::fonts`]), and estimated at half the font size when not. Content
 //! drawn by form XObjects is not followed.
 
+use super::Ctx;
 use super::facts::text as pdf_doc;
+use super::facts::{Found, decode, resolve};
 use super::fonts::{Font, Fonts};
 use super::lexer::{Item, Lexer, Obj};
 use crate::fixed::fixed;
@@ -136,6 +138,22 @@ pub(super) struct Glyph {
     /// An area marked for redaction lies over it.
     pub marked: bool,
     pub hidden: Option<Hidden>,
+    pub source: StreamPath,
+}
+
+/// One exact XObject name operand in the stream that invokes a form.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct FormSite {
+    pub owner: u32,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// A glyph's stream and the form invocations needed to reach it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct StreamPath {
+    pub calls: Vec<FormSite>,
+    pub object: u32,
 }
 
 /// How a string came to be shown, so it can be written again.
@@ -162,10 +180,13 @@ struct Run {
     end: usize,
     shown: Shown,
     glyphs: (usize, usize),
+    source: StreamPath,
+    local_start: usize,
+    local_end: usize,
 }
 
 /// A page, painted.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct Walked {
     pub glyphs: Vec<Glyph>,
     runs: Vec<Run>,
@@ -182,6 +203,23 @@ pub(super) struct Walked {
     pub over_pictures: Vec<Area>,
     /// Every dark box filled: what a QR code drawn in boxes is made of.
     pub dark: Vec<Area>,
+    pub complete: bool,
+}
+
+impl Default for Walked {
+    fn default() -> Self {
+        Self {
+            glyphs: Vec::new(),
+            runs: Vec::new(),
+            text: String::new(),
+            boxes: Vec::new(),
+            placed: Vec::new(),
+            inline: Vec::new(),
+            over_pictures: Vec::new(),
+            dark: Vec::new(),
+            complete: true,
+        }
+    }
 }
 
 impl Walked {
@@ -360,28 +398,434 @@ struct Graphics {
     tw: f64,
     th: f64,
     leading: f64,
-    font: Option<usize>,
+    font: Option<Font>,
     size: f64,
     mode: u8,
+}
+
+struct PaintState {
+    painted: Vec<Area>,
+    fills: Vec<(Area, bool)>,
+    checked: std::cell::Cell<u64>,
+    images: Vec<Area>,
+    work: u64,
+}
+
+impl Default for PaintState {
+    fn default() -> Self {
+        Self {
+            painted: Vec::new(),
+            fills: Vec::new(),
+            checked: std::cell::Cell::new(0),
+            images: Vec::new(),
+            work: 0,
+        }
+    }
+}
+
+struct FormWalk<'a> {
+    data: &'a [u8],
+    ctx: &'a Ctx,
+    page_resources: Option<Obj>,
+    version: Option<String>,
+    budget: &'a mut u64,
+    invocations: &'a mut usize,
+    calls: Vec<FormSite>,
+    active: Vec<u32>,
+}
+
+#[derive(Clone, Copy)]
+struct FormClip {
+    matrix: Matrix,
+    bbox: [f64; 4],
+    bounds: Area,
+}
+
+impl FormClip {
+    fn new(matrix: Matrix, bbox: [f64; 4]) -> Self {
+        Self {
+            matrix,
+            bbox,
+            bounds: Area::of(
+                &matrix,
+                bbox[0],
+                bbox[1],
+                bbox[2] - bbox[0],
+                bbox[3] - bbox[1],
+            ),
+        }
+    }
+
+    /// A glyph's bounding rectangle must fit inside the transformed BBox.
+    /// This is conservative for rotated glyphs: if its axis-aligned area
+    /// crosses the clip edge, the whole glyph is treated as clipped.
+    fn contains(&self, area: Area) -> bool {
+        let det = self.matrix[0] * self.matrix[3] - self.matrix[1] * self.matrix[2];
+        if !det.is_finite() || det.abs() < f64::EPSILON {
+            return false;
+        }
+        [
+            (area.0[0], area.0[1]),
+            (area.0[2], area.0[1]),
+            (area.0[2], area.0[3]),
+            (area.0[0], area.0[3]),
+        ]
+        .into_iter()
+        .all(|(x, y)| {
+            let dx = x - self.matrix[4];
+            let dy = y - self.matrix[5];
+            let local_x = (self.matrix[3] * dx - self.matrix[2] * dy) / det;
+            let local_y = (-self.matrix[1] * dx + self.matrix[0] * dy) / det;
+            local_x >= self.bbox[0] - 1e-8
+                && local_x <= self.bbox[2] + 1e-8
+                && local_y >= self.bbox[1] - 1e-8
+                && local_y <= self.bbox[3] + 1e-8
+        })
+    }
+}
+
+fn source_span(
+    calls: &[FormSite],
+    source_owner: Option<u32>,
+    source_parts: &[(u32, usize, usize)],
+    start: usize,
+    end: usize,
+) -> Option<(StreamPath, usize, usize)> {
+    if let Some(object) = source_owner {
+        return Some((
+            StreamPath {
+                calls: calls.to_vec(),
+                object,
+            },
+            start,
+            end,
+        ));
+    }
+    let &(object, part_start, part_end) = source_parts
+        .iter()
+        .find(|(_, lo, hi)| start >= *lo && end <= *hi)?;
+    Some((
+        StreamPath {
+            calls: calls.to_vec(),
+            object,
+        },
+        start - part_start,
+        end.min(part_end) - part_start,
+    ))
+}
+
+fn deref_obj(data: &[u8], ctx: &Ctx, obj: &Obj, budget: &mut u64) -> Option<Obj> {
+    match obj {
+        Obj::Ref(n, _) => match resolve(data, ctx, *n, budget)? {
+            Found::Top(rec) => Some(rec.value.clone()),
+            Found::Packed(value, _) => Some(value),
+        },
+        other => Some(other.clone()),
+    }
+}
+
+fn resource_xobject(
+    data: &[u8],
+    ctx: &Ctx,
+    resources: Option<&Obj>,
+    fallback: Option<&Obj>,
+    name: &str,
+    budget: &mut u64,
+) -> Option<Obj> {
+    for scope in [resources, fallback].into_iter().flatten() {
+        let resources = deref_obj(data, ctx, scope, budget)?;
+        let Some(xobjects) = resources.get("XObject") else {
+            continue;
+        };
+        let Some(xobjects) = deref_obj(data, ctx, xobjects, budget) else {
+            continue;
+        };
+        if let Some(entry) = xobjects.entries().iter().rev().find(|e| e.key == name) {
+            return Some(entry.value.obj.clone());
+        }
+    }
+    None
+}
+
+fn form_matrix(form: &Obj) -> Option<Matrix> {
+    match form.get("Matrix") {
+        None => Some(IDENTITY),
+        Some(Obj::Array(a)) if a.len() == 6 => {
+            let mut out = [0.0; 6];
+            for (n, item) in out.iter_mut().zip(a) {
+                *n = super::page::num(&item.obj)?;
+            }
+            out.iter().all(|n| n.is_finite()).then_some(out)
+        }
+        _ => None,
+    }
+}
+
+fn form_bbox(form: &Obj) -> Option<[f64; 4]> {
+    let Obj::Array(a) = form.get("BBox")? else {
+        return None;
+    };
+    if a.len() != 4 {
+        return None;
+    }
+    let [x0, y0, x1, y1] = [
+        super::page::num(&a[0].obj)?,
+        super::page::num(&a[1].obj)?,
+        super::page::num(&a[2].obj)?,
+        super::page::num(&a[3].obj)?,
+    ];
+    (x0.is_finite() && y0.is_finite() && x1.is_finite() && y1.is_finite()).then_some([
+        x0.min(x1),
+        y0.min(y1),
+        x0.max(x1),
+        y0.max(y1),
+    ])
+}
+
+const MAX_FORM_DEPTH: usize = 4;
+const MAX_FORM_INVOCATIONS: usize = 10_000;
+
+#[allow(clippy::too_many_arguments)]
+fn follow_form(
+    name_item: &Item,
+    source_owner: Option<u32>,
+    source_parts: &[(u32, usize, usize)],
+    resources: Option<&Obj>,
+    legacy_fallback: Option<&Obj>,
+    caller: &Graphics,
+    media: Area,
+    marks: &[Area],
+    clips: &[FormClip],
+    forms: &mut FormWalk<'_>,
+    w: &mut Walked,
+    paint: &mut PaintState,
+) -> Option<bool> {
+    let name = name_item.obj.name()?;
+    let scope = resources.or(forms.page_resources.as_ref());
+    let legacy = forms
+        .version
+        .as_deref()
+        .is_some_and(|v| v == "1.0" || v == "1.1");
+    let page_fallback = legacy.then_some(forms.page_resources.as_ref()).flatten();
+    let xobject = resource_xobject(
+        forms.data,
+        forms.ctx,
+        scope,
+        legacy_fallback.or(page_fallback),
+        name,
+        forms.budget,
+    )?;
+    let Obj::Ref(num, _) = xobject else {
+        return None;
+    };
+    let rec = forms.ctx.latest(num)?;
+    match rec.value.get("Subtype").and_then(Obj::name) {
+        Some("Image") => return Some(false),
+        Some("Form") => {}
+        _ => return None,
+    }
+    if *forms.invocations >= MAX_FORM_INVOCATIONS
+        || forms.active.len() >= MAX_FORM_DEPTH
+        || forms.active.contains(&num)
+    {
+        return None;
+    }
+    *forms.invocations += 1;
+
+    let bbox = form_bbox(&rec.value)?;
+    let matrix = form_matrix(&rec.value)?;
+    let Some(bytes) = decode(forms.data, rec, forms.ctx.crypt.as_ref(), forms.budget) else {
+        return None;
+    };
+    let child_resources = match rec.value.get("Resources") {
+        Some(resources) => Some(deref_obj(forms.data, forms.ctx, resources, forms.budget)?),
+        None => resources.cloned().or_else(|| forms.page_resources.clone()),
+    };
+    let fallback = legacy.then(|| forms.page_resources.clone()).flatten();
+    let child_fonts = super::fonts::page_fonts_with_fallback(
+        forms.data,
+        forms.ctx,
+        child_resources.as_ref(),
+        fallback.as_ref(),
+        forms.budget,
+    );
+    let span = source_span(
+        &forms.calls,
+        source_owner,
+        source_parts,
+        name_item.range.start as usize,
+        name_item.range.end() as usize,
+    )?;
+    let site = FormSite {
+        owner: span.0.object,
+        start: span.1,
+        end: span.2,
+    };
+    let mut child_initial = caller.clone();
+    child_initial.ctm = mul(&matrix, &caller.ctm);
+    let clip = FormClip::new(child_initial.ctm, bbox);
+    let mut child_clips = clips.to_vec();
+    child_clips.push(clip);
+    forms.calls.push(site);
+    forms.active.push(num);
+    walk_stream(
+        &bytes,
+        &child_fonts,
+        media,
+        marks,
+        child_initial,
+        child_resources,
+        fallback,
+        Some(num),
+        &[],
+        &child_clips,
+        Some(forms),
+        w,
+        paint,
+    );
+    forms.active.pop();
+    forms.calls.pop();
+    Some(true)
 }
 
 /// Paints a page's content. `media` is the page; `marks`, areas marked for
 /// redaction, cover what is under them once everything is painted.
 pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -> Walked {
     let mut w = Walked::default();
+    let mut paint = PaintState::default();
+    walk_stream(
+        content,
+        fonts,
+        media,
+        marks,
+        Graphics {
+            ctm: IDENTITY,
+            fill: Some(0.0),
+            tc: 0.0,
+            tw: 0.0,
+            th: 1.0,
+            leading: 0.0,
+            font: None,
+            size: 0.0,
+            mode: 0,
+        },
+        None,
+        None,
+        Some(0),
+        &[],
+        &[],
+        None,
+        &mut w,
+        &mut paint,
+    );
+    finish_walk(&mut w, marks, media, &paint.images);
+    w
+}
+
+/// A page's content, with its resource scope and the document objects needed
+/// to follow form XObjects. `parts` maps the concatenated page content back to
+/// the streams that own its bytes.
+pub(super) fn walk_page(
+    content: &[u8],
+    fonts: &Fonts,
+    media: Area,
+    marks: &[Area],
+    data: &[u8],
+    ctx: &Ctx,
+    resources: Option<Obj>,
+    version: Option<String>,
+    budget: &mut u64,
+    invocations: &mut usize,
+    parts: &[(u32, usize, usize)],
+) -> Walked {
+    let mut w = Walked::default();
+    let mut paint = PaintState::default();
+    let page_resources = resources.clone();
+    let mut forms = FormWalk {
+        data,
+        ctx,
+        page_resources,
+        version,
+        budget,
+        invocations,
+        calls: Vec::new(),
+        active: Vec::new(),
+    };
+    walk_stream(
+        content,
+        fonts,
+        media,
+        marks,
+        Graphics {
+            ctm: IDENTITY,
+            fill: Some(0.0),
+            tc: 0.0,
+            tw: 0.0,
+            th: 1.0,
+            leading: 0.0,
+            font: None,
+            size: 0.0,
+            mode: 0,
+        },
+        resources,
+        None,
+        None,
+        parts,
+        &[],
+        Some(&mut forms),
+        &mut w,
+        &mut paint,
+    );
+    finish_walk(&mut w, marks, media, &paint.images);
+    w
+}
+
+fn finish_walk(w: &mut Walked, marks: &[Area], media: Area, images: &[Area]) {
+    // Marks for redaction cover what is under them, whenever it was drawn.
+    for m in marks {
+        for g in &mut w.glyphs {
+            g.marked |= g.area.inside(m) >= COVERED;
+        }
+        if w.boxes.len() < MAX_BOXES {
+            w.boxes.push(*m);
+        }
+    }
+    // A scanned page: an image over most of it, and its text laid out
+    // invisibly under the picture of the words, for search. That is OCR,
+    // not hiding.
+    let scanned = images
+        .iter()
+        .any(|i| i.inside(&media).max(media.inside(i)) >= 0.5 && i.size() >= 0.5 * media.size());
+    if scanned {
+        for g in w
+            .glyphs
+            .iter_mut()
+            .filter(|g| g.hidden == Some(Hidden::Invisible))
+        {
+            g.hidden = None;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn walk_stream(
+    content: &[u8],
+    fonts: &Fonts,
+    media: Area,
+    marks: &[Area],
+    initial: Graphics,
+    resources: Option<Obj>,
+    legacy_fallback: Option<Obj>,
+    source_owner: Option<u32>,
+    source_parts: &[(u32, usize, usize)],
+    clips: &[FormClip],
+    mut forms: Option<&mut FormWalk<'_>>,
+    w: &mut Walked,
+    paint: &mut PaintState,
+) {
     let mut lx = Lexer::new(content, 0);
     let mut ops: Vec<Item> = Vec::new();
-    let mut gs = Graphics {
-        ctm: IDENTITY,
-        fill: Some(0.0),
-        tc: 0.0,
-        tw: 0.0,
-        th: 1.0,
-        leading: 0.0,
-        font: None,
-        size: 0.0,
-        mode: 0,
-    };
+    let mut gs = initial;
     let unknown = Font::estimated();
     let mut saved: Vec<Graphics> = Vec::new();
     // The path being built: its rectangles, and the corners of any other
@@ -389,16 +833,9 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
     let mut rects: Vec<Area> = Vec::new();
     let mut points: Vec<(f64, f64)> = Vec::new();
     let (mut tm, mut tlm) = (IDENTITY, IDENTITY);
-    // What is painted that is not white: what white text shows against.
-    let mut painted: Vec<Area> = Vec::new();
-    // Every box filled, and whether dark: dark text drawn on a dark box
-    // hides as surely as a box drawn over it, the way a highlighter set to
-    // black does.
-    let mut fills: Vec<(Area, bool)> = Vec::new();
-    let checked = std::cell::Cell::new(0u64);
-    let mut images: Vec<Area> = Vec::new();
-    let mut work = 0u64;
-
+    let calls = forms
+        .as_deref()
+        .map_or_else(Vec::new, |forms| forms.calls.clone());
     loop {
         lx.skip_ws();
         if lx.pos >= content.len() {
@@ -427,13 +864,25 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     bytes: &[u8],
                     at: (usize, usize),
                     shown: Shown| {
-            let font = gs
-                .font
-                .and_then(|i| fonts.get(i))
-                .map_or(&unknown, |f| &f.1);
+            let font = gs.font.as_ref().unwrap_or(&unknown);
             let first = w.glyphs.len();
             let white = gs.fill.is_some_and(|l| l >= WHITE);
             let dark_text = gs.fill.is_some_and(|l| l <= DARK) && gs.mode != 3 && gs.mode != 7;
+            let source = source_span(&calls, source_owner, source_parts, at.0, at.1);
+            let (source, local_start, local_end) = match source {
+                Some(source) => source,
+                None => {
+                    w.complete = false;
+                    (
+                        StreamPath {
+                            calls: calls.clone(),
+                            object: source_owner.unwrap_or(0),
+                        },
+                        at.0,
+                        at.1,
+                    )
+                }
+            };
             for (code, len) in font.codes(bytes) {
                 if w.glyphs.len() >= MAX_GLYPHS {
                     break;
@@ -448,6 +897,13 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     width / 1000.0 * gs.size * gs.th,
                     gs.size,
                 );
+                let mut clipped_out = false;
+                for clip in clips {
+                    if !area.meets(&clip.bounds) || !clip.contains(area) {
+                        clipped_out = true;
+                        break;
+                    }
+                }
                 let from = w.text.len() as u32;
                 match font.unicode(code) {
                     Some(t) => w.text.push_str(&t),
@@ -455,12 +911,13 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     None => w.text.push('\u{FFFD}'),
                 }
                 // On a dark box, and nothing lighter painted over it since.
-                let on_dark = if dark_text && checked.get() < MAX_WORK {
-                    fills
+                let on_dark = if dark_text && paint.checked.get() < MAX_WORK {
+                    paint
+                        .fills
                         .iter()
                         .rev()
                         .find(|(f, _)| {
-                            checked.set(checked.get() + 1);
+                            paint.checked.set(paint.checked.get() + 1);
                             area.inside(f) >= COVERED
                         })
                         .filter(|(_, dark)| *dark)
@@ -468,13 +925,15 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 } else {
                     None
                 };
-                let hidden = if gs.mode == 3 || gs.mode == 7 {
+                let hidden = if clipped_out {
+                    Some(Hidden::OffPage)
+                } else if gs.mode == 3 || gs.mode == 7 {
                     Some(Hidden::Invisible)
                 } else if !area.meets(&media) {
                     Some(Hidden::OffPage)
                 } else if area.height().abs() < TINY {
                     Some(Hidden::Tiny)
-                } else if white && !painted.iter().any(|p| area.inside(p) >= COVERED) {
+                } else if white && !paint.painted.iter().any(|p| area.inside(p) >= COVERED) {
                     Some(Hidden::White)
                 } else {
                     None
@@ -492,6 +951,7 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     covered: on_dark.is_some() && hidden.is_none(),
                     marked: false,
                     hidden,
+                    source: source.clone(),
                 });
                 if let Some(b) = on_dark
                     && hidden.is_none()
@@ -507,6 +967,9 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 end: at.1,
                 shown,
                 glyphs: (first, w.glyphs.len()),
+                source,
+                local_start,
+                local_end,
             });
         };
         let next_line = |tm: &mut Matrix, tlm: &mut Matrix, tx: f64, ty: f64| {
@@ -560,25 +1023,25 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 }
                 let dark = gs.fill.is_some_and(|l| l <= DARK);
                 for area in &rects {
-                    if gs.fill.is_none_or(|l| l < WHITE) && painted.len() < MAX_GLYPHS {
-                        painted.push(*area);
+                    if gs.fill.is_none_or(|l| l < WHITE) && paint.painted.len() < MAX_GLYPHS {
+                        paint.painted.push(*area);
                     }
-                    if fills.len() < MAX_GLYPHS {
-                        fills.push((*area, dark));
+                    if paint.fills.len() < MAX_GLYPHS {
+                        paint.fills.push((*area, dark));
                     }
                     if dark && w.dark.len() < MAX_SHAPES {
                         w.dark.push(*area);
                     }
                     if dark
                         && w.over_pictures.len() < MAX_BOXES
-                        && over_picture(area, &images, &media)
+                        && over_picture(area, &paint.images, &media)
                     {
                         w.over_pictures.push(*area);
                     }
-                    if !dark || work > MAX_WORK {
+                    if !dark || paint.work > MAX_WORK {
                         continue;
                     }
-                    work += w.glyphs.len() as u64;
+                    paint.work += w.glyphs.len() as u64;
                     let mut any = false;
                     for g in w.glyphs.iter_mut().filter(|g| !g.covered) {
                         g.covered = g.area.inside(area) >= COVERED;
@@ -603,10 +1066,38 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 {
                     w.placed.push((name.to_string(), gs.ctm));
                 }
-                painted.push(a);
-                images.push(a);
-                if fills.len() < MAX_GLYPHS {
-                    fills.push((a, false));
+                let is_form =
+                    if let (Some(forms), Some(name_item)) = (forms.as_deref_mut(), ops.last()) {
+                        match follow_form(
+                            name_item,
+                            source_owner,
+                            source_parts,
+                            resources.as_ref(),
+                            legacy_fallback.as_ref(),
+                            &gs,
+                            media,
+                            marks,
+                            clips,
+                            forms,
+                            w,
+                            paint,
+                        ) {
+                            Some(true) => true,
+                            Some(false) => false,
+                            None => {
+                                w.complete = false;
+                                false
+                            }
+                        }
+                    } else {
+                        false
+                    };
+                if !is_form {
+                    paint.painted.push(a);
+                    paint.images.push(a);
+                    if paint.fills.len() < MAX_GLYPHS {
+                        paint.fills.push((a, false));
+                    }
                 }
             }
             b"BT" => {
@@ -618,7 +1109,11 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                     gs.size = s;
                 }
                 let name = ops.len().checked_sub(2).and_then(|i| ops[i].obj.name());
-                gs.font = name.and_then(|n| fonts.iter().position(|(k, _)| k == n));
+                gs.font =
+                    name.and_then(|n| fonts.iter().find(|(k, _)| k == n).map(|(_, f)| f.clone()));
+                if source_owner.is_some() && name.is_some() && gs.font.is_none() {
+                    w.complete = false;
+                }
             }
             b"Tc" => gs.tc = ops.last().and_then(|o| num(&o.obj)).unwrap_or(gs.tc),
             b"Tw" => gs.tw = ops.last().and_then(|o| num(&o.obj)).unwrap_or(gs.tw),
@@ -678,7 +1173,7 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                         ),
                         _ => (range(item).0, Shown::Quote),
                     };
-                    show(&mut w, &mut tm, &gs, s, (from, op_end), shown);
+                    show(w, &mut tm, &gs, s, (from, op_end), shown);
                 }
             }
             b"TJ" => {
@@ -689,7 +1184,7 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
                 {
                     for i in items {
                         match &i.obj {
-                            Obj::Str(s) => show(&mut w, &mut tm, &gs, s, range(i), Shown::Item),
+                            Obj::Str(s) => show(w, &mut tm, &gs, s, range(i), Shown::Item),
                             other => {
                                 if let Some(n) = num(other) {
                                     tm = translate(-n / 1000.0 * gs.size * gs.th, &tm);
@@ -709,32 +1204,6 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
         }
         ops.clear();
     }
-
-    // Marks for redaction cover what is under them, whenever it was drawn.
-    for m in marks {
-        for g in w.glyphs.iter_mut() {
-            g.marked |= g.area.inside(m) >= COVERED;
-        }
-        if w.boxes.len() < MAX_BOXES {
-            w.boxes.push(*m);
-        }
-    }
-    // A scanned page: an image over most of it, and its text laid out
-    // invisibly under the picture of the words, for search. That is OCR,
-    // not hiding.
-    let scanned = images
-        .iter()
-        .any(|i| i.inside(&media).max(media.inside(i)) >= 0.5 && i.size() >= 0.5 * media.size());
-    if scanned {
-        for g in w
-            .glyphs
-            .iter_mut()
-            .filter(|g| g.hidden == Some(Hidden::Invisible))
-        {
-            g.hidden = None;
-        }
-    }
-    w
 }
 
 /// Whether a dark box hides part of a picture: it lies on one drawn before

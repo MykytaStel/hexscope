@@ -195,6 +195,42 @@ fn header_at(data: &[u8]) -> Option<usize> {
     find(&data[..data.len().min(HEADER_WINDOW)], b"%PDF-")
 }
 
+pub(super) fn pdf_header_version(data: &[u8]) -> Option<String> {
+    let header = header_at(data)?;
+    let end = line_end(data, header);
+    Some(
+        String::from_utf8_lossy(&data[header + 5..end])
+            .trim()
+            .to_string(),
+    )
+}
+
+/// The catalog's declared PDF version takes precedence over the header.
+pub(super) fn effective_version(
+    data: &[u8],
+    ctx: &Ctx,
+    header_version: Option<&str>,
+) -> Option<String> {
+    let mut budget = facts::MAX_DECODED_TOTAL;
+    let root = ctx.trailers.iter().rev().find_map(|t| match t.get("Root") {
+        Some(Obj::Ref(n, _)) => Some(*n),
+        _ => None,
+    });
+    let catalog_version = root
+        .and_then(|n| facts::resolve(data, ctx, n, &mut budget))
+        .and_then(|found| match found {
+            facts::Found::Top(rec) => rec
+                .value
+                .get("Version")
+                .and_then(Obj::name)
+                .map(str::to_owned),
+            facts::Found::Packed(obj, _) => {
+                obj.get("Version").and_then(Obj::name).map(str::to_owned)
+            }
+        });
+    catalog_version.or_else(|| header_version.map(str::to_owned))
+}
+
 pub(crate) fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
 }
