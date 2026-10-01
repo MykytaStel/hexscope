@@ -541,11 +541,11 @@ fn every_pngsuite_step_explains_its_bits_exactly() {
 fn a_real_word_document_reads_cleanly_and_every_entry_extracts() {
     use hexscope_core::zip::{extract, parse_zip};
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    // The fixture as `textutil` wrote it, and the site's sample, which adds
-    // a comment, a tracked deletion and a stored photo with Python's zipfile.
+    // The fixture as `textutil` wrote it, and the site's sample snapshot,
+    // which adds a comment, a tracked deletion and a stored photo.
     for (path, entries) in [
         (dir.join("tests/fixtures/report.docx"), 8),
-        (dir.join("../../apps/web/public/samples/report.docx"), 10),
+        (dir.join("tests/fixtures/site-samples/report.docx"), 10),
     ] {
         let bytes = fs::read(&path).unwrap();
         let doc = parse_zip(&bytes);

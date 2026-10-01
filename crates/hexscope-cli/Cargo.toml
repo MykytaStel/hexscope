@@ -1,14 +1,18 @@
 [package]
 name = "hexscope-cli"
-version = "0.1.0"
+version.workspace = true
 description = "Checks files for what they give away — locations, serial numbers, authors, black boxes that hide nothing — and cleans or repairs them"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["file-inspection", "metadata", "privacy", "forensics", "redaction"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "hexscope"
 path = "src/main.rs"
 
 [dependencies]
-hexscope-core = { path = "../hexscope-core" }
+hexscope-core = { path = "../hexscope-core", version = "0.1.0" }

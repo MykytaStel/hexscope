@@ -1,0 +1,36 @@
+Return-Path: <bounce@mailer.example.com>
+Received: from mailer.example.com (unknown [192.0.2.66])
+	by mx.example.net (Postfix) with ESMTP id 7Q1;
+	Tue, 15 Sep 2026 07:12:44 +0000 (UTC)
+Authentication-Results: mx.example.net;
+	spf=fail smtp.mailfrom=example-bank.com;
+	dkim=none;
+	dmarc=fail header.from=example-bank.com
+From: Example Bank Security <security@example-bank.com>
+Reply-To: verify-account@example.info
+To: taras@example.net
+Subject: Your account is on hold
+Date: Tue, 15 Sep 2026 07:12:40 +0000
+Message-ID: <a81f@mailer.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b1"
+
+This is a multi-part message.
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Confirm your details within 24 hours, or your account will be closed.
+www.example-bank.com/verify
+--b1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<p>Confirm your details within 24 hours, or your account will be closed.</p>
+<p><a href=3D"https://login.example.info/verify?id=3D7Q1">www.example-bank.com/verify</a></p>
+<p><a href=3D"https://xn--exmple-bank-zij.com/">Help centre</a></p>
+--b1
+Content-Type: text/html; name="invoice.pdf.html"
+Content-Disposition: attachment; filename="invoice.pdf.html"
+
+<html><body>Sign in to view your invoice</body></html>
+--b1--
