@@ -1,6 +1,12 @@
 export type Locale = "en" | "uk";
 
 const LANGUAGE_KEY = "hexscope.language";
+let guideTranslations: Readonly<Record<string, string>> = {};
+
+/** Adds article copy only on guide pages, keeping it out of the landing-page bundle. */
+export function registerGuideTranslations(translations: Readonly<Record<string, string>>): void {
+  guideTranslations = translations;
+}
 
 // Keep the source copy as the key: the English UI remains the canonical copy,
 // and untranslated technical terms stay readable until they have a reviewed
@@ -395,10 +401,12 @@ function ukrainianCountWord(count: number, one: string, few: string, many: strin
 
 export function translateText(value: string, locale: Locale): string {
   if (locale === "en") return value;
-  if (UK[value]) return UK[value];
   const leading = value.match(/^\s*/)?.[0] ?? "";
   const trailing = value.match(/\s*$/)?.[0] ?? "";
   const content = value.slice(leading.length, value.length - trailing.length);
+  const normalized = content.replace(/\s+/g, " ");
+  const exact = UK[normalized] ?? guideTranslations[normalized];
+  if (exact) return `${leading}${exact}${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
   let match = /^(Photo|Picture|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${match[2]}`;
@@ -436,6 +444,12 @@ export function translateText(value: string, locale: Locale): string {
   }
   match = /^(\d+)% of the file$/.exec(value);
   if (match) return `${match[1]}% файла`;
+  match = /^([\d,]+) bytes of text, stored in ([\d,]+)$/.exec(value);
+  if (match) return `${match[1]} байтів тексту, стиснених до ${match[2]} байтів`;
+  match = /^Put together, these two ideas are all there is\. The ([\d,]+) bytes of text in the player take ([\d,]+): ([\d,]+) characters written out, and ([\d,]+) copies from earlier standing in for the other ([\d,]+) bytes\.$/.exec(value);
+  if (match) return `Разом ці два принципи й утворюють весь алгоритм. Із ${match[1]} байтів тексту в плеєрі ${match[2]}: ${match[3]} символів записано без змін, а ще ${match[4]} копій замінюють решту ${match[5]} байтів.`;
+  match = /^The demo could not load: (.+)$/.exec(value);
+  if (match) return `Не вдалося завантажити демонстрацію: ${match[1]}`;
   match = /^The clean copy: the same picture, and none of that — (.+) bytes of it removed, in your browser\.$/.exec(value);
   if (match) return `Очищена копія: те саме зображення без цих даних — видалено ${match[1]} байтів у вашому браузері.`;
   match = /^Same photo\. ([\d,]+) bytes removed in your browser\.$/.exec(value);
@@ -529,7 +543,7 @@ function localizeNode(root: Node): void {
   if (!(root instanceof Element) || root.matches("script, style, textarea")) return;
   for (const element of [root, ...root.querySelectorAll("*")]) {
     if (element.matches("script, style, textarea")) continue;
-    for (const name of ["aria-label", "title", "alt", "placeholder"]) {
+    for (const name of ["aria-label", "title", "alt", "placeholder", "content"]) {
       if (element.hasAttribute(name)) localizeAttribute(element, name);
     }
   }

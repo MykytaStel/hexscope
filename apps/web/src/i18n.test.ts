@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveLocale, translateText } from "./i18n";
+import { GUIDE_UK } from "./guide-i18n";
+import { registerGuideTranslations, resolveLocale, translateText } from "./i18n";
+
+registerGuideTranslations(GUIDE_UK);
 
 describe("the interface language", () => {
   it("keeps an explicit language choice ahead of the browser language", () => {
@@ -10,6 +13,15 @@ describe("the interface language", () => {
   it("starts in Ukrainian for Ukrainian browsers and English otherwise", () => {
     expect(resolveLocale(null, ["uk-UA", "en-US"])).toBe("uk");
     expect(resolveLocale(null, ["en-US"])).toBe("en");
+  });
+
+  it("matches guide translations when HTML whitespace surrounds a text fragment", () => {
+    expect(translateText(" is a ZIP of XML files, and several of them are about you rather than the text:", "uk")).toBe(
+      " — це ZIP-архів із файлами XML. Деякі з них містять відомості про вас, а не про текст документа:",
+    );
+    expect(
+      translateText(" — and the text each deletion removed, which is still in the file though no page shows it.", "uk"),
+    ).toBe(" — разом із видаленим текстом, який і досі є у файлі, хоча його не видно на сторінках.");
   });
 
   it("translates the primary file action and a counted photo verdict", () => {
