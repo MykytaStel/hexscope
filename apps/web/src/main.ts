@@ -13,7 +13,8 @@ import { TreeView } from "./tree";
 import { call, playerSource } from "./rpc";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
-import { BatchView, type BatchItem } from "./batch";
+import { BatchView } from "./batch";
+import { BatchController, type BatchAnalysis } from "./batch-controller";
 import { categories } from "./share";
 import { openShortcuts } from "./shortcuts";
 import { maybeTour, resetTour } from "./tour";
@@ -31,12 +32,14 @@ import { installLocale, languageButton } from "./i18n";
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
 
+let batchController: BatchController;
+
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 // "Take the tour": on the sample photo, from the start.
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
   b.addEventListener("click", () => {
     resetTour();
-    batch = null;
+    batchController.clear();
     void loadSample("samples/photo.jpg", "photo.jpg");
   });
 }
@@ -56,7 +59,7 @@ document.addEventListener("click", (e) => {
   const again = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-recent]");
   const file = again ? recentFiles()[Number(again.dataset.recent)] : undefined;
   if (file) {
-    batch = null;
+    batchController.clear();
     void load(file);
   }
 });
@@ -71,11 +74,6 @@ let hover = -1;
 let selected = -1;
 let problemCursor = -1;
 let loadId = 0;
-/** Files dropped together, while they are the way back; null for one file. */
-let batch: BatchItem[] | null = null;
-/** The batch stops reading while one of its files is open: that file's document is the worker's. */
-let batchPaused = false;
-let batchRunning = false;
 
 const status = $("status");
 const problemsBtn = $<HTMLButtonElement>("problems");
@@ -393,6 +391,7 @@ function showFileInfo(m: FileModel): void {
   // The page's heading while a file is open: its name, and the way to it.
   const name = document.createElement("h1");
   name.className = "filename";
+  const batch = batchController.items;
   if (batch) {
     const crumb = document.createElement("button");
     crumb.className = "crumb-back";
@@ -437,13 +436,14 @@ function showFileInfo(m: FileModel): void {
 
 const batchView = new BatchView($("batch"), {
   canShareCopies: phoneCanShare,
-  open: (i) => {
-    const item = batch?.[i];
-    if (!item) return;
-    batchPaused = true;
-    void load(item.file);
-  },
-  saveClean: (keepNames) => void saveBatchClean(keepNames),
+  open: (i) => batchController.open(i),
+  saveClean: (keepNames) => void batchController.saveClean(keepNames),
+});
+batchController = new BatchController(batchView, {
+  analyze: analyzeBatchFile,
+  openFile: (file) => void load(file),
+  saveClean: cleanCopies,
+  announce,
 });
 
 /** Starts reading many files, and lists them. */
@@ -452,70 +452,38 @@ function startBatch(files: File[]): void {
   closePlayer();
   model = null;
   levels = [];
-  batch = files.map((file) => ({ file, state: "waiting", kind: "", lines: [], headline: null, reveals: [], cleanName: file.name, note: "", skip: false }));
-  batchView.result = "";
+  batchController.start(files);
   showBatch();
 }
 
 /** Back to the list of files. */
 function showBatch(): void {
-  if (!batch) return;
+  const items = batchController.items;
+  if (!items) return;
   closePlayer();
   document.body.dataset.state = "batch";
-  $("fileinfo").textContent = `${batch.length} files`;
+  $("fileinfo").textContent = `${items.length} files`;
   $("load-error").hidden = true;
   locationBtn.hidden = true;
   problemsBtn.hidden = true;
   playBtn.hidden = true;
-  batchPaused = false;
-  batchView.render(batch);
-  void runBatch();
+  batchController.resume();
 }
 
-/** Reads the files still waiting, one at a time, saying after each what it found. */
-async function runBatch(): Promise<void> {
-  if (batchRunning) return;
-  batchRunning = true;
-  const items = batch;
-  try {
-    for (const item of items ?? []) {
-      if (batch !== items || batchPaused) break;
-      if (item.state !== "waiting") continue;
-      item.state = "reading";
-      if (document.body.dataset.state === "batch") batchView.render(items!);
-      try {
-        if (item.file.size > MAX_FILE) throw new Error(tooLarge(item.file));
-        const r = await call({ type: "parse", file: item.file });
-        if (r.type !== "parsed") throw new Error(r.type === "error" ? r.message : "unexpected reply");
-        const m = new FileModel(r.result, r.bytes, item.file.name, item.file);
-        await (await import("./qrfacts")).addCodeFacts(m);
-        item.kind = kindOf(m);
-        item.lines = verdict(m);
-        item.headline = headline(m);
-        item.reveals = categories(m);
-        item.cleanName = cleanName(m);
-        item.state = "done";
-      } catch (e) {
-        item.state = "failed";
-        item.note = e instanceof Error ? e.message : String(e);
-      }
-      if (batch === items && document.body.dataset.state === "batch") batchView.render(items!);
-    }
-  } finally {
-    batchRunning = false;
-  }
-  // Paused and resumed while a file was being read: finish the rest.
-  if (batch && batch === items && !batchPaused && batch.some((i) => i.state === "waiting")) void runBatch();
-  else if (batch && batch === items && batch.every((i) => i.state === "done" || i.state === "failed")) {
-    const telling = batch.filter((i) => i.reveals.length > 0).length;
-    announce(`${batch.length} files read. ${telling === 0 ? "None reveals anything about you." : `${telling} reveal something about you.`}`);
-  }
-}
-
-/** Makes the clean copies of the list on screen, if it is still on screen when each is made. */
-async function saveBatchClean(keepNames: boolean): Promise<void> {
-  const items = batch;
-  if (items) await cleanCopies(items, keepNames, batchView, () => batch === items);
+/** Reads and summarizes one file for the batch list. */
+async function analyzeBatchFile(file: File): Promise<BatchAnalysis> {
+  if (file.size > MAX_FILE) throw new Error(tooLarge(file));
+  const response = await call({ type: "parse", file });
+  if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
+  const parsed = new FileModel(response.result, response.bytes, file.name, file);
+  await (await import("./qrfacts")).addCodeFacts(parsed);
+  return {
+    kind: kindOf(parsed),
+    lines: verdict(parsed),
+    headline: headline(parsed),
+    reveals: categories(parsed),
+    cleanName: cleanName(parsed),
+  };
 }
 
 async function load(file: File): Promise<void> {
@@ -675,7 +643,7 @@ async function loadSample(path: string, name: string): Promise<void> {
 
 /** Back to where it was after a file failed to open, saying why. */
 function loadFailed(message: string): void {
-  if (batch && !model) {
+  if (batchController.items && !model) {
     showBatch();
     $("fileinfo").textContent = message;
     return;
@@ -694,7 +662,7 @@ function loadFailed(message: string): void {
 
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]")) {
   btn.addEventListener("click", async () => {
-    batch = null;
+    batchController.clear();
     await loadSample(btn.dataset.sample!, btn.dataset.name!);
     // "Watch compression work" goes straight to the player.
     if (btn.dataset.then === "play" && canPlay()) void openPlayer();
@@ -722,6 +690,7 @@ async function openShared(): Promise<void> {
   const name = decodeURIComponent(res.headers.get("x-file-name") ?? "shared file");
   document.body.dataset.state = "loading";
   await cache.delete("shared-file");
+  batchController.clear();
   await load(new File([await res.blob()], name));
 }
 
@@ -764,7 +733,7 @@ function openFiles(files: File[]): void {
   if (files.length > 1) {
     startBatch(files);
   } else if (files.length === 1) {
-    batch = null;
+    batchController.clear();
     void load(files[0]);
   }
 }
@@ -794,7 +763,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Backspace" && levels.length > 0) {
     e.preventDefault();
     void back(levels.length - 1);
-  } else if (e.key === "Backspace" && batch && document.body.dataset.state === "ready") {
+  } else if (e.key === "Backspace" && batchController.items && document.body.dataset.state === "ready") {
     e.preventDefault();
     showBatch();
   }
