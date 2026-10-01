@@ -109,7 +109,7 @@ describe("WorkspaceController", () => {
 
     await controller.openEntry(2, "broken.docx");
 
-    expect(openEntry).toHaveBeenCalledWith(2);
+    expect(openEntry).toHaveBeenCalledWith(2, "broken.docx");
     expect(controller.model).toBe(parent);
     expect(controller.levels).toEqual([]);
     expect(view.show).toHaveBeenCalledTimes(shown);
@@ -165,5 +165,27 @@ describe("WorkspaceController", () => {
     expect(controller.model).toBe(nested);
     expect(controller.levels).toEqual([{ model: parent, selected: -1 }]);
     expect(view.note).toHaveBeenCalledWith("worker is unavailable");
+  });
+
+  it("passes display names to nested parsers so each model is indexed once", async () => {
+    const parent = model("parent.zip");
+    const entry = model("report.docx");
+    const embedded = model("photo.jpg");
+    const openEntry = vi.fn(async (_index: number, _name?: string) => entry);
+    const openBytes = vi.fn(async (_bytes: Uint8Array, _name?: string) => embedded);
+    const { controller } = rig({
+      parse: async () => parent,
+      openEntry,
+      openBytes,
+    });
+    const bytes = new Uint8Array([1, 2, 3]);
+    await controller.openFile(file("parent.zip"));
+    await controller.openEntry(4, "report.docx");
+    await controller.openInside(bytes, "photo.jpg");
+
+    expect(openEntry).toHaveBeenCalledWith(4, "report.docx");
+    expect(openBytes).toHaveBeenCalledWith(expect.any(Uint8Array), "photo.jpg");
+    expect(openBytes.mock.calls[0][0]).not.toBe(bytes);
+    expect(controller.model).toBe(embedded);
   });
 });

@@ -348,7 +348,7 @@ function nextProblem(): void {
   select(model.problems[problemCursor]);
 }
 
-function showFileInfo(m: FileModel): void {
+function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   const info = $("fileinfo");
   const chips: string[] = [];
   const f = m.file;
@@ -409,7 +409,7 @@ function showFileInfo(m: FileModel): void {
     sep.textContent = "›";
     name.append(crumb, sep);
   }
-  workspace.levels.forEach((level, depth) => {
+  levels.forEach((level, depth) => {
     const crumb = document.createElement("button");
     crumb.className = "crumb-back";
     crumb.textContent = level.model.name;
@@ -447,15 +447,15 @@ workspace = new WorkspaceController({
       if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
       return new FileModel(response.result, response.bytes, file.name, file);
     },
-    async openEntry(index) {
+    async openEntry(index, name) {
       const response = await call({ type: "open", index });
       if (response.type !== "opened") throw new Error(response.type === "error" ? response.message : "The entry could not be opened.");
-      return new FileModel(response.result, response.bytes, "");
+      return new FileModel(response.result, response.bytes, name);
     },
-    async openBytes(bytes) {
+    async openBytes(bytes, name) {
       const response = await call({ type: "openBytes", bytes });
       if (response.type !== "opened") throw new Error(response.type === "error" ? response.message : "It could not be opened.");
-      return new FileModel(response.result, response.bytes, "");
+      return new FileModel(response.result, response.bytes, name);
     },
     async back(depth) {
       const response = await call({ type: "back", depth });
@@ -549,7 +549,7 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   tree.setModel(m);
   drawer.showFile(m);
   drawer.showNode(m, -1, false);
-  showFileInfo(m);
+  showFileInfo(m, levels);
   setView(openingView());
   updateProblems();
   playBtn.hidden = !canPlay();

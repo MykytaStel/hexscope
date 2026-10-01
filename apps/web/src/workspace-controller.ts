@@ -1,5 +1,5 @@
 import { tooLarge } from "./files";
-import { FileModel } from "./model";
+import type { FileModel } from "./model";
 
 export interface WorkspaceLevel {
   model: FileModel;
@@ -8,8 +8,8 @@ export interface WorkspaceLevel {
 
 export interface WorkspaceServices {
   parse(file: File): Promise<FileModel>;
-  openEntry(index: number): Promise<FileModel>;
-  openBytes(bytes: Uint8Array): Promise<FileModel>;
+  openEntry(index: number, name: string): Promise<FileModel>;
+  openBytes(bytes: Uint8Array, name: string): Promise<FileModel>;
   back(depth: number): Promise<void>;
 }
 
@@ -86,10 +86,10 @@ export class WorkspaceController {
     const selected = this.options.getSelected();
     this.options.view.clearPlayer();
     try {
-      const opened = await this.options.services.openEntry(index);
+      const opened = await this.options.services.openEntry(index, name);
       if (request !== this.request || this.current !== parent) return;
       this.history = [...this.history, { model: parent, selected }];
-      this.current = this.withName(opened, name);
+      this.current = opened;
       this.options.view.show(this.current, this.history);
       this.options.view.afterOpen(this.current);
     } catch (error) {
@@ -105,10 +105,10 @@ export class WorkspaceController {
     const selected = this.options.getSelected();
     this.options.view.clearPlayer();
     try {
-      const opened = await this.options.services.openBytes(bytes.slice());
+      const opened = await this.options.services.openBytes(bytes.slice(), name);
       if (request !== this.request || this.current !== parent) return;
       this.history = [...this.history, { model: parent, selected }];
-      this.current = this.withName(opened, name);
+      this.current = opened;
       this.options.view.show(this.current, this.history);
       this.options.view.afterOpen(this.current);
     } catch (error) {
@@ -135,11 +135,5 @@ export class WorkspaceController {
     this.history = this.history.slice(0, depth);
     this.options.view.show(this.current, this.history);
     this.options.view.select(target.selected);
-  }
-
-  /** The parser model is immutable; an entry only needs its user-facing name. */
-  private withName(model: FileModel, name: string): FileModel {
-    if (model.name === name) return model;
-    return new FileModel(model.file, model.bytes, name, model.source);
   }
 }
