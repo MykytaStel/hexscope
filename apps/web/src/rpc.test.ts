@@ -9,15 +9,14 @@ interface PostedRequest {
 class FakeWorker {
   static instances: FakeWorker[] = [];
   readonly sent: PostedRequest[] = [];
-  private readonly listeners = new Map<string, Array<(event: unknown) => void>>();
+  private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
 
   constructor() {
     FakeWorker.instances.push(this);
   }
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
-    const callback = typeof listener === "function" ? listener : (event: unknown) => listener.handleEvent(event as Event);
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), callback]);
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
   postMessage(message: PostedRequest): void {
@@ -27,7 +26,11 @@ class FakeWorker {
   terminate(): void {}
 
   respond(response: Record<string, unknown>): void {
-    for (const listener of this.listeners.get("message") ?? []) listener({ data: response });
+    const event = { data: response } as MessageEvent;
+    for (const listener of this.listeners.get("message") ?? []) {
+      if (typeof listener === "function") listener.call(this, event);
+      else listener.handleEvent(event);
+    }
   }
 }
 

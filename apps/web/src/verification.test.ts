@@ -33,7 +33,7 @@ describe("clean-copy verification findings", () => {
         { kind: "camera", text: "  Cafe\u0301 camera  " },
         { kind: "camera", text: "  Cafe\u0301 camera  " },
       ],
-      { latitude: 48.8584, longitude: 2.2945, altitude: 35 },
+      { latitude: 48.8584, longitude: 2.2945 },
       labels,
     );
 
