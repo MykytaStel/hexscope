@@ -58,6 +58,47 @@ describe("the interface language", () => {
     );
   });
 
+  it("translates the byte inspector, touch guidance, and copy feedback", () => {
+    expect(translateText("Tap a byte", "uk")).toBe("Торкніться байта");
+    expect(translateText("Hover a byte or row; click to pin", "uk")).toBe(
+      "Наведіть на байт чи рядок; натисніть, щоб закріпити",
+    );
+    expect(translateText("The part selected", "uk")).toBe("Вибрана частина");
+    expect(translateText("The file's bytes, in hex and as text", "uk")).toBe(
+      "Байти файла у шістнадцятковому та текстовому вигляді",
+    );
+    expect(translateText("Field", "uk")).toBe("Поле");
+    expect(translateText("Container", "uk")).toBe("Контейнер");
+    expect(translateText("pinned", "uk")).toBe("закріплено");
+    expect(translateText("Offset", "uk")).toBe("Зсув");
+    expect(translateText("Length", "uk")).toBe("Довжина");
+    expect(translateText("Kind", "uk")).toBe("Тип");
+    expect(translateText("Value", "uk")).toBe("Значення");
+    expect(translateText("Spec", "uk")).toBe("Специфікація");
+    expect(translateText("Copy as", "uk")).toBe("Копіювати як");
+    expect(translateText("a C array", "uk")).toBe("масив C");
+    expect(translateText("1 byte", "uk")).toBe("1 байт");
+    expect(translateText("90 bytes", "uk")).toBe("90 байтів");
+    expect(translateText("Copied 90 bytes as a C array.", "uk")).toBe("Скопійовано 90 байтів у форматі масиву C.");
+    expect(translateText("not allowed here", "uk")).toBe("Браузер заборонив копіювання");
+    expect(translateText("Start of image: the two bytes every JPEG begins with.", "uk")).toBe(
+      "Початок зображення: перші два байти кожного JPEG.",
+    );
+    expect(translateText("The location directory: where the picture was taken.", "uk")).toBe(
+      "Каталог геоданих: де зроблено фото.",
+    );
+    expect(translateText("Copied 3 bytes as hex.", "uk")).toBe("Скопійовано 3 байти у форматі hex.");
+    expect(translateText("Copied 11 bytes as base64.", "uk")).toBe("Скопійовано 11 байтів у форматі base64.");
+    expect(translateText("Copied 1 byte as a C array.", "uk")).toBe("Скопійовано 1 байт у форматі масиву C.");
+    expect(translateText("7 entries", "uk")).toBe("7 записів");
+    expect(translateText("1 of 2", "uk")).toBe("Крок 1 із 2");
+    expect(translateText("“Bytes” shows the structure, part by part: hover or tap anything and it says what it is and where the format defines it.", "uk")).toBe(
+      "«Байти» показують структуру файла: торкніться байта або рядка, щоб побачити його призначення й посилання на формат.",
+    );
+    expect(translateText("In the bytes, once they have focus (Tab to them)", "uk")).toBe("У байтах, після переходу до них клавішею Tab");
+    expect(translateText("Move one byte", "uk")).toBe("Перейти на один байт");
+  });
+
   it("translates every copy distance in the pixel explanation", () => {
     expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from exactly one row up — 9 bits say so.", "uk")).toBe(
       "Піксель 9, 27: частина копії з 258 байтів, узятої рівно на один рядок вище; це закодовано у 9 бітах.",

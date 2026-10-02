@@ -3,8 +3,8 @@ import { onThemeChange } from "./theme";
 import { FileModel, Kind, type Tint } from "./model";
 
 export interface HexCallbacks {
-  onHover(id: number, offset: number): void;
-  onSelect(id: number): void;
+  onHover(id: number, offset: number, keyboard?: boolean): void;
+  onSelect(id: number, offset?: number, keyboard?: boolean): void;
   /** Bytes in view the page does not have yet: a large movie's media. */
   onNeed?(start: number, end: number): void;
 }
@@ -76,6 +76,9 @@ export class HexView {
   private palette = readPalette();
   private hover = -1;
   private selected = -1;
+  /** Exact byte the keyboard cursor is on; the selected part may span many. */
+  private focusOffset = -1;
+  private keyboardActive = false;
   /** Bytes flashing to show where something just led, and when it began. */
   private flashing: { start: number; end: number; t0: number } | null = null;
   /** Bytes the DEFLATE player is reading right now, as [start, end). */
@@ -102,9 +105,12 @@ export class HexView {
   ) {
     this.scroller = document.createElement("div");
     this.scroller.className = "hex-scroller";
-    // Focusable, so the keyboard scrolls the bytes as it would a page.
+    // A labeled group exposes the canvas grid as one keyboard-controlled view.
     this.scroller.tabIndex = 0;
+    this.scroller.setAttribute("role", "group");
     this.scroller.setAttribute("aria-label", "Bytes");
+    this.scroller.setAttribute("aria-describedby", "status");
+    this.scroller.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight ArrowUp ArrowDown Home End Enter Space");
     this.canvas = document.createElement("canvas");
     this.canvas.className = "hex-canvas";
     // The bytes as drawn; the tree beside them says the same in words.
@@ -120,8 +126,19 @@ export class HexView {
 
     new ResizeObserver(() => this.resize()).observe(this.scroller);
     this.scroller.addEventListener("scroll", () => this.schedule(), { passive: true });
+    this.scroller.addEventListener("keydown", (e) => this.keydown(e));
+    this.scroller.addEventListener("focus", () => this.schedule());
+    this.scroller.addEventListener("blur", () => {
+      this.keyboardActive = false;
+      this.schedule();
+    });
     this.canvas.addEventListener("mousemove", (e) => this.pointer(e, false));
     this.canvas.addEventListener("mouseleave", () => this.cb.onHover(-1, -1));
+    this.canvas.addEventListener("pointerdown", () => {
+      this.keyboardActive = false;
+      this.scroller.focus({ preventScroll: true });
+      this.schedule();
+    });
     this.canvas.addEventListener("click", (e) => this.pointer(e, true));
     onThemeChange(() => {
       this.palette = readPalette();
@@ -133,6 +150,8 @@ export class HexView {
     this.model = model;
     this.hover = -1;
     this.selected = -1;
+    this.focusOffset = -1;
+    this.keyboardActive = false;
     this.head = [-1, -1];
     this.offsetDigits = Math.max(6, (model?.bytes.length ?? 0).toString(16).length);
     this.scroller.scrollTop = 0;
@@ -145,8 +164,9 @@ export class HexView {
     this.schedule();
   }
 
-  setSelected(id: number): void {
+  setSelected(id: number, offset?: number): void {
     this.selected = id;
+    this.focusOffset = offset ?? (this.model && id >= 0 ? this.model.start(id) : -1);
     this.schedule();
   }
 
@@ -305,6 +325,7 @@ export class HexView {
   private pointer(e: MouseEvent, click: boolean): void {
     const m = this.model;
     if (!m) return;
+    const hadKeyboardCursor = this.keyboardActive;
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -323,11 +344,61 @@ export class HexView {
     const offset = col < 0 || row < 0 ? -1 : row * this.perRow + col;
     const id = offset >= 0 ? m.nodeAt(offset) : -1;
     this.canvas.style.cursor = id >= 0 ? "pointer" : "default";
+    this.keyboardActive = false;
     if (click) {
-      if (id >= 0) this.cb.onSelect(id);
+      if (id >= 0) {
+        this.focusOffset = offset;
+        this.cb.onSelect(id, offset, false);
+      }
     } else {
+      if (this.focusOffset >= 0) this.focusOffset = -1;
       this.cb.onHover(id, offset < m.bytes.length ? offset : -1);
     }
+    if (hadKeyboardCursor) this.schedule();
+  }
+
+  private keydown(e: KeyboardEvent): void {
+    const m = this.model;
+    if (!m || m.bytes.length === 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+    const current = this.focusOffset >= 0 ? this.focusOffset : this.selected >= 0 ? m.start(this.selected) : 0;
+    let next: number | null = null;
+    switch (e.key) {
+      case "ArrowLeft":
+        next = current - 1;
+        break;
+      case "ArrowRight":
+        next = current + 1;
+        break;
+      case "ArrowUp":
+        next = current - this.perRow;
+        break;
+      case "ArrowDown":
+        next = current + this.perRow;
+        break;
+      case "Home":
+        next = Math.floor(current / this.perRow) * this.perRow;
+        break;
+      case "End":
+        next = Math.min(m.bytes.length - 1, Math.floor(current / this.perRow) * this.perRow + this.perRow - 1);
+        break;
+      case "Enter":
+      case " ": {
+        e.preventDefault();
+        e.stopPropagation();
+        this.keyboardActive = true;
+        this.cb.onSelect(m.nodeAt(current), current, true);
+        this.schedule();
+        return;
+      }
+      default: return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    this.keyboardActive = true;
+    this.focusOffset = Math.max(0, Math.min(m.bytes.length - 1, next));
+    this.cb.onHover(m.nodeAt(this.focusOffset), this.focusOffset, true);
+    this.revealOffset(this.focusOffset, true);
+    this.schedule();
   }
 
   // --- drawing ----------------------------------------------------------
@@ -466,6 +537,15 @@ export class HexView {
           ctx.fillStyle = p.text;
           ctx.fillText(HEX[byte], this.hexX(i), cy);
         }
+      }
+
+      // Pass 6: one crisp cell around the exact byte, while navigating by key.
+      if (this.keyboardActive && document.activeElement === this.scroller && this.focusOffset >= base && this.focusOffset < base + count) {
+        const i = this.focusOffset - base;
+        ctx.strokeStyle = p.head;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.hexX(i) - ch * 0.5 + 1, y + 2, ch * 2 - 2, ROW_H - 4);
+        ctx.strokeRect(this.asciiX(i) + 1, y + 2, ch - 2, ROW_H - 4);
       }
     }
     if (needFrom >= 0) this.cb.onNeed?.(needFrom, needTo);

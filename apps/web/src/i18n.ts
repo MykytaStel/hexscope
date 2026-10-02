@@ -164,6 +164,53 @@ const UK: Record<string, string> = {
   "For the curious": "Для допитливих",
   "For the curious: look inside a file": "Для допитливих: зазирнути всередину файла",
   "Selected part": "Вибрана частина",
+  "The part selected": "Вибрана частина",
+  "The file's bytes, in hex and as text": "Байти файла у шістнадцятковому та текстовому вигляді",
+  "Container": "Контейнер",
+  "Field": "Поле",
+  "Warning": "Попередження",
+  "Error": "Помилка",
+  "pinned": "закріплено",
+  "What the file gives away": "Що розкриває файл",
+  "Keys": "Клавіші",
+  "Tap a byte": "Торкніться байта",
+  "Hover a byte or row; click to pin": "Наведіть на байт чи рядок; натисніть, щоб закріпити",
+  "Offset": "Зсув",
+  "Length": "Довжина",
+  "Kind": "Тип",
+  "Value": "Значення",
+  "Spec": "Специфікація",
+  "Copy as": "Копіювати як",
+  "a C array": "масив C",
+  "copied": "скопійовано",
+  "not allowed here": "Браузер заборонив копіювання",
+  "JPEG": "JPEG",
+  "SOI": "Початок зображення (SOI)",
+  "APP1 · EXIF": "APP1 · EXIF",
+  "marker": "маркер",
+  "length": "довжина",
+  "TIFF header": "Заголовок TIFF",
+  "IFD0": "IFD0 · основний каталог",
+  "Exif IFD": "Exif IFD · дані камери",
+  "GPS IFD": "GPS IFD · геодані",
+  "GPSLatitude": "GPSLatitude · широта",
+  "GPSLongitude": "GPSLongitude · довгота",
+  "A JPEG image: a run of segments, each opened by a two-byte marker, around the compressed picture.": "Зображення JPEG: послідовність сегментів із двобайтовими маркерами навколо стисненого зображення.",
+  "Start of image: the two bytes every JPEG begins with.": "Початок зображення: перші два байти кожного JPEG.",
+  "EXIF metadata: the camera, its settings, the time, and often where the picture was taken.": "Метадані EXIF: фотоапарат, його налаштування, час і часто місце зйомки.",
+  "The two bytes, FF and a code, that say what this segment is.": "Два байти — FF і код — вказують тип цього сегмента.",
+  "How long the segment is, counting these two bytes but not the marker.": "Довжина сегмента разом із цими двома байтами, але без маркера.",
+  "The start of the EXIF data, laid out like a TIFF file: byte order, a check number, and where the first directory is.": "Початок даних EXIF у форматі TIFF: порядок байтів, контрольне число та розташування першого каталогу.",
+  "The main image's directory: a list of tags, each a number, a type and a value or where to find it.": "Каталог основного зображення: перелік тегів із номером, типом і значенням або його розташуванням.",
+  "The camera-settings directory: exposure, lens, dates.": "Каталог налаштувань камери: витримка, об’єктив, дати.",
+  "The location directory: where the picture was taken.": "Каталог геоданих: де зроблено фото.",
+  "“Bytes” shows the structure, part by part: hover or tap anything and it says what it is and where the format defines it.": "«Байти» показують структуру файла: торкніться байта або рядка, щоб побачити його призначення й посилання на формат.",
+  "Where the location directory, the GPS IFD, starts: this picture records a place.": "Початок каталогу геоданих GPS IFD: це фото містить місце зйомки.",
+  "In the bytes, once they have focus (Tab to them)": "У байтах, після переходу до них клавішею Tab",
+  "Move one byte": "Перейти на один байт",
+  "Move one row": "Перейти на один рядок",
+  "The first or last byte in this row": "На перший або останній байт цього рядка",
+  "Select this part": "Вибрати цю частину",
   "Supported formats": "Підтримувані формати",
   "Guides and more sample files": "Посібники та інші приклади файлів",
   "More about the file: what it is made of, its picture, its structure": "Детальніше про файл: склад, зображення та структура",
@@ -279,9 +326,9 @@ const UK: Record<string, string> = {
   "Theme: dark (click to follow your system)": "Тема: темна (натисніть для теми системи)",
   "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” goes to the bytes.": "Спершу коротка відповідь: файл пошкоджений, щось приховує, розкриває дані чи справний. «Показати» прокручує до знайденого факту.",
   "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” takes you to the fact in the summary, or to its bytes when there isn't one.": "Спершу коротка відповідь: файл пошкоджений, щось приховує, розкриває дані чи справний. «Показати» веде до факту у зведенні, а якщо його там немає — до байтів.",
-  "Places, names, serial numbers, deleted text. “Remove it — save a clean copy” makes a copy without them, here in the tab: nothing is uploaded.": "Місця, імена, серійні номери, видалений текст. «Прибрати дані» створює очищену копію у цій вкладці — файл нікуди не передається.",
+  "Places, names, serial numbers, deleted text. “Remove it — save a clean copy” makes a copy without them, here in the tab: nothing is uploaded.": "Місця, імена, серійні номери, видалений текст. «Прибрати дані й зберегти чисту копію» створює копію тут, у вкладці. Нічого не передається.",
   "Every byte, explained": "Кожен байт із поясненням",
-  "Press ? for the keyboard: O opens a file, N goes to the next problem. Drop several files at once to check them all.": "Натисніть ?, щоб побачити сполучення клавіш: O відкриває файл, N переходить до наступної знахідки. Перетягніть кілька файлів, щоб перевірити їх разом.",
+  "Press ? for the keyboard: O opens a file, N goes to the next problem. Drop several files at once to check them all.": "Натисніть ?, щоб побачити клавіші: O відкриває файл, N переходить до наступної проблеми. Перетягніть кілька файлів, щоб перевірити їх разом.",
   "Would you like to share what this file reveals?": "Поділитися тим, що розкриває цей файл?",
   "Nothing leaves this browser": "Жодні дані не залишають браузер",
   "This browser did not let the page read what you copied. Press": "Браузер не дозволив прочитати скопійоване. Натисніть",
@@ -408,6 +455,25 @@ export function translateText(value: string, locale: Locale): string {
   const exact = UK[normalized] ?? guideTranslations[normalized];
   if (exact) return `${leading}${exact}${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
+  let byteCount = /^(\d[\d,]*) bytes?$/.exec(value);
+  if (byteCount) {
+    const count = Number(byteCount[1].replaceAll(",", ""));
+    return `${count.toLocaleString("uk")} ${ukrainianCountWord(count, "байт", "байти", "байтів")}`;
+  }
+  byteCount = /^Copied (\d[\d,]*) bytes? as (.+)\.$/.exec(value);
+  if (byteCount) {
+    const count = Number(byteCount[1].replaceAll(",", ""));
+    const amount = `${count.toLocaleString("uk")} ${ukrainianCountWord(count, "байт", "байти", "байтів")}`;
+    const format = byteCount[2] === "a C array" ? "масиву C" : translateText(byteCount[2], locale);
+    return `Скопійовано ${amount} у форматі ${format}.`;
+  }
+  const entryCount = /^(\d+) entries?$/.exec(value);
+  if (entryCount) {
+    const count = Number(entryCount[1]);
+    return `${count} ${ukrainianCountWord(count, "запис", "записи", "записів")}`;
+  }
+  const tourCount = /^(\d+) of (\d+)$/.exec(value);
+  if (tourCount) return `Крок ${tourCount[1]} із ${tourCount[2]}`;
   let match = /^(Photo|Picture|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${match[2]}`;
   match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);

@@ -32,6 +32,13 @@ const TREE: [string[], string][] = [
   [["Enter"], "Open or close the part"],
 ];
 
+const BYTES: [string[], string][] = [
+  [["←", "→"], "Move one byte"],
+  [["↑", "↓"], "Move one row"],
+  [["Home", "End"], "The first or last byte in this row"],
+  [["Enter", "Space"], "Select this part"],
+];
+
 const PLAYER: [string[], string][] = [
   [["Space"], "Play or pause"],
   [["←", "→"], "One step back or on"],
@@ -79,6 +86,8 @@ export function openShortcuts(): void {
     table(KEYS),
     el("h3", undefined, "In the structure, once it has focus (Tab to it)"),
     table(TREE),
+    el("h3", undefined, "In the bytes, once they have focus (Tab to them)"),
+    table(BYTES),
     el("h3", undefined, "Blacking out, on a page or a picture (Tab to it)"),
     table(BOXES),
     el("h3", undefined, "In the DEFLATE player"),

@@ -1,4 +1,4 @@
-// "Copy the bytes as": a part's bytes as hex, base64 or a C array.
+// "Copy as": a part's bytes as hex, base64 or a C array.
 import { announce } from "./announce";
 import { el } from "./dom";
 
@@ -27,7 +27,7 @@ export function bytesAs(bytes: Uint8Array, form: "hex" | "base64" | "c", label: 
 /** Buttons that copy a part's bytes, each said when done. */
 export function copyBytes(bytes: Uint8Array, label: string): HTMLElement {
   const row = el("div", "copy-bytes");
-  row.append(el("span", "hint", "Copy the bytes as"));
+  row.append(el("span", "hint", "Copy as"));
   for (const [form, name] of [["hex", "hex"], ["base64", "base64"], ["c", "a C array"]] as const) {
     const b = el("button", "link", name);
     b.addEventListener("click", async () => {

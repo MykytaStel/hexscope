@@ -18,7 +18,7 @@ import { BatchController, type BatchAnalysis } from "./batch-controller";
 import { WorkspaceController, type WorkspaceLevel } from "./workspace-controller";
 import { categories } from "./share";
 import { openShortcuts } from "./shortcuts";
-import { maybeTour, resetTour } from "./tour";
+import { dismissTour, maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
@@ -28,7 +28,7 @@ import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { cleanCopies } from "./batchclean";
-import { installLocale, languageButton } from "./i18n";
+import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
 
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
@@ -74,16 +74,45 @@ let selected = -1;
 let problemCursor = -1;
 
 const status = $("status");
+status.setAttribute("role", "status");
+status.setAttribute("aria-live", "off");
+status.setAttribute("aria-atomic", "true");
+let statusOffset = -1;
+const touchPointer = matchMedia("(hover: none)");
+
+function renderStatus(): void {
+  const model = typeof workspace === "undefined" ? null : workspace?.model;
+  const message = statusOffset >= 0 && model
+    ? describeOffset(statusOffset)
+    : touchPointer.matches
+      ? "Tap a byte"
+      : "Hover a byte or row; click to pin";
+  status.textContent = translateText(message, currentLocale());
+}
+
+function setStatusOffset(offset: number): void {
+  statusOffset = offset;
+  renderStatus();
+}
+
+renderStatus();
+window.addEventListener("hexscope:locale", renderStatus);
+touchPointer.addEventListener("change", renderStatus);
 const problemsBtn = $<HTMLButtonElement>("problems");
 const locationBtn = $<HTMLButtonElement>("location");
 
 const hex = new HexView($("hex-body"), {
-  onHover: (id, offset) => {
+  onHover: (id, offset, keyboard = false) => {
+    status.setAttribute("aria-live", keyboard ? "polite" : "off");
     setHover(id);
-    status.textContent = offset >= 0 && workspace.model ? describeOffset(offset) : "";
+    setStatusOffset(offset >= 0 && workspace.model ? offset : -1);
     picture.fromByte(offset);
   },
-  onSelect: select,
+  onSelect: (id, offset, keyboard = false) => {
+    status.setAttribute("aria-live", keyboard ? "polite" : "off");
+    if (offset !== undefined) setStatusOffset(offset);
+    select(id, offset);
+  },
   onNeed: (start, end) => {
     const m = workspace.model;
     if (!m?.missing || !m.source) return;
@@ -141,6 +170,7 @@ function setView(view: "summary" | "bytes"): void {
     b.setAttribute("aria-pressed", String(b.dataset.view === view));
   }
 }
+let tourDismissedByNavigation = false;
 /** The view a file opens on: a phone always starts on the summary. */
 function openingView(): "summary" | "bytes" {
   return narrow.matches ? "summary" : wideView();
@@ -151,6 +181,8 @@ function toBytes(): void {
 for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
   b.addEventListener("click", () => {
     const view = b.dataset.view === "bytes" ? "bytes" : "summary";
+    tourDismissedByNavigation = true;
+    dismissTour();
     setView(view);
     // On a wide screen the choice is remembered for the next file.
     if (!narrow.matches) {
@@ -257,7 +289,7 @@ function describeOffset(offset: number): string {
   const where = model
     .path(model.nodeAt(offset))
     .slice(1)
-    .map((id) => model!.label(id))
+    .map((id) => translateText(model!.label(id), currentLocale()))
     .join(" › ");
   return `0x${offset.toString(16).toUpperCase().padStart(8, "0")} · ${where || model.label(0)}`;
 }
@@ -270,10 +302,10 @@ function setHover(id: number): void {
   drawer.showNode(workspace.model, id >= 0 ? id : selected, id < 0 && selected >= 0);
 }
 
-function select(id: number): void {
+function select(id: number, offset?: number): void {
   const model = workspace.model;
   selected = id;
-  hex.setSelected(id);
+  hex.setSelected(id, offset);
   minimap.setSelected(id);
   tree.setSelected(id);
   if (id >= 0) hex.reveal(id);
@@ -477,7 +509,11 @@ workspace = new WorkspaceController({
     afterOpen(model) {
       arrive();
       // Only a standalone file gets the first-open tour; nested entries do not.
-      if (model.source) setTimeout(maybeTour, 350);
+      if (model.source) {
+        setTimeout(() => {
+          if (!tourDismissedByNavigation && document.body.dataset.view === "summary") maybeTour();
+        }, 350);
+      }
     },
     clearPlayer: closePlayer,
   },
@@ -539,6 +575,8 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   hover = -1;
   selected = -1;
   problemCursor = -1;
+  tourDismissedByNavigation = false;
+  setStatusOffset(-1);
   document.body.dataset.state = "ready";
   drawer.nested = levels.length;
 
