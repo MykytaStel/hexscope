@@ -73,6 +73,10 @@
   color: var(--muted);
 }
 
+.cleaner:has(.copy-verification-pending) .before-after .ba-side.is-clear {
+  --tone: var(--tint-warning);
+}
+
 .copy-verification-group + .copy-verification-group {
   margin-top: 10px;
 }
@@ -103,7 +107,7 @@
   font-weight: 600;
 }
 
-.copy-verification-reason {
+.verify-reason {
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 12px;

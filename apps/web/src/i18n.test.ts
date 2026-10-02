@@ -63,6 +63,7 @@ describe("the interface language", () => {
     expect(translateText("Removed", "uk")).toBe("Видалено");
     expect(translateText("Still present", "uk")).toBe("Залишилося в копії");
     expect(translateText("Not checked", "uk")).toBe("Не перевірено");
+    expect(translateText("This finding is still present in the copy.", "uk")).toBe("Цей факт залишився в копії.");
     expect(translateText("Selected PDF text", "uk")).toBe("Вибраний текст PDF");
     expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
       "Цього факту не було у вихідному файлі, але він з’явився в копії.",
@@ -73,7 +74,7 @@ describe("the interface language", () => {
     expect(translateText("This copy is larger than the 10 MiB verification limit.", "uk")).toBe(
       "Копія перевищує ліміт перевірки 10 МіБ.",
     );
-    expect(translateText("Copy check unavailable.", "uk")).toBe("Перевірка копії недоступна.");
+    expect(translateText("Check unavailable.", "uk")).toBe("Перевірка недоступна.");
     expect(
       translateText(
         "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.",
@@ -82,11 +83,11 @@ describe("the interface language", () => {
     ).toBe("Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.");
     expect(
       translateText(
-        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Copy check unavailable.",
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Check unavailable.",
         "uk",
       ),
     ).toBe(
-      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Перевірка копії недоступна.",
+      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Перевірка недоступна.",
     );
   });
 

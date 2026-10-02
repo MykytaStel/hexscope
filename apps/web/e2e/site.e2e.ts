@@ -560,7 +560,8 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after .ba-count");
   await expect(after).toHaveText("0");
-  await expect(page.locator(".ba-side.is-after")).toHaveClass(/is-clear/);
+  await expect(page.locator(".ba-side.is-after")).not.toHaveClass(/is-clear/);
+  await expect(page.locator(".copy-verification")).toContainText("Not checked");
   // A computer saves it; a phone may offer to share it instead.
   if (saved.length > 0) expect(saved).toEqual(["photo-clean.jpg"]);
 });
@@ -574,11 +575,13 @@ test("clean copy verification reparses a generated photo", async ({ page }) => {
   const report = page.locator(".copy-verification");
   await expect(report).toHaveRole("status");
   await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
-  await expect(report).toContainText("Camera");
-  await expect(report).toContainText("Location");
+  const removed = report.locator(".copy-verification-group").nth(0);
+  await expect(removed).toContainText("Camera");
+  await expect(removed).toContainText("Location");
   await expect(report).toContainText("Still present");
   await expect(report).toContainText("Not checked");
   await expect(report).not.toContainText("48.8584");
+  await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
 });
 
 test("clean copy verification checks that selected PDF text left the searchable copy", async ({ page }) => {
@@ -593,8 +596,9 @@ test("clean copy verification checks that selected PDF text left the searchable 
   await redactor.locator(".btn-primary").click();
 
   const report = redactor.locator(".copy-verification");
-  await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
-  await expect(report).toContainText("Selected PDF text");
+  const removed = report.locator(".copy-verification-group").nth(0);
+  await expect(removed.getByRole("heading", { name: "Removed" })).toBeVisible();
+  await expect(removed).toContainText("Selected PDF text");
   await expect(report).not.toContainText("Salary");
 });
 
@@ -615,7 +619,10 @@ test("clean copy verification announces a controlled result while copy actions s
                   type: "verification",
                   report: {
                     removed: [],
-                    present: [{ kind: "qrwifi", label: "Wi-Fi in a QR code", reason: "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.", value: "Private value", scope: "file" }],
+                    present: [
+                      { kind: "qrwifi", label: "Wi-Fi in a QR code", reason: "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.", value: "Private value", scope: "file" },
+                      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
+                    ],
                     unchecked: [{ kind: "owner", label: "Owner", reason: "This finding has no stable value to compare." }],
                   },
                 },
@@ -637,14 +644,25 @@ test("clean copy verification announces a controlled result while copy actions s
 
   const report = page.locator(".copy-verification");
   await expect(report).toContainText("Checking the copy in this tab");
+  const tone = await page.locator(".before-after .ba-side.is-after").evaluate((actual) => {
+    const expected = document.createElement("div");
+    expected.className = "ba-side is-after";
+    document.body.append(expected);
+    const colors = [getComputedStyle(actual).backgroundColor, getComputedStyle(expected).backgroundColor];
+    expected.remove();
+    return colors;
+  });
+  expect(tone[0]).toBe(tone[1]);
   const open = page.getByRole("button", { name: "Open the clean copy" });
   await expect(open).toBeEnabled();
   await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
   await expect(report.getByRole("heading", { name: "Still present" })).toBeVisible();
   await expect(report).toContainText("Kept: the QR code");
+  await expect(report).toContainText("This finding is still present in the copy.");
   await expect(report.getByRole("heading", { name: "Not checked" })).toBeVisible();
   await expect(report).toContainText("This finding has no stable value to compare.");
   await expect(report).not.toContainText("Private value");
+  await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
 });
 
 test("clean copy verification keeps copy actions when the worker returns an error", async ({ page }) => {
@@ -672,7 +690,7 @@ test("clean copy verification keeps copy actions when the worker returns an erro
 
   const report = page.locator(".copy-verification");
   await expect(report.getByRole("heading", { name: "Не перевірено" })).toBeVisible();
-  await expect(report).toContainText("Перевірка копії недоступна.");
+  await expect(report).toContainText("Перевірка недоступна.");
   await expect(report).not.toContainText("Private parser detail");
   await expect(page.getByRole("button", { name: "Відкрити очищену копію" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
@@ -693,9 +711,34 @@ test.describe("copy verification module network failure", () => {
     const report = page.locator(".copy-verification");
     await expect.poll(() => failed.some((url) => /copyverification-.*\.js/.test(url))).toBe(true);
     await expect(report).toContainText("Not checked");
-    await expect(report).toContainText("Copy check unavailable.");
+    await expect(report).toContainText("Check unavailable.");
     await expect(page.getByRole("button", { name: "Open the clean copy" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  });
+
+  test("shows an unchecked result when the lazy module request stalls", async ({ page }) => {
+    let intercepted = false;
+    let release!: () => void;
+    const requestGate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/copyverification-*.js", async (route) => {
+      intercepted = true;
+      await requestGate;
+      await route.abort();
+    });
+    page.on("download", (download) => void download.cancel());
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".verdict-cta").click();
+
+    const report = page.locator(".copy-verification");
+    await expect.poll(() => intercepted).toBe(true);
+    try {
+      await expect(report).toContainText("Check unavailable.", { timeout: 12_000 });
+    } finally {
+      release();
+    }
+    await expect(report).toContainText("Not checked");
+    await expect(page.getByRole("button", { name: "Open the clean copy" })).toBeEnabled();
   });
 });
 

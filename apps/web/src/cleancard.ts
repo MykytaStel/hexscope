@@ -72,7 +72,7 @@ export function copyVerification(result: CleanResult): HTMLElement | null {
     .catch(() => {
       region.replaceChildren(
         el("p", "copy-verification-pending", "Not checked"),
-        el("p", "copy-verification-reason", "Copy check unavailable."),
+        el("p", "verify-reason", "Check unavailable."),
       );
     });
   return region;

@@ -73,12 +73,12 @@ describe("clean-copy verification findings", () => {
 
     expect(report).toEqual({
       removed: [{ kind: "camera", label: "Camera" }],
-      present: [{ kind: "camera", label: "Camera", unexpected: true }],
+      present: [{ kind: "camera", label: "Camera", reason: "This finding is still present in the copy." }],
       unchecked: [],
     });
   });
 
-  it("keeps equal output-only occurrences as separate residuals", () => {
+  it("distinguishes a matching source occurrence from extra output-only residuals", () => {
     const report = verifyFindings(
       [finding("camera", "Canon")],
       [finding("camera", "Canon"), finding("camera", "Canon")],
@@ -87,8 +87,21 @@ describe("clean-copy verification findings", () => {
     );
 
     expect(report.present).toEqual([
+      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
       { kind: "camera", label: "Camera", unexpected: true },
-      { kind: "camera", label: "Camera", unexpected: true },
+    ]);
+  });
+
+  it("explains a matched source finding that still remains", () => {
+    const report = verifyFindings(
+      [finding("owner", "Alex")],
+      [finding("owner", "Alex")],
+      capabilitiesFor("jpeg", ["owner"]),
+      {},
+    );
+
+    expect(report.present).toEqual([
+      { kind: "owner", label: "Owner", reason: "This finding is still present in the copy." },
     ]);
   });
 
@@ -269,7 +282,7 @@ describe("worker verification result mapping", () => {
       { kind: "location", label: "Location" },
     ]);
     expect(report.present).toEqual([
-      { kind: "camera", label: "Camera", unexpected: true },
+      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
       { kind: "camera", label: "Camera", unexpected: true },
     ]);
     expect(JSON.stringify(report)).not.toContain("Private owner");

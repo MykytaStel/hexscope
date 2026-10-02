@@ -72,6 +72,7 @@ const JPEG_COMPLETE_FILE_KINDS = new Set([
 ]);
 
 const noStableValue = "This finding has no stable value to compare.";
+const stillPresent = "This finding is still present in the copy.";
 const noCompleteCoverage = (format: string) => `Hexscope does not have complete ${format.toUpperCase()} coverage for this finding yet.`;
 
 function stableValue(value: string | null | undefined): string | null {
@@ -160,7 +161,7 @@ export function verifyFindings(
     if (matchingIndex >= 0) {
       outputUsed.add(matchingIndex);
       const reason = retainedReasons[original.kind];
-      report.present.push(item(original, reason, !reason));
+      report.present.push(item(original, reason ?? stillPresent));
       continue;
     }
 
@@ -327,7 +328,7 @@ export async function checkCopySafely(
   } catch {
     // Worker errors can contain file-derived text. Keep only a general reason.
   }
-  return uncheckedReport(source, selections, "Copy check unavailable.");
+  return uncheckedReport(source, selections, "Check unavailable.");
 }
 
 /** Whether the output can be reparsed within the measured browser budget. */

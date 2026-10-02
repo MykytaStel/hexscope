@@ -41,6 +41,9 @@ export function verifyCopyInWorker(
 
 export function renderCopyVerification(region: HTMLElement, verification: Promise<VerificationReport>): void {
   const render = (report: VerificationReport) => {
+    if (report.present.length || report.unchecked.length) {
+      region.closest(".cleaner")?.querySelector(".before-after .ba-side.is-clear")?.classList.remove("is-clear");
+    }
     const groups: [string, VerificationReport["removed"]][] = [
       ["Removed", report.removed],
       ["Still present", report.present],
@@ -55,7 +58,7 @@ export function renderCopyVerification(region: HTMLElement, verification: Promis
           const row = el("li", "copy-verification-item");
           row.append(el("span", "copy-verification-label", item.label));
           const reason = item.reason ?? (item.unexpected ? "This finding appeared in the copy but was not found in the source file." : undefined);
-          if (reason) row.append(el("p", "copy-verification-reason", reason));
+          if (reason) row.append(el("p", "verify-reason", reason));
           list.append(row);
         }
         group.append(list);
@@ -68,7 +71,7 @@ export function renderCopyVerification(region: HTMLElement, verification: Promis
     render({
       removed: [],
       present: [],
-      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Copy check unavailable." }],
+      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable." }],
     }),
   );
 }
