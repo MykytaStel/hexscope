@@ -64,6 +64,9 @@ describe("the interface language", () => {
       "Наведіть на байт чи рядок; натисніть, щоб закріпити",
     );
     expect(translateText("The part selected", "uk")).toBe("Вибрана частина");
+    expect(translateText("The file's bytes, in hex and as text", "uk")).toBe(
+      "Байти файла у шістнадцятковому та текстовому вигляді",
+    );
     expect(translateText("Field", "uk")).toBe("Поле");
     expect(translateText("Container", "uk")).toBe("Контейнер");
     expect(translateText("pinned", "uk")).toBe("закріплено");

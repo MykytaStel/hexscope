@@ -401,6 +401,10 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   await page.waitForTimeout(400);
   await expect(page.locator(".tour")).toHaveCount(0);
 
+  await expect(page.locator(".hex-canvas")).toHaveAttribute(
+    "aria-label",
+    "Байти файла у шістнадцятковому та текстовому вигляді",
+  );
   await expect(page.locator("#status")).toHaveText("Торкніться байта");
   expect(await page.locator("#status").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   const canvasBox = await page.locator(".hex-canvas").boundingBox();

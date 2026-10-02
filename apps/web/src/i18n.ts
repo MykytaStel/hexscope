@@ -165,6 +165,7 @@ const UK: Record<string, string> = {
   "For the curious: look inside a file": "Для допитливих: зазирнути всередину файла",
   "Selected part": "Вибрана частина",
   "The part selected": "Вибрана частина",
+  "The file's bytes, in hex and as text": "Байти файла у шістнадцятковому та текстовому вигляді",
   "Container": "Контейнер",
   "Field": "Поле",
   "Warning": "Попередження",
