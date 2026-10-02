@@ -565,6 +565,119 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   if (saved.length > 0) expect(saved).toEqual(["photo-clean.jpg"]);
 });
 
+test("clean copy verification reparses a generated photo", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const report = page.locator(".copy-verification");
+  await expect(report).toHaveRole("status");
+  await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+  await expect(report).toContainText("Camera");
+  await expect(report).toContainText("Location");
+  await expect(report).toContainText("Still present");
+  await expect(report).toContainText("Not checked");
+  await expect(report).not.toContainText("48.8584");
+});
+
+test("clean copy verification checks that selected PDF text left the searchable copy", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=report.pdf");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const redactor = page.locator(".redactor");
+  await redactor.locator('input[type="search"]').fill("Salary");
+  await redactor.getByRole("button", { name: "Find", exact: true }).click();
+  await expect(redactor.locator("mark.redact-hit")).toContainText("Salary");
+  await redactor.locator(".redact-form button").click();
+  await redactor.locator(".btn-primary").click();
+
+  const report = redactor.locator(".copy-verification");
+  await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+  await expect(report).toContainText("Selected PDF text");
+  await expect(report).not.toContainText("Salary");
+});
+
+test("clean copy verification announces a controlled result while copy actions stay available", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    class ControlledWorker extends NativeWorker {
+      postMessage(message: any, transfer: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message && typeof message === "object" && "type" in message && message.type === "verifyCopy" && "id" in message) {
+          const id = message.id;
+          setTimeout(() => {
+            this.dispatchEvent(
+              new MessageEvent("message", {
+                data: {
+                  id,
+                  type: "verification",
+                  report: {
+                    removed: [],
+                    present: [{ kind: "qrwifi", label: "Wi-Fi in a QR code", reason: "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.", value: "Private value", scope: "file" }],
+                    unchecked: [{ kind: "owner", label: "Owner", reason: "This finding has no stable value to compare." }],
+                  },
+                },
+              }),
+            );
+          }, 900);
+          return;
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = ControlledWorker;
+  });
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const report = page.locator(".copy-verification");
+  await expect(report).toContainText("Checking the copy in this tab");
+  const open = page.getByRole("button", { name: "Open the clean copy" });
+  await expect(open).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  await expect(report.getByRole("heading", { name: "Still present" })).toBeVisible();
+  await expect(report).toContainText("Kept: the QR code");
+  await expect(report.getByRole("heading", { name: "Not checked" })).toBeVisible();
+  await expect(report).toContainText("This finding has no stable value to compare.");
+  await expect(report).not.toContainText("Private value");
+});
+
+test("clean copy verification keeps copy actions when the worker returns an error", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    class ErrorWorker extends NativeWorker {
+      postMessage(message: any, transfer: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message && typeof message === "object" && "type" in message && message.type === "verifyCopy" && "id" in message) {
+          this.dispatchEvent(new MessageEvent("message", { data: { id: message.id, type: "error", message: "Private parser detail" } }));
+          return;
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = ErrorWorker;
+  });
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const report = page.locator(".copy-verification");
+  await expect(report.getByRole("heading", { name: "Не перевірено" })).toBeVisible();
+  await expect(report).toContainText("перевірка завершилася помилкою або вичерпала час");
+  await expect(report).not.toContainText("Private parser detail");
+  await expect(page.getByRole("button", { name: "Відкрити очищену копію" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+});
+
 test("a fake bank email: why it may not be real, drawn on its way", async ({ page }) => {
   await openDoor(page, /Check an email before you trust it/);
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");

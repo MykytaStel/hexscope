@@ -58,6 +58,40 @@ describe("the interface language", () => {
     );
   });
 
+  it("translates the clean-copy verification headings and concrete reasons", () => {
+    expect(translateText("Checking the copy in this tab…", "uk")).toBe("Перевіряємо копію в цій вкладці…");
+    expect(translateText("Removed", "uk")).toBe("Видалено");
+    expect(translateText("Still present", "uk")).toBe("Залишилося в копії");
+    expect(translateText("Not checked", "uk")).toBe("Не перевірено");
+    expect(translateText("Selected PDF text", "uk")).toBe("Вибраний текст PDF");
+    expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
+      "Цього факту не було у вихідному файлі, але він з’явився в копії.",
+    );
+    expect(translateText("Hexscope does not have complete JPEG coverage for this finding yet.", "uk")).toBe(
+      "Hexscope ще не має повного покриття JPEG для цього факту.",
+    );
+    expect(translateText("This copy is larger than the 10 MiB verification limit.", "uk")).toBe(
+      "Копія перевищує ліміт перевірки 10 МіБ.",
+    );
+    expect(translateText("Hexscope could not check this copy because verification failed or timed out.", "uk")).toBe(
+      "Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
+    );
+    expect(
+      translateText(
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.",
+        "uk",
+      ),
+    ).toBe("Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.");
+    expect(
+      translateText(
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Hexscope could not check this copy because verification failed or timed out.",
+        "uk",
+      ),
+    ).toBe(
+      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
+    );
+  });
+
   it("translates the byte inspector, touch guidance, and copy feedback", () => {
     expect(translateText("Tap a byte", "uk")).toBe("Торкніться байта");
     expect(translateText("Hover a byte or row; click to pin", "uk")).toBe(

@@ -96,24 +96,24 @@
 - Add an optional timeout to `rpc.call` for this request only. Expiry removes the pending ID and resolves it with an error response so a stopped worker cannot leave a pending promise or a hanging UI.
 - Set `MAX_VERIFY_BYTES` to the bound selected in Task 0 (no more than `10 * 1024 * 1024`); check `Blob.size` before calling `arrayBuffer()` or the parser.
 
-- [ ] **Step 1: Add failing tests** for source-finding extraction (including a location and duplicate facts), format/kind capability lookup, output observation mapping, over-limit skip, and conversion of an error/timeout response into an unchecked report. Assert report serialization contains no source values.
-- [ ] **Step 2: Run the focused tests and confirm they fail.**
+- [x] **Step 1: Add failing tests** for source-finding extraction (including a location and duplicate facts), format/kind capability lookup, output observation mapping, over-limit skip, and conversion of an error/timeout response into an unchecked report. Assert report serialization contains no source values.
+- [x] **Step 2: Run the focused tests and confirm they fail.**
 
   Run: `pnpm --filter web exec vitest run src/verification.test.ts src/rpc.test.ts`
 
   Expected: FAIL on the missing worker mapping and timeout behavior.
-- [ ] **Step 3: Add the worker branch.** Below the byte limit, parse the copy with the existing WASM module without replacing or freeing the user's open-file stack. For file findings, use `describe(parsed).facts` and `.location`; use `fileFindings` and pass `capabilitiesFor` output to `verifyFindings`. For PDF redactions, use the existing `pageTexts` parser result and its `complete` flags. Free every temporary WASM value in `finally`. Post only the compact report. Catch parser/verification errors inside this branch and post an unchecked report.
-- [ ] **Step 4: Connect the source findings and PDF selections.** Build file findings from `FileModel.file.facts` and `.location`, label facts with existing `FACT_LABELS`, label location explicitly, and use the existing `KEPT`/`KEPT_NOTE` explanation for intentionally retained kinds. Extend `CleanActions.redact` so the drawer passes each selected `{page, text, sourceComplete, areaOnly}` alongside the existing areas. An empty-text box is unchecked; do not infer anything about picture pixels.
-- [ ] **Step 5: Deliver the copy before verification finishes.** In both `cleanCopy` and `redactCopy`, call the existing save/share handoff as soon as the cleaner returns a valid copy, then start `verifyCopy` and return its non-rejecting promise. Map an over-limit, worker error, unexpected response, timeout, or parser error to `uncheckedReport`; preserve the same copy Blob and filename.
-- [ ] **Step 6: Add and test the RPC timeout cleanup.** Use a focused fake-worker test to prove a timed-out request resolves once, leaves no pending ID, and does not affect later requests. Do not add a timeout to unrelated parse/player calls.
-- [ ] **Step 7: Run focused tests and TypeScript checks.**
+- [x] **Step 3: Add the worker branch.** Below the byte limit, parse the copy with the existing WASM module without replacing or freeing the user's open-file stack. For file findings, use `describe(parsed).facts` and `.location`; use `fileFindings` and pass `capabilitiesFor` output to `verifyFindings`. For PDF redactions, use the existing `pageTexts` parser result and its `complete` flags. Free every temporary WASM value in `finally`. Post only the compact report. Catch parser/verification errors inside this branch and post an unchecked report.
+- [x] **Step 4: Connect the source findings and PDF selections.** Build file findings from `FileModel.file.facts` and `.location`, label facts with existing `FACT_LABELS`, label location explicitly, and use the existing `KEPT`/`KEPT_NOTE` explanation for intentionally retained kinds. Extend `CleanActions.redact` so the drawer passes each selected `{page, text, sourceComplete, areaOnly}` alongside the existing areas. An empty-text box is unchecked; do not infer anything about picture pixels.
+- [x] **Step 5: Deliver the copy before verification finishes.** In both `cleanCopy` and `redactCopy`, call the existing save/share handoff as soon as the cleaner returns a valid copy, then start `verifyCopy` and return its non-rejecting promise. Map an over-limit, worker error, unexpected response, timeout, or parser error to `uncheckedReport`; preserve the same copy Blob and filename.
+- [x] **Step 6: Add and test the RPC timeout cleanup.** Use a focused fake-worker test to prove a timed-out request resolves once, leaves no pending ID, and does not affect later requests. Do not add a timeout to unrelated parse/player calls.
+- [x] **Step 7: Run focused tests and TypeScript checks.**
 
   Run: `pnpm --filter web exec vitest run src/verification.test.ts src/rpc.test.ts`
 
   Run: `pnpm --filter web exec tsc --noEmit`
 
   Expected: PASS; the worker response is compact, size is checked before reading bytes, and the RPC timeout resolves without a pending request.
-- [ ] **Step 8: Commit the worker path.**
+- [x] **Step 8: Commit the worker path.**
 
   ```bash
   git add apps/web/src/worker.ts apps/web/src/copies.ts apps/web/src/rpc.ts apps/web/src/rpc.test.ts apps/web/src/verification.ts apps/web/src/verification.test.ts
@@ -136,8 +136,8 @@
 - Show **Removed**, **Still present**, and **Not checked**, with plain reasons for retained, residual, incomplete, picture-only, over-limit, and failed checks. For a picture-area redaction, say the requested area was redacted by the operation while text inside its pixels remains unchecked because Hexscope has no OCR.
 - Keep open, compare, save, share, and the existing cleaner summary available while the report is pending. Do not render finding values or create an all-clear state.
 
-- [ ] **Step 1: Write failing localization and browser assertions** for a generated photo copy, one retained explanation, an unchecked report, and a PDF selection whose text is removed from searchable output. Assert no selected text value is copied into the report. Add a controlled verification-worker response containing a retained reason and unchecked item to exercise report rendering, plus a separate worker-failure case that asserts the copy actions remain available. Add an accessibility assertion for the polite status region and keyboard-reachable copy actions. Keep the existing incomplete-PDF refusal scenario unchanged.
-- [ ] **Step 2: Run the focused tests and confirm the expected failures.**
+- [x] **Step 1: Write failing localization and browser assertions** for a generated photo copy, one retained explanation, an unchecked report, and a PDF selection whose text is removed from searchable output. Assert no selected text value is copied into the report. Add a controlled verification-worker response containing a retained reason and unchecked item to exercise report rendering, plus a separate worker-failure case that asserts the copy actions remain available. Add an accessibility assertion for the polite status region and keyboard-reachable copy actions. Keep the existing incomplete-PDF refusal scenario unchanged.
+- [x] **Step 2: Run the focused tests and confirm the expected failures.**
 
   Run: `pnpm --filter web exec vitest run src/i18n.test.ts`
 
@@ -148,10 +148,10 @@
   Run: `pnpm --filter web exec playwright test e2e/a11y.e2e.ts`
 
   Expected: the new translation and browser assertions fail because the report UI is absent; the existing refusal case continues to pass.
-- [ ] **Step 3: Render an accessible pending/report region** in the existing clean-copy result for both ordinary cleaning and redaction. Update the region in place with `role="status"`/polite announcement; use lists under the three headings, and show a useful unchecked reason when no supported source finding exists.
-- [ ] **Step 4: Add English strings and Ukrainian translations** in `i18n.ts`, with focused exact assertions in `i18n.test.ts`. Keep labels short and reasons specific; never translate the report into a safety verdict.
-- [ ] **Step 5: Exercise the real output parser in E2E** for a sample photo and the searchable-text PDF redaction path. Exercise a controlled compact report and the returned error path. Cover area-only and incomplete-page classification in `verification.test.ts`; keep the current real incomplete-form refusal E2E as a regression check.
-- [ ] **Step 6: Run focused and complete web checks.**
+- [x] **Step 3: Render an accessible pending/report region** in the existing clean-copy result for both ordinary cleaning and redaction. Update the region in place with `role="status"`/polite announcement; use lists under the three headings, and show a useful unchecked reason when no supported source finding exists.
+- [x] **Step 4: Add English strings and Ukrainian translations** in `i18n.ts`, with focused exact assertions in `i18n.test.ts`. Keep labels short and reasons specific; never translate the report into a safety verdict.
+- [x] **Step 5: Exercise the real output parser in E2E** for a sample photo and the searchable-text PDF redaction path. Exercise a controlled compact report and the returned error path. Cover area-only and incomplete-page classification in `verification.test.ts`; keep the current real incomplete-form refusal E2E as a regression check.
+- [x] **Step 6: Run focused and complete web checks.**
 
   Run: `pnpm --filter web exec vitest run src/verification.test.ts src/rpc.test.ts src/i18n.test.ts`
 
@@ -164,7 +164,7 @@
   Run: `pnpm --filter web exec playwright test e2e/a11y.e2e.ts`
 
   Expected: all selected unit and browser checks pass in English and Ukrainian; on the phone project, copy actions remain usable while verification is pending and once it is unchecked, and assistive technology can read the updated report.
-- [ ] **Step 7: Commit the user-facing report.**
+- [x] **Step 7: Commit the user-facing report.**
 
   ```bash
   git add apps/web/src/cleancard.ts apps/web/src/drawer.ts apps/web/src/i18n.ts apps/web/src/i18n.test.ts apps/web/src/styles apps/web/e2e/site.e2e.ts apps/web/e2e/a11y.e2e.ts

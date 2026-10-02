@@ -56,6 +56,50 @@ export interface CleanActions {
   compare(other: File): void;
 }
 
+/** A compact report about the output Blob; the finding's value never reaches this view. */
+export function copyVerification(result: CleanResult): HTMLElement | null {
+  if (!result.verification) return null;
+
+  const region = el("section", "copy-verification");
+  region.setAttribute("role", "status");
+  region.setAttribute("aria-live", "polite");
+  region.setAttribute("aria-atomic", "false");
+  region.append(el("p", "copy-verification-pending", "Checking the copy in this tab…"));
+
+  const render = (report: VerificationReport) => {
+    const groups: [string, VerificationReport["removed"]][] = [
+      ["Removed", report.removed],
+      ["Still present", report.present],
+      ["Not checked", report.unchecked],
+    ];
+    region.replaceChildren(
+      ...groups.map(([heading, items]) => {
+        const group = el("section", "copy-verification-group");
+        group.append(el("h3", undefined, heading));
+        const list = el("ul", "copy-verification-list");
+        for (const item of items) {
+          const row = el("li", "copy-verification-item");
+          row.append(el("span", "copy-verification-label", item.label));
+          const reason = item.reason ?? (item.unexpected ? "This finding appeared in the copy but was not found in the source file." : undefined);
+          if (reason) row.append(el("p", "copy-verification-reason", reason));
+          list.append(row);
+        }
+        group.append(list);
+        return group;
+      }),
+    );
+  };
+
+  void result.verification.then(render, () =>
+    render({
+      removed: [],
+      present: [],
+      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Hexscope could not check this copy because verification failed or timed out." }],
+    }),
+  );
+  return region;
+}
+
 /**
  * A button that hands the copy to the device's share sheet — Messages,
  * Telegram, mail — or null where the browser cannot share such a file.

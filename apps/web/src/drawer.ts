@@ -17,7 +17,7 @@ import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KEPT_NOTE, KIND_NAMES, REPAIRABLE, STRONG, degrees, mapLink, openReason, playReason } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
-import { beforeAfter, cleanLimits, copyPictureButton, isAudio, shareButton, type CleanActions } from "./cleancard";
+import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -874,6 +874,8 @@ export class Drawer {
       open.title = "Check it yourself: search it for what you blacked out";
       open.addEventListener("click", () => this.cleaning.open(r.copy));
       result.append(open);
+      const verification = copyVerification(r);
+      if (verification) result.append(verification);
     });
     return group;
   }
@@ -987,6 +989,8 @@ export class Drawer {
       const copy = copyPictureButton(m);
       if (copy) actions.prepend(copy);
       box.append(limits);
+      const verification = copyVerification(r);
+      if (verification) box.append(verification);
     });
     return box;
   }

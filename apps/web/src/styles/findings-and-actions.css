@@ -61,6 +61,56 @@
   color: var(--faint);
 }
 
+.copy-verification {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.copy-verification-pending {
+  margin: 0;
+  color: var(--muted);
+}
+
+.copy-verification-group + .copy-verification-group {
+  margin-top: 10px;
+}
+
+.copy-verification-group h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.copy-verification-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.copy-verification-item {
+  min-width: 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.copy-verification-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.copy-verification-reason {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 /* --- verdict ---------------------------------------------------------------- */
 
 /* The answer people came for: across the whole panel, above the details. */

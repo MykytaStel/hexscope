@@ -158,6 +158,27 @@ const UK: Record<string, string> = {
   "This guide is currently available in English. The page controls are in Ukrainian.": "Цей посібник поки доступний лише англійською. Елементи керування сторінкою перекладені українською.",
   "Show where in the file this is": "Показати це місце у файлі",
   "Remove it — save a clean copy": "Прибрати дані й зберегти чисту копію",
+  "Checking the copy in this tab…": "Перевіряємо копію в цій вкладці…",
+  "Removed": "Видалено",
+  "Still present": "Залишилося в копії",
+  "Not checked": "Не перевірено",
+  "Selected PDF text": "Вибраний текст PDF",
+  "Text in the selected picture area": "Текст у вибраній ділянці зображення",
+  "Copy verification": "Перевірка копії",
+  "This finding appeared in the copy but was not found in the source file.": "Цього факту не було у вихідному файлі, але він з’явився в копії.",
+  "This finding has no stable value to compare.": "Значення цього факту не вдалося надійно порівняти.",
+  "This copy is larger than the 10 MiB verification limit.": "Копія перевищує ліміт перевірки 10 МіБ.",
+  "Hexscope could not check this copy because verification failed or timed out.": "Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
+  "Hexscope could not completely read the copy, so its findings were not checked.": "Hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
+  "No comparable findings were available to check.": "Не було фактів, які можна було порівняти.",
+  "No searchable text was available for this selection.": "У вибраному місці не було доступного для пошуку тексту.",
+  "The source page was incomplete, so this selection could not be checked.": "Вихідну сторінку прочитано не повністю, тому вибраний текст не перевірено.",
+  "The corresponding output page could not be checked.": "Не вдалося перевірити відповідну сторінку копії.",
+  "The output page was incomplete, so this selection could not be checked.": "Сторінку копії прочитано не повністю, тому вибраний текст не перевірено.",
+  "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.": "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.",
+  "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.": "Залишено QR-код, бо він є частиною зображення. Перед надсиланням зафарбуйте його інструментом «Приховати частину зображення».",
+  "Kept: comments, form answers, attached files, links, and anything it does when opened, which are part of the document. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.": "Залишено коментарі, відповіді у формах, вкладені файли, посилання та дії під час відкриття — це частини документа. Якщо їх не слід надсилати, видаліть їх у редакторі PDF або надрукуйте новий PDF лише зі сторінками.",
+  "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.": "Залишено вміст самої таблиці чи презентації: коментарі, приховані аркуші, рядки й слайди, нотатки доповідача, посилання та вкладені файли. Видаліть їх у Word, Excel або PowerPoint і збережіть файл.",
   "Copy a clean picture": "Копіювати очищене зображення",
   "Puts the picture on the clipboard without anything else, to paste into a chat": "Копіює саме зображення без зайвих даних, щоб вставити його в чат",
   "Other ways": "Інші способи",
@@ -454,6 +475,13 @@ export function translateText(value: string, locale: Locale): string {
   const normalized = content.replace(/\s+/g, " ");
   const exact = UK[normalized] ?? guideTranslations[normalized];
   if (exact) return `${leading}${exact}${trailing}`;
+  const pictureReason = /^The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR\.(?: (.*))?$/.exec(normalized);
+  if (pictureReason) {
+    const reason = "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.";
+    return `${leading}${reason}${pictureReason[1] ? ` ${translateText(pictureReason[1], locale)}` : ""}${trailing}`;
+  }
+  const coverage = /^Hexscope does not have complete ([A-Z]+) coverage for this finding yet\.$/.exec(normalized);
+  if (coverage) return `${leading}Hexscope ще не має повного покриття ${coverage[1]} для цього факту.${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
   let byteCount = /^(\d[\d,]*) bytes?$/.exec(value);
   if (byteCount) {
