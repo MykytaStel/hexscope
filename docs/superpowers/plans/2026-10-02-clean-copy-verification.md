@@ -61,19 +61,19 @@
 - File-finding identity is `(kind, scope, value.normalize("NFC").trim())`; preserve case and multiplicity. PDF matches are page-scoped and use the redactor's case/whitespace-tolerant search semantics. If a matching string remains on the selected page, classify conservatively as present.
 - Capability lookup is exact on format, kind, and scope. Start with JPEG file facts and location, adding another pair only when a fixture proves complete output coverage. A finding with no stable value/scope, unsupported capability, incomplete source/output page, or no corresponding page is unchecked.
 
-- [ ] **Step 1: Write failing tests** for `fileFindings` (facts, location, duplicate facts, and no stable value), `capabilitiesFor` (only explicit JPEG fact kinds represented by complete parser fixtures and location are complete initially), equal duplicate output values, intentional-retention reasons, output-only residual facts, unsupported and incomplete coverage, and absence of private values/scopes from serialized reports. Add PDF cases for a match on another page, a same-page repeated match, incomplete source/output pages, a missing page, and a picture-only area. Cover `MAX_VERIFY_BYTES - 1`, the exact limit, and the limit plus one.
-- [ ] **Step 2: Run the focused tests and confirm the expected failures.**
+- [x] **Step 1: Write failing tests** for `fileFindings` (facts, location, duplicate facts, and no stable value), `capabilitiesFor` (only explicit JPEG fact kinds represented by complete parser fixtures and location are complete initially), equal duplicate output values, intentional-retention reasons, output-only residual facts, unsupported and incomplete coverage, and absence of private values/scopes from serialized reports. Add PDF cases for a match on another page, a same-page repeated match, incomplete source/output pages, a missing page, and a picture-only area. Cover `MAX_VERIFY_BYTES - 1`, the exact limit, and the limit plus one.
+- [x] **Step 2: Run the focused tests and confirm the expected failures.**
 
   Run: `pnpm --filter web exec vitest run src/verification.test.ts`
 
   Expected: FAIL because the verifier module and exports do not exist.
-- [ ] **Step 3: Implement the pure classifier.** Use an occurrence multiset; report unmatched output occurrences as unexpected residuals; attach an intentional-retention explanation only to matching present findings. Keep the initial capability whitelist limited to JPEG fact kinds present in regression fixtures and location; leave every unlisted format/kind unchecked. For PDF, do not search another page and never infer a removal for picture-only text or incomplete coverage. Keep raw values inside the function inputs only.
-- [ ] **Step 4: Run the focused tests and confirm they pass.**
+- [x] **Step 3: Implement the pure classifier.** Use an occurrence multiset; report unmatched output occurrences as unexpected residuals; attach an intentional-retention explanation only to matching present findings. Keep the initial capability whitelist limited to JPEG fact kinds present in regression fixtures and location; leave every unlisted format/kind unchecked. For PDF, do not search another page and never infer a removal for picture-only text or incomplete coverage. Keep raw values inside the function inputs only.
+- [x] **Step 4: Run the focused tests and confirm they pass.**
 
   Run: `pnpm --filter web exec vitest run src/verification.test.ts`
 
   Expected: PASS for matching, incomplete-coverage, privacy, and boundary cases.
-- [ ] **Step 5: Commit the algorithm.**
+- [x] **Step 5: Commit the algorithm.**
 
   ```bash
   git add apps/web/src/verification.ts apps/web/src/verification.test.ts
