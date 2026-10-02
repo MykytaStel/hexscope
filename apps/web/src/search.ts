@@ -38,13 +38,27 @@ export function findAll(hay: Uint8Array, needle: Uint8Array, foldCase: boolean):
   const out: number[] = [];
   const n = needle.length;
   if (n === 0 || n > hay.length) return out;
-  const first = foldCase ? lower(needle[0]) : needle[0];
-  outer: for (let i = 0; i + n <= hay.length && out.length < MAX_MATCHES; i++) {
-    if ((foldCase ? lower(hay[i]) : hay[i]) !== first) continue;
-    for (let k = 1; k < n; k++) {
-      if ((foldCase ? lower(hay[i + k]) : hay[i + k]) !== (foldCase ? lower(needle[k]) : needle[k])) continue outer;
+
+  // Knuth–Morris–Pratt keeps the matched prefix after a mismatch instead of
+  // comparing those same bytes again at the next position.
+  const pattern = foldCase ? Uint8Array.from(needle, lower) : needle;
+  const prefix = new Uint32Array(n);
+  for (let i = 1, matched = 0; i < n; i++) {
+    while (matched > 0 && pattern[i] !== pattern[matched]) matched = prefix[matched - 1];
+    if (pattern[i] === pattern[matched]) matched++;
+    prefix[i] = matched;
+  }
+
+  let matched = 0;
+  for (let i = 0; i < hay.length && out.length < MAX_MATCHES; i++) {
+    const byte = foldCase ? lower(hay[i]) : hay[i];
+    while (matched > 0 && byte !== pattern[matched]) matched = prefix[matched - 1];
+    if (byte === pattern[matched]) matched++;
+    if (matched === n) {
+      out.push(i - n + 1);
+      // Keep overlapping matches, e.g. three "aaa" matches in "aaaaa".
+      matched = prefix[matched - 1];
     }
-    out.push(i);
   }
   return out;
 }
