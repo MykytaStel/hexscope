@@ -5,36 +5,22 @@
 import type { CleanResult, RepairResult } from "./cleancard";
 import type { FileModel } from "./model";
 import type { WorkerResponse } from "./worker";
-import type { VerificationSelection } from "./verification";
+import type { VerificationReport, VerificationSelection } from "./verification";
 import { call } from "./rpc";
 import { cleanName, phoneCanShare, redactedName, repairedName, saveAs } from "./files";
-import { FACT_LABELS, KEPT, KEPT_NOTE } from "./knowledge";
-import { checkCopySafely, fileFindings } from "./verification";
+import { loadCopyVerification } from "./copyverification-loader";
 
 const why = (r: WorkerResponse) => (r.type === "error" ? r.message : "unexpected reply");
 const noCopy = { copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0 };
-const VERIFY_TIMEOUT_MS = 10_000;
-const FACT_LABELS_WITH_LOCATION = { ...FACT_LABELS, location: "Location" };
 
-function verifyCopy(m: FileModel, copy: Blob, selections: VerificationSelection[] = []) {
-  const sourceFindings = fileFindings(m.file.format, m.file.facts, m.file.location, FACT_LABELS_WITH_LOCATION);
-  const kept = KEPT[m.file.format] ?? [];
-  const retainedReasons = Object.fromEntries(
-    kept.map((kind) => [kind, KEPT_NOTE[m.file.format] ?? "This finding is part of the file's content and stays in the clean copy."]),
-  );
-  return checkCopySafely(copy.size, sourceFindings, selections, () =>
-    call(
-      {
-        type: "verifyCopy",
-        copy,
-        sourceFormat: m.file.format,
-        sourceFindings,
-        retainedReasons,
-        ...(selections.length ? { selections } : {}),
-      },
-      VERIFY_TIMEOUT_MS,
-    ),
-  );
+function uncheckedVerification(): VerificationReport {
+  return { removed: [], present: [], unchecked: [{ kind: "verification", label: "Copy verification" }] };
+}
+
+function verifyCopy(m: FileModel, copy: Blob, selections: VerificationSelection[] = []): Promise<VerificationReport> {
+  return loadCopyVerification()
+    .then(({ verifyCopyInWorker }) => verifyCopyInWorker(m, copy, selections))
+    .catch(uncheckedVerification);
 }
 
 /** Saves `copy` as `name` unless it waits to be shared; says which. */

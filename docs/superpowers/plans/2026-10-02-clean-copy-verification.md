@@ -177,7 +177,7 @@
 - Modify `docs/known-issues.md` only if the implementation exposes a new user-visible limitation not already described.
 - Review `CONTRIBUTING.md` and `.github/workflows/ci.yml` for the canonical checks.
 
-- [ ] **Step 1: Run Rust correctness and large-input gates.**
+- [x] **Step 1: Run Rust correctness and large-input gates.**
 
   Run: `cargo fmt --all --check`
 
@@ -188,7 +188,7 @@
   Run: `cargo test --release -p hexscope-core --test big -- --nocapture`
 
   Expected: all commands exit zero.
-- [ ] **Step 2: Run the full web, production-build, and browser gates.**
+- [x] **Step 2: Run the full web, production-build, and browser gates.**
 
   Run: `pnpm build`
 
@@ -197,5 +197,5 @@
   Run: `pnpm --filter web e2e`
 
   Expected: all commands exit zero; the phone project completes the generated-copy path within the existing browser budget and the configured bundle/WASM budgets remain green.
-- [ ] **Step 3: Review the final diff against every acceptance criterion** in the approved spec, inspect the format/kind capability table and report serialization for false removal or PII leakage, run `git diff --check`, and update known-issues only for a real new limitation.
-- [ ] **Step 4: Commit any documentation correction separately** and report local unit/build/E2E/Rust results separately; do not describe these as hosted CI, physical-device, or production proof.
+- [x] **Step 3: Review the final diff against every acceptance criterion** in the approved spec, inspect the format/kind capability table and report serialization for false removal or PII leakage, run `git diff --check`, and update known-issues only for a real new limitation.
+- [x] **Step 4: Commit any documentation correction separately** and report local unit/build/E2E/Rust results separately; do not describe these as hosted CI, physical-device, or production proof.

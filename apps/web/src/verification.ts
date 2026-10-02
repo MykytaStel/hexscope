@@ -327,7 +327,7 @@ export async function checkCopySafely(
   } catch {
     // Worker errors can contain file-derived text. Keep only a general reason.
   }
-  return uncheckedReport(source, selections, "Hexscope could not check this copy because verification failed or timed out.");
+  return uncheckedReport(source, selections, "Copy check unavailable.");
 }
 
 /** Whether the output can be reparsed within the measured browser budget. */

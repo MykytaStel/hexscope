@@ -10,6 +10,7 @@ import { LIMITS } from "./knowledge";
 import { typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
+import { loadCopyVerification } from "./copyverification-loader";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -65,38 +66,15 @@ export function copyVerification(result: CleanResult): HTMLElement | null {
   region.setAttribute("aria-live", "polite");
   region.setAttribute("aria-atomic", "false");
   region.append(el("p", "copy-verification-pending", "Checking the copy in this tab…"));
-
-  const render = (report: VerificationReport) => {
-    const groups: [string, VerificationReport["removed"]][] = [
-      ["Removed", report.removed],
-      ["Still present", report.present],
-      ["Not checked", report.unchecked],
-    ];
-    region.replaceChildren(
-      ...groups.map(([heading, items]) => {
-        const group = el("section", "copy-verification-group");
-        group.append(el("h3", undefined, heading));
-        const list = el("ul", "copy-verification-list");
-        for (const item of items) {
-          const row = el("li", "copy-verification-item");
-          row.append(el("span", "copy-verification-label", item.label));
-          const reason = item.reason ?? (item.unexpected ? "This finding appeared in the copy but was not found in the source file." : undefined);
-          if (reason) row.append(el("p", "copy-verification-reason", reason));
-          list.append(row);
-        }
-        group.append(list);
-        return group;
-      }),
-    );
-  };
-
-  void result.verification.then(render, () =>
-    render({
-      removed: [],
-      present: [],
-      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Hexscope could not check this copy because verification failed or timed out." }],
-    }),
-  );
+  const verification = result.verification;
+  void loadCopyVerification()
+    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification))
+    .catch(() => {
+      region.replaceChildren(
+        el("p", "copy-verification-pending", "Not checked"),
+        el("p", "copy-verification-reason", "Copy check unavailable."),
+      );
+    });
   return region;
 }
 

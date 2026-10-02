@@ -73,9 +73,7 @@ describe("the interface language", () => {
     expect(translateText("This copy is larger than the 10 MiB verification limit.", "uk")).toBe(
       "Копія перевищує ліміт перевірки 10 МіБ.",
     );
-    expect(translateText("Hexscope could not check this copy because verification failed or timed out.", "uk")).toBe(
-      "Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
-    );
+    expect(translateText("Copy check unavailable.", "uk")).toBe("Перевірка копії недоступна.");
     expect(
       translateText(
         "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.",
@@ -84,11 +82,11 @@ describe("the interface language", () => {
     ).toBe("Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.");
     expect(
       translateText(
-        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Hexscope could not check this copy because verification failed or timed out.",
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Copy check unavailable.",
         "uk",
       ),
     ).toBe(
-      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
+      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Перевірка копії недоступна.",
     );
   });
 

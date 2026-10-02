@@ -672,10 +672,31 @@ test("clean copy verification keeps copy actions when the worker returns an erro
 
   const report = page.locator(".copy-verification");
   await expect(report.getByRole("heading", { name: "Не перевірено" })).toBeVisible();
-  await expect(report).toContainText("перевірка завершилася помилкою або вичерпала час");
+  await expect(report).toContainText("Перевірка копії недоступна.");
   await expect(report).not.toContainText("Private parser detail");
   await expect(page.getByRole("button", { name: "Відкрити очищену копію" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+});
+
+test.describe("copy verification module network failure", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("keeps copy actions available when its lazy module fails to load", async ({ page }) => {
+    const failed: string[] = [];
+    page.on("requestfailed", (request) => failed.push(request.url()));
+    await page.route("**/copyverification-*.js", (route) => route.abort());
+    page.on("download", (download) => void download.cancel());
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".verdict-cta").click();
+
+    const report = page.locator(".copy-verification");
+    await expect.poll(() => failed.some((url) => /copyverification-.*\.js/.test(url))).toBe(true);
+    await expect(report).toContainText("Not checked");
+    await expect(report).toContainText("Copy check unavailable.");
+    await expect(page.getByRole("button", { name: "Open the clean copy" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  });
 });
 
 test("a fake bank email: why it may not be real, drawn on its way", async ({ page }) => {

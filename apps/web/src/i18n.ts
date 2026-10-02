@@ -168,7 +168,7 @@ const UK: Record<string, string> = {
   "This finding appeared in the copy but was not found in the source file.": "Цього факту не було у вихідному файлі, але він з’явився в копії.",
   "This finding has no stable value to compare.": "Значення цього факту не вдалося надійно порівняти.",
   "This copy is larger than the 10 MiB verification limit.": "Копія перевищує ліміт перевірки 10 МіБ.",
-  "Hexscope could not check this copy because verification failed or timed out.": "Hexscope не зміг перевірити копію: перевірка завершилася помилкою або вичерпала час.",
+  "Copy check unavailable.": "Перевірка копії недоступна.",
   "Hexscope could not completely read the copy, so its findings were not checked.": "Hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
   "No comparable findings were available to check.": "Не було фактів, які можна було порівняти.",
   "No searchable text was available for this selection.": "У вибраному місці не було доступного для пошуку тексту.",
