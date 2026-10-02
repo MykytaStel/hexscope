@@ -3,10 +3,10 @@
 The `hexscope` command-line tool checks what files reveal, and makes cleaned,
 repaired or redacted copies. Files stay on your machine.
 
-Install from crates.io after the crate is published:
+Install the published crate from crates.io:
 
 ```sh
-cargo install hexscope-cli
+cargo install --locked hexscope-cli
 ```
 
 Check a file and fail the command when it reveals a location:

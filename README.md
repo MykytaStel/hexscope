@@ -1,542 +1,123 @@
-# hexscope
+# Hexscope
 
-See what a file gives away before you send it — and, if you are curious,
-how every byte of it works. Entirely in your browser.
+**See what a file reveals before you share it.** Inspect metadata, hidden content,
+unexpected structure and damage — then make a clean copy when Hexscope can do so
+safely. Your files stay on your device.
 
-For everyone: where a photo was taken and whose camera took it, the text
-still under a PDF's black boxes, the comments and deleted text left in a
-Word file, the hidden sheets of a spreadsheet — found, explained in plain
-words, and removed in a clean copy with one click. For the curious: the
-structure tree, the bytes each field occupies, where a file is damaged,
-and — the part no other tool does — a PNG's compression running step by
-step, with an arc from each back-reference to the bytes it copies. Nothing
-is uploaded anywhere. The file never leaves the tab.
+[Open Hexscope](https://hexscope.pages.dev/?sample=photo.jpg) ·
+[Install the CLI](https://crates.io/crates/hexscope-cli) ·
+[Privacy](https://hexscope.pages.dev/your-files-stay-private) ·
+[Guides](https://hexscope.pages.dev/remove-location-from-photo)
 
-> **Live at [hexscope.pages.dev](https://hexscope.pages.dev).** PNG, JPEG,
-> HEIC and AVIF, WebP and GIF, MP4 and MOV, PDF, ZIP (with `.docx`, `.xlsx`, `.apk`, `.jar`,
-> `.epub`), Word, Excel and PowerPoint 97–2003 (`.doc`, `.xls`, `.ppt`), emails saved as `.eml`,
-> Outlook's `.msg` and WebAssembly are supported. Guides: [removing a photo's
-> location](https://hexscope.pages.dev/remove-location-from-photo), [what an
-> edited PDF still holds](https://hexscope.pages.dev/pdf-hidden-versions),
-> [why a PNG won't open](https://hexscope.pages.dev/png-wont-open).
+![Hexscope inspecting a photo's metadata and bytes](apps/web/public/og.png)
 
-## What it does
+## Try it
 
-**Opens any PNG, JPEG, HEIC, AVIF, MP4, PDF, ZIP or WebAssembly module, broken or not.** A damaged
-file is the normal case, not the error case: hexscope always shows the full
-structure, with every problem marked on the exact bytes. A broken file opens
-on its first problem; **N** steps through the rest. Anything else is named
-when its signature is familiar — a gzip, an MP4 video, a GIF — rather than
-just refused.
+Open the [web app](https://hexscope.pages.dev/) and choose a file, or
+[load the sample photo](https://hexscope.pages.dev/?sample=photo.jpg). Hexscope
+shows a plain-language summary first. Select a finding to see the exact bytes
+behind it; where supported, save a clean copy from the same page.
 
-**Says what it found, then explains.** A file opens on its answer, in one
-line coloured by how much it matters — "This photo gives away 8 things",
-"This email may not be from who it says" — with the clean copy as the button
-under it, then a short verdict: damaged, something hidden or disguised, what
-it reveals, or healthy — each line a link to the bytes behind it. A photo
-that records a place shows the picture beside a map with a pin on it, drawn
-in the page from Natural Earth's coastline, so no map site is asked; an
-email shows its way to you — who it says it is from and whether that domain
-vouched for it, where it set out from, each server — and marks where a
-reply, a link or an attachment would lead off it. A clean copy ends on the
-file and the copy side by side: what it gave away, and what is left. A picture can
-also be copied clean — drawn again from its pixels onto the clipboard, with
-nothing else — to paste straight into a chat. A file named for another format (a HEIC
-photo saved as .jpg) is told so, with the extension that fits it; that is
-often the whole reason a file "won't open". Every part of every file then explains
-itself at two depths, both always shown: one plain sentence first ("The
-location directory: where the picture was taken"), and below it the offset,
-the raw value and the section of the specification that defines it (PNG,
-RFC 1950/1951, ITU T.81, JFIF, EXIF 2.32, PKWARE APPNOTE), linked. Problems
-say how worried to be. The verdict is what reading the structure finds; it
-is not a virus scan, and says so.
+It also works offline after the first visit. File parsing happens in your
+browser: Hexscope does not upload your files or send telemetry.
 
-**Checks many files at once.** Drop a folder's worth of photos or
-documents, or choose several, and hexscope lists them with what each one
-gives away — the place, a serial number, deleted text, a black box that
-hides nothing, damage, a wrong extension — read one after another in the
-tab. Each opens as a file of its own, with the way back to the list; *Save
-clean copies* makes a clean copy of every file that gives something away
-and saves them as one ZIP. A whole folder can be chosen; the list filters
-to the files that give something away, or those damaged or hiding
-something.
+## What you can do
 
-**Shows the whole file at once.** "What it's made of" splits every byte into
-picture (or files), metadata, thumbnail, structure, hidden and damaged, with
-a bar in file order, the share of each, and one sentence that says it. The
-hex view's colours are named for the format under *Colours*, each a way to
-the first part in it. Beside the hex view, a minimap of
-the whole file colours each stretch by entropy — zeros and padding, text and
-structure, compressed or encrypted — marks the problems, outlines what is on
-screen, and jumps where you click. An encrypted blob in a text file, or data
-tacked onto the end of an image, stands out at a glance.
+- **Check before sharing.** Find photo location and camera details, PDF content
+  hidden under black boxes, document history and comments, email indicators,
+  embedded files, and more.
+- **Inspect the evidence.** Explore a file's structure and bytes, search within
+  it, compare files, and follow image pixels to the bytes that produced them.
+- **Make a copy.** Remove supported metadata, redact PDF text or selected areas,
+  and recover supported damaged PNG, JPEG and ZIP files. Hexscope explains what
+  it changed so you can inspect the result.
+- **Learn how formats work.** Step through DEFLATE decoding and explore how PNG
+  and JPEG data maps to the image.
 
-**Black out what you choose.** In a PDF, type a name or a number: every
-place it appears is listed, and the copy takes the ticked ones out of the
-page — the letters themselves — with a black box where each was. On a
-scanned page, draw a box over what should go, with the pointer or the
-keyboard: the copy makes the picture's own pixels there black. In a
-photo, drag boxes over faces, plates or an address; the copy is a new
-picture with the boxes in its pixels and no metadata. Every copy can go
-straight to the share sheet on a phone.
+### Formats
 
-**Reads emails.** An `.eml` file shows the address the sender connected
-from, the computer's name in the message ID, the mail app, the sender's
-time zone, and whether the sender's domain vouched for the message or its
-replies go elsewhere — the signs of a forgery. It lists where every link
-goes, names a link whose words say one site and whose address is another,
-shows an address in lookalike letters as it would read, and names an
-attachment that is a program or a web page dressed as a document. Attached
-files open as files of their own. A message saved from Outlook as `.msg` —
-a compound file, a property to a stream — is read from the headers it
-arrived with, its text and its files' names, and judged as the same
-message saved as `.eml` would be.
+Hexscope reads PNG, JPEG, HEIC/HEIF, AVIF, WebP, GIF, MP4/QuickTime, PDF, ZIP
+archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, `.apk`, `.jar`,
+`.epub`), legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
+and WebAssembly modules. What it can inspect or change varies by format. For
+known limits — including password-protected PDFs and legacy Office document
+text — see [known issues](docs/known-issues.md).
 
-**Reads QR codes.** hexscope has its own QR reader (ISO/IEC 18004, no
-library): it finds codes in a picture, in a PDF's pictures and in codes a
-PDF draws as boxes, and in the
-pictures inside a message or a document, and says what each holds — where
-a link really goes, with a lookalike address, an `@` in it or a bare
-number named for what they are; a Wi-Fi network and its password; a
-two-factor secret; a contact card; a place. A picture's codes open the
-blacking-out editor with a box already over each.
+Hexscope is a file-structure inspector, **not a virus scanner**. It does not
+open links or follow redirects. A finding is an explanation of what the parser
+can establish from the file, not a guarantee that a file is safe.
 
-**Reads old Office files.** A Word, Excel or PowerPoint 97–2003 file is a
-compound file too: its sectors, its directory and its streams are drawn,
-and its property streams say who wrote it, who saved it last, for which
-company, from which template's path, when, and for how long. The clean
-copy blanks those where they lie, and the sectors no stream uses, where
-deleted text can remain; nothing else in the file moves.
+## Use the CLI
 
-**Finds files inside files.** Data after the end of a picture is searched
-for another file's start — a ZIP behind a JPEG is named in the verdict —
-and *Find files inside* looks through every byte: the photos in a PDF, the
-thumbnail in a photo, each opened with its own parsers.
-
-**Takes archives apart, and what is inside them.** A ZIP — and so a Word
-document, a spreadsheet, an Android app, a Java archive, an e-book — is read
-the way `unzip` reads it, in file order. The tree names what an archive can
-hide: data before it (a self-extractor, or a file that is two formats at
-once), local headers that disagree with the central directory (the trick
-behind APK signature bypasses), entries whose bytes overlap (a zip-bomb
-technique), bytes nothing points at. A truncated download still lists every
-entry it can. Any deflated entry plays in the DEFLATE player; *Open* shows an
-entry as a file of its own — a photo inside a Word document gets its own EXIF
-card — with breadcrumbs back (**Backspace** goes up one). An Office document
-shows who wrote it, who saved it last, when, with what, for which company;
-a Word document also its comments and tracked changes, by whom, with the
-text a tracked deletion still holds though no page shows it; and every photo
-placed in it says where it was taken and with what camera. A workbook names
-its hidden sheets, hidden rows and columns, its comments' authors and the
-files it links to on its author's disk; a deck, its speaker notes, hidden
-slides and comments. A file kept inside — above all the workbook behind a
-pasted chart, which travels whole, every sheet of it — is named with its
-sheets and its author.
-
-**Shows where a video was recorded.** MP4 and QuickTime movies are read box
-by box. An iPhone's video keeps its location, make, model, software and date
-in QuickTime metadata; an Android phone writes the place in the user data;
-3GPP phones in a `loci` box. All three are shown, with the map link, and the
-clean copy blanks them where they lie, with the movie's header times: the
-file keeps its size, and the picture and sound are copied byte for byte.
-
-**Shows what a PDF kept.** A PDF is read in file order, not through its
-cross-reference table, so the tree holds every object — including the ones
-an edit replaced. A PDF changed after it was first saved usually still
-carries the earlier version, and hexscope says so, revision by revision, and
-shows the text an update took off a page that is still in the file. It
-shows who wrote it, with which programs, when, and its editing history, from
-the document information and the XMP metadata, compressed or not, and what
-each JPEG photo on its pages says: where, with which camera. It finds
-"redactions" that hide nothing: text a black box was painted over, which is
-still in the page to select and copy, a black box drawn over part of a
-scanned page, which leaves the picture whole under it, and areas marked for
-redaction that were never applied — and shows the text, or the picture,
-drawn on the page where it sits —
-and text no one can see: drawn invisibly, in white on white, off the page,
-or too small, such as instructions hidden in a CV for screening software.
-Comments are listed with their authors, a form's answers with their fields,
-and attached files by name — each opens as a file of its own. It marks
-what a PDF can run or hide, and says it in words: the script it runs when
-opened, a program it asks to open, where its form's answers are sent, where
-its links go — and a link whose words name one site while it goes to
-another — attached files, data before the header or after the end. An encrypted PDF
-that opens without a password — most of them — is decrypted to read it, as a
-viewer would; one that needs a password is only named as such.
-
-**Shows what a photo reveals.** Drop a JPEG, an iPhone's HEIC or a PNG, and
-hexscope reads its EXIF (and a PNG's text notes): where it was
-taken, the camera and lens, their serial numbers, the owner's name if the
-camera recorded one, the time, the software, an embedded thumbnail — and
-from the maker's own notes, what EXIF leaves out: more serial numbers, how
-many photos the camera has taken, and on an iPhone, the IDs that tie a photo
-to its Live Photo video and its burst, and how long the phone had been on,
-which ties together every photo taken between two restarts. From XMP and
-IPTC, what an editor or an agency adds: the place typed in (a city, a
-country, with or without GPS), the caption, the original file's name and
-each step of the edit. Whether AI made it, as its IPTC source type or its
-Content Credentials (C2PA) say, with the program that wrote them; and from
-an image generator's own notes, the prompt it was given and the model. When the
-embedded thumbnail is not the picture — the photo was cropped or edited and
-the camera's small copy was left as it was — the two are shown side by side:
-the thumbnail still shows what was taken out. Each
-fact links to the bytes that spell it out, so you can see exactly which part
-of the file gives you away. A photo with a location opens on it. The map
-link sends the coordinates nowhere unless you click it. *Share what it
-revealed* makes a card and a sentence that name only the kinds of thing a
-file gave away — never the place, the name or the number.
-
-**Removes it, if you want.** Under what a photo or a document reveals, one
-button saves a copy without it, made in the tab and never uploaded. A photo
-loses its camera data, location, serial numbers, thumbnail and comments; its
-picture is copied byte for byte, and a photo taken sideways keeps only its
-orientation. A PNG loses its text notes, EXIF, XMP, the time it was changed
-and anything after its end; its pixels are copied byte for byte. A HEIC or
-AVIF keeps its size: its EXIF and XMP are blanked where they lie, because
-everything else in it is found by offset. A PDF is written anew with only
-what its pages use: no author, programs or dates, no XMP, and none of the
-earlier versions an edit left behind; its photos' EXIF is zeroed where it
-lies, leaving the pictures untouched. Text under black boxes, under marks
-for redaction and hidden from view is taken out of the page — each glyph
-replaced by the space it took up, so every other letter stays where it was —
-and the marks are applied, as a redaction tool would; a picture under a box
-has its pixels there made black. A Word, Excel or PowerPoint file loses
-its document properties, and the photos and workbooks in it theirs; a Word document
-loses the text it hides — formatted as hidden, white on white, too small to
-read — and has its tracked changes accepted and its comments deleted, as Word's Accept
-All Changes and Delete All Comments would (a workbook's hidden sheets or a
-deck's notes are part of it and stay, and the page says so). The
-page lists what went, and *Open the clean copy* shows it in hexscope, so you
-can see the card is empty.
-
-**Saves what survived.** A damaged PNG, JPEG or ZIP gets *Try to repair*:
-a copy with what survived put back in order and nothing guessed — a PNG's
-checksums made right, a chunk with a broken length passed over, a file cut
-short given its end so viewers show what arrived; an archive whose end was
-lost written anew from the files that are whole and check out. The page
-lists what was done, and the copy opens in hexscope to check.
-
-**Saves the structure.** *Save the structure as JSON* writes every part —
-its offset, length, kind, value and explanation, nested as in the tree —
-with what the file gives away and what is wrong with it, for your own tools.
-
-**Finds in the file.** <kbd>/</kbd> searches the bytes for text, or for
-bytes written in hex (`FF D8`, `0x504B`): each match is marked and the part
-of the file it falls in is selected, so what is found is also explained.
-
-**Compares two files.** *Compare with another file* — or, after a clean
-copy, *Compare with the original* — says what one gives away that the other
-does not, what is wrong with each, and which parts of the structure only one
-has or both have differently. The second file is read by a worker of its own.
-
-**Works from the keyboard.** <kbd>?</kbd> lists the keys: <kbd>O</kbd>
-opens a file, <kbd>N</kbd> goes to the next problem, <kbd>P</kbd> plays the
-decompression, <kbd>Backspace</kbd> goes back up. Every control takes focus
-and shows it; the pictures say what they are to a screen reader, and what
-only decorates them is hidden from it.
-
-**Shows which bytes make which pixels.** Beside a PNG's structure, its
-picture: point at a pixel, or tap it, and hexscope names the DEFLATE step
-that wrote it — a literal byte, or a copy of so many bytes from so far back,
-often exactly one row up — marks the file bytes that hold that step, and
-shows the copy's source in the picture. Point at a byte of IDAT and the
-pixels it became light up. One click opens that step in the DEFLATE player.
-An interlaced PNG stores its pixels in seven passes, a coarse picture first;
-hexscope follows each pixel to its pass, and a slider shows the picture after
-each one, with how much of the file it took.
-
-A JPEG has no bytes per pixel: its picture is cut into blocks, usually 16×16
-pixels, each written as a run of Huffman-coded bits. hexscope reads the scan
-to find where each block begins, so pointing at the photo marks the bytes
-that draw that block and says how many bits it took; pointing at a byte of
-the scan outlines its block. **Where the bits go** lights the photo by what
-each block costs: detail and noise take bits, a clear sky almost none. A
-progressive JPEG writes each block a little at a time, over several scans —
-averages first, then bands of detail — and hexscope maps every scan: a pixel
-lists what each scan spends on it, and a slider shows the picture after each
-one, blurry at 7% of the file and sharp at the end.
-
-**Shows who built a WebAssembly module.** Its custom sections say how it
-was made — the language, the compiler and its version, every function's
-name, a link to its source map, DWARF debug info — and its data often holds
-paths from the computer that built it, with the user's name in them. Its
-imports say what it can ask of whatever runs it — reach the network, open
-files, read the clock, draw random numbers, change the page, use the camera
-— by the names WASI, the component model and wasm-bindgen give them.
-hexscope lists each section and entry, finds those, and saves a copy
-without the custom sections, the code and data copied byte for byte.
-
-**Links every view.** Hover a byte and its field lights up in the tree, the
-details panel says what it is, and the status bar shows its offset and path.
-Hover a tree row and its bytes light up. Click to pin.
-
-**Plays the decompression.** *Watch it decompress* (or **P**) turns the bottom
-panel into a player for a PNG's DEFLATE stream, or a ZIP entry's:
-
-- each step in plain words — a literal written as is, N bytes copied from M
-  bytes back, a new block and its kind — and how many bits it read;
-- those bits split into what they meant: the Huffman code as the decoder
-  assembled it, its extra bits, and for a block header BFINAL, BTYPE, HLIT,
-  HDIST and HCLEN;
-- the block's code tables grouped by code length, with the path the current
-  code took: past every shorter range, into its own;
-- the output as it grows, with an arc from each back-reference's source to
-  where the copy lands; a copy that overlaps itself is drawn as the repeating
-  pattern it is;
-- a reading head on the hex view outlining the exact file bytes whose bits the
-  current step consumed;
-- a damaged stream plays up to the step where it breaks, and says so.
-
-[How DEFLATE works, visually](https://hexscope.pages.dev/deflate) tells the
-story on a short text, with the same player beside it: each section moves
-the player to the step it describes.
-
-| Key | Action |
-|---|---|
-| **Space** | play / pause |
-| **←** **→** | one step (with **Shift**, ten) |
-| **Home** **End** | first / last step |
-| **P** | open the player (for a ZIP, on the selected entry) |
-| **N** | next problem |
-| **Esc** | close the player, or clear the selection |
-| **Backspace** | back out of a file opened inside an archive |
-
-## On the command line, and in CI
-
-The same reading, without a browser: `hexscope` checks files and folders,
-and makes clean or repaired copies. Nothing leaves the machine.
+Install the published `hexscope` command:
 
 ```sh
 cargo install --locked hexscope-cli
-
-hexscope check photos/                         # what each file gives away; exit 1 if anything
-hexscope check --fail-on location,serial site/ # fail only on these
-hexscope check --json report.pdf               # one JSON object per file
-hexscope check --sarif site/ > hexscope.sarif  # for GitHub code scanning
-hexscope clean --in-place site/images/         # strip what they give away
-hexscope repair broken.png                     # save what survived, as broken-repaired.png
-hexscope redact --text "Olena K" letter.pdf    # black out a name wherever it is on the pages
-hexscope clean --notes deck.pptx               # also empty comments and speaker notes
 ```
 
-`--fail-on` takes `reveals`, `hidden`, `damage`, `oddity`, or kinds of fact
-such as `location`, `serial`, `author`, `covered`; `none` never fails.
-
-For GitHub's code scanning, upload the SARIF log: findings then show in the
-Security tab, with their history, and on pull requests.
-
-```yaml
-- run: hexscope check --sarif --fail-on none site/ > hexscope.sarif
-- uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: hexscope.sarif
+```sh
+hexscope check photos/                              # inspect files in a folder
+hexscope check --fail-on location,serial photos/    # choose what fails the check
+hexscope clean --out clean/ photos/                 # write clean copies separately
+hexscope repair --out recovered/ broken.png         # recover supported damaged files
+hexscope redact --text "Private Name" report.pdf    # redact matching PDF text
 ```
 
-As a [pre-commit](https://pre-commit.com) hook, with `hexscope` installed as
-above:
+`check` reads files and folders recursively. By default, it exits with `1` when
+it finds disclosures, hidden content or damage; `--fail-on` can select finding
+types, and `--fail-on none` reports without failing. Exit `2` means a usage or
+file error. Use `--json` for newline-delimited JSON or `--sarif` for SARIF 2.1.0.
+Run `hexscope --help` for all options. Clean and repaired files are written as
+copies by default; `clean --in-place` is available when you explicitly want to
+replace the originals.
 
-```yaml
-- repo: https://github.com/MykytaStel/hexscope
-  rev: v0.1.0
-  hooks:
-    - id: hexscope-check   # stop the commit; or hexscope-clean to strip in place
-```
+### GitHub Actions
 
-As a GitHub Action, it stops a photo with a location, or a PDF with a black
-box that hides nothing, from being published — each finding is annotated on
-its file:
+The published Action checks paths and annotates selected findings on their files:
 
 ```yaml
 - uses: actions/checkout@v7
 - uses: MykytaStel/hexscope@v0.1.0
   with:
-    paths: site/images docs
+    paths: photos docs
     fail-on: location,serial,covered,hiddentext
 ```
 
-## Why
+For other CI systems, save a SARIF report with
+`hexscope check --sarif --fail-on none PATH...` and upload it to your code
+scanning service.
 
-Files carry more than they show. A photo sent as a file says where it was
-taken; a PDF with black boxes drawn over a name still holds the name; a
-Word document keeps what was deleted with tracked changes on. The tools
-that show this are made for people who already know it is there. And to
-see inside a file at all, you either read the spec with `xxd` open in
-another window, or install a desktop hex editor.
+## Guides
 
-It is built for:
+- [Remove location and other metadata from a photo](https://hexscope.pages.dev/remove-location-from-photo)
+- [What an edited PDF may still contain](https://hexscope.pages.dev/pdf-hidden-versions)
+- [Why a PNG may not open](https://hexscope.pages.dev/png-wont-open)
+- [Explore DEFLATE step by step](https://hexscope.pages.dev/deflate)
 
-1. **You are about to send a photo or a document** and want to know what
-   goes with it — and a copy without it.
-2. **A file is broken and you need to know where.**
-3. **You are writing a parser** and need to see which bytes hold a field.
-4. **You are learning** a format or a compression algorithm and want to look at
-   one rather than read about one.
-5. **Reverse engineering, CTF, security triage** — inspect a suspicious file
-   without executing it. Everything runs locally, which is the point.
+## For Rust users and contributors
 
-## How fast
+Version `0.1.0` is published on crates.io:
 
-Measured in the browser on a 10.9 MB PNG of incompressible noise — the worst
-case, since every byte becomes its own decoding step:
+- [`hexscope-cli`](https://crates.io/crates/hexscope-cli) — command-line tool.
+- [`hexscope-core`](https://crates.io/crates/hexscope-core) — parsing library.
+- [`hexscope-inflate`](https://crates.io/crates/hexscope-inflate) — explainable
+  DEFLATE and zlib decoding.
 
-| | Measured | Budget |
-|---|---|---|
-| Parse (WebAssembly, in a worker) | 160–190 ms | 300 ms |
-| Drop to first frame | 180–280 ms | 1 s |
-| Scrolling the byte view | 8.3 ms per frame, none dropped at 120 Hz | 16 ms |
-| Hover to highlight | ~0.09 ms | 16 ms |
-| Seek to step 7.9 million of 10.8 million | 12 ms | — |
-| A 200 MB video, parsed | 1.4 ms | — |
-| The page and the parser for pictures and movies, gzipped | ~190 KB (WebAssembly 125 KB) | — |
-| The parser for documents, loaded when one is opened | 265 KB | — |
+To run the web app locally, install the pinned Rust toolchain, Node.js 24+,
+pnpm and the matching `wasm-bindgen` CLI, then run:
 
-The byte view draws only the rows on screen, so file size does not affect
-scrolling. A video over 64 MB is read without its picture and sound: every
-box but the media is read and parsed, the byte view reads the media from
-the file where it is shown, and the clean copy is written from the changed
-boxes and the media as it is — so a long video needs a few megabytes of
-memory, not its size, in the browser and on the command line alike. The player never holds the stream's steps in memory: it asks for
-them in small batches, and the decoder resumes from the nearest checkpoint.
-
-## How it is built
-
-- **`crates/hexscope-core`** — the parsers, in Rust with no runtime
-  dependencies: PNG with its own DEFLATE decoder, written to be paused and
-  resumed one step at a time; JPEG segments, and a Huffman scan reader that
-  finds each block's bits in every scan, progressive ones included, without
-  decoding pixels; EXIF in either byte order; and a
-  dispatcher that recognises the format. A reference DEFLATE implementation is
-  used only in tests, to check ours.
-- **`crates/hexscope-inflate`** — DEFLATE and zlib, decoded step by step so
-  each step can be explained, and the bit reader under them. A crate of its
-  own so the browser build can be optimised for size everywhere else.
-- **`crates/hexscope-cli`** — `hexscope` on the command line and the
-  GitHub Action (`action.yml`), on the same core, with no dependencies.
-- **`crates/hexscope-wasm`** — the bridge to the browser. The parse tree
-  crosses as a handful of typed arrays rather than one object per node.
-- **`apps/web`** — the interface: TypeScript, Vite, Canvas 2D, no UI
-  framework.
-
-Three rules hold across the parser:
-
-- **It never panics and never loops forever**, on any input. Every read goes
-  through one bounds-checked accessor; parsing code never indexes a slice by
-  hand. EXIF is the hostile case — every offset in it comes from the file — so
-  IFD chains remember where they have been and counts are capped by what fits.
-  Fuzzed across both formats with no crash.
-- **Every input returns a tree.** There is no error return: damage becomes a
-  node with its own byte range, so a broken file is still fully explorable.
-- **It is checked against real files.** All 176 files of the
-  [PngSuite](http://www.schaik.com/pngsuite/) conformance corpus: every one of
-  the 14 intentionally corrupt files is flagged, and none of the 162 valid ones
-  is. The sample photo's metadata is checked against what Apple's ImageIO
-  reads from the same file.
-
-Open problems are listed in [`docs/known-issues.md`](docs/known-issues.md);
-how to find your way around the code, and how to add to it, is in
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Developing
-
-You need rustup, Node 24+, pnpm, and the wasm-bindgen CLI at the exact version
-the bridge pins. The Rust version, its components and the WebAssembly target
-are pinned in `rust-toolchain.toml`; one command installs them.
-
-```bash
-rustup toolchain install          # reads rust-toolchain.toml
+```sh
+rustup toolchain install
 cargo install wasm-bindgen-cli --version 0.2.128 --locked
 pnpm install
-pnpm dev            # builds the WebAssembly, then serves the app
+pnpm dev
 ```
 
-Every part a parser can name must have an explanation: the coverage test in
-`crates/hexscope-core/src/docs/tests.rs` fails otherwise. Specification links
-are checked by hand, since it needs the network:
-
-```bash
-python3 scripts/check-spec-links.py
-```
-
-Checks, as CI runs them:
-
-```bash
-cargo fmt --all --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all
-cargo bench -p hexscope-core                                  # 10 MB parse time
-cargo +nightly fuzz run parse_png -- -max_total_time=120      # needs cargo-fuzz
-```
-
-## Deploying
-
-The app is a static site: no server, no backend, nothing to configure.
-
-```bash
-pnpm build          # output: apps/web/dist
-```
-
-The sample photo is generated by `scripts/make-sample-photo.py` (macOS, for
-`sips`); its location is the Eiffel Tower and every other value is invented.
-
-Upload `apps/web/dist` to any static host — Cloudflare Pages, Netlify, Vercel,
-GitHub Pages, or any web server. Asset paths are relative, so it also works
-from a subpath. It must be served over HTTP(S), not opened from disk, because
-the parser runs in a module worker.
-
-It is deployed on Cloudflare Pages as the project `hexscope`. CI builds the
-site on every push, keeps it as the `hexscope-site` artifact, and the `deploy`
-job uploads it: `main` to production, every other branch to a preview URL.
-The job needs a `CLOUDFLARE_API_TOKEN` repository secret — an API token with
-*Account → Cloudflare Pages → Edit* — and deploys nothing until it exists.
-
-It installs as an app and works offline after the first visit: a service
-worker (`apps/web/public/sw.js`) keeps the whole app — both WebAssembly
-builds, the player, the guides and the samples — under a version the build
-writes in (`vite.config.ts`), so a deploy replaces the old files rather than
-adding to them. It fetches only the site's own files, and sends nothing. On Android, the installed app
-appears in the share sheet; a shared file waits in a cache for the page to
-open it, and never touches the network. On a computer, the installed app
-opens files from the file manager ("Open with"). What happens to a file,
-and how to check that it goes nowhere, is on
-[its own page](https://hexscope.pages.dev/your-files-stay-private). The link preview and icons are
-rendered from `scripts/brand/*.html` by `sh scripts/make-brand-images.sh`.
-
-`apps/web/public/_headers` sets the response headers: a CSP that lets the page
-run only its own code and send nothing anywhere, and long caching for hashed
-assets. To try them locally:
-
-```bash
-pnpm build && npx wrangler pages dev apps/web/dist
-```
-
-A manual deploy, after `npx wrangler login`:
-
-```bash
-npx wrangler pages deploy apps/web/dist --project-name hexscope --branch main
-```
-
-## Roadmap
-
-1. **PNG** — structure, damage, pixels, the DEFLATE player. *Done.*
-2. **EXIF from JPEG** — what a photo reveals, on its bytes. *Done.*
-3. **ZIP** — which also opens `.docx`, `.apk`, `.jar` and `.epub`, with
-   recursion into nested files. *Done.*
-4. **WebAssembly modules** — sections, imports and exports, who built it.
-   *Done; components are listed, not decoded.*
-5. **JPEG blocks** — which bytes draw which part of a photo, scan by scan,
-   sequential or progressive. *Done.*
-6. **Documents before they are sent** — PDF redactions that hide nothing
-   (and a clean copy that redacts), hidden text, Word's tracked changes and
-   comments, photos inside documents. *Done.*
-7. **Save what survived** — repaired copies of damaged PNG, JPEG and ZIP.
-   *Done.*
-8. **Command line and CI** — `hexscope check`, `clean`, `repair`, and a
-   GitHub Action. *Done; not yet on crates.io.*
-
-No analytics, ever. A tool people use to look at suspicious files has no
-business watching them.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, checks and
+contribution guidance. Known product and format limits are tracked in
+[`docs/known-issues.md`](docs/known-issues.md).
 
 ## License
 
-Licensed under either of [MIT](LICENSE) or [Apache License 2.0](LICENSE), at
-your option.
+Licensed under either [MIT](LICENSE) or [Apache License 2.0](LICENSE), at your
+option.
