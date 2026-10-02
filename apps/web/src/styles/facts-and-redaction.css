@@ -45,8 +45,8 @@
 
 @media (max-width: 900px) {
   .demo-fact {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    grid-template-columns: minmax(6em, 0.42fr) minmax(0, 0.58fr);
+    gap: 8px;
     font-size: var(--type-small);
   }
 
@@ -59,16 +59,15 @@
    reserve those lines before it changes so the page below stays still. */
 @media (max-width: 600px), (min-width: 901px) and (max-width: 1100px) {
   .demo-caption {
-    min-height: 4.35em;
+    min-height: 3.2em;
   }
 }
 
-/* A narrow desktop has little room beside the preview. Stack each label over
-   its value until the facts column has enough width to read across. */
+/* Keep facts compact where the hero leaves a narrow column beside the preview. */
 @media (min-width: 901px) and (max-width: 1100px) {
   .demo-fact {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    grid-template-columns: minmax(6em, 0.42fr) minmax(0, 0.58fr);
+    gap: 8px;
   }
 
   .demo-fact dd {
