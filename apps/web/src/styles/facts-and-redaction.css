@@ -63,11 +63,11 @@
   }
 }
 
-/* Keep facts compact where the hero leaves a narrow column beside the preview. */
+/* Stack labels where the narrow desktop leaves little room beside the preview. */
 @media (min-width: 901px) and (max-width: 1100px) {
   .demo-fact {
-    grid-template-columns: minmax(6em, 0.42fr) minmax(0, 0.58fr);
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
   .demo-fact dd {

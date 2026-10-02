@@ -2,7 +2,7 @@
 
 .demo {
   display: grid;
-  grid-template-columns: clamp(160px, 13vw, 200px) minmax(0, 1fr);
+  grid-template-columns: clamp(128px, 12vw, 192px) minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
   margin: 0;
