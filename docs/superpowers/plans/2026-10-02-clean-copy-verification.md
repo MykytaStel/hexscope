@@ -41,9 +41,9 @@
 
 **Files:** none; use a temporary diagnostic script and remove it after the measurement.
 
-- [ ] Read the existing 10 MB browser parse target in `CONTRIBUTING.md` and the large-input workloads in `crates/hexscope-core/tests/big.rs`.
-- [ ] Build and serve the current app. In the Playwright `phone` project, exercise the current parse-clean-reparse path with a deterministic PNG close to 10 MiB. Record elapsed time and the Chromium renderer memory metric if available; otherwise record that the emulated profile could not provide a reliable memory measurement.
-- [ ] Set the implementation ceiling at or below 10 MiB, lowering it if the phone profile needs headroom. Record the actual measurement method and chosen bound in a code comment during Task 2. Treat Playwright's Pixel 7 profile as emulation evidence, never as physical-device proof.
+- [x] Read the existing 10 MB browser parse target in `CONTRIBUTING.md` and the large-input workloads in `crates/hexscope-core/tests/big.rs`.
+- [x] Build and serve the current app. In the Playwright `phone` project, exercise the current parse-clean-reparse path with a deterministic PNG close to 10 MiB. Record elapsed time and the Chromium renderer memory metric if available; otherwise record that the emulated profile could not provide a reliable memory measurement.
+- [x] Set the implementation ceiling at or below 10 MiB, lowering it if the phone profile needs headroom. Record the actual measurement method and chosen bound in a code comment during Task 2. Treat Playwright's Pixel 7 profile as emulation evidence, never as physical-device proof.
 
 ### Task 1: Pure report algorithm (TDD)
 
