@@ -307,7 +307,7 @@ The same reading, without a browser: `hexscope` checks files and folders,
 and makes clean or repaired copies. Nothing leaves the machine.
 
 ```sh
-cargo install --locked --git https://github.com/MykytaStel/hexscope hexscope-cli
+cargo install --locked hexscope-cli
 
 hexscope check photos/                         # what each file gives away; exit 1 if anything
 hexscope check --fail-on location,serial site/ # fail only on these
@@ -337,7 +337,7 @@ above:
 
 ```yaml
 - repo: https://github.com/MykytaStel/hexscope
-  rev: main
+  rev: v0.1.0
   hooks:
     - id: hexscope-check   # stop the commit; or hexscope-clean to strip in place
 ```
@@ -348,7 +348,7 @@ its file:
 
 ```yaml
 - uses: actions/checkout@v7
-- uses: MykytaStel/hexscope@main
+- uses: MykytaStel/hexscope@v0.1.0
   with:
     paths: site/images docs
     fail-on: location,serial,covered,hiddentext
