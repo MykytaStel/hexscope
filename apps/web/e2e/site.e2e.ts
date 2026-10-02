@@ -780,7 +780,10 @@ const sample = (name: string) => new URL(`../public/samples/${name}`, import.met
 
 test("an incomplete PDF form warns in Ukrainian and produces no redacted copy", async ({ page }) => {
   const saved = catchDownloads(page);
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
   await home(page);
   await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/incomplete-form.pdf", import.meta.url).pathname);
 
