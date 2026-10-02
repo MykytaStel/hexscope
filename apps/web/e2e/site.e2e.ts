@@ -411,7 +411,7 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   await expect(page.locator(".drawer-node")).toContainText("Зсув");
   await expect(page.locator(".drawer-node")).toContainText("Довжина");
   await expect(page.locator(".drawer-node")).toContainText("Тип");
-  await expect(page.locator(".drawer-node")).toContainText("Скопіювати байти як");
+  await expect(page.locator(".drawer-node")).toContainText("Копіювати як");
   const copyBottom = await page.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
   const drawerBottom = await page.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
   expect(copyBottom).toBeLessThanOrEqual(drawerBottom);

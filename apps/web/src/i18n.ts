@@ -179,7 +179,7 @@ const UK: Record<string, string> = {
   "Kind": "Тип",
   "Value": "Значення",
   "Spec": "Специфікація",
-  "Copy the bytes as": "Скопіювати байти як",
+  "Copy as": "Копіювати як",
   "a C array": "масив C",
   "copied": "скопійовано",
   "not allowed here": "Браузер заборонив копіювання",

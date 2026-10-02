@@ -72,7 +72,7 @@ describe("the interface language", () => {
     expect(translateText("Kind", "uk")).toBe("Тип");
     expect(translateText("Value", "uk")).toBe("Значення");
     expect(translateText("Spec", "uk")).toBe("Специфікація");
-    expect(translateText("Copy the bytes as", "uk")).toBe("Скопіювати байти як");
+    expect(translateText("Copy as", "uk")).toBe("Копіювати як");
     expect(translateText("a C array", "uk")).toBe("масив C");
     expect(translateText("1 byte", "uk")).toBe("1 байт");
     expect(translateText("90 bytes", "uk")).toBe("90 байтів");
