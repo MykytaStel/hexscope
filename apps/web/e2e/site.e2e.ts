@@ -436,15 +436,32 @@ test("the landing page has two clear actions, three everyday doors, and a rememb
   await expect(page.locator(".advice")).toContainText("Ім’я власника береться з налаштувань фотоапарата.");
 });
 
-test("English guides disclose their language while shared controls can be Ukrainian", async ({ page }) => {
+test("a guide changes its full article and language metadata with the shared control", async ({ page }) => {
   await page.goto("./is-this-email-real.html");
-  await expect(page.locator(".guide-language-note")).toBeHidden();
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
-  await expect(page.locator(".guide-language-note")).toHaveText("Цей посібник поки доступний лише англійською. Елементи керування сторінкою перекладені українською.");
+  await expect(page.locator("article.story-text")).toHaveAttribute("lang", "uk");
+  await expect(page.locator(".guide-language-note")).toHaveCount(0);
+  await expect(page.locator("article.story-text h1")).toHaveText("Цей лист справжній?");
+  await expect(page).toHaveTitle("Цей лист справжній? — hexscope");
+  await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+  await expect(page.locator("meta[name=description]")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
+  await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "Цей лист справжній?");
+  await expect(page.locator("meta[property='og:description']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
   await expect(page.getByRole("link", { name: "Відкрити файл" })).toBeVisible();
   await page.getByRole("button", { name: "Switch language to English" }).click();
-  await expect(page.locator(".guide-language-note")).toBeHidden();
+  await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
+  await expect(page.locator("article.story-text h1")).toHaveText("Is this email real?");
+  await expect(page).toHaveTitle("Is this email real? — hexscope");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("meta[name=description]")).toHaveAttribute(
+    "content",
+    "A message can claim any sender. Its headers say where replies really go, whether the sender's domain vouched for it, and where it came from. How to save an email and read them, in your browser, without uploading it.",
+  );
+  await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "Is this email real?");
+  await expect(page.locator("meta[property='og:description']")).toHaveAttribute(
+    "content",
+    "Where replies really go, whether the sender's domain vouched for the message, and where it came from: read an email's headers without uploading it.",
+  );
 });
 
 test("nothing scrolls sideways", async ({ page }) => {
@@ -452,6 +469,23 @@ test("nothing scrolls sideways", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
   await openDoor(page, /Check a photo/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+});
+
+test("the landing page does not download article copy before a guide opens", async ({ page }) => {
+  const guideCopyScripts: Promise<string | null>[] = [];
+  page.on("response", (response) => {
+    if (response.request().resourceType() === "script") {
+      guideCopyScripts.push(
+        response
+          .text()
+          .then((body) => (body.includes("On a scanned page it is worse") ? response.url() : null))
+          .catch(() => null),
+      );
+    }
+  });
+  await home(page);
+  await page.waitForLoadState("networkidle");
+  expect((await Promise.all(guideCopyScripts)).filter(Boolean)).toEqual([]);
 });
 
 test("a photo: the answer, where it was taken, and a clean copy with nothing left", async ({ page }) => {
@@ -554,6 +588,95 @@ test("the keyboard list closes every way people try: ×, Escape, a click outside
 });
 
 const sample = (name: string) => new URL(`../public/samples/${name}`, import.meta.url).pathname;
+
+test("an incomplete PDF form warns in Ukrainian and produces no redacted copy", async ({ page }) => {
+  const saved = catchDownloads(page);
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/incomplete-form.pdf", import.meta.url).pathname);
+
+  await expect(page.locator(".verdict-line.is-warning")).toContainText(
+    "Не весь вміст PDF-форм вдалося перевірити. Пошук може пропустити текст.",
+  );
+  const redactor = page.locator(".redactor");
+  await redactor.locator('input[type="search"]').fill("PUBLIC");
+  await redactor.locator(".redact-form button").click();
+  const warning = redactor.locator(".redact-incomplete");
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText("Не весь вміст PDF-форм вдалося перевірити.");
+
+  const save = redactor.locator(".btn-primary");
+  await expect(save).toBeEnabled();
+  await save.click();
+  const failure = redactor.locator(".cleaner .problem");
+  await expect(failure).toContainText(
+    "Копію не створено: hexscope не зміг повністю перевірити або відокремити вміст форм на сторінці PDF.",
+  );
+  await expect(redactor.getByRole("button", { name: "Відкрити копію" })).toHaveCount(0);
+  expect(saved).toEqual([]);
+});
+
+test("every public guide has a complete Ukrainian version, including its page title", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  const guides = [
+    ["black-out-a-pdf.html", "Як правильно приховати дані в PDF"],
+    ["check-document-before-sending.html", "Перевірити документ перед надсиланням"],
+    ["deflate.html", "Як працює DEFLATE: наочно"],
+    ["hidden-text-in-pdf.html", "Невидимий текст у PDF"],
+    ["is-this-email-real.html", "Цей лист справжній?"],
+    ["pdf-hidden-versions.html", "Видалили з PDF, але текст залишився"],
+    ["png-wont-open.html", "Чому не відкривається PNG?"],
+    ["remove-location-from-photo.html", "Як прибрати геолокацію з фото"],
+    ["what-a-screenshot-gives-away.html", "Що розкриває знімок екрана"],
+    ["your-files-stay-private.html", "Ваші файли залишаються на пристрої"],
+  ] as const;
+  const technical = new Set([
+    "hexscope", "pdf", "deflate", "zip", "jpeg", "heic", "webp", "avif", "exif", "xmp", "png", "idat", "iend",
+    "ftp", "ascii", "huffman", "iso", "rfc", "cve", "ecma", "w3c", "wasm", "webassembly", "github", "gmail",
+    "outlook", "thunderbird", "apple", "android", "iphone", "mac", "windows", "pixel", "chrome", "google", "airdrop",
+    "mp4", "quicktime", "mov", "markup", "snipping",
+    "spf", "dkim", "dmarc", "eur", "wi", "fi", "qr", "f12", "csp", "css", "xml", "url", "http", "https",
+    "rust", "cookie",
+    "jbig", "jbig2", "ccitt", "fax", "gzip", "javascript", "crc",
+  ]);
+
+  for (const [path, heading] of guides) {
+    await page.goto(`./${path}`);
+    const article = page.locator(".story-text");
+    await expect(article.locator("h1")).toHaveText(heading);
+    if (path === "black-out-a-pdf.html") {
+      await expect(article.locator(".guide-note").first()).toContainText("Приклад файла — лист із прихованим текстом");
+    }
+    if (path === "check-document-before-sending.html") {
+      await expect(article.locator(".guide-note").first()).toContainText("Приклад файла — Документ Word");
+    }
+    await expect(article).toHaveAttribute("lang", "uk");
+    await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+    await expect(page.locator(".guide-language-note")).toHaveCount(0);
+    await expect(page).toHaveTitle(`${heading} — hexscope`);
+    await expect(page.locator("meta[name=description]")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
+    await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
+    await expect(page.locator("meta[property='og:description']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
+    const untranslated = await article.evaluate((root, allowed) => {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const leftovers: string[] = [];
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const text = node.textContent?.trim() ?? "";
+        if (!text || node.parentElement?.closest("code, script, style, .brand, [data-language-control]")) continue;
+        const prose = text
+          .replace(/\b(?:Word|Excel|PowerPoint|GitHub Actions?|EXIF|XMP|ECMA-376|Office Open XML|ISO 32000-1)\b/gi, " ")
+          .replace(/\bContent-Security-Policy\b/gi, " ")
+          .replace(/\bform xobjects?\b/gi, " ")
+          .replace(/\bApple Mail\b|\bFrom(?=,)|\bPixel Markup\b|\bSnipping Tool\b/gi, " ");
+        const words = prose.toLowerCase().match(/[a-z]{2,}\d*/g) ?? [];
+        if (words.some((word) => !allowed.includes(word))) leftovers.push(text);
+      }
+      return leftovers;
+    }, [...technical]);
+    expect(untranslated, `${path} contains untranslated prose`).toEqual([]);
+  }
+});
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {
   const saved = catchDownloads(page);

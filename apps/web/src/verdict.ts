@@ -2,7 +2,7 @@ import { Concern, FileModel, Kind } from "./model";
 
 /** One line of the verdict: what kind of finding, the sentence, where to look. */
 export interface VerdictLine {
-  kind: "damage" | "misnamed" | "hidden" | "reveals" | "oddity" | "healthy" | "unknown";
+  kind: "damage" | "misnamed" | "hidden" | "warning" | "reveals" | "oddity" | "healthy" | "unknown";
   text: string;
   /** The node "Show me" selects, or -1 when there is nothing to point at. */
   node: number;
@@ -220,6 +220,15 @@ export function verdict(m: FileModel): VerdictLine[] {
     });
   }
 
+  const incompleteForm = f.facts.find((fact) => fact.kind === "form-incomplete");
+  if (incompleteForm) {
+    lines.push({
+      kind: "warning",
+      text: "Some PDF form content could not be fully checked. Search may miss text.",
+      node: incompleteForm.node,
+    });
+  }
+
   const kinds = [...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)];
   // What can hurt most goes first, so the four named include it.
   kinds.sort((a, b) => Number(URGENT.includes(b)) - Number(URGENT.includes(a)));
@@ -240,7 +249,7 @@ export function verdict(m: FileModel): VerdictLine[] {
       node: odd[0],
     });
   }
-  if (damage.length === 0 && hidden.length === 0 && odd.length === 0) {
+  if (damage.length === 0 && hidden.length === 0 && odd.length === 0 && !incompleteForm) {
     // What it gives away is why someone opened it: health comes after that.
     if (lines.some((l) => l.kind === "reveals")) {
       lines.push({ kind: "healthy", text: "The file itself is fine: nothing in it is damaged.", node: -1 });

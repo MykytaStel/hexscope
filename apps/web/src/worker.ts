@@ -47,6 +47,8 @@ export interface PageGlyphs {
   media: PageArea;
   areas: Float64Array;
   texts: string[];
+  /** Whether every supported Form XObject on this page was inspected. */
+  complete: boolean;
   /** The page's own dark boxes and marks, four numbers each. */
   boxes: Float64Array;
 }
@@ -326,7 +328,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     const pages: PageGlyphs[] = [];
     for (let i = 0; i < t.count; i++) {
       const texts = t.texts(i);
-      pages.push({ media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], boxes: t.boxes(i) });
+      pages.push({ media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], complete: t.complete(i), boxes: t.boxes(i) });
     }
     t.free();
     post({ id: req.id, type: "pageTexts", pages });

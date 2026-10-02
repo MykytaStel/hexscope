@@ -1177,6 +1177,11 @@ impl PageTexts {
         self.pages.get(i).map_or(Vec::new(), |p| p.media.to_vec())
     }
 
+    /// Whether every supported form invocation on page `i` was inspected.
+    pub fn complete(&self, i: usize) -> bool {
+        self.pages.get(i).is_some_and(|page| page.complete)
+    }
+
     /// A page's glyphs' areas, four numbers each.
     pub fn areas(&self, i: usize) -> Vec<f64> {
         self.pages
