@@ -391,6 +391,57 @@ test("the phone bytes view reserves room for reading the bytes", async ({ page }
   expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
 });
 
+test("the phone can inspect a photo in Ukrainian and return to its clean-copy action", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the narrow inspection flow is phone-specific");
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.waitForTimeout(400);
+  await expect(page.locator(".tour")).toHaveCount(0);
+
+  await expect(page.locator("#status")).toHaveText("Торкніться байта");
+  expect(await page.locator("#status").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const canvasBox = await page.locator(".hex-canvas").boundingBox();
+  if (!canvasBox) throw new Error("The byte canvas is not visible");
+  await page.touchscreen.tap(canvasBox.x + 85, canvasBox.y + 24);
+  await expect(page.locator(".drawer-node .node-label")).toHaveText("Вибрана частина");
+  await expect(page.locator(".drawer-node")).toContainText("Початок зображення: перші два байти кожного JPEG.");
+  await expect(page.locator(".drawer-node")).toContainText("Зсув");
+  await expect(page.locator(".drawer-node")).toContainText("Довжина");
+  await expect(page.locator(".drawer-node")).toContainText("Тип");
+  await expect(page.locator(".drawer-node")).toContainText("Скопіювати байти як");
+  const copyBottom = await page.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
+  const drawerBottom = await page.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
+  expect(copyBottom).toBeLessThanOrEqual(drawerBottom);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+
+  await page.locator("#viewswitch button[data-view='summary']").click();
+  await expect(page.locator(".verdict-cta")).toBeVisible();
+});
+
+test("the byte grid lets a keyboard user move to and pin the exact byte", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#viewswitch button[data-view='bytes']").click();
+  const bytes = page.locator(".hex-scroller");
+  await bytes.focus();
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#status")).toContainText("0x000000ED");
+  await page.keyboard.press("Home");
+  const homeStatus = await page.locator("#status").textContent();
+  const rowStart = Number.parseInt(homeStatus?.match(/0x[\dA-F]+/)?.[0].slice(2) ?? "", 16);
+  expect(Number.isFinite(rowStart)).toBe(true);
+  expect(rowStart).toBeLessThanOrEqual(0xEC);
+  for (let offset = rowStart; offset < 0xEC; offset++) await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#status")).toContainText("0x000000EC");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".drawer-node")).toContainText("GPS IFD");
+});
+
 test("the selected byte explanation is labeled apart from the file summary", async ({ page }) => {
   await openDoor(page, /Check a photo/);
   await page.locator("#viewswitch button[data-view='bytes']").click();

@@ -67,6 +67,11 @@
   overscroll-behavior: contain;
 }
 
+.hex-scroller:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* The whole file by entropy, beside the hex view; also a way to jump. */
 .minimap {
   position: absolute;
@@ -96,16 +101,8 @@
   text-overflow: ellipsis;
 }
 
-.status:empty::before {
-  content: "Point at a byte to see which part it is";
-  color: var(--faint);
-  font-family: var(--font);
-}
-
-@media (hover: none) {
-  .status:empty::before {
-    content: "Tap a byte to see which part it is";
-  }
+.status:not(:empty) {
+  line-height: 1.35;
 }
 
 .hex-bar:has(.search:not([hidden])) .status {
@@ -380,4 +377,3 @@
   font-family: var(--mono);
   color: var(--faint);
 }
-

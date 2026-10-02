@@ -45,6 +45,12 @@ function seen(): boolean {
 }
 
 let sessionSeen = false;
+let dismissCurrentTour: (() => void) | null = null;
+
+/** Closes the current onboarding note when the person starts another action. */
+export function dismissTour(): void {
+  dismissCurrentTour?.();
+}
 
 function markSeen(): void {
   sessionSeen = true;
@@ -115,7 +121,9 @@ export function maybeTour(): void {
     bubble.remove();
     window.removeEventListener("resize", place);
     window.removeEventListener("keydown", onKey, true);
+    if (dismissCurrentTour === end) dismissCurrentTour = null;
   };
+  dismissCurrentTour = end;
   function place(): void {
     if (!lit) return;
     const r = lit.getBoundingClientRect();

@@ -191,7 +191,7 @@ body[data-state="ready"] .viewswitch {
   }
 
   .pane-drawer {
-    max-height: 32vh;
+    max-height: min(38vh, 296px);
     overflow: auto;
   }
 
