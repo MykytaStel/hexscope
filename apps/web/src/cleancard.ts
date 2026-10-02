@@ -2,6 +2,7 @@
 // copy side by side, and what no clean copy can take out.
 import type { FileModel } from "./model";
 import type { PageGlyphs, PagePicture } from "./worker";
+import type { VerificationReport, VerificationSelection } from "./verification";
 import { categories } from "./share";
 import { noun } from "./headline";
 import { el, formatBytes } from "./dom";
@@ -9,6 +10,7 @@ import { LIMITS } from "./knowledge";
 import { typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
+import { loadCopyVerification } from "./copyverification-loader";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -20,6 +22,8 @@ export interface CleanResult {
   removed: { what: string; bytes: number }[];
   orientation: number;
   error: string;
+  /** Local reparse of the actual output; copy actions do not wait for it. */
+  verification?: Promise<VerificationReport>;
 }
 
 export interface RepairResult {
@@ -42,7 +46,7 @@ export interface CleanActions {
   /** The pictures a page draws, counted from 1: a scanned page, to see where to draw. */
   pictures(page: number): Promise<PagePicture[]>;
   /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
-  redact(areas: Float64Array): Promise<CleanResult>;
+  redact(areas: Float64Array, selections: VerificationSelection[]): Promise<CleanResult>;
   /** Saves a copy as a download. */
   save(name: string, data: Uint8Array | Blob): void;
   /** Makes a repaired copy and saves it; resolves with what was done. */
@@ -51,6 +55,27 @@ export interface CleanActions {
   openRepaired(bytes: Uint8Array): void;
   /** Compares the file on screen with another. */
   compare(other: File): void;
+}
+
+/** A compact report about the output Blob; the finding's value never reaches this view. */
+export function copyVerification(result: CleanResult): HTMLElement | null {
+  if (!result.verification) return null;
+
+  const region = el("section", "copy-verification");
+  region.setAttribute("role", "status");
+  region.setAttribute("aria-live", "polite");
+  region.setAttribute("aria-atomic", "false");
+  region.append(el("p", "copy-verification-pending", "Checking the copy in this tab…"));
+  const verification = result.verification;
+  void loadCopyVerification()
+    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification))
+    .catch(() => {
+      region.replaceChildren(
+        el("p", "copy-verification-pending", "Not checked"),
+        el("p", "verify-reason", "Check unavailable."),
+      );
+    });
+  return region;
 }
 
 /**

@@ -36,12 +36,31 @@ let worker: Worker | null = start();
 
 export type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
 
-export function call(req: Req): Promise<WorkerResponse> {
+export function call(req: Req): Promise<WorkerResponse>;
+export function call(req: Extract<Req, { type: "verifyCopy" }>, timeoutMs: number): Promise<WorkerResponse>;
+export function call(req: Req, timeoutMs?: number): Promise<WorkerResponse> {
   const id = ++nextId;
   return new Promise((resolve) => {
-    waiting.set(id, resolve);
-    worker ??= start();
-    worker.postMessage({ ...req, id } as WorkerRequest);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (response: WorkerResponse) => {
+      if (!waiting.has(id)) return;
+      if (timer !== undefined) clearTimeout(timer);
+      waiting.delete(id);
+      resolve(response);
+    };
+    waiting.set(id, finish);
+    if (timeoutMs !== undefined) {
+      timer = setTimeout(
+        () => finish({ id, type: "error", message: "copy verification did not finish in time" }),
+        timeoutMs,
+      );
+    }
+    try {
+      worker ??= start();
+      worker.postMessage({ ...req, id } as WorkerRequest);
+    } catch {
+      finish({ id, type: "error", message: "the worker could not start this request" });
+    }
   });
 }
 
