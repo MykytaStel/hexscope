@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_VERIFY_BYTES,
   capabilitiesFor,
+  checkCopySafely,
   fileFindings,
   uncheckedReport,
   verificationEligible,
+  verifyFileOutput,
   verifyFindings,
   verifyPdfSelections,
   type VerificationFinding,
+  type VerificationReport,
   type VerificationSelection,
 } from "./verification";
 import type { ParsedFile } from "./model";
@@ -233,5 +236,98 @@ describe("verification input size", () => {
     expect(verificationEligible(MAX_VERIFY_BYTES - 1)).toBe(true);
     expect(verificationEligible(MAX_VERIFY_BYTES)).toBe(true);
     expect(verificationEligible(MAX_VERIFY_BYTES + 1)).toBe(false);
+  });
+});
+
+describe("worker verification result mapping", () => {
+  it("maps the parsed output facts and location into a compact report", () => {
+    const source = fileFindings(
+      "jpeg",
+      [
+        { kind: "camera", text: "Canon" },
+        { kind: "owner", text: "Private owner" },
+      ],
+      { latitude: 48.8584, longitude: 2.2945 },
+      labels,
+    );
+    const report = verifyFileOutput(
+      source,
+      {
+        format: "jpeg",
+        facts: [
+          { kind: "camera", text: "Canon" },
+          { kind: "camera", text: "Unexpected camera" },
+        ],
+        location: null,
+      },
+      labels,
+      {},
+    );
+
+    expect(report.removed).toEqual([
+      { kind: "owner", label: "Owner" },
+      { kind: "location", label: "Location" },
+    ]);
+    expect(report.present).toEqual([
+      { kind: "camera", label: "Camera", unexpected: true },
+      { kind: "camera", label: "Camera", unexpected: true },
+    ]);
+    expect(JSON.stringify(report)).not.toContain("Private owner");
+    expect(JSON.stringify(report)).not.toContain("48.8584");
+  });
+
+  it("skips the worker before reading an over-limit output", async () => {
+    const source = [finding("owner", "Private owner")];
+    let called = false;
+    const report = await checkCopySafely(MAX_VERIFY_BYTES + 1, source, [], async () => {
+      called = true;
+      return { type: "verification", report: { removed: [], present: [], unchecked: [] } };
+    });
+
+    expect(called).toBe(false);
+    expect(report.removed).toEqual([]);
+    expect(report.unchecked[0].reason).toMatch(/10 MiB/);
+    expect(JSON.stringify(report)).not.toContain("Private owner");
+  });
+
+  it.each([
+    ["an RPC timeout", { type: "error", message: "Private worker detail" }],
+    ["an unexpected worker reply", { type: "cleaned" }],
+  ])("maps %s to a private unchecked report", async (_name, response) => {
+    const report = await checkCopySafely(1, [finding("owner", "Private owner")], [pageSelection()], async () => response);
+    const serialized = JSON.stringify(report);
+
+    expect(report.removed).toEqual([]);
+    expect(report.present).toEqual([]);
+    expect(report.unchecked).toHaveLength(2);
+    expect(serialized).not.toContain("Private owner");
+    expect(serialized).not.toContain("Secret Name");
+    expect(serialized).not.toContain("Private worker detail");
+  });
+
+  it("maps a rejected parser request to unchecked findings", async () => {
+    const report = await checkCopySafely(1, [finding("owner", "Private owner")], [], async () => {
+      throw new Error("Private parser detail");
+    });
+
+    expect(report.removed).toEqual([]);
+    expect(report.unchecked).toHaveLength(1);
+    expect(JSON.stringify(report)).not.toContain("Private parser detail");
+    expect(JSON.stringify(report)).not.toContain("Private owner");
+  });
+
+  it("strips raw values and scopes from an otherwise valid worker report", async () => {
+    const report = await checkCopySafely(1, [], [], async () => ({
+      type: "verification",
+      report: {
+        removed: [{ kind: "owner", label: "Owner", value: "Private owner", scope: "file" }],
+        present: [],
+        unchecked: [],
+      } as unknown as VerificationReport,
+    }));
+
+    expect(report.removed).toEqual([{ kind: "owner", label: "Owner" }]);
+    expect(JSON.stringify(report)).not.toContain("Private owner");
+    expect(JSON.stringify(report)).not.toContain('"scope"');
   });
 });

@@ -1,6 +1,12 @@
 import type { ParsedFile, PhotoFact, PhotoLocation } from "./model";
 
-/** The largest clean copy the browser profile exercised in the Pixel 7 project. */
+/**
+ * 10 MiB cap from the Playwright Pixel 7 profile: a deterministic 9.78 MiB
+ * PNG completed parse → clean → reparse in 2.55 s. Chromium's process-tree
+ * RSS peaked at 502.6 MiB (no renderer-only metric was available); the 9.5 MiB
+ * JS-heap reading excludes Wasm memory. This is emulation evidence, not a
+ * physical-device claim. Copy handoff runs before verification starts.
+ */
 export const MAX_VERIFY_BYTES = 10 * 1024 * 1024;
 
 export interface VerificationFinding {
@@ -46,6 +52,12 @@ export interface VerificationPage {
   page: number;
   text: string;
   complete: boolean;
+}
+
+export interface VerificationFileOutput {
+  format: ParsedFile["format"];
+  facts: readonly Pick<PhotoFact, "kind" | "text">[];
+  location: Pick<PhotoLocation, "latitude" | "longitude"> | null;
 }
 
 const FILE_SCOPE = "file";
@@ -180,6 +192,18 @@ export function verifyFindings(
   return report;
 }
 
+/** Convert one parsed output observation to findings and apply tested capabilities. */
+export function verifyFileOutput(
+  source: readonly VerificationFinding[],
+  output: VerificationFileOutput,
+  labels: Readonly<Record<string, string>>,
+  retainedReasons: Readonly<Record<string, string>>,
+  extraOutputFacts: readonly Pick<PhotoFact, "kind" | "text">[] = [],
+): VerificationReport {
+  const outputFindings = fileFindings(output.format, [...output.facts, ...extraOutputFacts], output.location, labels);
+  return verifyFindings(source, outputFindings, capabilitiesFor(output.format, source.map(({ kind }) => kind)), retainedReasons);
+}
+
 const PDF_TEXT_KIND = "pdf-text";
 const PDF_TEXT_LABEL = "Selected PDF text";
 const PDF_AREA_KIND = "pdf-picture";
@@ -254,6 +278,56 @@ export function uncheckedReport(
   ];
   if (unchecked.length === 0) unchecked.push({ kind: "verification", label: "Copy verification", reason });
   return { removed: [], present: [], unchecked };
+}
+
+export interface VerificationReply {
+  type: string;
+  report?: VerificationReport;
+}
+
+function compactReport(value: unknown): VerificationReport | null {
+  if (!value || typeof value !== "object") return null;
+  const report = value as Record<string, unknown>;
+  const items = (list: unknown): VerificationItem[] | null => {
+    if (!Array.isArray(list)) return null;
+    const compact: VerificationItem[] = [];
+    for (const value of list) {
+      if (!value || typeof value !== "object") return null;
+      const candidate = value as Record<string, unknown>;
+      if (typeof candidate.kind !== "string" || typeof candidate.label !== "string") return null;
+      compact.push({
+        kind: candidate.kind,
+        label: candidate.label,
+        ...(typeof candidate.reason === "string" ? { reason: candidate.reason } : {}),
+        ...(candidate.unexpected === true ? { unexpected: true } : {}),
+      });
+    }
+    return compact;
+  };
+  const removed = items(report.removed);
+  const present = items(report.present);
+  const unchecked = items(report.unchecked);
+  return removed && present && unchecked ? { removed, present, unchecked } : null;
+}
+
+/** Run a bounded worker check and map every skip, failure, or malformed reply to a private unchecked report. */
+export async function checkCopySafely(
+  sizeBytes: number,
+  source: readonly VerificationFinding[],
+  selections: readonly VerificationSelection[],
+  inspect: () => Promise<VerificationReply>,
+): Promise<VerificationReport> {
+  if (!verificationEligible(sizeBytes)) {
+    return uncheckedReport(source, selections, "This copy is larger than the 10 MiB verification limit.");
+  }
+  try {
+    const reply = await inspect();
+    const report = reply.type === "verification" ? compactReport(reply.report) : null;
+    if (report) return report;
+  } catch {
+    // Worker errors can contain file-derived text. Keep only a general reason.
+  }
+  return uncheckedReport(source, selections, "Hexscope could not check this copy because verification failed or timed out.");
 }
 
 /** Whether the output can be reparsed within the measured browser budget. */

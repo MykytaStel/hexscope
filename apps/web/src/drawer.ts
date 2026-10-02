@@ -839,9 +839,15 @@ export class Drawer {
 
     save.addEventListener("click", async () => {
       const marks = picked();
+      const selections = marks.map((mark) => ({
+        page: mark.page,
+        text: mark.text,
+        sourceComplete: pages?.find((page) => page.page === mark.page)?.complete ?? false,
+        areaOnly: mark.text.trim().length === 0,
+      }));
       save.disabled = true;
       save.textContent = "Making the copy…";
-      const r = await this.cleaning.redact(areasOf(marks));
+      const r = await this.cleaning.redact(areasOf(marks), selections);
       refresh();
       result.replaceChildren();
       if (r.error) {

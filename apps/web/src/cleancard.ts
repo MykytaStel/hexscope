@@ -2,6 +2,7 @@
 // copy side by side, and what no clean copy can take out.
 import type { FileModel } from "./model";
 import type { PageGlyphs, PagePicture } from "./worker";
+import type { VerificationReport, VerificationSelection } from "./verification";
 import { categories } from "./share";
 import { noun } from "./headline";
 import { el, formatBytes } from "./dom";
@@ -20,6 +21,8 @@ export interface CleanResult {
   removed: { what: string; bytes: number }[];
   orientation: number;
   error: string;
+  /** Local reparse of the actual output; copy actions do not wait for it. */
+  verification?: Promise<VerificationReport>;
 }
 
 export interface RepairResult {
@@ -42,7 +45,7 @@ export interface CleanActions {
   /** The pictures a page draws, counted from 1: a scanned page, to see where to draw. */
   pictures(page: number): Promise<PagePicture[]>;
   /** A clean copy with these areas blacked out (see `areasOf`), saved or waiting to be. */
-  redact(areas: Float64Array): Promise<CleanResult>;
+  redact(areas: Float64Array, selections: VerificationSelection[]): Promise<CleanResult>;
   /** Saves a copy as a download. */
   save(name: string, data: Uint8Array | Blob): void;
   /** Makes a repaired copy and saves it; resolves with what was done. */

@@ -2,10 +2,14 @@
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
 import type { CleanCopy, Parsed } from "./wasm/hexscope_wasm.js";
-import type { PageArea, ParsedFile } from "./model";
+import { Kind, type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
+import { MAX_VERIFY_BYTES, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
+import { FACT_LABELS } from "./knowledge";
+import { searchable } from "./redactor";
+import { meaning } from "./qr/meaning";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -17,6 +21,15 @@ export type WorkerRequest =
   | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
   | { id: number; type: "clean"; source: Blob; notes?: boolean }
+  | {
+      id: number;
+      type: "verifyCopy";
+      copy: Blob;
+      sourceFormat: ParsedFile["format"];
+      sourceFindings: VerificationFinding[];
+      retainedReasons: Record<string, string>;
+      selections?: VerificationSelection[];
+    }
   | { id: number; type: "repair"; bytes: Uint8Array }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
@@ -30,6 +43,7 @@ export type WorkerResponse =
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string }
+  | { id: number; type: "verification"; report: VerificationReport }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
   | { id: number; type: "pagePictures"; pictures: PagePicture[] }
@@ -320,6 +334,100 @@ async function handle(req: WorkerRequest): Promise<void> {
     }
     c ??= wasm.cleanCopy(bytes, req.notes ?? false);
     postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
+    return;
+  }
+
+  if (req.type === "verifyCopy") {
+    const selections = req.selections ?? [];
+    if (req.copy.size > MAX_VERIFY_BYTES) {
+      post({
+        id: req.id,
+        type: "verification",
+        report: uncheckedReport(req.sourceFindings, selections, "This copy is larger than the 10 MiB verification limit."),
+      });
+      return;
+    }
+
+    let parsed: Parsed | null = null;
+    let pdfText: ReturnType<Module["pageTexts"]> | null = null;
+    try {
+      // Check the Blob size above before materialising another full copy of its bytes.
+      const bytes = new Uint8Array(await req.copy.arrayBuffer());
+      const wasm = await moduleFor(bytes);
+      parsed = wasm.parse(bytes);
+      const output = describe(parsed);
+      let extraOutputFacts: { kind: string; text: string }[] = [];
+
+      // QR findings are derived by the existing image scanner rather than the
+      // format parser. Recheck only when the source had a code the cleaner keeps.
+      const hasKeptCode = req.sourceFindings.some((finding) => finding.kind.startsWith("qr") && req.retainedReasons[finding.kind]);
+      if (hasKeptCode && (req.sourceFormat === "pdf" || ["jpeg", "png", "heif", "webp", "gif"].includes(req.sourceFormat))) {
+        try {
+          const found = req.sourceFormat === "pdf"
+            ? await codes({ id: req.id, type: "codes", pdf: bytes })
+            : await codes({ id: req.id, type: "codes", picture: req.copy });
+          extraOutputFacts = found.map(({ text, where }) => {
+            const fact = meaning(text);
+            return { kind: fact.kind, text: where ? `${fact.text} (in ${where})` : fact.text };
+          });
+        } catch {
+          // The copy can still be checked for parser-backed findings; QR facts
+          // without a second scan remain unchecked by the capability table.
+        }
+      }
+
+      let report: VerificationReport;
+      if (req.sourceFormat === "pdf") {
+        const emptyReport: VerificationReport = { removed: [], present: [], unchecked: [] };
+        const fileReport = req.sourceFindings.length || extraOutputFacts.length
+          ? verifyFileOutput(req.sourceFindings, output, { ...FACT_LABELS, location: "Location" }, req.retainedReasons, extraOutputFacts)
+          : emptyReport;
+        pdfText = wasm.pageTexts(bytes);
+        const pages: PageGlyphs[] = [];
+        for (let i = 0; i < pdfText.count; i++) {
+          const texts = pdfText.texts(i);
+          pages.push({
+            media: Array.from(pdfText.media(i)) as PageArea,
+            areas: pdfText.areas(i),
+            texts: texts ? texts.split(SEPARATOR) : [],
+            complete: pdfText.complete(i),
+            boxes: pdfText.boxes(i),
+          });
+        }
+        const searchablePages: VerificationPage[] = searchable(pages).map(({ page, text, complete }) => ({ page, text, complete }));
+        const textReport = selections.length ? verifyPdfSelections(selections, searchablePages) : emptyReport;
+        report = {
+          removed: [...fileReport.removed, ...textReport.removed],
+          present: [...fileReport.present, ...textReport.present],
+          unchecked: [...fileReport.unchecked, ...textReport.unchecked],
+        };
+        if (report.removed.length + report.present.length + report.unchecked.length === 0) {
+          report = uncheckedReport([], [], "No comparable findings were available to check.");
+        }
+      } else if (req.sourceFormat === "jpeg" && output.kinds.some((kind) => kind >= Kind.Warning)) {
+        report = uncheckedReport(req.sourceFindings, selections, "The JPEG output could not be completely checked by the parser.");
+      } else {
+        report = verifyFileOutput(req.sourceFindings, output, { ...FACT_LABELS, location: "Location" }, req.retainedReasons, extraOutputFacts);
+      }
+      post({ id: req.id, type: "verification", report });
+    } catch {
+      post({
+        id: req.id,
+        type: "verification",
+        report: uncheckedReport(req.sourceFindings, selections, "Hexscope could not completely read the copy, so its findings were not checked."),
+      });
+    } finally {
+      try {
+        pdfText?.free();
+      } catch {
+        // A crashed Wasm parser may no longer be able to free its temporary page table.
+      }
+      try {
+        parsed?.free();
+      } catch {
+        // The output parser is temporary; leave the user's open-file stack alone.
+      }
+    }
     return;
   }
 
