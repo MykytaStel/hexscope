@@ -10,7 +10,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 - **Local by default:** no file uploads, accounts, telemetry, or server-side inspection.
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
-- **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web and CLI, and add other integrations only when they have a real implementation and parity evidence.
+- **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose them through the Web, CLI, and GitHub Action with clear, interface-specific capabilities.
 - **Copies stay under user control:** never silently alter the source; keep a produced copy available when verification is incomplete.
 - **Measure before expanding:** protect parser safety, browser memory, gzip size budgets, accessibility, and real-device usability.
 - **Teach without getting in the way:** give the plain-language answer first; let curious users open the structure, algorithms, and bytes.
@@ -36,7 +36,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ### P1 — Make the core and CLI a dependable platform
 
-1. **Keep a single capability contract.** Derive coverage labels and reason codes from the shared core contract so Web and CLI text/JSON output cannot silently disagree. Add an Action only if one is implemented and maintained in this repository.
+1. **Keep a single capability contract.** Derive clean-copy coverage labels and reason codes from the shared core contract so Web and CLI text/JSON output cannot silently disagree; keep the existing GitHub Action's `check` findings aligned with the same core taxonomy.
 2. **Improve batch workflows.** Make per-file results, aggregate exit status, and machine-readable output useful for folders and CI without hiding which files were unchecked.
 3. **Harden parser and cleaner boundaries.** Extend property tests, fuzz targets, malformed-file fixtures, and read-after-write verification as new format coverage is added.
 4. **Protect performance and package budgets.** Benchmark parsing and cleaning on representative large files; lazy-load optional work and keep existing JavaScript/WASM limits enforced in CI.
@@ -86,7 +86,7 @@ Build a continuously tested corpus from synthetic fixtures and redistributable s
 - **Architecture:** keep parsers, facts, cleaning, and verification separated behind small stable interfaces; add abstraction only where multiple formats need it.
 - **Science and algorithms:** measure detection quality and failure modes; use deterministic methods first. Keep OCR or machine learning local and optional, with published evaluation data and explicit uncertainty.
 - **Web product:** keep the main path short—summary, evidence, safe action—while preserving the detailed byte inspector as an optional depth layer.
-- **CLI and CI:** maintain predictable exit codes, stable JSON/SARIF, batch support, and parity with Web for the same supported evidence; treat a user-facing GitHub Action as future work until it exists.
+- **CLI, Action, and CI:** maintain predictable exit codes, stable JSON/SARIF, batch support, and parity with Web for the same supported evidence. Extend the existing GitHub Action only when its output can preserve each interface's verification limits.
 - **Security and reliability:** continue fuzzing hostile inputs, testing corrupt and oversized files, and verifying real output bytes rather than trusting the requested operation.
 
 ## Out of scope unless the product direction changes
