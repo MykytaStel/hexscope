@@ -9,6 +9,7 @@ import { LIMITS } from "./knowledge";
 import { typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
+import type { VerificationReport } from "./verification";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -20,6 +21,7 @@ export interface CleanResult {
   removed: { what: string; bytes: number }[];
   orientation: number;
   error: string;
+  verification: VerificationReport | null;
 }
 
 export interface RepairResult {

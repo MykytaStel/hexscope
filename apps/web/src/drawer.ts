@@ -857,6 +857,10 @@ export class Drawer {
         ul.append(li);
       }
       result.append(ul);
+      if (r.verification) {
+        const { cleanVerificationCard } = await import("./verification-card");
+        result.append(cleanVerificationCard(r.verification));
+      }
       const sharer = shareButton(r.name, r.copy);
       if (sharer) result.append(sharer);
       if (!r.saved) {
@@ -932,6 +936,10 @@ export class Drawer {
       const kept = [...(box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dd[data-kept]") ?? [])].map((e) => e.dataset.kind ?? "");
       box.append(beforeAfter(m, r, categoryCount(kept)));
       box.append(done(r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy."));
+      if (r.verification) {
+        const { cleanVerificationCard } = await import("./verification-card");
+        box.append(cleanVerificationCard(r.verification));
+      }
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??

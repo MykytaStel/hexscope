@@ -565,6 +565,27 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   if (saved.length > 0) expect(saved).toEqual(["photo-clean.jpg"]);
 });
 
+test("clean copy verification shows checked kinds and leaves personal values out", async ({ page }) => {
+  catchDownloads(page);
+  await openDoor(page, /Check a photo/);
+  const values = (await page.locator(".reveal-list dd").allTextContents())
+    .map((value) => value.trim())
+    .filter((value) => value.length > 3);
+
+  await page.locator(".verdict-cta").click();
+  const card = page.locator(".clean-verification");
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("Copy check");
+  await expect(card).toContainText("Location");
+  await expect(card).toContainText("Could not check");
+  const text = await card.innerText();
+  for (const value of values) expect(text).not.toContain(value);
+
+  await page.locator(".language-button").click();
+  await expect(card).toContainText("Перевірка копії");
+  await expect(card).toContainText("Місце зйомки");
+});
+
 test("a fake bank email: why it may not be real, drawn on its way", async ({ page }) => {
   await openDoor(page, /Check an email before you trust it/);
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");

@@ -6,6 +6,7 @@ import type { PageArea, ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
+import { decodeVerification, skippedVerification, type VerificationReport } from "./verification";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -29,7 +30,7 @@ export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
-  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string }
+  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification: VerificationReport | null }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
   | { id: number; type: "pagePictures"; pictures: PagePicture[] }
@@ -171,12 +172,21 @@ async function largeMovie(file: Blob): Promise<Movie | null> {
 }
 
 /** Answers with a copy the parser made, as a file made by `wrap`. */
-function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob): void {
+function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, source?: Parsed): void {
   const parts = c.removed ? c.removed.split(SEPARATOR) : [];
   const removed = [];
   for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
-  const copy = c.error ? new Blob([]) : wrap(c.bytes);
-  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error });
+  let verification: VerificationReport | null = null;
+  if (!c.error) {
+    try {
+      verification = source ? decodeVerification(source.verifyCopy(c)) : skippedVerification();
+    } catch {
+      verification = skippedVerification();
+    }
+  }
+  const bytes = c.bytes;
+  const copy = c.error ? new Blob([]) : wrap(bytes);
+  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error, verification });
   c.free();
 }
 
@@ -299,10 +309,11 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
+    const sourceParsed = stack[stack.length - 1];
     const movie = await largeMovie(req.source);
     if (movie) {
       const source = req.source;
-      postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source));
+      postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source), sourceParsed);
       return;
     }
     const bytes = new Uint8Array(await req.source.arrayBuffer());
@@ -319,7 +330,7 @@ async function handle(req: WorkerRequest): Promise<void> {
       }
     }
     c ??= wasm.cleanCopy(bytes, req.notes ?? false);
-    postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]), sourceParsed);
     return;
   }
 
@@ -359,10 +370,11 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "redact") {
+    const sourceParsed = stack[stack.length - 1];
     const wasm = await loadFull();
     const painted = await paintJpegs(req.bytes, wasm.jpegsUnder(req.bytes, req.areas));
     const c = wasm.redactCopy(req.bytes, req.areas, painted.nums, painted.lens, painted.bytes);
-    postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]), sourceParsed);
     return;
   }
 

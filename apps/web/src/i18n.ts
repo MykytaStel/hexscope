@@ -8,6 +8,11 @@ export function registerGuideTranslations(translations: Readonly<Record<string, 
   guideTranslations = translations;
 }
 
+/** Adds strings owned by a lazily loaded feature without shipping them in the main language table. */
+export function registerTranslations(translations: Readonly<Record<string, string>>): void {
+  guideTranslations = { ...guideTranslations, ...translations };
+}
+
 // Keep the source copy as the key: the English UI remains the canonical copy,
 // and untranslated technical terms stay readable until they have a reviewed
 // Ukrainian equivalent.
@@ -71,7 +76,6 @@ const UK: Record<string, string> = {
   "Android app": "Застосунок Android",
   "Outlook message": "Лист Outlook",
   "Where": "Місце",
-  "Camera serial": "Серійний номер фотоапарата",
   "the whole file": "увесь файл",
   "BEFORE YOU SEND": "ПЕРЕД НАДСИЛАННЯМ",
   "Before you send": "Перед надсиланням",
@@ -292,6 +296,7 @@ const UK: Record<string, string> = {
   "Share what it revealed": "Поділитися результатом",
   "Only the kinds of thing, never what they are.": "Лише типи знайдених даних — без самих значень.",
   "What was removed": "Що видалено",
+  "Camera serial": "Серійний номер фотоапарата",
   "Made a clean copy.": "Очищену копію створено.",
   "Open the clean copy": "Відкрити очищену копію",
   "Check it yourself: the card should now be empty": "Перевірте самі: тепер у картці не має бути цих даних",

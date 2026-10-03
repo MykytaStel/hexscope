@@ -286,6 +286,43 @@
   margin-top: 8px;
 }
 
+.clean-verification {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+}
+
+.clean-verification h3,
+.clean-verification h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.clean-verification-status {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.clean-verification-group {
+  margin-top: 10px;
+}
+
+.clean-verification-group ul {
+  display: grid;
+  gap: 5px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.clean-verification-group li span {
+  margin-left: 5px;
+  color: var(--muted);
+}
+
 /* An email's way to you: stops left to right, what leaves the way below. */
 .mail-path {
   margin: 0 0 14px;

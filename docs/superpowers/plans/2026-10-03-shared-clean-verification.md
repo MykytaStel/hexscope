@@ -36,9 +36,11 @@
 - `crates/hexscope-core/src/lib.rs`: exports the new module.
 - `crates/hexscope-wasm/src/lib.rs`: retains the existing parse's summary snapshot and adds a `Parsed.verifyCopy(cleanCopy)` bridge method.
 - `apps/web/src/worker.ts`: puts the report on the existing cleaned response.
-- `apps/web/src/verification.ts`: TypeScript report shape, defensive decode, and localized display labels.
+- `apps/web/src/verification.ts`: TypeScript report shape, defensive decode, and cautious status sentence.
+- `apps/web/src/verification-card.ts`: lazy-loaded accessible result card and its Ukrainian strings.
 - `apps/web/src/cleancard.ts`, `drawer.ts`: carries and renders the result alongside the saved/shared copy.
-- `apps/web/src/i18n.ts`: English-keyed Ukrainian translations for statuses, kind labels, and reasons.
+- `apps/web/src/i18n.ts`: registers strings owned by a lazily loaded feature without putting them in the main language table.
+- `apps/web/src/styles/input-and-accessibility.css`: styles the verification result card.
 - `apps/web/src/logic.test.ts` and a focused verification test: real WASM contract and value-free/decode behavior.
 - `apps/web/e2e/site.e2e.ts`: real clean-copy UI path.
 - `crates/hexscope-cli/src/main.rs`: `clean --verify`, disk read-back, human/JSON output and conservative exit.
@@ -245,5 +247,9 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
 - Baseline build: `pnpm --filter web build` passed; warnings about `./theme.js` missing `type="module"` exist in 11 HTML files.
 - Baseline gzip-9 artifact sizes: main JS `64,528/65,000`, media WASM `126,889/140,000`, full WASM `286,084/290,000` bytes.
 - Task 1: the initial test run failed on the intentionally absent verification API; after implementation, `cargo test -p hexscope-core verification` passed 8/8 and `cargo test -p hexscope-core` passed 301 unit, 17 golden, and 14 property tests (6 timing tests remained ignored). `cargo fmt --all` and `git diff --check` passed.
+- Task 1 commit: `2643b8d` (`feat(core): add clean-copy verification`).
 - `Ruling: The real JPEG fixture also exposes lens/date/software/thumbnail facts outside the proven whitelist — keep them unchecked in the report and test the mixed result — cost if wrong: this milestone does not provide a whole-file clean verdict for that fixture.`
 - Task 2: bridge RED failed because `Parsed.verify_copy` was absent; a real-photo first pass showed the expected uncovered lens/date/software/thumbnail items, so the test was corrected to require those unchecked results. `cargo test -p hexscope-wasm` passed 35/35; `pnpm wasm` built both variants; `pnpm --filter web build` passed with the 11 baseline `theme.js` warnings. Post-bridge gzip-9 sizes: main JS `64,529/65,000`, media WASM `129,573/140,000`, full WASM `288,565/290,000` bytes.
+- Task 2 commit: `05cdef5` (`feat(wasm): expose clean-copy verification`).
+- `Ruling: Eagerly loading the Web status card exceeded the main-JS limit by 128 gzip-9 bytes — lazy-load the card and its translations after the copy is made — cost if wrong: one small chunk loads on the result screen.`
+- Task 3: decoder RED failed because the module was missing; `pnpm --filter web test` passed 64/64, `pnpm --filter web build` passed with the same 11 `theme.js` warnings, and the focused E2E passed on desktop and phone. The first E2E assertion used a new Ukrainian synonym for Location; it was corrected to the app's existing translation `Місце зйомки`. Final gzip-9 sizes after lazy-loading the status card: main JS `64,676/65,000`, media WASM `129,573/140,000`, full WASM `288,565/290,000` bytes.
