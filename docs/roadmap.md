@@ -22,7 +22,7 @@ Hexscope should help a person understand what a file reveals before they share i
 - Rust core compares parser-backed facts before and after cleaning and emits a value-free report.
 - Web verifies the actual produced bytes in the worker and retains its QR and selected-PDF-text checks.
 - CLI `clean --verify` reads the written output back and returns a conservative status.
-- Confirmed removal coverage is intentionally limited to complete JPEG file-scope findings for camera, serial number, owner, and location. Other formats and findings remain unchecked until their parser and cleaner behavior have proof and fixtures.
+- Confirmed removal coverage is intentionally limited to complete JPEG file-scope findings for camera, serial number, owner, and location. Removal claims outside this coverage remain unchecked; observed residual findings can still be reported as present.
 - Web output verification skips the additional parse above 10 MiB; copy creation remains available.
 
 ## Near-term priorities
