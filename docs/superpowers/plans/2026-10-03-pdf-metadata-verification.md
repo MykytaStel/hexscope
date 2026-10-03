@@ -114,6 +114,6 @@ Expected: all commands pass; report ignored tests separately if any.
 
 Run the current-tree RepoPilot review and inspect every signal. The final review reported no in-diff findings; two function-growth signals were manually checked against the small metadata-completeness changes, and no extra implementation was needed. Then review the full diff against `origin/main` before opening a draft PR.
 
-- [ ] **Step 4: Commit the focused implementation**
+- [x] **Step 4: Commit the focused implementation**
 
 Commit the spec, plan, core change, fixture tests, and roadmap note after verification and review.
