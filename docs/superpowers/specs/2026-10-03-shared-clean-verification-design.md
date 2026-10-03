@@ -10,12 +10,12 @@ The first verified coverage remains deliberately small: JPEG file-level camera, 
 
 ## Current state
 
-- The web worker makes a cleaned copy and returns the removed-block list from the cleaner. The page displays those operation results but does not reparse the copy.
-- `hexscope-core/src/summary.rs` extracts parser-backed facts for the CLI, but there is no verification model or classifier.
+- PR #13 already added a lazy clean-copy verification report to Web, with output reparsing, QR rescanning, and PDF selected-text checks. Its parser-backed fact classifier is TypeScript-specific.
+- `hexscope-core/src/summary.rs` extracts parser-backed facts, but there is no shared verification model or classifier.
 - `hexscope-cli` writes clean copies but does not read the generated file back for verification.
-- Existing web functions also support PDF redaction, QR inspection, and opening a copy. They are separate operations; this milestone does not claim verification parity for QR or PDF text-selection checks.
+- This milestone replaces only Web's parser-backed classifier. It preserves the QR and PDF selection supplements already in the UI.
 - Processing stays local. Verification reports, logs, and JSON must not include finding values or scopes.
-- The web worker has no current clean-verification size bound. This milestone will skip re-parsing copies larger than 10 MiB and report that verification was skipped. This bounds the additional parser memory; it does not change cleaning or the existing file-open path.
+- PR #13 already bounds clean-copy verification at 10 MiB; the shared core classifier keeps that bound and skips its extra summary parse above the same limit. This does not change cleaning or the existing file-open path.
 
 ## Design
 
@@ -33,10 +33,11 @@ The initial capability table is exactly JPEG, file scope, and kinds `camera`, `s
 
 ### WebAssembly and web app
 
-- `Parsed` retains an in-memory source snapshot derived from the document it already parsed. A WASM method accepts the cleaner's `CleanCopy`, checks its existing output bytes, parses that output once, and calls the core classifier. This does not parse the original bytes again or copy finding values to the page.
-- The WASM method skips output parsing when the copy exceeds 10 MiB and returns a `verification_skipped` report. A cleaner error means there is no copy and therefore no verification report.
-- The worker attaches the report to its existing clean-copy response. The page adds an accessible, localized status with removed, still-present, and unchecked groups, showing finding kinds and reasons only.
-- Clean, redacted, and movie copies use the same response path; formats or kinds outside the whitelist remain unchecked. PDF selected-text and QR findings are not claimed as verified by this contract.
+- `Parsed` retains the source snapshot from its original parse. The worker adds its RPC request id as an opaque local token to the parsed-file model; a later verification request sends the actual `Blob` bytes back to the worker.
+- After the asynchronous byte read, the worker looks up the still-open source parse and synchronously calls its existing `verifyCopy(bytes)` WASM method. That method checks the 10 MiB bound, summarizes the output bytes once, and calls the core classifier. If a newer parse already replaced the source, the worker reports it unchecked instead of comparing against the wrong file.
+- Finding values and scopes stay in Rust for this comparison. The Web decoder accepts only the strict versioned value-free schema.
+- PR #13's lazy accessible status and copy actions remain in place. The core report covers parser-backed findings; QR rescanning and PDF selected-text checks remain separate browser-specific supplements.
+- Clean, redacted, and movie copies use the same verification request path; formats or kinds outside the whitelist remain unchecked.
 - No new runtime dependency, telemetry, network call, OCR, or server processing.
 
 ### CLI
@@ -58,7 +59,7 @@ The initial capability table is exactly JPEG, file scope, and kinds `camera`, `s
 ## Validation and acceptance
 
 1. Core tests cover duplicate findings, changed-value same-kind findings, unsupported and incomplete coverage, output-only findings, empty input, and report serialization with no values or scopes.
-2. WASM tests compare source and `CleanCopy` through the exported bridge, verify residual findings, and prove that oversized copies return skipped without parsing.
+2. WASM tests compare source findings with actual output bytes through the exported bridge, verify residual findings, and prove that oversized inputs return skipped without parsing.
 3. Web tests check value-free report parsing, localized user-visible states, and existing save/share behavior. E2E exercises the clean-copy flow with the real fixture.
 4. CLI integration tests prove it checks bytes on disk, preserves copies with residual/unchecked findings, emits valid versioned JSON, handles multiple files and `--in-place`, and returns the documented exit statuses.
 5. Existing clean, redaction, accessibility, and large-file flows continue to work.
@@ -68,7 +69,7 @@ The initial capability table is exactly JPEG, file scope, and kinds `camera`, `s
 ## Self-review
 
 - The spec now describes observed code rather than claiming an existing verifier.
-- The output object is the cleaner's actual copy in Web and the destination read back from disk in CLI.
+- Web checks the actual copied bytes; the CLI checks the destination bytes read back from disk.
 - Only explicitly complete JPEG fact coverage can be called removed; unsupported and incomplete cases remain visible.
 - Finding values and scopes are absent from every report boundary.
 - Browser extra work has a concrete 10 MiB bound without changing copy creation.

@@ -1,9 +1,9 @@
 // What every page but the app itself runs: the theme button in its top bar.
 import { GUIDE_UK } from "./guide-i18n";
 import { themeButton } from "./theme";
-import { currentLocale, installLocale, languageButton, registerGuideTranslations } from "./i18n";
+import { currentLocale, installLocale, languageButton, registerLazyTranslations } from "./i18n";
 
-registerGuideTranslations(GUIDE_UK);
+registerLazyTranslations(GUIDE_UK);
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton(), themeButton());
 

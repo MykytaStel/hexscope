@@ -294,19 +294,19 @@ impl Parsed {
             .join(&sep)
     }
 
-    /// Compares the cleaner's actual copy bytes with this already-parsed
-    /// source. The extra output parse is bounded for browser memory.
+    /// Compares actual copy bytes with this already-parsed source. The extra
+    /// summary parse is bounded for browser memory.
     #[wasm_bindgen(js_name = verifyCopy)]
-    pub fn verify_copy(&self, copy: &CleanCopy) -> String {
+    pub fn verify_copy(&self, bytes: &[u8]) -> String {
         const MAX_VERIFICATION_BYTES: usize = 10 * 1024 * 1024;
         let Some(source) = self.verification.as_ref() else {
             return hexscope_core::verification::VerificationReport::skipped().to_json();
         };
-        if !copy.error.is_empty() || copy.bytes.len() > MAX_VERIFICATION_BYTES {
+        if bytes.len() > MAX_VERIFICATION_BYTES {
             return hexscope_core::verification::VerificationReport::skipped().to_json();
         }
         let output =
-            hexscope_core::verification::snapshot(&hexscope_core::summary::summarize(&copy.bytes));
+            hexscope_core::verification::snapshot(&hexscope_core::summary::summarize(bytes));
         hexscope_core::verification::compare(source, &output).to_json()
     }
 
@@ -2230,8 +2230,9 @@ mod tests {
         .unwrap();
         let source = parse(&photo);
         let copy = clean_copy(&photo, false);
+        let bytes = copy.bytes();
 
-        let report = source.verify_copy(&copy);
+        let report = source.verify_copy(&bytes);
 
         assert!(report.contains("\"schema_version\":1"), "{report}");
         assert!(report.contains("\"kind\":\"location\""), "{report}");
@@ -2251,14 +2252,8 @@ mod tests {
         )
         .unwrap();
         let source = parse(&photo);
-        let copy = CleanCopy {
-            bytes: photo,
-            removed: Vec::new(),
-            error: String::new(),
-            orientation: 1,
-        };
 
-        let report = source.verify_copy(&copy);
+        let report = source.verify_copy(&photo);
 
         assert!(report.contains("\"reason\":\"still_present\""), "{report}");
         assert!(!report.contains("\"removed\":[{"), "{report}");
@@ -2271,14 +2266,9 @@ mod tests {
         )
         .unwrap();
         let source = parse(&photo);
-        let copy = CleanCopy {
-            bytes: vec![0; 10 * 1024 * 1024 + 1],
-            removed: Vec::new(),
-            error: String::new(),
-            orientation: 1,
-        };
+        let bytes = vec![0; 10 * 1024 * 1024 + 1];
 
-        let report = source.verify_copy(&copy);
+        let report = source.verify_copy(&bytes);
 
         assert!(
             report.contains("\"reason\":\"verification_skipped\""),

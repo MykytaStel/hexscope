@@ -355,6 +355,22 @@ fn clean_verify_returns_one_when_cleaning_made_no_copy() {
 }
 
 #[test]
+fn clean_verify_returns_one_when_directory_contains_no_files() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-empty-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let (code, out, err) = run(&["clean", "--verify", "--json", dir.to_str().unwrap()]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.is_empty(), "{out}");
+    assert!(err.contains("0 copies made"), "{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn verify_is_only_an_option_for_clean() {
     let (code, _, err) = run(&["check", "--verify", &fixture("photo.jpg")]);
     assert_eq!(code, 2);

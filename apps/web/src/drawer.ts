@@ -727,7 +727,7 @@ export class Drawer {
         const pick = el("select", "redact-page-pick");
         pick.setAttribute("aria-label", "Show a page to draw a box on");
         pick.append(el("option", undefined, show.length ? "Draw on another page…" : "Draw a box on a page…"));
-        for (const p of pages) if (!show.includes(p.page)) pick.append(Object.assign(el("option", undefined, `Page ${p.page}`), { value: String(p.page) }));
+        for (const p of pages) if (!show.includes(p.page)) pick.append(new Option(`Page ${p.page}`, String(p.page)));
         pick.addEventListener("change", () => {
           shownPages.add(Number(pick.value));
           drawPreview();

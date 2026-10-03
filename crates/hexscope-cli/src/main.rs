@@ -877,9 +877,11 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
         "hexscope: {made} {} made",
         if made == 1 { "copy" } else { "copies" }
     );
-    Ok(if verification_failed || failed > 0 {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    })
+    Ok(
+        if verification_failed || failed > 0 || (o.verify && made == 0) {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        },
+    )
 }

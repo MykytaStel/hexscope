@@ -2,11 +2,11 @@
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
 import type { CleanCopy, Parsed } from "./wasm/hexscope_wasm.js";
-import { Kind, type PageArea, type ParsedFile } from "./model";
+import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
-import { MAX_VERIFY_BYTES, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
+import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
 import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
@@ -28,6 +28,7 @@ export type WorkerRequest =
       sourceFormat: ParsedFile["format"];
       sourceFindings: VerificationFinding[];
       retainedReasons: Record<string, string>;
+      sourceToken?: number;
       selections?: VerificationSelection[];
     }
   | { id: number; type: "repair"; bytes: Uint8Array }
@@ -144,6 +145,32 @@ function prefetchFull(): void {
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
+/** The open source parse used to compare the actual clean-copy bytes. */
+const verificationSources = new Map<number, Parsed>();
+const verificationTokens = new WeakMap<Parsed, number>();
+
+function rememberParsedSource(parsed: Parsed, result: ParsedFile, token: number): void {
+  const previous = verificationSources.get(token);
+  previous?.free();
+  verificationSources.set(token, parsed);
+  verificationTokens.set(parsed, token);
+  result.verificationToken = token;
+}
+
+function releaseParsedSource(parsed: Parsed): void {
+  const token = verificationTokens.get(parsed);
+  if (token === undefined) return;
+  if (verificationSources.get(token) === parsed) verificationSources.delete(token);
+  verificationTokens.delete(parsed);
+}
+
+function clearParsedStack(): void {
+  for (const parsed of stack) {
+    releaseParsedSource(parsed);
+    parsed.free();
+  }
+  stack = [];
+}
 
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
   (self as unknown as { postMessage(m: unknown, t: Transferable[]): void }).postMessage(
@@ -289,7 +316,8 @@ async function handle(req: WorkerRequest): Promise<void> {
       result.entropy = e.values;
       result.entropyWindow = e.window;
       result.missing = movie.missing;
-      for (const p of stack) p.free();
+      clearParsedStack();
+      rememberParsedSource(parsed, result, req.id);
       stack = [parsed];
       post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
       return;
@@ -303,7 +331,8 @@ async function handle(req: WorkerRequest): Promise<void> {
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
     addEntropy(result, bytes, wasm);
-    for (const p of stack) p.free();
+    clearParsedStack();
+    rememberParsedSource(parsed, result, req.id);
     stack = [parsed];
     if (isMedia(bytes)) prefetchFull();
     // The parser keeps its own copy: these bytes go to the page, moved, not
@@ -348,14 +377,17 @@ async function handle(req: WorkerRequest): Promise<void> {
       return;
     }
 
-    let parsed: Parsed | null = null;
     let pdfText: ReturnType<Module["pageTexts"]> | null = null;
     try {
       // Check the Blob size above before materialising another full copy of its bytes.
       const bytes = new Uint8Array(await req.copy.arrayBuffer());
       const wasm = await moduleFor(bytes);
-      parsed = wasm.parse(bytes);
-      const output = describe(parsed);
+      // Look up the token after awaiting bytes, then compare synchronously so a
+      // newer parse cannot replace the source between lookup and comparison.
+      const sourceParsed = req.sourceToken === undefined
+        ? null
+        : verificationSources.get(req.sourceToken) ?? null;
+      const coreJson = sourceParsed?.verifyCopy(bytes) ?? null;
       let extraOutputFacts: { kind: string; text: string }[] = [];
 
       // QR findings are derived by the existing image scanner rather than the
@@ -376,12 +408,29 @@ async function handle(req: WorkerRequest): Promise<void> {
         }
       }
 
-      let report: VerificationReport;
-      if (req.sourceFormat === "pdf") {
-        const emptyReport: VerificationReport = { removed: [], present: [], unchecked: [] };
-        const fileReport = req.sourceFindings.length || extraOutputFacts.length
-          ? verifyFileOutput(req.sourceFindings, output, { ...FACT_LABELS, location: "Location" }, req.retainedReasons, extraOutputFacts)
-          : emptyReport;
+      const parserFindings = req.sourceFindings.filter((finding) => !finding.kind.startsWith("qr"));
+      const parserReport = coreJson
+        ? decodeCoreVerification(coreJson, req.sourceFormat, { ...FACT_LABELS, location: "Location" }, req.retainedReasons)
+        : null;
+      const safeParserReport = parserReport ?? uncheckedReport(
+        parserFindings,
+        [],
+        sourceParsed ? "Hexscope could not completely read the copy, so its findings were not checked." : "Check unavailable.",
+      );
+
+      const qrFindings = req.sourceFindings.filter((finding) => finding.kind.startsWith("qr"));
+      const qrReport = qrFindings.length || extraOutputFacts.length
+        ? verifyFileOutput(
+          qrFindings,
+          { format: req.sourceFormat, facts: [], location: null },
+          { ...FACT_LABELS, location: "Location" },
+          req.retainedReasons,
+          extraOutputFacts,
+        )
+        : { removed: [], present: [], unchecked: [] };
+
+      let textReport: VerificationReport = { removed: [], present: [], unchecked: [] };
+      if (req.sourceFormat === "pdf" && selections.length) {
         pdfText = wasm.pageTexts(bytes);
         const pages: PageGlyphs[] = [];
         for (let i = 0; i < pdfText.count; i++) {
@@ -395,20 +444,25 @@ async function handle(req: WorkerRequest): Promise<void> {
           });
         }
         const searchablePages: VerificationPage[] = searchable(pages).map(({ page, text, complete }) => ({ page, text, complete }));
-        const textReport = selections.length ? verifyPdfSelections(selections, searchablePages) : emptyReport;
-        report = {
-          removed: [...fileReport.removed, ...textReport.removed],
-          present: [...fileReport.present, ...textReport.present],
-          unchecked: [...fileReport.unchecked, ...textReport.unchecked],
-        };
-        if (report.removed.length + report.present.length + report.unchecked.length === 0) {
-          report = uncheckedReport([], [], "No comparable findings were available to check.");
-        }
-      } else if (req.sourceFormat === "jpeg" && output.kinds.some((kind) => kind >= Kind.Warning)) {
-        report = uncheckedReport(req.sourceFindings, selections, "The JPEG output could not be completely checked by the parser.");
-      } else {
-        report = verifyFileOutput(req.sourceFindings, output, { ...FACT_LABELS, location: "Location" }, req.retainedReasons, extraOutputFacts);
+        textReport = verifyPdfSelections(selections, searchablePages);
       }
+
+      const reports = [safeParserReport, qrReport, textReport];
+      const hasSpecificResult = reports.some((report) =>
+        [...report.removed, ...report.present, ...report.unchecked].some((finding) => finding.kind !== "verification"),
+      );
+      const visibleReports = hasSpecificResult
+        ? reports.map((report) => ({
+          removed: report.removed.filter((finding) => finding.kind !== "verification"),
+          present: report.present.filter((finding) => finding.kind !== "verification"),
+          unchecked: report.unchecked.filter((finding) => finding.kind !== "verification"),
+        }))
+        : reports;
+      const report: VerificationReport = {
+        removed: visibleReports.flatMap((part) => part.removed),
+        present: visibleReports.flatMap((part) => part.present),
+        unchecked: visibleReports.flatMap((part) => part.unchecked),
+      };
       post({ id: req.id, type: "verification", report });
     } catch {
       post({
@@ -421,11 +475,6 @@ async function handle(req: WorkerRequest): Promise<void> {
         pdfText?.free();
       } catch {
         // A crashed Wasm parser may no longer be able to free its temporary page table.
-      }
-      try {
-        parsed?.free();
-      } catch {
-        // The output parser is temporary; leave the user's open-file stack alone.
       }
     }
     return;
@@ -501,13 +550,18 @@ async function handle(req: WorkerRequest): Promise<void> {
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
     addEntropy(result, bytes, wasm);
+    rememberParsedSource(parsed, result, req.id);
     stack.push(parsed);
     post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
     return;
   }
   if (req.type === "back") {
     // Never below the file itself.
-    while (stack.length > Math.max(1, req.depth + 1)) stack.pop()!.free();
+    while (stack.length > Math.max(1, req.depth + 1)) {
+      const parsed = stack.pop()!;
+      releaseParsedSource(parsed);
+      parsed.free();
+    }
     post({ id: req.id, type: "back" });
     return;
   }

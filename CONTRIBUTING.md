@@ -87,8 +87,8 @@ keep 4.5:1 contrast. Check it at 375 px wide, and with the keyboard alone.
 ## Budgets
 
 - The parser is built twice: a small module for pictures and movies, which
-  the page loads first (under 150,000 bytes gzipped), and the whole one,
-  loaded only for a document (under 320,000). CI fails above either. A new
+  the page loads first (under 140,000 bytes gzipped), and the whole one,
+  loaded only for a document (under 290,000). CI fails above either. A new
   format belongs in the whole one unless it is a picture or a movie; the
   worker picks the module by a file's first bytes (`isMedia` in
   `apps/web/src/worker.ts`). `hexscope-inflate` is built for speed, everything else for size.
