@@ -43,7 +43,7 @@
 - `apps/web/e2e/site.e2e.ts`: real clean-copy UI path.
 - `crates/hexscope-cli/src/main.rs`: `clean --verify`, disk read-back, human/JSON output and conservative exit.
 - `crates/hexscope-cli/tests/cli.rs`: actual output, mixed batch, in-place, no-copy, JSON, and I/O cases.
-- `apps/web/src/wasm*`: generated glue and binary artifacts, updated only by `pnpm wasm`.
+- `apps/web/src/wasm*`: gitignored glue and binary artifacts, regenerated locally by `pnpm wasm` as inputs to Web tests/build; source changes stay in `crates/hexscope-wasm/src/lib.rs`.
 - This plan's `Execution log` below: rulings, task test evidence, and commit IDs.
 
 ## Interfaces
@@ -110,7 +110,7 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
 **Interfaces:** Consumes Task 1. Produces `Parsed.verifyCopy(copy: CleanCopy): string`.
 
 - [ ] **Step 1: Write failing bridge tests**
-  - `verifies_the_clean_copy_using_the_source_parse`: parse the real JPEG fixture, make its real clean copy, verify it, and assert the camera/location findings are removed with no present/unchecked items.
+  - `verifies_the_clean_copy_using_the_source_parse`: parse the real JPEG fixture, make its real clean copy, verify it, and assert the whitelisted findings are removed while unwhitelisted `lens` remains unchecked.
   - `reports_an_unchanged_copy_as_still_present`: verify an unmodified `CleanCopy` and assert supported source facts remain present.
   - `skips_a_copy_over_ten_mib_without_reparsing_it`: verify a copy over 10 MiB and assert `verification_skipped`.
 - [ ] **Step 2: Run the focused bridge test and observe failure**
@@ -127,11 +127,11 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
   Run: `cargo test -p hexscope-wasm`
 
   Expected: exit 0.
-- [ ] **Step 5: Build both browser WASM variants and commit**
+- [ ] **Step 5: Build both browser WASM variants and commit the bridge source**
 
   Run: `pnpm wasm`
 
-  Expected: both builds succeed; generated artifacts are updated. Commit bridge/artifacts as `feat(wasm): expose clean-copy verification`.
+  Expected: both builds succeed and gitignored generated artifacts are available for Web tests/build. Commit the bridge source as `feat(wasm): expose clean-copy verification`.
 
 ### Task 3: Web Worker and User Result
 
@@ -245,3 +245,5 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
 - Baseline build: `pnpm --filter web build` passed; warnings about `./theme.js` missing `type="module"` exist in 11 HTML files.
 - Baseline gzip-9 artifact sizes: main JS `64,528/65,000`, media WASM `126,889/140,000`, full WASM `286,084/290,000` bytes.
 - Task 1: the initial test run failed on the intentionally absent verification API; after implementation, `cargo test -p hexscope-core verification` passed 8/8 and `cargo test -p hexscope-core` passed 301 unit, 17 golden, and 14 property tests (6 timing tests remained ignored). `cargo fmt --all` and `git diff --check` passed.
+- `Ruling: The real JPEG fixture also exposes lens/date/software/thumbnail facts outside the proven whitelist — keep them unchecked in the report and test the mixed result — cost if wrong: this milestone does not provide a whole-file clean verdict for that fixture.`
+- Task 2: bridge RED failed because `Parsed.verify_copy` was absent; a real-photo first pass showed the expected uncovered lens/date/software/thumbnail items, so the test was corrected to require those unchecked results. `cargo test -p hexscope-wasm` passed 35/35; `pnpm wasm` built both variants; `pnpm --filter web build` passed with the 11 baseline `theme.js` warnings. Post-bridge gzip-9 sizes: main JS `64,529/65,000`, media WASM `129,573/140,000`, full WASM `288,565/290,000` bytes.
