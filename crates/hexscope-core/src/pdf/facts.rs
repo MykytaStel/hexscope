@@ -44,11 +44,12 @@ pub(super) fn collect(
     tree: &mut ParseTree,
     ctx: &Ctx,
     encrypted: bool,
-) -> Vec<DocumentFact> {
+) -> (Vec<DocumentFact>, bool) {
     let mut facts = Vec::new();
+    let mut complete = true;
     // Encrypted, and no key: its strings say nothing readable.
     if encrypted && ctx.crypt.is_none() {
-        return facts;
+        return (facts, false);
     }
     let mut budget = MAX_DECODED_TOTAL;
     let trailer_ref = |key: &str| {
@@ -75,7 +76,7 @@ pub(super) fn collect(
                 });
             }
             Some(Found::Packed(dict, node)) => info_facts(&dict, &mut facts, |_| node),
-            None => {}
+            None => complete = false,
         }
     }
 
@@ -95,11 +96,16 @@ pub(super) fn collect(
             .rev()
             .find(|o| o.value.get("Type").and_then(Obj::name) == Some("Metadata"))
     });
-    if let Some(rec) = xmp
-        && let Some((_, node)) = rec.stream
-        && let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget)
-    {
-        xmp_facts(&String::from_utf8_lossy(&bytes), node, &mut facts);
+    if let Some(rec) = xmp {
+        if let Some((_, node)) = rec.stream {
+            if let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget) {
+                xmp_facts(&String::from_utf8_lossy(&bytes), node, &mut facts);
+            } else {
+                complete = false;
+            }
+        } else {
+            complete = false;
+        }
     }
 
     // Photos have a budget of their own: one large picture must not stop
@@ -127,7 +133,7 @@ pub(super) fn collect(
     }
 
     order(&mut facts);
-    facts
+    (facts, complete)
 }
 
 /// An image whose stream is a JPEG file as it is (8.9.5, DCTDecode as its

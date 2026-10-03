@@ -8,6 +8,13 @@ fn fixture(name: &str) -> String {
     format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))
 }
 
+fn core_fixture(name: &str) -> String {
+    format!(
+        "{}/../hexscope-core/tests/fixtures/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    )
+}
+
 fn run(args: &[&str]) -> (i32, String, String) {
     let out = Command::new(BIN)
         .args(args)
@@ -214,6 +221,120 @@ fn clean_in_place_replaces_the_file_whole() {
         .map(|e| e.file_name())
         .collect();
     assert_eq!(left, [std::ffi::OsString::from("photo.jpg")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_pdf_metadata_removes_compact_info_and_xmp() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-pdf-compact-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let input = dir.join("compact.pdf");
+    let output = dir.join("compact-clean.pdf");
+    std::fs::copy(core_fixture("compact.pdf"), &input).unwrap();
+    let source_values = hexscope_core::summary::summarize(&std::fs::read(&input).unwrap()).facts;
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        input.to_str().unwrap(),
+    ]);
+
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("\"operation_state\":\"written\""), "{out}");
+    let removed = out
+        .split("\"removed\":")
+        .nth(1)
+        .unwrap_or_default()
+        .split(",\"present\":")
+        .next()
+        .unwrap_or_default();
+    assert!(removed.starts_with("[{"), "{out}");
+    for kind in [
+        "author",
+        "title",
+        "application",
+        "producer",
+        "created",
+        "history",
+    ] {
+        assert!(removed.contains(&format!("\"kind\":\"{kind}\"")), "{out}");
+    }
+    assert!(out.contains("\"present\":[]"), "{out}");
+    assert!(out.contains("\"unchecked\":[]"), "{out}");
+    for (_, value) in source_values {
+        assert!(
+            !out.contains(&value),
+            "verification exposed a finding value: {value}"
+        );
+    }
+    assert!(output.is_file());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_pdf_metadata_leaves_revision_findings_unchecked() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-pdf-report-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let input = dir.join("report.pdf");
+    let output = dir.join("report-clean.pdf");
+    std::fs::copy(core_fixture("report.pdf"), &input).unwrap();
+    let source_values = hexscope_core::summary::summarize(&std::fs::read(&input).unwrap()).facts;
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        input.to_str().unwrap(),
+    ]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("\"operation_state\":\"written\""), "{out}");
+    let removed = out
+        .split("\"removed\":")
+        .nth(1)
+        .unwrap_or_default()
+        .split(",\"present\":")
+        .next()
+        .unwrap_or_default();
+    for kind in [
+        "author",
+        "title",
+        "application",
+        "producer",
+        "created",
+        "modified",
+        "history",
+    ] {
+        assert!(removed.contains(&format!("\"kind\":\"{kind}\"")), "{out}");
+    }
+    let unchecked = out.split("\"unchecked\":").nth(1).unwrap_or_default();
+    for kind in ["updates", "earlier"] {
+        assert!(unchecked.contains(&format!("\"kind\":\"{kind}\"")), "{out}");
+    }
+    assert!(
+        unchecked.contains("\"reason\":\"coverage_incomplete\""),
+        "{out}"
+    );
+    for (_, value) in source_values {
+        assert!(
+            !out.contains(&value),
+            "verification exposed a finding value: {value}"
+        );
+    }
+    assert!(output.is_file());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
