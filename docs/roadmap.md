@@ -10,7 +10,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 - **Local by default:** no file uploads, accounts, telemetry, or server-side inspection.
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
-- **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web, CLI, and GitHub Action.
+- **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose them through the Web, CLI, and GitHub Action with clear, interface-specific capabilities.
 - **Copies stay under user control:** never silently alter the source; keep a produced copy available when verification is incomplete.
 - **Measure before expanding:** protect parser safety, browser memory, gzip size budgets, accessibility, and real-device usability.
 - **Teach without getting in the way:** give the plain-language answer first; let curious users open the structure, algorithms, and bytes.
@@ -22,21 +22,21 @@ Hexscope should help a person understand what a file reveals before they share i
 - Rust core compares parser-backed facts before and after cleaning and emits a value-free report.
 - Web verifies the actual produced bytes in the worker and retains its QR and selected-PDF-text checks.
 - CLI `clean --verify` reads the written output back and returns a conservative status.
-- Confirmed removal coverage is intentionally limited to complete JPEG file-scope findings for camera, serial number, owner, and location. Other formats and findings remain unchecked until their parser and cleaner behavior have proof and fixtures.
+- Confirmed removal coverage is intentionally limited to complete JPEG file-scope findings for camera, serial number, owner, and location. Removal claims outside this coverage remain unchecked; observed residual findings can still be reported as present.
 - Web output verification skips the additional parse above 10 MiB; copy creation remains available.
 
 ## Near-term priorities
 
 ### P0 — Expand verification without creating false reassurance
 
-1. **Publish a format/finding/cleaning coverage matrix.** For each format and finding, record whether Hexscope extracts it, whether the cleaner removes it, what proves completeness, and which interfaces can verify it.
+1. **Drafted: format/finding/cleaning coverage matrix.** See [format coverage](format-coverage.md) for what Hexscope extracts, what it can clean, what it can prove, and the limits of each interface. Mark this item complete after the documentation change is merged.
 2. **Close the PDF verification gap.** Audit the existing Web-only selected-text and QR checks against the shared Rust report. Choose the smallest PDF slice that can be verified against the actual output bytes, and bring CLI behavior into parity where the parser can prove it.
 3. **Add real regression cases for incomplete documents.** Include surviving hidden text, removed text, malformed or partially parsed pages, and output-only findings. Every uncertain path must stay unchecked.
 4. **Make coverage understandable in the result UI and CLI.** Tell the user which items were removed, remain, or were not checked, and why. Keep the copy available even when the result is incomplete.
 
 ### P1 — Make the core and CLI a dependable platform
 
-1. **Keep a single capability contract.** Derive coverage labels and reason codes from the shared core contract so Web, CLI, JSON, and Action output cannot silently disagree.
+1. **Keep a single capability contract.** Derive clean-copy coverage labels and reason codes from the shared core contract so Web and CLI text/JSON output cannot silently disagree; keep the existing GitHub Action's `check` findings aligned with the same core taxonomy.
 2. **Improve batch workflows.** Make per-file results, aggregate exit status, and machine-readable output useful for folders and CI without hiding which files were unchecked.
 3. **Harden parser and cleaner boundaries.** Extend property tests, fuzz targets, malformed-file fixtures, and read-after-write verification as new format coverage is added.
 4. **Protect performance and package budgets.** Benchmark parsing and cleaning on representative large files; lazy-load optional work and keep existing JavaScript/WASM limits enforced in CI.
@@ -86,7 +86,7 @@ Build a continuously tested corpus from synthetic fixtures and redistributable s
 - **Architecture:** keep parsers, facts, cleaning, and verification separated behind small stable interfaces; add abstraction only where multiple formats need it.
 - **Science and algorithms:** measure detection quality and failure modes; use deterministic methods first. Keep OCR or machine learning local and optional, with published evaluation data and explicit uncertainty.
 - **Web product:** keep the main path short—summary, evidence, safe action—while preserving the detailed byte inspector as an optional depth layer.
-- **CLI and CI:** maintain predictable exit codes, stable JSON/SARIF, batch support, and parity with Web for the same supported evidence.
+- **CLI, Action, and CI:** maintain predictable exit codes, stable JSON/SARIF, batch support, and parity with Web for the same supported evidence. Extend the existing GitHub Action only when its output can preserve each interface's verification limits.
 - **Security and reliability:** continue fuzzing hostile inputs, testing corrupt and oversized files, and verifying real output bytes rather than trusting the requested operation.
 
 ## Out of scope unless the product direction changes
