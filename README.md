@@ -115,7 +115,8 @@ pnpm dev
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, checks and
 contribution guidance. Known product and format limits are tracked in
-[`docs/known-issues.md`](docs/known-issues.md).
+[`docs/known-issues.md`](docs/known-issues.md). See the
+[project roadmap](docs/roadmap.md) for planned work and research candidates.
 
 ## License
 
