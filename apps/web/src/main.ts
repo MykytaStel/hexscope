@@ -67,7 +67,7 @@ document.addEventListener("click", (e) => {
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open", verification: null });
+const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
 
 let hover = -1;
 let selected = -1;
@@ -218,7 +218,7 @@ const drawer = new Drawer(
       const r = await call({ type: "pagePictures", bytes: workspace.model ? workspace.model.bytes.slice() : new Uint8Array(0), page });
       return r.type === "pagePictures" ? r.pictures : [];
     },
-    redact: (areas) => (workspace.model ? redactCopy(workspace.model, areas) : noFile()),
+    redact: (areas, selections) => (workspace.model ? redactCopy(workspace.model, areas, selections) : noFile()),
     repair: () => (workspace.model ? repairCopy(workspace.model) : Promise.resolve({ bytes: new Uint8Array(0), name: "", fixed: [], error: "no file is open" })),
     compare: (other) => void compareWith(other),
     openRepaired: (bytes) => void workspace.openFile(new File([bytes as BlobPart], workspace.model ? repairedName(workspace.model) : "file-repaired")),

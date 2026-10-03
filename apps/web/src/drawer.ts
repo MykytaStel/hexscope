@@ -17,7 +17,7 @@ import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KEPT_NOTE, KIND_NAMES, REPAIRABLE, STRONG, degrees, mapLink, openReason, playReason } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
-import { beforeAfter, cleanLimits, copyPictureButton, isAudio, shareButton, type CleanActions } from "./cleancard";
+import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -839,9 +839,15 @@ export class Drawer {
 
     save.addEventListener("click", async () => {
       const marks = picked();
+      const selections = marks.map((mark) => ({
+        page: mark.page,
+        text: mark.text,
+        sourceComplete: pages?.find((page) => page.page === mark.page)?.complete ?? false,
+        areaOnly: mark.text.trim().length === 0,
+      }));
       save.disabled = true;
       save.textContent = "Making the copy…";
-      const r = await this.cleaning.redact(areasOf(marks));
+      const r = await this.cleaning.redact(areasOf(marks), selections);
       refresh();
       result.replaceChildren();
       if (r.error) {
@@ -857,10 +863,6 @@ export class Drawer {
         ul.append(li);
       }
       result.append(ul);
-      if (r.verification) {
-        const { cleanVerificationCard } = await import("./verification-card");
-        result.append(cleanVerificationCard(r.verification));
-      }
       const sharer = shareButton(r.name, r.copy);
       if (sharer) result.append(sharer);
       if (!r.saved) {
@@ -872,6 +874,8 @@ export class Drawer {
       open.title = "Check it yourself: search it for what you blacked out";
       open.addEventListener("click", () => this.cleaning.open(r.copy));
       result.append(open);
+      const verification = copyVerification(r);
+      if (verification) result.append(verification);
     });
     return group;
   }
@@ -936,10 +940,6 @@ export class Drawer {
       const kept = [...(box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dd[data-kept]") ?? [])].map((e) => e.dataset.kind ?? "");
       box.append(beforeAfter(m, r, categoryCount(kept)));
       box.append(done(r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy."));
-      if (r.verification) {
-        const { cleanVerificationCard } = await import("./verification-card");
-        box.append(cleanVerificationCard(r.verification));
-      }
       // Each fact the copy no longer carries is struck out, one after another.
       const facts =
         box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
@@ -989,6 +989,8 @@ export class Drawer {
       const copy = copyPictureButton(m);
       if (copy) actions.prepend(copy);
       box.append(limits);
+      const verification = copyVerification(r);
+      if (verification) box.append(verification);
     });
     return box;
   }

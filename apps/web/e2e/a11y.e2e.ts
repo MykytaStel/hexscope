@@ -40,6 +40,24 @@ for (const scheme of ["dark", "light"] as const) {
       });
     }
 
+    test("the clean-copy report is announced and its copy action works from the keyboard", async ({ page }) => {
+      page.on("download", (download) => void download.cancel());
+      await page.goto("./?sample=photo.jpg");
+      await expect(page.locator(".verdict-title")).toBeVisible();
+      await page.locator(".verdict-cta").click();
+      const report = page.locator(".copy-verification");
+      await expect(report).toHaveRole("status");
+      await expect(report).toHaveAttribute("aria-live", "polite");
+      await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+      await check(page, "clean-copy verification report");
+
+      const open = page.getByRole("button", { name: "Open the clean copy" });
+      await open.focus();
+      await expect(open).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.locator(".verdict-title")).toHaveText("Nothing personal found in this photo");
+    });
+
     test("the privacy page", async ({ page }) => {
       await page.goto("./your-files-stay-private");
       await expect(page.locator("h1")).toHaveText("Your files stay on your device");

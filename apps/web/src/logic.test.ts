@@ -4,7 +4,7 @@
 // `pnpm wasm` first.
 import { readFileSync } from "node:fs";
 import { beforeAll, describe as group, expect, it } from "vitest";
-import { cleanCopy, initSync, parse } from "./wasm/hexscope_wasm.js";
+import { initSync, parse } from "./wasm/hexscope_wasm.js";
 import { describe } from "./describe";
 import { FileModel } from "./model";
 import { headline, listed } from "./headline";
@@ -16,7 +16,6 @@ import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from 
 import { searchable } from "./redactor";
 import type { PageGlyphs } from "./worker";
 import { translateText } from "./i18n";
-import { decodeVerification } from "./verification";
 
 const here = (path: string) => new URL(path, import.meta.url);
 
@@ -52,23 +51,6 @@ group("incomplete PDF form checks", () => {
         "uk",
       ),
     ).toBe("Копію не створено: hexscope не зміг повністю перевірити або відокремити вміст форм на сторінці PDF");
-  });
-});
-
-group("clean-copy verification", () => {
-  it("compares the real cleaner output with the source parse in WASM", () => {
-    const bytes = new Uint8Array(readFileSync(here("../public/samples/photo.jpg")));
-    const source = parse(bytes);
-    const copy = cleanCopy(bytes, false);
-
-    const report = decodeVerification(source.verifyCopy(copy));
-
-    expect(report.removed.map((item) => item.kind)).toContain("location");
-    expect(report.present).toEqual([]);
-    expect(report.unchecked.some((item) => item.kind === "lens")).toBe(true);
-    expect(JSON.stringify(report)).not.toContain("Olena");
-    copy.free();
-    source.free();
   });
 });
 

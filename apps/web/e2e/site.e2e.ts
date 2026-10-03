@@ -560,30 +560,186 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after .ba-count");
   await expect(after).toHaveText("0");
-  await expect(page.locator(".ba-side.is-after")).toHaveClass(/is-clear/);
+  await expect(page.locator(".ba-side.is-after")).not.toHaveClass(/is-clear/);
+  await expect(page.locator(".copy-verification")).toContainText("Not checked");
   // A computer saves it; a phone may offer to share it instead.
   if (saved.length > 0) expect(saved).toEqual(["photo-clean.jpg"]);
 });
 
-test("clean copy verification shows checked kinds and leaves personal values out", async ({ page }) => {
-  catchDownloads(page);
-  await openDoor(page, /Check a photo/);
-  const values = (await page.locator(".reveal-list dd").allTextContents())
-    .map((value) => value.trim())
-    .filter((value) => value.length > 3);
-
+test("clean copy verification reparses a generated photo", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
   await page.locator(".verdict-cta").click();
-  const card = page.locator(".clean-verification");
-  await expect(card).toBeVisible();
-  await expect(card).toContainText("Copy check");
-  await expect(card).toContainText("Location");
-  await expect(card).toContainText("Could not check");
-  const text = await card.innerText();
-  for (const value of values) expect(text).not.toContain(value);
 
-  await page.locator(".language-button").click();
-  await expect(card).toContainText("Перевірка копії");
-  await expect(card).toContainText("Місце зйомки");
+  const report = page.locator(".copy-verification");
+  await expect(report).toHaveRole("status");
+  await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+  const removed = report.locator(".copy-verification-group").nth(0);
+  await expect(removed).toContainText("Camera");
+  await expect(removed).toContainText("Location");
+  await expect(report).toContainText("Still present");
+  await expect(report).toContainText("Not checked");
+  await expect(report).not.toContainText("48.8584");
+  await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
+});
+
+test("clean copy verification checks that selected PDF text left the searchable copy", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=report.pdf");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const redactor = page.locator(".redactor");
+  await redactor.locator('input[type="search"]').fill("Salary");
+  await redactor.getByRole("button", { name: "Find", exact: true }).click();
+  await expect(redactor.locator("mark.redact-hit")).toContainText("Salary");
+  await redactor.locator(".redact-form button").click();
+  await redactor.locator(".btn-primary").click();
+
+  const report = redactor.locator(".copy-verification");
+  const removed = report.locator(".copy-verification-group").nth(0);
+  await expect(removed.getByRole("heading", { name: "Removed" })).toBeVisible();
+  await expect(removed).toContainText("Selected PDF text");
+  await expect(report).not.toContainText("Salary");
+});
+
+test("clean copy verification announces a controlled result while copy actions stay available", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    class ControlledWorker extends NativeWorker {
+      postMessage(message: any, transfer: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message && typeof message === "object" && "type" in message && message.type === "verifyCopy" && "id" in message) {
+          const id = message.id;
+          setTimeout(() => {
+            this.dispatchEvent(
+              new MessageEvent("message", {
+                data: {
+                  id,
+                  type: "verification",
+                  report: {
+                    removed: [],
+                    present: [
+                      { kind: "qrwifi", label: "Wi-Fi in a QR code", reason: "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.", value: "Private value", scope: "file" },
+                      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
+                    ],
+                    unchecked: [{ kind: "owner", label: "Owner", reason: "This finding has no stable value to compare." }],
+                  },
+                },
+              }),
+            );
+          }, 900);
+          return;
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = ControlledWorker;
+  });
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const report = page.locator(".copy-verification");
+  await expect(report).toContainText("Checking the copy in this tab");
+  const tone = await page.locator(".before-after .ba-side.is-after").evaluate((actual) => {
+    const expected = document.createElement("div");
+    expected.className = "ba-side is-after";
+    document.body.append(expected);
+    const colors = [getComputedStyle(actual).backgroundColor, getComputedStyle(expected).backgroundColor];
+    expected.remove();
+    return colors;
+  });
+  expect(tone[0]).toBe(tone[1]);
+  const open = page.getByRole("button", { name: "Open the clean copy" });
+  await expect(open).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  await expect(report.getByRole("heading", { name: "Still present" })).toBeVisible();
+  await expect(report).toContainText("Kept: the QR code");
+  await expect(report).toContainText("This finding is still present in the copy.");
+  await expect(report.getByRole("heading", { name: "Not checked" })).toBeVisible();
+  await expect(report).toContainText("This finding has no stable value to compare.");
+  await expect(report).not.toContainText("Private value");
+  await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
+});
+
+test("clean copy verification keeps copy actions when the worker returns an error", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    class ErrorWorker extends NativeWorker {
+      postMessage(message: any, transfer: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message && typeof message === "object" && "type" in message && message.type === "verifyCopy" && "id" in message) {
+          this.dispatchEvent(new MessageEvent("message", { data: { id: message.id, type: "error", message: "Private parser detail" } }));
+          return;
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = ErrorWorker;
+  });
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const report = page.locator(".copy-verification");
+  await expect(report.getByRole("heading", { name: "Не перевірено" })).toBeVisible();
+  await expect(report).toContainText("Перевірка недоступна.");
+  await expect(report).not.toContainText("Private parser detail");
+  await expect(page.getByRole("button", { name: "Відкрити очищену копію" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+});
+
+test.describe("copy verification module network failure", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("keeps copy actions available when its lazy module fails to load", async ({ page }) => {
+    const failed: string[] = [];
+    page.on("requestfailed", (request) => failed.push(request.url()));
+    await page.route("**/copyverification-*.js", (route) => route.abort());
+    page.on("download", (download) => void download.cancel());
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".verdict-cta").click();
+
+    const report = page.locator(".copy-verification");
+    await expect.poll(() => failed.some((url) => /copyverification-.*\.js/.test(url))).toBe(true);
+    await expect(report).toContainText("Not checked");
+    await expect(report).toContainText("Check unavailable.");
+    await expect(page.getByRole("button", { name: "Open the clean copy" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  });
+
+  test("shows an unchecked result when the lazy module request stalls", async ({ page }) => {
+    let intercepted = false;
+    let release!: () => void;
+    const requestGate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/copyverification-*.js", async (route) => {
+      intercepted = true;
+      await requestGate;
+      await route.abort();
+    });
+    page.on("download", (download) => void download.cancel());
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".verdict-cta").click();
+
+    const report = page.locator(".copy-verification");
+    await expect.poll(() => intercepted).toBe(true);
+    try {
+      await expect(report).toContainText("Check unavailable.", { timeout: 12_000 });
+    } finally {
+      release();
+    }
+    await expect(report).toContainText("Not checked");
+    await expect(page.getByRole("button", { name: "Open the clean copy" })).toBeEnabled();
+  });
 });
 
 test("a fake bank email: why it may not be real, drawn on its way", async ({ page }) => {
@@ -667,7 +823,10 @@ const sample = (name: string) => new URL(`../public/samples/${name}`, import.met
 
 test("an incomplete PDF form warns in Ukrainian and produces no redacted copy", async ({ page }) => {
   const saved = catchDownloads(page);
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
   await home(page);
   await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/incomplete-form.pdf", import.meta.url).pathname);
 
