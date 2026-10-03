@@ -4,6 +4,7 @@ import type { FileModel } from "./model";
 import { call } from "./rpc";
 import { el } from "./dom";
 import { FACT_LABELS, KEPT, KEPT_NOTE } from "./knowledge";
+import { registerLazyTranslations } from "./i18n";
 import {
   checkCopySafely,
   fileFindings,
@@ -13,6 +14,8 @@ import {
 
 const VERIFY_TIMEOUT_MS = 10_000;
 const FACT_LABELS_WITH_LOCATION = { ...FACT_LABELS, location: "Location" };
+
+registerLazyTranslations({ "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 export function verifyCopyInWorker(
   model: FileModel,
@@ -32,6 +35,7 @@ export function verifyCopyInWorker(
         sourceFormat: model.file.format,
         sourceFindings,
         retainedReasons,
+        ...(model.file.verificationToken !== undefined ? { sourceToken: model.file.verificationToken } : {}),
         ...(selections.length ? { selections } : {}),
       },
       VERIFY_TIMEOUT_MS,

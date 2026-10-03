@@ -1,5 +1,7 @@
 import type { ParsedFile, PhotoFact, PhotoLocation } from "./model";
 
+export { decodeCoreVerification } from "./core-verification";
+
 /**
  * 10 MiB cap from the Playwright Pixel 7 profile: a deterministic 9.78 MiB
  * PNG completed parse → clean → reparse in 2.55 s. Chromium's process-tree

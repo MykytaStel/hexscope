@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { GUIDE_UK } from "./guide-i18n";
-import { registerGuideTranslations, resolveLocale, translateText } from "./i18n";
+import { registerLazyTranslations, resolveLocale, translateText } from "./i18n";
 
-registerGuideTranslations(GUIDE_UK);
+registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 describe("the interface language", () => {
   it("keeps an explicit language choice ahead of the browser language", () => {
@@ -13,6 +13,12 @@ describe("the interface language", () => {
   it("starts in Ukrainian for Ukrainian browsers and English otherwise", () => {
     expect(resolveLocale(null, ["uk-UA", "en-US"])).toBe("uk");
     expect(resolveLocale(null, ["en-US"])).toBe("en");
+  });
+
+  it("keeps technical names in English when no Ukrainian equivalent exists", () => {
+    for (const term of ["JSON", "JPEG", "APP1 · EXIF", "PDF"]) {
+      expect(translateText(term, "uk")).toBe(term);
+    }
   });
 
   it("matches guide translations when HTML whitespace surrounds a text fragment", () => {
@@ -64,6 +70,7 @@ describe("the interface language", () => {
     expect(translateText("Still present", "uk")).toBe("Залишилося в копії");
     expect(translateText("Not checked", "uk")).toBe("Не перевірено");
     expect(translateText("This finding is still present in the copy.", "uk")).toBe("Цей факт залишився в копії.");
+    expect(translateText("A different value remains in the copy.", "uk")).toBe("У копії залишилося інше значення.");
     expect(translateText("Selected PDF text", "uk")).toBe("Вибраний текст PDF");
     expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
       "Цього факту не було у вихідному файлі, але він з’явився в копії.",

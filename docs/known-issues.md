@@ -121,8 +121,8 @@ browser ends the reader for it, the page says so and the next file starts
 afresh; the command line tool has no such limit.
 
 **WebAssembly size.** Two builds, chosen by a file's first bytes: about
-125 KB gzipped for pictures and movies (CI budget 140,000 bytes), and about
-265 KB for everything (budget 290,000), fetched only for a document. The
+128 KB gzipped for pictures and movies (CI budget 140,000 bytes), and about
+283 KB for everything (budget 290,000), fetched only for a document. The
 whole grew from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
 MakerNotes, the PDF page walk with its fonts, repair, Office's hidden

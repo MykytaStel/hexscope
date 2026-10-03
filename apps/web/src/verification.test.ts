@@ -3,6 +3,7 @@ import {
   MAX_VERIFY_BYTES,
   capabilitiesFor,
   checkCopySafely,
+  decodeCoreVerification,
   fileFindings,
   uncheckedReport,
   verificationEligible,
@@ -15,7 +16,7 @@ import {
 } from "./verification";
 import type { ParsedFile } from "./model";
 
-const labels = { camera: "Camera", location: "Location", owner: "Owner", ai: "Made with AI" };
+const labels = { camera: "Camera", location: "Location", owner: "Owner", lens: "Lens", ai: "Made with AI" };
 
 function finding(kind: string, value: string | null, format: ParsedFile["format"] = "jpeg", scope: string | null = "file"): VerificationFinding {
   return { format, kind, label: labels[kind as keyof typeof labels] ?? kind, value, scope };
@@ -253,6 +254,36 @@ describe("verification input size", () => {
 });
 
 describe("worker verification result mapping", () => {
+  it("decodes the versioned core contract into private user-facing findings", () => {
+    const report = decodeCoreVerification(
+      JSON.stringify({
+        schema_version: 1,
+        removed: [{ kind: "location", reason: "removed", unexpected: false }],
+        present: [{ kind: "camera", reason: "value_changed_same_kind", unexpected: false }],
+        unchecked: [{ kind: "lens", reason: "coverage_incomplete", unexpected: false }],
+      }),
+      "jpeg",
+      labels,
+      {},
+    );
+
+    expect(report).toEqual({
+      removed: [{ kind: "location", label: "Location" }],
+      present: [{ kind: "camera", label: "Camera", reason: "A different value remains in the copy." }],
+      unchecked: [{ kind: "lens", label: "Lens", reason: "Hexscope does not have complete JPEG coverage for this finding yet." }],
+    });
+    expect(JSON.stringify(report)).not.toContain('"value":');
+    expect(JSON.stringify(report)).not.toContain('"scope":');
+  });
+
+  it.each([
+    ["an unknown schema version", { schema_version: 2, removed: [], present: [], unchecked: [] }],
+    ["a value-bearing item", { schema_version: 1, removed: [{ kind: "owner", reason: "removed", unexpected: false, value: "private" }], present: [], unchecked: [] }],
+    ["an unknown reason", { schema_version: 1, removed: [{ kind: "owner", reason: "safe", unexpected: false }], present: [], unchecked: [] }],
+  ])("rejects core reports with %s", (_name, input) => {
+    expect(decodeCoreVerification(JSON.stringify(input), "jpeg", labels, {})).toBeNull();
+  });
+
   it("maps the parsed output facts and location into a compact report", () => {
     const source = fileFindings(
       "jpeg",

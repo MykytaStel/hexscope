@@ -16,6 +16,7 @@ use hexscope_core::inflate::{
 use hexscope_core::map::{composition, entropy as window_entropy};
 use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
+use hexscope_core::verification::VerificationSnapshot;
 use hexscope_core::video::{Gap, parse_video_gapped};
 use hexscope_core::zip::{ExtractError, ZipEntry, extract};
 use hexscope_core::{Document, Format, parse as parse_any};
@@ -70,6 +71,8 @@ pub struct Parsed {
     dimensions: Option<[u32; 2]>,
     /// Photo facts as (kind, text, node).
     facts: Vec<(&'static str, String, u32)>,
+    /// The source facts already extracted while parsing this document.
+    verification: Option<VerificationSnapshot>,
     /// `[latitude, longitude, altitude or NaN, node]`.
     location: Option<[f64; 4]>,
     /// Bytes of wrapper around the DEFLATE data in `stream`: a zlib header
@@ -289,6 +292,22 @@ impl Parsed {
             .flat_map(|(kind, text, node)| [kind.to_string(), text.clone(), node.to_string()])
             .collect::<Vec<_>>()
             .join(&sep)
+    }
+
+    /// Compares actual copy bytes with this already-parsed source. The extra
+    /// summary parse is bounded for browser memory.
+    #[wasm_bindgen(js_name = verifyCopy)]
+    pub fn verify_copy(&self, bytes: &[u8]) -> String {
+        const MAX_VERIFICATION_BYTES: usize = 10 * 1024 * 1024;
+        let Some(source) = self.verification.as_ref() else {
+            return hexscope_core::verification::VerificationReport::skipped().to_json();
+        };
+        if bytes.len() > MAX_VERIFICATION_BYTES {
+            return hexscope_core::verification::VerificationReport::skipped().to_json();
+        }
+        let output =
+            hexscope_core::verification::snapshot(&hexscope_core::summary::summarize(bytes));
+        hexscope_core::verification::compare(source, &output).to_json()
     }
 
     /// `[latitude, longitude, altitude, node]` in decimal degrees and metres,
@@ -883,6 +902,8 @@ pub fn clean_movie(bytes: &[u8], gaps_at: &[f64]) -> CleanCopy {
 }
 
 fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
+    let verification =
+        hexscope_core::verification::snapshot(&hexscope_core::summary::summary_of(&doc));
     let docs = DocTables::build(doc.tree(), doc.format());
     let slices: Vec<f64> = composition(doc.tree(), doc.format(), len)
         .iter()
@@ -1017,6 +1038,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
     };
     parsed.docs = docs;
     parsed.composition = slices;
+    parsed.verification = Some(verification);
     parsed
 }
 
@@ -1557,6 +1579,7 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         format: "unknown",
         dimensions: None,
         facts: Vec::new(),
+        verification: None,
         location: None,
         header_len: 0,
         trailer_len: 0,
@@ -2197,6 +2220,61 @@ mod tests {
         assert!(refused.error().contains("WebAssembly modules only"));
         let bare = clean_copy(&fixture("basn2c08.png"), false);
         assert!(bare.error().contains("nothing in it"));
+    }
+
+    #[test]
+    fn verifies_the_clean_copy_using_the_source_parse() {
+        let photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        let source = parse(&photo);
+        let copy = clean_copy(&photo, false);
+        let bytes = copy.bytes();
+
+        let report = source.verify_copy(&bytes);
+
+        assert!(report.contains("\"schema_version\":1"), "{report}");
+        assert!(report.contains("\"kind\":\"location\""), "{report}");
+        assert!(report.contains("\"removed\":["), "{report}");
+        assert!(report.contains("\"present\":[]"), "{report}");
+        assert!(report.contains("\"kind\":\"lens\""), "{report}");
+        assert!(
+            report.contains("\"reason\":\"coverage_incomplete\""),
+            "{report}"
+        );
+    }
+
+    #[test]
+    fn reports_an_unchanged_copy_as_still_present() {
+        let photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        let source = parse(&photo);
+
+        let report = source.verify_copy(&photo);
+
+        assert!(report.contains("\"reason\":\"still_present\""), "{report}");
+        assert!(!report.contains("\"removed\":[{"), "{report}");
+    }
+
+    #[test]
+    fn skips_a_copy_over_ten_mib_without_reparsing_it() {
+        let photo = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+        )
+        .unwrap();
+        let source = parse(&photo);
+        let bytes = vec![0; 10 * 1024 * 1024 + 1];
+
+        let report = source.verify_copy(&bytes);
+
+        assert!(
+            report.contains("\"reason\":\"verification_skipped\""),
+            "{report}"
+        );
+        assert!(report.contains("\"unchecked\":[{"), "{report}");
     }
 
     #[test]

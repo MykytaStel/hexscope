@@ -49,6 +49,8 @@ export interface ParsedFile {
   orientation: number;
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
+  /** Worker-owned compact core snapshot used to verify a later clean copy. */
+  verificationToken?: number;
   location: PhotoLocation | null;
   /** A PDF's attached files, by name; each opens by its index. */
   attachments: string[];

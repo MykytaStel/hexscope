@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! hexscope check [--fail-on WHAT] [--json] [--all] PATH...
-//! hexscope clean [--in-place | --out DIR] PATH...
+//! hexscope clean [--in-place | --out DIR] [--verify [--json]] PATH...
 //! hexscope repair [--out DIR] PATH...
 //! ```
 
@@ -17,6 +17,7 @@ use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
 use hexscope_core::docs::Concern;
 use hexscope_core::repair::repair;
 use hexscope_core::summary::{Summary, summarize, summary_of};
+use hexscope_core::verification::{self, VerificationReport, VerificationSnapshot};
 use hexscope_core::video::parse_video_gapped;
 use std::fmt::Write as _;
 use std::fs::File;
@@ -48,6 +49,8 @@ clean:
   --notes          also empty Excel's and PowerPoint's comments and speaker notes
   --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT);
                    for a single file, --out can name the copy itself: --out copy.jpg
+  --verify         read each written copy back and check parser findings against the source
+  --json           with --verify, one value-free result per input, one object per line
 
 redact (PDF):
   --text WORDS     black out every place WORDS appear; give it more than once for more
@@ -106,6 +109,7 @@ struct Options {
     all: bool,
     in_place: bool,
     notes: bool,
+    verify: bool,
     sarif: bool,
     /// What `redact` blacks out, each wherever it appears.
     texts: Vec<String>,
@@ -120,6 +124,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         all: false,
         in_place: false,
         notes: false,
+        verify: false,
         sarif: false,
         texts: Vec::new(),
         out: None,
@@ -143,6 +148,7 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--all" => o.all = true,
             "--in-place" => o.in_place = true,
             "--notes" => o.notes = true,
+            "--verify" => o.verify = true,
             "--text" => o.texts.push(
                 it.next()
                     .ok_or("--text needs the words to black out")?
@@ -232,6 +238,9 @@ fn concern_name(c: Concern) -> &'static str {
 
 fn check(args: &[String]) -> Result<ExitCode, String> {
     let o = options(args)?;
+    if o.verify {
+        return Err("--verify is available only with clean".into());
+    }
     let github = std::env::var("GITHUB_ACTIONS").is_ok_and(|v| v == "true");
     let mut failed = 0;
     let mut read = 0;
@@ -623,10 +632,68 @@ fn places(data: &[u8], texts: &[String]) -> Vec<(u32, [f64; 4])> {
     out
 }
 
+#[derive(Clone, Copy)]
 enum Done {
     Made,
     Failed,
     Nothing,
+}
+
+/// Parses the written destination, using the large-movie path when possible.
+fn verify_written(
+    source: &VerificationSnapshot,
+    path: &Path,
+) -> Result<VerificationReport, String> {
+    let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
+    let output = match movie::read(path).map_err(failed_to_read)? {
+        Some(m) => summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
+        None => summarize(&std::fs::read(path).map_err(failed_to_read)?),
+    };
+    Ok(verification::compare(
+        source,
+        &verification::snapshot(&output),
+    ))
+}
+
+fn verification_json(source: &Path, output: Option<&Path>, report: &VerificationReport) -> String {
+    let report = report.to_json();
+    let fields = report.get(1..report.len() - 1).unwrap_or_default();
+    match output {
+        Some(output) => format!(
+            "{{\"source\":{},\"output\":{},\"operation_state\":\"written\",{fields}}}",
+            json_str(&source.display().to_string()),
+            json_str(&output.display().to_string())
+        ),
+        None => format!(
+            "{{\"source\":{},\"output\":null,\"operation_state\":\"not_created\",{fields}}}",
+            json_str(&source.display().to_string())
+        ),
+    }
+}
+
+fn show_verification(
+    source: &Path,
+    output: Option<&Path>,
+    report: &VerificationReport,
+    json: bool,
+) {
+    if json {
+        println!("{}", verification_json(source, output, report));
+        return;
+    }
+    match output {
+        Some(output) => println!("{} → {}", source.display(), output.display()),
+        None => println!("{}: no output was available to verify", source.display()),
+    }
+    for (status, findings) in [
+        ("removed", report.removed.as_slice()),
+        ("present", report.present.as_slice()),
+        ("unchecked", report.unchecked.as_slice()),
+    ] {
+        for finding in findings {
+            println!("  {status}: {} ({})", finding.kind, finding.reason.code());
+        }
+    }
 }
 
 /// Writes a copy that was made, or says why none was.
@@ -650,9 +717,11 @@ fn finish(
             );
             write_whole(&to, |out| write(&bytes, out))
                 .map_err(|e| format!("{}: {e}", to.display()))?;
-            println!("{} → {}", path.display(), to.display());
-            for w in what {
-                println!("  {w}");
+            if !o.verify {
+                println!("{} → {}", path.display(), to.display());
+                for w in what {
+                    println!("  {w}");
+                }
             }
             Ok(Done::Made)
         }
@@ -676,6 +745,9 @@ fn finish(
 
 fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     let o = options(args)?;
+    if o.verify && !matches!(kind, Make::Clean) {
+        return Err("--verify is available only with clean".into());
+    }
     match (&o.out, out_file(&o)) {
         (Some(dir), None) => {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -695,22 +767,48 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
         return Err("repair keeps the damaged file: use --out, or the default beside it".into());
     }
     let (mut made, mut failed) = (0, 0);
+    let mut verification_failed = false;
     for path in files(&o.paths)? {
         if matches!(kind, Make::Clean)
             && let Some(m) = movie::read(&path).map_err(|e| format!("{}: {e}", path.display()))?
         {
+            let source_snapshot = o.verify.then(|| {
+                verification::snapshot(&summary_of(&Document::Video(parse_video_gapped(
+                    &m.given, &m.gaps,
+                ))))
+            });
+            let output_path = target(&path, &o, "clean");
             let result = clean_video_gapped(&m.given, &m.gaps)
                 .map(|c| (c.bytes, c.removed.into_iter().map(|r| r.what).collect()))
                 .map_err(|e| e.reason());
             let write = |copy: &[u8], out: &mut BufWriter<File>| m.write_copy(copy, &path, out);
-            match finish(&path, &o, kind, result, write)? {
+            let done = finish(&path, &o, kind, result, write)?;
+            match done {
                 Done::Made => made += 1,
                 Done::Failed => failed += 1,
                 Done::Nothing => {}
             }
+            if o.verify {
+                if matches!(done, Done::Made) {
+                    let report = verify_written(
+                        source_snapshot
+                            .as_ref()
+                            .expect("snapshot requested with --verify"),
+                        &output_path,
+                    )?;
+                    show_verification(&path, Some(&output_path), &report, o.json);
+                    verification_failed |=
+                        !report.present.is_empty() || !report.unchecked.is_empty();
+                } else {
+                    let report = VerificationReport::skipped();
+                    show_verification(&path, None, &report, o.json);
+                    verification_failed = true;
+                }
+            }
             continue;
         }
         let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let source_snapshot = o.verify.then(|| verification::snapshot(&summarize(&data)));
         let result = match kind {
             Make::Clean => clean_with(
                 &data,
@@ -750,19 +848,40 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             }
         };
         let write = |copy: &[u8], out: &mut BufWriter<File>| out.write_all(copy);
-        match finish(&path, &o, kind, result, write)? {
+        let output_path = target(&path, &o, "clean");
+        let done = finish(&path, &o, kind, result, write)?;
+        match done {
             Done::Made => made += 1,
             Done::Failed => failed += 1,
             Done::Nothing => {}
+        }
+        if o.verify {
+            drop(data);
+            if matches!(done, Done::Made) {
+                let report = verify_written(
+                    source_snapshot
+                        .as_ref()
+                        .expect("snapshot requested with --verify"),
+                    &output_path,
+                )?;
+                show_verification(&path, Some(&output_path), &report, o.json);
+                verification_failed |= !report.present.is_empty() || !report.unchecked.is_empty();
+            } else {
+                let report = VerificationReport::skipped();
+                show_verification(&path, None, &report, o.json);
+                verification_failed = true;
+            }
         }
     }
     eprintln!(
         "hexscope: {made} {} made",
         if made == 1 { "copy" } else { "copies" }
     );
-    Ok(if failed > 0 {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    })
+    Ok(
+        if verification_failed || failed > 0 || (o.verify && made == 0) {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        },
+    )
 }

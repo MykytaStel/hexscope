@@ -1,11 +1,11 @@
 export type Locale = "en" | "uk";
 
 const LANGUAGE_KEY = "hexscope.language";
-let guideTranslations: Readonly<Record<string, string>> = {};
+const lazyTranslations: Record<string, string> = {};
 
-/** Adds article copy only on guide pages, keeping it out of the landing-page bundle. */
-export function registerGuideTranslations(translations: Readonly<Record<string, string>>): void {
-  guideTranslations = translations;
+/** Adds copy for an optional, dynamically loaded feature without bloating the first page bundle. */
+export function registerLazyTranslations(translations: Readonly<Record<string, string>>): void {
+  Object.assign(lazyTranslations, translations);
 }
 
 // Keep the source copy as the key: the English UI remains the canonical copy,
@@ -107,7 +107,6 @@ const UK: Record<string, string> = {
   " — text or hex, and the part of the file it falls in": " — тексту чи hex-значень у файлі",
   "Compare": "Порівняння",
   " — two files, or a file and its clean copy": " — двох файлів або файла з очищеною копією",
-  "JSON": "JSON",
   " — the whole structure, with its explanations": " — повна структура з поясненнями",
   "Command line and CI": "Командний рядок і CI",
   " — the same checks in ": " — ті самі перевірки в ",
@@ -206,9 +205,7 @@ const UK: Record<string, string> = {
   "a C array": "масив C",
   "copied": "скопійовано",
   "not allowed here": "Браузер заборонив копіювання",
-  "JPEG": "JPEG",
   "SOI": "Початок зображення (SOI)",
-  "APP1 · EXIF": "APP1 · EXIF",
   "marker": "маркер",
   "length": "довжина",
   "TIFF header": "Заголовок TIFF",
@@ -247,7 +244,6 @@ const UK: Record<string, string> = {
   "Photo": "Фото",
   "Video": "Відео",
   "Recording": "Аудіозапис",
-  "PDF": "PDF",
   "Email": "Лист",
   "File": "Файл",
   "Size": "Розмір",
@@ -474,7 +470,7 @@ export function translateText(value: string, locale: Locale): string {
   const trailing = value.match(/\s*$/)?.[0] ?? "";
   const content = value.slice(leading.length, value.length - trailing.length);
   const normalized = content.replace(/\s+/g, " ");
-  const exact = UK[normalized] ?? guideTranslations[normalized];
+  const exact = UK[normalized] ?? lazyTranslations[normalized];
   if (exact) return `${leading}${exact}${trailing}`;
   const pictureReason = /^The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR\.(?: (.*))?$/.exec(normalized);
   if (pictureReason) {

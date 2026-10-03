@@ -217,6 +217,206 @@ fn clean_in_place_replaces_the_file_whole() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn clean_verify_checks_the_written_copy_and_emits_value_free_json() {
+    let dir = std::env::temp_dir().join(format!("hexscope-clean-verify-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let output = dir.join("verified.jpg");
+    let source = std::fs::read(fixture("photo.jpg")).unwrap();
+    let source_values = hexscope_core::summary::summarize(&source).facts;
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        &fixture("photo.jpg"),
+    ]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("\"schema_version\":1"), "{out}");
+    assert!(out.contains("\"operation_state\":\"written\""), "{out}");
+    assert!(out.contains("\"kind\":\"location\""), "{out}");
+    assert!(out.contains("\"reason\":\"coverage_incomplete\""), "{out}");
+    for (_, value) in source_values {
+        assert!(
+            !out.contains(&value),
+            "verification exposed a finding value: {value}"
+        );
+    }
+    let checked = hexscope_core::summary::summarize(&std::fs::read(&output).unwrap());
+    assert!(!checked.facts.iter().any(|(kind, _)| *kind == "location"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_human_output_names_kinds_without_values() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-human-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let output = dir.join("human.jpg");
+    let source_values =
+        hexscope_core::summary::summarize(&std::fs::read(fixture("photo.jpg")).unwrap()).facts;
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--out",
+        output.to_str().unwrap(),
+        &fixture("photo.jpg"),
+    ]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.contains("location (removed)"), "{out}");
+    assert!(out.contains("lens (coverage_incomplete)"), "{out}");
+    for (_, value) in source_values {
+        assert!(
+            !out.contains(&value),
+            "verification exposed a finding value: {value}"
+        );
+    }
+    assert!(output.exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_handles_batch_outputs_and_in_place_replacement() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-batch-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let photo = fixture("photo.jpg");
+    let no_metadata = fixture("pngsuite/basn2c08.png");
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        dir.to_str().unwrap(),
+        &photo,
+        &no_metadata,
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out.lines().count(), 2, "{out}");
+    assert!(
+        out.lines()
+            .any(|line| line.contains("\"operation_state\":\"written\"")),
+        "{out}"
+    );
+    assert!(
+        out.lines()
+            .any(|line| line.contains("\"operation_state\":\"not_created\"")),
+        "{out}"
+    );
+    assert!(out.contains("\"output\":null"), "{out}");
+    assert!(dir.join("photo-clean.jpg").exists());
+
+    let in_place = dir.join("in-place.jpg");
+    std::fs::copy(&photo, &in_place).unwrap();
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--in-place",
+        in_place.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("\"source\":\""), "{out}");
+    assert!(out.contains("\"output\":\""), "{out}");
+    assert!(
+        !hexscope_core::summary::summarize(&std::fs::read(&in_place).unwrap())
+            .facts
+            .iter()
+            .any(|(kind, _)| *kind == "location")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_returns_one_when_cleaning_made_no_copy() {
+    let (code, out, _) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        &fixture("pngsuite/basn2c08.png"),
+    ]);
+
+    assert_eq!(code, 1);
+    assert!(out.contains("\"operation_state\":\"not_created\""), "{out}");
+    assert!(out.contains("\"output\":null"), "{out}");
+    assert!(out.contains("\"reason\":\"verification_skipped\""), "{out}");
+}
+
+#[test]
+fn clean_verify_returns_one_when_directory_contains_no_files() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-empty-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let (code, out, err) = run(&["clean", "--verify", "--json", dir.to_str().unwrap()]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.is_empty(), "{out}");
+    assert!(err.contains("0 copies made"), "{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn verify_is_only_an_option_for_clean() {
+    let (code, _, err) = run(&["check", "--verify", &fixture("photo.jpg")]);
+    assert_eq!(code, 2);
+    assert!(err.contains("only with clean"), "{err}");
+
+    let (code, _, err) = run(&["repair", "--verify", &fixture("photo.jpg")]);
+    assert_eq!(code, 2);
+    assert!(err.contains("only with clean"), "{err}");
+
+    let (code, _, err) = run(&[
+        "redact",
+        "--verify",
+        "--text",
+        "secret",
+        &fixture("photo.jpg"),
+    ]);
+    assert_eq!(code, 2);
+    assert!(err.contains("only with clean"), "{err}");
+}
+
+#[test]
+fn clean_verify_reports_an_unwritable_destination_as_io_error() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-write-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let parent = dir.join("not-a-directory");
+    std::fs::write(&parent, b"occupied").unwrap();
+    let output = parent.join("blocked.jpg");
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        &fixture("photo.jpg"),
+    ]);
+
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(err.contains("not-a-directory"), "{err}");
+    assert!(!err.contains("unknown option --verify"), "{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A phone's video with its picture and sound grown to `size` bytes.
 fn long_video(size: usize) -> Vec<u8> {
     let src = std::fs::read(fixture("iphone.mov")).unwrap();
