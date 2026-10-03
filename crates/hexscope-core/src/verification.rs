@@ -406,9 +406,26 @@ fn scope_end(order: &[usize], start: usize, findings: &[VerificationFinding]) ->
 }
 
 fn covered(format: &str, kind: &str, scope: &str) -> bool {
-    format == "jpeg"
-        && scope == "file"
-        && matches!(kind, "camera" | "serial" | "owner" | "location")
+    const JPEG: &[&str] = &["camera", "serial", "owner", "location"];
+    const PDF: &[&str] = &[
+        "author",
+        "title",
+        "subject",
+        "keywords",
+        "application",
+        "producer",
+        "created",
+        "modified",
+        "history",
+    ];
+    if scope != "file" {
+        return false;
+    }
+    match format {
+        "jpeg" => JPEG.contains(&kind),
+        "pdf" => PDF.contains(&kind),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -433,6 +450,65 @@ mod tests {
             complete,
             findings,
         }
+    }
+
+    fn report_after_pdf_clean(input: &[u8]) -> VerificationReport {
+        let source_summary = crate::summary::summarize(input);
+        assert!(source_summary.complete);
+        let source = super::snapshot(&source_summary);
+        let cleaned = crate::clean::clean(input).unwrap();
+        let output_summary = crate::summary::summarize(&cleaned.bytes);
+        assert!(output_summary.complete);
+        compare(&source, &super::snapshot(&output_summary))
+    }
+
+    fn compact_pdf_with_unknown_xmp_filter() -> Vec<u8> {
+        let mut bytes = include_bytes!("../tests/fixtures/compact.pdf").to_vec();
+        let metadata = bytes
+            .windows(b"/Type /Metadata".len())
+            .position(|window| window == b"/Type /Metadata")
+            .unwrap();
+        let filter = b"/FlateDecode";
+        let filter_at = metadata
+            + bytes[metadata..]
+                .windows(filter.len())
+                .position(|window| window == filter)
+                .unwrap();
+        let unreadable = b"/MysteryFilt";
+        assert_eq!(filter.len(), unreadable.len());
+        bytes[filter_at..filter_at + filter.len()].copy_from_slice(unreadable);
+        bytes
+    }
+
+    fn pdf_with_subject_and_keywords(info_number: u32) -> Vec<u8> {
+        let objects: [&[u8]; 3] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [] /Count 0 >>",
+            b"<< /Subject (Research plan) /Keywords (film, scan) >>",
+        ];
+        let mut bytes = b"%PDF-1.7\n".to_vec();
+        let mut offsets = Vec::new();
+        for (index, body) in objects.iter().enumerate() {
+            offsets.push(bytes.len());
+            bytes.extend_from_slice(format!("{} 0 obj\n", index + 1).as_bytes());
+            bytes.extend_from_slice(body);
+            bytes.extend_from_slice(b"\nendobj\n");
+        }
+        let xref = bytes.len();
+        bytes.extend_from_slice(b"xref\n0 4\n0000000000 65535 f\r\n");
+        for offset in offsets {
+            bytes.extend_from_slice(format!("{offset:010} 00000 n\r\n").as_bytes());
+        }
+        bytes.extend_from_slice(
+            format!("trailer\n<< /Size 4 /Root 1 0 R /Info {info_number} 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+        );
+        bytes
+    }
+
+    fn kinds(items: &[VerificationItem]) -> Vec<&str> {
+        let mut kinds: Vec<_> = items.iter().map(|item| item.kind.as_str()).collect();
+        kinds.sort_unstable();
+        kinds
     }
 
     #[test]
@@ -614,6 +690,158 @@ mod tests {
         assert_eq!(
             wrong_format.unchecked[0].reason,
             VerificationReason::CoverageIncomplete
+        );
+    }
+
+    #[test]
+    fn pdf_metadata_verification_covers_approved_file_scope_kinds() {
+        let approved = [
+            "author",
+            "title",
+            "subject",
+            "keywords",
+            "application",
+            "producer",
+            "created",
+            "modified",
+            "history",
+        ];
+        for kind in approved {
+            let report = compare(
+                &snapshot("pdf", true, vec![finding(kind, "file", Some("value"))]),
+                &snapshot("pdf", true, vec![]),
+            );
+            assert_eq!(kinds(&report.removed), [kind], "{kind}");
+            assert!(report.present.is_empty(), "{kind}");
+            assert!(report.unchecked.is_empty(), "{kind}");
+        }
+    }
+
+    #[test]
+    fn pdf_metadata_verification_leaves_unsupported_kinds_and_scopes_unchecked() {
+        for (format, kind, scope) in [
+            ("pdf", "updates", "file"),
+            ("pdf", "earlier", "file"),
+            ("pdf", "author", "page"),
+            ("jpeg", "author", "file"),
+        ] {
+            let report = compare(
+                &snapshot(format, true, vec![finding(kind, scope, Some("value"))]),
+                &snapshot(format, true, vec![]),
+            );
+            assert!(report.removed.is_empty(), "{format}/{kind}/{scope}");
+            assert_eq!(report.unchecked.len(), 1, "{format}/{kind}/{scope}");
+            assert_eq!(
+                report.unchecked[0].reason,
+                VerificationReason::CoverageIncomplete,
+                "{format}/{kind}/{scope}"
+            );
+        }
+    }
+
+    #[test]
+    fn pdf_metadata_verification_leaves_incomplete_findings_unchecked() {
+        let incomplete = compare(
+            &snapshot("pdf", false, vec![finding("author", "file", Some("value"))]),
+            &snapshot("pdf", true, vec![]),
+        );
+        assert!(incomplete.removed.is_empty());
+        assert_eq!(incomplete.unchecked.len(), 1);
+        assert_eq!(
+            incomplete.unchecked[0].reason,
+            VerificationReason::ParseIncomplete
+        );
+    }
+
+    #[test]
+    fn pdf_metadata_verification_removes_compact_fixture_info_and_xmp_findings() {
+        let report = report_after_pdf_clean(include_bytes!("../tests/fixtures/compact.pdf"));
+
+        assert_eq!(
+            kinds(&report.removed),
+            [
+                "application",
+                "author",
+                "created",
+                "history",
+                "producer",
+                "title"
+            ]
+        );
+        assert!(report.present.is_empty());
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[test]
+    fn pdf_metadata_verification_removes_subject_and_keywords_from_info_dictionary() {
+        let input = pdf_with_subject_and_keywords(3);
+        let source = crate::summary::summarize(&input);
+        assert!(source.complete);
+        assert!(source.facts.iter().any(|(kind, _)| *kind == "subject"));
+        assert!(source.facts.iter().any(|(kind, _)| *kind == "keywords"));
+
+        let cleaned = crate::clean::clean(&input).unwrap();
+        let output = crate::summary::summarize(&cleaned.bytes);
+        assert!(output.complete);
+        let report = compare(&super::snapshot(&source), &super::snapshot(&output));
+
+        assert_eq!(kinds(&report.removed), ["keywords", "subject"]);
+        assert!(report.present.is_empty());
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[test]
+    fn unresolved_pdf_info_reference_makes_metadata_incomplete() {
+        let summary = crate::summary::summarize(&pdf_with_subject_and_keywords(9));
+
+        assert!(!summary.complete);
+        assert!(summary.facts.is_empty());
+    }
+
+    #[test]
+    fn pdf_metadata_verification_leaves_unreadable_xmp_unchecked() {
+        let source_bytes = compact_pdf_with_unknown_xmp_filter();
+        let source_summary = crate::summary::summarize(&source_bytes);
+        assert!(
+            !source_summary.complete,
+            "unsupported XMP filter must make PDF metadata coverage incomplete"
+        );
+
+        let cleaned = crate::clean::clean(&source_bytes).unwrap();
+        let output_summary = crate::summary::summarize(&cleaned.bytes);
+        let report = compare(
+            &super::snapshot(&source_summary),
+            &super::snapshot(&output_summary),
+        );
+
+        assert!(report.removed.is_empty());
+        assert!(report.present.is_empty());
+        assert!(report.unchecked.iter().any(|item| item.kind == "author"));
+    }
+
+    #[test]
+    fn pdf_metadata_verification_keeps_report_revision_findings_unchecked() {
+        let report = report_after_pdf_clean(include_bytes!("../tests/fixtures/report.pdf"));
+
+        assert_eq!(
+            kinds(&report.removed),
+            [
+                "application",
+                "author",
+                "created",
+                "history",
+                "modified",
+                "producer",
+                "title"
+            ]
+        );
+        assert!(report.present.is_empty());
+        assert_eq!(kinds(&report.unchecked), ["earlier", "updates"]);
+        assert!(
+            report
+                .unchecked
+                .iter()
+                .all(|item| { item.reason == VerificationReason::CoverageIncomplete })
         );
     }
 

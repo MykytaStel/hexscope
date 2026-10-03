@@ -43,6 +43,8 @@ pub struct PdfDocument {
     pub edits: usize,
     /// It is encrypted: its strings and streams are unreadable without a key.
     pub encrypted: bool,
+    /// False when a declared Info/XMP source could not be read completely.
+    pub metadata_complete: bool,
     /// How, and whether it opened without a password.
     pub lock: Option<crypt::Lock>,
     pub facts: Vec<DocumentFact>,
@@ -553,7 +555,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     ctx.index();
-    let mut facts = facts::collect(data, &mut tree, &ctx, encrypted);
+    let (mut facts, metadata_complete) = facts::collect(data, &mut tree, &ctx, encrypted);
     let mut attachments = Vec::new();
     let blackouts = if !encrypted || ctx.crypt.is_some() {
         redact::earlier_text(data, &ctx, &mut facts);
@@ -620,6 +622,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         revisions: ends.len(),
         edits,
         encrypted,
+        metadata_complete,
         lock: lock.map(|(l, _)| l),
         facts,
         blackouts,

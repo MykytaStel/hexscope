@@ -101,54 +101,54 @@ pub fn summary_of(doc: &Document) -> Summary {
         })
         .collect();
     let mut facts = Vec::new();
-    let format = match doc {
+    let (format, metadata_complete) = match doc {
         Document::Png(d) => {
             photo(&d.facts, &mut facts);
-            "png"
+            ("png", true)
         }
         Document::Jpeg(d) => {
             photo(&d.facts, &mut facts);
-            "jpeg"
+            ("jpeg", true)
         }
         Document::Heif(d) => {
             photo(&d.facts, &mut facts);
-            "heif"
+            ("heif", true)
         }
         Document::Webp(d) => {
             photo(&d.facts, &mut facts);
-            "webp"
+            ("webp", true)
         }
         Document::Gif(d) => {
             photo(&d.facts, &mut facts);
-            "gif"
+            ("gif", true)
         }
         Document::Video(d) => {
             photo(&d.facts, &mut facts);
-            "video"
+            ("video", true)
         }
         Document::Pdf(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            "pdf"
+            ("pdf", d.metadata_complete)
         }
         Document::Zip(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            "zip"
+            ("zip", true)
         }
         Document::Wasm(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            "wasm"
+            ("wasm", true)
         }
         Document::Cfb(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            d.kind.format()
+            (d.kind.format(), true)
         }
         Document::Eml(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            "eml"
+            ("eml", true)
         }
-        Document::Unknown(_) => "unknown",
+        Document::Unknown(_) => ("unknown", true),
     };
-    let complete = problems.is_empty();
+    let complete = problems.is_empty() && metadata_complete;
     Summary {
         format,
         problems,

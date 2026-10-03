@@ -22,7 +22,7 @@ Hexscope should help a person understand what a file reveals before they share i
 - Rust core compares parser-backed facts before and after cleaning and emits a value-free report.
 - Web verifies the actual produced bytes in the worker and retains its QR and selected-PDF-text checks.
 - CLI `clean --verify` reads the written output back and returns a conservative status.
-- Confirmed removal coverage is intentionally limited to complete JPEG file-scope findings for camera, serial number, owner, and location. Other formats and findings remain unchecked until their parser and cleaner behavior have proof and fixtures.
+- PR #14 first shipped confirmed removal for complete JPEG file-scope findings: camera, serial number, owner, and location. The PDF Info/XMP extension below adds a second evidence-backed slice; other formats and findings remain unchecked until parser and cleaner behavior have proof and fixtures.
 - Web output verification skips the additional parse above 10 MiB; copy creation remains available.
 
 ## Near-term priorities
@@ -30,7 +30,7 @@ Hexscope should help a person understand what a file reveals before they share i
 ### P0 — Expand verification without creating false reassurance
 
 1. **Publish a format/finding/cleaning coverage matrix.** For each format and finding, record whether Hexscope extracts it, whether the cleaner removes it, what proves completeness, and which interfaces can verify it.
-2. **Close the PDF verification gap.** Audit the existing Web-only selected-text and QR checks against the shared Rust report. Choose the smallest PDF slice that can be verified against the actual output bytes, and bring CLI behavior into parity where the parser can prove it.
+2. **Expand PDF verification in narrow slices.** Shared core verification now confirms removal only for complete, file-scope Info/XMP findings: author, title, subject, keywords, application, producer, created, modified, and history. An unsupported fact observed in the cleaned output is reported as present; claims that unsupported revision findings, hidden or covered text, or other PDF content were removed remain unchecked until parser and cleaner evidence proves coverage. Keep Web QR rescanning and selected-PDF-text checks supplemental.
 3. **Add real regression cases for incomplete documents.** Include surviving hidden text, removed text, malformed or partially parsed pages, and output-only findings. Every uncertain path must stay unchecked.
 4. **Make coverage understandable in the result UI and CLI.** Tell the user which items were removed, remain, or were not checked, and why. Keep the copy available even when the result is incomplete.
 
