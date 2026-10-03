@@ -27,6 +27,8 @@ pub struct Summary {
     /// What it gives away: a kind such as `location` or `author`, and its
     /// text.
     pub facts: Vec<(&'static str, String)>,
+    /// False when the parser reported a warning or an error node.
+    pub complete: bool,
 }
 
 impl Summary {
@@ -81,7 +83,7 @@ pub fn summarize(data: &[u8]) -> Summary {
 /// its media.
 pub fn summary_of(doc: &Document) -> Summary {
     let tree = doc.tree();
-    let problems = tree
+    let problems: Vec<Problem> = tree
         .nodes()
         .iter()
         .filter(|n| matches!(n.kind, NodeKind::Error | NodeKind::Warning))
@@ -146,10 +148,12 @@ pub fn summary_of(doc: &Document) -> Summary {
         }
         Document::Unknown(_) => "unknown",
     };
+    let complete = problems.is_empty();
     Summary {
         format,
         problems,
         facts,
+        complete,
     }
 }
 

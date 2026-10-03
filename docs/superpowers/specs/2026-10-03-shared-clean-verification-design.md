@@ -29,7 +29,7 @@ Add `hexscope-core::verification` with:
 
 Findings are compared as a multiset so duplicates stay distinct. Exact `(format, kind, scope, value)` matches remain present. An unmatched source finding with an unmatched output finding of the same format, kind, and scope remains present with `value_changed_same_kind`. A finding is removed only when the exact capability is covered, both parses are complete, and no same-kind output finding remains. Findings outside the capability table or from incomplete parses are unchecked. Output-only findings are present and marked unexpected. No comparable findings produce one unchecked `file` item rather than an all-clear.
 
-The initial capability table is exactly JPEG, file scope, and kinds `camera`, `serial`, `owner`, and `location`. Summary completeness is false when parsing produced a warning or error node. Stable reasons are `still_present`, `value_changed_same_kind`, `no_stable_value`, `coverage_incomplete`, `parse_incomplete`, `unexpected_output`, `no_comparable_findings`, and `verification_skipped`.
+The initial capability table is exactly JPEG, file scope, and kinds `camera`, `serial`, `owner`, and `location`. Summary completeness is false when parsing produced a warning or error node. Stable reasons are `removed`, `still_present`, `value_changed_same_kind`, `no_stable_value`, `coverage_incomplete`, `parse_incomplete`, `unexpected_output`, `no_comparable_findings`, and `verification_skipped`.
 
 ### WebAssembly and web app
 

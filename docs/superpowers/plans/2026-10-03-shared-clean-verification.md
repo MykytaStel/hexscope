@@ -88,7 +88,7 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
 - [ ] **Step 3: Implement the smallest core contract**
   - Derive `Summary.complete` from absence of `Warning` and `Error` nodes.
   - `snapshot` keeps all facts, with scope `file` and stable values in memory.
-  - `compare` consumes exact matches first, then same-kind/scope matches, preserving duplicate occurrences. It reports a source item as removed only for the explicit JPEG whitelist and complete snapshots.
+  - `compare` consumes exact matches first, then same-kind/scope matches, preserving duplicate occurrences. It reports a source item as removed only for the explicit JPEG whitelist and complete snapshots, with reason `removed`.
   - `to_json()` JSON-escapes kind strings and emits only report fields.
 - [ ] **Step 4: Re-run the focused tests**
 
@@ -244,3 +244,4 @@ pub fn compare(source: &VerificationSnapshot, output: &VerificationSnapshot) -> 
 - `Ruling: The earlier draft said the Web verifier already existed, but the checked-out source has no reparse/report path — replace that premise with a new end-to-end implementation — cost if wrong: the slice is broader by one Web status card.`
 - Baseline build: `pnpm --filter web build` passed; warnings about `./theme.js` missing `type="module"` exist in 11 HTML files.
 - Baseline gzip-9 artifact sizes: main JS `64,528/65,000`, media WASM `126,889/140,000`, full WASM `286,084/290,000` bytes.
+- Task 1: the initial test run failed on the intentionally absent verification API; after implementation, `cargo test -p hexscope-core verification` passed 8/8 and `cargo test -p hexscope-core` passed 301 unit, 17 golden, and 14 property tests (6 timing tests remained ignored). `cargo fmt --all` and `git diff --check` passed.
