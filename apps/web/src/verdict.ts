@@ -224,7 +224,7 @@ export function verdict(m: FileModel): VerdictLine[] {
   if (incompleteForm) {
     lines.push({
       kind: "warning",
-      text: "Some PDF form content could not be fully checked. Search may miss text.",
+      text: "Some PDF page or form content could not be fully checked. Search may miss text.",
       node: incompleteForm.node,
     });
   }

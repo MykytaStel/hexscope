@@ -65,36 +65,59 @@ pub(super) struct Page {
     pub(super) resources: Option<Obj>,
 }
 
+/// The pages found in the tree, and whether every declared child was read.
+pub(super) struct PageSet {
+    pub pages: Vec<Page>,
+    pub complete: bool,
+}
+
 /// The pages in reading order, from the catalog down the page tree (7.7.3),
 /// each with the size and resources it may inherit (7.7.3.4).
-pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
+pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> PageSet {
     let mut out = Vec::new();
     let Some(root) = ctx.trailers.iter().rev().find_map(|t| match t.get("Root") {
         Some(Obj::Ref(n, _)) => Some(*n),
         _ => None,
     }) else {
-        return out;
+        return PageSet {
+            pages: out,
+            complete: false,
+        };
     };
     let catalog = match resolve(data, ctx, root, budget) {
         Some(Found::Top(rec)) => rec.value.clone(),
         Some(Found::Packed(obj, _)) => obj,
-        None => return out,
+        None => {
+            return PageSet {
+                pages: out,
+                complete: false,
+            };
+        }
     };
     let mut seen = Vec::new();
     let mut stack = vec![(catalog.get("Pages").cloned(), LETTER, None::<Obj>)];
+    let mut complete = true;
     while let Some((next, inherited, resources)) = stack.pop() {
         if out.len() >= MAX_PAGES || seen.len() > MAX_PAGES * 4 {
+            complete = false;
             break;
         }
-        let Some(Obj::Ref(n, _)) = next else { continue };
+        let Some(Obj::Ref(n, _)) = next else {
+            complete = false;
+            continue;
+        };
         if seen.contains(&n) {
+            complete = false;
             continue;
         }
         seen.push(n);
         let (dict, node) = match resolve(data, ctx, n, budget) {
             Some(Found::Top(rec)) => (rec.value.clone(), rec.node),
             Some(Found::Packed(obj, id)) => (obj, id),
-            None => continue,
+            None => {
+                complete = false;
+                continue;
+            }
         };
         let media = match dict.get("MediaBox") {
             Some(Obj::Array(a)) if a.len() == 4 => {
@@ -107,8 +130,8 @@ pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
             _ => inherited,
         };
         let resources = dict.get("Resources").cloned().or(resources);
-        match dict.get("Kids") {
-            Some(Obj::Array(kids)) => {
+        match (dict.get("Type").and_then(Obj::name), dict.get("Kids")) {
+            (Some("Pages"), Some(Obj::Array(kids))) => {
                 // Last first, so the first page comes off the stack first.
                 stack.extend(
                     kids.iter()
@@ -116,17 +139,20 @@ pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> Vec<Page> {
                         .map(|k| (Some(k.obj.clone()), media, resources.clone())),
                 );
             }
-            _ if dict.get("Type").and_then(Obj::name) == Some("Page") => out.push(Page {
+            (Some("Page"), None) => out.push(Page {
                 num: n,
                 dict,
                 node,
                 media,
                 resources,
             }),
-            _ => {}
+            _ => complete = false,
         }
     }
-    out
+    PageSet {
+        pages: out,
+        complete,
+    }
 }
 
 /// A top-level object by number, the latest one.
@@ -134,37 +160,55 @@ fn top(ctx: &Ctx, n: u32) -> Option<&ObjRec> {
     ctx.latest(n)
 }
 
+struct PageContent<'a> {
+    bytes: Vec<u8>,
+    parts: Vec<(&'a ObjRec, usize, usize)>,
+    complete: bool,
+}
+
 /// A page's content, its streams read as one (7.8.2), and where each
 /// stream's bytes are in it: `(object number, start, end)`.
-fn content<'a>(
-    data: &[u8],
-    ctx: &'a Ctx,
-    page: &Obj,
-    budget: &mut u64,
-) -> (Vec<u8>, Vec<(&'a ObjRec, usize, usize)>) {
+fn content<'a>(data: &[u8], ctx: &'a Ctx, page: &Obj, budget: &mut u64) -> PageContent<'a> {
+    let mut complete = true;
     let refs: Vec<u32> = match page.get("Contents") {
+        None => Vec::new(),
         Some(Obj::Ref(n, _)) => vec![*n],
         Some(Obj::Array(a)) => a
             .iter()
             .filter_map(|i| match i.obj {
                 Obj::Ref(n, _) => Some(n),
-                _ => None,
+                _ => {
+                    complete = false;
+                    None
+                }
             })
             .collect(),
-        _ => Vec::new(),
+        Some(_) => {
+            complete = false;
+            Vec::new()
+        }
     };
     let mut bytes = Vec::new();
     let mut parts = Vec::new();
     for n in refs {
-        let Some(rec) = top(ctx, n) else { continue };
-        if let Some(b) = decode(data, rec, ctx.crypt.as_ref(), budget) {
+        let Some(rec) = top(ctx, n) else {
+            complete = false;
+            continue;
+        };
+        if let Some(b) = super::page::decode_content_stream(data, rec, ctx, budget) {
             let start = bytes.len();
             bytes.extend_from_slice(&b);
             parts.push((rec, start, bytes.len()));
             bytes.push(b'\n');
+        } else {
+            complete = false;
         }
     }
-    (bytes, parts)
+    PageContent {
+        bytes,
+        parts,
+        complete,
+    }
 }
 
 /// A page's annotations, with the node of each and its object number when
@@ -219,8 +263,9 @@ fn paint<'a>(
     extra: &[Area],
 ) -> Painted<'a> {
     let fonts: Fonts = page_fonts(data, ctx, page.resources.as_ref(), budget);
-    let (content, parts) = content(data, ctx, &page.dict, budget);
-    let source_parts: Vec<(u32, usize, usize)> = parts
+    let content = content(data, ctx, &page.dict, budget);
+    let source_parts: Vec<(u32, usize, usize)> = content
+        .parts
         .iter()
         .map(|(rec, start, end)| (rec.num, *start, *end))
         .collect();
@@ -233,8 +278,8 @@ fn paint<'a>(
     marks.extend(extra.iter().map(|a| (*a, page.node, None)));
     let areas: Vec<Area> = marks.iter().map(|m| m.0).collect();
     let version = super::effective_version(data, ctx, super::pdf_header_version(data).as_deref());
-    let walked = super::page::walk_page(
-        &content,
+    let mut walked = super::page::walk_page(
+        &content.bytes,
         &fonts,
         Area(page.media),
         &areas,
@@ -247,9 +292,10 @@ fn paint<'a>(
         invocations,
         &source_parts,
     );
+    walked.complete &= content.complete;
     Painted {
-        content,
-        parts,
+        content: content.bytes,
+        parts: content.parts,
         walked,
         marks,
         annots,
@@ -280,7 +326,14 @@ pub(super) fn check(
     // Links whose words name one site while they go to another.
     let mut elsewhere: Vec<String> = Vec::new();
     let mut elsewhere_node = None;
-    for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
+    let page_set = pages(data, ctx, &mut budget);
+    if !page_set.complete
+        && let Some(root) = tree.root()
+    {
+        let range = tree.get(root).range;
+        tree.warning(root, "PDF page tree could not be fully checked", range);
+    }
+    for (i, page) in page_set.pages.iter().enumerate() {
         let number = i + 1;
         let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let w = &p.walked;
@@ -331,8 +384,13 @@ pub(super) fn check(
 
         if !w.complete {
             let (node, range) = at.unwrap_or((page.node, tree.get(page.node).range));
-            let warning = tree.warning(node, "PDF form content could not be fully checked", range);
-            let text = format!("page {number}: some form content could not be fully checked");
+            let warning = tree.warning(
+                node,
+                "PDF page or form content could not be fully checked",
+                range,
+            );
+            let text =
+                format!("page {number}: some page or form content could not be fully checked");
             tree.set_value(warning, Some(Value::Text(text.clone())));
             insert_update(facts, fact("form-incomplete", text, warning));
         }
@@ -543,7 +601,9 @@ pub(crate) struct Rewrites {
     pub(super) form_edits: Vec<StreamEdit>,
     /// Page streams prefixed with `q\n` before their decoded contents.
     pub(super) prefixed_streams: Vec<(u32, u32)>,
-    /// Pages whose Form XObject traversal stopped early.
+    /// Whether every page-tree entry was resolved and visited.
+    pub(super) page_tree_complete: bool,
+    /// Pages whose content streams or invoked forms could not be inspected fully.
     pub(super) incomplete_pages: Vec<u32>,
     /// Glyphs taken out.
     pub(super) removed: u64,
@@ -573,7 +633,9 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
     let mut removed = 0u64;
     let mut budget = BUDGET;
     let mut invocations = 0;
-    for (i, page) in pages(data, ctx, &mut budget).into_iter().enumerate() {
+    let page_set = pages(data, ctx, &mut budget);
+    let page_tree_complete = page_set.complete;
+    for (i, page) in page_set.pages.into_iter().enumerate() {
         let mine: Vec<Area> = extra
             .iter()
             .filter(|(n, _)| *n as usize == i + 1)
@@ -673,6 +735,7 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
         source_edits,
         form_edits,
         prefixed_streams,
+        page_tree_complete,
         incomplete_pages,
         removed,
         applied,
@@ -703,8 +766,9 @@ pub(crate) fn pictures_by_page(
     let mut budget = BUDGET;
     let mut out = Vec::new();
     let mut invocations = 0;
-    let pages = pages(data, ctx, &mut budget);
-    for (i, page) in pages
+    let page_set = pages(data, ctx, &mut budget);
+    for (i, page) in page_set
+        .pages
         .iter()
         .enumerate()
         .skip(first as usize)
@@ -736,7 +800,7 @@ pub struct PageText {
     pub page: u32,
     /// `[left, bottom, right, top]` in the page's points.
     pub media: [f64; 4],
-    /// Whether every supported form invocation on this page was inspected.
+    /// Whether its content, forms, and page-tree coverage were inspected fully.
     pub complete: bool,
     pub glyphs: Vec<([f64; 4], String)>,
     /// The dark boxes already on the page over text or a picture, and its
@@ -752,7 +816,9 @@ pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
     let mut budget = BUDGET;
     let mut invocations = 0;
     let mut total = 0;
-    for (i, page) in pages(data, ctx, &mut budget).iter().enumerate() {
+    let page_set = pages(data, ctx, &mut budget);
+    let page_tree_complete = page_set.complete;
+    for (i, page) in page_set.pages.iter().enumerate() {
         let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let w = &p.walked;
         let glyphs: Vec<([f64; 4], String)> = w
@@ -767,7 +833,7 @@ pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
             page: i as u32 + 1,
             media: page.media,
             glyphs,
-            complete: w.complete,
+            complete: w.complete && page_tree_complete,
             boxes: w
                 .boxes
                 .iter()
@@ -908,11 +974,8 @@ pub(crate) fn shapes_by_page(
     let mut budget = BUDGET;
     let mut out = Vec::new();
     let mut invocations = 0;
-    for (i, page) in pages(data, ctx, &mut budget)
-        .iter()
-        .enumerate()
-        .take(count as usize)
-    {
+    let page_set = pages(data, ctx, &mut budget);
+    for (i, page) in page_set.pages.iter().enumerate().take(count as usize) {
         let p = paint(data, ctx, page, &mut budget, &mut invocations, &[]);
         let mut shapes: Vec<[f64; 4]> = p.walked.dark.iter().map(|a| a.0).collect();
         super::pictures::visit(

@@ -670,7 +670,7 @@ export class Drawer {
     const incomplete = el(
       "p",
       "problem is-warning redact-incomplete",
-      "Some PDF form content could not be fully checked. Search may miss text.",
+      "Some PDF page or form content could not be fully checked. Search may miss text.",
     );
     incomplete.hidden = true;
     incomplete.setAttribute("role", "alert");

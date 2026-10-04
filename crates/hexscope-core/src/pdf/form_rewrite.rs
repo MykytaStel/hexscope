@@ -81,7 +81,7 @@ pub(super) fn plan_form_rewrites(
     }
 
     let mut budget = MAX_DECODED_TOTAL;
-    let pages = redact::pages(data, ctx, &mut budget);
+    let pages = redact::pages(data, ctx, &mut budget).pages;
     let max_object = ctx.objects.iter().map(|rec| rec.num).max().unwrap_or(0);
     let mut next_object = max_object
         .checked_add(1)

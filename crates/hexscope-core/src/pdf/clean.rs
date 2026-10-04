@@ -128,12 +128,16 @@ pub(crate) fn clean_pdf_with(
         source_edits,
         form_edits,
         prefixed_streams,
+        page_tree_complete,
         incomplete_pages,
         removed: taken_out,
         applied,
         cuts,
         inline,
     } = super::redact::rewrites(data, &ctx, extra);
+    if !page_tree_complete {
+        return Err(CleanError::FormContentIncomplete);
+    }
     if !incomplete_pages.is_empty() {
         return Err(CleanError::FormContentIncomplete);
     }
