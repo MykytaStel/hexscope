@@ -477,8 +477,8 @@ export function translateText(value: string, locale: Locale): string {
     const reason = "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.";
     return `${leading}${reason}${pictureReason[1] ? ` ${translateText(pictureReason[1], locale)}` : ""}${trailing}`;
   }
-  const coverage = /^Hexscope does not have complete ([A-Z]+) coverage for this finding yet\.$/.exec(normalized);
-  if (coverage) return `${leading}Hexscope ще не має повного покриття ${coverage[1]} для цього факту.${trailing}`;
+  const coverage = /^Hexscope cannot yet confirm whether this ([A-Z]+) finding was removed\.$/.exec(normalized);
+  if (coverage) return `${leading}Hexscope поки не може підтвердити, чи видалено цей факт у форматі ${coverage[1]}.${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
   let byteCount = /^(\d[\d,]*) bytes?$/.exec(value);
   if (byteCount) {

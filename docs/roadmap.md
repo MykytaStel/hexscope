@@ -29,10 +29,10 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ### P0 — Expand verification without creating false reassurance
 
-1. **Publish a format/finding/cleaning coverage matrix.** For each format and finding, record whether Hexscope extracts it, whether the cleaner removes it, what proves completeness, and which interfaces can verify it.
+1. **Publish a format/finding/cleaning coverage matrix.** The narrower verified-removal contract is documented in [`verification-coverage.md`](verification-coverage.md) and enforced by the core. A full inventory of parser extraction and cleaning behavior across all formats remains follow-up work.
 2. **Expand PDF verification in narrow slices.** Shared core verification now confirms removal only for complete, file-scope Info/XMP findings: author, title, subject, keywords, application, producer, created, modified, and history. An unsupported fact observed in the cleaned output is reported as present; claims that unsupported revision findings, hidden or covered text, or other PDF content were removed remain unchecked until parser and cleaner evidence proves coverage. Keep Web QR rescanning and selected-PDF-text checks supplemental.
 3. **Add real regression cases for incomplete documents.** Include surviving hidden text, removed text, malformed or partially parsed pages, and output-only findings. Every uncertain path must stay unchecked.
-4. **Make coverage understandable in the result UI and CLI.** Tell the user which items were removed, remain, or were not checked, and why. Keep the copy available even when the result is incomplete.
+4. **Make coverage understandable in the result UI and CLI.** The shared clean-copy result now names what was removed, remains, or was not checked, with a plain-language reason. Keep the copy available even when the result is incomplete.
 
 ### P1 — Make the core and CLI a dependable platform
 

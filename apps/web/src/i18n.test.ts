@@ -71,12 +71,24 @@ describe("the interface language", () => {
     expect(translateText("Not checked", "uk")).toBe("Не перевірено");
     expect(translateText("This finding is still present in the copy.", "uk")).toBe("Цей факт залишився в копії.");
     expect(translateText("A different value remains in the copy.", "uk")).toBe("У копії залишилося інше значення.");
+    expect(translateText("This finding has no stable value to compare.", "uk")).toBe(
+      "Значення цього факту не вдалося надійно порівняти.",
+    );
     expect(translateText("Selected PDF text", "uk")).toBe("Вибраний текст PDF");
     expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
       "Цього факту не було у вихідному файлі, але він з’явився в копії.",
     );
-    expect(translateText("Hexscope does not have complete JPEG coverage for this finding yet.", "uk")).toBe(
-      "Hexscope ще не має повного покриття JPEG для цього факту.",
+    expect(translateText("Hexscope cannot yet confirm whether this JPEG finding was removed.", "uk")).toBe(
+      "Hexscope поки не може підтвердити, чи видалено цей факт у форматі JPEG.",
+    );
+    expect(translateText("Hexscope could not completely read the copy, so its findings were not checked.", "uk")).toBe(
+      "Hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
+    );
+    expect(translateText("No comparable findings were available to check.", "uk")).toBe(
+      "Не було фактів, які можна було порівняти.",
+    );
+    expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
+      "Цього факту не було у вихідному файлі, але він з’явився в копії.",
     );
     expect(translateText("This copy is larger than the 10 MiB verification limit.", "uk")).toBe(
       "Копія перевищує ліміт перевірки 10 МіБ.",

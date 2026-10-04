@@ -21,6 +21,86 @@ pub struct VerificationSnapshot {
     pub findings: Vec<VerificationFinding>,
 }
 
+/// One exact format, finding, and scope for which a missing output fact can
+/// support a `removed` result. The parser and cleaner must keep regression
+/// evidence for each advertised capability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VerificationCapability {
+    pub format: &'static str,
+    pub kind: &'static str,
+    pub scope: &'static str,
+}
+
+/// Canonical clean-copy removal contract shared by the core, Web, and CLI.
+/// Reports outside these exact combinations remain `present` or `unchecked`.
+pub const VERIFIED_REMOVAL_CAPABILITIES: &[VerificationCapability] = &[
+    VerificationCapability {
+        format: "jpeg",
+        kind: "camera",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "jpeg",
+        kind: "serial",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "jpeg",
+        kind: "owner",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "jpeg",
+        kind: "location",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "author",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "title",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "subject",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "keywords",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "application",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "producer",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "created",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "modified",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "pdf",
+        kind: "history",
+        scope: "file",
+    },
+];
+
 /// Stable machine-readable explanation for one result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerificationReason {
@@ -406,26 +486,9 @@ fn scope_end(order: &[usize], start: usize, findings: &[VerificationFinding]) ->
 }
 
 fn covered(format: &str, kind: &str, scope: &str) -> bool {
-    const JPEG: &[&str] = &["camera", "serial", "owner", "location"];
-    const PDF: &[&str] = &[
-        "author",
-        "title",
-        "subject",
-        "keywords",
-        "application",
-        "producer",
-        "created",
-        "modified",
-        "history",
-    ];
-    if scope != "file" {
-        return false;
-    }
-    match format {
-        "jpeg" => JPEG.contains(&kind),
-        "pdf" => PDF.contains(&kind),
-        _ => false,
-    }
+    VERIFIED_REMOVAL_CAPABILITIES.iter().any(|capability| {
+        capability.format == format && capability.kind == kind && capability.scope == scope
+    })
 }
 
 #[cfg(test)]
@@ -438,6 +501,40 @@ mod tests {
             scope: scope.into(),
             value: value.map(str::to_owned),
         }
+    }
+
+    #[test]
+    fn removal_capability_contract_is_unique_and_matches_the_verification_gate() {
+        let tuples = VERIFIED_REMOVAL_CAPABILITIES
+            .iter()
+            .map(|capability| (capability.format, capability.kind, capability.scope))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            tuples,
+            [
+                ("jpeg", "camera", "file"),
+                ("jpeg", "serial", "file"),
+                ("jpeg", "owner", "file"),
+                ("jpeg", "location", "file"),
+                ("pdf", "author", "file"),
+                ("pdf", "title", "file"),
+                ("pdf", "subject", "file"),
+                ("pdf", "keywords", "file"),
+                ("pdf", "application", "file"),
+                ("pdf", "producer", "file"),
+                ("pdf", "created", "file"),
+                ("pdf", "modified", "file"),
+                ("pdf", "history", "file"),
+            ]
+        );
+        for (index, (format, kind, scope)) in tuples.iter().enumerate() {
+            assert!(covered(format, kind, scope));
+            assert!(!tuples[..index].contains(&(*format, *kind, *scope)));
+        }
+        assert!(!covered("jpeg", "lens", "file"));
+        assert!(!covered("jpeg", "camera", "region"));
+        assert!(!covered("png", "camera", "file"));
     }
 
     fn snapshot(

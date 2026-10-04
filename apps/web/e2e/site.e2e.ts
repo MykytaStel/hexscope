@@ -580,8 +580,21 @@ test("clean copy verification reparses a generated photo", async ({ page }) => {
   await expect(removed).toContainText("Location");
   await expect(report).toContainText("Still present");
   await expect(report).toContainText("Not checked");
+  await expect(report).toContainText("Hexscope cannot yet confirm whether this JPEG finding was removed.");
   await expect(report).not.toContainText("48.8584");
   await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
+});
+
+test("clean-copy coverage explanations are translated in Ukrainian", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  await expect(page.locator(".copy-verification")).toContainText(
+    "Hexscope поки не може підтвердити, чи видалено цей факт у форматі JPEG.",
+  );
 });
 
 test("clean copy verification checks that selected PDF text left the searchable copy", async ({ page }) => {
