@@ -17,7 +17,9 @@ use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
 use hexscope_core::docs::Concern;
 use hexscope_core::repair::repair;
 use hexscope_core::summary::{Summary, summarize, summary_of};
-use hexscope_core::verification::{self, VerificationReport, VerificationSnapshot};
+use hexscope_core::verification::{
+    self, VerificationReason, VerificationReport, VerificationSnapshot,
+};
 use hexscope_core::video::parse_video_gapped;
 use std::fmt::Write as _;
 use std::fs::File;
@@ -49,7 +51,8 @@ clean:
   --notes          also empty Excel's and PowerPoint's comments and speaker notes
   --out DIR        write the copies into DIR (default: beside each file, as NAME-clean.EXT);
                    for a single file, --out can name the copy itself: --out copy.jpg
-  --verify         read each written copy back and check parser findings against the source
+  --verify         read each written copy back and explain what was removed, remains,
+                   or could not be checked
   --json           with --verify, one value-free result per input, one object per line
 
 redact (PDF):
@@ -674,6 +677,7 @@ fn verification_json(source: &Path, output: Option<&Path>, report: &Verification
 fn show_verification(
     source: &Path,
     output: Option<&Path>,
+    format: &str,
     report: &VerificationReport,
     json: bool,
 ) {
@@ -686,13 +690,68 @@ fn show_verification(
         None => println!("{}: no output was available to verify", source.display()),
     }
     for (status, findings) in [
-        ("removed", report.removed.as_slice()),
-        ("present", report.present.as_slice()),
-        ("unchecked", report.unchecked.as_slice()),
+        ("Removed", report.removed.as_slice()),
+        ("Still present", report.present.as_slice()),
+        ("Not checked", report.unchecked.as_slice()),
     ] {
-        for finding in findings {
-            println!("  {status}: {} ({})", finding.kind, finding.reason.code());
+        println!("  {status}:");
+        if findings.is_empty() {
+            println!("    (none)");
+            continue;
         }
+        for finding in findings {
+            let label = verification_label(&finding.kind);
+            match verification_reason_text(finding.reason, format) {
+                Some(reason) => println!("    {label} — {reason}"),
+                None => println!("    {label}"),
+            }
+        }
+    }
+}
+
+fn verification_label(kind: &str) -> String {
+    if kind == "serial" {
+        return "Camera serial".into();
+    }
+    kind.split('_')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            chars
+                .next()
+                .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn verification_reason_text(reason: VerificationReason, format: &str) -> Option<String> {
+    match reason {
+        VerificationReason::Removed => None,
+        VerificationReason::StillPresent => {
+            Some("This finding is still present in the copy.".into())
+        }
+        VerificationReason::ValueChangedSameKind => {
+            Some("A different value remains in the copy.".into())
+        }
+        VerificationReason::NoStableValue => {
+            Some("This finding has no stable value to compare.".into())
+        }
+        VerificationReason::CoverageIncomplete => Some(format!(
+            "Hexscope cannot yet confirm whether this {} finding was removed.",
+            format.to_uppercase()
+        )),
+        VerificationReason::ParseIncomplete => Some(
+            "Hexscope could not completely read the copy, so its findings were not checked.".into(),
+        ),
+        VerificationReason::UnexpectedOutput => {
+            Some("This finding appeared in the copy but was not found in the source file.".into())
+        }
+        VerificationReason::NoComparableFindings => {
+            Some("No comparable findings were available to check.".into())
+        }
+        VerificationReason::VerificationSkipped => Some("Check unavailable.".into()),
     }
 }
 
@@ -789,19 +848,17 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                 Done::Nothing => {}
             }
             if o.verify {
+                let source = source_snapshot
+                    .as_ref()
+                    .expect("snapshot requested with --verify");
                 if matches!(done, Done::Made) {
-                    let report = verify_written(
-                        source_snapshot
-                            .as_ref()
-                            .expect("snapshot requested with --verify"),
-                        &output_path,
-                    )?;
-                    show_verification(&path, Some(&output_path), &report, o.json);
+                    let report = verify_written(source, &output_path)?;
+                    show_verification(&path, Some(&output_path), &source.format, &report, o.json);
                     verification_failed |=
                         !report.present.is_empty() || !report.unchecked.is_empty();
                 } else {
                     let report = VerificationReport::skipped();
-                    show_verification(&path, None, &report, o.json);
+                    show_verification(&path, None, &source.format, &report, o.json);
                     verification_failed = true;
                 }
             }
@@ -857,18 +914,16 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
         }
         if o.verify {
             drop(data);
+            let source = source_snapshot
+                .as_ref()
+                .expect("snapshot requested with --verify");
             if matches!(done, Done::Made) {
-                let report = verify_written(
-                    source_snapshot
-                        .as_ref()
-                        .expect("snapshot requested with --verify"),
-                    &output_path,
-                )?;
-                show_verification(&path, Some(&output_path), &report, o.json);
+                let report = verify_written(source, &output_path)?;
+                show_verification(&path, Some(&output_path), &source.format, &report, o.json);
                 verification_failed |= !report.present.is_empty() || !report.unchecked.is_empty();
             } else {
                 let report = VerificationReport::skipped();
-                show_verification(&path, None, &report, o.json);
+                show_verification(&path, None, &source.format, &report, o.json);
                 verification_failed = true;
             }
         }
@@ -884,4 +939,63 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             ExitCode::SUCCESS
         },
     )
+}
+
+#[cfg(test)]
+mod verification_display_tests {
+    use super::{VerificationReason, verification_reason_text};
+
+    #[test]
+    fn every_shared_reason_has_human_copy_without_machine_codes() {
+        let cases = [
+            (VerificationReason::Removed, None),
+            (
+                VerificationReason::StillPresent,
+                Some("This finding is still present in the copy."),
+            ),
+            (
+                VerificationReason::ValueChangedSameKind,
+                Some("A different value remains in the copy."),
+            ),
+            (
+                VerificationReason::NoStableValue,
+                Some("This finding has no stable value to compare."),
+            ),
+            (
+                VerificationReason::CoverageIncomplete,
+                Some("Hexscope cannot yet confirm whether this JPEG finding was removed."),
+            ),
+            (
+                VerificationReason::ParseIncomplete,
+                Some(
+                    "Hexscope could not completely read the copy, so its findings were not checked.",
+                ),
+            ),
+            (
+                VerificationReason::UnexpectedOutput,
+                Some("This finding appeared in the copy but was not found in the source file."),
+            ),
+            (
+                VerificationReason::NoComparableFindings,
+                Some("No comparable findings were available to check."),
+            ),
+            (
+                VerificationReason::VerificationSkipped,
+                Some("Check unavailable."),
+            ),
+        ];
+
+        for (reason, expected) in cases {
+            let actual = verification_reason_text(reason, "jpeg");
+            assert_eq!(actual.as_deref(), expected, "{}", reason.code());
+            if let Some(text) = actual {
+                assert!(!text.contains(reason.code()), "{text}");
+            }
+        }
+
+        assert_eq!(
+            verification_reason_text(VerificationReason::CoverageIncomplete, "pdf").as_deref(),
+            Some("Hexscope cannot yet confirm whether this PDF finding was removed.")
+        );
+    }
 }

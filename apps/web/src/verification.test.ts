@@ -270,10 +270,47 @@ describe("worker verification result mapping", () => {
     expect(report).toEqual({
       removed: [{ kind: "location", label: "Location" }],
       present: [{ kind: "camera", label: "Camera", reason: "A different value remains in the copy." }],
-      unchecked: [{ kind: "lens", label: "Lens", reason: "Hexscope does not have complete JPEG coverage for this finding yet." }],
+      unchecked: [{ kind: "lens", label: "Lens", reason: "Hexscope cannot yet confirm whether this JPEG finding was removed." }],
     });
     expect(JSON.stringify(report)).not.toContain('"value":');
     expect(JSON.stringify(report)).not.toContain('"scope":');
+  });
+
+  it("gives a user-facing explanation for every shared core reason", () => {
+    const cases = [
+      ["removed", "removed", false, undefined],
+      ["still_present", "present", false, "This finding is still present in the copy."],
+      ["value_changed_same_kind", "present", false, "A different value remains in the copy."],
+      ["no_stable_value", "unchecked", false, "This finding has no stable value to compare."],
+      ["coverage_incomplete", "unchecked", false, "Hexscope cannot yet confirm whether this JPEG finding was removed."],
+      ["parse_incomplete", "unchecked", false, "Hexscope could not completely read the copy, so its findings were not checked."],
+      ["unexpected_output", "present", true, "This finding appeared in the copy but was not found in the source file."],
+      ["no_comparable_findings", "unchecked", false, "No comparable findings were available to check."],
+      ["verification_skipped", "unchecked", false, "Check unavailable."],
+    ] as const;
+
+    for (const [reason, group, unexpected, explanation] of cases) {
+      const report = decodeCoreVerification(
+        JSON.stringify({
+          schema_version: 1,
+          removed: group === "removed" ? [{ kind: "location", reason, unexpected }] : [],
+          present: group === "present" ? [{ kind: "location", reason, unexpected }] : [],
+          unchecked: group === "unchecked" ? [{ kind: "location", reason, unexpected }] : [],
+        }),
+        "jpeg",
+        labels,
+        {},
+      );
+
+      expect(report?.[group], reason).toEqual([
+        {
+          kind: "location",
+          label: "Location",
+          ...(explanation ? { reason: explanation } : {}),
+          ...(unexpected ? { unexpected: true } : {}),
+        },
+      ]);
+    }
   });
 
   it.each([

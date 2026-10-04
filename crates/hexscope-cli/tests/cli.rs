@@ -392,8 +392,17 @@ fn clean_verify_human_output_names_kinds_without_values() {
     ]);
 
     assert_eq!(code, 1, "{out}{err}");
-    assert!(out.contains("location (removed)"), "{out}");
-    assert!(out.contains("lens (coverage_incomplete)"), "{out}");
+    assert!(out.contains("Removed:\n    Location"), "{out}");
+    assert!(out.contains("    Camera\n"), "{out}");
+    assert!(out.contains("    Camera serial\n"), "{out}");
+    assert!(out.contains("    Owner\n"), "{out}");
+    assert!(
+        out.contains("Not checked:\n    Lens — Hexscope cannot yet confirm whether this JPEG finding was removed."),
+        "{out}"
+    );
+    assert!(out.contains("Still present:\n    (none)"), "{out}");
+    assert!(!out.contains("coverage_incomplete"), "{out}");
+    assert!(!out.contains(" (removed)"), "{out}");
     for (_, value) in source_values {
         assert!(
             !out.contains(&value),

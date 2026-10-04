@@ -66,7 +66,7 @@ function reasonText(
     case "no_stable_value":
       return "This finding has no stable value to compare.";
     case "coverage_incomplete":
-      return `Hexscope does not have complete ${format.toUpperCase()} coverage for this finding yet.`;
+      return `Hexscope cannot yet confirm whether this ${format.toUpperCase()} finding was removed.`;
     case "parse_incomplete":
       return "Hexscope could not completely read the copy, so its findings were not checked.";
     case "unexpected_output":
