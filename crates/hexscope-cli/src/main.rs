@@ -10,6 +10,9 @@
 
 #![forbid(unsafe_code)]
 
+mod batch_report;
+mod film;
+mod mosaic;
 mod movie;
 
 use hexscope_core::Document;
@@ -32,6 +35,9 @@ const USAGE: &str = "hexscope — see what your files say about you
 Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
   hexscope clean [options] PATH...    save copies without what they give away
+  hexscope mosaic [--json] PATH...    local photo correlations; exported values stay private
+  hexscope film --recipe JSON --out DIR [--format jpeg|tiff16] PATH...
+  hexscope batch --out DIR PATH...   verified folder copies and an index-only JSON receipt
   hexscope repair [options] PATH...   save copies of damaged files with what survived
   hexscope redact --text WORDS PATH... save PDFs with WORDS taken out of their pages
 
@@ -98,6 +104,9 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
         }
         "check" => check(rest),
         "clean" => copies(rest, Make::Clean),
+        "batch" => batch_report::run(rest),
+        "film" => film::run(rest),
+        "mosaic" => mosaic::run(rest),
         "repair" => copies(rest, Make::Repair),
         "redact" => copies(rest, Make::Redact),
         // A bare path checks it, as the page would.
@@ -774,6 +783,17 @@ fn finish(
                     Make::Redact => "redacted",
                 },
             );
+            if !o.in_place && to.exists() {
+                let output = std::fs::canonicalize(&to).map_err(|e| e.to_string())?;
+                if files(&o.paths)?
+                    .iter()
+                    .any(|p| std::fs::canonicalize(p).ok().as_ref() == Some(&output))
+                {
+                    return Err(
+                        "output would overwrite an input file; use a different output path".into(),
+                    );
+                }
+            }
             write_whole(&to, |out| write(&bytes, out))
                 .map_err(|e| format!("{}: {e}", to.display()))?;
             if !o.verify {
@@ -827,7 +847,35 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     }
     let (mut made, mut failed) = (0, 0);
     let mut verification_failed = false;
-    for path in files(&o.paths)? {
+    let inputs = files(&o.paths)?;
+    let mut destinations = std::collections::BTreeSet::new();
+    for path in &inputs {
+        let output = target(
+            path,
+            &o,
+            match kind {
+                Make::Clean => "clean",
+                Make::Repair => "repaired",
+                Make::Redact => "redacted",
+            },
+        );
+        let output_key = if output.exists() {
+            std::fs::canonicalize(&output).map_err(|e| e.to_string())?
+        } else {
+            std::fs::canonicalize(
+                output
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(Path::new(".")),
+            )
+            .map_err(|e| e.to_string())?
+            .join(output.file_name().ok_or("invalid output name")?)
+        };
+        if !destinations.insert(output_key.clone()) {
+            return Err("multiple inputs have the same output name; use batch --out DIR".into());
+        }
+    }
+    for path in inputs {
         if matches!(kind, Make::Clean)
             && let Some(m) = movie::read(&path).map_err(|e| format!("{}: {e}", path.display()))?
         {

@@ -1,4 +1,5 @@
-import { boundedLabSize, cropGeometry, MAX_FILM_BYTES, renderFilmPixels, sampleFilmBase, validateFilmSettings, type FilmSettings, type RGB } from "./film-lab";
+import { boundedLabSize, cropGeometry, MAX_FILM_BYTES, sampleFilmBase, validateFilmSettings, type FilmSettings, type RGB } from "./film-lab";
+import { renderCorePixels } from "./film-core";
 import type { FilmScanReport } from "./filmscan";
 
 export interface FilmOutputCheck {
@@ -20,12 +21,12 @@ export interface FilmRenderResult {
 }
 
 /** No worker-global source state: an old request can never edit a newly opened file. */
-export async function renderFilm(source: Blob, dimensions: [number, number], orientation: number, given: FilmSettings, purpose: "preview" | "export", point?: [number, number]): Promise<FilmRenderResult> {
+export async function renderFilm(source: Blob, dimensions: [number, number], orientation: number, given: FilmSettings, purpose: "preview" | "export", point?: [number, number], encoding: "jpeg" | "png" = "jpeg"): Promise<FilmRenderResult> {
   if (source.size > MAX_FILM_BYTES) throw new Error("This scan exceeds the film lab's 50 MiB file limit.");
   const settings = validateFilmSettings(given);
   const [sw, sh] = orientation >= 5 && orientation <= 8 ? [dimensions[1], dimensions[0]] : dimensions;
   const size = boundedLabSize(sw, sh, purpose);
-  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image", resizeWidth: size.width, resizeHeight: size.height });
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image", colorSpaceConversion: "default", resizeWidth: size.width, resizeHeight: size.height });
   let original: OffscreenCanvas | undefined;
   let output: OffscreenCanvas | undefined;
   try {
@@ -59,10 +60,10 @@ export async function renderFilm(source: Blob, dimensions: [number, number], ori
     og.drawImage(original, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
     const sourcePreview = purpose === "preview" ? await original.convertToBlob({ type: "image/jpeg", quality: 0.92 }) : undefined;
     original.width = original.height = 1;
-    const rendered = renderFilmPixels(og.getImageData(0, 0, crop.width, crop.height).data, crop.width, crop.height, { ...settings, baseColor });
+    const rendered = await renderCorePixels(og.getImageData(0, 0, crop.width, crop.height).data, crop.width, crop.height, { ...settings, baseColor });
     og.putImageData(new ImageData(rendered.pixels as Uint8ClampedArray<ArrayBuffer>, crop.width, crop.height), 0, 0);
-    const copy = await output.convertToBlob({ type: purpose === "export" ? "image/jpeg" : "image/png", quality: 0.94 });
-    if (purpose === "export" && copy.type !== "image/jpeg") throw new Error("This browser cannot encode a JPEG copy.");
+    const copy = await output.convertToBlob({ type: purpose === "export" ? `image/${encoding}` : "image/png", quality: 0.94 });
+    if (purpose === "export" && copy.type !== `image/${encoding}`) throw new Error("This browser cannot encode a JPEG copy.");
     return { copy, sourcePreview, baseColor: rendered.baseColor, dimensions: [crop.width, crop.height], sourceDimensions: [sw, sh], limited: size.width < sw || size.height < sh, clipping: rendered.clipping };
   } finally {
     bitmap.close();

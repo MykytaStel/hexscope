@@ -1,7 +1,7 @@
 import type { BatchItem } from "./batch";
 import type { CleanCopiesView } from "./batchclean";
 
-export type BatchAnalysis = Pick<BatchItem, "kind" | "lines" | "headline" | "reveals" | "cleanName">;
+export type BatchAnalysis = Pick<BatchItem, "kind" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal">;
 
 /** The output that batch analysis and clean-copy work share with its view. */
 export interface BatchViewPort extends CleanCopiesView {
@@ -127,7 +127,7 @@ export class BatchController {
       this.announced = generation;
       const revealing = items.filter((item) => item.reveals.length > 0).length;
       this.hooks.announce(
-        `${items.length} files read. ${revealing === 0 ? "None reveals anything about you." : `${revealing} reveal something about you.`}`,
+        `${items.length} files read. ${revealing === 0 ? "No personal metadata found by the available checks." : `${revealing} reveal something about you.`}`,
       );
     }
   }

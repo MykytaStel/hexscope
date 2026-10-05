@@ -14,6 +14,7 @@ import type { FilmScanReport } from "./filmscan";
 import type { FilmSettings } from "./film-lab";
 import type { FilmRenderResult } from "./film-render";
 import { LatestFilmQueue } from "./film-queue";
+import { profileFromTree } from "./film-profile";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -24,7 +25,7 @@ export type WorkerRequest =
   | { id: number; type: "open"; index: number }
   | { id: number; type: "openBytes"; bytes: Uint8Array }
   | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; source: Blob; notes?: boolean }
+  | { id: number; type: "clean"; source: Blob; notes?: boolean; verify?: boolean }
   | {
       id: number;
       type: "verifyCopy";
@@ -36,6 +37,7 @@ export type WorkerRequest =
       selections?: VerificationSelection[];
     }
   | { id: number; type: "repair"; bytes: Uint8Array }
+  | { id: number; type: "filmRoll"; source: Blob; settings: FilmSettings; format: "jpeg" | "tiff16" }
   | { id: number; type: "filmRender"; source: Blob; dimensions: [number, number]; orientation: number; settings: FilmSettings; purpose: "preview" | "export"; point?: [number, number] }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
@@ -48,8 +50,9 @@ export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "back" }
-  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string }
+  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }
   | { id: number; type: "verification"; report: VerificationReport }
+  | { id: number; type: "filmRollOutput"; result: import("./film-roll-worker").RollOutput }
   | { id: number; type: "filmRendered"; result: FilmRenderResult }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
@@ -218,12 +221,12 @@ async function largeMovie(file: Blob): Promise<Movie | null> {
 }
 
 /** Answers with a copy the parser made, as a file made by `wrap`. */
-function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob): void {
+function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, verification?: string): void {
   const parts = c.removed ? c.removed.split(SEPARATOR) : [];
   const removed = [];
   for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
   const copy = c.error ? new Blob([]) : wrap(c.bytes);
-  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error });
+  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error, ...(verification ? { verification } : {}) });
   c.free();
 }
 
@@ -327,6 +330,25 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
 const MAX_DEPTH = 4;
 
 async function handle(req: WorkerRequest): Promise<void> {
+  if (req.type === "filmRoll") {
+    if (req.source.size > 50 * 1024 * 1024) throw new Error("This scan exceeds the 50 MiB file limit.");
+    const head = new Uint8Array(await req.source.slice(0, 12).arrayBuffer());
+    let dimensions: [number, number] | undefined;
+    let orientation = 1;
+    let profilePresent: boolean | null = null;
+    if (isMedia(head)) {
+      const wasm = await moduleFor(head);
+      const parsed = wasm.parse(new Uint8Array(await req.source.arrayBuffer()));
+      try {
+        if (parsed.dimensions.length === 2) dimensions = [parsed.dimensions[0], parsed.dimensions[1]];
+        orientation = parsed.orientation;
+        profilePresent = profileFromTree({ format: parsed.format as ParsedFile["format"], labels: parsed.labels.split(SEPARATOR), kinds: parsed.kinds });
+      } finally { parsed.free(); }
+    }
+    const { renderRoll } = await import("./film-roll-worker");
+    post({ id: req.id, type: "filmRollOutput", result: await renderRoll(req.source, req.settings, req.format, dimensions, orientation, profilePresent) });
+    return;
+  }
   if (req.type === "filmRender") {
     const { renderFilm } = await import("./film-render");
     const result = await renderFilm(req.source, req.dimensions, req.orientation, req.settings, req.purpose, req.point);
@@ -417,7 +439,12 @@ async function handle(req: WorkerRequest): Promise<void> {
       }
     }
     c ??= wasm.cleanCopy(bytes, req.notes ?? false);
-    postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
+    let verification: string | undefined;
+    if (req.verify && !c.error && bytes.length <= MAX_VERIFY_BYTES && c.bytes.length <= MAX_VERIFY_BYTES) {
+      const parsed = wasm.parse(bytes);
+      try { verification = parsed.verifyCopy(c.bytes); } finally { parsed.free(); }
+    }
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]), verification);
     return;
   }
 
@@ -665,10 +692,10 @@ function answer(req: WorkerRequest): Promise<void> {
     });
   });
 }
-const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender" }>>(answer, (req) => {
+const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  if (event.data.type === "filmRender") filmQueue.push(event.data);
+  if (event.data.type === "filmRender" || event.data.type === "filmRoll") filmQueue.push(event.data);
   else void answer(event.data);
 };

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hexscope-inflate", "crates/hexscope-core", "crates/hexscope-wasm", "crates/hexscope-cli"]
+members = ["crates/hexscope-inflate", "crates/hexscope-core", "crates/hexscope-wasm", "crates/hexscope-cli", "crates/hexscope-raster"]
 resolver = "3"
 
 [workspace.package]

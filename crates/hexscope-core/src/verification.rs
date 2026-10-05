@@ -55,6 +55,46 @@ pub const VERIFIED_REMOVAL_CAPABILITIES: &[VerificationCapability] = &[
         scope: "file",
     },
     VerificationCapability {
+        format: "png",
+        kind: "camera",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "png",
+        kind: "serial",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "png",
+        kind: "owner",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "png",
+        kind: "location",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "webp",
+        kind: "camera",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "webp",
+        kind: "serial",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "webp",
+        kind: "owner",
+        scope: "file",
+    },
+    VerificationCapability {
+        format: "webp",
+        kind: "location",
+        scope: "file",
+    },
+    VerificationCapability {
         format: "pdf",
         kind: "author",
         scope: "file",
@@ -517,6 +557,14 @@ mod tests {
                 ("jpeg", "serial", "file"),
                 ("jpeg", "owner", "file"),
                 ("jpeg", "location", "file"),
+                ("png", "camera", "file"),
+                ("png", "serial", "file"),
+                ("png", "owner", "file"),
+                ("png", "location", "file"),
+                ("webp", "camera", "file"),
+                ("webp", "serial", "file"),
+                ("webp", "owner", "file"),
+                ("webp", "location", "file"),
                 ("pdf", "author", "file"),
                 ("pdf", "title", "file"),
                 ("pdf", "subject", "file"),
@@ -534,7 +582,7 @@ mod tests {
         }
         assert!(!covered("jpeg", "lens", "file"));
         assert!(!covered("jpeg", "camera", "region"));
-        assert!(!covered("png", "camera", "file"));
+        assert!(!covered("png", "camera", "region"));
     }
 
     fn snapshot(
@@ -778,11 +826,11 @@ mod tests {
 
         let wrong_format = compare(
             &snapshot(
-                "png",
+                "heif",
                 true,
                 vec![finding("camera", "file", Some("camera A"))],
             ),
-            &snapshot("png", true, vec![]),
+            &snapshot("heif", true, vec![]),
         );
         assert_eq!(
             wrong_format.unchecked[0].reason,

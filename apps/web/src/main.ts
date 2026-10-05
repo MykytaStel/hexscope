@@ -27,7 +27,6 @@ import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, sav
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
-import { cleanCopies } from "./batchclean";
 import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
 
 installLocale();
@@ -525,11 +524,13 @@ const batchView = new BatchView($("batch"), {
   canShareCopies: phoneCanShare,
   open: (i) => batchController.open(i),
   saveClean: (keepNames) => void batchController.saveClean(keepNames),
+  mosaic: (items) => void import("./photo-mosaic").then((m) => m.showMosaic(items)).catch((e) => announce(String(e))),
+  filmRoll: (items) => void import("./film-roll-ui").then((m) => m.showFilmRoll(items.map((i) => i.file))).catch((e) => announce(String(e))),
 });
 batchController = new BatchController(batchView, {
   analyze: analyzeBatchFile,
   openFile: (file) => void workspace.openFile(file),
-  saveClean: cleanCopies,
+  saveClean: (...args) => import("./batchclean").then((m) => m.cleanCopies(...args)),
   announce,
 });
 
@@ -567,6 +568,11 @@ async function analyzeBatchFile(file: File): Promise<BatchAnalysis> {
     headline: headline(parsed),
     reveals: categories(parsed),
     cleanName: cleanName(parsed),
+    ...( ["jpeg", "png", "webp", "heif", "gif"].includes(parsed.file.format) && !parsed.file.kinds.some((k) => k === Kind.Warning || k === Kind.Error) ? { photoSignal: {
+      serial: parsed.file.facts.find((f) => f.kind === "serial")?.text ?? null,
+      location: parsed.file.location ? [parsed.file.location.latitude, parsed.file.location.longitude] as [number, number] : null,
+      taken: parsed.file.facts.find((f) => f.kind === "taken")?.text ?? null,
+    } } : {}),
   };
 }
 
@@ -799,3 +805,5 @@ openLinkedSample();
 void openShared();
 openLaunched();
 setTimeout(() => void startDemo($("demo")), 0);
+
+$("film-roll-open").addEventListener("click", () => void import("./film-roll-ui").then((m) => m.showFilmRoll()).catch((e) => announce(String(e))));

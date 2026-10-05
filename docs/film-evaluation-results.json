@@ -1,0 +1,83 @@
+{
+  "schema": "hexscope.film-evaluation",
+  "version": 1,
+  "corpus": "four published positive Apollo 11 flight-film scans; not raw color negatives",
+  "samples": 4,
+  "complete_frame_false_positives": 0,
+  "perforation_false_positives": 0,
+  "maximum_neutral_rgb_mae": 0.10752,
+  "color_negative_accuracy": "not_measured",
+  "ocr": "not_implemented; needs labeled edge-text corpus",
+  "results": [
+    {
+      "id": "KSC-AS11-40-5869",
+      "sha256": "fb3ec7380948be3c6cce684f77aa9a892162a1e60241ec7c239fab65cd13357c",
+      "width": 1027,
+      "height": 1280,
+      "neutral_rgb_mean_absolute_error": 0.10752,
+      "frame": {
+        "availability": "inspected",
+        "perforationEdges": [],
+        "perforationRepeats": 0,
+        "frameEdges": [],
+        "evidenceStrength": "none"
+      },
+      "expected_complete_frame": false,
+      "complete_frame_false_positive": false,
+      "perforation_false_positive": false
+    },
+    {
+      "id": "as11-40-5875",
+      "sha256": "7dd5e5efabf515286e5cf6a98fd47f95dc4eab31a31781fe89e9b9dc5621a640",
+      "width": 1237,
+      "height": 1280,
+      "neutral_rgb_mean_absolute_error": 0.03771,
+      "frame": {
+        "availability": "inspected",
+        "perforationEdges": [],
+        "perforationRepeats": 0,
+        "frameEdges": [],
+        "evidenceStrength": "none"
+      },
+      "expected_complete_frame": false,
+      "complete_frame_false_positive": false,
+      "perforation_false_positive": false
+    },
+    {
+      "id": "as11-40-5902",
+      "sha256": "0670143af2f38f2823e0dac72a49179039267223eb0fb3aac53ac362ecce64c2",
+      "width": 1240,
+      "height": 1280,
+      "neutral_rgb_mean_absolute_error": 0.09085,
+      "frame": {
+        "availability": "inspected",
+        "perforationEdges": [],
+        "perforationRepeats": 0,
+        "frameEdges": [
+          "top"
+        ],
+        "evidenceStrength": "limited"
+      },
+      "expected_complete_frame": false,
+      "complete_frame_false_positive": false,
+      "perforation_false_positive": false
+    },
+    {
+      "id": "as11-40-5903",
+      "sha256": "24bf4ce093822101801f5ba3cad3f84525a5c6a42927b0a29579581c13c691ce",
+      "width": 1280,
+      "height": 1249,
+      "neutral_rgb_mean_absolute_error": 0.0791,
+      "frame": {
+        "availability": "inspected",
+        "perforationEdges": [],
+        "perforationRepeats": 0,
+        "frameEdges": [],
+        "evidenceStrength": "none"
+      },
+      "expected_complete_frame": false,
+      "complete_frame_false_positive": false,
+      "perforation_false_positive": false
+    }
+  ]
+}

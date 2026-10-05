@@ -3,11 +3,12 @@
   "private": true,
   "license": "MIT OR Apache-2.0",
   "scripts": {
-    "wasm": "pnpm wasm:full && pnpm wasm:media",
+    "wasm": "pnpm wasm:full && pnpm wasm:media && pnpm wasm:raster",
     "wasm:full": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --out-dir apps/web/src/wasm --target web --remove-name-section --remove-producers-section",
     "wasm:media": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm --no-default-features && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --out-dir apps/web/src/wasm-media --target web --remove-name-section --remove-producers-section",
     "dev": "pnpm wasm && pnpm --filter web dev",
-    "build": "pnpm wasm && pnpm --filter web build"
+    "build": "pnpm wasm && pnpm --filter web build",
+    "wasm:raster": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-raster --target wasm32-unknown-unknown --profile wasm --no-default-features --features web && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_raster.wasm --out-dir apps/web/src/wasm-raster --target web --remove-name-section --remove-producers-section"
   },
   "packageManager": "pnpm@11.25.0",
   "engines": {

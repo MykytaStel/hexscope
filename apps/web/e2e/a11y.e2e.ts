@@ -2,6 +2,7 @@
 // themes, on a computer and a phone: contrast, names, roles, structure.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 async function check(page: Page, where: string): Promise<void> {
   const r = await new AxeBuilder({ page }).analyze();
@@ -22,6 +23,31 @@ for (const scheme of ["dark", "light"] as const) {
       // Past the demonstration's first scene: its facts drawn.
       await page.waitForTimeout(1500);
       await check(page, "landing");
+    });
+
+    test("photo tools follow the theme and expose accessible controls", async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+      await page.goto("./");
+      await page.locator("#film-roll-open").click();
+      const matchesTheme = () => page.locator(".photo-tool").evaluate((tool) => {
+        const reference = document.createElement("div");
+        reference.style.backgroundColor = "var(--panel)";
+        reference.style.color = "var(--text)";
+        document.body.append(reference);
+        const actual = getComputedStyle(tool), expected = getComputedStyle(reference);
+        const matches = actual.backgroundColor === expected.backgroundColor && actual.color === expected.color;
+        reference.remove();
+        return matches;
+      });
+      expect(await matchesTheme()).toBe(true);
+      await check(page, "film roll");
+      await page.getByRole("button", { name: "Close film roll" }).click();
+      const photo = await readFile("../../crates/hexscope-core/tests/fixtures/photo.png");
+      await page.locator("#picker-empty").setInputFiles(["a.png", "b.png"].map((name) => ({ name, mimeType: "image/png", buffer: photo })));
+      await page.getByRole("button", { name: "Photo privacy mosaic", exact: true }).click();
+      await expect(page.locator(".photo-mosaic [role=status]")).toContainText("2 / 2 files checked");
+      expect(await matchesTheme()).toBe(true);
+      await check(page, "photo privacy mosaic");
     });
 
     for (const sample of ["photo.jpg", "redacted.pdf", "phishing.eml", "phishing.msg", "plan.doc", "wifi.png", "budget.xlsx", "broken.png"]) {

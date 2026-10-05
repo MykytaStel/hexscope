@@ -57,7 +57,7 @@ Scanning creates a digital image file, so the scan can also carry metadata from 
 
 - The web app locally inspects JPEG, PNG and WebP pixels in its worker for repeated high-contrast openings and frame-like edge boundaries. The result lists the observed edges and signal agreement; it does not infer film origin from grain.
 - The [film photo lab](film-lab.md) provides oriented before/after previews, explicit border cropping, film-base-calibrated color/monochrome negative conversion, exposure and contrast, and validated local recipes. It creates a bounded JPEG sharing rendition and re-reads the actual output with the shared core plus supplemental QR/border analysis. The source remains intact.
-- The first regression fixtures are synthetic. The detector has not yet been measured against a labeled set of genuine film scans and digital images with simulated borders, so it is a visual clue rather than a validated classifier.
+- The [real-scan evaluation](film-evaluation.md) records four published positive NASA flight-film scans, with 0/4 complete-frame and perforation false positives. This small, single-source set does not measure recall or raw-negative color recovery; the detector remains a visual clue rather than a validated origin classifier.
 - Before making provenance claims or adding edge-marking recognition, validate precision and false-positive rates on consented or public examples of full-border scans, cropped scans, digital frames, and low-contrast scans. RAW/TIFF, 16-bit processing, roll-wide calibration and photographic evaluation remain future work.
 
 ### Stages and decision gates
@@ -102,6 +102,16 @@ Build a continuously tested corpus from synthetic fixtures and redistributable s
 - Accounts, analytics, or background storage of inspected files.
 - Calling Hexscope a malware scanner or treating a heuristic as proof of authenticity.
 - Silently cropping, redacting, or overwriting a source image.
+
+## Photo platform implemented in the current slice
+
+- PNG/WebP camera, serial, owner and location clean-copy verification uses the shared core contract.
+- CLI folder batches and browser ZIP copies include per-file, value-free receipts after bounded readback; duplicate output names cannot silently overwrite one another.
+- Rust owns RGBA8/RGBA16 film rendering. CLI and browser roll tools reuse version-1 recipes and one estimated/calibrated film base, including TIFF16 output. Optional browser codecs load on demand.
+- Photo privacy mosaic compares stored serial values, nearby GPS points and dated-file order locally across a batch. Saved reports contain indexes rather than raw metadata.
+- [Feature guide and limits](photo-platform.md) describes source bounds, unsupported TIFF layouts and color assumptions.
+
+Next research work: scanner color management, labeled raw color-negative/reference pairs, frame recall across diverse scanners, and OCR character-error evaluation. Existing receipts do not certify visible content safe.
 
 ## How to use this roadmap
 

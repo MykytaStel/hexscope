@@ -62,3 +62,7 @@ corpus and false-positive evaluation remain a gate before any provenance claim.
 The CLI continues to inspect/clean digital metadata with the same core parser;
 the browser supplies raster codecs for the interactive lab. This change does
 not add a CLI pixel-conversion command.
+
+## Rolls and TIFF16
+
+The production renderer now uses the shared Rust core. The optional [roll tool](photo-platform.md) applies saved recipes to multiple frames in the browser or CLI and supports 16-bit TIFF sources and outputs. Color-space and decoder limits are explicit.
