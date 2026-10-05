@@ -882,6 +882,10 @@ fn form_walk_marks_undecodable_or_unbounded_content_incomplete() {
             "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Filter /MadeUpDecode",
             &b"BT /F1 10 Tf (A) Tj ET"[..],
         ),
+        (
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Filter /DCTDecode",
+            &b"BT /F1 10 Tf (A) Tj ET"[..],
+        ),
     ] {
         let data = build(b"/Fm Do", form_dict, form_content);
         assert!(!super::page_texts(&data)[0].complete);
@@ -942,7 +946,7 @@ fn form_walk_marks_undecodable_or_unbounded_content_incomplete() {
 }
 
 #[test]
-fn incomplete_form_walk_never_returns_a_clean_copy() {
+fn incomplete_page_or_form_walk_never_returns_a_clean_copy() {
     let build = |page_content: &[u8], resources: &str, extra: Vec<Vec<u8>>| {
         let mut objects = vec![
             b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -966,6 +970,10 @@ fn incomplete_form_walk_never_returns_a_clean_copy() {
             b"BT (hidden) Tj ET",
         ),
         one_form(
+            "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Filter /DCTDecode",
+            b"BT (hidden) Tj ET",
+        ),
+        one_form(
             "/Type /XObject /Subtype /Form /BBox [0 0 100]",
             b"BT (hidden) Tj ET",
         ),
@@ -975,6 +983,18 @@ fn incomplete_form_walk_never_returns_a_clean_copy() {
             b"/Self Do",
         ),
     ];
+    cases.push(pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        stream("/Filter /MadeUpDecode", b"BT (hidden page text) Tj ET"),
+    ]));
+    cases.push(pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        stream("/Filter /DCTDecode", b"BT (hidden page text) Tj ET"),
+    ]));
 
     let mut depth_objects = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -1020,7 +1040,51 @@ fn incomplete_form_walk_never_returns_a_clean_copy() {
     }
     let reason = crate::clean::CleanError::FormContentIncomplete.reason();
     assert!(reason.contains("no copy was made"), "{reason}");
-    assert!(reason.contains("form content"), "{reason}");
+    assert!(reason.contains("PDF checks are incomplete"), "{reason}");
+}
+
+#[test]
+fn malformed_page_tree_never_returns_a_clean_copy_or_complete_page_text() {
+    let direct_page_child = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R << /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 5 0 R >>] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        stream("", b"BT (visible page) Tj ET"),
+        stream("", b"BT (hidden page omitted from traversal) Tj ET"),
+    ]);
+    let missing_page_reference = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        stream("", b"BT (visible page) Tj ET"),
+    ]);
+
+    for (data, description) in [
+        (&direct_page_child, "the direct page dictionary was skipped"),
+        (
+            &missing_page_reference,
+            "the missing page reference was skipped",
+        ),
+    ] {
+        let pages = super::page_texts(data);
+        assert_eq!(pages.len(), 1, "{description}");
+        assert!(
+            pages.iter().all(|page| !page.complete),
+            "a found page cannot stand for the incomplete tree"
+        );
+        assert!(matches!(
+            crate::clean::clean(data),
+            Err(crate::clean::CleanError::FormContentIncomplete)
+        ));
+        let summary = crate::summary::summarize(data);
+        assert!(!summary.complete);
+        assert!(
+            summary
+                .problems
+                .iter()
+                .any(|problem| { problem.label == "PDF not fully checked" })
+        );
+    }
 }
 
 #[test]
@@ -1100,7 +1164,7 @@ fn redacting_one_shared_form_appearance_preserves_the_other() {
         .filter(|rec| rec.value.get("Subtype").and_then(super::Obj::name) == Some("Form"))
         .filter_map(|rec| {
             let mut budget = facts::MAX_DECODED_TOTAL;
-            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget, false)
         })
         .collect::<Vec<_>>();
     assert_eq!(
@@ -1170,7 +1234,7 @@ fn redacting_a_nested_shared_form_changes_only_the_selected_page() {
         })
         .filter_map(|rec| {
             let mut budget = facts::MAX_DECODED_TOTAL;
-            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget, false)
         })
         .collect::<Vec<_>>();
     assert_eq!(inner_forms.len(), 2, "the selected inner form is cloned");
@@ -1223,7 +1287,7 @@ fn picture(data: &[u8], width: i64) -> Vec<u8> {
         })
         .unwrap();
     let mut budget = facts::MAX_DECODED_TOTAL;
-    facts::decode(data, rec, None, &mut budget).unwrap()
+    facts::decode(data, rec, None, &mut budget, false).unwrap()
 }
 
 /// A page with a scanned picture (Flate, rows predicted), a JPEG, and a

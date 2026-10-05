@@ -214,6 +214,10 @@ const TABLE: Table = &[
         iso("ISO 32000-1 §14.7.2", "The document's logical structure, for screen readers."),
     ),
     ("/Kids", iso("ISO 32000-1 §7.7.3.2", "The pages, or groups of pages, below this one.")),
+    (
+        "PDF not fully checked",
+        damage("Some PDF page or form content may be missing."),
+    ),
     ("/Count", iso("ISO 32000-1 §7.7.3.2", "How many pages are below this node.")),
     ("/Parent", iso("ISO 32000-1 §7.7.3", "The node above this one in the page tree.")),
     ("/MediaBox", iso("ISO 32000-1 §14.11.2", "The page size, in points: 72 to the inch.")),

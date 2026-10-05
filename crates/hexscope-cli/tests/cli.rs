@@ -28,6 +28,42 @@ fn run(args: &[&str]) -> (i32, String, String) {
     )
 }
 
+fn pdf_with_unreadable_page_content() -> Vec<u8> {
+    let page_content = b"BT (hidden page text) Tj ET";
+    let objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        [
+            format!(
+                "<< /Filter /MadeUpDecode /Length {} >>\nstream\n",
+                page_content.len()
+            )
+            .as_bytes(),
+            page_content,
+            b"\nendstream",
+        ]
+        .concat(),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (index, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n", index + 1).as_bytes());
+        bytes.extend_from_slice(object);
+        bytes.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(b"xref\n0 5\n0000000000 65535 f\r\n");
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n\r\n").as_bytes());
+    }
+    bytes.extend_from_slice(
+        format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    bytes
+}
+
 #[test]
 fn check_names_what_a_photo_gives_away_and_fails_on_it() {
     let (code, out, err) = run(&["check", &fixture("photo.jpg")]);
@@ -335,6 +371,13 @@ fn clean_verify_pdf_metadata_leaves_revision_findings_unchecked() {
         );
     }
     assert!(output.is_file());
+    let cleaned = hexscope_core::summary::summarize(&std::fs::read(&output).unwrap());
+    for kind in ["updates", "earlier"] {
+        assert!(
+            !cleaned.facts.iter().any(|(found, _)| *found == kind),
+            "the old revision finding {kind} should be absent from the written copy"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -482,6 +525,39 @@ fn clean_verify_returns_one_when_cleaning_made_no_copy() {
     assert!(out.contains("\"operation_state\":\"not_created\""), "{out}");
     assert!(out.contains("\"output\":null"), "{out}");
     assert!(out.contains("\"reason\":\"verification_skipped\""), "{out}");
+}
+
+#[test]
+fn clean_verify_skips_verification_when_a_pdf_page_stream_cannot_be_decoded() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-clean-verify-incomplete-page-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let input = dir.join("incomplete.pdf");
+    let output = dir.join("cleaned.pdf");
+    std::fs::write(&input, pdf_with_unreadable_page_content()).unwrap();
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        input.to_str().unwrap(),
+    ]);
+
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("\"operation_state\":\"not_created\""), "{out}");
+    assert!(out.contains("\"reason\":\"verification_skipped\""), "{out}");
+    assert!(out.contains("\"output\":null"), "{out}");
+    assert!(err.contains("PDF checks are incomplete"), "{err}");
+    assert!(
+        !output.exists(),
+        "an unreadable page must not produce a copy"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]

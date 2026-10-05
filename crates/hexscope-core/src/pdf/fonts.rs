@@ -235,7 +235,7 @@ fn font(data: &[u8], ctx: &Ctx, dict: &Obj, budget: &mut u64) -> Font {
     }
     if let Some(Obj::Ref(n, _)) = dict.get("ToUnicode")
         && let Some(rec) = ctx.latest(*n)
-        && let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), budget)
+        && let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), budget, false)
     {
         f.unicode = to_unicode(&bytes);
     }

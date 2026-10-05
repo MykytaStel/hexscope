@@ -834,7 +834,7 @@ test("the keyboard list closes every way people try: ×, Escape, a click outside
 
 const sample = (name: string) => new URL(`../public/samples/${name}`, import.meta.url).pathname;
 
-test("an incomplete PDF form warns in Ukrainian and produces no redacted copy", async ({ page }) => {
+test("incomplete PDF content warns in Ukrainian and produces no redacted copy", async ({ page }) => {
   const saved = catchDownloads(page);
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
@@ -844,22 +844,20 @@ test("an incomplete PDF form warns in Ukrainian and produces no redacted copy", 
   await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/incomplete-form.pdf", import.meta.url).pathname);
 
   await expect(page.locator(".verdict-line.is-warning")).toContainText(
-    "Не весь вміст PDF-форм вдалося перевірити. Пошук може пропустити текст.",
+    "Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.",
   );
   const redactor = page.locator(".redactor");
   await redactor.locator('input[type="search"]').fill("PUBLIC");
   await redactor.locator(".redact-form button").click();
   const warning = redactor.locator(".redact-incomplete");
   await expect(warning).toBeVisible();
-  await expect(warning).toContainText("Не весь вміст PDF-форм вдалося перевірити.");
+  await expect(warning).toContainText("Не весь вміст сторінок або форм у PDF вдалося перевірити.");
 
   const save = redactor.locator(".btn-primary");
   await expect(save).toBeEnabled();
   await save.click();
   const failure = redactor.locator(".cleaner .problem");
-  await expect(failure).toContainText(
-    "Копію не створено: hexscope не зміг повністю перевірити або відокремити вміст форм на сторінці PDF.",
-  );
+  await expect(failure).toContainText("Копію не створено: перевірку PDF не завершено.");
   await expect(redactor.getByRole("button", { name: "Відкрити копію" })).toHaveCount(0);
   expect(saved).toEqual([]);
 });

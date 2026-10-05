@@ -39,7 +39,8 @@ fn script(data: &[u8], ctx: &Ctx, o: &Obj, budget: &mut u64) -> Option<String> {
         Obj::Str(s) => text(s),
         Obj::Ref(n, _) => {
             let rec = latest(ctx, *n)?;
-            String::from_utf8_lossy(&decode(data, rec, ctx.crypt.as_ref(), budget)?).into_owned()
+            String::from_utf8_lossy(&decode(data, rec, ctx.crypt.as_ref(), budget, false)?)
+                .into_owned()
         }
         _ => return None,
     };

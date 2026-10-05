@@ -11,7 +11,7 @@ Hexscope should help a person understand what a file reveals before they share i
 - **Local by default:** no file uploads, accounts, telemetry, or server-side inspection.
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
 - **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web, CLI, and GitHub Action.
-- **Copies stay under user control:** never silently alter the source; keep a produced copy available when verification is incomplete.
+- **Copies stay under user control:** never silently alter the source; keep a successfully produced copy available when post-write verification is incomplete, and refuse to produce one when source content cannot be inspected safely.
 - **Measure before expanding:** protect parser safety, browser memory, gzip size budgets, accessibility, and real-device usability.
 - **Teach without getting in the way:** give the plain-language answer first; let curious users open the structure, algorithms, and bytes.
 
@@ -31,8 +31,8 @@ Hexscope should help a person understand what a file reveals before they share i
 
 1. **Publish a format/finding/cleaning coverage matrix.** The narrower verified-removal contract is documented in [`verification-coverage.md`](verification-coverage.md) and enforced by the core. A full inventory of parser extraction and cleaning behavior across all formats remains follow-up work.
 2. **Expand PDF verification in narrow slices.** Shared core verification now confirms removal only for complete, file-scope Info/XMP findings: author, title, subject, keywords, application, producer, created, modified, and history. An unsupported fact observed in the cleaned output is reported as present; claims that unsupported revision findings, hidden or covered text, or other PDF content were removed remain unchecked until parser and cleaner evidence proves coverage. Keep Web QR rescanning and selected-PDF-text checks supplemental.
-3. **Add real regression cases for incomplete documents.** Include surviving hidden text, removed text, malformed or partially parsed pages, and output-only findings. Every uncertain path must stay unchecked.
-4. **Make coverage understandable in the result UI and CLI.** The shared clean-copy result now names what was removed, remains, or was not checked, with a plain-language reason. Keep the copy available even when the result is incomplete.
+3. **Add real regression cases for incomplete documents.** The PDF slice now covers surviving hidden text, hidden and revision text absent from copies but left unchecked, unreadable page streams, and findings present only in the compared output. Extend equivalent cases to other formats as their verification coverage grows; every uncertain path must stay unchecked.
+4. **Make coverage understandable in the result UI and CLI.** The shared clean-copy result now names what was removed, remains, or was not checked, with a plain-language reason. Keep any successfully produced copy available when post-write verification is incomplete.
 
 ### P1 — Make the core and CLI a dependable platform
 

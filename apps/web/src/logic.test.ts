@@ -28,7 +28,7 @@ function open(name: string, bytes?: Uint8Array): FileModel {
   return new FileModel(describe(parse(b)), b, name);
 }
 
-group("incomplete PDF form checks", () => {
+group("incomplete PDF content checks", () => {
   it("preserves incompleteness through search and describes why cleaning can fail", () => {
     const page: PageGlyphs = {
       media: [0, 0, 100, 100],
@@ -42,15 +42,16 @@ group("incomplete PDF form checks", () => {
     const bytes = new Uint8Array(readFileSync(here("../e2e/fixtures/incomplete-form.pdf")));
     const lines = verdict(open("incomplete-form.pdf", bytes));
     expect(lines).toContainEqual(expect.objectContaining({ kind: "warning" }));
-    expect(translateText("Some PDF form content could not be fully checked. Search may miss text.", "uk")).toBe(
-      "Не весь вміст PDF-форм вдалося перевірити. Пошук може пропустити текст.",
+    expect(
+      translateText("Some PDF page or form content could not be fully checked. Search may miss text.", "uk"),
+    ).toBe("Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.");
+    expect(translateText("PDF not fully checked", "uk")).toBe("PDF перевірено не повністю");
+    expect(translateText("Some PDF page or form content may be missing.", "uk")).toBe(
+      "У PDF може бракувати частини вмісту сторінки або форми.",
     );
     expect(
-      translateText(
-        "no copy was made because hexscope could not fully inspect or isolate form content on a PDF page",
-        "uk",
-      ),
-    ).toBe("Копію не створено: hexscope не зміг повністю перевірити або відокремити вміст форм на сторінці PDF");
+      translateText("no copy was made because PDF checks are incomplete", "uk"),
+    ).toBe("Копію не створено: перевірку PDF не завершено");
   });
 });
 

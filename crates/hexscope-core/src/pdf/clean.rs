@@ -128,13 +128,13 @@ pub(crate) fn clean_pdf_with(
         source_edits,
         form_edits,
         prefixed_streams,
-        incomplete_pages,
+        verification_complete,
         removed: taken_out,
         applied,
         cuts,
         inline,
     } = super::redact::rewrites(data, &ctx, extra);
-    if !incomplete_pages.is_empty() {
+    if !verification_complete {
         return Err(CleanError::FormContentIncomplete);
     }
     let rewrite_plan = super::form_rewrite::plan_form_rewrites(

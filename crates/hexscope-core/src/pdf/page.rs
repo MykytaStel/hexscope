@@ -10,11 +10,11 @@
 //! [`super::fonts`]), and estimated at half the font size when not. Content
 //! drawn by form XObjects is not followed.
 
-use super::Ctx;
 use super::facts::text as pdf_doc;
 use super::facts::{Found, decode, resolve};
 use super::fonts::{Font, Fonts};
 use super::lexer::{Item, Lexer, Obj};
+use super::{Ctx, ObjRec};
 use crate::fixed::fixed;
 
 /// Glyphs kept for one page.
@@ -211,6 +211,17 @@ pub(super) struct Walked {
     /// Every dark box filled: what a QR code drawn in boxes is made of.
     pub dark: Vec<Area>,
     pub complete: bool,
+}
+
+/// Reads the content filters used by a page or form. The general stream
+/// decoder intentionally stops at picture codecs; that is not complete text.
+pub(super) fn decode_content_stream(
+    data: &[u8],
+    rec: &ObjRec,
+    ctx: &Ctx,
+    budget: &mut u64,
+) -> Option<Vec<u8>> {
+    decode(data, rec, ctx.crypt.as_ref(), budget, true)
 }
 
 impl Default for Walked {
@@ -650,7 +661,7 @@ fn follow_form(
 
     let bbox = form_bbox(&rec.value)?;
     let matrix = form_matrix(&rec.value)?;
-    let bytes = decode(forms.data, rec, forms.ctx.crypt.as_ref(), forms.budget)?;
+    let bytes = decode_content_stream(forms.data, rec, forms.ctx, forms.budget)?;
     let child_resources = match rec.value.get("Resources") {
         Some(resources) => Some(deref_obj(forms.data, forms.ctx, resources, forms.budget)?),
         None => resources.cloned().or_else(|| forms.page_resources.clone()),

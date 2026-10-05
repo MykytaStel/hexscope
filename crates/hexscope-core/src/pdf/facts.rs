@@ -98,7 +98,7 @@ pub(super) fn collect(
     });
     if let Some(rec) = xmp {
         if let Some((_, node)) = rec.stream {
-            if let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget) {
+            if let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget, false) {
                 xmp_facts(&String::from_utf8_lossy(&bytes), node, &mut facts);
             } else {
                 complete = false;
@@ -112,7 +112,7 @@ pub(super) fn collect(
     // the rest being read, nor the facts above.
     let mut budget = MAX_DECODED_TOTAL;
     for rec in ctx.objects.iter().filter(|r| is_photo(r)).take(MAX_PHOTOS) {
-        let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget) else {
+        let Some(bytes) = decode(data, rec, ctx.crypt.as_ref(), &mut budget, false) else {
             continue;
         };
         if !bytes.starts_with(&[0xFF, 0xD8]) {
@@ -214,7 +214,7 @@ pub(super) fn unpack(
     if rec.value.get("Type").and_then(Obj::name) != Some("ObjStm") {
         return None;
     }
-    let bytes = decode(data, rec, crypt, budget)?;
+    let bytes = decode(data, rec, crypt, budget, false)?;
     let count = rec.value.get("N").and_then(Obj::int)?;
     let first = usize::try_from(rec.value.get("First").and_then(Obj::int)?).ok()?;
     let mut lx = Lexer::new(&bytes, 0);
@@ -252,6 +252,7 @@ pub(super) fn decode(
     rec: &ObjRec,
     crypt: Option<&Decryptor>,
     budget: &mut u64,
+    reject_picture_filters: bool,
 ) -> Option<Vec<u8>> {
     let dict = &rec.value;
     let (range, _) = rec.stream?;
@@ -285,6 +286,10 @@ pub(super) fn decode(
     let mut out = raw.to_vec();
     for (i, f) in filters.iter().enumerate() {
         if super::filters::is_picture(f) {
+            if reject_picture_filters {
+                *budget -= limit;
+                return None;
+            }
             break;
         }
         let decoded = super::filters::undo(f, parms.get(i).copied(), &out, limit);

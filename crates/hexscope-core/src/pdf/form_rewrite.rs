@@ -81,7 +81,7 @@ pub(super) fn plan_form_rewrites(
     }
 
     let mut budget = MAX_DECODED_TOTAL;
-    let pages = redact::pages(data, ctx, &mut budget);
+    let pages = redact::pages(data, ctx, &mut budget).pages;
     let max_object = ctx.objects.iter().map(|rec| rec.num).max().unwrap_or(0);
     let mut next_object = max_object
         .checked_add(1)
@@ -432,7 +432,8 @@ fn decode_stream(
     rec: &ObjRec,
     budget: &mut u64,
 ) -> Result<Vec<u8>, FormRewriteError> {
-    facts::decode(data, rec, ctx.crypt.as_ref(), budget).ok_or(FormRewriteError::MissingContent)
+    facts::decode(data, rec, ctx.crypt.as_ref(), budget, false)
+        .ok_or(FormRewriteError::MissingContent)
 }
 
 fn allocate(next: &mut u32) -> Result<u32, FormRewriteError> {
