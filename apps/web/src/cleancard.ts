@@ -4,13 +4,14 @@ import type { FileModel } from "./model";
 import type { PageGlyphs, PagePicture } from "./worker";
 import type { VerificationReport, VerificationSelection } from "./verification";
 import { categories } from "./share";
-import { noun } from "./headline";
 import { el, formatBytes } from "./dom";
 import { LIMITS } from "./knowledge";
 import { typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
 import { loadCopyVerification } from "./copyverification-loader";
+import { currentLocale, translateText } from "./i18n";
+import { cleanCopySummary, cleanCopySummaryLabel } from "./clean-summary";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -58,8 +59,14 @@ export interface CleanActions {
 }
 
 /** A compact report about the output Blob; the finding's value never reaches this view. */
-export function copyVerification(result: CleanResult): HTMLElement | null {
-  if (!result.verification) return null;
+export function copyVerification(
+  result: CleanResult,
+  onReport?: (report: VerificationReport | undefined) => void,
+): HTMLElement | null {
+  if (!result.verification) {
+    onReport?.(undefined);
+    return null;
+  }
 
   const region = el("section", "copy-verification");
   region.setAttribute("role", "status");
@@ -68,8 +75,9 @@ export function copyVerification(result: CleanResult): HTMLElement | null {
   region.append(el("p", "copy-verification-pending", "Checking the copy in this tab…"));
   const verification = result.verification;
   void loadCopyVerification()
-    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification))
+    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification, onReport))
     .catch(() => {
+      onReport?.(undefined);
       region.replaceChildren(
         el("p", "copy-verification-pending", "Not checked"),
         el("p", "verify-reason", "Check unavailable."),
@@ -107,38 +115,66 @@ export function isAudio(m: FileModel): boolean {
 const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01])/;
 
 /** The file and its clean copy side by side: what it gave away, what is left, and their sizes. */
-export function beforeAfter(m: FileModel, r: CleanResult, left: number): HTMLElement {
+export function beforeAfter(m: FileModel, r: CleanResult): HTMLElement {
   const before = categories(m).length;
   const card = el("div", "before-after");
-  const side = (tone: string, label: string, count: number, what: string, name: string, size: number) => {
+  const tr = (copy: string) => translateText(copy, currentLocale());
+  const side = (tone: string, label: string, count: string, what: string, name: string, size: number) => {
     const s = el("div", `ba-side ${tone}`);
-    const n = el("span", "ba-count", String(count));
-    s.append(el("span", "ba-label", label), n, el("span", "ba-what", what), el("span", "ba-file", `${name} · ${formatBytes(size)}`));
-    return [s, n] as const;
+    const n = el("span", "ba-count", count);
+    const description = el("span", "ba-what", what);
+    const details = el("ul", "ba-verification");
+    s.append(el("span", "ba-label", tr(label)), n, description, details, el("span", "ba-file", `${name} · ${formatBytes(size)}`));
+    return [s, n, description, details] as const;
   };
   const base = m.name.split("/").pop() ?? m.name;
-  const [was] = side("is-before", "Before", before, before === 1 ? "thing it gave away" : "things it gave away", base, m.bytes.length);
-  const [now, count] = side(
-    left === 0 ? "is-after is-clear" : "is-after",
-    "Clean copy",
-    left,
-    left === 0 ? "left" : `left — part of the ${noun(m)} itself`,
-    r.name,
-    r.copy.size,
+  const [was] = side(
+    "is-before",
+    "Before",
+    String(before),
+    tr(before === 1 ? "thing it gave away" : "things it gave away"),
+    base,
+    m.bytes.length,
   );
+  const [now] = side("is-after", "Clean copy", "—", tr("Checking the copy…"), r.name, r.copy.size);
   card.append(was, el("span", "ba-arrow", "→"), now);
-  // The number counts down from what it was, unless motion is unwelcome.
-  if (before > left && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    let shown = before;
-    count.textContent = String(shown);
-    const step = () => {
-      shown -= 1;
-      count.textContent = String(shown);
-      if (shown > left) setTimeout(step, Math.max(40, 420 / (before - left)));
-    };
-    setTimeout(step, 250);
-  }
   return card;
+}
+
+/** Update the visual summary only from the same readback report shown below it. */
+export function renderBeforeAfter(card: HTMLElement, report: VerificationReport | undefined): void {
+  const tr = (copy: string) => translateText(copy, currentLocale());
+  const summary = cleanCopySummary(report);
+  const after = card.querySelector<HTMLElement>(".ba-side.is-after");
+  const count = after?.querySelector<HTMLElement>(".ba-count");
+  const description = after?.querySelector<HTMLElement>(".ba-what");
+  const details = after?.querySelector<HTMLElement>(".ba-verification");
+  if (!after || !count || !description || !details) return;
+
+  after.classList.toggle("is-clear", summary.clear);
+  description.textContent = tr(cleanCopySummaryLabel(summary));
+  if (summary.state === "unverified") {
+    count.textContent = "—";
+    details.replaceChildren();
+    return;
+  }
+
+  count.textContent = String(summary.removed);
+  if (summary.clear) {
+    details.replaceChildren();
+    return;
+  }
+  const rows = [
+    [summary.present, "Still present"],
+    [summary.unchecked, "Not checked"],
+  ] as const;
+  details.replaceChildren(
+    ...rows.map(([value, label]) => {
+      const row = el("li", "ba-verification-item");
+      row.append(el("span", undefined, tr(label)), el("strong", undefined, String(value)));
+      return row;
+    }),
+  );
 }
 
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */

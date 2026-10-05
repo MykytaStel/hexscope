@@ -43,11 +43,13 @@ export function verifyCopyInWorker(
   );
 }
 
-export function renderCopyVerification(region: HTMLElement, verification: Promise<VerificationReport>): void {
-  const render = (report: VerificationReport) => {
-    if (report.present.length || report.unchecked.length) {
-      region.closest(".cleaner")?.querySelector(".before-after .ba-side.is-clear")?.classList.remove("is-clear");
-    }
+export function renderCopyVerification(
+  region: HTMLElement,
+  verification: Promise<VerificationReport>,
+  onReport?: (report: VerificationReport | undefined) => void,
+): void {
+  const render = (report: VerificationReport, notify = true) => {
+    if (notify) onReport?.(report);
     const groups: [string, VerificationReport["removed"]][] = [
       ["Removed", report.removed],
       ["Still present", report.present],
@@ -71,11 +73,12 @@ export function renderCopyVerification(region: HTMLElement, verification: Promis
     );
   };
 
-  void verification.then(render, () =>
+  void verification.then(render, () => {
+    onReport?.(undefined);
     render({
       removed: [],
       present: [],
       unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable." }],
-    }),
-  );
+    }, false);
+  });
 }

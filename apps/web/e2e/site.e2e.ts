@@ -586,7 +586,7 @@ test("the landing page does not download article copy before a guide opens", asy
   expect((await Promise.all(guideCopyScripts)).filter(Boolean)).toEqual([]);
 });
 
-test("a photo: the answer, where it was taken, and a clean copy with nothing left", async ({ page }) => {
+test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }) => {
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
   await expect(page.locator(".verdict-title")).toHaveText(/^This photo gives away \d+ things$/);
@@ -601,8 +601,14 @@ test("a photo: the answer, where it was taken, and a clean copy with nothing lef
   await expect(page.locator(".place-map svg")).toBeVisible();
 
   await page.locator(".verdict-cta").click();
-  const after = page.locator(".ba-side.is-after .ba-count");
-  await expect(after).toHaveText("0");
+  const after = page.locator(".ba-side.is-after");
+  await expect(after.locator(".ba-count")).toHaveText("4");
+  await expect(after.locator(".ba-what")).toHaveText("Confirmed removed");
+  await expect(after.locator(".ba-verification-item")).toHaveCount(2);
+  await expect(after.locator(".ba-verification-item").nth(0)).toContainText("Still present");
+  await expect(after.locator(".ba-verification-item").nth(0).locator("strong")).toHaveText("0");
+  await expect(after.locator(".ba-verification-item").nth(1)).toContainText("Not checked");
+  await expect(after.locator(".ba-verification-item").nth(1).locator("strong")).toHaveText("4");
   await expect(page.locator(".ba-side.is-after")).not.toHaveClass(/is-clear/);
   await expect(page.locator(".copy-verification")).toContainText("Not checked");
   // A computer saves it; a phone may offer to share it instead.
@@ -749,7 +755,7 @@ test("clean copy verification keeps copy actions when the worker returns an erro
   await expect(report).toContainText("Перевірка недоступна.");
   await expect(report).not.toContainText("Private parser detail");
   await expect(page.getByRole("button", { name: "Відкрити очищену копію" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Compare with the original" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Порівняти з оригіналом" })).toBeEnabled();
 });
 
 test.describe("copy verification module network failure", () => {
@@ -816,7 +822,15 @@ test("a spreadsheet's clean copy keeps what is part of it, and says so", async (
   await page.goto("./?sample=budget.xlsx");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".ba-side.is-after .ba-what")).toContainText("part of the document itself");
+  const after = page.locator(".ba-side.is-after");
+  await expect(after.locator(".ba-count")).toHaveText("0");
+  await expect(after.locator(".ba-what")).toHaveText("Findings remain in the copy");
+  await expect(after.locator(".ba-verification-item")).toHaveCount(2);
+  await expect(after.locator(".ba-verification-item").nth(0)).toContainText("Still present");
+  await expect(after.locator(".ba-verification-item").nth(0).locator("strong")).toHaveText("2");
+  await expect(after.locator(".ba-verification-item").nth(1)).toContainText("Not checked");
+  await expect(after.locator(".ba-verification-item").nth(1).locator("strong")).toHaveText("4");
+  await expect(page.locator(".cleaner")).toContainText("Kept: what is part of a workbook or a deck itself");
 });
 
 test("a file opened earlier in the tab opens again from the list", async ({ page }) => {

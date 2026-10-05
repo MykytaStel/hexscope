@@ -252,6 +252,27 @@
   color: var(--text);
 }
 
+.ba-verification {
+  display: grid;
+  gap: 2px;
+  margin: 3px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ba-verification-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ba-verification-item strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .ba-file {
   margin-top: 6px;
   overflow-wrap: anywhere;
