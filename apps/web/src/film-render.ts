@@ -26,7 +26,7 @@ export async function renderFilm(source: Blob, dimensions: [number, number], ori
   const settings = validateFilmSettings(given);
   const [sw, sh] = orientation >= 5 && orientation <= 8 ? [dimensions[1], dimensions[0]] : dimensions;
   const size = boundedLabSize(sw, sh, purpose);
-  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image", resizeWidth: size.width, resizeHeight: size.height });
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image", colorSpaceConversion: "default", resizeWidth: size.width, resizeHeight: size.height });
   let original: OffscreenCanvas | undefined;
   let output: OffscreenCanvas | undefined;
   try {

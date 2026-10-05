@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     fs,
+    io::Write,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -95,7 +96,7 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
         return Err("no input files outside the output folder".into());
     }
     let receipt = out.join("hexscope-report.json");
-    if receipt.exists() {
+    if fs::symlink_metadata(&receipt).is_ok() {
         return Err("output report already exists; use a new output folder".into());
     }
     let targets = files
@@ -114,6 +115,13 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
     if targets.iter().any(|p| p.exists()) {
         return Err("an output copy already exists; use a new output folder".into());
     }
+    // Reserve a new receipt before processing. create_new also rejects dangling
+    // symlinks and entries planted after preflight, without following them.
+    let mut receipt_file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&receipt)
+        .map_err(|e| format!("cannot create output report: {e}"))?;
     let mut rows = Vec::new();
     let mut written = 0;
     let mut failed = 0;
@@ -126,7 +134,6 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
             let before = snapshot(&summarize(&data));
             let copy = clean(&data).map_err(|e| e.reason().to_owned())?;
             // create_new cannot replace another copy or a newly planted symlink.
-            use std::io::Write;
             let mut file = fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -157,11 +164,10 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
         }
     }
     let report = json!({"schema":"hexscope.batch-receipt","version":1,"total":files.len(),"written":written,"failed":failed,"removed":removed,"present":present,"unchecked":unchecked,"files":rows});
-    fs::write(
-        receipt,
-        serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
+    receipt_file
+        .write_all(&serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?)
+        .and_then(|()| receipt_file.sync_all())
+        .map_err(|e| e.to_string())?;
     eprintln!(
         "{written} copies written; {failed} not completed; findings: {removed} removed, {present} present, {unchecked} unchecked. Receipt: hexscope-report.json"
     );

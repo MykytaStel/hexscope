@@ -14,6 +14,7 @@ import type { FilmScanReport } from "./filmscan";
 import type { FilmSettings } from "./film-lab";
 import type { FilmRenderResult } from "./film-render";
 import { LatestFilmQueue } from "./film-queue";
+import { profileFromTree } from "./film-profile";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -334,13 +335,18 @@ async function handle(req: WorkerRequest): Promise<void> {
     const head = new Uint8Array(await req.source.slice(0, 12).arrayBuffer());
     let dimensions: [number, number] | undefined;
     let orientation = 1;
+    let profilePresent: boolean | null = null;
     if (isMedia(head)) {
       const wasm = await moduleFor(head);
       const parsed = wasm.parse(new Uint8Array(await req.source.arrayBuffer()));
-      try { if (parsed.dimensions.length === 2) dimensions = [parsed.dimensions[0], parsed.dimensions[1]]; orientation = parsed.orientation; } finally { parsed.free(); }
+      try {
+        if (parsed.dimensions.length === 2) dimensions = [parsed.dimensions[0], parsed.dimensions[1]];
+        orientation = parsed.orientation;
+        profilePresent = profileFromTree({ format: parsed.format as ParsedFile["format"], labels: parsed.labels.split(SEPARATOR), kinds: parsed.kinds });
+      } finally { parsed.free(); }
     }
     const { renderRoll } = await import("./film-roll-worker");
-    post({ id: req.id, type: "filmRollOutput", result: await renderRoll(req.source, req.settings, req.format, dimensions, orientation) });
+    post({ id: req.id, type: "filmRollOutput", result: await renderRoll(req.source, req.settings, req.format, dimensions, orientation, profilePresent) });
     return;
   }
   if (req.type === "filmRender") {

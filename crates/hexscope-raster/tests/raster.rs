@@ -91,3 +91,38 @@ fn dimensions_and_decode_allocations_are_checked_before_pixels() {
     );
     assert!(result.unwrap_err().contains("dimension"));
 }
+
+#[test]
+fn rejects_associated_alpha_tiffs_instead_of_darkening_their_pixels() {
+    for depth in [8, 16] {
+        let mut bytes = Cursor::new(Vec::new());
+        let mut encoder = tiff::encoder::TiffEncoder::new(&mut bytes).unwrap();
+        if depth == 8 {
+            let mut image = encoder
+                .new_image::<tiff::encoder::colortype::RGBA8>(1, 1)
+                .unwrap();
+            image
+                .encoder()
+                .write_tag(tiff::tags::Tag::ExtraSamples, &[1u16][..])
+                .unwrap();
+            image.write_data(&[128, 0, 0, 128]).unwrap();
+        } else {
+            let mut image = encoder
+                .new_image::<tiff::encoder::colortype::RGBA16>(1, 1)
+                .unwrap();
+            image
+                .encoder()
+                .write_tag(tiff::tags::Tag::ExtraSamples, &[1u16][..])
+                .unwrap();
+            image.write_data(&[32896, 0, 0, 32896]).unwrap();
+        }
+        let error = process(
+            bytes.get_ref(),
+            &read_recipe(RECIPE).unwrap(),
+            Output::Tiff16,
+            4096,
+        )
+        .unwrap_err();
+        assert!(error.contains("associated alpha"), "{error}");
+    }
+}

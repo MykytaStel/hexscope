@@ -46,6 +46,22 @@ test("roll uses the shared renderer, preserves TIFF16 precision and exports a re
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("roll reports source ICC profiles and browser color conversion for JPEG, PNG and WebP", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await page.goto("./");
+  await page.locator("#film-roll-open").click();
+  const roll = page.locator(".film-roll");
+  await roll.getByLabel("Choose scans", { exact: true }).setInputFiles(["e2e/fixtures/icc.jpg", "e2e/fixtures/icc.png", "e2e/fixtures/icc.webp"]);
+  await roll.getByRole("button", { name: "Process roll", exact: true }).click();
+  await expect(roll.getByRole("status")).toContainText("3 / 3 copies ready");
+  const download = page.waitForEvent("download");
+  await roll.getByRole("button", { name: "Download roll ZIP" }).click();
+  const archive = storedEntries(await readFile((await (await download).path())!));
+  const report = JSON.parse(archive.get("hexscope-film-report.json")!.toString());
+  expect(report.files).toHaveLength(3);
+  for (const row of report.files) expect(row).toMatchObject({ profilePresent: true, colorHandling: "browser_srgb_conversion" });
+});
+
 test("batch reports readback and shows local correlations without exporting personal values", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en")); await page.goto("./");
   const photo = await readFile("../../crates/hexscope-core/tests/fixtures/photo.png");

@@ -138,6 +138,14 @@ fn decode_tiff(bytes: &[u8]) -> Result<(DynamicImage, bool), String> {
     if !matches!(depth, 8 | 16) {
         return Err("TIFF requires 8-bit or 16-bit integer samples".into());
     }
+    if channels == 2 || channels == 4 {
+        let extra = decoder
+            .get_tag_u16_vec(Tag::ExtraSamples)
+            .map_err(|e| e.to_string())?;
+        if extra.as_slice() != [2] {
+            return Err("TIFF associated alpha or unspecified extra samples are not supported; convert to straight alpha or RGB first".into());
+        }
+    }
     allocation(
         w,
         h,

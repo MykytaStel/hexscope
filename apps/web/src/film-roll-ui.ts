@@ -10,7 +10,7 @@ registerLazyTranslations({
   "One recipe, one film base, all frames. Files stay in this tab; originals are preserved.": "Один рецепт і одна основа плівки для всіх кадрів. Файли залишаються у вкладці; оригінали зберігаються.",
   "Load a recipe saved in the single-frame Film Photo Lab. Without a calibrated base, the first successful frame supplies an estimate reused for the roll.": "Завантажте рецепт із лабораторії окремого кадру. Якщо основу не відкалібровано, оцінка з першого успішного кадру застосовується до рулону.",
   "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.": "TIFF зберігає 16-бітну обробку 16-бітних TIFF-джерел. JPEG/PNG/WebP, декодовані браузером, мають 8-бітні пікселі. Копія — до 12 МП; сторона JPEG — до 4096 пікселів.",
-  "Samples are assumed sRGB. Embedded ICC profiles are reported, not applied. These are adjustable renditions, not scanner-calibrated archival recovery. Metadata and visible content are not certified safe.": "Зразки вважаються sRGB. Вбудовані ICC-профілі позначаються, але не застосовуються. Це налаштовувані копії, без архівного відновлення за профілем сканера. Безпечність метаданих і видимого вмісту не засвідчується.",
+  "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.": "Зразки TIFF вважаються sRGB; вбудовані ICC-профілі позначаються, але не застосовуються. JPEG/PNG/WebP використовують перетворення кольору браузером у sRGB. Це налаштовувані копії, без архівного відновлення за профілем сканера. Безпечність метаданих і видимого вмісту не засвідчується.",
   "Positive / already developed": "Позитив / уже проявлене зображення", "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
 });
 const message = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
@@ -34,7 +34,7 @@ export function showFilmRoll(initial: File[] = []): void {
   const advanced = el("details"); advanced.append(el("summary", "Roll recipe"));
   const recipe = el("textarea"); recipe.setAttribute("aria-label", "Roll recipe"); recipe.spellcheck = false; recipe.value = filmRecipe(DEFAULT_FILM_SETTINGS); advanced.append(recipe);
   const limits = el("p", "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.");
-  const color = el("p", "Samples are assumed sRGB. Embedded ICC profiles are reported, not applied. These are adjustable renditions, not scanner-calibrated archival recovery. Metadata and visible content are not certified safe.");
+  const color = el("p", "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.");
   const process = el("button", "Process roll"); process.className = "btn btn-primary";
   const download = el("button", "Download roll ZIP"); download.className = "btn"; download.hidden = true;
   const status = el("p"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
@@ -70,7 +70,7 @@ export function showFilmRoll(initial: File[] = []): void {
           if (!settings.baseColor) { settings = { ...settings, baseColor: receipt.baseColor }; recipe.value = filmRecipe(settings); }
           await zip.add(`${String(index + 1).padStart(6, "0")}-film.${outputFormat === "jpeg" ? "jpg" : "tif"}`, copy);
           if (token !== generation || !dialog.open) return;
-          made++; row.textContent += ` · ${receipt.width} × ${receipt.height} · source ${receipt.sourceDepth} bit → output ${receipt.outputDepth} bit${receipt.limited ? " · resized" : ""}${receipt.profilePresent ? " · ICC not applied" : ""}`;
+          made++; row.textContent += ` · ${receipt.width} × ${receipt.height} · source ${receipt.sourceDepth} bit → output ${receipt.outputDepth} bit${receipt.limited ? " · resized" : ""}${receipt.profilePresent === null ? " · ICC not checked" : receipt.profilePresent ? (receipt.colorHandling === "browser_srgb_conversion" ? " · ICC detected · browser color conversion" : " · ICC detected · not applied") : ""}`;
           rows.push({ index: index + 1, operation_state: "written", ...receipt });
           if (made === 1 && outputFormat === "jpeg") { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(copy); preview.src = previewUrl; preview.hidden = false; }
         } catch (e) { if (token !== generation || !dialog.open) return; row.textContent += ` · Not created: ${e instanceof Error ? e.message : String(e)}`; rows.push({ index: index + 1, operation_state: "not_created", check: "unavailable" }); }

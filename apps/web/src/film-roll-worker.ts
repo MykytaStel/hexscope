@@ -4,17 +4,18 @@ import { renderFilm } from "./film-render";
 
 export interface RollOutput {
   copy: Blob; width: number; height: number; sourceDepth: number; outputDepth: number;
-  profilePresent: boolean; limited: boolean; baseColor: [number, number, number];
+  profilePresent: boolean | null; colorHandling: "browser_srgb_conversion" | "unmanaged_srgb_assumption";
+  limited: boolean; baseColor: [number, number, number];
   sha256: string; bytesReadback: "matched"; metadataVerification: "not_checked";
 }
 /** One file at a time; caller owns cancellation between jobs. */
-export async function renderRoll(source: Blob, settings: FilmSettings, format: "jpeg" | "tiff16", dimensions?: [number, number], orientation = 1): Promise<RollOutput> {
+export async function renderRoll(source: Blob, settings: FilmSettings, format: "jpeg" | "tiff16", dimensions?: [number, number], orientation = 1, sourceProfile: boolean | null = null): Promise<RollOutput> {
   if (source.size > MAX_FILM_BYTES) throw new Error("This scan exceeds the 50 MiB file limit.");
   const recipe = filmRecipe(validateFilmSettings(settings));
   const head = new Uint8Array(await source.slice(0, 4).arrayBuffer());
   const tiff = (head[0] === 73 && head[1] === 73 && (head[2] === 42 || head[2] === 43)) || (head[0] === 77 && head[1] === 77 && (head[3] === 42 || head[3] === 43));
   const m = await rasterModule();
-  let pixels: Uint8Array, width: number, height: number, sourceDepth = 8, profilePresent = false, limited = false;
+  let pixels: Uint8Array, width: number, height: number, sourceDepth = 8, profilePresent = sourceProfile, limited = false;
   let baseColor: [number, number, number], copy: Blob;
   if (tiff) {
     const r = m.processTiff(new Uint8Array(await source.arrayBuffer()), recipe, format === "jpeg" ? 4096 : 30000);
@@ -51,5 +52,5 @@ export async function renderRoll(source: Blob, settings: FilmSettings, format: "
   }
   const bytes = await copy!.arrayBuffer();
   const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
-  return { copy: copy!, width: width!, height: height!, sourceDepth, outputDepth: format === "tiff16" ? 16 : 8, profilePresent, limited, baseColor: baseColor!, sha256, bytesReadback: "matched", metadataVerification: "not_checked" };
+  return { copy: copy!, width: width!, height: height!, sourceDepth, outputDepth: format === "tiff16" ? 16 : 8, profilePresent, colorHandling: tiff ? "unmanaged_srgb_assumption" : "browser_srgb_conversion", limited, baseColor: baseColor!, sha256, bytesReadback: "matched", metadataVerification: "not_checked" };
 }

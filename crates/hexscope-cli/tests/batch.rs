@@ -62,3 +62,32 @@ fn clean_rejects_duplicate_targets_before_writing() {
     assert!(!out.join("photo-clean.png").exists());
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[cfg(unix)]
+#[test]
+fn batch_rejects_dangling_receipt_symlink_before_creating_copies() {
+    let dir = std::env::temp_dir().join(format!("hexscope-receipt-link-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let out = dir.join("out");
+    fs::create_dir_all(&out).unwrap();
+    let original = include_bytes!("../../hexscope-core/tests/fixtures/photo.png");
+    let source = dir.join("photo.png");
+    fs::write(&source, original).unwrap();
+    std::os::unix::fs::symlink("000001-clean.png", out.join("hexscope-report.json")).unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_hexscope"))
+        .args(["batch", "--out"])
+        .arg(&out)
+        .arg(&source)
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(2), "{:?}", result);
+    assert!(!out.join("000001-clean.png").exists());
+    assert_eq!(fs::read(&source).unwrap(), original);
+    assert!(
+        fs::symlink_metadata(out.join("hexscope-report.json"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    fs::remove_dir_all(dir).unwrap();
+}

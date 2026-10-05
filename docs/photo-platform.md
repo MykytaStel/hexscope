@@ -43,16 +43,20 @@ optional crate and browser module, loaded only for photo tools.
 
 - TIFF supports one image, grayscale/RGB with 8/16-bit integer samples,
   supported uncompressed/Deflate/LZW/JPEG codec paths and EXIF orientation.
-  Unsupported layouts, oversized decodes and multipage inputs fail explicitly.
+  Straight alpha is composited on white. Associated (premultiplied) alpha and
+  unspecified extra samples are rejected explicitly, as are unsupported layouts,
+  oversized decodes and multipage inputs.
 - TIFF16 preserves 16-bit processing for 16-bit TIFF sources in both CLI/web;
   native PNG16 is also processed at 16 bits. Browser JPEG/PNG/WebP decoding uses
   8-bit pixels, even if the original PNG has 16-bit samples. A TIFF container
   cannot restore precision already discarded by that decode.
 - Outputs cap at 12 MP. Sharing JPEG also caps the side at 4096. Sources cap at
   50 MiB, 30,000 px per side and 120 MP, with additional codec allocation bounds.
-- Samples are assumed sRGB-encoded. TIFF ICC profiles are detected and reported,
-  but not applied. Browser decoders may perform their own color management for
-  other formats. These are adjustable renditions, without a calibrated color
+- Native and TIFF samples are assumed sRGB-encoded. ICC containers are detected
+  and reported, but native/TIFF processing does not apply their transforms.
+  Browser JPEG/PNG/WebP uses the browser's default color conversion into an sRGB
+  canvas. Each browser receipt records this color handling and source ICC
+  presence; absence stays unknown for an incomplete parse. These are adjustable renditions, without a calibrated color
   recovery claim. Source metadata is not copied by the encoders; the roll
   receipt still marks metadata verification **not checked**, rather than
   extending the clean-copy matrix to TIFF or certifying visible content.
