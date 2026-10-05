@@ -428,14 +428,18 @@
     gap: 6px;
   }
 
-  .actions { gap: 4px; }
+  .actions { gap: 2px; }
 
   .topbar {
     padding: 0 8px;
   }
 
   .viewswitch button {
-    padding: 6px 8px;
+    padding: 6px 6px;
+  }
+
+  .location-badge {
+    padding-inline: 6px;
   }
 
   .actions .btn {

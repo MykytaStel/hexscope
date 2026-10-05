@@ -651,10 +651,13 @@ test("nothing scrolls sideways", async ({ page }) => {
 test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   const toolbar = page.locator(".topbar .actions");
   await expect(toolbar).toBeVisible();
+  await expect(page.locator(".topbar .location-badge")).toBeVisible();
+  await expect(page.locator('.topbar .viewswitch [data-view="bytes"]')).toBeVisible();
   const bounds = await toolbar.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, right: rect.right };
