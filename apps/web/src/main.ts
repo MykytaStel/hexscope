@@ -604,7 +604,7 @@ async function lookForCodes(m: FileModel): Promise<void> {
   const redraw = update === "codes" && !drawerEl.querySelector(".before-after, .clean-list");
   const focused = drawerEl.contains(document.activeElement);
   if (redraw) drawer.showFile(m);
-  await placeFilmScanCard(drawerEl, m.file);
+  await placeFilmScanCard(drawerEl, m);
   if (redraw && focused) drawer.focusVerdict();
 }
 

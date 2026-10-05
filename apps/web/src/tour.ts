@@ -79,7 +79,7 @@ function visible(el: Element | null): el is HTMLElement {
 
 /** Starts the tour if it has not been seen; call once a file is on screen. */
 export function maybeTour(): void {
-  if (seen() || document.querySelector(".tour")) return;
+  if (seen() || document.querySelector(".tour, .film-lab-entry[open]")) return;
   // Each target is a list tried in order: the first that is on screen.
   const find = (target: string) =>
     target

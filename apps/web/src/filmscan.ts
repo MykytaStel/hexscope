@@ -6,6 +6,8 @@ export interface FilmScanReport {
   perforationRepeats: number;
   frameEdges: FilmScanEdge[];
   evidenceStrength: "none" | "limited" | "corroborated";
+  /** Optional suggested frame [left, top, right, bottom], in raster fractions. */
+  frameBounds?: [number, number, number, number];
 }
 
 const EDGES: readonly FilmScanEdge[] = ["top", "right", "bottom", "left"];
@@ -100,12 +102,12 @@ function repeatedOpenings(profile: readonly number[]): number | null {
 }
 
 /** Check for a strong transition at a consistent depth along most of an edge. */
-function hasFrameBoundary(
+function frameBoundary(
   pixels: Uint8Array,
   width: number,
   height: number,
   edge: FilmScanEdge,
-): boolean {
+): number | null {
   const alongLength = edge === "top" || edge === "bottom" ? width : height;
   const acrossLength = edge === "top" || edge === "bottom" ? height : width;
   const sampleCount = 48;
@@ -140,9 +142,11 @@ function hasFrameBoundary(
     if (bestContrast >= 32) candidates.push(bestDepth);
   }
 
-  if (candidates.length < sampleCount * 0.55) return false;
+  if (candidates.length < sampleCount * 0.55) return null;
   const tolerance = Math.max(2, Math.round(acrossLength * 0.015));
-  return candidates.some((depth) => candidates.filter((candidate) => Math.abs(candidate - depth) <= tolerance).length >= sampleCount * 0.55);
+  const clusters = candidates.map((depth) => candidates.filter((candidate) => Math.abs(candidate - depth) <= tolerance));
+  const best = clusters.reduce((a, b) => a.length >= b.length ? a : b);
+  return best.length >= sampleCount * 0.55 ? median(best) / acrossLength : null;
 }
 
 /**
@@ -171,7 +175,11 @@ export function inspectFilmScan(pixels: Uint8Array, width: number, height: numbe
   }
 
   const perforationEdges = EDGES.filter((edge) => perforationByEdge.has(edge));
-  const frameEdges = EDGES.filter((edge) => hasFrameBoundary(pixels, width, height, edge));
+  const frames = new Map(EDGES.map((edge) => [edge, frameBoundary(pixels, width, height, edge)]));
+  const frameEdges = EDGES.filter((edge) => frames.get(edge) !== null);
+  const frameBounds: [number, number, number, number] | undefined = frameEdges.length === 4
+    ? [frames.get("left")!, frames.get("top")!, 1 - frames.get("right")!, 1 - frames.get("bottom")!]
+    : undefined;
   const evidenceStrength = perforationEdges.length > 0 && frameEdges.length > 0
     ? "corroborated"
     : perforationEdges.length > 0 || frameEdges.length > 0
@@ -183,5 +191,6 @@ export function inspectFilmScan(pixels: Uint8Array, width: number, height: numbe
     perforationRepeats: Math.max(0, ...perforationByEdge.values()),
     frameEdges,
     evidenceStrength,
+    ...(frameBounds ? { frameBounds } : {}),
   };
 }

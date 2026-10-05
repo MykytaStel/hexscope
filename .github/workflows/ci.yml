@@ -125,15 +125,16 @@ jobs:
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
+      # The full parser gets 100 bytes for shared PNG/WebP EXIF orientation.
       - name: WebAssembly size budget
         run: |
           sizes=$(for f in apps/web/dist/assets/*.wasm; do gzip -9c "$f" | wc -c; done | sort -n)
           test "$(echo "$sizes" | wc -l)" -eq 2
           media=$(echo "$sizes" | head -1)
           full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290000)."
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290100)."
           test "$media" -le 140000
-          test "$full" -le 290000
+          test "$full" -le 290100
       - uses: actions/upload-artifact@v7
         with:
           name: hexscope-site

@@ -78,6 +78,7 @@ const UK: Record<string, string> = {
   "Check a photo": "Перевірити фото",
   "Where it was taken, the camera's serial number, the owner's name — and how to remove them.": "Де його зроблено, серійний номер фотоапарата, ім’я власника — і як це прибрати.",
   "Try a sample photo →": "Перевірити тестове фото →",
+  "Try a synthetic film negative →": "Спробувати синтетичний плівковий негатив →",
   "Check a document before you send it": "Перевірити документ перед надсиланням",
   "Black boxes that hide nothing, deleted text still inside, comments and who wrote them — in PDFs and Word files.": "Текст під чорними прямокутниками, видалений текст, коментарі та їхні автори — у PDF і Word.",
   "Try a blacked-out PDF →": "Перевірити PDF із прихованим текстом →",

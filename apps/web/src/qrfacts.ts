@@ -1,7 +1,7 @@
 // QR codes in a file, as facts about it. The pictures are decoded and
 // searched in the worker; what each code says is read in qr/meaning.ts.
 
-import type { FileModel, ParsedFile, PhotoFact } from "./model";
+import type { FileModel, PhotoFact } from "./model";
 import { meaning } from "./qr/meaning";
 import { call } from "./rpc";
 
@@ -10,12 +10,13 @@ const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|heic|avif)$/i;
 /** Pictures inside a document or message looked through, at most. */
 const MAX_INSIDE = 30;
 
-export async function placeFilmScanCard(target: ParentNode, file: ParsedFile): Promise<void> {
+export async function placeFilmScanCard(target: ParentNode, model: FileModel): Promise<void> {
+  const file = model.file;
   if (!file.filmScan) return;
   const reveals = target.querySelector(".reveals");
   if (!reveals) return;
   const { filmScanCard } = await import("./filmscan-card");
-  reveals.after(filmScanCard(file.filmScan));
+  if (reveals.isConnected) reveals.after(filmScanCard(file.filmScan, model));
 }
 
 type Look = { picture: Blob; inspectFilmScan?: boolean } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };
@@ -26,7 +27,7 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
   if (PICTURES.includes(f.format)) {
     return {
       picture: m.source ?? new Blob([m.bytes as BlobPart]),
-      ...(f.format === "jpeg" && inspectFilmScan ? { inspectFilmScan: true } : {}),
+      ...(["jpeg", "png", "webp"].includes(f.format) && inspectFilmScan ? { inspectFilmScan: true } : {}),
     };
   }
   if (f.format === "pdf") return { pdf: m.bytes.slice() };
@@ -44,7 +45,7 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
 }
 
 /**
- * Looks for QR codes and optional JPEG scan clues. Resolves with whether the
+ * Looks for QR codes and optional photo scan clues. Resolves with whether the
  * file gained visible analysis. A file is looked through once.
  */
 const looked = new WeakSet<FileModel>();

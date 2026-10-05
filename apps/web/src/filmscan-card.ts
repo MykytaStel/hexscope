@@ -1,9 +1,13 @@
 import { el } from "./dom";
 import { registerLazyTranslations } from "./i18n";
 import type { FilmScanEdge, FilmScanReport } from "./filmscan";
+import type { FileModel } from "./model";
+import { dismissTour } from "./tour";
 
 registerLazyTranslations({
   "Film-scan clues": "Ознаки сканування плівкового фото",
+  "Prepare a film photo to share": "Підготувати плівкове фото для надсилання",
+  "The film lab could not load. Close and reopen it to try again.": "Лабораторія плівкового фото не завантажилася. Закрийте й відкрийте її знову.",
   "Could not inspect the image pixels in this browser.": "Цей браузер не зміг прочитати пікселі зображення.",
   "No clear repeated edge pattern was found. Cropping or low contrast can hide these clues.": "Не знайдено чітких повторюваних ознак біля краю. Обрізання або низький контраст могли їх приховати.",
   "Signal agreement: limited": "Знайдено один тип візуальних ознак",
@@ -26,7 +30,7 @@ const EDGE_LABELS: Record<FilmScanEdge, string> = {
 };
 
 /** Render the evidence separately from metadata and avoid implying film provenance. */
-export function filmScanCard(result: FilmScanReport): HTMLElement {
+export function filmScanCard(result: FilmScanReport, model: FileModel): HTMLElement {
   const card = el("section", "group film-scan-card");
   card.setAttribute("aria-label", "Film-scan clues");
   card.setAttribute("aria-live", "polite");
@@ -64,5 +68,24 @@ export function filmScanCard(result: FilmScanReport): HTMLElement {
   }
 
   card.append(el("p", "hint film-scan-caveat", "These visual clues do not prove that the picture came from film. Digital borders can look similar; grain is not analyzed."));
+  if (model.file.dimensions) {
+    const entry = el("details", "film-lab-entry");
+    const content = el("div");
+    entry.append(el("summary", undefined, "Prepare a film photo to share"), content);
+    let dispose: (() => void) | undefined;
+    let generation = 0;
+    entry.addEventListener("toggle", async () => {
+      const version = ++generation;
+      dispose?.(); dispose = undefined; content.replaceChildren();
+      if (!entry.open) return;
+      dismissTour();
+      try {
+        const { filmLab } = await import("./film-lab-ui");
+        if (!entry.open || version !== generation || !entry.isConnected) return;
+        const lab = filmLab(model, result); dispose = lab.dispose; content.append(lab.view);
+      } catch { if (entry.open) content.append(el("p", "hint", "The film lab could not load. Close and reopen it to try again.")); }
+    });
+    card.append(entry);
+  }
   return card;
 }

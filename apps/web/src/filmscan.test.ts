@@ -55,6 +55,12 @@ describe("film-scan visual evidence", () => {
     expect(report.perforationRepeats).toBeGreaterThanOrEqual(8);
     expect(report.frameEdges).toEqual(["top", "right", "bottom", "left"]);
     expect(report.evidenceStrength).toBe("corroborated");
+    expect(report.frameBounds).toHaveLength(4);
+    const bounds = report.frameBounds!;
+    expect(bounds[0]).toBeGreaterThan(0.02);
+    expect(bounds[1]).toBeGreaterThan(0.02);
+    expect(bounds[2]).toBeLessThan(0.98);
+    expect(bounds[3]).toBeLessThan(0.98);
   });
 
   it("does not treat random film-like grain as a repeated edge pattern", () => {

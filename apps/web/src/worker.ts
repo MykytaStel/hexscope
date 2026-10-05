@@ -11,6 +11,9 @@ import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
 import type { FilmScanReport } from "./filmscan";
+import type { FilmSettings } from "./film-lab";
+import type { FilmRenderResult } from "./film-render";
+import { LatestFilmQueue } from "./film-queue";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -33,6 +36,7 @@ export type WorkerRequest =
       selections?: VerificationSelection[];
     }
   | { id: number; type: "repair"; bytes: Uint8Array }
+  | { id: number; type: "filmRender"; source: Blob; dimensions: [number, number]; orientation: number; settings: FilmSettings; purpose: "preview" | "export"; point?: [number, number] }
   | { id: number; type: "pageTexts"; bytes: Uint8Array }
   | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
@@ -46,6 +50,7 @@ export type WorkerResponse =
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string }
   | { id: number; type: "verification"; report: VerificationReport }
+  | { id: number; type: "filmRendered"; result: FilmRenderResult }
   | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
   | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
   | { id: number; type: "pagePictures"; pictures: PagePicture[] }
@@ -322,6 +327,38 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
 const MAX_DEPTH = 4;
 
 async function handle(req: WorkerRequest): Promise<void> {
+  if (req.type === "filmRender") {
+    const { renderFilm } = await import("./film-render");
+    const result = await renderFilm(req.source, req.dimensions, req.orientation, req.settings, req.purpose, req.point);
+    if (req.purpose === "export") {
+      result.check = { status: "unavailable", metadata: [], qrCount: null };
+      try {
+        if (result.copy.size > MAX_VERIFY_BYTES) throw new Error("copy exceeds readback limit");
+        const wasm = await loadMedia();
+        // Canvas encodes fresh pixels, without copying source metadata segments.
+        // Read the actual result; the cleaner correctly refuses an already-clean file.
+        const bytes = new Uint8Array(await result.copy.arrayBuffer());
+        const parsed = wasm.parse(bytes);
+        try {
+          const f = describe(parsed);
+          if (f.format !== "jpeg" || f.kinds.includes(3) || f.dimensions?.[0] !== result.dimensions[0] || f.dimensions?.[1] !== result.dimensions[1]) throw new Error("copy cannot be completely read");
+          result.check = {
+            status: "checked",
+            metadata: [...f.facts.map((fact) => FACT_LABELS[fact.kind] ?? fact.kind), ...(f.location ? ["Location"] : [])],
+            qrCount: null,
+          };
+        } finally { parsed.free(); }
+        const inspected = await codes({ id: req.id, type: "codes", picture: result.copy, inspectFilmScan: true });
+        result.check.scan = inspected.filmScan;
+        result.check.qrCount = inspected.codes.length > 0 || inspected.filmScan?.availability === "inspected" ? inspected.codes.length : null;
+        result.check.sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((v) => v.toString(16).padStart(2, "0")).join("");
+      } catch {
+        // Preserve the produced copy; a failed readback never becomes a clean claim.
+      }
+    }
+    post({ id: req.id, type: "filmRendered", result });
+    return;
+  }
   if (req.type === "parse") {
     const movie = await largeMovie(req.file);
     if (movie) {
@@ -610,8 +647,8 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 }
 
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  handle(event.data).catch((err: unknown) => {
+function answer(req: WorkerRequest): Promise<void> {
+  return handle(req).catch((err: unknown) => {
     // Out of memory, the WebAssembly stops for good: start the next file
     // on a fresh one, and say what happened in words.
     const text = err instanceof Error ? err.message : String(err);
@@ -622,9 +659,16 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
       stack = [];
     }
     post({
-      id: event.data.id,
+      id: req.id,
       type: "error",
       message: crashed ? "it needs more memory than this browser tab has. Close other tabs and try again, or use the command line tool" : text,
     });
   });
+}
+const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender" }>>(answer, (req) => {
+  post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
+});
+self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  if (event.data.type === "filmRender") filmQueue.push(event.data);
+  else void answer(event.data);
 };
