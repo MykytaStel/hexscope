@@ -7,6 +7,7 @@ import { batchReceipt, receiptRow, type ReceiptRow } from "./batch-receipt";
 import { cleanable, type BatchItem } from "./batch";
 import { StoredZip } from "./zipwrite";
 import { phoneCanShare, saveAs } from "./files";
+import { currentLocale, translateText } from "./i18n";
 
 /** Clean copies shared one file each, at most: past this, or this many bytes, they go as a ZIP. */
 const MAX_SHARED = 50;
@@ -46,8 +47,6 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
       if (!current()) return;
       if (r.type === "cleaned" && !r.error) {
         const row = receiptRow(items.indexOf(item) + 1, "written", r.verification);
-        rows.push(row);
-        item.copyStatus = `${row.verification.removed.length} removed · ${row.verification.present.length} present · ${row.verification.unchecked.length} unchecked`;
         let name = copyName(item).replace(/\\/g, "/").split("/").filter((part) => part && part !== "." && part !== "..").join("/") || item.cleanName;
         if (share) name = name.split("/").pop()!;
         if (names.has(name)) name = `${items.indexOf(item) + 1}-${name}`;
@@ -56,6 +55,8 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
         if (share) shared.push(new File([r.copy], name, { type: item.file.type }));
         else await zip.add(name, r.copy);
         if (!current()) return;
+        rows.push(row);
+        item.copyStatus = `${row.verification.removed.length} removed · ${row.verification.present.length} present · ${row.verification.unchecked.length} unchecked`;
         made++;
       } else if (r.type === "cleaned" && r.error.startsWith("there is nothing")) nothing++;
       else failed.push(`${item.file.name}: ${r.type === "cleaned" ? r.error : "it could not be read"}`);
@@ -76,7 +77,20 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
   const name = "hexscope-clean-copies.zip";
   const saveZip = (z: StoredZip) => saveAs(name, z.finish());
   if (made > 0 && !share) {
-    await zip.add("hexscope-report.json", reportBlob);
+    try {
+      await zip.add("hexscope-report.json", reportBlob);
+    } catch {
+      if (!current()) return;
+      saveZip(zip);
+      const saveReceipt = document.createElement("button");
+      saveReceipt.className = "btn";
+      saveReceipt.textContent = translateText("Save receipt as JSON", currentLocale());
+      saveReceipt.title = translateText("Downloads the batch receipt as a separate file.", currentLocale());
+      saveReceipt.addEventListener("click", () => saveAs("hexscope-report.json", reportBlob));
+      const fallbackNotice = translateText("The ZIP could not include the receipt; save it separately.", currentLocale());
+      view.offer(`${said.join(" ")} ${fallbackNotice}`, saveReceipt);
+      return;
+    }
     if (!current()) return;
     saveZip(zip);
     said.push(`Saved ${made === 1 ? "1 clean copy" : `${made} clean copies`} as ${name}.`);
