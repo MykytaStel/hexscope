@@ -76,6 +76,12 @@ test("recipes validate before applying and film controls work in Ukrainian with 
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(lab.getByLabel("Тип скану")).toHaveValue("mono-negative");
   await expect(lab.getByRole("button", { name: "Створити JPEG-копію", exact: true })).toBeVisible();
+  const selectStyle = await lab.getByLabel("Тип скану").evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { backgroundImage: computed.backgroundImage, paddingRight: parseFloat(computed.paddingRight) };
+  });
+  expect(selectStyle.backgroundImage).toContain("linear-gradient");
+  expect(selectStyle.paddingRight).toBeGreaterThanOrEqual(36);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
   const accessibility = await new AxeBuilder({ page }).include(".film-lab").analyze();
   expect(accessibility.violations).toEqual([]);

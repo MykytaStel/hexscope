@@ -15,7 +15,9 @@
 /* --- clean copy ---------------------------------------------------------------- */
 
 .cleaner {
-  margin-top: 10px;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 .batch-action {
@@ -62,15 +64,23 @@
 }
 
 .copy-verification {
+  display: grid;
+  gap: var(--space-3);
   min-width: 0;
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--surface-radius);
+  background: var(--panel);
 }
 
 .copy-verification-pending {
   margin: 0;
   color: var(--muted);
+}
+
+.copy-verification-group {
+  min-width: 0;
 }
 
 .cleaner:has(.copy-verification-pending) .before-after .ba-side.is-clear {
@@ -135,7 +145,8 @@
 }
 
 .copy-verification-group + .copy-verification-group {
-  margin-top: 10px;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
 }
 
 .copy-verification-group h3 {
@@ -154,8 +165,9 @@
 
 .copy-verification-item {
   min-width: 0;
-  padding-left: 9px;
+  padding-left: 12px;
   border-left: 2px solid var(--border);
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
@@ -234,13 +246,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 4px 0 10px;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-3) 0 var(--space-4);
 }
 
 .verdict-actions .btn {
-  height: 40px;
+  min-height: var(--control-height);
+  height: auto;
   padding: 0 16px;
+  text-align: left;
+  white-space: normal;
 }
 
 .verdict-cta {
@@ -250,8 +265,8 @@
 
 .verdict-lines {
   display: grid;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
   padding: 0;
   list-style: none;
 }
@@ -260,7 +275,7 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 10px 12px;
   border-radius: 8px;
   line-height: 1.4;
   --tone: var(--muted);
@@ -303,6 +318,15 @@
 
 .verdict-show:hover {
   text-decoration: underline;
+}
+
+.verdict-do {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--tint-error);
+  border-radius: 0 var(--surface-radius) var(--surface-radius) 0;
+  background: color-mix(in srgb, var(--tint-error) 9%, var(--panel));
+  line-height: 1.5;
 }
 
 .facts {
@@ -371,12 +395,15 @@ body[data-state="empty"] .layout {
 
 .empty {
   overflow-y: auto;
+  place-items: start center;
+  align-content: start;
 }
 
 .empty-card {
-  width: min(100%, 1120px);
-  max-width: 1120px;
-  padding: clamp(36px, 3.5vw, 48px) clamp(24px, 4vw, 40px) 48px;
+  width: min(100%, 1200px);
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: clamp(36px, 3.5vw, 48px) clamp(24px, 4vw, 40px) 56px;
 }
 
 /* The opening: what it does and the way in on the left, it doing it on the right. */
@@ -472,7 +499,62 @@ body[data-state="empty"] .layout {
   grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
   align-items: start;
   gap: var(--space-4) var(--space-6);
-  margin: var(--space-6) 0 0;
+  margin: var(--space-7) 0 0;
+}
+
+.specialist-tools {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: var(--space-4) var(--space-5);
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--surface-radius);
+  background: var(--panel-2);
+}
+
+.specialist-copy,
+.specialist-actions {
+  min-width: 0;
+}
+
+.specialist-copy h2 {
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: 650;
+}
+
+.specialist-copy p {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+.specialist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.specialist-actions .btn {
+  flex: none;
+  min-height: var(--control-height);
+  height: auto;
+  padding: 8px 16px;
+}
+
+.specialist-actions .link {
+  display: inline-flex;
+  flex: 1 1 210px;
+  min-width: 0;
+  min-height: var(--control-height);
+  align-items: center;
+  padding: 8px 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .landing-proof > * {
@@ -521,7 +603,7 @@ body[data-state="empty"] .layout {
 }
 
 .doors-title {
-  margin: var(--space-6) 0 var(--space-2);
+  margin: var(--space-7) 0 var(--space-4);
   font-size: var(--type-caption);
   font-weight: 600;
   text-transform: uppercase;
@@ -573,7 +655,7 @@ body[data-state="empty"] .layout {
 
 .doors-main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .door {
@@ -586,7 +668,7 @@ body[data-state="empty"] .layout {
   box-sizing: border-box;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--surface-radius);
   background: var(--panel);
   color: var(--text);
   font: inherit;
@@ -642,8 +724,8 @@ body[data-state="empty"] .layout {
 
 /* The everyday doors: the reason most people came, so the largest. */
 .doors-main .door {
-  gap: var(--space-2);
-  padding: 22px;
+  gap: var(--space-3);
+  padding: var(--space-5);
 }
 
 .doors-main .door-icon {
@@ -672,26 +754,6 @@ body[data-state="empty"] .layout {
 @media (min-width: 901px) and (max-width: 1180px) {
   .doors-main {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .doors-main .door:last-child {
-    grid-column: 1 / -1;
-    grid-template-columns: 42px minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
-    align-items: center;
-    column-gap: 14px;
-  }
-
-  .doors-main .door:last-child .door-icon,
-  .doors-main .door:last-child .door-title,
-  .doors-main .door:last-child .door-text,
-  .doors-main .door:last-child .door-go {
-    grid-row: 1;
-    margin: 0;
-  }
-
-  .doors-main .door:last-child .door-title,
-  .doors-main .door:last-child .door-text {
-    min-height: 0;
   }
 }
 
@@ -726,8 +788,8 @@ body[data-state="empty"] .layout {
 
 .geek-more,
 .landing-more {
-  margin-top: 22px;
-  padding-top: 12px;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 13px;
@@ -986,6 +1048,15 @@ body[data-state="batch"] .layout {
   grid-row: 1 / span 3;
 }
 
+/* The specialist tools stay together at the edge of the batch summary. */
+.batch-head > .btn:not(.btn-clean) {
+  grid-column: 2;
+  justify-self: stretch;
+  min-height: var(--control-height);
+  height: auto;
+  justify-content: center;
+}
+
 .batch-result {
   grid-column: 1 / -1;
   margin: 6px 0 0;
@@ -1005,7 +1076,8 @@ body[data-state="batch"] .layout {
 }
 
 .batch-filter button {
-  padding: 4px 10px;
+  min-height: var(--control-height-compact);
+  padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: none;
@@ -1120,6 +1192,11 @@ body[data-state="batch"] .layout {
     grid-row: auto;
     justify-self: start;
     margin-top: 8px;
+  }
+
+  .batch-head > .btn:not(.btn-clean) {
+    grid-column: 1;
+    justify-self: start;
   }
 }
 

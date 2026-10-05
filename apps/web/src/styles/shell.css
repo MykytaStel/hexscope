@@ -102,10 +102,11 @@
 .btn {
   display: inline-flex;
   align-items: center;
-  height: 32px;
+  min-height: var(--control-height-compact);
+  height: var(--control-height-compact);
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--control-radius-compact);
   background: var(--panel);
   color: var(--text);
   cursor: pointer;
@@ -130,6 +131,8 @@
 }
 
 .btn-primary {
+  min-height: var(--control-height);
+  height: auto;
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -138,6 +141,16 @@
 .btn-primary:hover {
   background: var(--accent);
   filter: brightness(1.08);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  border-color: var(--faint);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: not-allowed;
+  filter: none;
+  opacity: 1;
 }
 
 .problems {
@@ -171,4 +184,3 @@
   background: color-mix(in srgb, var(--tint-warning) 14%, transparent);
   border-color: color-mix(in srgb, var(--tint-warning) 35%, transparent);
 }
-

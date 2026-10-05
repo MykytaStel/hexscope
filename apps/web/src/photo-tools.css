@@ -1,13 +1,14 @@
 .photo-tool {
-  width: min(780px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(840px, calc(100dvh - 32px));
   box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border, #b3b3b3);
-  border-radius: 12px;
+  border-radius: var(--surface-radius, 12px);
   background: var(--panel, #fff);
   color: var(--text, #181818);
-  padding: 24px;
+  padding: var(--space-5, 24px);
   line-height: 1.55;
 }
 
@@ -15,36 +16,67 @@
   background: rgb(0 0 0 / 0.55);
 }
 
-.photo-tool > button:first-child { float: right; }
-.photo-tool h2 { margin-top: 0; }
+.photo-tool:not(.film-roll)[open] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  gap: var(--space-3, 12px);
+}
+
+.photo-tool:not(.film-roll) > button:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  min-height: var(--control-height, 44px);
+  height: auto;
+  margin: 0;
+  float: none;
+}
+
+.photo-tool:not(.film-roll) > h2 {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  margin: 0;
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.photo-tool:not(.film-roll) > :not(h2):not(button:first-child) { grid-column: 1 / -1; }
 .photo-tool-controls { display: grid; gap: 14px; }
 .photo-tool label { display: grid; gap: 5px; }
 .photo-tool input,
 .photo-tool select,
 .photo-tool textarea { max-width: 100%; box-sizing: border-box; font: inherit; }
-.photo-tool textarea { width: 100%; min-height: 260px; font-family: monospace; font-size: 13px; }
-.photo-tool-results { padding-left: 26px; overflow-wrap: anywhere; }
+.photo-tool textarea { width: 100%; min-height: 180px; font-family: var(--mono, monospace); font-size: 13px; }
+.photo-tool-results { display: grid; gap: var(--space-2, 8px); margin: 0; padding-left: 24px; overflow-wrap: anywhere; }
 .photo-tool img { max-width: 100%; max-height: 360px; object-fit: contain; }
 .photo-tool [role="status"] { font-weight: 600; }
+.photo-tool .btn { min-height: var(--control-height, 44px); height: auto; border-radius: var(--control-radius, 10px); }
 .photo-tool button:focus-visible,
 .photo-tool input:focus-visible,
 .photo-tool select:focus-visible,
 .photo-tool textarea:focus-visible {
-  outline: 3px solid #477adc;
-  outline-offset: 3px;
+  outline: var(--focus-ring-width, 3px) solid var(--accent);
+  outline-offset: var(--focus-ring-offset, 2px);
 }
 
 @media (max-width: 600px) {
-  .photo-tool { padding: 16px; }
+  .photo-tool { padding: var(--space-4, 16px); }
   .photo-tool input { width: 100%; }
+  .photo-tool:not(.film-roll)[open] { gap: var(--space-3, 12px); }
 }
 
 .film-roll {
-  width: min(760px, calc(100vw - 28px));
+  width: min(680px, calc(100vw - 28px));
   max-height: min(840px, calc(100dvh - 28px));
   overflow: hidden;
   padding: 0;
-  border-radius: 16px;
+  border-radius: var(--surface-radius, 16px);
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.35);
 }
 
@@ -59,29 +91,29 @@
 }
 
 .film-roll-header,
-.film-roll-footer { min-width: 0; padding-inline: 26px; }
+.film-roll-footer { min-width: 0; padding-inline: var(--space-5, 24px); }
 
 .film-roll-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding-block: 20px 16px;
+  gap: var(--space-4);
+  padding-block: var(--space-5) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
 .film-roll-header h2 { margin: 0; font-size: 22px; line-height: 1.2; letter-spacing: -0.025em; }
-.film-roll-header .btn { min-height: 38px; padding: 6px 12px; }
+.film-roll-header .btn { min-height: var(--control-height); padding: 6px 12px; }
 
 .film-roll-body {
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 18px 26px 22px;
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
 .film-roll-body > * { min-width: 0; margin: 0; }
@@ -91,9 +123,9 @@
 .film-roll-sources {
   min-width: 0;
   margin: 0;
-  padding: 14px;
+  padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--surface-radius);
   background: var(--panel-2);
 }
 
@@ -106,17 +138,17 @@
   text-transform: uppercase;
 }
 
-.film-roll-picker-row { display: flex; flex-wrap: wrap; gap: 9px; }
+.film-roll-picker-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .film-roll-picker {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: var(--control-height);
   box-sizing: border-box;
   padding: 8px 13px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--panel);
   color: var(--text);
   font-size: 13px;
@@ -127,11 +159,21 @@
   transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
 }
 
-.film-roll .film-roll-picker { display: inline-flex; gap: 0; }
+.film-roll .film-roll-picker { display: inline-flex; gap: var(--space-2); }
 .film-roll .film-roll-file-input { width: 1px; max-width: none; }
 .film-roll-picker:hover { border-color: var(--accent); background: var(--row-hover); }
 .film-roll-picker:active { transform: translateY(1px); }
 .film-roll-picker-secondary { flex: none; }
+.film-roll-picker-count {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .film-roll-file-input {
   position: absolute;
   width: 1px;
@@ -142,7 +184,7 @@
   white-space: nowrap;
 }
 
-.film-roll-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.film-roll-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .film-roll-field { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 .film-roll-field select {
   width: 100%;
@@ -150,7 +192,7 @@
   min-height: 44px;
   padding: 8px 34px 8px 11px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--panel);
   color: var(--text);
   font-size: 13px;
@@ -160,11 +202,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--surface-radius);
 }
 
 .film-roll-recipe-copy { min-width: 0; }
@@ -212,18 +254,18 @@
 
 .film-roll-status { min-height: 18px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .film-roll-actions { display: flex; justify-content: flex-end; gap: 9px; }
-.film-roll-actions .btn { min-height: 42px; padding: 8px 15px; font-size: 13px; }
+.film-roll-actions .btn { min-height: var(--control-height); padding: 8px 15px; font-size: 13px; }
 .film-roll-actions .btn:disabled { cursor: not-allowed; opacity: 0.62; }
 .film-roll-actions .btn-primary { min-width: 190px; }
 .film-roll-actions [hidden] { display: none !important; }
 
 @media (max-width: 600px) {
-  .film-roll { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0; border-radius: 13px; }
+  .film-roll { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0; border-radius: var(--surface-radius); }
   .film-roll-header,
-  .film-roll-footer { padding-inline: 16px; }
+  .film-roll-footer { padding-inline: var(--space-4); }
   .film-roll-header { padding-block: 15px 13px; }
   .film-roll-header h2 { font-size: 19px; }
-  .film-roll-body { gap: 14px; padding: 15px 16px 18px; }
+  .film-roll-body { gap: var(--space-3); padding: 15px var(--space-4) 18px; }
   .film-roll-intro { font-size: 15px; }
   .film-roll-options { grid-template-columns: minmax(0, 1fr); }
   .film-roll-picker-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -232,6 +274,10 @@
   .film-roll-footer { padding-block: 11px 12px; }
   .film-roll-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
   .film-roll-actions .btn-primary { min-width: 0; }
+}
+
+@media (max-width: 420px) {
+  .film-roll-picker-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
