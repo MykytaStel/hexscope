@@ -150,6 +150,11 @@ body[data-state="ready"] .viewswitch {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .doors-main .door-title,
+  .doors-main .door-text {
+    min-height: 0;
+  }
+
   .player-stage {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 110px auto;

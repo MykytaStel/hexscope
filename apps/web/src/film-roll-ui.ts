@@ -9,11 +9,37 @@ registerLazyTranslations({
   "Roll recipe": "Рецепт рулону", "Output format": "Формат копій", "Process roll": "Обробити рулон", "Download roll ZIP": "Завантажити ZIP рулону", "Load calibrated recipe": "Завантажити відкалібрований рецепт",
   "Process a whole roll with one recipe and a shared film base.": "Обробіть увесь рулон одним рецептом і спільною основою плівки.", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the roll.": "Файли залишаються у вкладці. Оригінали зберігаються. Без каліброваної основи перший успішний кадр задає оцінку для рулону.",
   "Scans": "Скани", "Scan type": "Тип скану", "JPEG · sharing · 8 bit": "JPEG · для надсилання · 8 біт", "TIFF · 16 bit": "TIFF · 16 біт", "Use a recipe from Film Photo Lab if you have one.": "За наявності використайте рецепт із лабораторії плівкового фото.", "Choose recipe": "Вибрати рецепт", "More settings and processing notes": "Додаткові налаштування й примітки до обробки", "Processing results": "Результати обробки", "Advanced recipe editor": "Розширений редактор рецепта",
+  "First processed frame": "Перший оброблений кадр", "Invalid film recipe.": "Некоректний рецепт плівки.", "Invalid film settings.": "Некоректні налаштування плівки.", "Recipe must be smaller than 16 KiB.": "Рецепт має бути меншим за 16 КіБ.", "This scan exceeds the 50 MiB file limit.": "Цей скан перевищує ліміт у 50 МіБ.", "The source dimensions could not be inspected.": "Не вдалося визначити розміри джерела.", "This browser cannot process scan pixels.": "Цей браузер не може обробити пікселі скану.", "This browser cannot encode a copy.": "Цей браузер не може закодувати копію.", "JPEG encoding is unavailable.": "Кодування JPEG недоступне.", "Output dimensions differ.": "Розміри копії не збігаються.", "Processing unavailable.": "Обробка недоступна.",
+  "This scan exceeds the film lab's 120 megapixel source limit.": "Скан перевищує ліміт джерела лабораторії у 120 мегапікселів.", "This browser cannot resize the scan safely.": "Цей браузер не може безпечно змінити розмір скану.", "This browser cannot encode a JPEG copy.": "Цей браузер не може закодувати копію JPEG.",
   "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.": "TIFF зберігає 16-бітну обробку 16-бітних TIFF-джерел. JPEG/PNG/WebP, декодовані браузером, мають 8-бітні пікселі. Копія — до 12 МП; сторона JPEG — до 4096 пікселів.",
   "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.": "Зразки TIFF вважаються sRGB; вбудовані ICC-профілі позначаються, але не застосовуються. JPEG/PNG/WebP використовують перетворення кольору браузером у sRGB. Це налаштовувані копії, без архівного відновлення за профілем сканера. Безпечність метаданих і видимого вмісту не засвідчується.",
   "Positive / already developed": "Позитив / уже проявлене зображення", "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
 });
 const message = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
+const translatedErrors: Record<string, string> = {
+  "Invalid film recipe.": "Некоректний рецепт плівки.",
+  "Invalid film settings.": "Некоректні налаштування плівки.",
+  "Invalid film crop.": "Некоректне кадрування плівкового скану.",
+  "Invalid film raster.": "Некоректні дані пікселів плівкового скану.",
+  "Invalid film sample.": "Некоректний зразок плівки.",
+  "Recipe must be smaller than 16 KiB.": "Рецепт має бути меншим за 16 КіБ.",
+  "This scan exceeds the 50 MiB file limit.": "Цей скан перевищує ліміт у 50 МіБ.",
+  "This scan exceeds the film lab's 50 MiB file limit.": "Файл скану перевищує ліміт лабораторії у 50 МіБ.",
+  "This scan exceeds the film lab's 120 megapixel source limit.": "Скан перевищує ліміт джерела лабораторії у 120 мегапікселів.",
+  "The source dimensions could not be inspected.": "Не вдалося визначити розміри джерела.",
+  "This browser cannot process scan pixels.": "Цей браузер не може обробити пікселі скану.",
+  "This browser cannot encode a copy.": "Цей браузер не може закодувати копію.",
+  "This browser cannot encode a JPEG copy.": "Цей браузер не може закодувати копію JPEG.",
+  "This browser cannot resize the scan safely.": "Цей браузер не може безпечно змінити розмір скану.",
+  "JPEG encoding is unavailable.": "Кодування JPEG недоступне.",
+  "Output dimensions differ.": "Розміри копії не збігаються.",
+  "Processing unavailable.": "Обробка недоступна.",
+  "it needs more memory than this browser tab has. Close other tabs and try again, or use the command line tool": "Цій вкладці бракує пам'яті. Закрийте інші вкладки або скористайтеся CLI.",
+};
+const errorMessage = (error: unknown): string => {
+  const detail = error instanceof Error ? error.message : String(error);
+  return currentLocale() === "uk" ? translatedErrors[detail] ?? detail : detail;
+};
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) { const e = document.createElement(tag); if (text) e.textContent = text; return e; }
 export function showFilmRoll(initial: File[] = []): void {
   const dialog = el("dialog"); dialog.className = "photo-tool film-roll"; dialog.setAttribute("aria-labelledby", "film-roll-title");
@@ -59,7 +85,7 @@ export function showFilmRoll(initial: File[] = []): void {
   download.type = "button";
   const status = el("p"); status.className = "film-roll-status"; status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
   const results = el("ol"); results.className = "photo-tool-results film-roll-results";
-  const preview = el("img"); preview.alt = "First processed frame"; preview.hidden = true;
+  const preview = el("img"); preview.alt = message("First processed frame", "Перший оброблений кадр"); preview.hidden = true;
   const output = el("section"); output.className = "film-roll-output"; output.setAttribute("aria-label", "Processing results");
   output.hidden = true;
   output.append(el("h3", "Processing results"), preview, results);
@@ -72,15 +98,15 @@ export function showFilmRoll(initial: File[] = []): void {
   const selection = () => { status.textContent = message(`${files.length} scans selected · limit 1000`, `Вибрано ${files.length} сканів · межа 1000`); process.disabled = files.length === 0 || files.length > 1000; archive = null; download.hidden = true; };
   picker.onchange = () => { generation++; files = [...picker.files ?? []]; selection(); };
   folder.onchange = () => { generation++; files = [...folder.files ?? []].filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); selection(); };
-  mode.onchange = () => { try { recipe.value = filmRecipe({ ...readFilmRecipe(recipe.value), mode: mode.value as FilmSettings["mode"] }); } catch { advanced.open = true; recipe.focus(); status.textContent = "Invalid film recipe."; } };
+  mode.onchange = () => { try { recipe.value = filmRecipe({ ...readFilmRecipe(recipe.value), mode: mode.value as FilmSettings["mode"] }); } catch { advanced.open = true; recipe.focus(); status.textContent = errorMessage(new Error("Invalid film recipe.")); } };
   recipeLoad.onchange = async () => {
     const file = recipeLoad.files?.[0], token = ++generation;
-    try { if (!file || file.size > 16384) throw new Error("Recipe must be smaller than 16 KiB."); const text = await file.text(); const s = readFilmRecipe(text); if (token !== generation || !dialog.open) return; recipe.value = filmRecipe(s); mode.value = s.mode; } catch (e) { if (token === generation) status.textContent = String(e); }
+    try { if (!file || file.size > 16384) throw new Error("Recipe must be smaller than 16 KiB."); const text = await file.text(); const s = readFilmRecipe(text); if (token !== generation || !dialog.open) return; recipe.value = filmRecipe(s); mode.value = s.mode; } catch (e) { if (token === generation) status.textContent = errorMessage(e); }
   };
   process.onclick = async () => {
     const token = ++generation, list = files.slice(), outputFormat = format.value as "jpeg" | "tiff16";
     let settings: FilmSettings;
-    try { settings = readFilmRecipe(recipe.value); } catch (e) { advanced.open = true; recipe.focus(); status.textContent = String(e); return; }
+    try { settings = readFilmRecipe(recipe.value); } catch (e) { advanced.open = true; recipe.focus(); status.textContent = errorMessage(e); return; }
     if (!list.length || list.length > 1000) return;
     process.disabled = true; picker.disabled = folder.disabled = recipeLoad.disabled = mode.disabled = format.disabled = recipe.disabled = true; download.hidden = true; output.hidden = false; archive = null; results.replaceChildren();
     const zip = new StoredZip(); const rows: Record<string, unknown>[] = []; let made = 0;
@@ -96,10 +122,14 @@ export function showFilmRoll(initial: File[] = []): void {
           if (!settings.baseColor) { settings = { ...settings, baseColor: receipt.baseColor }; recipe.value = filmRecipe(settings); }
           await zip.add(`${String(index + 1).padStart(6, "0")}-film.${outputFormat === "jpeg" ? "jpg" : "tif"}`, copy);
           if (token !== generation || !dialog.open) return;
-          made++; row.textContent += ` · ${receipt.width} × ${receipt.height} · source ${receipt.sourceDepth} bit → output ${receipt.outputDepth} bit${receipt.limited ? " · resized" : ""}${receipt.profilePresent === null ? " · ICC not checked" : receipt.profilePresent ? (receipt.colorHandling === "browser_srgb_conversion" ? " · ICC detected · browser color conversion" : " · ICC detected · not applied") : ""}`;
+          made++;
+          row.textContent += message(
+            ` · ${receipt.width} × ${receipt.height} · source ${receipt.sourceDepth} bit → output ${receipt.outputDepth} bit${receipt.limited ? " · resized" : ""}${receipt.profilePresent === null ? " · ICC not checked" : receipt.profilePresent ? (receipt.colorHandling === "browser_srgb_conversion" ? " · ICC detected · browser color conversion" : " · ICC detected · not applied") : ""}`,
+            ` · ${receipt.width} × ${receipt.height} · джерело ${receipt.sourceDepth} біт → копія ${receipt.outputDepth} біт${receipt.limited ? " · розмір зменшено" : ""}${receipt.profilePresent === null ? " · ICC не перевірено" : receipt.profilePresent ? (receipt.colorHandling === "browser_srgb_conversion" ? " · ICC виявлено · браузерне перетворення кольору" : " · ICC виявлено · не застосовано") : ""}`,
+          );
           rows.push({ index: index + 1, operation_state: "written", ...receipt });
           if (made === 1 && outputFormat === "jpeg") { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(copy); preview.src = previewUrl; preview.hidden = false; }
-        } catch (e) { if (token !== generation || !dialog.open) return; row.textContent += ` · Not created: ${e instanceof Error ? e.message : String(e)}`; rows.push({ index: index + 1, operation_state: "not_created", check: "unavailable" }); }
+        } catch (e) { if (token !== generation || !dialog.open) return; row.textContent += message(` · Not created: ${errorMessage(e)}`, ` · Не створено: ${errorMessage(e)}`); rows.push({ index: index + 1, operation_state: "not_created", check: "unavailable" }); }
       }
       if (token !== generation || !dialog.open) return;
       await zip.add("hexscope-film-report.json", new Blob([JSON.stringify({ schema: "hexscope.film-roll", version: 1, algorithm: "srgb-density-v1", color_assumption: "srgb_encoded_samples", total: list.length, written: made, failed: list.length - made, files: rows }, null, 2)]));

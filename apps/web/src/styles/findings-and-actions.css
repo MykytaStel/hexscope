@@ -657,10 +657,12 @@ body[data-state="empty"] .layout {
 
 .doors-main .door-title {
   font-size: var(--type-card-title);
+  min-height: 2.6em;
 }
 
 .doors-main .door-text {
   font-size: var(--type-small);
+  min-height: 4.5em;
 }
 
 .doors-main .door-go {
@@ -685,6 +687,11 @@ body[data-state="empty"] .layout {
   .doors-main .door:last-child .door-go {
     grid-row: 1;
     margin: 0;
+  }
+
+  .doors-main .door:last-child .door-title,
+  .doors-main .door:last-child .door-text {
+    min-height: 0;
   }
 }
 

@@ -4,7 +4,7 @@
   box-sizing: border-box;
   overflow: auto;
   border: 1px solid var(--border, #b3b3b3);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--panel, #fff);
   color: var(--text, #181818);
   padding: 24px;
@@ -12,27 +12,31 @@
 }
 
 .photo-tool::backdrop {
-  background: rgb(0 0 0 / 0.62);
-  backdrop-filter: blur(3px);
+  background: rgb(0 0 0 / 0.55);
 }
 
 .photo-tool > button:first-child { float: right; }
 .photo-tool h2 { margin-top: 0; }
+.photo-tool-controls { display: grid; gap: 14px; }
+.photo-tool label { display: grid; gap: 5px; }
 .photo-tool input,
 .photo-tool select,
 .photo-tool textarea { max-width: 100%; box-sizing: border-box; font: inherit; }
-.photo-tool textarea { width: 100%; min-height: 220px; font-family: var(--mono); font-size: 13px; }
-.photo-tool-results { margin: 0; padding-left: 26px; overflow-wrap: anywhere; }
+.photo-tool textarea { width: 100%; min-height: 260px; font-family: monospace; font-size: 13px; }
+.photo-tool-results { padding-left: 26px; overflow-wrap: anywhere; }
 .photo-tool img { max-width: 100%; max-height: 360px; object-fit: contain; }
 .photo-tool [role="status"] { font-weight: 600; }
 .photo-tool button:focus-visible,
 .photo-tool input:focus-visible,
 .photo-tool select:focus-visible,
-.photo-tool textarea:focus-visible,
-.photo-tool summary:focus-visible,
-.film-roll-picker:focus-within {
-  outline: 3px solid var(--accent);
+.photo-tool textarea:focus-visible {
+  outline: 3px solid #477adc;
   outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .photo-tool { padding: 16px; }
+  .photo-tool input { width: 100%; }
 }
 
 .film-roll {
@@ -42,6 +46,11 @@
   padding: 0;
   border-radius: 16px;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.35);
+}
+
+.film-roll::backdrop {
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(3px);
 }
 
 .film-roll[open] {
@@ -118,6 +127,8 @@
   transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
 }
 
+.film-roll .film-roll-picker { display: inline-flex; gap: 0; }
+.film-roll .film-roll-file-input { width: 1px; max-width: none; }
 .film-roll-picker:hover { border-color: var(--accent); background: var(--row-hover); }
 .film-roll-picker:active { transform: translateY(1px); }
 .film-roll-picker-secondary { flex: none; }
@@ -184,6 +195,12 @@
 .film-roll-output h3 { margin: 0; font-size: 14px; }
 .film-roll-output img { justify-self: start; border-radius: 8px; background: var(--panel-2); }
 .film-roll-results { display: grid; gap: 8px; margin: 0; padding-left: 24px; overflow-wrap: anywhere; }
+.film-roll button:focus-visible,
+.film-roll input:focus-visible,
+.film-roll select:focus-visible,
+.film-roll textarea:focus-visible,
+.film-roll summary:focus-visible,
+.film-roll-picker:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 .film-roll-footer {
   display: grid;
@@ -201,7 +218,6 @@
 .film-roll-actions [hidden] { display: none !important; }
 
 @media (max-width: 600px) {
-  .photo-tool { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); padding: 16px; }
   .film-roll { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0; border-radius: 13px; }
   .film-roll-header,
   .film-roll-footer { padding-inline: 16px; }
