@@ -10,6 +10,7 @@ import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOu
 import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
+import type { FilmScanReport } from "./filmscan";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -37,7 +38,7 @@ export type WorkerRequest =
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" }
-  | { id: number; type: "codes"; picture?: Blob; pdf?: Uint8Array; entries?: { index: number; name: string }[] };
+  | { id: number; type: "codes"; picture?: Blob; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
@@ -54,7 +55,7 @@ export type WorkerResponse =
   | { id: number; type: "inflated"; bytes: Uint8Array }
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
-  | { id: number; type: "codes"; codes: { text: string; where: string; box: [number, number, number, number] }[] }
+  | { id: number; type: "codes"; codes: { text: string; where: string; box: [number, number, number, number] }[]; filmScan?: FilmScanReport }
   | { id: number; type: "error"; message: string };
 
 /** One page's visible glyphs: where each lands, four numbers each, and its text. */
@@ -242,12 +243,29 @@ async function brightness(image: Blob | ImageData): Promise<{ lum: Uint8Array; w
 }
 
 /** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
-async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Extract<WorkerResponse, { type: "codes" }>["codes"]> {
+async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
   const { findCodes } = await import("./qr/index");
   const current = stack[stack.length - 1];
   const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
+  let filmScan: FilmScanReport | undefined;
   const look = async (image: Blob | ImageData, where: string) => {
     const p = await brightness(image);
+    if (req.inspectFilmScan) {
+      try {
+        const { inspectFilmScan } = await import("./filmscan");
+        filmScan = p
+          ? inspectFilmScan(p.lum, p.width, p.height)
+          : inspectFilmScan(new Uint8Array(0), 0, 0);
+      } catch {
+        filmScan = {
+          availability: "unavailable",
+          perforationEdges: [],
+          perforationRepeats: 0,
+          frameEdges: [],
+          evidenceStrength: "none",
+        };
+      }
+    }
     if (!p) return;
     for (const c of findCodes(p.lum, p.width, p.height)) {
       if (found.some((f) => f.text === c.text)) continue;
@@ -297,7 +315,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Ex
     const bytes = current?.extractEntry(e.index);
     if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name);
   }
-  return found;
+  return { codes: found, ...(filmScan ? { filmScan } : {}) };
 }
 
 /** Nested documents opened from archives are kept for the way back. */
@@ -398,7 +416,7 @@ async function handle(req: WorkerRequest): Promise<void> {
           const found = req.sourceFormat === "pdf"
             ? await codes({ id: req.id, type: "codes", pdf: bytes })
             : await codes({ id: req.id, type: "codes", picture: req.copy });
-          extraOutputFacts = found.map(({ text, where }) => {
+          extraOutputFacts = found.codes.map(({ text, where }) => {
             const fact = meaning(text);
             return { kind: fact.kind, text: where ? `${fact.text} (in ${where})` : fact.text };
           });
@@ -532,7 +550,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "codes") {
-    post({ id: req.id, type: "codes", codes: await codes(req) });
+    post({ id: req.id, type: "codes", ...(await codes(req)) });
     return;
   }
 

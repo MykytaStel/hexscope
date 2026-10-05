@@ -42,7 +42,7 @@ Hexscope should help a person understand what a file reveals before they share i
 4. **Protect performance and package budgets.** Benchmark parsing and cleaning on representative large files; lazy-load optional work and keep existing JavaScript/WASM limits enforced in CI.
 5. **Finish user-facing accessibility and localization as features grow.** Preserve keyboard operation, screen-reader announcements, reduced-motion behavior, mobile layouts, and matching Ukrainian/English explanations.
 
-## New feature: Film Scan Inspector — discovery
+## New feature: Film Scan Inspector — staged
 
 The feature is for a person preparing a scan of a film photograph to send. Hexscope receives a digital scan, so it can inspect both the digital file and evidence visible from the physical film.
 
@@ -52,6 +52,12 @@ The feature is for a person preparing a scan of a film photograph to send. Hexsc
 - **Visible film evidence:** if the scan includes the film border, identify frame boundaries, perforations, and readable edge markings. These may expose film type, emulsion/frame codes, or roll indexing. Such markings are clues, not necessarily personal identifiers.
 
 Scanning creates a digital image file, so the scan can also carry metadata from the digitizing or editing workflow; embedded metadata is not guaranteed to be present or consistent across scanners. Fujifilm's guide documents edge markings, DX codes, and frame numbers on specific roll films. Kodak KEYKODE describes a motion-picture workflow for linking frames and rolls, so it must not be generalized to every still-photo negative. Realistic film grain can also be rendered onto digital images, which makes grain a weak clue rather than proof of origin. See the [Library of Congress scanning guide](https://blogs.loc.gov/thesignal/2014/03/personal-digital-archiving-the-basics-of-scanning/), [CIPA Exif standard](https://www.cipa.jp/e/std/std-sec.html), [Fujifilm Professional Data Guide](https://asset.fujifilm.com/www/us/files/2020-03/85d928f44b0df3b2a95913e46608881d/ProfessionalFilmDataGuide.pdf), [Kodak KEYKODE reference](https://www.kodak.com/en/motion/page/keykode-numbers/), and [film-grain rendering research](https://onlinelibrary.wiley.com/doi/abs/10.1111/cgf.13159).
+
+### Current implementation (pending review and release)
+
+- The web app locally inspects JPEG pixels in its worker for repeated high-contrast openings and frame-like edge boundaries. The result lists the observed edges and signal agreement; it does not alter the original image or infer film origin from grain.
+- The first regression fixtures are synthetic. The detector has not yet been measured against a labeled set of genuine film scans and digital images with simulated borders, so it is a visual clue rather than a validated classifier.
+- Before expanding formats or adding edge-marking recognition, validate precision and false-positive rates on consented or public examples of full-border scans, cropped scans, digital frames, and low-contrast scans.
 
 ### Stages and decision gates
 
