@@ -84,6 +84,9 @@ test("recipes validate before applying and film controls work in Ukrainian with 
 test("film lab re-reads metadata-bearing JPEG output and releases its view on another file", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".tour")).toBeVisible();
+  await page.locator(".tour").getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.locator(".tour")).toHaveCount(0);
   await page.locator(".film-lab-entry > summary").click();
   const lab = page.locator(".film-lab");
   await expect(lab).toHaveAttribute("data-state", "ready");
