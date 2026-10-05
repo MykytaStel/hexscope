@@ -841,7 +841,7 @@ test("presentation notes are removed only when asked", async ({ page }) => {
     await expect(problem).toBeVisible();
   } else {
     await result.locator("summary").click();
-    await expect(result).not.toContainText("Speaker's notes, emptied");
+    await expect(result).not.toContainText("the speaker's notes, emptied");
   }
 
   await upload();
@@ -850,7 +850,7 @@ test("presentation notes are removed only when asked", async ({ page }) => {
   const removed = page.locator(".clean-removed");
   await expect(removed).toBeVisible();
   await removed.locator("summary").click();
-  await expect(removed).toContainText("the speaker's notes, emptied");
+  await expect(removed).toContainText("ppt/notesSlides/notesSlide1.xml: the speaker's notes, emptied");
 });
 
 test("a spreadsheet's clean copy keeps what is part of it, and says so", async ({ page }) => {
