@@ -16,6 +16,17 @@ const UK: Record<string, string> = {
   "Film roll": "Плівковий рулон",
   "Photo privacy mosaic": "Мозаїка приватності фото",
   "View": "Вигляд",
+  "Before": "До очищення",
+  "Clean copy": "Очищена копія",
+  "thing it gave away": "факт було розкрито",
+  "things it gave away": "фактів було розкрито",
+  "Checking the copy…": "Перевіряємо копію…",
+  "Copy not checked": "Копію не перевірено",
+  "Confirmed removed": "Підтверджено видалено",
+  "No findings found in the copy": "У копії нічого не знайдено",
+  "Compare with the original": "Порівняти з оригіналом",
+  "What the copy took out, part by part": "Що саме копія видалила",
+  "What the clean copy took out": "Що очищена копія видалила",
   "Summary": "Зведення",
   "Bytes": "Байти",
   "Contains location": "Містить геолокацію",
@@ -576,6 +587,8 @@ export function translateText(value: string, locale: Locale): string {
   }
   match = /^What was removed · (.+)$/.exec(value);
   if (match) return `Що видалено · ${match[1]}`;
+  match = /^Saved as “(.+)” — look for it in your downloads\.$/.exec(value);
+  if (match) return `Збережено як «${match[1]}» — файл у теці «Завантаження».`;
   match = /^A map with a pin where it was taken: (.+)$/.exec(value);
   if (match) return `Карта з позначкою місця зйомки: ${match[1]}`;
   match = /^(.+?) is open\. (.+)$/.exec(value);

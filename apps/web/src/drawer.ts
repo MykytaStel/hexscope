@@ -6,7 +6,7 @@ import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { saveStructure } from "./export";
-import { categories, categoryCount, share } from "./share";
+import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role, type PageArea } from "./model";
 import { verdict } from "./verdict";
 import { announce, done } from "./announce";
@@ -17,7 +17,9 @@ import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KEPT_NOTE, KIND_NAMES, REPAIRABLE, STRONG, degrees, mapLink, openReason, playReason } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
-import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
+import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, renderBeforeAfter, shareButton, type CleanActions } from "./cleancard";
+import { currentLocale, translateText } from "./i18n";
+import { confirmedRemovedKinds } from "./clean-summary";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -450,12 +452,18 @@ export class Drawer {
         altitude !== null ? ` · ${Math.round(altitude)}\u00a0m` : ""
       }`;
       const dd = row("Location", where, node, true);
+      dd.dataset.kind = "location";
+      const term = dd.previousElementSibling as HTMLElement | null;
+      if (term) term.dataset.kind = "location";
       dd.append(mapLink(latitude, longitude));
     }
     let thumbRow: HTMLElement | null = null;
     for (const fact of f.facts) {
       const covered = fact.kind === "covered";
       const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, STRONG.includes(fact.kind));
+      dd.dataset.kind = fact.kind;
+      const term = dd.previousElementSibling as HTMLElement | null;
+      if (term) term.dataset.kind = fact.kind;
       // A sentence reads better in the body font; only coordinates and codes are set in mono.
       if (!covered) dd.querySelector(".reveal-link")?.classList.remove("is-strong");
       // Hidden text is shown as if selected: that is how someone finds it.
@@ -504,8 +512,7 @@ export class Drawer {
       const word = f.format === "zip" && f.labels.includes("word/document.xml");
       if (KEPT[f.format]?.includes(fact.kind) && !(word && fact.kind === "comments")) {
         dd.dataset.kept = "";
-        dd.dataset.kind = fact.kind;
-        (dd.previousElementSibling as HTMLElement | null)?.setAttribute("data-kept", "");
+        term?.setAttribute("data-kept", "");
       }
     }
     group.append(list);
@@ -936,18 +943,11 @@ export class Drawer {
         box.append(el("p", "problem is-warning", message));
         return;
       }
-      // Before and after, side by side: the number that was the headline, and what is left of it.
-      const kept = [...(box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dd[data-kept]") ?? [])].map((e) => e.dataset.kind ?? "");
-      box.append(beforeAfter(m, r, categoryCount(kept)));
-      box.append(done(r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy."));
-      // Each fact the copy no longer carries is struck out, one after another.
-      const facts =
-        box.closest(".reveals")?.querySelectorAll<HTMLElement>(".reveal-list dt:not([data-kept]), .reveal-list dd:not([data-kept])") ??
-        [];
-      facts.forEach((e, i) => {
-        e.style.transitionDelay = `${Math.floor(i / 2) * 70}ms`;
-        e.classList.add("is-removed");
-      });
+      // Both the summary and crossed-out facts wait for the readback shown below.
+      const comparison = beforeAfter(m, r);
+      box.append(comparison);
+      const saved = r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy.";
+      box.append(done(translateText(saved, currentLocale())));
       const removed = el("details", "clean-removed");
       removed.append(el("summary", undefined, `What was removed · ${formatBytes(r.removed.reduce((n, x) => n + x.bytes, 0))}`));
       const ul = el("ul", "clean-list");
@@ -971,8 +971,8 @@ export class Drawer {
       if (r.orientation > 1) {
         box.append(el("p", "hint", "Kept only the orientation, so the picture stays the right way up."));
       }
-      const open = el("button", "btn", "Open the clean copy");
-      open.title = "Check it yourself: the card should now be empty";
+      const open = el("button", "btn", translateText("Open the clean copy", currentLocale()));
+      open.title = translateText("Check it yourself: the card should now be empty", currentLocale());
       open.addEventListener("click", () => this.cleaning.open(r.copy));
       // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
       const sharer = shareButton(r.name, r.copy);
@@ -982,14 +982,22 @@ export class Drawer {
         save.addEventListener("click", () => this.cleaning.save(r.name, r.copy));
         actions.append(save);
       }
-      const diff = el("button", "btn", "Compare with the original");
-      diff.title = "What the copy took out, part by part";
+      const diff = el("button", "btn", translateText("Compare with the original", currentLocale()));
+      diff.title = translateText("What the copy took out, part by part", currentLocale());
       diff.addEventListener("click", () => this.cleaning.compare(new File([r.copy], "the clean copy")));
       actions.append(open, diff);
       const copy = copyPictureButton(m);
       if (copy) actions.prepend(copy);
       box.append(limits);
-      const verification = copyVerification(r);
+      const verification = copyVerification(r, (report) => {
+        renderBeforeAfter(comparison, report);
+        const reveals = box.closest(".reveals")?.querySelector<HTMLElement>(".reveal-list");
+        if (!reveals) return;
+        const removedKinds = new Set(confirmedRemovedKinds(report));
+        for (const fact of reveals.querySelectorAll<HTMLElement>("dt[data-kind], dd[data-kind]")) {
+          fact.classList.toggle("is-removed", report !== undefined && removedKinds.has(fact.dataset.kind ?? ""));
+        }
+      });
       if (verification) box.append(verification);
     });
     return box;
