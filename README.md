@@ -89,6 +89,8 @@ scanning service.
 
 ## Guides
 
+- [Film photo lab: negative conversion, border crop and output inspection](docs/film-lab.md)
+
 - [Remove location and other metadata from a photo](https://hexscope.pages.dev/remove-location-from-photo)
 - [What an edited PDF may still contain](https://hexscope.pages.dev/pdf-hidden-versions)
 - [Why a PNG may not open](https://hexscope.pages.dev/png-wont-open)

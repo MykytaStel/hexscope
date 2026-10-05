@@ -49,6 +49,7 @@ for (const scheme of ["dark", "light"] as const) {
       await expect(report).toHaveRole("status");
       await expect(report).toHaveAttribute("aria-live", "polite");
       await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+      await expect(page.locator(".film-scan-card")).toBeVisible();
       await check(page, "clean-copy verification report");
 
       const open = page.getByRole("button", { name: "Open the clean copy" });

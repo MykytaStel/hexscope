@@ -10,12 +10,26 @@ const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|heic|avif)$/i;
 /** Pictures inside a document or message looked through, at most. */
 const MAX_INSIDE = 30;
 
-type Look = { picture: Blob } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };
+export async function placeFilmScanCard(target: ParentNode, model: FileModel): Promise<void> {
+  const file = model.file;
+  if (!file.filmScan) return;
+  const reveals = target.querySelector(".reveals");
+  if (!reveals) return;
+  const { filmScanCard } = await import("./filmscan-card");
+  if (reveals.isConnected) reveals.after(filmScanCard(file.filmScan, model));
+}
+
+type Look = { picture: Blob; inspectFilmScan?: boolean } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };
 
 /** What in the file is looked through for codes: the picture itself, a PDF's pictures, or pictures inside it. */
-function request(m: FileModel): Look | null {
+function request(m: FileModel, inspectFilmScan: boolean): Look | null {
   const f = m.file;
-  if (PICTURES.includes(f.format)) return { picture: m.source ?? new Blob([m.bytes as BlobPart]) };
+  if (PICTURES.includes(f.format)) {
+    return {
+      picture: m.source ?? new Blob([m.bytes as BlobPart]),
+      ...(["jpeg", "png", "webp"].includes(f.format) && inspectFilmScan ? { inspectFilmScan: true } : {}),
+    };
+  }
   if (f.format === "pdf") return { pdf: m.bytes.slice() };
   const inside: { index: number; name: string; node: number }[] = [];
   if (f.format === "eml" || f.format === "msg") {
@@ -31,17 +45,34 @@ function request(m: FileModel): Look | null {
 }
 
 /**
- * Looks for QR codes in `m` and adds what they say to its facts. Resolves
- * with whether it found any. A file is looked through once.
+ * Looks for QR codes and optional photo scan clues. Resolves with whether the
+ * file gained visible analysis. A file is looked through once.
  */
 const looked = new WeakSet<FileModel>();
-export async function addCodeFacts(m: FileModel): Promise<boolean> {
+type CodeFactUpdate = false | "film-scan" | "codes";
+export async function addCodeFacts(m: FileModel, inspectFilmScan = false): Promise<CodeFactUpdate> {
   if (looked.has(m)) return false;
   looked.add(m);
-  const what = request(m);
+  const what = request(m, inspectFilmScan);
   if (!what) return false;
   const r = await call({ type: "codes", ...what });
-  if (r.type !== "codes" || r.codes.length === 0) return false;
+  const filmScanRequested = "picture" in what && what.inspectFilmScan === true;
+  if (r.type !== "codes") {
+    if (filmScanRequested) {
+      m.file.filmScan = {
+        availability: "unavailable",
+        perforationEdges: [],
+        perforationRepeats: 0,
+        frameEdges: [],
+        evidenceStrength: "none",
+      };
+      return "film-scan";
+    }
+    return false;
+  }
+  const scanCluesAdded = r.filmScan !== undefined;
+  if (r.filmScan) m.file.filmScan = r.filmScan;
+  if (r.codes.length === 0) return scanCluesAdded ? "film-scan" : false;
   const nodes = "entries" in what ? new Map(what.entries.map((e) => [e.name, e.node])) : new Map<string, number>();
   const facts: PhotoFact[] = r.codes.map((c) => {
     const said = meaning(c.text);
@@ -53,5 +84,5 @@ export async function addCodeFacts(m: FileModel): Promise<boolean> {
     const pad = (b: number[]) => [b[0] - 0.01, b[1] - 0.01, b[2] + 0.01, b[3] + 0.01].map((v) => Math.min(1, Math.max(0, v)));
     for (const c of r.codes) m.codeBoxes.push(pad(c.box) as [number, number, number, number]);
   }
-  return true;
+  return "codes";
 }

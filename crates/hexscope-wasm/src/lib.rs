@@ -922,11 +922,6 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "jpeg";
             parsed.source = bytes.to_vec();
-            parsed.orientation = doc
-                .facts
-                .orientation
-                .filter(|o| (1..=8).contains(o))
-                .unwrap_or(1);
             parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w as u32, h as u32]);
             add_facts(&mut parsed, &doc.facts);
             parsed
@@ -1471,6 +1466,10 @@ fn with_png(bytes: &[u8], doc: PngDocument) -> Parsed {
 }
 
 fn add_facts(parsed: &mut Parsed, facts: &PhotoFacts) {
+    // All image containers share EXIF orientation; the browser decodes it before resizing.
+    if let Some(orientation @ 1..=8) = facts.orientation {
+        parsed.orientation = orientation;
+    }
     let listed = [
         ("camera", &facts.camera),
         ("lens", &facts.lens),
@@ -1965,6 +1964,73 @@ mod tests {
         photo[at + 9] = 6;
         assert_eq!(parse(&photo).orientation(), 6);
         assert_eq!(parse(b"\x89PNG\r\n\x1a\n").orientation(), 1);
+    }
+
+    #[test]
+    fn non_jpeg_orientation_is_propagated_and_validated() {
+        use hexscope_core::crc32::crc32;
+        for (orientation, expected) in [(6u8, 6u16), (99, 1)] {
+            let tiff = vec![
+                b'M',
+                b'M',
+                0,
+                42,
+                0,
+                0,
+                0,
+                8,
+                0,
+                1,
+                1,
+                18,
+                0,
+                3,
+                0,
+                0,
+                0,
+                1,
+                0,
+                orientation,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ];
+            let original = std::fs::read(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../apps/web/public/samples/sample.png"),
+            )
+            .unwrap();
+            let mut png = original[..33].to_vec();
+            png.extend_from_slice(&(tiff.len() as u32).to_be_bytes());
+            let mut chunk = b"eXIf".to_vec();
+            chunk.extend_from_slice(&tiff);
+            png.extend_from_slice(&chunk);
+            png.extend_from_slice(&crc32(&chunk).to_be_bytes());
+            png.extend_from_slice(&original[33..]);
+            assert_eq!(
+                parse(&png).orientation(),
+                expected,
+                "PNG orientation {orientation}"
+            );
+
+            let mut body = b"WEBPVP8X".to_vec();
+            body.extend_from_slice(&10u32.to_le_bytes());
+            body.extend_from_slice(&[8, 0, 0, 0, 99, 0, 0, 49, 0, 0]);
+            body.extend_from_slice(b"EXIF");
+            body.extend_from_slice(&(tiff.len() as u32).to_le_bytes());
+            body.extend_from_slice(&tiff);
+            let mut webp = b"RIFF".to_vec();
+            webp.extend_from_slice(&(body.len() as u32).to_le_bytes());
+            webp.extend_from_slice(&body);
+            assert_eq!(
+                parse(&webp).orientation(),
+                expected,
+                "WebP orientation {orientation}"
+            );
+        }
     }
 
     #[test]

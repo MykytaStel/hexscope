@@ -1,6 +1,7 @@
 // What a person does on the site, in a real browser: open a sample, read
 // the answer, save a clean copy, check an email, go offline. Run on a
 // computer's screen and a phone's (playwright.config.ts).
+import { Buffer } from "node:buffer";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -48,6 +49,48 @@ function catchDownloads(page: Page): string[] {
   });
   return names;
 }
+
+test("shows local film-border patterns as clues, not proof of a film original", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await home(page);
+  const bytes = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 200;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "rgb(70,70,70)";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "rgb(245,245,245)";
+    for (let x = 16; x < canvas.width - 16; x += 28) {
+      context.fillRect(x, 4, 10, 10);
+      context.fillRect(x, canvas.height - 14, 10, 10);
+    }
+    context.fillStyle = "rgb(180,180,180)";
+    context.fillRect(22, 22, canvas.width - 44, 3);
+    context.fillRect(22, canvas.height - 25, canvas.width - 44, 3);
+    context.fillRect(22, 22, 3, canvas.height - 44);
+    context.fillRect(canvas.width - 25, 22, 3, canvas.height - 44);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((value) => value ? resolve(value) : reject(new Error("could not encode fixture")), "image/jpeg", 1),
+    );
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+
+  await page.locator("#picker-empty").setInputFiles({
+    name: "film-border.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from(bytes),
+  });
+
+  const card = page.locator(".film-scan-card");
+  await expect(card).toHaveAttribute("data-state", "complete");
+  await expect(card.locator(".film-scan-evidence").first()).toContainText("Repeated high-contrast openings");
+  await expect(card).toContainText("do not prove that the picture came from film");
+
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(card).toContainText("Ознаки сканування плівкового фото");
+  await expect(card.locator(".film-scan-evidence").first()).toContainText("Повторювані контрастні отвори");
+});
 
 test("the landing page holds still while its demonstration plays", async ({ page }) => {
   await page.goto("./");

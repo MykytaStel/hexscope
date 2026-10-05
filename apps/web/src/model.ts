@@ -1,4 +1,5 @@
 import { Missing } from "./missing";
+import type { FilmScanReport } from "./filmscan";
 
 /** Node kinds, matching the codes `hexscope-wasm` emits. */
 export const Kind = { Container: 0, Field: 1, Warning: 2, Error: 3 } as const;
@@ -49,6 +50,8 @@ export interface ParsedFile {
   orientation: number;
   /** What a photo's metadata reveals; empty for anything else. */
   facts: PhotoFact[];
+  /** Local visual scan clues, added after a JPEG's pixels are inspected. */
+  filmScan?: FilmScanReport;
   /** Worker-owned compact core snapshot used to verify a later clean copy. */
   verificationToken?: number;
   location: PhotoLocation | null;

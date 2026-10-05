@@ -596,14 +596,16 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
 
 /** QR codes, looked for once the file is on screen: its card is drawn again with what they say. */
 async function lookForCodes(m: FileModel): Promise<void> {
-  const { addCodeFacts } = await import("./qrfacts");
-  if (!(await addCodeFacts(m)) || m !== workspace.model) return;
-  // A clean copy made meanwhile keeps its card; the codes show when the file is next drawn.
+  const { addCodeFacts, placeFilmScanCard } = await import("./qrfacts");
+  const update = await addCodeFacts(m, true);
+  if (!update || m !== workspace.model) return;
+  // A clean copy made meanwhile keeps its card; local image analysis refreshes it when ready.
   const drawerEl = $("drawer");
-  if (drawerEl.querySelector(".before-after, .clean-list")) return;
+  const redraw = update === "codes" && !drawerEl.querySelector(".before-after, .clean-list");
   const focused = drawerEl.contains(document.activeElement);
-  drawer.showFile(m);
-  if (focused) drawer.focusVerdict();
+  if (redraw) drawer.showFile(m);
+  await placeFilmScanCard(drawerEl, m);
+  if (redraw && focused) drawer.focusVerdict();
 }
 
 /** Opens on the answer to the question the person came with: a damaged file
