@@ -1,6 +1,6 @@
 # Clean-copy panel extraction design
 
-**Status:** Draft for user review
+**Status:** Approved for planning on 2026-10-05
 
 ## Goal
 
