@@ -221,17 +221,7 @@ pub(super) fn decode_content_stream(
     ctx: &Ctx,
     budget: &mut u64,
 ) -> Option<Vec<u8>> {
-    let picture_filter = match rec.value.get("Filter") {
-        Some(Obj::Name(filter)) => super::filters::is_picture(filter),
-        Some(Obj::Array(filters)) => filters
-            .iter()
-            .any(|filter| filter.obj.name().is_some_and(super::filters::is_picture)),
-        _ => false,
-    };
-    if picture_filter {
-        return None;
-    }
-    decode(data, rec, ctx.crypt.as_ref(), budget)
+    decode(data, rec, ctx.crypt.as_ref(), budget, true)
 }
 
 impl Default for Walked {

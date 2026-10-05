@@ -857,7 +857,7 @@ test("incomplete PDF content warns in Ukrainian and produces no redacted copy", 
   await expect(save).toBeEnabled();
   await save.click();
   const failure = redactor.locator(".cleaner .problem");
-  await expect(failure).toContainText("Копію не створено: hexscope не зміг повністю перевірити кожну сторінку PDF.");
+  await expect(failure).toContainText("Копію не створено: перевірку PDF не завершено.");
   await expect(redactor.getByRole("button", { name: "Відкрити копію" })).toHaveCount(0);
   expect(saved).toEqual([]);
 });

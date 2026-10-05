@@ -87,7 +87,7 @@ impl CleanError {
                 "a box covers part of a JPEG picture on the page that was not redrawn, so the copy would still hold what is under the box — hexscope in the browser redraws it"
             }
             CleanError::FormContentIncomplete => {
-                "no copy was made because hexscope could not fully check every page in the PDF"
+                "no copy was made because PDF checks are incomplete"
             }
         }
     }

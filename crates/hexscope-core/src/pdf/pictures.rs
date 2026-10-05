@@ -121,7 +121,8 @@ pub(super) fn visit(
             // A form is as large as its box, not the unit square: its own
             // pictures are each looked at.
             Some("Form") if depth < MAX_DEPTH => {
-                let Some(content) = facts::decode(data, rec, ctx.crypt.as_ref(), budget) else {
+                let Some(content) = facts::decode(data, rec, ctx.crypt.as_ref(), budget, false)
+                else {
                     continue;
                 };
                 let matrix = match rec.value.get("Matrix") {

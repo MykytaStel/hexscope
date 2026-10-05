@@ -66,7 +66,7 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
     let num = stream.ok_or("its bytes are not in the file")?;
     let rec = ctx.latest(num).ok_or("its bytes are not in the file")?;
     let mut budget = facts::MAX_DECODED_TOTAL;
-    facts::decode(data, rec, ctx.crypt.as_ref(), &mut budget)
+    facts::decode(data, rec, ctx.crypt.as_ref(), &mut budget, false)
         .ok_or("it is compressed in a way hexscope does not read, or larger than it opens")
 }
 

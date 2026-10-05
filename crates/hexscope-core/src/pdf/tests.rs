@@ -1040,7 +1040,7 @@ fn incomplete_page_or_form_walk_never_returns_a_clean_copy() {
     }
     let reason = crate::clean::CleanError::FormContentIncomplete.reason();
     assert!(reason.contains("no copy was made"), "{reason}");
-    assert!(reason.contains("every page"), "{reason}");
+    assert!(reason.contains("PDF checks are incomplete"), "{reason}");
 }
 
 #[test]
@@ -1082,7 +1082,7 @@ fn malformed_page_tree_never_returns_a_clean_copy_or_complete_page_text() {
             summary
                 .problems
                 .iter()
-                .any(|problem| { problem.label == "PDF page tree could not be fully checked" })
+                .any(|problem| { problem.label == "PDF not fully checked" })
         );
     }
 }
@@ -1164,7 +1164,7 @@ fn redacting_one_shared_form_appearance_preserves_the_other() {
         .filter(|rec| rec.value.get("Subtype").and_then(super::Obj::name) == Some("Form"))
         .filter_map(|rec| {
             let mut budget = facts::MAX_DECODED_TOTAL;
-            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget, false)
         })
         .collect::<Vec<_>>();
     assert_eq!(
@@ -1234,7 +1234,7 @@ fn redacting_a_nested_shared_form_changes_only_the_selected_page() {
         })
         .filter_map(|rec| {
             let mut budget = facts::MAX_DECODED_TOTAL;
-            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget)
+            facts::decode(&clean.bytes, rec, ctx.crypt.as_ref(), &mut budget, false)
         })
         .collect::<Vec<_>>();
     assert_eq!(inner_forms.len(), 2, "the selected inner form is cloned");
@@ -1287,7 +1287,7 @@ fn picture(data: &[u8], width: i64) -> Vec<u8> {
         })
         .unwrap();
     let mut budget = facts::MAX_DECODED_TOTAL;
-    facts::decode(data, rec, None, &mut budget).unwrap()
+    facts::decode(data, rec, None, &mut budget, false).unwrap()
 }
 
 /// A page with a scanned picture (Flate, rows predicted), a JPEG, and a

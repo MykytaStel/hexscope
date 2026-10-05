@@ -215,8 +215,8 @@ const TABLE: Table = &[
     ),
     ("/Kids", iso("ISO 32000-1 §7.7.3.2", "The pages, or groups of pages, below this one.")),
     (
-        "PDF page tree could not be fully checked",
-        damage("Some page-tree entries could not be followed, so some page content may not have been inspected."),
+        "PDF not fully checked",
+        damage("Some PDF page or form content may be missing."),
     ),
     ("/Count", iso("ISO 32000-1 §7.7.3.2", "How many pages are below this node.")),
     ("/Parent", iso("ISO 32000-1 §7.7.3", "The node above this one in the page tree.")),

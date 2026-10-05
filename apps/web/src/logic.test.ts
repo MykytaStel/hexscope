@@ -45,18 +45,13 @@ group("incomplete PDF content checks", () => {
     expect(
       translateText("Some PDF page or form content could not be fully checked. Search may miss text.", "uk"),
     ).toBe("Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.");
-    expect(
-      translateText("no copy was made because hexscope could not fully check every page in the PDF", "uk"),
-    ).toBe("Копію не створено: hexscope не зміг повністю перевірити кожну сторінку PDF");
-    expect(translateText("PDF page tree could not be fully checked", "uk")).toBe(
-      "Не вдалося повністю перевірити дерево сторінок PDF",
+    expect(translateText("PDF not fully checked", "uk")).toBe("PDF перевірено не повністю");
+    expect(translateText("Some PDF page or form content may be missing.", "uk")).toBe(
+      "У PDF може бракувати частини вмісту сторінки або форми.",
     );
     expect(
-      translateText(
-        "Some page-tree entries could not be followed, so some page content may not have been inspected.",
-        "uk",
-      ),
-    ).toBe("Не вдалося перейти до деяких вузлів дерева сторінок PDF, тому частину вмісту могли не перевірити.");
+      translateText("no copy was made because PDF checks are incomplete", "uk"),
+    ).toBe("Копію не створено: перевірку PDF не завершено");
   });
 });
 

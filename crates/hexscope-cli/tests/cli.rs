@@ -552,7 +552,7 @@ fn clean_verify_skips_verification_when_a_pdf_page_stream_cannot_be_decoded() {
     assert!(out.contains("\"operation_state\":\"not_created\""), "{out}");
     assert!(out.contains("\"reason\":\"verification_skipped\""), "{out}");
     assert!(out.contains("\"output\":null"), "{out}");
-    assert!(err.contains("every page in the PDF"), "{err}");
+    assert!(err.contains("PDF checks are incomplete"), "{err}");
     assert!(
         !output.exists(),
         "an unreadable page must not produce a copy"

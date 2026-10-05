@@ -170,30 +170,12 @@ struct PageContent<'a> {
 /// stream's bytes are in it: `(object number, start, end)`.
 fn content<'a>(data: &[u8], ctx: &'a Ctx, page: &Obj, budget: &mut u64) -> PageContent<'a> {
     let mut complete = true;
-    let refs: Vec<u32> = match page.get("Contents") {
-        None => Vec::new(),
-        Some(Obj::Ref(n, _)) => vec![*n],
-        Some(Obj::Array(a)) => a
-            .iter()
-            .filter_map(|i| match i.obj {
-                Obj::Ref(n, _) => Some(n),
-                _ => {
-                    complete = false;
-                    None
-                }
-            })
-            .collect(),
-        Some(_) => {
-            complete = false;
-            Vec::new()
-        }
-    };
     let mut bytes = Vec::new();
     let mut parts = Vec::new();
-    for n in refs {
+    let mut append = |n, complete: &mut bool| {
         let Some(rec) = top(ctx, n) else {
-            complete = false;
-            continue;
+            *complete = false;
+            return;
         };
         if let Some(b) = super::page::decode_content_stream(data, rec, ctx, budget) {
             let start = bytes.len();
@@ -201,8 +183,21 @@ fn content<'a>(data: &[u8], ctx: &'a Ctx, page: &Obj, budget: &mut u64) -> PageC
             parts.push((rec, start, bytes.len()));
             bytes.push(b'\n');
         } else {
-            complete = false;
+            *complete = false;
         }
+    };
+    match page.get("Contents") {
+        None => {}
+        Some(Obj::Ref(n, _)) => append(*n, &mut complete),
+        Some(Obj::Array(items)) => {
+            for item in items {
+                match item.obj {
+                    Obj::Ref(n, _) => append(n, &mut complete),
+                    _ => complete = false,
+                }
+            }
+        }
+        Some(_) => complete = false,
     }
     PageContent {
         bytes,
@@ -331,7 +326,7 @@ pub(super) fn check(
         && let Some(root) = tree.root()
     {
         let range = tree.get(root).range;
-        tree.warning(root, "PDF page tree could not be fully checked", range);
+        tree.warning(root, "PDF not fully checked", range);
     }
     for (i, page) in page_set.pages.iter().enumerate() {
         let number = i + 1;
@@ -384,13 +379,8 @@ pub(super) fn check(
 
         if !w.complete {
             let (node, range) = at.unwrap_or((page.node, tree.get(page.node).range));
-            let warning = tree.warning(
-                node,
-                "PDF page or form content could not be fully checked",
-                range,
-            );
-            let text =
-                format!("page {number}: some page or form content could not be fully checked");
+            let warning = tree.warning(node, "PDF not fully checked", range);
+            let text = format!("page {number}: incomplete");
             tree.set_value(warning, Some(Value::Text(text.clone())));
             insert_update(facts, fact("form-incomplete", text, warning));
         }
@@ -601,10 +591,8 @@ pub(crate) struct Rewrites {
     pub(super) form_edits: Vec<StreamEdit>,
     /// Page streams prefixed with `q\n` before their decoded contents.
     pub(super) prefixed_streams: Vec<(u32, u32)>,
-    /// Whether every page-tree entry was resolved and visited.
-    pub(super) page_tree_complete: bool,
-    /// Pages whose content streams or invoked forms could not be inspected fully.
-    pub(super) incomplete_pages: Vec<u32>,
+    /// Whether every page-tree entry and page-content path was inspected fully.
+    pub(super) verification_complete: bool,
     /// Glyphs taken out.
     pub(super) removed: u64,
     /// Redaction marks applied, by object number: each is now done.
@@ -626,7 +614,6 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
     let mut source_edits = Vec::new();
     let mut form_edits = Vec::new();
     let mut prefixed_streams = Vec::new();
-    let mut incomplete_pages = Vec::new();
     let mut applied = Vec::new();
     let mut cuts = Vec::new();
     let mut inline = false;
@@ -634,7 +621,7 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
     let mut budget = BUDGET;
     let mut invocations = 0;
     let page_set = pages(data, ctx, &mut budget);
-    let page_tree_complete = page_set.complete;
+    let mut verification_complete = page_set.complete;
     for (i, page) in page_set.pages.into_iter().enumerate() {
         let mine: Vec<Area> = extra
             .iter()
@@ -642,9 +629,7 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
             .map(|(_, a)| Area(*a))
             .collect();
         let p = paint(data, ctx, &page, &mut budget, &mut invocations, &mine);
-        if !p.walked.complete {
-            incomplete_pages.push(page.num);
-        }
+        verification_complete &= p.walked.complete;
         // Pictures lose their pixels under the marks, and under dark boxes
         // drawn over them, as text under a box loses its letters.
         if !p.marks.is_empty() || !p.walked.over_pictures.is_empty() {
@@ -735,8 +720,7 @@ pub(crate) fn rewrites(data: &[u8], ctx: &Ctx, extra: &[(u32, [f64; 4])]) -> Rew
         source_edits,
         form_edits,
         prefixed_streams,
-        page_tree_complete,
-        incomplete_pages,
+        verification_complete,
         removed,
         applied,
         cuts,
@@ -887,12 +871,12 @@ pub(super) fn earlier_text(data: &[u8], ctx: &Ctx, facts: &mut Vec<DocumentFact>
         if earlier.is_empty() {
             continue;
         }
-        let Some(now) = decode(data, latest, crypt, &mut budget) else {
+        let Some(now) = decode(data, latest, crypt, &mut budget, false) else {
             continue;
         };
         let now = lines(&now);
         for old in earlier {
-            let Some(bytes) = decode(data, old, crypt, &mut budget) else {
+            let Some(bytes) = decode(data, old, crypt, &mut budget, false) else {
                 continue;
             };
             for line in lines(&bytes) {
