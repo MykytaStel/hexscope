@@ -12,6 +12,9 @@ export function registerLazyTranslations(translations: Readonly<Record<string, s
 // and untranslated technical terms stay readable until they have a reviewed
 // Ukrainian equivalent.
 const UK: Record<string, string> = {
+  "Film roll · JPEG / TIFF": "Плівковий рулон · JPEG / TIFF",
+  "Film roll": "Плівковий рулон",
+  "Photo privacy mosaic": "Мозаїка приватності фото",
   "View": "Вигляд",
   "Summary": "Зведення",
   "Bytes": "Байти",

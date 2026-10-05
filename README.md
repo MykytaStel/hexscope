@@ -90,6 +90,8 @@ scanning service.
 ## Guides
 
 - [Film photo lab: negative conversion, border crop and output inspection](docs/film-lab.md)
+- [Verified photo batches, CLI/web film rolls, TIFF16 and local privacy mosaic](docs/photo-platform.md)
+- [Reproducible real-scan measurements and research limits](docs/film-evaluation.md)
 
 - [Remove location and other metadata from a photo](https://hexscope.pages.dev/remove-location-from-photo)
 - [What an edited PDF may still contain](https://hexscope.pages.dev/pdf-hidden-versions)

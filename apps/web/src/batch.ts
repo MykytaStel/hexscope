@@ -20,6 +20,8 @@ export interface BatchItem {
   note: string;
   /** Left out of the clean copies, by choice. */
   skip: boolean;
+  copyStatus?: string;
+  photoSignal?: import("./photo-mosaic").PhotoSignal;
 }
 
 /** Whether a file has something a clean copy takes out. */
@@ -33,6 +35,8 @@ export interface BatchHooks {
   saveClean(keepNames: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
   canShareCopies(): boolean;
+  mosaic?(items: BatchItem[]): void;
+  filmRoll?(items: BatchItem[]): void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -57,6 +61,7 @@ function tags(item: BatchItem): HTMLElement[] {
   }
   if (item.state === "failed") return [el("span", "tag is-damage", item.note || "Could not be read")];
   const out: HTMLElement[] = [];
+  if (item.copyStatus) out.push(el("span", "tag", item.copyStatus));
   const has = (k: VerdictLine["kind"]) => item.lines.some((l) => l.kind === k);
   if (has("unknown")) out.push(el("span", "tag is-unknown", "Not a format hexscope reads"));
   if (has("damage")) out.push(el("span", "tag is-damage", "Damaged"));
@@ -123,7 +128,7 @@ export class BatchView {
     const card = el("div", "batch-card");
     const head = el("div", "batch-head");
     const label = el("p", "batch-label", plural(items.length, "file", "files"));
-    const flagged = items.filter((i) => i.state === "failed" || i.headline?.tone === "danger" || i.headline?.tone === "warning");
+    const flagged = items.filter((i) => i.lines.some((l) => l.kind === "unknown" || l.kind === "damage") || i.state === "failed" || i.headline?.tone === "danger" || i.headline?.tone === "warning");
     const tone = busy ? "neutral" : flagged.some((i) => i.state === "failed" || i.headline?.tone === "danger") ? "danger" : flagged.length ? "warning" : "ok";
     const title = el(
       "h2",
@@ -143,7 +148,7 @@ export class BatchView {
         hidden ? `${hidden} ${hidden === 1 ? "hides" : "hide"} something` : "",
         damaged ? `${damaged} damaged` : "",
       ].filter(Boolean);
-      summary.textContent = parts.length ? `${parts.join(" · ")}.` : "Every one can be sent as it is.";
+      summary.textContent = parts.length ? `${parts.join(" · ")}.` : "No personal metadata found by the available checks. Visible content has not been cleared.";
     }
     const phone = this.hooks.canShareCopies();
     const chosen = items.filter((i) => cleanable(i) && !i.skip).length;
@@ -163,6 +168,13 @@ export class BatchView {
     keep.append(box, " Keep the original names");
     keep.hidden = busy || chosen === 0;
     head.append(label, title, summary, save, keep, this.status);
+    if (!busy && items.length <= 1000 && this.hooks.mosaic) {
+      const mosaic = el("button", "btn", "Photo privacy mosaic");
+      mosaic.addEventListener("click", () => this.hooks.mosaic?.(items)); head.append(mosaic);
+    }
+    if (!busy && this.hooks.filmRoll) {
+      const roll = el("button", "btn", "Film roll"); roll.addEventListener("click", () => this.hooks.filmRoll?.(items)); head.append(roll);
+    }
 
     const isProblem = (i: BatchItem) =>
       i.state === "failed" || i.lines.some((l) => l.kind === "damage" || l.kind === "hidden" || l.kind === "misnamed");

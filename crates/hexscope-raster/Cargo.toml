@@ -1,0 +1,22 @@
+[package]
+name = "hexscope-raster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["native"]
+native = ["image/jpeg", "image/png", "image/webp"]
+web = ["dep:wasm-bindgen"]
+
+[dependencies]
+hexscope-core = { path = "../hexscope-core", default-features = false }
+image = { version = "=0.25.10", default-features = false, features = ["tiff"] }
+tiff = { version = "0.11", default-features = false, features = ["deflate", "lzw", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = { version = "=0.2.128", optional = true }

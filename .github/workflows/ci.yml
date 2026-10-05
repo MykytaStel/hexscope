@@ -125,16 +125,20 @@ jobs:
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
-      # The full parser gets 100 bytes for shared PNG/WebP EXIF orientation.
+      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix.
+      # The optional roll/TIFF module is budgeted separately and is never an initial parser.
       - name: WebAssembly size budget
         run: |
-          sizes=$(for f in apps/web/dist/assets/*.wasm; do gzip -9c "$f" | wc -c; done | sort -n)
+          sizes=$(for f in apps/web/dist/assets/hexscope_wasm*.wasm; do gzip -9c "$f" | wc -c; done | sort -n)
           test "$(echo "$sizes" | wc -l)" -eq 2
           media=$(echo "$sizes" | head -1)
           full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290100)."
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290400)."
           test "$media" -le 140000
-          test "$full" -le 290100
+          test "$full" -le 290400
+          raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
+          echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
+          test "$raster" -le 215000
       - uses: actions/upload-artifact@v7
         with:
           name: hexscope-site
