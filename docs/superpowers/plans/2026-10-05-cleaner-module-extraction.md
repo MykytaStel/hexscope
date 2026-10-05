@@ -48,7 +48,7 @@
 - [x] **Step 4: Wire both reveal branches.** Replace both `this.cleaner(m)` calls in `Drawer.reveals()` with `createCleaner(m, this.cleaning, group)`. Remove the old method and imports no longer used by `drawer.ts`; retain helpers still used by redaction, repair, and the verdict CTA.
 - [x] **Step 5: Run the web unit suite and production build.** Run `pnpm --filter web test` and `pnpm --filter web build`. Both must complete successfully.
 - [x] **Step 6: Run focused browser regression coverage.** Run `pnpm --filter web exec playwright test e2e/site.e2e.ts --grep "evidence-based clean-copy result|clean copy verification reparses a generated photo|presentation notes are removed only when asked|spreadsheet's clean copy keeps what is part of it"` and `pnpm --filter web exec playwright test e2e/a11y.e2e.ts --grep "clean-copy report is announced"`. Both desktop and phone projects must pass.
-- [ ] **Step 7: Review and commit the isolated extraction.** Inspect `git diff --check` and the full diff; commit only the factory, drawer wiring, and characterization test as `refactor: extract clean-copy panel`.
+- [x] **Step 7: Review and commit the isolated extraction.** Inspect `git diff --check` and the full diff; commit only the factory, drawer wiring, and characterization test as `refactor: extract clean-copy panel`.
 
 ## Follow-on direction
 
