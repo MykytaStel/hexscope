@@ -34,6 +34,8 @@ const translatedErrors: Record<string, string> = {
   "JPEG encoding is unavailable.": "Кодування JPEG недоступне.",
   "Output dimensions differ.": "Розміри копії не збігаються.",
   "Processing unavailable.": "Обробка недоступна.",
+  "hexscope was updated while this page was open. Reload the page to read it": "Hexscope оновився, поки ця сторінка була відкрита. Перезавантажте її, щоб продовжити.",
+  "you are offline, and this part of hexscope has not been saved for offline use yet": "Ви офлайн, а цю частину Hexscope ще не збережено для роботи без мережі.",
   "it needs more memory than this browser tab has. Close other tabs and try again, or use the command line tool": "Цій вкладці бракує пам'яті. Закрийте інші вкладки або скористайтеся CLI.",
 };
 const errorMessage = (error: unknown): string => {
