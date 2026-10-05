@@ -475,15 +475,21 @@ body[data-state="empty"] .layout {
   margin: var(--space-6) 0 0;
 }
 
+.landing-proof > * {
+  min-width: 0;
+}
+
 .empty-card .promise {
   display: flex;
   gap: var(--space-2);
   align-items: flex-start;
+  min-width: 0;
   max-width: 700px;
   margin: 0;
   font-size: var(--type-small);
   line-height: 1.5;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .promise svg {
@@ -574,6 +580,10 @@ body[data-state="empty"] .layout {
   display: grid;
   align-content: start;
   gap: var(--space-2);
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -605,21 +615,29 @@ body[data-state="empty"] .layout {
 }
 
 .door-title {
+  min-width: 0;
   font-weight: 650;
   font-size: var(--type-card-title);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .door-text {
+  min-width: 0;
   color: var(--muted);
   font-size: var(--type-small);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .door-go {
+  min-width: 0;
   margin-top: 4px;
   color: var(--accent);
   font-size: var(--type-small);
   font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* The everyday doors: the reason most people came, so the largest. */
@@ -639,12 +657,35 @@ body[data-state="empty"] .layout {
 
 .doors-main .door-title {
   font-size: var(--type-card-title);
-  min-height: 3em;
 }
 
 .doors-main .door-text {
   font-size: var(--type-small);
-  min-height: 4.5em;
+}
+
+.doors-main .door-go {
+  margin-top: auto;
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .doors-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .doors-main .door:last-child {
+    grid-column: 1 / -1;
+    grid-template-columns: 42px minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
+    align-items: center;
+    column-gap: 14px;
+  }
+
+  .doors-main .door:last-child .door-icon,
+  .doors-main .door:last-child .door-title,
+  .doors-main .door:last-child .door-text,
+  .doors-main .door:last-child .door-go {
+    grid-row: 1;
+    margin: 0;
+  }
 }
 
 /* For the curious: rows, lighter, below the everyday ones. */

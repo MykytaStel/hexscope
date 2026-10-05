@@ -7,8 +7,8 @@ import "./photo-tools.css";
 registerLazyTranslations({
   "Film roll": "Плівковий рулон", "Close film roll": "Закрити плівковий рулон", "Choose scans": "Вибрати скани", "Choose scan folder": "Вибрати теку зі сканами",
   "Roll recipe": "Рецепт рулону", "Output format": "Формат копій", "Process roll": "Обробити рулон", "Download roll ZIP": "Завантажити ZIP рулону", "Load calibrated recipe": "Завантажити відкалібрований рецепт",
-  "One recipe, one film base, all frames. Files stay in this tab; originals are preserved.": "Один рецепт і одна основа плівки для всіх кадрів. Файли залишаються у вкладці; оригінали зберігаються.",
-  "Load a recipe saved in the single-frame Film Photo Lab. Without a calibrated base, the first successful frame supplies an estimate reused for the roll.": "Завантажте рецепт із лабораторії окремого кадру. Якщо основу не відкалібровано, оцінка з першого успішного кадру застосовується до рулону.",
+  "Process a whole roll with one recipe and a shared film base.": "Обробіть увесь рулон одним рецептом і спільною основою плівки.", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the roll.": "Файли залишаються у вкладці. Оригінали зберігаються. Без каліброваної основи перший успішний кадр задає оцінку для рулону.",
+  "Scans": "Скани", "Scan type": "Тип скану", "JPEG · sharing · 8 bit": "JPEG · для надсилання · 8 біт", "TIFF · 16 bit": "TIFF · 16 біт", "Use a recipe from Film Photo Lab if you have one.": "За наявності використайте рецепт із лабораторії плівкового фото.", "Choose recipe": "Вибрати рецепт", "More settings and processing notes": "Додаткові налаштування й примітки до обробки", "Processing results": "Результати обробки", "Advanced recipe editor": "Розширений редактор рецепта",
   "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.": "TIFF зберігає 16-бітну обробку 16-бітних TIFF-джерел. JPEG/PNG/WebP, декодовані браузером, мають 8-бітні пікселі. Копія — до 12 МП; сторона JPEG — до 4096 пікселів.",
   "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.": "Зразки TIFF вважаються sRGB; вбудовані ICC-профілі позначаються, але не застосовуються. JPEG/PNG/WebP використовують перетворення кольору браузером у sRGB. Це налаштовувані копії, без архівного відновлення за профілем сканера. Безпечність метаданих і видимого вмісту не засвідчується.",
   "Positive / already developed": "Позитив / уже проявлене зображення", "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
@@ -18,35 +18,61 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) { cons
 export function showFilmRoll(initial: File[] = []): void {
   const dialog = el("dialog"); dialog.className = "photo-tool film-roll"; dialog.setAttribute("aria-labelledby", "film-roll-title");
   const title = el("h2", "Film roll"); title.id = "film-roll-title";
-  const close = el("button", "Close"); close.className = "btn"; close.setAttribute("aria-label", "Close film roll");
-  const intro = el("p", "One recipe, one film base, all frames. Files stay in this tab; originals are preserved.");
-  const help = el("p", "Load a recipe saved in the single-frame Film Photo Lab. Without a calibrated base, the first successful frame supplies an estimate reused for the roll.");
-  const controls = el("div"); controls.className = "photo-tool-controls";
+  const header = el("header"); header.className = "film-roll-header";
+  const close = el("button", "Close"); close.type = "button"; close.className = "btn"; close.setAttribute("aria-label", "Close film roll");
+  header.append(title, close);
+  const body = el("div"); body.className = "film-roll-body";
+  const intro = el("p", "Process a whole roll with one recipe and a shared film base."); intro.className = "film-roll-intro";
+  const help = el("p", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the roll."); help.className = "film-roll-help";
+  const sources = el("fieldset"); sources.className = "film-roll-sources"; sources.append(el("legend", "Scans"));
+  const pickers = el("div"); pickers.className = "film-roll-picker-row";
   const picker = el("input"); picker.type = "file"; picker.multiple = true; picker.accept = ".jpg,.jpeg,.png,.webp,.tif,.tiff"; picker.setAttribute("aria-label", "Choose scans");
-  const folder = el("input"); folder.type = "file"; folder.multiple = true; folder.setAttribute("webkitdirectory", ""); folder.setAttribute("aria-label", "Choose scan folder");
-  const chooseLabel = el("label", "Choose scans"); chooseLabel.append(picker); const folderLabel = el("label", "Choose scan folder"); folderLabel.append(folder);
+  const folder = el("input"); folder.type = "file"; folder.multiple = true; folder.accept = ".jpg,.jpeg,.png,.webp,.tif,.tiff"; folder.setAttribute("webkitdirectory", ""); folder.setAttribute("aria-label", "Choose scan folder");
+  picker.className = folder.className = "film-roll-file-input";
+  const chooseLabel = el("label"); chooseLabel.className = "film-roll-picker"; chooseLabel.append(el("span", "Choose scans"), picker);
+  const folderLabel = el("label"); folderLabel.className = "film-roll-picker"; folderLabel.append(el("span", "Choose scan folder"), folder);
+  pickers.append(chooseLabel, folderLabel); sources.append(pickers);
+  const options = el("div"); options.className = "film-roll-options";
   const mode = el("select"); mode.setAttribute("aria-label", "Scan type");
   for (const [value, label] of [["positive", "Positive / already developed"], ["color-negative", "Color negative"], ["mono-negative", "Black and white negative"]]) { const o = el("option", label); o.value = value; mode.append(o); }
   const format = el("select"); format.setAttribute("aria-label", "Output format");
   for (const [value, label] of [["jpeg", "JPEG · sharing · 8 bit"], ["tiff16", "TIFF · 16 bit"]]) { const o = el("option", label); o.value = value; format.append(o); }
+  const modeLabel = el("label"); modeLabel.className = "film-roll-field"; modeLabel.append(el("span", "Scan type"), mode);
+  const formatLabel = el("label"); formatLabel.className = "film-roll-field"; formatLabel.append(el("span", "Output format"), format);
+  options.append(modeLabel, formatLabel);
+  const recipeLoadGroup = el("div"); recipeLoadGroup.className = "film-roll-recipe-load";
+  const recipeCopy = el("div"); recipeCopy.className = "film-roll-recipe-copy"; recipeCopy.append(el("strong", "Load calibrated recipe"), el("p", "Use a recipe from Film Photo Lab if you have one."));
   const recipeLoad = el("input"); recipeLoad.type = "file"; recipeLoad.accept = ".json"; recipeLoad.setAttribute("aria-label", "Load calibrated recipe");
-  const recipeLabel = el("label", "Load calibrated recipe"); recipeLabel.append(recipeLoad);
-  const advanced = el("details"); advanced.append(el("summary", "Roll recipe"));
-  const recipe = el("textarea"); recipe.setAttribute("aria-label", "Roll recipe"); recipe.spellcheck = false; recipe.value = filmRecipe(DEFAULT_FILM_SETTINGS); advanced.append(recipe);
+  recipeLoad.className = "film-roll-file-input";
+  const recipeLabel = el("label"); recipeLabel.className = "film-roll-picker film-roll-picker-secondary"; recipeLabel.append(el("span", "Choose recipe"), recipeLoad);
+  recipeLoadGroup.append(recipeCopy, recipeLabel);
+  const advanced = el("details"); advanced.className = "film-roll-advanced"; advanced.append(el("summary", "More settings and processing notes"));
+  const recipeHelp = el("p", "Advanced recipe editor"); recipeHelp.className = "film-roll-advanced-label";
+  const recipe = el("textarea"); recipe.setAttribute("aria-label", "Roll recipe"); recipe.spellcheck = false; recipe.value = filmRecipe(DEFAULT_FILM_SETTINGS);
+  const recipeEditor = el("div"); recipeEditor.className = "film-roll-recipe-editor"; recipeEditor.append(recipeHelp, recipe);
   const limits = el("p", "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.");
   const color = el("p", "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.");
-  const process = el("button", "Process roll"); process.className = "btn btn-primary";
+  const notes = el("div"); notes.className = "film-roll-notes"; notes.append(limits, color);
+  advanced.append(recipeEditor, notes);
+  const process = el("button", "Process roll"); process.type = "button"; process.className = "btn btn-primary";
   const download = el("button", "Download roll ZIP"); download.className = "btn"; download.hidden = true;
-  const status = el("p"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
-  const results = el("ol"); results.className = "photo-tool-results";
+  download.type = "button";
+  const status = el("p"); status.className = "film-roll-status"; status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+  const results = el("ol"); results.className = "photo-tool-results film-roll-results";
   const preview = el("img"); preview.alt = "First processed frame"; preview.hidden = true;
-  controls.append(chooseLabel, folderLabel, mode, format, recipeLabel, advanced, process, download);
-  dialog.append(close, title, intro, help, controls, limits, color, status, preview, results); document.body.append(dialog);
+  const output = el("section"); output.className = "film-roll-output"; output.setAttribute("aria-label", "Processing results");
+  output.hidden = true;
+  output.append(el("h3", "Processing results"), preview, results);
+  body.append(intro, help, sources, options, recipeLoadGroup, advanced, output);
+  const footer = el("footer"); footer.className = "film-roll-footer";
+  const actions = el("div"); actions.className = "film-roll-actions"; actions.append(process, download);
+  footer.append(status, actions);
+  dialog.append(header, body, footer); document.body.append(dialog);
   let files = initial.filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); let generation = 0; let archive: Blob | null = null; let previewUrl = "";
   const selection = () => { status.textContent = message(`${files.length} scans selected · limit 1000`, `Вибрано ${files.length} сканів · межа 1000`); process.disabled = files.length === 0 || files.length > 1000; archive = null; download.hidden = true; };
   picker.onchange = () => { generation++; files = [...picker.files ?? []]; selection(); };
   folder.onchange = () => { generation++; files = [...folder.files ?? []].filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); selection(); };
-  mode.onchange = () => { try { recipe.value = filmRecipe({ ...readFilmRecipe(recipe.value), mode: mode.value as FilmSettings["mode"] }); } catch { status.textContent = "Invalid film recipe."; } };
+  mode.onchange = () => { try { recipe.value = filmRecipe({ ...readFilmRecipe(recipe.value), mode: mode.value as FilmSettings["mode"] }); } catch { advanced.open = true; recipe.focus(); status.textContent = "Invalid film recipe."; } };
   recipeLoad.onchange = async () => {
     const file = recipeLoad.files?.[0], token = ++generation;
     try { if (!file || file.size > 16384) throw new Error("Recipe must be smaller than 16 KiB."); const text = await file.text(); const s = readFilmRecipe(text); if (token !== generation || !dialog.open) return; recipe.value = filmRecipe(s); mode.value = s.mode; } catch (e) { if (token === generation) status.textContent = String(e); }
@@ -54,9 +80,9 @@ export function showFilmRoll(initial: File[] = []): void {
   process.onclick = async () => {
     const token = ++generation, list = files.slice(), outputFormat = format.value as "jpeg" | "tiff16";
     let settings: FilmSettings;
-    try { settings = readFilmRecipe(recipe.value); } catch (e) { status.textContent = String(e); return; }
+    try { settings = readFilmRecipe(recipe.value); } catch (e) { advanced.open = true; recipe.focus(); status.textContent = String(e); return; }
     if (!list.length || list.length > 1000) return;
-    process.disabled = true; picker.disabled = folder.disabled = recipeLoad.disabled = mode.disabled = format.disabled = recipe.disabled = true; download.hidden = true; archive = null; results.replaceChildren();
+    process.disabled = true; picker.disabled = folder.disabled = recipeLoad.disabled = mode.disabled = format.disabled = recipe.disabled = true; download.hidden = true; output.hidden = false; archive = null; results.replaceChildren();
     const zip = new StoredZip(); const rows: Record<string, unknown>[] = []; let made = 0;
     try {
       for (let index = 0; index < list.length; index++) {
