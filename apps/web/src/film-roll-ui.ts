@@ -13,7 +13,7 @@ registerLazyTranslations({
   "This scan exceeds the film lab's 120 megapixel source limit.": "Скан перевищує ліміт джерела лабораторії у 120 мегапікселів.", "This browser cannot resize the scan safely.": "Цей браузер не може безпечно змінити розмір скану.", "This browser cannot encode a JPEG copy.": "Цей браузер не може закодувати копію JPEG.",
   "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.": "TIFF зберігає 16-бітну обробку 16-бітних TIFF-джерел. JPEG/PNG/WebP, декодовані браузером, мають 8-бітні пікселі. Копія — до 12 МП; сторона JPEG — до 4096 пікселів.",
   "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.": "Зразки TIFF вважаються sRGB; вбудовані ICC-профілі позначаються, але не застосовуються. JPEG/PNG/WebP використовують перетворення кольору браузером у sRGB. Це налаштовувані копії, без архівного відновлення за профілем сканера. Безпечність метаданих і видимого вмісту не засвідчується.",
-  "Positive / already developed": "Позитив / уже проявлене зображення", "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
+  "Positive (developed)": "Позитив (проявлений)", "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
 });
 const message = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
 const translatedErrors: Record<string, string> = {
@@ -59,10 +59,13 @@ export function showFilmRoll(initial: File[] = []): void {
   picker.className = folder.className = "film-roll-file-input";
   const chooseLabel = el("label"); chooseLabel.className = "film-roll-picker"; chooseLabel.append(el("span", "Choose scans"), picker);
   const folderLabel = el("label"); folderLabel.className = "film-roll-picker"; folderLabel.append(el("span", "Choose scan folder"), folder);
+  const chooseCount = el("span"); chooseCount.className = "film-roll-picker-count"; chooseCount.hidden = true;
+  const folderCount = el("span"); folderCount.className = "film-roll-picker-count"; folderCount.hidden = true;
+  chooseLabel.append(chooseCount); folderLabel.append(folderCount);
   pickers.append(chooseLabel, folderLabel); sources.append(pickers);
   const options = el("div"); options.className = "film-roll-options";
   const mode = el("select"); mode.setAttribute("aria-label", "Scan type");
-  for (const [value, label] of [["positive", "Positive / already developed"], ["color-negative", "Color negative"], ["mono-negative", "Black and white negative"]]) { const o = el("option", label); o.value = value; mode.append(o); }
+  for (const [value, label] of [["positive", "Positive (developed)"], ["color-negative", "Color negative"], ["mono-negative", "Black and white negative"]]) { const o = el("option", label); o.value = value; mode.append(o); }
   const format = el("select"); format.setAttribute("aria-label", "Output format");
   for (const [value, label] of [["jpeg", "JPEG · sharing · 8 bit"], ["tiff16", "TIFF · 16 bit"]]) { const o = el("option", label); o.value = value; format.append(o); }
   const modeLabel = el("label"); modeLabel.className = "film-roll-field"; modeLabel.append(el("span", "Scan type"), mode);
@@ -96,10 +99,18 @@ export function showFilmRoll(initial: File[] = []): void {
   const actions = el("div"); actions.className = "film-roll-actions"; actions.append(process, download);
   footer.append(status, actions);
   dialog.append(header, body, footer); document.body.append(dialog);
-  let files = initial.filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); let generation = 0; let archive: Blob | null = null; let previewUrl = "";
-  const selection = () => { status.textContent = message(`${files.length} scans selected · limit 1000`, `Вибрано ${files.length} сканів · межа 1000`); process.disabled = files.length === 0 || files.length > 1000; archive = null; download.hidden = true; };
-  picker.onchange = () => { generation++; files = [...picker.files ?? []]; selection(); };
-  folder.onchange = () => { generation++; files = [...folder.files ?? []].filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); selection(); };
+  let files = initial.filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); let selectedFromFolder = false; let generation = 0; let archive: Blob | null = null; let previewUrl = "";
+  const selection = () => {
+    const count = message(`${files.length} selected`, `Вибрано ${files.length}`);
+    chooseCount.textContent = folderCount.textContent = count;
+    chooseCount.hidden = files.length === 0 || selectedFromFolder;
+    folderCount.hidden = files.length === 0 || !selectedFromFolder;
+    status.textContent = message(`${files.length} scans selected · limit 1000`, `Вибрано ${files.length} сканів · межа 1000`);
+    process.disabled = files.length === 0 || files.length > 1000;
+    archive = null; download.hidden = true;
+  };
+  picker.onchange = () => { generation++; selectedFromFolder = false; files = [...picker.files ?? []]; selection(); };
+  folder.onchange = () => { generation++; selectedFromFolder = true; files = [...folder.files ?? []].filter((f) => /\.(jpe?g|png|webp|tiff?)$/i.test(f.name)); selection(); };
   mode.onchange = () => { try { recipe.value = filmRecipe({ ...readFilmRecipe(recipe.value), mode: mode.value as FilmSettings["mode"] }); } catch { advanced.open = true; recipe.focus(); status.textContent = errorMessage(new Error("Invalid film recipe.")); } };
   recipeLoad.onchange = async () => {
     const file = recipeLoad.files?.[0], token = ++generation;

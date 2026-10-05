@@ -25,13 +25,23 @@
 .reveal-list {
   display: grid;
   grid-template-columns: fit-content(40%) minmax(0, 1fr);
-  gap: 2px 14px;
+  gap: var(--space-1) var(--space-4);
   margin: 0;
   align-items: baseline;
 }
 
 .reveal-list dt {
   color: var(--faint);
+  font-size: var(--type-small);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .drawer-file:has(.reveals) > .reveals {
+    margin-top: var(--space-3);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
 }
 
 /* The picture a photo's card is about, beside its heading. */
@@ -40,8 +50,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 12px;
-  margin: 0 0 14px;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
 }
 
 .reveal-hero.has-map {
@@ -174,7 +184,9 @@
 
 /* Two files compared. */
 .compare section {
-  margin: 14px 0;
+  margin: var(--space-2) 0;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .compare h3 {
@@ -191,6 +203,7 @@
 
 .compare-files {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .compare-list {
@@ -206,6 +219,8 @@
   cursor: pointer;
   color: var(--accent);
 }
+
+.compare > details { min-width: 0; }
 
 .compare-rows {
   margin: 8px 0 4px;
@@ -253,6 +268,10 @@
     padding: 6px 8px;
     font-size: 11px;
   }
+}
+
+@media (max-width: 520px) {
+  .keys { grid-template-columns: 7.5em minmax(0, 1fr); gap: var(--space-2); }
 }
 
 .compare-pick {
@@ -589,4 +608,3 @@ kbd {
 body:has(.reveals) .layout {
   grid-template-rows: minmax(0, 1fr) 300px;
 }
-

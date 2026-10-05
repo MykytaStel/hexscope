@@ -390,6 +390,85 @@ test("the phone brings the main actions before supporting detail", async ({ page
   expect(proof!.y).toBeGreaterThan(doors!.y + doors!.height);
 });
 
+test("landing cards stay inside the content grid across widths and locales", async ({ page }) => {
+  await home(page);
+  const tabletLayouts: { width: number; locale: "en" | "uk"; lastCardLayout: string }[] = [];
+  for (const locale of ["en", "uk"] as const) {
+    await page.evaluate((language) => localStorage.setItem("hexscope.language", language), locale);
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.state === "empty");
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+
+    for (const width of [768, 901, 1024, 1034, 1180, 1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.locator(".doors-main").evaluate((grid) => {
+        const frame = grid.getBoundingClientRect();
+        const cards = [...grid.querySelectorAll(":scope > .door")].map((card) => {
+          const bounds = card.getBoundingClientRect();
+          return {
+            left: bounds.left,
+            right: bounds.right,
+            width: bounds.width,
+            layout: getComputedStyle(card).gridTemplateColumns,
+          };
+        });
+        return {
+          frame: { left: frame.left, right: frame.right, width: frame.width },
+          cards,
+          overflow: document.documentElement.scrollWidth - innerWidth,
+          viewport: innerWidth,
+        };
+      });
+      expect(layout.cards, `${locale} at ${width}px: all three everyday doors`).toHaveLength(3);
+      expect(layout.overflow, `${locale} at ${width}px: page overflow`).toBeLessThanOrEqual(0);
+      for (const [index, card] of layout.cards.entries()) {
+        expect(card.left, `${locale} at ${width}px: card ${index + 1} left edge`).toBeGreaterThanOrEqual(layout.frame.left - 1);
+        expect(card.right, `${locale} at ${width}px: card ${index + 1} right edge inside grid`).toBeLessThanOrEqual(layout.frame.right + 1);
+        expect(card.left, `${locale} at ${width}px: card ${index + 1} left edge inside viewport`).toBeGreaterThanOrEqual(-1);
+        expect(card.right, `${locale} at ${width}px: card ${index + 1} right edge inside viewport`).toBeLessThanOrEqual(layout.viewport + 1);
+        expect(card.width, `${locale} at ${width}px: card ${index + 1} stays readable`).toBeGreaterThanOrEqual(280);
+      }
+      if (width >= 901 && width <= 1180) {
+        tabletLayouts.push({ width, locale, lastCardLayout: layout.cards[2].layout });
+      }
+    }
+  }
+  for (const tablet of tabletLayouts) {
+    expect(tablet.lastCardLayout.trim().split(/\s+/), `${tablet.locale} at ${tablet.width}px: third door uses one card column`).toHaveLength(1);
+  }
+});
+
+test("specialist tools group film and multi-photo entry points away from everyday doors", async ({ page }) => {
+  await home(page);
+  const tools = page.locator(".specialist-tools");
+  await expect(tools).toBeVisible();
+  await expect(tools.getByRole("heading", { name: "Specialist tools" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Film roll · JPEG / TIFF" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Try a synthetic film negative →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" })).toHaveAttribute("data-opens", "picker-empty");
+  await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
+  await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(tools.getByRole("heading", { name: "Спеціальні інструменти" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Плівковий рулон · JPEG / TIFF" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Спробувати синтетичний плівковий негатив →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
+
+  await page.getByRole("button", { name: "Switch language to English" }).click();
+  const fileChooserEvent = page.waitForEvent("filechooser");
+  await tools.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" }).click();
+  const fileChooser = await fileChooserEvent;
+  expect(fileChooser.isMultiple()).toBe(true);
+  const photo = readFileSync("../../crates/hexscope-core/tests/fixtures/photo.png");
+  await fileChooser.setFiles([
+    { name: "first-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "second-photo.png", mimeType: "image/png", buffer: photo },
+  ]);
+  await expect(page.locator("#batch")).toContainText("Photo privacy mosaic");
+  await expect(page.locator("#batch")).toContainText("2 files");
+});
+
 test("the landing page fits the viewport across responsive breakpoints", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "one browser sweeps the full width matrix");
   await home(page);
@@ -569,6 +648,25 @@ test("nothing scrolls sideways", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });
 
+test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const toolbar = page.locator(".topbar .actions");
+  await expect(toolbar).toBeVisible();
+  await expect(page.locator(".topbar .location-badge")).toBeVisible();
+  await expect(page.locator('.topbar .viewswitch [data-view="bytes"]')).toBeVisible();
+  const bounds = await toolbar.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(320);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test("the landing page does not download article copy before a guide opens", async ({ page }) => {
   const guideCopyScripts: Promise<string | null>[] = [];
   page.on("response", (response) => {
@@ -584,6 +682,56 @@ test("the landing page does not download article copy before a guide opens", asy
   await home(page);
   await page.waitForLoadState("networkidle");
   expect((await Promise.all(guideCopyScripts)).filter(Boolean)).toEqual([]);
+});
+
+test("file results show the summary before evidence and available actions", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  page.on("download", (download) => void download.cancel());
+  const examples = [
+    { sample: "photo.jpg", evidence: ".reveals", action: ".verdict-actions .verdict-cta" },
+    { sample: "report.pdf", evidence: ".reveals", action: ".redactor input[type='search']" },
+    { sample: "phishing.eml", evidence: ".reveals", action: ".verdict-do" },
+  ];
+
+  for (const example of examples) {
+    await page.goto(`./?sample=${example.sample}`);
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    const result = page.locator(".drawer-file");
+    const order = await result.evaluate((root) => {
+      const children = [...root.children];
+      return {
+        verdict: children.findIndex((element) => element.matches(".verdict")),
+        evidence: children.findIndex((element) => element.matches(".reveals")),
+        redaction: children.findIndex((element) => element.matches(".redactor")),
+        details: children.findIndex((element) => element.matches(".more-details")),
+      };
+    });
+    expect(order.verdict, `${example.sample}: summary starts the result`).toBe(0);
+    expect(order.evidence, `${example.sample}: evidence follows the summary`).toBeGreaterThan(order.verdict);
+    expect(order.details, `${example.sample}: technical details stay last`).toBeGreaterThan(order.evidence);
+    if (example.sample === "report.pdf") {
+      expect(order.redaction, "PDF redaction follows evidence").toBeGreaterThan(order.evidence);
+      await expect(result.locator(example.action)).toBeVisible();
+    } else {
+      await expect(result.locator(example.action)).toBeVisible();
+    }
+
+    const details = result.locator(".more-details");
+    await expect(details).not.toHaveAttribute("open", "");
+    await expect(details.locator(".makeup")).toBeHidden();
+    await details.locator("summary").click();
+    await expect(details.locator(".makeup")).toBeVisible();
+
+    if (example.sample === "photo.jpg") {
+      await result.locator(example.action).click();
+      const comparison = page.locator(".before-after");
+      await expect(comparison).toBeVisible();
+      await page.setViewportSize({ width: 390, height: 844 });
+      const columns = await comparison.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
+      expect(columns, "phone clean-copy comparison stacks the two results").toBe(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  }
 });
 
 test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }) => {
@@ -662,6 +810,25 @@ test("clean copy verification checks that selected PDF text left the searchable 
   await expect(removed.getByRole("heading", { name: "Removed" })).toBeVisible();
   await expect(removed).toContainText("Selected PDF text");
   await expect(report).not.toContainText("Salary");
+});
+
+test("the PDF page picker keeps its dropdown arrow clear of the page name", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("./?sample=redacted.pdf");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const redactor = page.locator(".redactor");
+  await redactor.locator('input[type="search"]').fill("Olena Koval");
+  await redactor.getByRole("button", { name: "Find", exact: true }).click();
+
+  const picker = redactor.locator(".redact-page-pick");
+  await expect(picker).toBeVisible();
+  const style = await picker.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { appearance: computed.appearance, backgroundImage: computed.backgroundImage, paddingRight: parseFloat(computed.paddingRight) };
+  });
+  expect(style.appearance).toBe("none");
+  expect(style.backgroundImage).toContain("linear-gradient");
+  expect(style.paddingRight).toBeGreaterThanOrEqual(36);
 });
 
 test("clean copy verification announces a controlled result while copy actions stay available", async ({ page }) => {

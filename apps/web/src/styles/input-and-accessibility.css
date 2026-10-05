@@ -29,6 +29,77 @@
   border: 0;
 }
 
+/* Native controls share one size and one clear keyboard focus treatment. */
+select,
+.photo-tool .film-roll-field select {
+  min-height: var(--control-height);
+  padding-inline: var(--space-3) 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  appearance: none;
+  background-color: var(--panel);
+  background-image:
+    linear-gradient(45deg, transparent 49%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 51%);
+  background-position: right 16px center, right 10px center;
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  color: var(--text);
+}
+
+:where(button, input, select, textarea, summary, a[href], [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* One disclosure chevron, with a full-height row as its keyboard and pointer target. */
+summary {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::before {
+  content: "";
+  flex: none;
+  width: 0.42em;
+  height: 0.42em;
+  border-right: 1.75px solid currentColor;
+  border-bottom: 1.75px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.hex-legend summary {
+  display: inline-flex;
+  min-height: var(--control-height-compact);
+}
+
+@media (forced-colors: active) {
+  select,
+  .photo-tool .film-roll-field select {
+    appearance: auto;
+    background-image: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  summary::before {
+    transition: none;
+  }
+}
+
 /* High contrast (Windows' contrast themes): backgrounds give way to the
    system's colours, so what a background alone marked gets an outline or a
    border — the selected part, a verdict, a tag — in colours the system
@@ -284,6 +355,18 @@
   align-self: center;
   color: var(--faint);
   font-size: 18px;
+}
+
+@media (max-width: 520px) {
+  .before-after {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .ba-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
 }
 
 .clean-actions {

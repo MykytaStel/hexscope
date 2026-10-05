@@ -10,6 +10,13 @@
   --type-reading: clamp(16px, 1.2vw, 18px);
   --type-card-title: 17px;
   --type-display: clamp(32px, 3.1vw, 44px);
+  --control-height: 44px;
+  --control-height-compact: 32px;
+  --control-radius: 10px;
+  --control-radius-compact: 8px;
+  --surface-radius: 14px;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -161,4 +168,3 @@ button,
 input {
   font: inherit;
 }
-

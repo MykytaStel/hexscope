@@ -335,11 +335,32 @@
 
 .report {
   width: min(680px, calc(100vw - 32px));
-  padding: 20px;
+  max-height: min(840px, calc(100dvh - 32px));
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(18px, 3vw, 28px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--surface-radius);
   background: var(--panel);
   color: var(--text);
+  line-height: 1.55;
+}
+
+.report[open] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.report > * { min-width: 0; margin-block: 0; }
+
+.report .btn {
+  min-height: var(--control-height);
+  height: auto;
+  justify-content: center;
+  border-radius: var(--control-radius);
 }
 
 .report::backdrop {
@@ -377,16 +398,19 @@
 
 
 .report h2 {
-  margin: 0 0 6px;
-  font-size: 17px;
+  margin: 0;
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .report-text {
   width: 100%;
-  margin: 10px 0 12px;
-  padding: 10px;
+  min-height: 220px;
+  margin: 0;
+  padding: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   background: var(--panel-2);
   color: var(--text);
   font: 12px/1.5 var(--mono);
@@ -396,8 +420,25 @@
 
 .report-actions {
   display: flex;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
+}
+
+.report.compare > .btn:last-child,
+.report.shortcuts > .btn:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  justify-self: end;
+  background: var(--panel);
+  box-shadow: 0 -8px 12px var(--panel);
+}
+
+@media (max-width: 520px) {
+  .report { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
+  .report-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .report-actions .btn { width: 100%; }
 }
 
 a.btn {
