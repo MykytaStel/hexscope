@@ -8,6 +8,15 @@ export interface CleanCopySummary {
   clear: boolean;
 }
 
+/** Lead with the most consequential state without implying that zero findings were removed. */
+export function cleanCopySummaryLabel(summary: CleanCopySummary): string {
+  if (summary.state === "unverified") return "Copy not checked";
+  if (summary.clear) return "No findings found in the copy";
+  if (summary.present > 0) return "Findings remain in the copy";
+  if (summary.removed > 0) return "Confirmed removed";
+  return "Copy not fully checked";
+}
+
 /** Counts only what the readback report actually established. */
 export function cleanCopySummary(report: VerificationReport | undefined): CleanCopySummary {
   if (!report) return { state: "unverified", removed: 0, present: 0, unchecked: 0, clear: false };

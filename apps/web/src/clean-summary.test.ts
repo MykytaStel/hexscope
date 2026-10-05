@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanCopySummary, confirmedRemovedKinds } from "./clean-summary";
+import { cleanCopySummary, cleanCopySummaryLabel, confirmedRemovedKinds } from "./clean-summary";
 
 describe("clean copy summary", () => {
   it("keeps removed, present, and unchecked findings distinct", () => {
@@ -31,6 +31,18 @@ describe("clean copy summary", () => {
       clear: true,
     });
     expect(cleanCopySummary({ removed: [], present: [{ kind: "camera", label: "Camera" }], unchecked: [] }).clear).toBe(false);
+  });
+
+  it("does not say findings were removed when none were confirmed removed", () => {
+    expect(cleanCopySummaryLabel({ state: "checked", removed: 0, present: 2, unchecked: 4, clear: false })).toBe(
+      "Findings remain in the copy",
+    );
+    expect(cleanCopySummaryLabel({ state: "checked", removed: 0, present: 0, unchecked: 4, clear: false })).toBe(
+      "Copy not fully checked",
+    );
+    expect(cleanCopySummaryLabel({ state: "checked", removed: 4, present: 0, unchecked: 4, clear: false })).toBe(
+      "Confirmed removed",
+    );
   });
 
   it("does not claim a clean result when verification is unavailable", () => {

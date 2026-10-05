@@ -66,6 +66,8 @@ describe("the interface language", () => {
 
   it("translates the clean-copy verification headings and concrete reasons", () => {
     expect(translateText("Checking the copy in this tab…", "uk")).toBe("Перевіряємо копію в цій вкладці…");
+    expect(translateText("Findings remain in the copy", "uk")).toBe("У копії залишилися дані");
+    expect(translateText("Copy not fully checked", "uk")).toBe("Копію перевірено не повністю");
     expect(translateText("Removed", "uk")).toBe("Видалено");
     expect(translateText("Still present", "uk")).toBe("Залишилося в копії");
     expect(translateText("Not checked", "uk")).toBe("Не перевірено");

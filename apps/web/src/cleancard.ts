@@ -11,7 +11,7 @@ import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
 import { loadCopyVerification } from "./copyverification-loader";
 import { currentLocale, translateText } from "./i18n";
-import { cleanCopySummary } from "./clean-summary";
+import { cleanCopySummary, cleanCopySummaryLabel } from "./clean-summary";
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -152,15 +152,14 @@ export function renderBeforeAfter(card: HTMLElement, report: VerificationReport 
   if (!after || !count || !description || !details) return;
 
   after.classList.toggle("is-clear", summary.clear);
+  description.textContent = tr(cleanCopySummaryLabel(summary));
   if (summary.state === "unverified") {
     count.textContent = "—";
-    description.textContent = tr("Copy not checked");
     details.replaceChildren();
     return;
   }
 
   count.textContent = String(summary.removed);
-  description.textContent = tr(summary.clear ? "No findings found in the copy" : "Confirmed removed");
   if (summary.clear) {
     details.replaceChildren();
     return;

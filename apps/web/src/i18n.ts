@@ -23,6 +23,8 @@ const UK: Record<string, string> = {
   "Checking the copy…": "Перевіряємо копію…",
   "Copy not checked": "Копію не перевірено",
   "Confirmed removed": "Підтверджено видалено",
+  "Findings remain in the copy": "У копії залишилися дані",
+  "Copy not fully checked": "Копію перевірено не повністю",
   "No findings found in the copy": "У копії нічого не знайдено",
   "Compare with the original": "Порівняти з оригіналом",
   "What the copy took out, part by part": "Що саме копія видалила",
