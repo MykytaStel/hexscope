@@ -817,6 +817,42 @@ test("a blacked-out PDF: the names still under its boxes", async ({ page }) => {
   await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
 });
 
+test("presentation notes are removed only when asked", async ({ page }) => {
+  catchDownloads(page);
+  const deck = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/keynote.pptx", import.meta.url));
+  const upload = async () => {
+    await home(page);
+    await page.locator("#picker-empty").setInputFiles({
+      name: "keynote.pptx",
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      buffer: deck,
+    });
+    await expect(page.locator(".verdict-title")).toBeVisible();
+  };
+
+  await upload();
+  const option = page.getByRole("checkbox", { name: "Also empty the comments and the speaker's notes, and who wrote them" });
+  await expect(option).not.toBeChecked();
+  await page.locator(".verdict-cta").click();
+  const problem = page.locator(".cleaner .problem");
+  const result = page.locator(".clean-removed");
+  await expect(problem.or(result)).toBeVisible();
+  if (await problem.isVisible()) {
+    await expect(problem).toBeVisible();
+  } else {
+    await result.locator("summary").click();
+    await expect(result).not.toContainText("Speaker's notes, emptied");
+  }
+
+  await upload();
+  await page.getByRole("checkbox", { name: "Also empty the comments and the speaker's notes, and who wrote them" }).check();
+  await page.locator(".verdict-cta").click();
+  const removed = page.locator(".clean-removed");
+  await expect(removed).toBeVisible();
+  await removed.locator("summary").click();
+  await expect(removed).toContainText("the speaker's notes, emptied");
+});
+
 test("a spreadsheet's clean copy keeps what is part of it, and says so", async ({ page }) => {
   catchDownloads(page);
   await page.goto("./?sample=budget.xlsx");
