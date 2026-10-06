@@ -1204,7 +1204,7 @@ body[data-state="ready"] .topbar {
     z-index: 30;
     display: grid;
     width: max-content;
-    min-width: 184px;
+    min-width: 176px;
     max-width: calc(100vw - 16px);
     box-sizing: border-box;
     gap: 2px;
@@ -1327,12 +1327,16 @@ body[data-state="ready"] .topbar {
 
 @media (max-width: 560px) {
   body[data-state="empty"] .topbar {
-    gap: 6px;
+    gap: 4px;
     padding-inline: 8px;
   }
 
   body[data-state="empty"] .topbar .actions {
-    gap: 4px;
+    gap: 2px;
+  }
+
+  body[data-state="empty"] .landing-menu > summary {
+    padding-inline: 10px;
   }
 
   .empty-card {

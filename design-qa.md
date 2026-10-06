@@ -164,7 +164,7 @@ No actionable P0, P1, P2, or P3 findings remain for this guide-navigation slice.
 
 - **Page flow:** hero and real analyzer preview lead into the trust row, one shared Photo/Document/Email example panel, a deeper analyzer preview, Film scans, compact monochrome format groups, local privacy CTA, and footer.
 - **Examples:** native radio inputs and labels switch one shared preview panel. Each option keeps its matching sample action; the preview displays actual metadata from the test file.
-- **Navigation:** the phone menu sits below the header and right-aligns with its trigger. At 390 px, the trigger ends at x=196.47 and the panel ends at x=196.47; choosing a destination closes it. No disclosure arrow collides with the hamburger icon.
+- **Navigation:** the phone menu sits below the header and right-aligns with its trigger. At 390 px, the trigger and panel end at x=190.47; the 176 px panel begins at x=14.47. The primary action ends at x=382 and document width stays 390 px. Choosing a destination closes the menu; no disclosure arrow collides with the hamburger icon.
 - **Film scans:** the landing uses the existing synthetic negative asset and links to the actual Film Lab/sample flows. The artwork is clearly synthetic; the landing does not invent a multi-frame roll or frame metadata.
 - **Formats and privacy:** supported extensions stay grouped in restrained monochrome rows. The final privacy card stacks into a single phone column and retains the real local file and multi-photo actions.
 - **Color, type, and assets:** graphite surfaces, off-white headings, subdued supporting text, and restrained borders follow the supplied visual system. The page uses actual sample files and existing analyzer imagery, with no permanent blue accent.
@@ -176,7 +176,7 @@ No actionable layout, interaction, localization, or accessibility findings remai
 
 ## Verification
 
-- `pnpm --filter web build` — passed; Vite's existing warnings are about classic `theme.js` scripts in HTML pages. `gzip -9` measured the main entry at 65,140 bytes against the 65,150-byte CI budget.
+- `pnpm --filter web build` — passed; Vite's existing warnings are about classic `theme.js` scripts in HTML pages. `gzip -9` measured the main entry at 65,142 bytes against the 65,150-byte CI budget.
 - `pnpm --filter web test` — 122 tests passed.
 - `pnpm --filter web e2e` — 208 passed, 18 skipped.
 - Browser checks cover sample switching/opening, menu placement and close behavior, Film Lab actions, privacy actions, locale changes, and responsive widths.
