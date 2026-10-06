@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="./theme.js"></script>
     <meta name="description" content="Check what a photo or document gives away before you send it — its location, the owner's name, text under black boxes, comments — and save a clean copy. In your browser; nothing is uploaded." />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#090b0d" />
     <title>hexscope — see what a file gives away before you send it</title>
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://hexscope.pages.dev/" />
@@ -18,7 +18,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14l-12 7-12-7V9z' fill='%232563eb'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='white' stroke-width='2.5'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14l-12 7-12-7V9z' fill='%23f4f4f2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23090b0d' stroke-width='2.5'/%3E%3C/svg%3E" />
   </head>
   <body>
     <header class="topbar">
@@ -26,6 +26,21 @@
         <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
         <span class="brand-name">hexscope</span>
       </div>
+      <nav class="landing-nav" aria-label="Main">
+        <a href="#examples">Examples</a>
+        <a href="#formats">Formats</a>
+        <a href="#guides">Guides</a>
+        <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+      <details class="landing-menu">
+        <summary>Menu</summary>
+        <nav aria-label="Main">
+          <a href="#examples">Examples</a>
+          <a href="#formats">Formats</a>
+          <a href="#guides">Guides</a>
+          <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
+      </details>
       <div class="fileinfo" id="fileinfo"></div>
       <div class="actions">
         <div class="viewswitch" id="viewswitch" role="group" aria-label="View">
@@ -66,7 +81,7 @@
         <div class="hero">
           <div class="hero-text">
             <h1>See what a file gives away before you send it</h1>
-            <p class="lede">Where a photo was taken, whose camera took it, the text under a PDF's black boxes, the comments left in a Word file. hexscope finds them right here, in your browser, and saves a clean copy without them.</p>
+            <p class="lede">Check metadata, hidden content and file structure before you share. Your file stays in your browser.</p>
             <div class="hero-actions">
               <button type="button" class="btn btn-primary btn-big" data-opens="picker-empty">Choose a file</button>
               <input type="file" id="picker-empty" multiple hidden />
@@ -87,8 +102,18 @@
         <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
       </div>
 
-      <h2 class="doors-title">Before you send</h2>
-      <div class="doors doors-main">
+      <ul class="landing-proof">
+        <li class="promise">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
+          <span><strong>Local processing.</strong> Nothing is uploaded; your file stays in this tab.</span>
+        </li>
+        <li class="promise"><span><strong>No account.</strong> No tracking.</span></li>
+        <li class="promise"><span><strong>Open source.</strong> <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads your file.</span></li>
+      </ul>
+
+      <h2 class="doors-title">Different files, different findings</h2>
+      <p class="doors-lede">Try a photo, document or email sample to see what can be hidden inside.</p>
+      <div class="doors doors-main" id="examples">
         <button class="door" data-sample="samples/photo.jpg" data-name="photo.jpg">
             <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
             <span class="door-title">Check a photo</span>
@@ -109,16 +134,45 @@
         </button>
       </div>
 
-      <div class="landing-proof">
-        <p class="promise">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
-          <span><strong>Nothing is uploaded.</strong> The file never leaves this tab: no account, no tracking. <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads it.</span>
-        </p>
-        <details class="formats-disclosure">
-          <summary>Supported formats</summary>
-          <p class="formats">Reads photos and pictures (JPEG, HEIC, PNG, AVIF, WebP, GIF), videos, PDFs, Word, Excel and PowerPoint — old .doc, .xls and .ppt too — ZIP, emails, Outlook messages and WebAssembly.</p>
-        </details>
-      </div>
+      <section class="format-catalog" id="formats" aria-labelledby="format-catalog-title">
+        <header class="format-catalog-heading">
+          <h2 id="format-catalog-title">Supported formats</h2>
+          <p>See what Hexscope can open. What it can inspect or change depends on the format.</p>
+        </header>
+        <div class="format-catalog-grid">
+          <section class="format-category" aria-labelledby="format-images-title">
+            <h3 id="format-images-title">Photos &amp; images</h3>
+            <ul class="format-tags" aria-label="Image formats">
+              <li><code>JPEG</code></li><li><code>PNG</code></li><li><code>HEIC / HEIF</code></li>
+              <li><code>AVIF</code></li><li><code>WebP</code></li><li><code>GIF</code></li>
+            </ul>
+            <p class="format-category-note">TIFF scans work in Film Lab.</p>
+          </section>
+          <section class="format-category" aria-labelledby="format-video-title">
+            <h3 id="format-video-title">Video</h3>
+            <ul class="format-tags" aria-label="Video formats">
+              <li><code>MP4</code></li><li><code>QuickTime</code></li><li><code>MOV</code></li><li><code>M4V</code></li>
+            </ul>
+            <p class="format-category-note">Includes MOV and M4V files.</p>
+          </section>
+          <section class="format-category" aria-labelledby="format-documents-title">
+            <h3 id="format-documents-title">Documents &amp; Office</h3>
+            <ul class="format-tags" aria-label="Document formats">
+              <li><code>PDF</code></li><li><code>DOCX</code></li><li><code>XLSX</code></li><li><code>PPTX</code></li>
+              <li><code>DOC</code></li><li><code>XLS</code></li><li><code>PPT</code></li>
+            </ul>
+            <p class="format-category-note">Older Word, Excel and PowerPoint formats included.</p>
+          </section>
+          <section class="format-category" aria-labelledby="format-more-title">
+            <h3 id="format-more-title">Email, archives &amp; technical files</h3>
+            <ul class="format-tags" aria-label="Email, archive and technical formats">
+              <li><code>EML</code></li><li><code>Outlook MSG</code></li><li><code>ZIP</code></li>
+              <li><code>EPUB</code></li><li><code>APK / JAR</code></li><li><code>WebAssembly</code></li>
+            </ul>
+            <p class="format-category-note">Common file types inside ZIP archives are supported too.</p>
+          </section>
+        </div>
+      </section>
 
       <section class="specialist-tools" aria-labelledby="specialist-tools-title">
         <div class="specialist-copy">
@@ -161,7 +215,7 @@
           </div>
         </details>
 
-        <details class="landing-more">
+        <details class="landing-more" id="guides">
           <summary>Guides and more sample files</summary>
           <nav class="more-links" aria-label="More">
           <section class="more-block">

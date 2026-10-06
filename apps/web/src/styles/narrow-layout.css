@@ -47,9 +47,36 @@ body[data-state="ready"] .viewswitch {
   }
 
   .landing-proof {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-3);
     margin-top: var(--space-5);
+  }
+
+  .format-catalog {
+    margin-top: var(--space-5);
+    padding: 18px;
+  }
+
+  .format-catalog-heading {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .format-catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .format-category,
+  .format-category + .format-category {
+    padding: var(--space-3) 12px;
+  }
+
+  .format-category:nth-child(2n + 1) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .format-category:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
   }
 
   .doors-title {
@@ -237,6 +264,31 @@ body[data-state="ready"] .viewswitch {
 
   .player-speed input {
     width: 90px;
+  }
+}
+
+@media (max-width: 560px) {
+  .format-catalog {
+    padding: 16px;
+  }
+
+  .format-catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .format-category,
+  .format-category + .format-category,
+  .format-category:nth-child(2n + 1) {
+    padding: 12px 0;
+    border-left: 0;
+  }
+
+  .format-category + .format-category {
+    border-top: 1px solid var(--border);
+  }
+
+  .format-category h3 {
+    margin-bottom: var(--space-2);
   }
 }
 

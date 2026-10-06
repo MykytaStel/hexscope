@@ -17,7 +17,7 @@ export function setTheme(t: Theme): void {
   if (t === "auto") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
   try {
-    if (t === "auto") localStorage.removeItem(KEY);
+    if (t === "auto") localStorage.setItem(KEY, "auto");
     else localStorage.setItem(KEY, t);
   } catch {
     // Not remembered; it still applies now.

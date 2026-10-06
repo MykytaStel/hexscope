@@ -30,7 +30,7 @@
 
 .brand svg circle {
   fill: none;
-  stroke: #fff;
+  stroke: var(--brand-mark-center);
   stroke-width: 2.5;
 }
 
