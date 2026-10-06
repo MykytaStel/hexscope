@@ -83,6 +83,8 @@ const UK: Record<string, string> = {
   "See examples": "Переглянути приклади",
   "Different files, different findings": "Різні файли — різні знахідки",
   "Try a photo, document or email sample to see what can be hidden inside.": "Виберіть приклад фото, документа чи листа, щоб побачити, що може бути приховано всередині.",
+  "Document": "Документ",
+  "Film scans": "Плівкові скани",
   "A real file, in the real analyzer": "Справжній файл у справжньому аналізаторі",
   "Go deeper": "Зазирнути глибше",
   "Follow one sample from a plain-language finding to the file structure and its bytes.": "Простежте шлях від зрозумілого опису знахідки до структури файла та його байтів.",

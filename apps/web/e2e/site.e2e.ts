@@ -54,6 +54,85 @@ test("starts with the graphite visual direction and landing navigation", async (
   await expect(navigation.getByRole("link", { name: "Guides" })).toHaveAttribute("href", "#guides");
 });
 
+test("the phone landing menu anchors its panel to the trigger", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const menu = page.locator(".landing-menu");
+  const trigger = menu.locator(":scope > summary");
+  await trigger.click();
+
+  const panel = menu.locator("nav");
+  await expect(panel).toBeVisible();
+  const [triggerBox, panelBox] = await Promise.all([trigger.boundingBox(), panel.boundingBox()]);
+  expect(triggerBox).not.toBeNull();
+  expect(panelBox).not.toBeNull();
+  expect(Math.abs((panelBox!.x + panelBox!.width) - (triggerBox!.x + triggerBox!.width))).toBeLessThanOrEqual(1);
+  expect(panelBox!.x).toBeGreaterThanOrEqual(8);
+  expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(382);
+});
+
+test("the phone landing menu closes after choosing a destination", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const menu = page.locator(".landing-menu");
+  await menu.locator(":scope > summary").click();
+  await menu.getByRole("link", { name: "Formats" }).click();
+  await expect(menu).not.toHaveAttribute("open", "");
+});
+
+test("the landing presents Film scans with its real sample and existing tool action", async ({ page }) => {
+  await home(page);
+
+  const film = page.locator(".film-showcase");
+  await expect(film.getByRole("heading", { name: "Film scans" })).toBeVisible();
+  const sample = film.locator(".film-sample img");
+  await expect.poll(() => sample.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(640);
+  await expect(film.getByRole("button", { name: "Film roll · JPEG / TIFF" })).toBeVisible();
+  await expect(film.getByRole("button", { name: "Try a synthetic film negative →" })).toHaveAttribute(
+    "data-sample",
+    "samples/film-negative.png",
+  );
+});
+
+test("the three example choices update one preview and open their matching sample", async ({ page }) => {
+  await home(page);
+  const examples = page.locator("#examples");
+  const cases = [
+    { id: "example-photo", panel: "photo", finding: "48.8584", sample: "photo.jpg", action: "Try a sample photo →" },
+    { id: "example-document", panel: "document", finding: "Black boxes that hide nothing", sample: "redacted.pdf", action: "Try a blacked-out PDF →" },
+    { id: "example-email", panel: "email", finding: "See where replies go", sample: "phishing.eml", action: "Try a suspicious email →" },
+  ];
+
+  await expect(examples.getByRole("radio")).toHaveCount(3);
+  for (const item of cases) {
+    const choice = examples.locator(`#${item.id}`);
+    await examples.locator(`label[for="${item.id}"]`).click();
+    await expect(choice).toBeChecked();
+    const panel = examples.locator(`[data-example-panel="${item.panel}"]`);
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText(item.finding);
+    await panel.getByRole("button", { name: item.action }).click();
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await expect(page.locator("#fileinfo")).toContainText(item.sample);
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.state === "empty");
+  }
+});
+
+test("the landing ends its main story with a local privacy action", async ({ page }) => {
+  await home(page);
+
+  const privacy = page.locator(".privacy-cta");
+  await privacy.scrollIntoViewIfNeeded();
+  await expect(privacy.getByRole("heading", { name: "The file never leaves this tab" })).toBeVisible();
+  await expect(privacy.getByRole("button", { name: "Open a file" })).toHaveAttribute("data-opens", "picker-empty");
+  const advanced = page.locator(".geek-more");
+  expect(await privacy.evaluate((section) => section.compareDocumentPosition(document.querySelector(".geek-more")!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+  await expect(advanced).toBeAttached();
+});
+
 test("landing hero has a concise headline, one primary action, and a real photo preview", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
@@ -367,7 +446,8 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   ]);
   expect(menuBox).not.toBeNull();
   expect(headerBox).not.toBeNull();
-  expect(menuBox!.x).toBeGreaterThanOrEqual(button!.x);
+  expect(Math.abs((menuBox!.x + menuBox!.width) - (button!.x + button!.width))).toBeLessThanOrEqual(1);
+  expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
 });
@@ -375,6 +455,14 @@ test("keeps the mobile landing menu compact and aligned below the header", async
 /** Opens a sample from its door on the landing page. */
 async function openDoor(page: Page, door: RegExp): Promise<void> {
   await home(page);
+  const exampleId = /document/i.test(door.source) ? "example-document" : /email/i.test(door.source) ? "example-email" : "example-photo";
+  const example = page.locator(`#${exampleId}`);
+  if (/check an? (photo|document|email)/i.test(door.source) && (await example.count()) > 0) {
+    await page.locator(`label[for="${exampleId}"]`).click();
+    await page.locator("#examples [data-example-panel]:visible button[data-sample]").click();
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    return;
+  }
   let target = page.getByRole("button", { name: door });
   if ((await target.count()) === 0) {
     await page.locator(".geek-more > summary").click();
@@ -538,29 +626,30 @@ test("the short demo scene reserves no disproportionate empty band", async ({ pa
   }
 });
 
-test("the landing page keeps its three everyday examples in one aligned grid", async ({ page }, info) => {
+test("the example tabs share one aligned preview on desktop", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "the desktop arrangement is checked at desktop widths");
   await home(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   const grid = page.locator(".doors-main");
   await expect(grid).toHaveCount(1);
-  const doors = grid.locator(":scope > .door");
-  await expect(doors).toHaveCount(3);
-  const rows = await doors.evaluateAll((elements) => elements.map((e) => Math.round(e.getBoundingClientRect().top)));
-  expect(new Set(rows).size).toBe(1);
+  const choices = grid.locator(".example-tabs .door");
+  await expect(choices).toHaveCount(3);
+  const bounds = await choices.evaluateAll((elements) => elements.map((e) => e.getBoundingClientRect().toJSON()));
+  expect(new Set(bounds.map((box) => Math.round(box.y))).size).toBe(1);
+  expect(new Set(bounds.map((box) => Math.round(box.height))).size).toBe(1);
+  await expect(grid.locator(".example-preview [data-example-panel]:visible")).toHaveCount(1);
 });
 
-test("the desktop doors line up their text and actions", async ({ page }, info) => {
+test("the desktop example tabs line up their labels and file types", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "the card row is checked in its desktop arrangement");
   await home(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const rows = await page.locator(".doors-main .door").evaluateAll((doors) =>
-    [".door-title", ".door-text", ".door-go"].map((selector) =>
-      doors.map((door) => Math.round(door.querySelector(selector)!.getBoundingClientRect().top)),
+  const rows = await page.locator(".example-tabs .door").evaluateAll((tabs) =>
+    [".door-title", ".example-tab-type"].map((selector) =>
+      tabs.map((tab) => Math.round(tab.querySelector(selector)!.getBoundingClientRect().top)),
     ),
   );
-  // System font metrics can round the same baseline a pixel apart across platforms.
-  for (const row of rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(2);
+  for (const row of rows) expect(new Set(row).size).toBe(1);
 });
 
 test("the landing page uses the available desktop canvas", async ({ page }, info) => {
@@ -669,7 +758,7 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
-    example: parseFloat(getComputedStyle(document.querySelector(".doors-main .door-text")!).fontSize),
+    example: parseFloat(getComputedStyle(document.querySelector(".example-copy > p:not(.example-kicker)")!).fontSize),
     demoLabel: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
     demoCaption: parseFloat(getComputedStyle(document.querySelector(".demo-caption")!).fontSize),
     demoFact: parseFloat(getComputedStyle(document.querySelector(".demo-fact")!).fontSize),
@@ -754,9 +843,8 @@ test("the phone brings the main actions before supporting detail", async ({ page
   expect(proof!.y + proof!.height).toBeLessThan(doors!.y);
 });
 
-test("landing cards stay inside the content grid across widths and locales", async ({ page }) => {
+test("the example selector and preview stay inside the content grid across widths and locales", async ({ page }) => {
   await home(page);
-  const tabletLayouts: { width: number; locale: "en" | "uk"; lastCardLayout: string }[] = [];
   for (const locale of ["en", "uk"] as const) {
     await page.evaluate((language) => localStorage.setItem("hexscope.language", language), locale);
     await page.reload();
@@ -767,61 +855,54 @@ test("landing cards stay inside the content grid across widths and locales", asy
       await page.setViewportSize({ width, height: 900 });
       const layout = await page.locator(".doors-main").evaluate((grid) => {
         const frame = grid.getBoundingClientRect();
-        const cards = [...grid.querySelectorAll(":scope > .door")].map((card) => {
+        const parts = [...grid.querySelectorAll(".example-tabs .door, .example-preview")].map((card) => {
           const bounds = card.getBoundingClientRect();
           return {
             left: bounds.left,
             right: bounds.right,
             width: bounds.width,
-            layout: getComputedStyle(card).gridTemplateColumns,
           };
         });
         return {
           frame: { left: frame.left, right: frame.right, width: frame.width },
-          cards,
+          parts,
           overflow: document.documentElement.scrollWidth - innerWidth,
           viewport: innerWidth,
         };
       });
-      expect(layout.cards, `${locale} at ${width}px: all three everyday doors`).toHaveLength(3);
+      expect(layout.parts, `${locale} at ${width}px: three choices and one shared preview`).toHaveLength(4);
       expect(layout.overflow, `${locale} at ${width}px: page overflow`).toBeLessThanOrEqual(0);
-      for (const [index, card] of layout.cards.entries()) {
-        expect(card.left, `${locale} at ${width}px: card ${index + 1} left edge`).toBeGreaterThanOrEqual(layout.frame.left - 1);
-        expect(card.right, `${locale} at ${width}px: card ${index + 1} right edge inside grid`).toBeLessThanOrEqual(layout.frame.right + 1);
-        expect(card.left, `${locale} at ${width}px: card ${index + 1} left edge inside viewport`).toBeGreaterThanOrEqual(-1);
-        expect(card.right, `${locale} at ${width}px: card ${index + 1} right edge inside viewport`).toBeLessThanOrEqual(layout.viewport + 1);
-        expect(card.width, `${locale} at ${width}px: card ${index + 1} stays readable`).toBeGreaterThanOrEqual(280);
-      }
-      if (width >= 901 && width <= 1180) {
-        tabletLayouts.push({ width, locale, lastCardLayout: layout.cards[2].layout });
+      for (const [index, part] of layout.parts.entries()) {
+        expect(part.left, `${locale} at ${width}px: item ${index + 1} left edge`).toBeGreaterThanOrEqual(layout.frame.left - 1);
+        expect(part.right, `${locale} at ${width}px: item ${index + 1} right edge inside grid`).toBeLessThanOrEqual(layout.frame.right + 1);
+        expect(part.left, `${locale} at ${width}px: item ${index + 1} left edge inside viewport`).toBeGreaterThanOrEqual(-1);
+        expect(part.right, `${locale} at ${width}px: item ${index + 1} right edge inside viewport`).toBeLessThanOrEqual(layout.viewport + 1);
       }
     }
   }
-  for (const tablet of tabletLayouts) {
-    expect(tablet.lastCardLayout.trim().split(/\s+/), `${tablet.locale} at ${tablet.width}px: third door uses one card column`).toHaveLength(1);
-  }
 });
 
-test("specialist tools group film and multi-photo entry points away from everyday doors", async ({ page }) => {
+test("the landing groups film scans and local multi-photo actions with their right sections", async ({ page }) => {
   await home(page);
-  const tools = page.locator(".specialist-tools");
+  const tools = page.locator(".film-showcase");
+  const privacy = page.locator(".privacy-cta");
   await expect(tools).toBeVisible();
-  await expect(tools.getByRole("heading", { name: "Specialist tools" })).toBeVisible();
+  await expect(tools.getByRole("heading", { name: "Film scans" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Film roll · JPEG / TIFF" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Try a synthetic film negative →" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" })).toHaveAttribute("data-opens", "picker-empty");
+  await expect(privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" })).toHaveAttribute("data-opens", "picker-empty");
   await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
   await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await expect(tools.getByRole("heading", { name: "Спеціальні інструменти" })).toBeVisible();
+  await expect(tools.getByRole("heading", { name: "Плівкові скани" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Плівковий рулон · JPEG / TIFF" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Спробувати синтетичний плівковий негатив →" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
+  await expect(privacy.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
 
   await page.getByRole("button", { name: "Switch language to English" }).click();
   const fileChooserEvent = page.waitForEvent("filechooser");
-  await tools.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" }).click();
+  await privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" }).click();
   const fileChooser = await fileChooserEvent;
   expect(fileChooser.isMultiple()).toBe(true);
   const photo = readFileSync("../../crates/hexscope-core/tests/fixtures/photo.png");
@@ -948,7 +1029,7 @@ test("the pinned byte label remains readable", async ({ page }, info) => {
   expect(pinSize).toBeGreaterThanOrEqual(12);
 });
 
-test("the landing page has a clear primary action, three everyday doors, and a remembered Ukrainian choice", async ({ page }) => {
+test("the landing page has a clear primary action, three sample choices, and a remembered Ukrainian choice", async ({ page }) => {
   await home(page);
   await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
   await expect(page.locator('.hero-actions a[href="#examples"]')).toHaveText("See examples");
@@ -969,7 +1050,8 @@ test("the landing page has a clear primary action, three everyday doors, and a r
   await page.waitForFunction(() => document.body.dataset.state === "empty");
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await expect(page.getByRole("button", { name: "Вибрати файл" })).toBeVisible();
-  await page.locator(".doors-main .door").first().click();
+  await page.locator('label[for="example-photo"]').click();
+  await page.locator('#examples [data-example-panel="photo"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toContainText("Фото розкриває");
   await expect(page.locator(".verdict-lines .is-reveals")).toContainText("Розкриває місце зйомки");
   await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити дані");
@@ -1638,7 +1720,8 @@ test("after one visit, it works offline — a document too", async ({ page, cont
   await context.setOffline(true);
   await page.reload();
   await page.waitForFunction(() => document.body.dataset.state === "empty");
-  await page.getByRole("button", { name: /Check a document before you send it/ }).click();
+  await page.locator('label[for="example-document"]').click();
+  await page.locator('#examples [data-example-panel="document"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
   await page.goto("./black-out-a-pdf.html");
   await expect(page).toHaveTitle(/black out a PDF/i);

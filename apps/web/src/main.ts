@@ -68,6 +68,7 @@ document.querySelector('[data-opens="picker"]')?.before(themeButton());
 // The file pickers: buttons that open hidden inputs — wherever they are,
 // the summary's own included, drawn after the page loaded.
 document.addEventListener("click", (e) => {
+  if ((e.target as Element).closest(".landing-menu a")) document.querySelector(".landing-menu")?.removeAttribute("open");
   const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
   if (button) document.getElementById(button.dataset.opens ?? "")?.click();
   // A file opened earlier in this tab, from the summary's list.
