@@ -128,6 +128,7 @@ test("analyzer navigation switches between its existing workspace views", async 
 
   const nav = page.getByRole("navigation", { name: "Робоча область файла" });
   await expect(nav).toBeVisible();
+  await expect(nav.locator("button > svg.app-nav-icon[aria-hidden='true']")).toHaveCount(7);
   for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти", "Стиснення", "Порівняння"]) {
     await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
   }

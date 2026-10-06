@@ -15,7 +15,9 @@
 }
 
 .app-nav button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -25,8 +27,15 @@
   background: transparent;
   color: var(--muted);
   text-align: left;
+  white-space: nowrap;
   font: inherit;
   cursor: pointer;
+}
+
+.app-nav .app-nav-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .app-nav button:hover:not(:disabled) {

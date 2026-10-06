@@ -28,6 +28,7 @@ import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
+import { AlignLeft, Archive, Binary, Eye, FileText, GitCompare, ListTree, createElement } from "lucide";
 
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
@@ -81,6 +82,27 @@ document.addEventListener("click", (e) => {
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const appNavigation = $<HTMLElement>("app-nav");
+const appNavigationIcons = {
+  overview: Eye,
+  metadata: FileText,
+  content: AlignLeft,
+  structure: ListTree,
+  bytes: Binary,
+  compression: Archive,
+  compare: GitCompare,
+};
+for (const button of appNavigation.querySelectorAll<HTMLButtonElement>("button")) {
+  const key = button.dataset.appView ?? button.dataset.appAction;
+  const icon = key ? appNavigationIcons[key as keyof typeof appNavigationIcons] : undefined;
+  if (icon) {
+    button.prepend(createElement(icon, {
+      "aria-hidden": "true",
+      class: "app-nav-icon",
+      focusable: "false",
+      "stroke-width": 1.7,
+    }));
+  }
+}
 const comparePicker = $<HTMLInputElement>("compare-picker");
 const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
 
