@@ -15,6 +15,15 @@ describe("the interface language", () => {
     expect(resolveLocale(null, ["en-US"])).toBe("en");
   });
 
+  it("translates the grouped metadata headings", () => {
+    expect(translateText("General information", "uk")).toBe("Основна інформація");
+    expect(translateText("Camera & device", "uk")).toBe("Камера й пристрій");
+    expect(translateText("Dimensions", "uk")).toBe("Розміри");
+    expect(translateText("Dates", "uk")).toBe("Дати");
+    expect(translateText("Author & software", "uk")).toBe("Автор і програма");
+    expect(translateText("Additional fields", "uk")).toBe("Додаткові поля");
+  });
+
   it("keeps technical names in English when no Ukrainian equivalent exists", () => {
     for (const term of ["JSON", "JPEG", "APP1 · EXIF", "PDF"]) {
       expect(translateText(term, "uk")).toBe(term);

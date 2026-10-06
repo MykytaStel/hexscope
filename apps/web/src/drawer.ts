@@ -22,6 +22,31 @@ import { createCleaner } from "./cleaner";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
+type MetadataGroupKey = "general" | "camera" | "location" | "dates" | "creator" | "additional";
+
+const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
+  { key: "general", title: "General information" },
+  { key: "camera", title: "Camera & device" },
+  { key: "location", title: "Location" },
+  { key: "dates", title: "Dates" },
+  { key: "creator", title: "Author & software" },
+  { key: "additional", title: "Additional fields" },
+];
+
+const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additional">, Set<string>> = {
+  camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
+  location: new Set(["place", "photoplace"]),
+  dates: new Set(["taken", "created", "modified", "updates", "timezone"]),
+  creator: new Set(["software", "author", "editor", "producer", "application", "company", "template", "mailer", "sentfrom", "computer"]),
+};
+
+function metadataGroupFor(kind: string): MetadataGroupKey {
+  for (const key of ["camera", "location", "dates", "creator"] as const) {
+    if (METADATA_FACT_GROUPS[key].has(kind)) return key;
+  }
+  return "additional";
+}
+
 /** Details for one node on the left, facts about the whole file on the right. */
 export class Drawer {
   private readonly node: HTMLElement;
@@ -433,15 +458,38 @@ export class Drawer {
       return group;
     }
 
-    const list = el("dl", "reveal-list");
-    const row = (label: string, text: string, node: number, strong = false) => {
+    const metadataGroups = el("div", "metadata-groups reveal-list");
+    const groupElements = new Map<MetadataGroupKey, { section: HTMLElement; list: HTMLDListElement; body: HTMLElement }>();
+    for (const { key, title } of METADATA_GROUPS) {
+      const section = el("section", "metadata-group");
+      section.dataset.metadataGroup = key;
+      const list = el("dl", "metadata-field-list");
+      let body: HTMLElement = section;
+      if (key === "additional") {
+        const details = el("details", "metadata-additional-details");
+        details.append(el("summary", undefined, title), list);
+        section.append(details);
+        body = details;
+      } else {
+        section.append(el("h3", "metadata-group-title", title), list);
+      }
+      metadataGroups.append(section);
+      groupElements.set(key, { section, list, body });
+    }
+    const generalList = groupElements.get("general")!.list;
+    fact(generalList, "File", f.format.toUpperCase());
+    fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
+    const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
+    if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
+
+    const row = (label: string, text: string, node: number, strong = false, key: MetadataGroupKey = "additional") => {
       const dd = el("dd");
       const link = el("button", strong ? "reveal-link is-strong" : "reveal-link", text);
       link.title = "Show where in the file this is";
       link.addEventListener("click", () => this.onSelect(node));
       dd.append(link);
       dd.dataset.node = String(node);
-      list.append(el("dt", strong ? "is-strong" : undefined, label), dd);
+      groupElements.get(key)!.list.append(el("dt", strong ? "is-strong" : undefined, label), dd);
       return dd;
     };
 
@@ -450,7 +498,7 @@ export class Drawer {
       const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}${
         altitude !== null ? ` · ${Math.round(altitude)}\u00a0m` : ""
       }`;
-      const dd = row("Location", where, node, true);
+      const dd = row("Location", where, node, true, "location");
       dd.dataset.kind = "location";
       const term = dd.previousElementSibling as HTMLElement | null;
       if (term) term.dataset.kind = "location";
@@ -459,7 +507,8 @@ export class Drawer {
     let thumbRow: HTMLElement | null = null;
     for (const fact of f.facts) {
       const covered = fact.kind === "covered";
-      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, STRONG.includes(fact.kind));
+      const metadataGroup = metadataGroupFor(fact.kind);
+      const dd = row(FACT_LABELS[fact.kind] ?? fact.kind, fact.text, fact.node, STRONG.includes(fact.kind), metadataGroup);
       dd.dataset.kind = fact.kind;
       const term = dd.previousElementSibling as HTMLElement | null;
       if (term) term.dataset.kind = fact.kind;
@@ -514,12 +563,20 @@ export class Drawer {
         term?.setAttribute("data-kept", "");
       }
     }
-    group.append(list);
+    for (const { key } of METADATA_GROUPS) {
+      const elements = groupElements.get(key)!;
+      if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
+    }
+    const additionalFacts = f.facts.filter((entry) => metadataGroupFor(entry.kind) === "additional");
+    if (additionalFacts.some((entry) => STRONG.includes(entry.kind))) {
+      groupElements.get("additional")!.body.setAttribute("open", "");
+    }
+    group.append(metadataGroups);
     // The first pages with black boxes over text or pictures, drawn; with
     // their pictures when a box lies on one.
     const overPictures = f.labels.includes("a picture under a black box");
     for (const b of f.blackouts.slice(0, 2)) group.append(blackoutFigure(b, overPictures ? this.picturesOf(m, b.page) : undefined));
-    if (thumbRow) group.append(this.thumbnailCheck(m, thumbRow));
+    if (thumbRow) groupElements.get("additional")!.body.append(this.thumbnailCheck(m, thumbRow));
     // The one thing to do first, then when it matters and how to stop it
     // next time, then telling others.
     // An encrypted PDF is not rewritten: the copy would drop its protection.
