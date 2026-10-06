@@ -24,6 +24,14 @@ describe("the interface language", () => {
     expect(translateText("Additional fields", "uk")).toBe("Додаткові поля");
   });
 
+  it("translates the comparison workspace labels", () => {
+    expect(translateText("Compare", "uk")).toBe("Порівняння");
+    expect(translateText("File A", "uk")).toBe("Файл A");
+    expect(translateText("Metadata fields", "uk")).toBe("Поля метаданих");
+    expect(translateText("Only in A", "uk")).toBe("Лише у файлі A");
+    expect(translateText("Inspect byte differences", "uk")).toBe("Переглянути відмінності байтів");
+  });
+
   it("keeps technical names in English when no Ukrainian equivalent exists", () => {
     for (const term of ["JSON", "JPEG", "APP1 · EXIF", "PDF"]) {
       expect(translateText(term, "uk")).toBe(term);

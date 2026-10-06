@@ -1,13 +1,88 @@
 /* The guides: one column of text, in the story page's type. */
 
 .guide-layout {
-  max-width: 700px;
+  display: grid;
+  grid-template-columns: minmax(0, 700px) minmax(160px, 200px);
+  align-items: start;
+  column-gap: clamp(36px, 5vw, 64px);
+  max-width: 1040px;
   margin: 0 auto;
   padding: 36px 20px 80px;
 }
 
 .guide-layout .story-text {
+  grid-column: 1;
+  grid-row: 1;
   max-width: none;
+}
+
+.guide-toc {
+  position: sticky;
+  top: 88px;
+  grid-column: 2;
+  grid-row: 1;
+  max-height: calc(100dvh - 112px);
+  overflow: auto;
+  padding: 3px 0 3px 16px;
+  border-left: 1px solid var(--border);
+  overscroll-behavior: contain;
+}
+
+.guide-toc h2 {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.guide-toc ol {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-toc a {
+  position: relative;
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.guide-toc a[aria-current="location"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.guide-toc a[aria-current="location"]::before {
+  position: absolute;
+  top: 0.25em;
+  bottom: 0.25em;
+  left: -17px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--text);
+  content: "";
+}
+
+.guide-toc a:hover,
+.guide-toc a:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.guide-layout .story-text h2 {
+  scroll-margin-top: 88px;
+}
+
+.guide-layout .story-text h2:focus {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 5px;
 }
 
 .story-text ul,
@@ -32,6 +107,17 @@
   background: var(--panel);
   padding: 10px 14px;
   border-radius: 0 6px 6px 0;
+}
+
+@media (max-width: 900px) {
+  .guide-layout {
+    display: block;
+    max-width: 700px;
+  }
+
+  .guide-toc {
+    display: none;
+  }
 }
 
 .guide-language-note {
