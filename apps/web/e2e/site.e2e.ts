@@ -206,8 +206,13 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   await additional.locator("summary").click();
   await expect(additional.locator("dd[data-kind='thumbnail']")).toBeVisible();
 
-  await metadata.locator(".metadata-group[data-metadata-group='location'] dd[data-kind='location'] .reveal-link").click();
-  await expect(page.locator(".drawer-node .crumb.is-current")).toContainText("GPS IFD");
+  const locationRow = metadata.locator(".metadata-group[data-metadata-group='location'] dd[data-kind='location']");
+  const locationNode = await locationRow.getAttribute("data-node");
+  expect(locationNode).toMatch(/^\d+$/);
+  await locationRow.locator(".reveal-link").click();
+  const selectedTreeRow = page.locator(".tree .row.is-selected");
+  await expect(selectedTreeRow).toHaveAttribute("data-id", locationNode!);
+  await expect(selectedTreeRow.locator(".label")).toContainText("GPS IFD");
   const bytesNav = page.locator("#app-nav [data-app-view='bytes']");
   if (await bytesNav.isVisible()) await bytesNav.click();
   else await page.locator("#viewswitch button[data-view='bytes']").click();
