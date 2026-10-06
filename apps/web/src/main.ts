@@ -203,6 +203,12 @@ function syncAppNavigation(): void {
   const ready = document.body.dataset.state === "ready" && !!model;
   appNavigation.hidden = !ready;
   if (!ready) return;
+  if (!narrow.matches && !appNavigation.dataset.icons) {
+    appNavigation.dataset.icons = "loading";
+    void import("./app-nav-icons")
+      .then(({ installAppNavigationIcons }) => installAppNavigationIcons(appNavigation))
+      .catch(() => { delete appNavigation.dataset.icons; });
+  }
 
   const hasMetadata = !!$("drawer").querySelector(".reveals");
   const hasContent = !!$("drawer").querySelector(contentTargetSelector);
@@ -220,6 +226,9 @@ function syncAppNavigation(): void {
     }
   }
 }
+narrow.addEventListener("change", () => {
+  if (!narrow.matches && document.body.dataset.state === "ready") syncAppNavigation();
+});
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
   document.body.dataset.appView = view;
