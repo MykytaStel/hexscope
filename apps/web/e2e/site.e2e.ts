@@ -28,6 +28,49 @@ async function home(page: Page): Promise<void> {
   await page.waitForFunction(() => document.body.dataset.state === "empty");
 }
 
+test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem("hexscope.language", "en");
+  });
+  await home(page);
+
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  let navigation = page.locator(".landing-nav");
+  if (!(await navigation.isVisible())) {
+    await page.locator(".landing-menu > summary").click();
+    navigation = page.locator(".landing-menu nav");
+  }
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "Examples" })).toHaveAttribute("href", "#examples");
+  await expect(navigation.getByRole("link", { name: "Formats" })).toHaveAttribute("href", "#formats");
+  await expect(navigation.getByRole("link", { name: "Guides" })).toHaveAttribute("href", "#guides");
+});
+
+test("keeps the mobile landing menu compact and aligned below the header", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await home(page);
+
+  const summary = page.locator(".landing-menu > summary");
+  const button = await summary.boundingBox();
+  expect(button).not.toBeNull();
+  expect(button!.height).toBeLessThanOrEqual(36);
+
+  await summary.click();
+  const menu = page.locator(".landing-menu nav");
+  await expect(menu).toBeVisible();
+  const [menuBox, headerBox] = await Promise.all([
+    menu.boundingBox(),
+    page.locator(".topbar").boundingBox(),
+  ]);
+  expect(menuBox).not.toBeNull();
+  expect(headerBox).not.toBeNull();
+  expect(menuBox!.x).toBeGreaterThanOrEqual(button!.x);
+  expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+});
+
 /** Opens a sample from its door on the landing page. */
 async function openDoor(page: Page, door: RegExp): Promise<void> {
   await home(page);
@@ -116,9 +159,12 @@ test("the phone demo keeps its copy readable in both languages", async ({ page }
       const measurement = await page.evaluate(() => {
         const side = document.querySelector(".demo-side")!;
         const caption = document.querySelector(".demo-caption")!;
+        const demo = document.querySelector(".demo")!;
+        const frame = document.querySelector(".demo-frame")!;
         const sideBox = side.getBoundingClientRect();
         const captionBox = caption.getBoundingClientRect();
         return {
+          frameWidthRatio: frame.getBoundingClientRect().width / demo.getBoundingClientRect().width,
           captionSize: parseFloat(getComputedStyle(caption).fontSize),
           kickerSize: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
           left: captionBox.left - sideBox.left,
@@ -126,6 +172,7 @@ test("the phone demo keeps its copy readable in both languages", async ({ page }
           overflow: document.documentElement.scrollWidth - innerWidth,
         };
       });
+      expect(measurement.frameWidthRatio, `${language} image fills the phone demo at ${width}px`).toBeGreaterThan(0.85);
       expect(measurement.captionSize, `${language} caption at ${width}px`).toBeGreaterThanOrEqual(14);
       expect(measurement.kickerSize, `${language} label at ${width}px`).toBeGreaterThanOrEqual(12);
       expect(measurement.left, `${language} caption left edge at ${width}px`).toBeGreaterThanOrEqual(-1);
@@ -297,13 +344,13 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
     page: getComputedStyle(document.body).backgroundColor,
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
-  expect(light).toEqual({ page: "rgb(246, 246, 244)", demo: "rgb(255, 255, 255)" });
+  expect(light).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
   await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
   const dark = await page.evaluate(() => ({
     page: getComputedStyle(document.body).backgroundColor,
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
-  expect(dark).toEqual({ page: "rgb(15, 15, 17)", demo: "rgb(22, 22, 24)" });
+  expect(dark).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
@@ -362,15 +409,14 @@ test("shared routes only request their current stylesheets", async ({ page }) =>
   expect(await stylesheetUrls()).toHaveLength(3);
 });
 
-test("supported file types are available without crowding the mobile start", async ({ page }) => {
+test("supported file types stay grouped in the mobile catalog", async ({ page }) => {
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  const formats = page.locator(".formats-disclosure");
+  const formats = page.locator(".format-catalog");
   await expect(formats).toBeVisible();
-  await expect(formats.locator("summary")).toHaveText("Supported formats");
-  expect(await formats.evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
-  await formats.locator("summary").click();
-  await expect(formats.locator(".formats")).toBeVisible();
+  await expect(formats.getByRole("heading", { name: "Supported formats" })).toBeVisible();
+  await expect(formats.locator(".format-category")).toHaveCount(4);
+  expect(await formats.locator(".format-catalog-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
 });
 
 test("the phone brings the main actions before supporting detail", async ({ page }) => {
@@ -385,9 +431,12 @@ test("the phone brings the main actions before supporting detail", async ({ page
   }
   const doors = await page.locator(".doors-main").boundingBox();
   const proof = await page.locator(".landing-proof").boundingBox();
+  const actions = await page.locator(".hero-actions").boundingBox();
   expect(doors).not.toBeNull();
   expect(proof).not.toBeNull();
-  expect(proof!.y).toBeGreaterThan(doors!.y + doors!.height);
+  expect(actions).not.toBeNull();
+  expect(proof!.y).toBeGreaterThan(actions!.y + actions!.height);
+  expect(proof!.y + proof!.height).toBeLessThan(doors!.y);
 });
 
 test("landing cards stay inside the content grid across widths and locales", async ({ page }) => {
@@ -594,7 +643,7 @@ test("the landing page has two clear actions, three everyday doors, and a rememb
 
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
-  await expect(page.locator(".formats-disclosure > summary")).toHaveText("Підтримувані формати");
+  await expect(page.locator(".format-catalog h2")).toHaveText("Підтримувані формати");
   await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас, перш ніж надіслати його");
   await page.getByRole("button", { name: "Switch language to English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");

@@ -17,6 +17,12 @@ for (const scheme of ["dark", "light"] as const) {
     // Checked at rest: a line fading in is measured once it is in.
     test.use({ colorScheme: scheme, reducedMotion: "reduce" });
 
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((theme) => {
+        if (location.origin !== "null") localStorage.setItem("hexscope.theme", theme);
+      }, scheme);
+    });
+
     test("the landing page", async ({ page }) => {
       await page.goto("./");
       await page.waitForFunction(() => document.body.dataset.state === "empty");

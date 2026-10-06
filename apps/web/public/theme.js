@@ -1,11 +1,14 @@
 // Applies the chosen theme before the page is painted, so it never flashes
-// in the other one: light, dark, or — with nothing chosen — the system's.
+// in the other one: dark by default, or a saved light, dark, or system choice.
 // A file of its own because the page allows no inline script.
 try {
   var t = localStorage.getItem("hexscope.theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else if (t === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = "dark";
 } catch (e) {
-  // No storage: the system's theme.
+  // No storage: the graphite default.
+  document.documentElement.dataset.theme = "dark";
 }
 try {
   var savedLanguage = localStorage.getItem("hexscope.language");

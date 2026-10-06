@@ -49,6 +49,20 @@ describe("the interface language", () => {
     expect(translateText("photo.jpg is open. Reveals where it was taken.", "uk")).toBe("photo.jpg відкрито. Розкриває місце зйомки.");
   });
 
+  it("translates the concise landing page direction", () => {
+    expect(translateText("Check metadata, hidden content and file structure before you share. Your file stays in your browser.", "uk")).toBe(
+      "Перевірте метадані, прихований вміст і структуру файла перед надсиланням. Файл залишається у вашому браузері.",
+    );
+    expect(translateText("Examples", "uk")).toBe("Приклади");
+    expect(translateText("Formats", "uk")).toBe("Формати");
+    expect(translateText("Guides", "uk")).toBe("Посібники");
+    expect(translateText("Menu", "uk")).toBe("Меню");
+    expect(translateText("Different files, different findings", "uk")).toBe("Різні файли — різні знахідки");
+    expect(translateText("Local processing.", "uk")).toBe("Обробка локально.");
+    expect(translateText("No account.", "uk")).toBe("Без облікового запису.");
+    expect(translateText("Open source.", "uk")).toBe("Відкритий код.");
+  });
+
   it("translates both clean-copy captions in the photo demonstration", () => {
     expect(translateText("Same photo. Camera details removed in your browser.", "uk")).toBe(
       "Те саме фото. Дані камери видалено у вашому браузері.",
