@@ -32,6 +32,20 @@ import { currentLocale, installLocale, languageButton, translateText } from "./i
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
 
+function syncAnalyzerPreviewLocale(): void {
+  const image = document.querySelector<HTMLImageElement>(".deeper-image");
+  if (!image) return;
+  const suffix = currentLocale() === "uk" ? "Uk" : "En";
+  const imageSource = image.dataset[`src${suffix}`];
+  const mobileSource = document.querySelector<HTMLSourceElement>(".deeper-image-mobile")?.dataset[`src${suffix}`];
+  if (imageSource && image.getAttribute("src") !== imageSource) image.src = imageSource;
+  const mobile = document.querySelector<HTMLSourceElement>(".deeper-image-mobile");
+  if (mobile && mobileSource && mobile.getAttribute("srcset") !== mobileSource) mobile.srcset = mobileSource;
+}
+
+syncAnalyzerPreviewLocale();
+window.addEventListener("hexscope:locale", syncAnalyzerPreviewLocale);
+
 let batchController: BatchController;
 let workspace: WorkspaceController;
 

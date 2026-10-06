@@ -151,6 +151,27 @@
         </button>
       </div>
 
+      <section class="deeper-section" aria-labelledby="deeper-title">
+        <div class="deeper-copy">
+          <p class="deeper-kicker">A real file, in the real analyzer</p>
+          <h2 id="deeper-title">Go deeper</h2>
+          <p class="deeper-lede">Follow one sample from a plain-language finding to the file structure and its bytes.</p>
+          <ol class="deeper-steps">
+            <li><span class="deeper-step-number">01</span><span><strong>Read the finding</strong><small>See what the file reveals, explained in plain language.</small></span></li>
+            <li><span class="deeper-step-number">02</span><span><strong>Trace the structure</strong><small>Switch views to see how the file format is built.</small></span></li>
+            <li><span class="deeper-step-number">03</span><span><strong>Inspect the bytes</strong><small>Open the raw data behind the selected part.</small></span></li>
+          </ol>
+          <button class="btn btn-primary deeper-open-sample" type="button" data-sample="samples/photo.jpg" data-name="photo.jpg">Try this sample in Hexscope →</button>
+        </div>
+        <figure class="deeper-preview">
+          <figcaption><span>Hexscope workspace</span><code>photo.jpg · sample analysis</code></figcaption>
+          <picture>
+            <source class="deeper-image-mobile" srcset="./analyzer-preview-mobile.png" data-src-en="./analyzer-preview-mobile.png" data-src-uk="./analyzer-preview-uk-mobile.png" media="(max-width: 560px)" />
+            <img class="deeper-image" src="./analyzer-preview.png" data-src-en="./analyzer-preview.png" data-src-uk="./analyzer-preview-uk.png" alt="Hexscope analyzing a sample photo across its finding, structure and bytes" loading="lazy" />
+          </picture>
+        </figure>
+      </section>
+
       <section class="format-catalog" id="formats" aria-labelledby="format-catalog-title">
         <header class="format-catalog-heading">
           <h2 id="format-catalog-title">Supported formats</h2>
