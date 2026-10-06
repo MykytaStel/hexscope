@@ -50,9 +50,11 @@ describe("the interface language", () => {
   });
 
   it("translates the concise landing page direction", () => {
-    expect(translateText("Check metadata, hidden content and file structure before you share. Your file stays in your browser.", "uk")).toBe(
-      "Перевірте метадані, прихований вміст і структуру файла перед надсиланням. Файл залишається у вашому браузері.",
+    expect(translateText("See what your file reveals about you", "uk")).toBe("Дізнайтеся, що файл розкриває про вас");
+    expect(translateText("Check metadata, hidden content and file structure right in your browser.", "uk")).toBe(
+      "Перевірте метадані, прихований вміст і структуру файла прямо у браузері.",
     );
+    expect(translateText("See examples", "uk")).toBe("Переглянути приклади");
     expect(translateText("Examples", "uk")).toBe("Приклади");
     expect(translateText("Formats", "uk")).toBe("Формати");
     expect(translateText("Guides", "uk")).toBe("Посібники");

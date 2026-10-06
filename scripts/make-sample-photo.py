@@ -23,6 +23,7 @@ import tempfile
 import zlib
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "apps", "web", "public", "samples", "photo.jpg")
+BASE_PHOTO = os.path.join(os.path.dirname(__file__), "assets", "sample-photo-base.jpg")
 
 
 def png(w, h, pixel):
@@ -56,6 +57,16 @@ def jpeg(w, h, quality, pixel=None):
         src, dst = os.path.join(d, "in.png"), os.path.join(d, "out.jpg")
         open(src, "wb").write(png(w, h, pixel or dusk(w, h)))
         subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(quality), src, "--out", dst],
+                       check=True, capture_output=True)
+        return open(dst, "rb").read()
+
+
+def resized_asset(w, h, quality):
+    """Resize the real sample photo for the photo and its embedded preview."""
+    with tempfile.TemporaryDirectory() as d:
+        dst = os.path.join(d, "out.jpg")
+        subprocess.run(["sips", "-z", str(h), str(w), "-s", "format", "jpeg",
+                        "-s", "formatOptions", str(quality), BASE_PHOTO, "--out", dst],
                        check=True, capture_output=True)
         return open(dst, "rb").read()
 
@@ -173,8 +184,8 @@ def main():
         scene = dusk(640, 480)
         photo = jpeg(360, 480, "normal", lambda x, y: scene(x, y))
     else:
-        photo = jpeg(640, 480, "normal")
-    thumb = jpeg(160, 120, "low")
+        photo = open(BASE_PHOTO, "rb").read()
+    thumb = jpeg(160, 120, "low") if cropped else resized_asset(160, 120, "low")
     block = b"Exif\0\0" + tiff(thumb)
     app1 = b"\xFF\xE1" + struct.pack(">H", len(block) + 2) + block
     assert photo[:2] == b"\xFF\xD8"

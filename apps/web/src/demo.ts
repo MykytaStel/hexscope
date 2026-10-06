@@ -30,7 +30,8 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   if (!idle() || !said) return;
 
   const frame = el("div", "demo-frame");
-  const image = el("canvas", "demo-image");
+  const image = el("img", "demo-image") as HTMLImageElement;
+  image.alt = "";
   image.setAttribute("aria-hidden", "true");
   frame.append(image);
   const caption = el("p", "demo-caption");
@@ -57,7 +58,7 @@ export async function startDemo(host: HTMLElement): Promise<void> {
 }
 
 interface Said {
-  picture: ImageBitmap;
+  picture: Blob;
   facts: [string, string][];
   removedBytes: number;
   /** What a clean copy still reveals among the facts we showed. */
@@ -69,7 +70,9 @@ async function photoScene(): Promise<Said | null> {
   try {
     const bytes = new Uint8Array(await (await fetch(PHOTO)).arrayBuffer());
     if (!idle()) return null;
-    const picture = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
+    const picture = new Blob([bytes as BlobPart], { type: "image/jpeg" });
+    const decoded = await createImageBitmap(picture);
+    decoded.close();
     const parsed = await call({ type: "parse", file: new File([bytes], "photo.jpg") });
     if (parsed.type !== "parsed" || !idle()) return null;
 
@@ -104,27 +107,20 @@ async function photoScene(): Promise<Said | null> {
 /** Show the finding first, then leave the verified clean-copy result in view. */
 async function tell(
   said: Said,
-  image: HTMLCanvasElement,
+  image: HTMLImageElement,
   kicker: HTMLElement,
   told: HTMLElement,
   caption: HTMLElement,
   reduceMotion: boolean,
 ): Promise<void> {
   kicker.textContent = "Before you send a photo";
-  const side = Math.min(said.picture.width, said.picture.height);
-  image.width = side;
-  image.height = side;
-  image.getContext("2d")?.drawImage(
-    said.picture,
-    (said.picture.width - side) / 2,
-    (said.picture.height - side) / 2,
-    side,
-    side,
-    0,
-    0,
-    side,
-    side,
-  );
+  const imageUrl = URL.createObjectURL(said.picture);
+  image.src = imageUrl;
+  try {
+    await image.decode();
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
   told.replaceChildren();
   told.classList.remove("is-clean");
   told.hidden = false;

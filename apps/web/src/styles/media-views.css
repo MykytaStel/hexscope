@@ -35,6 +35,12 @@
   height: 100%;
 }
 
+.demo-image {
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
 /* Copy changes with the image; the demo observer keeps its tallest scene in view. */
 .demo-side {
   display: flex;

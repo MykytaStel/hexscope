@@ -54,6 +54,21 @@ test("starts with the graphite visual direction and landing navigation", async (
   await expect(navigation.getByRole("link", { name: "Guides" })).toHaveAttribute("href", "#guides");
 });
 
+test("landing hero has a concise headline, one primary action, and a real photo preview", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await home(page);
+
+  const headline = page.getByRole("heading", { level: 1 });
+  await expect(headline).toHaveText("See what your file reveals about you");
+  expect(await headline.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeLessThanOrEqual(48);
+  await expect(page.locator(".hero-actions > .btn")).toHaveCount(1);
+  await expect(page.locator('.hero-actions a[href="#examples"]')).toBeVisible();
+
+  const preview = page.locator(".demo img.demo-image");
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+});
+
 test("analyzer navigation switches between its existing workspace views", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) <= 900, "the desktop navigation is replaced by the compact phone switcher");
   await page.addInitScript(() => {
@@ -300,10 +315,9 @@ test("the phone demo keeps its copy readable in both languages", async ({ page }
   await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
   await expect(page.locator(".demo-bytes")).toBeHidden();
   await expect(page.locator(".demo-caption")).toHaveText(/Same photo\./);
-  const photoVisible = await page.locator(".demo-image").evaluate((canvas) => {
-    const image = canvas as HTMLCanvasElement;
-    const pixel = image.getContext("2d")!.getImageData(Math.floor(image.width / 2), Math.floor(image.height / 2), 1, 1).data;
-    return pixel[3] > 0;
+  const photoVisible = await page.locator(".demo-image").evaluate((image) => {
+    const photo = image as HTMLImageElement;
+    return photo.complete && photo.naturalWidth > 0 && photo.naturalHeight > 0;
   });
   expect(photoVisible).toBe(true);
 
@@ -788,10 +802,10 @@ test("the pinned byte label remains readable", async ({ page }, info) => {
   expect(pinSize).toBeGreaterThanOrEqual(12);
 });
 
-test("the landing page has two clear actions, three everyday doors, and a remembered Ukrainian choice", async ({ page }) => {
+test("the landing page has a clear primary action, three everyday doors, and a remembered Ukrainian choice", async ({ page }) => {
   await home(page);
   await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Try a sample", exact: true })).toBeVisible();
+  await expect(page.locator('.hero-actions a[href="#examples"]')).toHaveText("See examples");
   await expect(page.locator(".doors-main .door")).toHaveCount(3);
   expect(await page.locator(".geek-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
   expect(await page.locator(".landing-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
@@ -799,10 +813,10 @@ test("the landing page has two clear actions, three everyday doors, and a rememb
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".format-catalog h2")).toHaveText("Підтримувані формати");
-  await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас, перш ніж надіслати його");
+  await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас");
   await page.getByRole("button", { name: "Switch language to English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.locator("h1")).toHaveText("See what a file gives away before you send it");
+  await expect(page.locator("h1")).toHaveText("See what your file reveals about you");
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await page.reload();
