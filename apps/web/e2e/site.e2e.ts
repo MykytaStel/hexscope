@@ -69,6 +69,54 @@ test("landing hero has a concise headline, one primary action, and a real photo 
   await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
 });
 
+test("landing connects its examples to the real file analyzer", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await home(page);
+
+  const deeper = page.locator(".deeper-section");
+  await expect(deeper).toBeVisible();
+  const order = await page.evaluate(() => {
+    const examples = document.querySelector("#examples")!.getBoundingClientRect();
+    const deeper = document.querySelector(".deeper-section")!.getBoundingClientRect();
+    const formats = document.querySelector("#formats")!.getBoundingClientRect();
+    return { examplesBottom: examples.bottom, deeperTop: deeper.top, deeperBottom: deeper.bottom, formatsTop: formats.top };
+  });
+  expect(order.deeperTop).toBeGreaterThan(order.examplesBottom);
+  expect(order.deeperBottom).toBeLessThan(order.formatsTop);
+  await expect(deeper.getByRole("heading", { name: "Go deeper" })).toBeVisible();
+  await deeper.scrollIntoViewIfNeeded();
+
+  const preview = page.locator(".deeper-preview img");
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+  if ((page.viewportSize()?.width ?? 0) <= 560) {
+    expect(await preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).toContain("analyzer-preview-mobile.png");
+  }
+
+  await page.locator(".deeper-open-sample").click();
+  await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const desktopBytes = page.locator("#app-nav [data-app-view='bytes']");
+  if (await desktopBytes.isVisible()) await desktopBytes.click();
+  else await page.locator("#viewswitch button[data-view='bytes']").click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#hex")).toBeVisible();
+});
+
+test("the analyzer preview follows the selected site language", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await home(page);
+  await page.locator(".deeper-section").scrollIntoViewIfNeeded();
+
+  const preview = page.locator(".deeper-preview img");
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+  const language = page.locator(".topbar .language-button");
+  await language.click();
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).toContain("analyzer-preview-uk");
+
+  await language.click();
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).not.toContain("analyzer-preview-uk");
+});
+
 test("analyzer navigation switches between its existing workspace views", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) <= 900, "the desktop navigation is replaced by the compact phone switcher");
   await page.addInitScript(() => {
