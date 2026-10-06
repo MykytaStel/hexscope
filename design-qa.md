@@ -147,3 +147,45 @@ No actionable P0, P1, P2, or P3 findings remain for this guide-navigation slice.
 - [x] Compare rendered article and contents layout against board 05.
 - [x] Mark the current reading section in the contents rail.
 - [x] Finish the full browser run and final diff check.
+
+# Hexscope landing flow — design QA
+
+**Final result:** passed for the implemented landing slice
+
+## Comparison target and evidence
+
+- **Source visual direction:** `/Users/mykyta/Downloads/hexscope-visual-direction/references/02-refined-landing.png` and `references/06-film-formats-guides-board.png`; requirements in `spec/page-map.md` and `spec/visual-system.md`.
+- **Implementation screenshots:** `/tmp/hexscope-landing-final-desktop-hero.png`, `/tmp/hexscope-landing-final-desktop-examples.png`, `/tmp/hexscope-landing-final-mobile-examples.png`, `/tmp/hexscope-landing-final-mobile-menu.png`, `/tmp/hexscope-landing-final-film-card.png`, `/tmp/hexscope-landing-final-formats.png`, and `/tmp/hexscope-landing-final-mobile-privacy.png`.
+- **Desktop viewport:** 1440 × 1000 CSS px, device scale factor 1. The content spans 1208 px from x=116 to x=1324.
+- **Phone viewport:** 390 × 844 CSS px, device scale factor 1. Document width remains 390 px.
+- **State:** Ukrainian UI, dark graphite theme, real photo example selected; mobile menu also captured open and privacy CTA captured with the menu closed.
+
+## Visual review
+
+- **Page flow:** hero and real analyzer preview lead into the trust row, one shared Photo/Document/Email example panel, a deeper analyzer preview, Film scans, compact monochrome format groups, local privacy CTA, and footer.
+- **Examples:** native radio inputs and labels switch one shared preview panel. Each option keeps its matching sample action; the preview displays actual metadata from the test file.
+- **Navigation:** the phone menu sits below the header and right-aligns with its trigger. At 390 px, the trigger ends at x=196.47 and the panel ends at x=196.47; choosing a destination closes it. No disclosure arrow collides with the hamburger icon.
+- **Film scans:** the landing uses the existing synthetic negative asset and links to the actual Film Lab/sample flows. The artwork is clearly synthetic; the landing does not invent a multi-frame roll or frame metadata.
+- **Formats and privacy:** supported extensions stay grouped in restrained monochrome rows. The final privacy card stacks into a single phone column and retains the real local file and multi-photo actions.
+- **Color, type, and assets:** graphite surfaces, off-white headings, subdued supporting text, and restrained borders follow the supplied visual system. The page uses actual sample files and existing analyzer imagery, with no permanent blue accent.
+- **Runtime:** screenshots show no page errors. The responsive checks report no horizontal overflow at 390 px; selector/layout browser coverage also spans widths and both locales.
+
+## Findings
+
+No actionable layout, interaction, localization, or accessibility findings remain for this slice. The source board shows a full multi-frame Film Lab workspace; the landing promotes that real tool through the existing Film Lab action while using the repository's explicitly synthetic negative asset as its visual sample.
+
+## Verification
+
+- `pnpm --filter web build` — passed; Vite's existing warnings are about classic `theme.js` scripts in HTML pages. `gzip -9` measured the main entry at 65,140 bytes against the 65,150-byte CI budget.
+- `pnpm --filter web test` — 122 tests passed.
+- `pnpm --filter web e2e` — 208 passed, 18 skipped.
+- Browser checks cover sample switching/opening, menu placement and close behavior, Film Lab actions, privacy actions, locale changes, and responsive widths.
+
+## Implementation checklist
+
+- [x] Keep one responsive header and a clear primary file action.
+- [x] Connect Photo, Document, and Email examples to one shared preview.
+- [x] Lead into real analyzer evidence before the specialist and format sections.
+- [x] Show the local processing and privacy actions at the end of the main story.
+- [x] Review desktop and phone captures against the supplied visual direction.
+- [x] Run the full unit and browser suites.
