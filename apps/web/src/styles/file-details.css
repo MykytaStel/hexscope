@@ -22,7 +22,7 @@
 
 /* Names take what they need, up to two fifths: a long one wraps rather than
    squeezing what it names into a column of single words. */
-.reveal-list {
+.metadata-field-list {
   display: grid;
   grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: var(--space-1) var(--space-4);
@@ -34,6 +34,44 @@
   color: var(--faint);
   font-size: var(--type-small);
   font-weight: 600;
+}
+
+.metadata-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 0 var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.metadata-group {
+  min-width: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.metadata-group-title,
+.metadata-additional-details > summary {
+  margin: 0 0 var(--space-2);
+  color: var(--faint);
+  font-size: var(--type-small);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.metadata-additional-details > summary {
+  cursor: pointer;
+}
+
+.metadata-additional-details[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.metadata-group .metadata-field-list {
+  gap: var(--space-1) var(--space-3);
+}
+
+.metadata-group[data-metadata-group="additional"] {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 900px) {

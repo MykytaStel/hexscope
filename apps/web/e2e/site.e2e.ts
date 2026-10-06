@@ -180,6 +180,41 @@ test("analyzer navigation switches between its existing workspace views", async 
   await expect(page.locator("dialog.compare")).toBeVisible();
 });
 
+test("photo metadata is grouped and its location still opens the exact bytes", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const metadataNav = page.locator("#app-nav [data-app-view='metadata']");
+  if (await metadataNav.isVisible()) await metadataNav.click();
+
+  const metadata = page.locator("#drawer .reveals");
+  await expect(metadata.locator(".metadata-group")).toHaveCount(6);
+  await expect(metadata.locator(".metadata-group[data-metadata-group='general']")).toContainText("Основна інформація");
+  await expect(metadata.locator(".metadata-group[data-metadata-group='camera']")).toContainText("Камера й пристрій");
+  await expect(metadata.locator(".metadata-group[data-metadata-group='location']")).toContainText("Місце зйомки");
+  await expect(metadata.locator(".metadata-group[data-metadata-group='dates']")).toContainText("Дати");
+  await expect(metadata.locator(".metadata-group[data-metadata-group='creator']")).toContainText("Автор і програма");
+
+  const additional = metadata.locator(".metadata-group[data-metadata-group='additional']");
+  await expect(additional).toContainText("Додаткові поля");
+  await expect(additional.locator("details")).not.toHaveAttribute("open", "");
+  await expect(additional.locator("dd[data-kind='thumbnail']")).toBeHidden();
+  await additional.locator("summary").click();
+  await expect(additional.locator("dd[data-kind='thumbnail']")).toBeVisible();
+
+  await metadata.locator(".metadata-group[data-metadata-group='location'] dd[data-kind='location'] .reveal-link").click();
+  await expect(page.locator(".drawer-node .crumb.is-current")).toContainText("GPS IFD");
+  const bytesNav = page.locator("#app-nav [data-app-view='bytes']");
+  if (await bytesNav.isVisible()) await bytesNav.click();
+  else await page.locator("#viewswitch button[data-view='bytes']").click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#hex")).toBeVisible();
+});
+
 test("phone analyzer keeps the compact summary and bytes switch", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop uses the full workspace navigation");
   await page.addInitScript(() => {
