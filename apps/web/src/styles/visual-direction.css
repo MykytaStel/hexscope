@@ -94,11 +94,11 @@ body[data-state="ready"] .landing-menu {
 }
 
 .hero h1 {
-  max-width: 15ch;
+  max-width: 17ch;
   margin-bottom: 12px;
-  font-size: clamp(38px, 4.4vw, 60px);
-  line-height: 1;
-  letter-spacing: -0.045em;
+  font-size: clamp(34px, 3.2vw, 48px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
 }
 
 .empty-card .lede {
@@ -124,6 +124,20 @@ body[data-state="ready"] .landing-menu {
   min-height: 48px;
   height: auto;
   padding-inline: 18px;
+}
+
+.hero-examples {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  padding-inline: 8px;
+  color: var(--muted);
+  font-size: var(--type-small);
+  text-underline-offset: 3px;
+}
+
+.hero-examples:hover {
+  color: var(--text);
 }
 
 .hero-other-ways > summary,

@@ -223,7 +223,6 @@
   height: 12px;
   border-radius: 50%;
   background: var(--tone);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent);
 }
 
 .drawer-file h2.verdict-title.is-danger { --tone: var(--tint-error); }
@@ -276,10 +275,12 @@
   align-items: baseline;
   gap: 8px;
   padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid color-mix(in srgb, var(--tone) 58%, var(--border));
   border-radius: 8px;
   line-height: 1.4;
   --tone: var(--muted);
-  background: color-mix(in srgb, var(--tone) 11%, transparent);
+  background: var(--panel);
 }
 
 .verdict-line::before {
