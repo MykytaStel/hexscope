@@ -185,10 +185,6 @@ body[data-state="ready"] .landing-menu {
   color: var(--muted);
 }
 
-.demo-bytes {
-  color: var(--muted);
-}
-
 .landing-proof {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -226,6 +222,8 @@ body[data-state="ready"] .landing-menu {
   fill: none;
   stroke: var(--text);
   stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .landing-proof .promise strong {

@@ -66,6 +66,8 @@ document.addEventListener("click", (e) => {
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const appNavigation = $<HTMLElement>("app-nav");
+const comparePicker = $<HTMLInputElement>("compare-picker");
 const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
 
 let hover = -1;
@@ -169,20 +171,96 @@ function setView(view: "summary" | "bytes"): void {
     b.setAttribute("aria-pressed", String(b.dataset.view === view));
   }
 }
+
+type WorkspaceView = "overview" | "metadata" | "content" | "structure" | "bytes";
+
+const contentTargetSelector = [
+  ".reveals .reveal-hero",
+  ".reveals .blackout-figure",
+  '.reveals .reveal-list dd[data-kind="hiddentext"]',
+  '.reveals .reveal-list dd[data-kind="covered"]',
+  '.reveals .reveal-list dd[data-kind="deleted"]',
+  '.reveals .reveal-list dd[data-kind="earlier"]',
+  '.reveals .reveal-list dd[data-kind="attachments"] .attachment-open',
+].join(", ");
+
+function syncAppNavigation(): void {
+  const model = typeof workspace === "undefined" ? null : workspace?.model;
+  const ready = document.body.dataset.state === "ready" && !!model;
+  appNavigation.hidden = !ready;
+  if (!ready) return;
+
+  const hasMetadata = !!$("drawer").querySelector(".reveals");
+  const hasContent = !!$("drawer").querySelector(contentTargetSelector);
+  const current = document.body.dataset.appView;
+  for (const button of appNavigation.querySelectorAll<HTMLButtonElement>("button")) {
+    if (button.dataset.appView) {
+      const view = button.dataset.appView as WorkspaceView;
+      button.disabled = view === "metadata" ? !hasMetadata : view === "content" ? !hasContent : false;
+      if (view === current) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    } else if (button.dataset.appAction === "compression") {
+      const playing = document.body.classList.contains("is-playing");
+      button.disabled = !playing && !canPlay();
+      button.setAttribute("aria-pressed", String(playing));
+    }
+  }
+}
+
+function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
+  document.body.dataset.appView = view;
+  setView(view === "structure" || view === "bytes" ? "bytes" : "summary");
+  syncAppNavigation();
+
+  if (!scrollToSection) return;
+  const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
+  const target = view === "metadata"
+    ? $("drawer").querySelector<HTMLElement>(".reveals")
+    : view === "content"
+      ? $("drawer").querySelector<HTMLElement>(contentTargetSelector)
+      : null;
+  if (view === "overview") {
+    requestAnimationFrame(() => file?.scrollTo({ top: 0, behavior: "smooth" }));
+  } else if (target) {
+    requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+}
+
+appNavigation.addEventListener("click", (event) => {
+  const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
+  if (!button || button.disabled) return;
+  if (button.dataset.appView) {
+    setWorkspaceView(button.dataset.appView as WorkspaceView);
+    return;
+  }
+  if (button.dataset.appAction === "compression") {
+    if (document.body.classList.contains("is-playing")) closePlayer();
+    else if (canPlay()) void openPlayer();
+  } else if (button.dataset.appAction === "compare") {
+    comparePicker.click();
+  }
+});
+
+comparePicker.addEventListener("change", () => {
+  const file = comparePicker.files?.[0];
+  comparePicker.value = "";
+  if (file) void compareWith(file);
+});
+
 let tourDismissedByNavigation = false;
 /** The view a file opens on: a phone always starts on the summary. */
 function openingView(): "summary" | "bytes" {
   return narrow.matches ? "summary" : wideView();
 }
 function toBytes(): void {
-  if (document.body.dataset.view !== "bytes") setView("bytes");
+  if (document.body.dataset.appView !== "bytes") setWorkspaceView("bytes", false);
 }
 for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
   b.addEventListener("click", () => {
     const view = b.dataset.view === "bytes" ? "bytes" : "summary";
     tourDismissedByNavigation = true;
     dismissTour();
-    setView(view);
+    setWorkspaceView(view === "bytes" ? "bytes" : "overview", false);
     // On a wide screen the choice is remembered for the next file.
     if (!narrow.matches) {
       try {
@@ -193,6 +271,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button
     }
   });
 }
+document.body.dataset.appView = "overview";
 setView("summary");
 
 const drawer = new Drawer(
@@ -273,6 +352,7 @@ async function openPlayer(entry = selectedEntry()): Promise<void> {
   }
   if (!model.playable) return;
   document.body.classList.add("is-playing");
+  syncAppNavigation();
   await player.open(model, playerSource);
 }
 
@@ -280,6 +360,7 @@ function closePlayer(): void {
   player.close();
   hex.setHead(-1, -1);
   document.body.classList.remove("is-playing");
+  syncAppNavigation();
 }
 
 function describeOffset(offset: number): string {
@@ -311,6 +392,7 @@ function select(id: number, offset?: number): void {
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
   playBtn.hidden = !canPlay() && !player.isOpen;
+  syncAppNavigation();
 }
 
 /** Selects a node without scrolling to it: the view is already where it should be. */
@@ -553,6 +635,7 @@ function showBatch(): void {
   problemsBtn.hidden = true;
   playBtn.hidden = true;
   batchController.resume();
+  syncAppNavigation();
 }
 
 /** Reads and summarizes one file for the batch list. */
@@ -594,9 +677,10 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   drawer.showFile(m);
   drawer.showNode(m, -1, false);
   showFileInfo(m, levels);
-  setView(openingView());
+  setWorkspaceView(openingView() === "bytes" ? "bytes" : "overview", false);
   updateProblems();
   playBtn.hidden = !canPlay();
+  syncAppNavigation();
   void lookForCodes(m);
 }
 
@@ -611,6 +695,7 @@ async function lookForCodes(m: FileModel): Promise<void> {
   const focused = drawerEl.contains(document.activeElement);
   if (redraw) drawer.showFile(m);
   await placeFilmScanCard(drawerEl, m);
+  syncAppNavigation();
   if (redraw && focused) drawer.focusVerdict();
 }
 
@@ -678,6 +763,7 @@ function loadFailed(message: string): void {
     return;
   }
   document.body.dataset.state = model ? "ready" : "empty";
+  syncAppNavigation();
   $("fileinfo").textContent = message;
   // On the landing page the top bar is out of the way: say it by the button.
   const landing = $("load-error");
