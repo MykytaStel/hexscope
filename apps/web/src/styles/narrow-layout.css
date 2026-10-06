@@ -117,10 +117,6 @@ body[data-state="ready"] .viewswitch {
     font-size: var(--type-caption);
   }
 
-  .demo-bytes {
-    font-size: 12px;
-  }
-
   body[data-state="ready"] .viewswitch {
     display: inline-flex;
     border: 1px solid var(--border);

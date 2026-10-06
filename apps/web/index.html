@@ -62,6 +62,15 @@
     </header>
 
     <main class="layout">
+      <nav class="app-nav" id="app-nav" aria-label="File workspace" hidden>
+        <button type="button" data-app-view="overview" aria-current="page">Overview</button>
+        <button type="button" data-app-view="metadata">Metadata</button>
+        <button type="button" data-app-view="content">Content</button>
+        <button type="button" data-app-view="structure">Structure</button>
+        <button type="button" data-app-view="bytes">Bytes</button>
+        <button type="button" data-app-action="compression" disabled>Compression</button>
+        <button type="button" data-app-action="compare">Compare</button>
+      </nav>
       <aside class="pane pane-tree" id="tree" aria-label="Structure"></aside>
       <section class="pane pane-hex" id="hex" aria-label="Bytes">
         <div class="hex-bar">
@@ -73,6 +82,8 @@
       </section>
       <section class="pane pane-drawer" id="drawer" aria-label="Details"></section>
     </main>
+
+    <input type="file" id="compare-picker" hidden />
 
     <section class="batch" id="batch" aria-label="Files"></section>
 
@@ -104,11 +115,17 @@
 
       <ul class="landing-proof">
         <li class="promise">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5A1 1 0 0 1 13 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm1.5 0h4V5a2 2 0 0 0-4 0z" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.4c0 4.8-3.2 7.8-8 9.6-4.8-1.8-8-4.8-8-9.6V6z" /><path d="m9 12 2 2 4-4" /></svg>
           <span><strong>Local processing.</strong> Nothing is uploaded; your file stays in this tab.</span>
         </li>
-        <li class="promise"><span><strong>No account.</strong> No tracking.</span></li>
-        <li class="promise"><span><strong>Open source.</strong> <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads your file.</span></li>
+        <li class="promise">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 1 1 8 0v3" /></svg>
+          <span><strong>No account.</strong> No tracking.</span>
+        </li>
+        <li class="promise">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 6-5 6 5 6M16 6l5 6-5 6M14 4l-4 16" /></svg>
+          <span><strong>Open source.</strong> <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads your file.</span>
+        </li>
       </ul>
 
       <h2 class="doors-title">Different files, different findings</h2>
