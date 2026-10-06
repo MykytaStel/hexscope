@@ -220,6 +220,63 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   await expect(page.locator("#hex")).toBeVisible();
 });
 
+test("comparison gives both files a clear summary and keeps raw bytes in a detail view", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const desktopCompare = page.locator("#app-nav [data-app-action='compare']");
+  if (await desktopCompare.isVisible()) {
+    const chooserEvent = page.waitForEvent("filechooser");
+    await desktopCompare.click();
+    await (await chooserEvent).setFiles(sample("report.docx"));
+  } else {
+    await page.locator("#drawer .more-details > summary").click();
+    const chooserEvent = page.waitForEvent("filechooser");
+    await page.locator("#drawer .compare-pick").click();
+    await (await chooserEvent).setFiles(sample("report.docx"));
+  }
+
+  const dialog = page.locator("dialog.compare");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-labelledby", "compare-title");
+  await expect(dialog.getByRole("heading", { name: "Порівняння" })).toBeVisible();
+  const files = dialog.locator(".compare-pair .compare-file");
+  await expect(files).toHaveCount(2);
+  await expect(files.nth(0)).toContainText("photo.jpg");
+  await expect(files.nth(1)).toContainText("report.docx");
+  await expect(files.nth(0).locator(".compare-preview canvas")).toBeVisible();
+  await expect(files.nth(0).locator(".compare-file-label")).toHaveText("Файл A");
+  await expect(files.nth(1).locator(".compare-file-label")).toHaveText("Файл B");
+  await expect(files.nth(0).locator(".compare-file-fields")).toContainText("Поля метаданих");
+  await expect(dialog.locator(".compare-summary .compare-metric")).toHaveCount(3);
+  await expect(dialog.locator(".compare-summary")).toContainText("Знахідки лише у файлі A");
+  await expect(dialog.locator(".compare-findings")).toBeVisible();
+  await expect(dialog.locator(".compare-findings h3")).toHaveText("Що розкривають файли");
+  const firstFinding = dialog.locator(".compare-finding-column").first();
+  await firstFinding.locator("summary").click();
+  await expect(firstFinding).toContainText("Де зроблено знімок");
+  await expect(dialog.locator(".compare-problems")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Закрити порівняння" })).toBeVisible();
+
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", page.viewportSize()!.width);
+
+  const bytes = dialog.locator("details.compare-byte-detail");
+  await expect(bytes).toHaveCount(1);
+  await expect(bytes).not.toHaveAttribute("open", "");
+  await bytes.locator("summary").click();
+  await expect(bytes.locator(".compare-rows")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+});
+
 test("phone analyzer keeps the compact summary and bytes switch", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop uses the full workspace navigation");
   await page.addInitScript(() => {
@@ -1468,6 +1525,15 @@ test("every public guide has a complete Ukrainian version, including its page ti
     await expect(article).toHaveAttribute("lang", "uk");
     await expect(page.locator("html")).toHaveAttribute("lang", "uk");
     await expect(page.locator(".guide-language-note")).toHaveCount(0);
+    if (path !== "deflate.html") {
+      const toc = page.locator(".guide-toc");
+      if ((page.viewportSize()?.width ?? 0) > 900) {
+        await expect(toc).toBeVisible();
+        await expect(toc.getByRole("link")).toHaveCount(await article.locator(":scope > section > h2").count());
+      } else {
+        await expect(toc).toBeHidden();
+      }
+    }
     await expect(page).toHaveTitle(`${heading} — hexscope`);
     await expect(page.locator("meta[name=description]")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
     await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
@@ -1491,6 +1557,36 @@ test("every public guide has a complete Ukrainian version, including its page ti
     }, [...technical]);
     expect(untranslated, `${path} contains untranslated prose`).toEqual([]);
   }
+});
+
+test("guide articles have a translated desktop contents list without narrowing phones", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.goto("./remove-location-from-photo.html");
+
+  const toc = page.locator(".guide-toc");
+  const width = page.viewportSize()!.width;
+  if (width > 900) {
+    await expect(toc).toBeVisible();
+    await expect(toc.getByRole("heading", { name: "На цій сторінці" })).toBeVisible();
+    const links = toc.getByRole("link");
+    await expect(links).toHaveCount(6);
+    await expect(links.nth(0)).toHaveText("Спершу перевірте фото");
+    await expect(links.nth(0)).toHaveAttribute("aria-current", "location");
+    await links.nth(1).click();
+    await expect(page).toHaveURL(/#guide-section-2$/);
+    await expect(page.locator("#guide-section-2")).toBeInViewport();
+    await expect(links.nth(1)).toHaveAttribute("aria-current", "location");
+    await links.nth(2).click();
+    await expect(links.nth(2)).toHaveAttribute("aria-current", "location");
+
+    await page.locator(".topbar .language-button").click();
+    await expect(toc.getByRole("heading", { name: "On this page" })).toBeVisible();
+    await expect(links.nth(0)).toHaveText("Check the photo first");
+  } else {
+    await expect(toc).toBeHidden();
+  }
+
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", width);
 });
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {

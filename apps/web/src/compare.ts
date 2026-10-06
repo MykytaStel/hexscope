@@ -9,6 +9,8 @@ import { Concern, FileModel, Kind } from "./model";
 import { categories } from "./share";
 import type { WorkerRequest, WorkerResponse } from "./worker";
 import { dismissable } from "./dialogs";
+import { currentLocale, translateText } from "./i18n";
+import { decodePicture, drawn } from "./thumbnail";
 
 /** Parts listed per group, at most. */
 const MAX_LISTED = 200;
@@ -141,8 +143,11 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en")} ${n === 1 ? one : many}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const tr = (s: string) => translateText(s, currentLocale());
+const number = (n: number) => n.toLocaleString(currentLocale());
+const PREVIEW_BYTES = 16 * 1024 * 1024;
+const PREVIEW_PIXELS = 40_000_000;
 
 /** Bytes shown per row around the first difference: narrow enough for a phone. */
 const ROW = 8;
@@ -156,7 +161,7 @@ function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
   const box = el("div", "compare-bytes");
   const part = a.nodeAt(at);
   if (part > 0) {
-    box.append(el("p", "hint", `In ${a.name}, that is in ${a.path(part).map((id) => a.label(id)).join(" › ")}.`));
+    box.append(el("p", "hint", `${tr("The first difference is in")} ${a.name}: ${a.path(part).map((id) => a.label(id)).join(" › ")}.`));
   }
   const grid = el("div", "compare-rows");
   grid.setAttribute("role", "img");
@@ -182,80 +187,165 @@ function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
       grid.append(line);
     }
   }
-  box.append(grid, el("p", "hint", `A is ${a.name}, B is ${b.name}; past an end, blank.`));
+  box.append(grid, el("p", "hint", `${tr("File A")}: ${a.name} · ${tr("File B")}: ${b.name}. ${tr("Empty cells are past the end of a file.")}`));
   return box;
+}
+
+function section(title: string, className: string): HTMLElement {
+  const box = el("section", `compare-section ${className}`);
+  box.append(el("h3", undefined, tr(title)));
+  return box;
+}
+
+function fileCard(model: FileModel, side: "a" | "b"): HTMLElement {
+  const card = el("article", "compare-file");
+  card.dataset.side = side;
+  card.append(el("span", "compare-file-label", tr(side === "a" ? "File A" : "File B")));
+  const format = model.file.format;
+  const dimensions = model.file.dimensions;
+  const canPreview =
+    ["jpeg", "png", "heif", "webp", "gif"].includes(format) &&
+    model.bytes.length <= PREVIEW_BYTES &&
+    dimensions !== undefined &&
+    dimensions !== null &&
+    dimensions[0] > 0 &&
+    dimensions[1] > 0 &&
+    dimensions[0] * dimensions[1] <= PREVIEW_PIXELS;
+  if (canPreview) {
+    const frame = el("div", "compare-preview");
+    card.append(frame);
+    void decodePicture(model)
+      .then((bitmap) => {
+        if (!bitmap) {
+          frame.remove();
+          return;
+        }
+        try {
+          const preview = drawn(bitmap, format === "jpeg" ? model.file.orientation : 1, 640);
+          preview.className = "compare-preview-image";
+          preview.setAttribute("role", "img");
+          preview.setAttribute("aria-label", tr(side === "a" ? "Preview of file A" : "Preview of file B"));
+          frame.append(preview);
+        } catch {
+          frame.remove();
+        } finally {
+          bitmap.close();
+        }
+      })
+      .catch(() => frame.remove());
+  }
+  card.append(
+    el("strong", "compare-file-name", model.name),
+    el("span", "compare-file-format", format.toUpperCase()),
+    el("span", "compare-file-size", `${model.bytes.length.toLocaleString("en")} bytes`),
+    el("span", "compare-file-fields", `${tr("Metadata fields")}: ${number(model.file.facts.length + Number(Boolean(model.file.location)))}`),
+  );
+  return card;
+}
+
+function metric(label: string, value: string | number): HTMLElement {
+  const card = el("div", "compare-metric");
+  card.append(el("span", "compare-metric-label", tr(label)), el("strong", "compare-metric-value", String(value)));
+  return card;
 }
 
 /** Shows a comparison in a dialog. */
 export function showComparison(a: FileModel, b: FileModel, c: Comparison): void {
   const dialog = el("dialog", "report compare");
-  const close = el("button", "btn", "Close");
-  close.addEventListener("click", () => dialog.close());
+  dialog.setAttribute("aria-labelledby", "compare-title");
   dialog.addEventListener("close", () => dialog.remove());
 
-  const head = el("p", "compare-files");
-  head.append(el("strong", undefined, a.name), ` (${a.file.format}, ${plural(a.bytes.length, "byte", "bytes")}) and `, el("strong", undefined, b.name), ` (${b.file.format}, ${plural(b.bytes.length, "byte", "bytes")})`);
+  const heading = el("header", "compare-header");
+  const title = el("h2", undefined, tr("Compare"));
+  title.id = "compare-title";
+  heading.append(title);
 
-  const reveals = el("section");
-  reveals.append(el("h3", undefined, "What they give away"));
+  const pair = el("div", "compare-pair");
+  pair.append(fileCard(a, "a"), el("span", "compare-vs", "vs."), fileCard(b, "b"));
+
+  const summary = el("div", "compare-summary");
+  summary.setAttribute("aria-label", tr("Finding summary"));
+  summary.append(metric("Findings only in A", c.gone.length), metric("Findings only in B", c.added.length), metric("Findings in both", c.kept.length));
+
+  const reveals = section("What they give away", "compare-findings");
+  const findingGrid = el("div", "compare-finding-grid");
   const tags = (items: string[]) => {
-    const box = el("div", "batch-tags");
-    box.append(...items.map((t) => el("span", "tag is-reveals", cap(t))));
+    const box = el("div", "compare-tags");
+    box.append(...items.map((t) => el("span", "tag is-reveals", tr(cap(t)))));
     return box;
   };
   if (c.gone.length + c.added.length + c.kept.length === 0) {
-    reveals.append(el("p", "hint", "Neither gives anything away."));
+    reveals.append(el("p", "hint compare-empty", tr("Neither file gives anything away.")));
+  } else {
+    const findingColumn = (label: string, items: string[]) => {
+      const column = el("details", "compare-finding-column");
+      column.append(el("summary", undefined, `${tr(label)} · ${number(items.length)}`), tags(items));
+      findingGrid.append(column);
+    };
+    if (c.gone.length) findingColumn("Only in A", c.gone);
+    if (c.added.length) findingColumn("Only in B", c.added);
+    if (c.kept.length) findingColumn("In both", c.kept);
   }
-  if (c.gone.length) reveals.append(el("p", undefined, `Only ${a.name}:`), tags(c.gone));
-  if (c.added.length) reveals.append(el("p", undefined, `Only ${b.name}:`), tags(c.added));
-  if (c.kept.length) reveals.append(el("p", undefined, "Both:"), tags(c.kept));
+  if (findingGrid.childElementCount) reveals.append(findingGrid);
 
-  const problems = el("section");
-  problems.append(
-    el("h3", undefined, "What is wrong with them"),
-    el(
-      "p",
-      undefined,
-      `${a.name}: ${plural(c.problems.a, "problem", "problems")}${c.problems.damageA ? `, ${c.problems.damageA} damage` : ""}. ` +
-        `${cap(b.name)}: ${plural(c.problems.b, "problem", "problems")}${c.problems.damageB ? `, ${c.problems.damageB} damage` : ""}.`,
-    ),
-  );
+  const problems = section("File issues", "compare-problems");
+  const problemGrid = el("div", "compare-problem-grid");
+  const problemCard = (model: FileModel, side: "a" | "b", count: number, damage: number) => {
+    const card = el("div", "compare-problem-file");
+    const head = el("div", "compare-problem-head");
+    head.append(
+      el("span", "compare-problem-label", tr(side === "a" ? "File A" : "File B")),
+      el("strong", "compare-problem-name", model.name),
+    );
+    const stats = el("div", "compare-problem-stats");
+    stats.append(metric("Problems", count), metric("Damage", damage));
+    card.append(head, stats);
+    problemGrid.append(card);
+  };
+  problemCard(a, "a", c.problems.a, c.problems.damageA);
+  problemCard(b, "b", c.problems.b, c.problems.damageB);
+  problems.append(problemGrid);
 
-  const structure = el("section");
-  structure.append(el("h3", undefined, "Their structure"));
-  structure.append(
-    el(
-      "p",
-      undefined,
-      c.firstDiff < 0
-        ? "The bytes are the same."
-        : `${plural(c.counts.same, "part is", "parts are")} the same; ${plural(c.counts.changed, "part differs", "parts differ")}; ` +
-            `${c.counts.onlyA.toLocaleString("en")} only in ${a.name}, ${c.counts.onlyB.toLocaleString("en")} only in ${b.name}. ` +
-            `The bytes first differ at offset 0x${c.firstDiff.toString(16).toUpperCase()}.`,
-    ),
+  const structure = section("Structure", "compare-structure");
+  const structureSummary = el("div", "compare-structure-summary");
+  structureSummary.append(
+    metric("Same parts", c.counts.same),
+    metric("Changed parts", c.counts.changed),
+    metric("Parts only in A", c.counts.onlyA),
+    metric("Parts only in B", c.counts.onlyB),
   );
-  if (c.mediaByLength) structure.append(el("p", "hint", "The picture and sound of a large movie are compared by their length, not byte by byte."));
-  if (c.firstDiff >= 0) structure.append(firstDifference(a, b, c.firstDiff));
+  structure.append(structureSummary);
+  if (c.mediaByLength) structure.append(el("p", "hint", tr("The picture and sound of a large movie are compared by their length, not byte by byte.")));
   const list = (title: string, items: string[], more: number) => {
     if (items.length === 0) return;
-    const d = el("details");
-    d.append(el("summary", undefined, `${title} (${more.toLocaleString("en")})`));
+    const d = el("details", "compare-list-detail");
+    d.append(el("summary", undefined, `${tr(title)} · ${number(more)}`));
     const ul = el("ul", "compare-list");
     ul.append(...items.map((p) => el("li", undefined, p)));
     if (more > items.length) ul.append(el("li", "hint", `… and ${(more - items.length).toLocaleString("en")} more`));
     d.append(ul);
     structure.append(d);
   };
-  list(`Only in ${a.name}`, c.onlyA, c.counts.onlyA);
-  list(`Only in ${b.name}`, c.onlyB, c.counts.onlyB);
-  list(
-    "Different",
-    c.changed.map((x) => (x.a !== x.b ? `${x.path}: ${x.a || "—"} → ${x.b || "—"}` : `${x.path}: its bytes`)),
-    c.counts.changed,
-  );
+  list("Only in A", c.onlyA, c.counts.onlyA);
+  list("Only in B", c.onlyB, c.counts.onlyB);
+  list("Different", c.changed.map((x) => (x.a !== x.b ? `${x.path}: ${x.a || "—"} → ${x.b || "—"}` : `${x.path}: its bytes`)), c.counts.changed);
+  if (c.firstDiff < 0) {
+    structure.append(el("p", "hint compare-identical", tr("The bytes are the same.")));
+  } else {
+    const bytes = el("details", "compare-byte-detail");
+    bytes.append(el("summary", undefined, `${tr("Inspect byte differences")} · 0x${c.firstDiff.toString(16).toUpperCase()}`));
+    bytes.append(firstDifference(a, b, c.firstDiff));
+    structure.append(bytes);
+  }
 
-  dialog.append(el("h2", undefined, "Compare"), head, reveals, problems, structure, close);
+  dialog.append(heading, pair, summary, reveals, problems, structure);
   document.body.append(dialog);
   dismissable(dialog);
+  const close = dialog.querySelector<HTMLButtonElement>(".dialog-x");
+  if (close) {
+    close.setAttribute("aria-label", tr("Close comparison"));
+    close.title = tr("Close comparison");
+    heading.append(close);
+  }
   dialog.showModal();
 }
