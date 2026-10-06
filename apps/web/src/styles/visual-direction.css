@@ -95,9 +95,9 @@ body[data-state="ready"] .landing-menu {
 
 .hero h1 {
   max-width: 15ch;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   font-size: clamp(38px, 4.4vw, 60px);
-  line-height: 1.04;
+  line-height: 1;
   letter-spacing: -0.045em;
 }
 
@@ -718,6 +718,7 @@ body[data-state="ready"] .topbar {
   .hero h1 {
     max-width: 18ch;
     font-size: clamp(36px, 7vw, 48px);
+    line-height: 1.04;
   }
 
   .demo {
@@ -777,8 +778,12 @@ body[data-state="ready"] .topbar {
 
 @media (max-width: 560px) {
   body[data-state="empty"] .topbar {
-    gap: 8px;
-    padding-inline: 12px;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  body[data-state="empty"] .topbar .actions {
+    gap: 4px;
   }
 
   .empty-card {

@@ -56,6 +56,9 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   const button = await summary.boundingBox();
   expect(button).not.toBeNull();
   expect(button!.height).toBeLessThanOrEqual(36);
+  const primaryAction = await page.locator(".topbar .actions > .btn[data-opens='picker']").boundingBox();
+  expect(primaryAction).not.toBeNull();
+  expect(primaryAction!.x + primaryAction!.width).toBeLessThanOrEqual(390);
 
   await summary.click();
   const menu = page.locator(".landing-menu nav");
@@ -245,7 +248,8 @@ test("the desktop doors line up their text and actions", async ({ page }, info) 
       doors.map((door) => Math.round(door.querySelector(selector)!.getBoundingClientRect().top)),
     ),
   );
-  for (const row of rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(1);
+  // System font metrics can round the same baseline a pixel apart across platforms.
+  for (const row of rows) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(2);
 });
 
 test("the landing page uses the available desktop canvas", async ({ page }, info) => {
@@ -734,7 +738,10 @@ test("the landing page does not download article copy before a guide opens", asy
 });
 
 test("file results show the summary before evidence and available actions", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
   page.on("download", (download) => void download.cancel());
   const examples = [
     { sample: "photo.jpg", evidence: ".reveals", action: ".verdict-actions .verdict-cta" },
