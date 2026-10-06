@@ -16,7 +16,7 @@
 - **Focused-region comparison:** reviewed the navigation and selected state, the structure tree, the hex/ASCII canvas, and the inspector fields. The byte canvas visibly renders real file bytes; the selected GPS node maps to its inspected offset and length.
 - **Typography:** neutral sans-serif labels and monospaced technical values preserve the reference hierarchy. Ukrainian navigation labels fit at the tested desktop width.
 - **Spacing and layout:** the four-column workspace remains within the viewport at the breakpoint sweep. Tree, bytes, and inspector have clear separators and usable widths.
-- **Navigation:** each desktop action has a 16 px Lucide outline icon at 1.7 px stroke beside its localized text. The icons are hidden from assistive technology, so button names stay unchanged. All labels fit at the 901 px desktop breakpoint.
+- **Navigation:** each desktop action has a 16 px Lucide outline icon at 1.7 px stroke beside its localized text. The icon module loads only when a desktop analyzer workspace opens; the icons are hidden from assistive technology, so button names stay unchanged. All labels fit at the 901 px desktop breakpoint.
 - **Colors and tokens:** graphite surfaces, restrained borders, and existing semantic status colors follow the supplied palette. No blue glow or decorative color tiles were introduced.
 - **Image quality and assets:** the analyzer shell uses the existing Hexscope logo and the actual byte renderer; no mock byte content or replacement imagery is used.
 - **Copy and content:** desktop navigation is localized. Metadata and Content lead to real findings; Compression is unavailable for a JPEG without a playable stream; Compare uses the existing file comparison flow.
