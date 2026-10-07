@@ -37,7 +37,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   document.body.append(dialog);
   const phone = matchMedia("(max-width: 900px)");
   let requested = requests.dataset.inspectorRequested === "true";
-  let responsiveClosePending = false;
+  let responsiveCloseEvents = 0;
 
   const currentNode = () => drawer.querySelector<HTMLElement>(".drawer-node");
   const restore = () => {
@@ -47,19 +47,19 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   };
   const close = (keepRequest = false) => {
     if (dialog.open) {
-      responsiveClosePending = keepRequest;
+      if (keepRequest) responsiveCloseEvents += 1;
       dialog.close();
     }
     restore();
   };
   dialog.addEventListener("close", () => {
     if (dialog.open) {
-      responsiveClosePending = false;
+      if (responsiveCloseEvents > 0) responsiveCloseEvents -= 1;
       return;
     }
     restore();
-    if (responsiveClosePending) {
-      responsiveClosePending = false;
+    if (responsiveCloseEvents > 0) {
+      responsiveCloseEvents -= 1;
       return;
     }
     requested = false;
