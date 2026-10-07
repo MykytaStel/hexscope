@@ -372,16 +372,18 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
     await page.setViewportSize({ width, height: 768 });
     const panes = await page.evaluate(() => {
       const rect = (selector: string) => {
-        const { x, y, width: w, bottom } = document.querySelector(selector)!.getBoundingClientRect();
-        return { x, y, width: w, bottom };
+        const { x, y, width: w, bottom, right } = document.querySelector(selector)!.getBoundingClientRect();
+        return { x, y, width: w, bottom, right };
       };
       return {
+        navigation: rect(".app-nav"),
         tree: rect(".pane-tree"),
         bytes: rect(".pane-hex"),
         details: rect(".pane-drawer"),
         documentWidth: document.documentElement.scrollWidth,
       };
     });
+    expect(panes.navigation.right, `navigation sits to the left of the tree at ${width}px`).toBeLessThanOrEqual(panes.tree.x + 1);
     expect(panes.tree.width, `tree width at ${width}px`).toBeGreaterThanOrEqual(340);
     expect(panes.bytes.width, `bytes width at ${width}px`).toBeGreaterThanOrEqual(360);
     expect(Math.abs(panes.tree.y - panes.bytes.y), `tree and bytes share a row at ${width}px`).toBeLessThanOrEqual(1);
