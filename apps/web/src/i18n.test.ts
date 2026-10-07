@@ -82,6 +82,22 @@ describe("the interface language", () => {
     expect(translateText("Open source.", "uk")).toBe("Відкритий код.");
   });
 
+  it("uses scan-first Ukrainian names for the film-scan tool", () => {
+    expect(translateText("Film scans", "uk")).toBe("Плівкові скани");
+    expect(translateText("Process film scans · JPEG / TIFF", "uk")).toBe("Обробити плівкові скани · JPEG / TIFF");
+    expect(translateText("Process film scans", "uk")).toBe("Обробити плівкові скани");
+    expect(translateText("Published positive scans from NASA’s Apollo 11 archive.", "uk")).toBe(
+      "Оцифровані позитивні кадри з архіву Apollo 11 NASA.",
+    );
+    expect(translateText("NASA Apollo 11 archive", "uk")).toBe("Архів NASA «Аполлон-11»");
+    expect(translateText("NASA is not affiliated with Hexscope.", "uk")).toBe("NASA не пов’язана з Hexscope.");
+    expect(translateText("Open frame AS11-40-5903 in Hexscope →", "uk")).toBe("Відкрити кадр AS11-40-5903 у Hexscope →");
+    expect(translateText("See the synthetic frame-detection test", "uk")).toBe("Переглянути синтетичний тест пошуку кадру");
+    expect(translateText("A simple illustration tests the detector; it is not a photograph.", "uk")).toBe(
+      "Проста ілюстрація перевіряє детектор; це не фотографія.",
+    );
+  });
+
   it("translates both clean-copy captions in the photo demonstration", () => {
     expect(translateText("Same photo. Camera details removed in your browser.", "uk")).toBe(
       "Те саме фото. Дані камери видалено у вашому браузері.",

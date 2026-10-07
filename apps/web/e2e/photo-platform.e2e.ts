@@ -31,12 +31,12 @@ test("roll uses the shared renderer, preserves TIFF16 precision and exports a re
   const roll = page.locator(".film-roll");
   await roll.getByLabel("Choose scans", { exact: true }).setInputFiles("../../crates/hexscope-raster/tests/fixtures/precision16.tif");
   await roll.locator("details > summary").click();
-  await roll.getByLabel("Roll recipe", { exact: true }).fill(filmRecipe(DEFAULT_FILM_SETTINGS));
+  await roll.getByLabel("Scan recipe", { exact: true }).fill(filmRecipe(DEFAULT_FILM_SETTINGS));
   await roll.getByLabel("Output format").selectOption("tiff16");
-  await roll.getByRole("button", { name: "Process roll", exact: true }).click();
+  await roll.getByRole("button", { name: "Process scans", exact: true }).click();
   await expect(roll.getByRole("status")).toContainText("1 / 1 copies ready");
   await expect(roll.getByRole("status")).toContainText("not certified safe");
-  const download = page.waitForEvent("download"); await roll.getByRole("button", { name: "Download roll ZIP" }).click();
+  const download = page.waitForEvent("download"); await roll.getByRole("button", { name: "Download processed scans ZIP" }).click();
   const archive = storedEntries(await readFile((await (await download).path())!));
   const copy = archive.get("000001-film.tif")!;
   expect(tiffSamples(copy)).toEqual([257,300,32001,50000,65400,65535,400,500,600,700,800,900]);
@@ -52,10 +52,10 @@ test("roll reports source ICC profiles and browser color conversion for JPEG, PN
   await page.locator("#film-roll-open").click();
   const roll = page.locator(".film-roll");
   await roll.getByLabel("Choose scans", { exact: true }).setInputFiles(["e2e/fixtures/icc.jpg", "e2e/fixtures/icc.png", "e2e/fixtures/icc.webp"]);
-  await roll.getByRole("button", { name: "Process roll", exact: true }).click();
+  await roll.getByRole("button", { name: "Process scans", exact: true }).click();
   await expect(roll.getByRole("status")).toContainText("3 / 3 copies ready");
   const download = page.waitForEvent("download");
-  await roll.getByRole("button", { name: "Download roll ZIP" }).click();
+  await roll.getByRole("button", { name: "Download processed scans ZIP" }).click();
   const archive = storedEntries(await readFile((await (await download).path())!));
   const report = JSON.parse(archive.get("hexscope-film-report.json")!.toString());
   expect(report.files).toHaveLength(3);

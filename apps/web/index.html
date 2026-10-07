@@ -143,11 +143,25 @@
         <div class="example-preview" aria-live="polite">
           <article class="example-panel" data-example-panel="photo">
             <div class="example-art example-photo-art">
-              <img src="./samples/photo.jpg" alt="" width="640" height="480" loading="lazy" />
+              <div class="example-file-meta">
+                <code class="example-file-name">photo.jpg</code>
+                <span>JPEG · EXIF · demonstration values</span>
+              </div>
               <dl class="example-facts">
                 <div><dt>Location</dt><dd>48.8584° N, 2.2945° E</dd></div>
+                <div><dt>Camera</dt><dd>Sample Camera X1</dd></div>
+                <div><dt>Serial number</dt><dd>HX-000042</dd></div>
                 <div><dt>Owner</dt><dd>Sample Owner</dd></div>
               </dl>
+              <div class="example-evidence-path" aria-label="Where this data lives">
+                <span class="example-evidence-label">In the file</span>
+                <ol>
+                  <li><code>JPEG</code></li>
+                  <li><code>APP1</code></li>
+                  <li><code>EXIF</code></li>
+                  <li><code>GPS IFD</code></li>
+                </ol>
+              </div>
             </div>
             <div class="example-copy">
               <p class="example-kicker">JPEG</p>
@@ -215,18 +229,50 @@
       </section>
 
       <section class="film-showcase specialist-tools" aria-labelledby="film-title">
-        <figure class="film-sample">
-          <img src="./samples/film-negative.png" alt="" width="640" height="440" loading="lazy" />
-          <figcaption>Film roll</figcaption>
+        <figure class="film-sample" aria-label="Apollo 11 film scan contact sheet">
+          <div class="film-window">
+            <div class="film-window-bar">
+              <span>APOLLO 11 · ARCHIVE</span>
+              <span>4 distinct frames · 70 mm</span>
+            </div>
+            <div class="film-contact-sheet">
+              <figure class="film-frame">
+                <img src="./samples/apollo11/as11-40-5903.jpg" alt="Apollo 11 frame AS11-40-5903: astronaut standing on the lunar surface" width="1280" height="1249" loading="lazy" />
+                <figcaption><span>01</span><code>AS11-40-5903</code></figcaption>
+              </figure>
+              <figure class="film-frame">
+                <img src="./samples/apollo11/as11-40-5902.jpg" alt="Apollo 11 frame AS11-40-5902: astronaut beside the lunar module" width="1240" height="1280" loading="lazy" />
+                <figcaption><span>02</span><code>AS11-40-5902</code></figcaption>
+              </figure>
+              <figure class="film-frame">
+                <img src="./samples/apollo11/as11-40-5875.jpg" alt="Apollo 11 frame AS11-40-5875: astronaut and flag on the lunar surface" width="1237" height="1280" loading="lazy" />
+                <figcaption><span>03</span><code>AS11-40-5875</code></figcaption>
+              </figure>
+              <figure class="film-frame">
+                <img src="./samples/apollo11/KSC-AS11-40-5869.jpg" alt="Apollo 11 frame KSC-AS11-40-5869: astronaut at the lunar module ladder" width="1027" height="1280" loading="lazy" />
+                <figcaption><span>04</span><code>KSC-AS11-40-5869</code></figcaption>
+              </figure>
+            </div>
+          </div>
+          <figcaption class="film-source">
+            <span>Published positive scans from NASA’s Apollo 11 archive.</span>
+            <a href="https://www.nasa.gov/wp-content/uploads/static/history/alsj/a11/a11_eva_thumbs.html" target="_blank" rel="noopener noreferrer">NASA Apollo 11 archive</a>
+            <small>NASA is not affiliated with Hexscope.</small>
+          </figcaption>
         </figure>
         <div class="film-copy">
           <p class="film-kicker">Film Lab</p>
           <h2 id="film-title">Film scans</h2>
-          <p>For film scans and sets of photos.</p>
+          <p>Inspect a set frame by frame, then process local JPEG or TIFF copies in your browser.</p>
           <div class="specialist-actions">
-            <button id="film-roll-open" class="btn" type="button">Film roll · JPEG / TIFF</button>
-            <button class="link" type="button" data-sample="samples/film-negative.png" data-name="film-negative.png">Try a synthetic film negative →</button>
+            <button id="film-roll-open" class="btn" type="button">Process film scans · JPEG / TIFF</button>
+            <button class="link" type="button" data-sample="samples/apollo11/as11-40-5903.jpg" data-name="AS11-40-5903.jpg">Open frame AS11-40-5903 in Hexscope →</button>
           </div>
+          <details class="film-synthetic-example">
+            <summary>See the synthetic frame-detection test</summary>
+            <p>A simple illustration tests the detector; it is not a photograph.</p>
+            <button class="link" type="button" data-sample="samples/film-negative.png" data-name="film-negative.png">Try a synthetic film negative →</button>
+          </details>
         </div>
       </section>
 

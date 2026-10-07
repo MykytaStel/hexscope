@@ -113,7 +113,7 @@ async function tell(
   caption: HTMLElement,
   reduceMotion: boolean,
 ): Promise<void> {
-  kicker.textContent = "Before you send a photo";
+  kicker.textContent = "Sample file · example metadata";
   const imageUrl = URL.createObjectURL(said.picture);
   image.src = imageUrl;
   try {

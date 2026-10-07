@@ -5,9 +5,9 @@ import { DEFAULT_FILM_SETTINGS, filmRecipe, readFilmRecipe, type FilmSettings } 
 import { registerLazyTranslations, currentLocale } from "./i18n";
 import "./photo-tools.css";
 registerLazyTranslations({
-  "Film roll": "Плівковий рулон", "Close film roll": "Закрити плівковий рулон", "Choose scans": "Вибрати скани", "Choose scan folder": "Вибрати теку зі сканами",
-  "Roll recipe": "Рецепт рулону", "Output format": "Формат копій", "Process roll": "Обробити рулон", "Download roll ZIP": "Завантажити ZIP рулону", "Load calibrated recipe": "Завантажити відкалібрований рецепт",
-  "Process a whole roll with one recipe and a shared film base.": "Обробіть увесь рулон одним рецептом і спільною основою плівки.", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the roll.": "Файли залишаються у вкладці. Оригінали зберігаються. Без каліброваної основи перший успішний кадр задає оцінку для рулону.",
+  "Film scans": "Плівкові скани", "Close film scans": "Закрити вікно обробки сканів", "Choose scans": "Вибрати скани", "Choose scan folder": "Вибрати теку зі сканами",
+  "Scan recipe": "Рецепт обробки сканів", "Output format": "Формат копій", "Process scans": "Обробити скани", "Download processed scans ZIP": "Завантажити ZIP з обробленими сканами", "Load calibrated recipe": "Завантажити відкалібрований рецепт",
+  "Process a group of scans with one recipe and a shared film base.": "Обробіть групу сканів одним рецептом і спільною основою плівки.", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the set.": "Файли залишаються у вкладці. Оригінали зберігаються. Без каліброваної основи перший успішний кадр задає оцінку для набору.",
   "Scans": "Скани", "Scan type": "Тип скану", "JPEG · sharing · 8 bit": "JPEG · для надсилання · 8 біт", "TIFF · 16 bit": "TIFF · 16 біт", "Use a recipe from Film Photo Lab if you have one.": "За наявності використайте рецепт із лабораторії плівкового фото.", "Choose recipe": "Вибрати рецепт", "More settings and processing notes": "Додаткові налаштування й примітки до обробки", "Processing results": "Результати обробки", "Advanced recipe editor": "Розширений редактор рецепта",
   "First processed frame": "Перший оброблений кадр", "Invalid film recipe.": "Некоректний рецепт плівки.", "Invalid film settings.": "Некоректні налаштування плівки.", "Recipe must be smaller than 16 KiB.": "Рецепт має бути меншим за 16 КіБ.", "This scan exceeds the 50 MiB file limit.": "Цей скан перевищує ліміт у 50 МіБ.", "The source dimensions could not be inspected.": "Не вдалося визначити розміри джерела.", "This browser cannot process scan pixels.": "Цей браузер не може обробити пікселі скану.", "This browser cannot encode a copy.": "Цей браузер не може закодувати копію.", "JPEG encoding is unavailable.": "Кодування JPEG недоступне.", "Output dimensions differ.": "Розміри копії не збігаються.", "Processing unavailable.": "Обробка недоступна.",
   "This scan exceeds the film lab's 120 megapixel source limit.": "Скан перевищує ліміт джерела лабораторії у 120 мегапікселів.", "This browser cannot resize the scan safely.": "Цей браузер не може безпечно змінити розмір скану.", "This browser cannot encode a JPEG copy.": "Цей браузер не може закодувати копію JPEG.",
@@ -45,13 +45,13 @@ const errorMessage = (error: unknown): string => {
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) { const e = document.createElement(tag); if (text) e.textContent = text; return e; }
 export function showFilmRoll(initial: File[] = []): void {
   const dialog = el("dialog"); dialog.className = "photo-tool film-roll"; dialog.setAttribute("aria-labelledby", "film-roll-title");
-  const title = el("h2", "Film roll"); title.id = "film-roll-title";
+  const title = el("h2", "Film scans"); title.id = "film-roll-title";
   const header = el("header"); header.className = "film-roll-header";
-  const close = el("button", "Close"); close.type = "button"; close.className = "btn"; close.setAttribute("aria-label", "Close film roll");
+  const close = el("button", "Close"); close.type = "button"; close.className = "btn"; close.setAttribute("aria-label", "Close film scans");
   header.append(title, close);
   const body = el("div"); body.className = "film-roll-body";
-  const intro = el("p", "Process a whole roll with one recipe and a shared film base."); intro.className = "film-roll-intro";
-  const help = el("p", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the roll."); help.className = "film-roll-help";
+  const intro = el("p", "Process a group of scans with one recipe and a shared film base."); intro.className = "film-roll-intro";
+  const help = el("p", "Files stay in this tab. Originals are preserved. Without a calibrated base, the first successful frame supplies the estimate for the set."); help.className = "film-roll-help";
   const sources = el("fieldset"); sources.className = "film-roll-sources"; sources.append(el("legend", "Scans"));
   const pickers = el("div"); pickers.className = "film-roll-picker-row";
   const picker = el("input"); picker.type = "file"; picker.multiple = true; picker.accept = ".jpg,.jpeg,.png,.webp,.tif,.tiff"; picker.setAttribute("aria-label", "Choose scans");
@@ -79,14 +79,14 @@ export function showFilmRoll(initial: File[] = []): void {
   recipeLoadGroup.append(recipeCopy, recipeLabel);
   const advanced = el("details"); advanced.className = "film-roll-advanced"; advanced.append(el("summary", "More settings and processing notes"));
   const recipeHelp = el("p", "Advanced recipe editor"); recipeHelp.className = "film-roll-advanced-label";
-  const recipe = el("textarea"); recipe.setAttribute("aria-label", "Roll recipe"); recipe.spellcheck = false; recipe.value = filmRecipe(DEFAULT_FILM_SETTINGS);
+  const recipe = el("textarea"); recipe.setAttribute("aria-label", message("Scan recipe", "Рецепт обробки сканів")); recipe.spellcheck = false; recipe.value = filmRecipe(DEFAULT_FILM_SETTINGS);
   const recipeEditor = el("div"); recipeEditor.className = "film-roll-recipe-editor"; recipeEditor.append(recipeHelp, recipe);
   const limits = el("p", "TIFF keeps 16-bit processing for 16-bit TIFF sources. Browser-decoded JPEG/PNG/WebP use 8-bit pixels. At most 12 MP per output; sharing JPEG also caps the side at 4096.");
   const color = el("p", "TIFF samples are assumed sRGB; embedded ICC profiles are reported, not applied. JPEG/PNG/WebP use the browser's color conversion to sRGB. These are adjustable renditions, without scanner-calibrated archival recovery. Metadata and visible content are not certified safe.");
   const notes = el("div"); notes.className = "film-roll-notes"; notes.append(limits, color);
   advanced.append(recipeEditor, notes);
-  const process = el("button", "Process roll"); process.type = "button"; process.className = "btn btn-primary";
-  const download = el("button", "Download roll ZIP"); download.className = "btn"; download.hidden = true;
+  const process = el("button", "Process scans"); process.type = "button"; process.className = "btn btn-primary";
+  const download = el("button", "Download processed scans ZIP"); download.className = "btn"; download.hidden = true;
   download.type = "button";
   const status = el("p"); status.className = "film-roll-status"; status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
   const results = el("ol"); results.className = "photo-tool-results film-roll-results";

@@ -40,8 +40,8 @@ for (const scheme of ["dark", "light"] as const) {
 
       await page.locator("#film-roll-open").click();
       const dialog = page.locator("dialog.film-roll");
-      const process = dialog.getByRole("button", { name: "Process roll" });
-      const close = dialog.getByRole("button", { name: "Close film roll" });
+      const process = dialog.getByRole("button", { name: "Process scans" });
+      const close = dialog.getByRole("button", { name: "Close film scans" });
       await expect(process).toBeDisabled();
       const [disabled, secondary] = await Promise.all([process, close].map((control) => control.evaluate((element) => {
         const style = getComputedStyle(element);
@@ -150,12 +150,13 @@ for (const scheme of ["dark", "light"] as const) {
       expect(summaryBounds?.width).toBeGreaterThanOrEqual((advancedBounds?.width ?? 0) - 1);
       await summary.click();
       await expect(advanced).toHaveAttribute("open", "");
+      await expect(dialog.getByLabel("Рецепт обробки сканів")).toBeVisible();
 
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
       await expect(page.locator("#film-roll-open")).toBeFocused();
       await page.locator("#film-roll-open").click();
-      await page.locator("dialog.film-roll").getByRole("button", { name: "Закрити плівковий рулон" }).click();
+      await page.locator("dialog.film-roll").getByRole("button", { name: "Закрити вікно обробки сканів" }).click();
       await expect(page.locator("#film-roll-open")).toBeFocused();
     });
 
@@ -175,7 +176,7 @@ for (const scheme of ["dark", "light"] as const) {
       });
       expect(await matchesTheme()).toBe(true);
       await check(page, "film roll");
-      await page.getByRole("button", { name: "Close film roll" }).click();
+      await page.getByRole("button", { name: "Close film scans" }).click();
       const photo = await readFile("../../crates/hexscope-core/tests/fixtures/photo.png");
       await page.locator("#picker-empty").setInputFiles(["a.png", "b.png"].map((name) => ({ name, mimeType: "image/png", buffer: photo })));
       await page.getByRole("button", { name: "Photo privacy mosaic", exact: true }).click();

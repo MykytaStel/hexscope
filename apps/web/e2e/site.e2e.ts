@@ -82,18 +82,84 @@ test("the phone landing menu closes after choosing a destination", async ({ page
   await expect(menu).not.toHaveAttribute("open", "");
 });
 
-test("the landing presents Film scans with its real sample and existing tool action", async ({ page }) => {
+test("Film Lab shows distinct archival frames and credits their source", async ({ page }) => {
   await home(page);
 
   const film = page.locator(".film-showcase");
   await expect(film.getByRole("heading", { name: "Film scans" })).toBeVisible();
-  const sample = film.locator(".film-sample img");
-  await expect.poll(() => sample.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(640);
-  await expect(film.getByRole("button", { name: "Film roll · JPEG / TIFF" })).toBeVisible();
-  await expect(film.getByRole("button", { name: "Try a synthetic film negative →" })).toHaveAttribute(
+  const frames = film.locator(".film-frame img");
+  await expect(frames).toHaveCount(4);
+  await frames.first().scrollIntoViewIfNeeded();
+  await expect.poll(() => frames.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth > 1000))).toBe(true);
+  const tileHeights = await frames.evaluateAll((images) => images.map((image) => image.getBoundingClientRect().height));
+  expect(Math.min(...tileHeights)).toBeGreaterThan(120);
+  expect(Math.max(...tileHeights)).toBeLessThanOrEqual(240);
+  expect((await film.boundingBox())!.height).toBeLessThan(1100);
+  const sources = await frames.evaluateAll((images) => images.map((image) => (image as HTMLImageElement).currentSrc));
+  expect(new Set(sources).size).toBe(4);
+  await expect(film.getByRole("link", { name: /NASA Apollo 11 archive/i })).toHaveAttribute("href", /nasa\.gov/);
+  await expect(film).toContainText(/Published positive scans/);
+  await expect(film.getByRole("button", { name: "Process film scans · JPEG / TIFF" })).toBeVisible();
+  await expect(film.getByRole("button", { name: "Open frame AS11-40-5903 in Hexscope →" })).toHaveAttribute(
     "data-sample",
-    "samples/film-negative.png",
+    "samples/apollo11/as11-40-5903.jpg",
   );
+});
+
+test("the landing shows the camera sample once and keeps its real metadata in the photo choice", async ({ page }) => {
+  await home(page);
+
+  const heroPhoto = page.locator(".demo img.demo-image");
+  await expect.poll(() => heroPhoto.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+  const photoChoice = page.locator('#examples [data-example-panel="photo"]');
+  await expect(photoChoice.locator("img")).toHaveCount(0);
+  await expect(photoChoice.locator(".example-file-name")).toHaveText("photo.jpg");
+  await expect(photoChoice.locator(".example-facts")).toContainText("Sample Camera X1");
+  await expect(photoChoice.locator(".example-facts")).toContainText("HX-000042");
+  await expect(photoChoice.locator(".example-evidence-path")).toContainText("JPEG");
+  await expect(photoChoice.locator(".example-evidence-path")).toContainText("APP1");
+  await expect(photoChoice.locator(".example-evidence-path")).toContainText("GPS IFD");
+});
+
+test("the phone photo example has no dead space between its findings and file path", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await home(page);
+
+  const photo = page.locator('#examples [data-example-panel="photo"]');
+  const art = photo.locator(".example-photo-art");
+  const facts = photo.locator(".example-facts");
+  const path = photo.locator(".example-evidence-path");
+  const [artBox, factsBox, pathBox] = await Promise.all([art.boundingBox(), facts.boundingBox(), path.boundingBox()]);
+  expect(artBox).not.toBeNull();
+  expect(factsBox).not.toBeNull();
+  expect(pathBox).not.toBeNull();
+  expect(pathBox!.y - (factsBox!.y + factsBox!.height)).toBeLessThanOrEqual(24);
+  expect(artBox!.y + artBox!.height - (pathBox!.y + pathBox!.height)).toBeLessThanOrEqual(24);
+});
+
+test("the film showcase preserves frame proportions and readable actions in narrow layouts", async ({ page }) => {
+  await home(page);
+  const actions = page.locator(".film-showcase .specialist-actions");
+  const frames = page.locator(".film-showcase .film-frame img");
+
+  for (const width of [671, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const columns = await actions.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
+    expect(columns, `${width}px viewport`).toBe(1);
+    const primaryActionHeight = await actions.locator(".btn").evaluate((button) => button.getBoundingClientRect().height);
+    expect(primaryActionHeight, `${width}px viewport`).toBeLessThanOrEqual(48);
+    const aspectRatios = await frames.evaluateAll((images) => images.map((image) => image.getBoundingClientRect().width / image.getBoundingClientRect().height));
+    expect(Math.max(...aspectRatios), `${width}px frame proportions`).toBeLessThanOrEqual(1.55);
+  }
+});
+
+test("the analyzer preview displays its full-resolution source without enlargement", async ({ page }, info) => {
+  await home(page);
+  const preview = page.locator(".deeper-preview .deeper-image");
+  const minWidth = info.project.name === "phone" ? 300 : 1200;
+  await preview.scrollIntoViewIfNeeded();
+  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(minWidth);
+  await expect(preview).toHaveCSS("transform", "none");
 });
 
 test("the three example choices update one preview and open their matching sample", async ({ page }) => {
@@ -167,6 +233,10 @@ test("landing connects its examples to the real file analyzer", async ({ page })
 
   const preview = page.locator(".deeper-preview img");
   await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+  if ((page.viewportSize()?.width ?? 0) > 560) {
+    const magnification = await preview.evaluate((image) => image.getBoundingClientRect().width / image.parentElement!.getBoundingClientRect().width);
+    expect(magnification).toBeLessThanOrEqual(1.01);
+  }
   if ((page.viewportSize()?.width ?? 0) <= 560) {
     expect(await preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).toContain("analyzer-preview-mobile.png");
   }
@@ -537,7 +607,7 @@ test("the landing page holds still while its demonstration plays", async ({ page
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
   await expect(page.locator(".demo-facts.is-clean")).toBeVisible();
   await page.waitForTimeout(4500);
-  await expect(page.locator(".demo-kicker")).toHaveText("Before you send a photo");
+  await expect(page.locator(".demo-kicker")).toHaveText("Sample file · example metadata");
   await expect(page.locator(".demo-bytes")).toHaveCount(0);
 });
 
@@ -545,7 +615,7 @@ test("the phone demo keeps its copy readable in both languages", async ({ page }
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
   await home(page);
   await expect(page.locator(".demo-caption")).toBeVisible();
-  await expect(page.locator(".demo-kicker")).toHaveText("Before you send a photo");
+  await expect(page.locator(".demo-kicker")).toHaveText("Sample file · example metadata");
   await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
   await expect(page.locator(".demo-bytes")).toBeHidden();
   await expect(page.locator(".demo-caption")).toHaveText(/Same photo\./);
@@ -888,16 +958,16 @@ test("the landing groups film scans and local multi-photo actions with their rig
   const privacy = page.locator(".privacy-cta");
   await expect(tools).toBeVisible();
   await expect(tools.getByRole("heading", { name: "Film scans" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Film roll · JPEG / TIFF" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Try a synthetic film negative →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Process film scans · JPEG / TIFF" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Open frame AS11-40-5903 in Hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" })).toHaveAttribute("data-opens", "picker-empty");
   await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
   await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(tools.getByRole("heading", { name: "Плівкові скани" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Плівковий рулон · JPEG / TIFF" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Спробувати синтетичний плівковий негатив →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Обробити плівкові скани · JPEG / TIFF" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Відкрити кадр AS11-40-5903 у Hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
 
   await page.getByRole("button", { name: "Switch language to English" }).click();
