@@ -145,10 +145,16 @@ test("rotated PNG scans retain their geometry and film base sampling works with 
   await expect(lab.locator(".film-lab-size")).toHaveText("240 × 400");
 });
 
-test("the landing page opens a synthetic negative with visible frame evidence", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
+test("the landing discloses its synthetic detector illustration before opening it", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
   await page.goto("./");
-  await page.getByRole("button", { name: "Try a synthetic film negative" }).click();
+  const example = page.locator(".film-synthetic-example");
+  await example.locator(":scope > summary").click();
+  await expect(example).toContainText("it is not a photograph");
+  await example.getByRole("button", { name: "Try a synthetic film negative" }).click();
   await expect(page.locator(".film-scan-card")).toContainText("Frame-like boundary");
   await page.locator(".film-lab-entry > summary").click();
   const lab = page.locator(".film-lab");

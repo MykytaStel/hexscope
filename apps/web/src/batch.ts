@@ -173,7 +173,7 @@ export class BatchView {
       mosaic.addEventListener("click", () => this.hooks.mosaic?.(items)); head.append(mosaic);
     }
     if (!busy && this.hooks.filmRoll) {
-      const roll = el("button", "btn", "Film roll"); roll.addEventListener("click", () => this.hooks.filmRoll?.(items)); head.append(roll);
+      const roll = el("button", "btn", "Process film scans"); roll.addEventListener("click", () => this.hooks.filmRoll?.(items)); head.append(roll);
     }
 
     const isProblem = (i: BatchItem) =>
