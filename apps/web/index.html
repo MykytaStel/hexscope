@@ -68,8 +68,13 @@
         <button type="button" data-app-view="content">Content</button>
         <button type="button" data-app-view="structure">Structure</button>
         <button type="button" data-app-view="bytes">Bytes</button>
-        <button type="button" data-app-action="compression" disabled>Compression</button>
-        <button type="button" data-app-action="compare">Compare</button>
+        <details class="app-nav-more">
+          <summary data-app-action="more">More</summary>
+          <div class="app-nav-more-actions">
+            <button type="button" data-app-action="compression" disabled>Compression</button>
+            <button type="button" data-app-action="compare">Compare</button>
+          </div>
+        </details>
       </nav>
       <aside class="pane pane-tree" id="tree" aria-label="Structure"></aside>
       <section class="pane pane-hex" id="hex" aria-label="Bytes">

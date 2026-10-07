@@ -1,4 +1,4 @@
-import { AlignLeft, Archive, Binary, Eye, FileText, GitCompare, ListTree, createElement } from "lucide";
+import { AlignLeft, Archive, Binary, Ellipsis, Eye, FileText, GitCompare, ListTree, createElement } from "lucide";
 
 const icons = {
   overview: Eye,
@@ -8,14 +8,15 @@ const icons = {
   bytes: Binary,
   compression: Archive,
   compare: GitCompare,
+  more: Ellipsis,
 };
 
 export function installAppNavigationIcons(root: HTMLElement): void {
-  for (const button of root.querySelectorAll<HTMLButtonElement>("button")) {
-    const key = button.dataset.appView ?? button.dataset.appAction;
+  for (const control of root.querySelectorAll<HTMLElement>("button, summary")) {
+    const key = control.dataset.appView ?? control.dataset.appAction;
     const icon = key ? icons[key as keyof typeof icons] : undefined;
     if (icon) {
-      button.prepend(createElement(icon, {
+      control.prepend(createElement(icon, {
         "aria-hidden": "true",
         class: "app-nav-icon",
         focusable: "false",
