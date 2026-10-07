@@ -37,6 +37,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   document.body.append(dialog);
   const phone = matchMedia("(max-width: 900px)");
   let requested = requests.dataset.inspectorRequested === "true";
+  let responsiveClosePending = false;
 
   const currentNode = () => drawer.querySelector<HTMLElement>(".drawer-node");
   const restore = () => {
@@ -44,9 +45,23 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     if (dialog.open || !node || !file) return;
     drawer.insertBefore(node, file);
   };
-  const close = () => { if (dialog.open) dialog.close(); else restore(); };
-  dialog.addEventListener("close", () => {
+  const close = (keepRequest = false) => {
+    if (dialog.open) {
+      responsiveClosePending = keepRequest;
+      dialog.close();
+    }
     restore();
+  };
+  dialog.addEventListener("close", () => {
+    if (dialog.open) {
+      responsiveClosePending = false;
+      return;
+    }
+    restore();
+    if (responsiveClosePending) {
+      responsiveClosePending = false;
+      return;
+    }
     requested = false;
     delete requests.dataset.inspectorRequested;
   });
@@ -67,7 +82,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   new MutationObserver(update).observe(requests, { attributes: true, attributeFilter: ["data-inspector-requested"] });
   phone.addEventListener("change", (event) => {
     if (event.matches && requested) open();
-    else if (!event.matches) close();
+    else if (!event.matches) close(true);
   });
   if (requested) open();
 

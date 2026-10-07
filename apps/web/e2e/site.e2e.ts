@@ -554,6 +554,7 @@ test("phone tree selection opens a modal inspector sheet with three clear ways o
 
   await sheet.getByRole("button", { name: "Закрити" }).click();
   await expect(sheet).not.toBeVisible();
+  await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
   await firstRow.click();
   await expect(sheet).toBeVisible();
   await page.keyboard.press("Escape");
@@ -564,6 +565,31 @@ test("phone tree selection opens a modal inspector sheet with three clear ways o
   await page.mouse.click(4, 4);
   await expect(sheet).not.toBeVisible();
   await expect(firstRow).toHaveClass(/is-selected/);
+});
+
+test("phone inspector survives crossing the desktop breakpoint and returns to the drawer", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  const selectedRow = page.locator("#tree .tree .row").first();
+  await selectedRow.click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.setViewportSize({ width: 901, height: 844 });
+  await expect(sheet).not.toBeVisible();
+  await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+  await expect(selectedRow).toHaveClass(/is-selected/);
 });
 
 test("phone compression action opens and closes the existing player from More", async ({ page }) => {
