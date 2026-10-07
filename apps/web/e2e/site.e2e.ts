@@ -453,8 +453,9 @@ test("tablet metadata keeps two readable columns and content keeps its photo bes
   for (const width of [901, 1024, 1099]) {
     await page.setViewportSize({ width, height: 768 });
     const groups = page.locator("#drawer .metadata-groups");
-    const columns = await groups.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
-    expect(columns, `metadata columns at ${width}px`).toBe(2);
+    const trackWidths = await groups.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map(Number.parseFloat));
+    expect(trackWidths, `metadata columns at ${width}px`).toHaveLength(2);
+    expect(Math.min(...trackWidths), `metadata column width at ${width}px`).toBeGreaterThanOrEqual(320);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `no metadata overflow at ${width}px`).toBeLessThanOrEqual(0);
   }
 
