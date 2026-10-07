@@ -66,8 +66,10 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     delete requests.dataset.inspectorRequested;
   });
   const open = () => {
+    if (!phone.matches || dialog.open) return;
+    restore();
     const node = currentNode();
-    if (!phone.matches || dialog.open || !node) return;
+    if (!node) return;
     const title = node.querySelector<HTMLElement>(".node-label");
     if (!title) return;
     dialog.setAttribute("aria-label", title.textContent?.trim() || "Selected part");

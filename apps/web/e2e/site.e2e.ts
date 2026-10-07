@@ -592,6 +592,29 @@ test("phone inspector survives crossing the desktop breakpoint and returns to th
   await expect(selectedRow).toHaveClass(/is-selected/);
 });
 
+test("phone inspector reopens when selection changes before the native close event", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  const rows = page.locator("#tree .tree .row");
+  await rows.first().click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.evaluate(() => {
+    document.querySelector<HTMLDialogElement>("dialog.inspector-sheet")!.close();
+    document.querySelectorAll<HTMLElement>("#tree .tree .row")[1].click();
+  });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+});
+
 test("phone compression action opens and closes the existing player from More", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop exposes compression in its full navigation");
   await page.addInitScript(() => {
