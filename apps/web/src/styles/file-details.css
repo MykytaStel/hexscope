@@ -74,6 +74,15 @@
   grid-column: 1 / -1;
 }
 
+/* Three columns make camera facts and coordinates too narrow to scan on a
+   tablet. Keep each group wide enough for its values, with room for two. */
+@media (min-width: 901px) and (max-width: 1099px) {
+  .metadata-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(20px, 2.8vw, 30px);
+  }
+}
+
 @media (max-width: 900px) {
   .drawer-file:has(.reveals) > .reveals {
     margin-top: var(--space-3);
