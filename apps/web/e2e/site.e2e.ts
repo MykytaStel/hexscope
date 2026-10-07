@@ -391,6 +391,8 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   const selectedTreeRow = page.locator(".tree .row.is-selected");
   await expect(selectedTreeRow).toHaveAttribute("data-id", locationNode!);
   await expect(selectedTreeRow.locator(".label")).toContainText("GPS IFD");
+  const inspector = page.locator("dialog.inspector-sheet");
+  if (await inspector.isVisible()) await inspector.getByRole("button", { name: "Закрити" }).click();
   await page.locator("#app-nav [data-app-view='bytes']").click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
@@ -527,6 +529,179 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
     const dimensions = await button.evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
     expect(dimensions.content).toBeLessThanOrEqual(dimensions.width);
   }
+});
+
+test("phone tree selection opens a modal inspector sheet with three clear ways out", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator("dialog.inspector-sheet")).not.toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+
+  const firstRow = page.locator("#tree .tree .row").first();
+  await firstRow.click();
+  const sheet = page.getByRole("dialog", { name: "Вибрана частина" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toHaveAttribute("aria-modal", "true");
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+  await expect(sheet.getByRole("button", { name: "Закрити" })).toBeVisible();
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 390);
+
+  await sheet.getByRole("button", { name: "Закрити" }).click();
+  await expect(sheet).not.toBeVisible();
+  await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
+  await firstRow.click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).not.toBeVisible();
+
+  await firstRow.click();
+  await expect(sheet).toBeVisible();
+  await page.mouse.click(4, 4);
+  await expect(sheet).not.toBeVisible();
+  await expect(firstRow).toHaveClass(/is-selected/);
+});
+
+test("phone inspector survives crossing the desktop breakpoint and returns to the drawer", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  const selectedRow = page.locator("#tree .tree .row").first();
+  await selectedRow.click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.setViewportSize({ width: 901, height: 844 });
+  await expect(sheet).not.toBeVisible();
+  await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+  await expect(selectedRow).toHaveClass(/is-selected/);
+});
+
+test("phone inspector reopens when selection changes before the native close event", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  const rows = page.locator("#tree .tree .row");
+  await rows.first().click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.evaluate(() => {
+    document.querySelector<HTMLDialogElement>("dialog.inspector-sheet")!.close();
+    document.querySelectorAll<HTMLElement>("#tree .tree .row")[1].click();
+  });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+});
+
+test("phone inspector keeps its request through rapid queued breakpoint closes", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const media = matchMedia(query);
+      if (query === "(max-width: 900px)") (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia = media;
+      return media;
+    };
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  await page.locator("#tree .tree .row").first().click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.evaluate(async () => {
+    const media = (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia;
+    const dialog = document.querySelector<HTMLDialogElement>("dialog.inspector-sheet")!;
+    if (!media) throw new Error("The phone breakpoint media query was not captured");
+    await new Promise<void>((resolve) => {
+      let closes = 0;
+      dialog.addEventListener("close", () => {
+        if (++closes === 2) resolve();
+      });
+      media.dispatchEvent(new MediaQueryListEvent("change", { media: media.media, matches: false }));
+      media.dispatchEvent(new MediaQueryListEvent("change", { media: media.media, matches: true }));
+      media.dispatchEvent(new MediaQueryListEvent("change", { media: media.media, matches: false }));
+    });
+  });
+  await expect(sheet).not.toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia!.dispatchEvent(
+      new MediaQueryListEvent("change", { media: "(max-width: 900px)", matches: true }),
+    );
+  });
+  await expect(sheet).toBeVisible();
+});
+
+test("phone inspector keeps a newer selection when explicit close races with resizing", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const media = matchMedia(query);
+      if (query === "(max-width: 900px)") (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia = media;
+      return media;
+    };
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  await page.locator("#tree .tree .row").first().click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.evaluate(async () => {
+    const media = (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia;
+    const dialog = document.querySelector<HTMLDialogElement>("dialog.inspector-sheet")!;
+    const nextRow = document.querySelectorAll<HTMLElement>("#tree .tree .row")[1];
+    if (!media) throw new Error("The phone breakpoint media query was not captured");
+    const closeEvents = new Promise<void>((resolve) => {
+      let closes = 0;
+      dialog.addEventListener("close", () => {
+        if (++closes === 2) resolve();
+      });
+      dialog.querySelector<HTMLButtonElement>(".dialog-x")!.click();
+      nextRow.click();
+    });
+    await Promise.resolve();
+    media.dispatchEvent(new MediaQueryListEvent("change", { media: media.media, matches: false }));
+    await closeEvents;
+  });
+  await expect(sheet).not.toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia!.dispatchEvent(
+      new MediaQueryListEvent("change", { media: "(max-width: 900px)", matches: true }),
+    );
+  });
+  await expect(sheet).toBeVisible();
 });
 
 test("phone compression action opens and closes the existing player from More", async ({ page }) => {
@@ -1155,17 +1330,20 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   const canvasBox = await page.locator(".hex-canvas").boundingBox();
   if (!canvasBox) throw new Error("The byte canvas is not visible");
   await page.touchscreen.tap(canvasBox.x + 85, canvasBox.y + 24);
-  await expect(page.locator(".drawer-node .node-label")).toHaveText("Вибрана частина");
-  await expect(page.locator(".drawer-node")).toContainText("Початок зображення: перші два байти кожного JPEG.");
-  await expect(page.locator(".drawer-node")).toContainText("Зсув");
-  await expect(page.locator(".drawer-node")).toContainText("Довжина");
-  await expect(page.locator(".drawer-node")).toContainText("Тип");
-  await expect(page.locator(".drawer-node")).toContainText("Копіювати як");
-  const copyBottom = await page.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
-  const drawerBottom = await page.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
+  const inspector = page.getByRole("dialog", { name: "Вибрана частина" });
+  await expect(inspector).toBeVisible();
+  await expect(inspector.locator(".drawer-node .node-label")).toHaveText("Вибрана частина");
+  await expect(inspector.locator(".drawer-node")).toContainText("Початок зображення: перші два байти кожного JPEG.");
+  await expect(inspector.locator(".drawer-node")).toContainText("Зсув");
+  await expect(inspector.locator(".drawer-node")).toContainText("Довжина");
+  await expect(inspector.locator(".drawer-node")).toContainText("Тип");
+  await expect(inspector.locator(".drawer-node")).toContainText("Копіювати як");
+  const copyBottom = await inspector.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
+  const drawerBottom = await inspector.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
   expect(copyBottom).toBeLessThanOrEqual(drawerBottom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
+  await inspector.getByRole("button", { name: "Закрити" }).click();
   await page.locator("#app-nav [data-app-view='overview']").click();
   await expect(page.locator(".verdict-cta")).toBeVisible();
 });

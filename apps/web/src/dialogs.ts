@@ -6,14 +6,19 @@
  * counts as outside only when it both starts and ends there: selecting text
  * inside and letting go outside keeps the dialog open.
  */
-export function dismissable(dialog: HTMLDialogElement, keepsWork = false): void {
+export function dismissable(dialog: HTMLDialogElement, keepsWork = false, onDismiss?: () => void): void {
+  dialog.addEventListener("cancel", () => onDismiss?.());
+  const close = () => {
+    onDismiss?.();
+    dialog.close();
+  };
   const x = document.createElement("button");
   x.type = "button";
   x.className = "dialog-x";
   x.setAttribute("aria-label", "Close");
   x.title = "Close (Esc)";
   x.textContent = "×";
-  x.addEventListener("click", () => dialog.close());
+  x.addEventListener("click", close);
   dialog.prepend(x);
   if (keepsWork) return;
   const outside = (e: MouseEvent) => {
@@ -24,7 +29,7 @@ export function dismissable(dialog: HTMLDialogElement, keepsWork = false): void 
   let startedOutside = false;
   dialog.addEventListener("pointerdown", (e) => (startedOutside = outside(e)));
   dialog.addEventListener("click", (e) => {
-    if (startedOutside && outside(e)) dialog.close();
+    if (startedOutside && outside(e)) close();
     startedOutside = false;
   });
 }
