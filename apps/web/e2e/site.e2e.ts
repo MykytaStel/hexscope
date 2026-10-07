@@ -358,6 +358,87 @@ test("desktop bytes workspace keeps structure labels readable", async ({ page },
   }
 });
 
+test("tablet structure and bytes keep the selected part in a full-width reading pane", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "tablet analyzer layout is checked on desktop Chromium");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
+
+  for (const width of [901, 1024, 1099]) {
+    await page.setViewportSize({ width, height: 768 });
+    const panes = await page.evaluate(() => {
+      const rect = (selector: string) => {
+        const { x, y, width: w, bottom, right } = document.querySelector(selector)!.getBoundingClientRect();
+        return { x, y, width: w, bottom, right };
+      };
+      return {
+        navigation: rect(".app-nav"),
+        tree: rect(".pane-tree"),
+        bytes: rect(".pane-hex"),
+        details: rect(".pane-drawer"),
+        documentWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(panes.navigation.right, `navigation sits to the left of the tree at ${width}px`).toBeLessThanOrEqual(panes.tree.x + 1);
+    expect(panes.tree.width, `tree width at ${width}px`).toBeGreaterThanOrEqual(340);
+    expect(panes.bytes.width, `bytes width at ${width}px`).toBeGreaterThanOrEqual(360);
+    expect(Math.abs(panes.tree.y - panes.bytes.y), `tree and bytes share a row at ${width}px`).toBeLessThanOrEqual(1);
+    expect(panes.details.x, `details align with tree at ${width}px`).toBeCloseTo(panes.tree.x, 0);
+    expect(panes.details.y, `details sit below the work area at ${width}px`).toBeGreaterThanOrEqual(panes.tree.bottom - 1);
+    expect(panes.details.width, `details use the full work area at ${width}px`).toBeGreaterThanOrEqual(700);
+    expect(panes.documentWidth - width, `no horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+
+  await page.locator("#tree .row").first().click();
+  await expect(page.locator(".pane-drawer .drawer-node .node-label")).toHaveText("Вибрана частина");
+  await expect(page.locator(".pane-drawer .drawer-node")).toBeVisible();
+
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  for (const width of [901, 1024, 1099]) {
+    await page.setViewportSize({ width, height: 768 });
+    const panes = await page.evaluate(() => {
+      const tree = document.querySelector(".pane-tree")!.getBoundingClientRect();
+      const details = document.querySelector(".pane-drawer")!.getBoundingClientRect();
+      return { tree, details, documentWidth: document.documentElement.scrollWidth };
+    });
+    expect(panes.tree.width, `structure width at ${width}px`).toBeGreaterThanOrEqual(700);
+    expect(panes.details.x, `structure details align at ${width}px`).toBeCloseTo(panes.tree.x, 0);
+    expect(panes.details.y, `structure details sit below at ${width}px`).toBeGreaterThanOrEqual(panes.tree.bottom - 1);
+    expect(panes.details.width, `structure details use the full work area at ${width}px`).toBeGreaterThanOrEqual(700);
+    expect(panes.documentWidth - width, `structure has no horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+
+  await expect(page.locator(".pane-drawer .drawer-node .node-label")).toHaveText("Вибрана частина");
+  await expect(page.locator(".pane-drawer .drawer-node")).toBeVisible();
+
+  await page.locator("#app-nav [data-app-view='bytes']").click();
+  for (const [width, height] of [[390, 844], [768, 1024], [900, 1024]] as const) {
+    await page.setViewportSize({ width, height });
+    const panes = await page.evaluate(() => {
+      const tree = document.querySelector(".pane-tree")!.getBoundingClientRect();
+      const bytes = document.querySelector(".pane-hex")!.getBoundingClientRect();
+      return { tree, bytes, documentWidth: document.documentElement.scrollWidth };
+    });
+    expect(panes.bytes.y, `compact bytes view follows the tree at ${width}px`).toBeGreaterThanOrEqual(panes.tree.bottom - 1);
+    expect(panes.documentWidth - width, `compact view has no horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+
+  await page.setViewportSize({ width: 1100, height: 768 });
+  const desktopEdge = await page.evaluate(() => {
+    const tree = document.querySelector(".pane-tree")!.getBoundingClientRect();
+    const bytes = document.querySelector(".pane-hex")!.getBoundingClientRect();
+    const details = document.querySelector(".pane-drawer")!.getBoundingClientRect();
+    return { tree, bytes, details };
+  });
+  expect(desktopEdge.bytes.y).toBeCloseTo(desktopEdge.tree.y, 0);
+  expect(desktopEdge.details.y).toBeCloseTo(desktopEdge.tree.y, 0);
+  expect(desktopEdge.details.x).toBeGreaterThan(desktopEdge.bytes.x);
+});
+
 test("photo metadata is grouped and its location still opens the exact bytes", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
