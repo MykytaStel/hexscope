@@ -33,11 +33,13 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   const dialog = document.createElement("dialog");
   dialog.className = "inspector-sheet";
   dialog.setAttribute("aria-modal", "true");
-  dismissable(dialog);
-  document.body.append(dialog);
   const phone = matchMedia("(max-width: 900px)");
   let requested = requests.dataset.inspectorRequested === "true";
-  let responsiveCloseEvents = 0;
+  dismissable(dialog, false, () => {
+    requested = false;
+    delete requests.dataset.inspectorRequested;
+  });
+  document.body.append(dialog);
 
   const currentNode = () => drawer.querySelector<HTMLElement>(".drawer-node");
   const restore = () => {
@@ -45,26 +47,11 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     if (dialog.open || !node || !file) return;
     drawer.insertBefore(node, file);
   };
-  const close = (keepRequest = false) => {
-    if (dialog.open) {
-      if (keepRequest) responsiveCloseEvents += 1;
-      dialog.close();
-    }
+  const close = () => {
+    if (dialog.open) dialog.close();
     restore();
   };
-  dialog.addEventListener("close", () => {
-    if (dialog.open) {
-      if (responsiveCloseEvents > 0) responsiveCloseEvents -= 1;
-      return;
-    }
-    restore();
-    if (responsiveCloseEvents > 0) {
-      responsiveCloseEvents -= 1;
-      return;
-    }
-    requested = false;
-    delete requests.dataset.inspectorRequested;
-  });
+  dialog.addEventListener("close", restore);
   const open = () => {
     if (!phone.matches || dialog.open) return;
     restore();
@@ -84,7 +71,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   new MutationObserver(update).observe(requests, { attributes: true, attributeFilter: ["data-inspector-requested"] });
   phone.addEventListener("change", (event) => {
     if (event.matches && requested) open();
-    else if (!event.matches) close(true);
+    else if (!event.matches) close();
   });
   if (requested) open();
 

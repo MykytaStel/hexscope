@@ -658,6 +658,52 @@ test("phone inspector keeps its request through rapid queued breakpoint closes",
   await expect(sheet).toBeVisible();
 });
 
+test("phone inspector keeps a newer selection when explicit close races with resizing", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const media = matchMedia(query);
+      if (query === "(max-width: 900px)") (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia = media;
+      return media;
+    };
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+  await page.locator("#tree .tree .row").first().click();
+
+  const sheet = page.locator("dialog.inspector-sheet");
+  await expect(sheet).toBeVisible();
+  await page.evaluate(async () => {
+    const media = (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia;
+    const dialog = document.querySelector<HTMLDialogElement>("dialog.inspector-sheet")!;
+    const nextRow = document.querySelectorAll<HTMLElement>("#tree .tree .row")[1];
+    if (!media) throw new Error("The phone breakpoint media query was not captured");
+    const closeEvents = new Promise<void>((resolve) => {
+      let closes = 0;
+      dialog.addEventListener("close", () => {
+        if (++closes === 2) resolve();
+      });
+      dialog.querySelector<HTMLButtonElement>(".dialog-x")!.click();
+      nextRow.click();
+    });
+    await Promise.resolve();
+    media.dispatchEvent(new MediaQueryListEvent("change", { media: media.media, matches: false }));
+    await closeEvents;
+  });
+  await expect(sheet).not.toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { __inspectorMedia?: MediaQueryList }).__inspectorMedia!.dispatchEvent(
+      new MediaQueryListEvent("change", { media: "(max-width: 900px)", matches: true }),
+    );
+  });
+  await expect(sheet).toBeVisible();
+});
+
 test("phone compression action opens and closes the existing player from More", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop exposes compression in its full navigation");
   await page.addInitScript(() => {
