@@ -28,11 +28,9 @@ async function home(page: Page): Promise<void> {
   await page.waitForFunction(() => document.body.dataset.state === "empty");
 }
 
-/** Use the desktop workspace navigation, or its compact phone switcher. */
+/** Use the shared workspace navigation on desktop and phone. */
 async function openBytes(page: Page): Promise<void> {
-  const desktop = page.locator("#app-nav [data-app-view='bytes']");
-  if (await desktop.isVisible()) await desktop.click();
-  else await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
 }
 
 test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
@@ -244,9 +242,7 @@ test("landing connects its examples to the real file analyzer", async ({ page })
   await page.locator(".deeper-open-sample").click();
   await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  const desktopBytes = page.locator("#app-nav [data-app-view='bytes']");
-  if (await desktopBytes.isVisible()) await desktopBytes.click();
-  else await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
 });
@@ -267,7 +263,7 @@ test("the analyzer preview follows the selected site language", async ({ page })
 });
 
 test("analyzer navigation switches between its existing workspace views", async ({ page }) => {
-  test.skip((page.viewportSize()?.width ?? 0) <= 900, "the desktop navigation is replaced by the compact phone switcher");
+  test.skip((page.viewportSize()?.width ?? 0) <= 900, "the desktop navigation has a separate responsive phone treatment");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
     localStorage.setItem("hexscope.tour", "done");
@@ -297,6 +293,7 @@ test("analyzer navigation switches between its existing workspace views", async 
   await nav.getByRole("button", { name: "Структура", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "structure");
   await expect(page.locator("#tree")).toBeVisible();
+  await expect(page.locator("#tree")).toBeInViewport();
   await expect(page.locator("#hex")).toBeHidden();
 
   await nav.getByRole("button", { name: "Байти", exact: true }).click();
@@ -328,6 +325,37 @@ test("analyzer navigation switches between its existing workspace views", async 
   const fileChooser = await fileChooserEvent;
   await fileChooser.setFiles(sample("report.docx"));
   await expect(page.locator("dialog.compare")).toBeVisible();
+});
+
+test("desktop bytes workspace keeps structure labels readable", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "wide analyzer panes are checked on desktop");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
+
+  for (const width of [901, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const panes = await page.evaluate(() => Object.fromEntries(
+      [".app-nav", ".pane-tree", ".pane-hex", ".pane-drawer"].map((selector) => [
+        selector,
+        Math.round(document.querySelector(selector)!.getBoundingClientRect().width),
+      ]),
+    ));
+    expect(panes[".pane-tree"], `structure pane at ${width}px`).toBeGreaterThanOrEqual(260);
+    expect(panes[".pane-hex"], `bytes pane at ${width}px`).toBeGreaterThanOrEqual(230);
+    expect(panes[".pane-drawer"], `details pane at ${width}px`).toBeGreaterThanOrEqual(260);
+    const clippedLabels = await page.locator("#tree .label").evaluateAll((labels) =>
+      labels
+        .filter((label) => label.scrollWidth > label.clientWidth)
+        .map((label) => label.textContent),
+    );
+    expect(clippedLabels, `structure labels at ${width}px`).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+  }
 });
 
 test("photo metadata is grouped and its location still opens the exact bytes", async ({ page }) => {
@@ -363,9 +391,7 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   const selectedTreeRow = page.locator(".tree .row.is-selected");
   await expect(selectedTreeRow).toHaveAttribute("data-id", locationNode!);
   await expect(selectedTreeRow.locator(".label")).toContainText("GPS IFD");
-  const bytesNav = page.locator("#app-nav [data-app-view='bytes']");
-  if (await bytesNav.isVisible()) await bytesNav.click();
-  else await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
 });
@@ -427,7 +453,7 @@ test("comparison gives both files a clear summary and keeps raw bytes in a detai
   await expect(dialog).not.toBeVisible();
 });
 
-test("phone analyzer keeps the compact summary and bytes switch", async ({ page }) => {
+test("phone analyzer opens on overview and reaches bytes through workspace navigation", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop uses the full workspace navigation");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
@@ -435,16 +461,98 @@ test("phone analyzer keeps the compact summary and bytes switch", async ({ page 
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await expect(page.locator("#app-nav")).toBeHidden();
-
-  const switcher = page.locator("#viewswitch");
-  await expect(switcher).toBeVisible();
-  await switcher.getByRole("button", { name: "Байти", exact: true }).click();
+  const nav = page.getByRole("navigation", { name: "Робоча область файла" });
+  await expect(nav).toBeVisible();
+  await expect(page.locator("#viewswitch")).toBeHidden();
+  await nav.getByRole("button", { name: "Байти", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", page.viewportSize()!.width);
-  await switcher.getByRole("button", { name: "Зведення", exact: true }).click();
+  await nav.getByRole("button", { name: "Огляд", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
+});
+
+test("phone analyzer exposes all workspace views and secondary actions", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop uses the full workspace navigation");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const nav = page.getByRole("navigation", { name: "Робоча область файла" });
+  await expect(nav).toBeVisible();
+  await expect(page.locator("#viewswitch")).toBeHidden();
+  for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти"]) {
+    await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
+  }
+
+  await nav.getByRole("button", { name: "Метадані", exact: true }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
+  await expect(page.locator("#drawer .reveals")).toBeInViewport();
+  await nav.getByRole("button", { name: "Вміст", exact: true }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "content");
+  await expect(page.locator("#drawer .reveal-hero")).toBeInViewport();
+  await nav.getByRole("button", { name: "Структура", exact: true }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "structure");
+  await expect(page.locator("#tree")).toBeVisible();
+  await expect(page.locator("#hex")).toBeHidden();
+  await nav.getByRole("button", { name: "Байти", exact: true }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#hex")).toBeVisible();
+  await nav.getByRole("button", { name: "Огляд", exact: true }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
+
+  const more = nav.locator(".app-nav-more");
+  await more.locator("summary").click();
+  await expect(more.getByRole("button", { name: "Стиснення", exact: true })).toBeVisible();
+  const compare = more.getByRole("button", { name: "Порівняння", exact: true });
+  await expect(compare).toBeVisible();
+  const navBox = await nav.boundingBox();
+  expect(navBox).not.toBeNull();
+  expect(navBox!.x).toBeGreaterThanOrEqual(0);
+  expect(navBox!.x + navBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", page.viewportSize()!.width);
+
+  const comparePicker = page.waitForEvent("filechooser");
+  await compare.click();
+  await comparePicker;
+  await expect(more).not.toHaveAttribute("open", "");
+
+  await page.setViewportSize({ width: 320, height: 740 });
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 320);
+  for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти"]) {
+    const button = nav.getByRole("button", { name: label, exact: true });
+    const dimensions = await button.evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
+    expect(dimensions.content).toBeLessThanOrEqual(dimensions.width);
+  }
+});
+
+test("phone compression action opens and closes the existing player from More", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1000) > 900, "the desktop exposes compression in its full navigation");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=sample.png");
+  await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+  await expect(page.locator("body")).toHaveClass(/is-playing/);
+
+  const nav = page.locator("#app-nav");
+  const more = nav.locator(".app-nav-more");
+  await more.locator("summary").click();
+  const compression = more.getByRole("button", { name: "Стиснення", exact: true });
+  await expect(compression).toBeEnabled();
+  await expect(compression).toHaveAttribute("aria-pressed", "true");
+  await compression.click();
+  await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+  await expect(page.locator(".drawer-player")).toBeHidden();
+  await expect(more).not.toHaveAttribute("open", "");
+  await more.locator("summary").click();
+  await compression.click();
+  await expect(page.locator("body")).toHaveClass(/is-playing/);
+  await expect(page.locator(".drawer-player")).toBeVisible();
 });
 
 test("desktop analyzer compression navigation toggles the existing player", async ({ page }) => {
@@ -1023,7 +1131,7 @@ test("the desktop summary uses a composed wide layout", async ({ page }, info) =
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the compact tree is specific to touch screens");
   await openDoor(page, /Check a photo/);
-  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   const treeHeight = await page.locator(".pane-tree").evaluate((e) => e.getBoundingClientRect().height);
   expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
 });
@@ -1034,7 +1142,7 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   await page.waitForTimeout(400);
   await expect(page.locator(".tour")).toHaveCount(0);
 
@@ -1058,7 +1166,7 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   expect(copyBottom).toBeLessThanOrEqual(drawerBottom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
-  await page.locator("#viewswitch button[data-view='summary']").click();
+  await page.locator("#app-nav [data-app-view='overview']").click();
   await expect(page.locator(".verdict-cta")).toBeVisible();
 });
 
@@ -1066,7 +1174,7 @@ test("the byte grid lets a keyboard user move to and pin the exact byte", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#viewswitch button[data-view='bytes']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   const bytes = page.locator(".hex-scroller");
   await bytes.focus();
 
@@ -1173,7 +1281,8 @@ test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
   const toolbar = page.locator(".topbar .actions");
   await expect(toolbar).toBeVisible();
   await expect(page.locator(".topbar .location-badge")).toBeVisible();
-  await expect(page.locator('.topbar .viewswitch [data-view="bytes"]')).toBeVisible();
+  await expect(page.locator(".topbar .viewswitch")).toBeHidden();
+  await expect(page.locator("#app-nav [data-app-view='bytes']")).toBeVisible();
   const bounds = await toolbar.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, right: rect.right };

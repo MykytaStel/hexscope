@@ -204,12 +204,13 @@ function syncAppNavigation(): void {
   const ready = document.body.dataset.state === "ready" && !!model;
   appNavigation.hidden = !ready;
   if (!ready) return;
-  if (!narrow.matches && !appNavigation.dataset.icons) {
+  if (!appNavigation.dataset.icons) {
     appNavigation.dataset.icons = "loading";
     void import("./app-nav-icons")
       .then(({ installAppNavigationIcons }) => installAppNavigationIcons(appNavigation))
       .catch(() => { delete appNavigation.dataset.icons; });
   }
+  if (!narrow.matches) appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!.open = true;
 
   const hasMetadata = !!$("drawer").querySelector(".reveals");
   const hasContent = !!$("drawer").querySelector(contentTargetSelector);
@@ -228,6 +229,7 @@ function syncAppNavigation(): void {
   }
 }
 narrow.addEventListener("change", () => {
+  appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!.open = !narrow.matches;
   if (!narrow.matches && document.body.dataset.state === "ready") syncAppNavigation();
 });
 
@@ -254,9 +256,14 @@ appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
   if (button.dataset.appView) {
+    tourDismissedByNavigation = true;
+    dismissTour();
     setWorkspaceView(button.dataset.appView as WorkspaceView);
     return;
   }
+  tourDismissedByNavigation = true;
+  dismissTour();
+  button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appAction === "compression") {
     if (document.body.classList.contains("is-playing")) closePlayer();
     else if (canPlay()) void openPlayer();
