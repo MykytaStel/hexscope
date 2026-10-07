@@ -439,6 +439,43 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
   expect(desktopEdge.details.x).toBeGreaterThan(desktopEdge.bytes.x);
 });
 
+test("tablet metadata keeps two readable columns and content keeps its photo beside the map", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "tablet analyzer layout is checked on desktop Chromium");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='metadata']").click();
+
+  for (const width of [901, 1024, 1099]) {
+    await page.setViewportSize({ width, height: 768 });
+    const groups = page.locator("#drawer .metadata-groups");
+    const trackWidths = await groups.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map(Number.parseFloat));
+    expect(trackWidths, `metadata columns at ${width}px`).toHaveLength(2);
+    expect(Math.min(...trackWidths), `metadata column width at ${width}px`).toBeGreaterThanOrEqual(320);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `no metadata overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+
+  await page.locator("#app-nav [data-app-view='content']").click();
+  await expect(page.locator("#drawer .reveal-hero.has-map .place-map-svg")).toBeVisible();
+  for (const width of [901, 1024, 1099]) {
+    await page.setViewportSize({ width, height: 768 });
+    const hero = await page.locator("#drawer .reveal-hero.has-map").evaluate((element) => {
+      const picture = element.querySelector(".reveal-picture-frame")!.getBoundingClientRect();
+      const map = element.querySelector(".place-map")!.getBoundingClientRect();
+      return { picture, map, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth };
+    });
+    expect(hero.picture.width, `photo width at ${width}px`).toBeGreaterThanOrEqual(240);
+    expect(hero.map.width, `map width at ${width}px`).toBeGreaterThanOrEqual(280);
+    expect(Math.abs(hero.picture.y - hero.map.y), `photo and map share a row at ${width}px`).toBeLessThanOrEqual(1);
+    expect(hero.scrollWidth - hero.clientWidth, `content hero does not overflow at ${width}px`).toBeLessThanOrEqual(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `no content overflow at ${width}px`).toBeLessThanOrEqual(0);
+  }
+});
+
 test("photo metadata is grouped and its location still opens the exact bytes", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
