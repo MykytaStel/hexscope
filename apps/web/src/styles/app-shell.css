@@ -358,3 +358,60 @@
     display: none;
   }
 }
+
+/* At tablet widths the four desktop columns squeeze labels and selected-part
+   details. Keep navigation at the side, place tree and bytes together, and
+   give the selected part a full-width row beneath them. */
+@media (min-width: 901px) and (max-width: 1099px) {
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .layout,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .layout {
+    grid-template-columns: clamp(128px, 13vw, 150px) clamp(340px, 39vw, 430px) minmax(360px, 1fr);
+    grid-template-rows: minmax(0, 1fr) clamp(210px, 34vh, 280px);
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .app-nav,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .app-nav {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .pane-tree,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .pane-tree {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .pane-hex {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .pane-tree {
+    grid-column: 2 / 4;
+    border-right: 0;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .pane-drawer,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .pane-drawer {
+    display: grid;
+    grid-column: 2 / 4;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .pane-drawer .drawer-node,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .pane-drawer .drawer-node {
+    grid-column: 1;
+    max-height: none;
+    min-height: 0;
+    border-top: 0;
+  }
+
+  body[data-state="ready"]:not(.is-playing)[data-app-view="bytes"] .pane-drawer .facts,
+  body[data-state="ready"]:not(.is-playing)[data-app-view="structure"] .pane-drawer .facts {
+    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+    column-gap: clamp(12px, 2vw, 24px);
+  }
+}
