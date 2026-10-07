@@ -117,11 +117,12 @@ jobs:
       # The page's own script, before any parser: what every visitor waits for.
       # Film-scan clues reuse the image worker and lazy view chunk; this small
       # allowance covers the hook that inserts its result after local analysis.
+      # Mobile selected-part details add a small handoff signal to the page script.
       - name: JavaScript size budget
         run: |
           main=$(gzip -9c apps/web/dist/assets/main-*.js | wc -c)
-          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 65150)."
-          test "$main" -le 65150
+          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 65300)."
+          test "$main" -le 65300
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.

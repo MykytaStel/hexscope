@@ -391,6 +391,8 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   const selectedTreeRow = page.locator(".tree .row.is-selected");
   await expect(selectedTreeRow).toHaveAttribute("data-id", locationNode!);
   await expect(selectedTreeRow.locator(".label")).toContainText("GPS IFD");
+  const inspector = page.locator("dialog.inspector-sheet");
+  if (await inspector.isVisible()) await inspector.getByRole("button", { name: "Закрити" }).click();
   await page.locator("#app-nav [data-app-view='bytes']").click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
@@ -527,6 +529,41 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
     const dimensions = await button.evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
     expect(dimensions.content).toBeLessThanOrEqual(dimensions.width);
   }
+});
+
+test("phone tree selection opens a modal inspector sheet with three clear ways out", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator("dialog.inspector-sheet")).not.toBeVisible();
+  await page.locator("#app-nav [data-app-view='structure']").click();
+
+  const firstRow = page.locator("#tree .tree .row").first();
+  await firstRow.click();
+  const sheet = page.getByRole("dialog", { name: "Вибрана частина" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toHaveAttribute("aria-modal", "true");
+  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+  await expect(sheet.getByRole("button", { name: "Закрити" })).toBeVisible();
+  await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 390);
+
+  await sheet.getByRole("button", { name: "Закрити" }).click();
+  await expect(sheet).not.toBeVisible();
+  await firstRow.click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).not.toBeVisible();
+
+  await firstRow.click();
+  await expect(sheet).toBeVisible();
+  await page.mouse.click(4, 4);
+  await expect(sheet).not.toBeVisible();
+  await expect(firstRow).toHaveClass(/is-selected/);
 });
 
 test("phone compression action opens and closes the existing player from More", async ({ page }) => {
@@ -1155,17 +1192,20 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   const canvasBox = await page.locator(".hex-canvas").boundingBox();
   if (!canvasBox) throw new Error("The byte canvas is not visible");
   await page.touchscreen.tap(canvasBox.x + 85, canvasBox.y + 24);
-  await expect(page.locator(".drawer-node .node-label")).toHaveText("Вибрана частина");
-  await expect(page.locator(".drawer-node")).toContainText("Початок зображення: перші два байти кожного JPEG.");
-  await expect(page.locator(".drawer-node")).toContainText("Зсув");
-  await expect(page.locator(".drawer-node")).toContainText("Довжина");
-  await expect(page.locator(".drawer-node")).toContainText("Тип");
-  await expect(page.locator(".drawer-node")).toContainText("Копіювати як");
-  const copyBottom = await page.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
-  const drawerBottom = await page.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
+  const inspector = page.getByRole("dialog", { name: "Вибрана частина" });
+  await expect(inspector).toBeVisible();
+  await expect(inspector.locator(".drawer-node .node-label")).toHaveText("Вибрана частина");
+  await expect(inspector.locator(".drawer-node")).toContainText("Початок зображення: перші два байти кожного JPEG.");
+  await expect(inspector.locator(".drawer-node")).toContainText("Зсув");
+  await expect(inspector.locator(".drawer-node")).toContainText("Довжина");
+  await expect(inspector.locator(".drawer-node")).toContainText("Тип");
+  await expect(inspector.locator(".drawer-node")).toContainText("Копіювати як");
+  const copyBottom = await inspector.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
+  const drawerBottom = await inspector.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
   expect(copyBottom).toBeLessThanOrEqual(drawerBottom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
+  await inspector.getByRole("button", { name: "Закрити" }).click();
   await page.locator("#app-nav [data-app-view='overview']").click();
   await expect(page.locator(".verdict-cta")).toBeVisible();
 });

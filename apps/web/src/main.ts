@@ -127,7 +127,7 @@ const hex = new HexView($("hex-body"), {
   onSelect: (id, offset, keyboard = false) => {
     status.setAttribute("aria-live", keyboard ? "polite" : "off");
     if (offset !== undefined) setStatusOffset(offset);
-    select(id, offset);
+    point(id, offset);
   },
   onNeed: (start, end) => {
     const m = workspace.model;
@@ -158,7 +158,7 @@ const picture = new PictureView({
   showBytes: (start, end) => {
     toBytes();
     // Its part of the file in the tree and the details, as well.
-    if (workspace.model) select(workspace.model.nodeAt(start));
+    if (workspace.model) point(workspace.model.nodeAt(start));
     hex.setHead(start, end);
     // Once the bytes are laid out, bring these into view.
     requestAnimationFrame(() => requestAnimationFrame(() => hex.scrollToOffset(start)));
@@ -206,8 +206,11 @@ function syncAppNavigation(): void {
   if (!ready) return;
   if (!appNavigation.dataset.icons) {
     appNavigation.dataset.icons = "loading";
-    void import("./app-nav-icons")
-      .then(({ installAppNavigationIcons }) => installAppNavigationIcons(appNavigation))
+    void import("./app-workspace-ui")
+      .then(({ installAppNavigationIcons, createMobileInspector }) => {
+        installAppNavigationIcons(appNavigation);
+        createMobileInspector($("drawer"), appNavigation);
+      })
       .catch(() => { delete appNavigation.dataset.icons; });
   }
   if (!narrow.matches) appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!.open = true;
@@ -434,6 +437,7 @@ function selectInPlace(id: number): void {
   minimap.setSelected(id);
   tree.setSelected(id);
   drawer.showNode(model, id, id >= 0);
+  appNavigation.dataset.inspectorRequested = "true";
 }
 
 // Find in the file: each match marked in the bytes, its part selected.
@@ -460,8 +464,9 @@ const search = new SearchBar($("hex-find"), {
 }
 
 /** Selects a node another view led to, and lights up its bytes. */
-function point(id: number): void {
-  select(id);
+function point(id: number, offset?: number): void {
+  select(id, offset);
+  appNavigation.dataset.inspectorRequested = "true";
   hex.flash(id);
 }
 
@@ -490,6 +495,7 @@ function nextProblem(): void {
   if (!model || model.problems.length === 0) return;
   problemCursor = (problemCursor + 1) % model.problems.length;
   select(model.problems[problemCursor]);
+  appNavigation.dataset.inspectorRequested = "true";
 }
 
 function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
@@ -737,6 +743,7 @@ function arrive(): void {
   if (!model) return;
   if (model.problems.length > 0) nextProblem();
   else if (model.file.location) select(model.file.location.node);
+  delete appNavigation.dataset.inspectorRequested;
   // Heard, and where the keyboard starts: what was found.
   const lines = verdict(model).map((l) => l.text);
   announce(`${model.name} is open. ${lines.join(" ")}`);
