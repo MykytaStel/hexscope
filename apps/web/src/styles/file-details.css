@@ -417,6 +417,7 @@
   position: fixed;
   z-index: 40;
   width: min(320px, calc(100vw - 24px));
+  overflow-y: auto;
   padding: 14px 16px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
   border-radius: 12px;

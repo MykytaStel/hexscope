@@ -128,24 +128,17 @@ export function maybeTour(): void {
     if (!lit) return;
     const r = lit.getBoundingClientRect();
     const margin = 12;
-    const nav = document.querySelector<HTMLElement>("#app-nav:not([hidden])");
-    const navBox = nav?.getBoundingClientRect();
-    const navCoversBottom =
-      nav &&
-      navBox &&
-      getComputedStyle(nav).position === "fixed" &&
-      navBox.bottom >= innerHeight - margin;
     // Keep the note above the fixed touch navigation. Its top edge, not the
     // viewport edge, is the usable bottom of the screen on narrow layouts.
-    const bottom = navCoversBottom ? navBox.top - margin : innerHeight - margin;
-    bubble.style.maxHeight = `${Math.max(1, bottom - margin)}px`;
-    bubble.style.overflowY = "auto";
+    const bottom = innerWidth <= 900
+      ? document.getElementById("app-nav")!.getBoundingClientRect().top - margin
+      : innerHeight - margin;
+    bubble.style.maxHeight = `${bottom - margin}px`;
     const b = bubble.getBoundingClientRect();
     // Below the part when there is room, above it when not. If the part is
     // taller than the usable area, place the note at the bottom edge.
     let top = r.bottom + margin;
-    if (top + b.height > bottom) top = r.top - b.height - margin;
-    if (top < margin || top + b.height > bottom) top = Math.max(margin, bottom - b.height);
+    if (top + b.height > bottom) top = Math.max(margin, Math.min(r.top - b.height - margin, bottom - b.height));
     const left = Math.min(Math.max(margin, r.left), innerWidth - b.width - margin);
     bubble.style.top = `${Math.round(top)}px`;
     bubble.style.left = `${Math.round(left)}px`;
