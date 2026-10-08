@@ -185,39 +185,48 @@ fn options(args: &[String]) -> Result<Options, String> {
 }
 
 /// Every file under the paths, folders read through, in a stable order.
+/// Refuse links and traversal errors so a successful scan cannot hide files
+/// that were skipped.
 fn files(paths: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
     let mut out = Vec::new();
     for p in paths {
-        let meta = std::fs::metadata(p).map_err(|e| format!("{}: {e}", p.display()))?;
+        let meta = std::fs::symlink_metadata(p).map_err(|e| format!("{}: {e}", p.display()))?;
+        if meta.file_type().is_symlink() {
+            return Err(format!("{}: symbolic links are not followed", p.display()));
+        }
         if meta.is_dir() {
-            walk(p, &mut out);
-        } else {
+            walk(p, &mut out)?;
+        } else if meta.is_file() {
             out.push(p.clone());
         }
     }
     Ok(out)
 }
 
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    let mut entries: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
+    let read_dir = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let mut entries: Vec<PathBuf> = read_dir
+        .map(|e| {
+            e.map(|e| e.path())
+                .map_err(|error| format!("{}: {error}", dir.display()))
+        })
+        .collect::<Result<_, _>>()?;
     entries.sort();
     for p in entries {
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        // Links are not followed: a loop of them would never end.
-        let Ok(meta) = std::fs::symlink_metadata(&p) else {
-            continue;
-        };
+        let meta = std::fs::symlink_metadata(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+        if meta.file_type().is_symlink() {
+            return Err(format!("{}: symbolic links are not followed", p.display()));
+        }
         if meta.is_dir() {
             if !SKIP.contains(&name) {
-                walk(&p, out);
+                walk(&p, out)?;
             }
         } else if meta.is_file() {
             out.push(p);
         }
     }
+    Ok(())
 }
 
 /// The groups a summary falls in, for `--fail-on`: its concerns, `reveals`
@@ -275,7 +284,7 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             results.extend(sarif_results(&path, &s));
         } else if o.json {
             println!("{}", json(&path, &s));
-        } else if !quiet || o.all {
+        } else if !github && (!quiet || o.all) {
             print!("{}", human(&path, &s));
         }
         if github && fails {
@@ -326,20 +335,10 @@ fn human(path: &Path, s: &Summary) -> String {
     out
 }
 
-/// GitHub Actions workflow commands: one annotation per finding.
+/// GitHub Actions workflow commands contain the path and finding kind, but
+/// never the finding value. Values stay out of the runner's logs.
 fn annotations(path: &Path, s: &Summary) -> Vec<String> {
-    // The message may not hold a newline; `%` and line ends are escaped as
-    // the runner expects.
-    let esc = |m: &str| {
-        m.replace('%', "%25")
-            .replace('\r', "%0D")
-            .replace('\n', "%0A")
-    };
-    let file = path
-        .display()
-        .to_string()
-        .replace(',', "%2C")
-        .replace(':', "%3A");
+    let file = escape_workflow_property(&path.display().to_string());
     let mut out = Vec::new();
     for p in &s.problems {
         let level = if p.concern == Concern::Oddity {
@@ -350,16 +349,39 @@ fn annotations(path: &Path, s: &Summary) -> Vec<String> {
         out.push(format!(
             "::{level} file={file},title=hexscope: {}::{}",
             concern_name(p.concern),
-            esc(&p.label)
+            escape_workflow_message(&format!(
+                "Review this file locally for a {} finding.",
+                concern_name(p.concern)
+            ))
         ));
     }
-    for (kind, text) in &s.facts {
+    for (kind, _) in &s.facts {
         out.push(format!(
             "::warning file={file},title=hexscope: reveals {kind}::{}",
-            esc(text)
+            escape_workflow_message(&format!(
+                "This file contains {kind} metadata. Inspect it locally."
+            ))
         ));
     }
     out
+}
+
+/// Escape GitHub Actions command properties, including separators and line ends.
+fn escape_workflow_property(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
+        .replace(':', "%3A")
+        .replace(',', "%2C")
+}
+
+/// Escape line breaks and percent signs in GitHub Actions command messages.
+fn escape_workflow_message(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
 }
 
 fn json_str(s: &str) -> String {
@@ -502,25 +524,53 @@ fn write_whole(
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    let name = to
-        .file_name()
-        .map_or_else(|| "copy".into(), |n| n.to_string_lossy().into_owned());
-    let part = dir.join(format!(".{name}.hexscope-{}.part", std::process::id()));
-    let written = File::create(&part)
-        .and_then(|f| {
-            let mut out = BufWriter::new(f);
-            write(&mut out)?;
-            out.into_inner()?.sync_all()
-        })
-        .and_then(|()| match std::fs::metadata(to) {
-            Ok(meta) => std::fs::set_permissions(&part, meta.permissions()),
-            Err(_) => Ok(()),
-        })
-        .and_then(|()| std::fs::rename(&part, to));
-    if written.is_err() {
-        let _ = std::fs::remove_file(&part);
+    let part = tempfile::NamedTempFile::new_in(dir)?;
+    let file = part.as_file().try_clone()?;
+    let mut out = BufWriter::new(file);
+    write(&mut out)?;
+    out.flush()?;
+    out.get_ref().sync_all()?;
+    drop(out);
+    if let Ok(meta) = std::fs::metadata(to) {
+        part.as_file().set_permissions(meta.permissions())?;
     }
-    written
+    part.persist(to).map(|_| ()).map_err(|e| e.error)
+}
+
+#[cfg(all(test, unix))]
+mod write_whole_tests {
+    use super::write_whole;
+    use std::{fs, io::Write, os::unix::fs::symlink, path::PathBuf};
+
+    #[test]
+    fn does_not_follow_a_precreated_temporary_path_symlink() {
+        let dir: PathBuf = std::env::temp_dir().join(format!(
+            "hexscope-write-whole-symlink-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let destination = dir.join("photo-clean.jpg");
+        let target = dir.join("outside-target.txt");
+        let predictable_part = dir.join(format!(
+            ".photo-clean.jpg.hexscope-{}.part",
+            std::process::id()
+        ));
+        fs::write(&target, b"keep this target intact").unwrap();
+        symlink(&target, &predictable_part).unwrap();
+
+        write_whole(&destination, |out| out.write_all(b"clean copy")).unwrap();
+
+        assert_eq!(fs::read(&target).unwrap(), b"keep this target intact");
+        assert_eq!(fs::read(&destination).unwrap(), b"clean copy");
+        assert!(
+            fs::symlink_metadata(&predictable_part)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
 }
 
 /// Where a copy goes: beside the file, into `--out`, or over it.

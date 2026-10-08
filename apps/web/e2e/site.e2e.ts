@@ -1471,6 +1471,31 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
   }
 });
 
+test("the first-run tour stays above the fixed bottom navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 739 });
+  await page.addInitScript(() => localStorage.removeItem("hexscope.tour"));
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".tour")).toBeVisible();
+  await page.locator(".tour .btn-primary").click();
+  await expect(page.locator(".tour")).toBeVisible();
+  await expect(page.locator("#app-nav")).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const bubble = document.querySelector<HTMLElement>(".tour")!.getBoundingClientRect();
+    const nav = document.querySelector<HTMLElement>("#app-nav")!;
+    const navBox = nav.getBoundingClientRect();
+    return {
+      bubbleTop: bubble.top,
+      bubbleBottom: bubble.bottom,
+      navTop: navBox.top,
+      navPosition: getComputedStyle(nav).position,
+    };
+  });
+  expect(layout.navPosition).toBe("fixed");
+  expect(layout.bubbleTop).toBeGreaterThanOrEqual(8);
+  expect(layout.bubbleBottom).toBeLessThanOrEqual(layout.navTop - 8);
+});
+
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the compact tree is specific to touch screens");
   await openDoor(page, /Check a photo/);
@@ -1727,6 +1752,8 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   await expect(page.locator(".place-map svg")).toBeVisible();
 
   await page.locator(".verdict-cta").click();
+  await expect(page.locator(".tour")).toHaveCount(0);
+  await expect(page.locator(".before-after")).toBeInViewport();
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("4");
   await expect(after.locator(".ba-what")).toHaveText("Confirmed removed");

@@ -28,6 +28,11 @@ report that GitHub Code Scanning can ingest. `--help` lists all commands,
 options and exit codes. By default, `check` exits non-zero for reveals,
 hidden content or damage; choose `--fail-on` to tune a CI gate.
 
+Folder scans fail when they encounter symlinks or unreadable paths, so a partial
+scan cannot look complete. In GitHub Actions, annotations identify the file and
+finding kind without printing finding values into runner logs. Explicit `--json`
+and `--sarif` output remains detailed.
+
 The command-line tool uses the same parser as the Hexscope web app. It does
 not upload files or send telemetry.
 
