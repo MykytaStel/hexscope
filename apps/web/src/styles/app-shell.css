@@ -347,7 +347,9 @@
   }
 
   body[data-state="ready"] .layout {
-    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    /* Keep the full reading area above the fixed navigation, including the
+       device's safe area. A few extra pixels cover fractional browser sizing. */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
   body[data-state="ready"][data-app-view="structure"] .layout {

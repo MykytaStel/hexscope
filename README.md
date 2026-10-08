@@ -66,7 +66,9 @@ hexscope redact --text "Private Name" report.pdf    # redact matching PDF text
 `check` reads files and folders recursively. By default, it exits with `1` when
 it finds disclosures, hidden content or damage; `--fail-on` can select finding
 types, and `--fail-on none` reports without failing. Exit `2` means a usage or
-file error. Use `--json` for newline-delimited JSON or `--sarif` for SARIF 2.1.0.
+file error. Symlinks and unreadable folders stop the scan with an error rather
+than being silently skipped. Use `--json` for newline-delimited JSON or `--sarif`
+for SARIF 2.1.0.
 Run `hexscope --help` for all options. Clean and repaired files are written as
 copies by default; `clean --in-place` is available when you explicitly want to
 replace the originals.
@@ -82,6 +84,10 @@ The published Action checks paths and annotates selected findings on their files
     paths: photos docs
     fail-on: location,serial,covered,hiddentext
 ```
+
+Annotations name the file and finding kind, but leave actual values out of CI
+logs. When `check` runs in GitHub Actions, its default human output is suppressed
+for the same reason; explicitly requested `--json` and `--sarif` remain detailed.
 
 For other CI systems, save a SARIF report with
 `hexscope check --sarif --fail-on none PATH...` and upload it to your code

@@ -82,6 +82,55 @@ fn check_names_what_a_photo_gives_away_and_fails_on_it() {
     assert_eq!(code, 1);
 }
 
+#[cfg(unix)]
+#[test]
+fn github_annotations_escape_untrusted_paths_and_do_not_print_finding_values() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let dir = std::env::temp_dir().join(format!("hexscope-github-path-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let name = "photo%\r\n::warning file=owned,title=Injected.jpg";
+    let path = dir.join(std::ffi::OsStr::from_bytes(name.as_bytes()));
+    std::fs::copy(fixture("photo.jpg"), &path).unwrap();
+    let output = Command::new(BIN)
+        .args(["check", "--fail-on", "location", path.to_str().unwrap()])
+        .env("GITHUB_ACTIONS", "true")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert_eq!(output.status.code(), Some(1), "{stdout}{stderr}");
+    assert!(
+        stdout.contains("%25%0D%0A%3A%3Awarning file=owned%2Ctitle=Injected.jpg"),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("\n::warning file=owned"), "{stdout}");
+    assert!(!stdout.contains("48.8584"), "{stdout}");
+    assert!(!stdout.contains("HX-000042"), "{stdout}");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn check_reports_symlinks_in_folders_instead_of_silently_skipping_them() {
+    use std::os::unix::fs::symlink;
+
+    let dir = std::env::temp_dir().join(format!("hexscope-folder-symlink-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("nested")).unwrap();
+    std::fs::copy(fixture("photo.jpg"), dir.join("nested/photo.jpg")).unwrap();
+    symlink(fixture("photo.jpg"), dir.join("nested/photo-link.jpg")).unwrap();
+
+    let (code, out, err) = run(&["check", dir.to_str().unwrap()]);
+
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(err.contains("symbolic links are not followed"), "{err}");
+    assert!(!err.contains("read 1 file"), "{err}");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 #[test]
 fn json_is_one_object_per_file() {
     let (code, out, _) = run(&[

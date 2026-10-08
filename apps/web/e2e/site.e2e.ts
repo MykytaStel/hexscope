@@ -439,38 +439,67 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
   expect(desktopEdge.details.x).toBeGreaterThan(desktopEdge.bytes.x);
 });
 
-test("tablet metadata keeps two readable columns and content keeps its photo beside the map", async ({ page }, info) => {
+test("tablet overview adapts its photo, metadata and bottom navigation as one layout", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "tablet analyzer layout is checked on desktop Chromium");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
     localStorage.setItem("hexscope.tour", "done");
   });
-  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.setViewportSize({ width: 768, height: 900 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const widths = [520, 560, 600, 620, 640, 659, 660, 680, 700, 768, 900, 901, 1024, 1099];
   await page.locator("#app-nav [data-app-view='metadata']").click();
 
-  for (const width of [901, 1024, 1099]) {
-    await page.setViewportSize({ width, height: 768 });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
     const groups = page.locator("#drawer .metadata-groups");
-    const trackWidths = await groups.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map(Number.parseFloat));
-    expect(trackWidths, `metadata columns at ${width}px`).toHaveLength(2);
-    expect(Math.min(...trackWidths), `metadata column width at ${width}px`).toBeGreaterThanOrEqual(320);
+    const layout = await groups.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map(Number.parseFloat));
+    expect(Math.min(...layout), `metadata track width at ${width}px`).toBeGreaterThanOrEqual(320);
+    if (width <= 680) expect(layout, `metadata stay in one column at ${width}px`).toHaveLength(1);
+    if (width >= 768) expect(layout, `metadata use two readable columns at ${width}px`).toHaveLength(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `no metadata overflow at ${width}px`).toBeLessThanOrEqual(0);
+
+    const navLayout = await page.evaluate(() => {
+      const nav = document.querySelector<HTMLElement>("#app-nav")!;
+      const layout = document.querySelector<HTMLElement>(".layout")!;
+      return {
+        position: getComputedStyle(nav).position,
+        navHeight: nav.getBoundingClientRect().height,
+        reservedBottom: Number.parseFloat(getComputedStyle(layout).paddingBottom),
+      };
+    });
+    if (width <= 900) {
+      expect(navLayout.position, `bottom navigation remains fixed at ${width}px`).toBe("fixed");
+      expect(navLayout.reservedBottom, `layout reserves the full navigation height at ${width}px`).toBeGreaterThanOrEqual(navLayout.navHeight - 1);
+    } else {
+      expect(navLayout.position, `desktop navigation returns to the side rail at ${width}px`).not.toBe("fixed");
+    }
   }
 
   await page.locator("#app-nav [data-app-view='content']").click();
   await expect(page.locator("#drawer .reveal-hero.has-map .place-map-svg")).toBeVisible();
-  for (const width of [901, 1024, 1099]) {
-    await page.setViewportSize({ width, height: 768 });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
     const hero = await page.locator("#drawer .reveal-hero.has-map").evaluate((element) => {
       const picture = element.querySelector(".reveal-picture-frame")!.getBoundingClientRect();
       const map = element.querySelector(".place-map")!.getBoundingClientRect();
-      return { picture, map, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth };
+      return {
+        picture: { x: picture.x, y: picture.y, width: picture.width, bottom: picture.bottom },
+        map: { x: map.x, y: map.y, width: map.width },
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      };
     });
-    expect(hero.picture.width, `photo width at ${width}px`).toBeGreaterThanOrEqual(240);
-    expect(hero.map.width, `map width at ${width}px`).toBeGreaterThanOrEqual(280);
-    expect(Math.abs(hero.picture.y - hero.map.y), `photo and map share a row at ${width}px`).toBeLessThanOrEqual(1);
+    if (width <= 659) {
+      expect(hero.map.y, `map follows the full-width photo at ${width}px`).toBeGreaterThanOrEqual(hero.picture.bottom + 8);
+      expect(hero.picture.width, `stacked photo remains contained at ${width}px`).toBeLessThanOrEqual(480);
+    } else {
+      expect(hero.picture.width, `photo width at ${width}px`).toBeGreaterThanOrEqual(240);
+      expect(hero.map.width, `map width at ${width}px`).toBeGreaterThanOrEqual(280);
+      expect(Math.abs(hero.picture.y - hero.map.y), `photo and map share a row at ${width}px`).toBeLessThanOrEqual(1);
+    }
     expect(hero.scrollWidth - hero.clientWidth, `content hero does not overflow at ${width}px`).toBeLessThanOrEqual(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `no content overflow at ${width}px`).toBeLessThanOrEqual(0);
   }
@@ -1471,6 +1500,31 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
   }
 });
 
+test("the first-run tour stays above the fixed bottom navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 739 });
+  await page.addInitScript(() => localStorage.removeItem("hexscope.tour"));
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".tour")).toBeVisible();
+  await page.locator(".tour .btn-primary").click();
+  await expect(page.locator(".tour")).toBeVisible();
+  await expect(page.locator("#app-nav")).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const bubble = document.querySelector<HTMLElement>(".tour")!.getBoundingClientRect();
+    const nav = document.querySelector<HTMLElement>("#app-nav")!;
+    const navBox = nav.getBoundingClientRect();
+    return {
+      bubbleTop: bubble.top,
+      bubbleBottom: bubble.bottom,
+      navTop: navBox.top,
+      navPosition: getComputedStyle(nav).position,
+    };
+  });
+  expect(layout.navPosition).toBe("fixed");
+  expect(layout.bubbleTop).toBeGreaterThanOrEqual(8);
+  expect(layout.bubbleBottom).toBeLessThanOrEqual(layout.navTop - 8);
+});
+
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the compact tree is specific to touch screens");
   await openDoor(page, /Check a photo/);
@@ -1727,6 +1781,8 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   await expect(page.locator(".place-map svg")).toBeVisible();
 
   await page.locator(".verdict-cta").click();
+  await expect(page.locator(".tour")).toHaveCount(0);
+  await expect(page.locator(".before-after")).toBeInViewport();
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("4");
   await expect(after.locator(".ba-what")).toHaveText("Confirmed removed");

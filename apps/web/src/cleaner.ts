@@ -5,6 +5,7 @@ import { el, formatBytes } from "./dom";
 import { currentLocale, translateText } from "./i18n";
 import type { FileModel } from "./model";
 import { KEPT_NOTE } from "./knowledge";
+import { dismissTour } from "./tour";
 
 /** Builds the clean-copy panel and keeps its verified result beside its facts. */
 export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup: HTMLElement): HTMLElement {
@@ -45,6 +46,8 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
   }
   box.append(limits);
   button.addEventListener("click", async () => {
+    // Let the produced-copy result take the place of the onboarding note.
+    dismissTour();
     button.disabled = true;
     button.textContent = "Making the copy…";
     const notes = extras && also.checked;
