@@ -43,7 +43,7 @@
     grid-template-rows: minmax(0, 1fr) 400px;
   }
 
-  /* The summary alone: a readable measure, with a desktop two-column layout below. */
+  /* The summary alone: a readable measure, with the full-width desktop flow below. */
   body[data-view="summary"]:not(.is-playing) .pane-tree,
   body[data-view="summary"]:not(.is-playing) .pane-hex,
   body[data-view="summary"]:not(.is-playing) .drawer-node {
@@ -66,6 +66,12 @@
     gap: var(--space-5);
   }
 
+  body[data-view="summary"]:not(.is-playing) .overview-answer,
+  body[data-view="summary"]:not(.is-playing) .overview-flow {
+    grid-column: 1;
+    min-width: 0;
+  }
+
   body.is-playing .pane-drawer {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -75,34 +81,64 @@
   }
 }
 
-/* On a full desktop, the answer and its evidence read together in two columns. */
+/* On a full desktop, the answer and evidence share one reading width. A
+   separate row per section keeps long and async findings from splitting it. */
 @media (min-width: 1100px) {
   body[data-view="summary"]:not(.is-playing) .drawer-file {
     width: min(100%, 1360px);
     max-width: 1360px;
-    grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: var(--space-6) clamp(32px, 4vw, 64px);
+    gap: var(--space-6);
     padding: clamp(28px, 3vw, 48px) clamp(28px, 4vw, 64px);
   }
 
-  body[data-view="summary"]:not(.is-playing) .drawer-file > .verdict {
+  body[data-view="summary"]:not(.is-playing) .overview-answer,
+  body[data-view="summary"]:not(.is-playing) .overview-flow {
     grid-column: 1;
-    align-self: start;
-    margin: 0;
+    min-width: 0;
   }
 
-  body[data-view="summary"]:not(.is-playing) .drawer-file > .reveals {
-    grid-column: 2;
-    grid-row: 1;
+  body[data-view="summary"]:not(.is-playing) .overview-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: var(--space-5);
+  }
+
+  body[data-view="summary"]:not(.is-playing) .overview-answer > .verdict {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+    align-items: start;
+    gap: var(--space-4) clamp(28px, 4vw, 56px);
+    margin: 0;
+    padding: clamp(24px, 3vw, 40px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .verdict-intro,
+  body[data-view="summary"]:not(.is-playing) .verdict-findings {
     min-width: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .verdict-findings {
     padding-left: clamp(24px, 3vw, 40px);
     border-left: 1px solid var(--border);
   }
 
-  body[data-view="summary"]:not(.is-playing) .drawer-file > .redactor,
-  body[data-view="summary"]:not(.is-playing) .drawer-file > .more-details {
-    grid-column: 1 / -1;
+  body[data-view="summary"]:not(.is-playing) .verdict-intro > .hint,
+  body[data-view="summary"]:not(.is-playing) .verdict-do,
+  body[data-view="summary"]:not(.is-playing) .verdict-lines {
+    max-width: 84ch;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .overview-flow > .redactor,
+  body[data-view="summary"]:not(.is-playing) .overview-flow > .more-details {
+    margin: 0;
+  }
+
+  body[data-view="summary"]:not(.is-playing) .overview-flow > .film-scan-card {
+    margin-top: 0;
   }
 }
-

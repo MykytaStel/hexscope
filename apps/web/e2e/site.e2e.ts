@@ -1413,12 +1413,62 @@ test("the landing page fits the viewport across responsive breakpoints", async (
   await check("bytes");
 });
 
-test("the desktop summary uses a composed wide layout", async ({ page }, info) => {
+test("the desktop summary reads as one full-width flow at every desktop size", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "desktop summary is checked at desktop widths");
-  await openDoor(page, /Check a photo/);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const width = await page.locator(".drawer-file").evaluate((e) => e.getBoundingClientRect().width);
-  expect(width).toBeGreaterThanOrEqual(1000);
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".film-scan-card")).toBeVisible();
+
+  await expect(page.locator(".overview-answer > .verdict")).toHaveCount(1);
+  await expect(page.locator(".overview-flow > .reveals")).toHaveCount(1);
+  await expect(page.locator(".overview-flow > .film-scan-card")).toHaveCount(1);
+  await expect(page.locator(".overview-flow > .more-details")).toHaveCount(1);
+
+  for (const width of [1100, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.evaluate(() => {
+      const file = document.querySelector<HTMLElement>(".drawer-file")!;
+      const answer = document.querySelector<HTMLElement>(".overview-answer")!;
+      const verdict = document.querySelector<HTMLElement>(".verdict")!;
+      const intro = document.querySelector<HTMLElement>(".verdict-intro")!;
+      const findings = document.querySelector<HTMLElement>(".verdict-findings")!;
+      const flow = document.querySelector<HTMLElement>(".overview-flow")!;
+      const film = document.querySelector<HTMLElement>(".film-scan-card")!;
+      const answerBox = answer.getBoundingClientRect();
+      const introBox = intro.getBoundingClientRect();
+      const findingsBox = findings.getBoundingClientRect();
+      const flowBox = flow.getBoundingClientRect();
+      const filmBox = film.getBoundingClientRect();
+      return {
+        columns: getComputedStyle(file).gridTemplateColumns.trim().split(/\s+/).length,
+        verdictColumns: getComputedStyle(verdict).gridTemplateColumns.trim().split(/\s+/).length,
+        answerX: answerBox.x,
+        answerBottom: answerBox.bottom,
+        answerWidth: answerBox.width,
+        introX: introBox.x,
+        findingsX: findingsBox.x,
+        flowX: flowBox.x,
+        flowTop: flowBox.top,
+        flowWidth: flowBox.width,
+        filmX: filmBox.x,
+        filmWidth: filmBox.width,
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+    expect(layout.columns, `${width}px: one page-wide reading flow`).toBe(1);
+    expect(layout.verdictColumns, `${width}px: the answer is balanced inside its card`).toBe(2);
+    expect(layout.findingsX, `${width}px: findings follow the verdict summary`).toBeGreaterThan(layout.introX);
+    expect(layout.flowX, `${width}px: evidence aligns under the answer`).toBeCloseTo(layout.answerX, 0);
+    expect(layout.flowTop, `${width}px: evidence follows the answer`).toBeGreaterThan(layout.answerBottom);
+    expect(layout.flowWidth, `${width}px: sections share a width`).toBeCloseTo(layout.answerWidth, 0);
+    expect(layout.filmX, `${width}px: film clues stay in the same flow`).toBeCloseTo(layout.flowX, 0);
+    expect(layout.filmWidth, `${width}px: film clues span the evidence column`).toBeCloseTo(layout.flowWidth, 0);
+    expect(layout.overflow, `${width}px: no horizontal page scroll`).toBeLessThanOrEqual(0);
+  }
 });
 
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
@@ -1622,16 +1672,20 @@ test("file results show the summary before evidence and available actions", asyn
     await expect(page.locator(".verdict-title")).toBeVisible();
     const result = page.locator(".drawer-file");
     const order = await result.evaluate((root) => {
-      const children = [...root.children];
+      const answer = root.querySelector(".overview-answer");
+      const flow = root.querySelector(".overview-flow");
+      const children = flow ? [...flow.children] : [];
       return {
-        verdict: children.findIndex((element) => element.matches(".verdict")),
+        summaryFirst: root.firstElementChild === answer,
+        evidenceFlowSecond: answer?.nextElementSibling === flow,
         evidence: children.findIndex((element) => element.matches(".reveals")),
         redaction: children.findIndex((element) => element.matches(".redactor")),
         details: children.findIndex((element) => element.matches(".more-details")),
       };
     });
-    expect(order.verdict, `${example.sample}: summary starts the result`).toBe(0);
-    expect(order.evidence, `${example.sample}: evidence follows the summary`).toBeGreaterThan(order.verdict);
+    expect(order.summaryFirst, `${example.sample}: summary starts the result`).toBe(true);
+    expect(order.evidenceFlowSecond, `${example.sample}: evidence follows the summary`).toBe(true);
+    expect(order.evidence, `${example.sample}: evidence starts its own flow`).toBe(0);
     expect(order.details, `${example.sample}: technical details stay last`).toBeGreaterThan(order.evidence);
     if (example.sample === "report.pdf") {
       expect(order.redaction, "PDF redaction follows evidence").toBeGreaterThan(order.evidence);

@@ -211,6 +211,16 @@
   gap: var(--space-4) var(--space-5);
 }
 
+.overview-answer,
+.overview-flow {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.overview-answer > .verdict {
+  margin-bottom: 0;
+}
+
 .drawer-file h2 {
   margin: 0 0 8px;
   font-size: var(--type-caption);
