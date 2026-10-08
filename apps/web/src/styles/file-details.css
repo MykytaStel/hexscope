@@ -38,7 +38,7 @@
 
 .metadata-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 0 var(--space-4);
   margin-top: var(--space-3);
 }
@@ -74,8 +74,8 @@
   grid-column: 1 / -1;
 }
 
-/* Three columns make camera facts and coordinates too narrow to scan on a
-   tablet. Keep each group wide enough for its values, with room for two. */
+/* On the tablet side rail, keep camera facts and coordinates in two readable
+   columns instead of adding a third column before the page has room for it. */
 @media (min-width: 901px) and (max-width: 1099px) {
   .metadata-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -211,13 +211,17 @@
   stroke-width: 8;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 659px) {
   .reveal-hero.has-map {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .reveal-picture {
-    max-height: 200px;
+  .reveal-hero.has-map .reveal-picture-frame {
+    max-width: 480px;
+  }
+
+  .reveal-hero.has-map .reveal-picture {
+    max-height: min(320px, 78vw);
   }
 }
 
