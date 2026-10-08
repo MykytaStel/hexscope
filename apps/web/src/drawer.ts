@@ -98,15 +98,18 @@ export class Drawer {
     this.file.replaceChildren();
     if (!m) return;
     const f = m.file;
+    const answerArea = el("div", "overview-answer");
+    const flow = el("div", "overview-flow");
+    this.file.append(answerArea, flow);
 
     // What someone came to know first: the verdict, then what the file gives
     // away, then the picture; how it is made, after.
     const answer = this.verdict(m);
-    this.file.append(answer);
+    answerArea.append(answer);
     // A photo, a video or a PDF always gets the card, if only to say it gives
     // nothing away; an archive only when it is a document with properties.
     if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
-      this.file.append(this.reveals(m));
+      flow.append(this.reveals(m));
     }
     // What to do about it, right under the answer: it presses the clean
     // copy's own button, further down, where the result is said.
@@ -132,7 +135,7 @@ export class Drawer {
       answer.querySelector(".verdict-lines")?.after(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
-    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) this.file.append(this.redactor(m));
+    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) flow.append(this.redactor(m));
     // Technical detail is available in one place, after the useful answer.
     const more = el("details", "more-details");
     more.append(el("summary", undefined, "For the curious"));
@@ -187,7 +190,7 @@ export class Drawer {
     later(fileGroup);
     const share = this.file.querySelector<HTMLElement>(".reveals .sharer");
     if (share) more.append(share);
-    this.file.append(more);
+    flow.append(more);
 
     // For a ZIP, the stream is whichever entry was last played: not the file's.
     if (f.trace && f.format === "png") {
@@ -260,14 +263,16 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
+    const intro = el("div", "verdict-intro");
+    const findings = el("div", "verdict-findings");
     const head = headline(m);
-    group.append(el("p", "verdict-label", "What hexscope found"));
+    intro.append(el("p", "verdict-label", "What hexscope found"));
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
-    group.append(title);
+    intro.append(title);
     // A message that may be forged: what to do comes before why.
     if (noun(m) === "email" && head.tone === "danger") {
-      group.append(el("p", "verdict-do", "Do not reply, open its files or follow its links. If it matters, ask the sender another way — a number or address you already have."));
+      intro.append(el("p", "verdict-do", "Do not reply, open its files or follow its links. If it matters, ask the sender another way — a number or address you already have."));
     }
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
@@ -281,16 +286,17 @@ export class Drawer {
       }
       list.append(li);
     }
-    group.append(list);
+    findings.append(list);
+    group.append(intro, findings);
     // What the structure leaves over — data after the end, a gap — may be a
     // whole file of its own: say which, and open it.
     const hidden = m
       .slices()
       .filter((sl) => sl.role === Role.Hidden)
       .flatMap((sl) => findEmbedded(m.bytes, sl.start, sl.start + sl.len));
-    if (hidden.length > 0) group.append(this.insideList(m, hidden, "Hidden in it"));
-    if (m.file.format !== "unknown") group.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
-    if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) group.append(this.repairer());
+    if (hidden.length > 0) findings.append(this.insideList(m, hidden, "Hidden in it"));
+    if (m.file.format !== "unknown") intro.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
+    if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) findings.append(this.repairer());
     return group;
   }
 

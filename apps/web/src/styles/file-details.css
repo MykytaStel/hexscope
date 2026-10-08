@@ -84,7 +84,7 @@
 }
 
 @media (max-width: 900px) {
-  .drawer-file:has(.reveals) > .reveals {
+  .drawer-file:has(.reveals) > .overview-flow {
     margin-top: var(--space-3);
     padding-top: var(--space-5);
     border-top: 1px solid var(--border);

@@ -1190,16 +1190,16 @@ body[data-state="ready"] .topbar {
   background: var(--panel);
 }
 
-.drawer-file > .verdict,
-.drawer-file > .reveals,
-.drawer-file > .redactor,
-.drawer-file > .more-details {
+.drawer-file .verdict,
+.drawer-file .reveals,
+.drawer-file .redactor,
+.drawer-file .more-details {
   border-color: var(--border);
 }
 
-.drawer-file > .verdict,
-.drawer-file > .reveals,
-.drawer-file > .redactor {
+.drawer-file .verdict,
+.drawer-file .reveals,
+.drawer-file .redactor {
   background: var(--panel);
 }
 
