@@ -1203,6 +1203,25 @@ body[data-state="ready"] .topbar {
   background: var(--panel);
 }
 
+/* Findings and evidence read on the overview canvas, not as darker inset cards. */
+.drawer-file .verdict,
+.drawer-file .reveals {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.drawer-file .reveal-picture-frame,
+.drawer-file .place-map-svg,
+.drawer-file .drawer-map {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
 .drawer-node,
 .drawer-player,
 .drawer-map,

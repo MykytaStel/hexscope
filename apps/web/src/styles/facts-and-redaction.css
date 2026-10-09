@@ -447,42 +447,47 @@
   }
 }
 
-/* Phones: the buttons fill the bar, so the open file's name gets a line of
-   its own under them rather than being squeezed out. */
+/* Keep the open file attached to its controls: the filename can shrink before
+   the header splits into unrelated rows. */
 @media (max-width: 640px) {
   body[data-state="ready"] {
     grid-template-rows: auto 1fr;
   }
 
   body[data-state="ready"] .topbar {
-    flex-wrap: wrap;
-    row-gap: 0;
-    padding-top: 8px;
-    padding-bottom: 6px;
+    flex-wrap: nowrap;
+    column-gap: clamp(6px, 1.8vw, 12px);
+    padding: 6px clamp(8px, 2.5vw, 16px);
   }
 
   body[data-state="ready"] .fileinfo {
-    order: 10;
-    flex: 1 0 100%;
-    gap: 8px;
-    padding-top: 4px;
+    flex: 1 1 0;
+    gap: 6px;
+    padding-top: 0;
     font-size: 13px;
   }
 
-  /* There is room for what it is, after its name; the name comes first. */
   body[data-state="ready"] .fileinfo .filename {
-    flex: none;
-    max-width: 75%;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
   }
 
   body[data-state="ready"] .fileinfo .meta {
     display: block;
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
     font-size: 12px;
   }
 
   body[data-state="ready"] .actions {
-    margin-left: auto;
+    flex: none;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  body[data-state="ready"] .fileinfo .meta {
+    display: none;
   }
 }
