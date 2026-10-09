@@ -15,8 +15,8 @@ interface Step {
 const STEPS: Step[] = [
   {
     target: ".group.verdict",
-    title: "What hexscope found",
-    text: "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” takes you to the fact in the summary, or to its bytes when there isn't one.",
+    title: "The short answer",
+    text: "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Find in file” takes you to the fact in the summary, or to its bytes when there isn't one.",
   },
   {
     target: ".group.reveals",

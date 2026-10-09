@@ -33,6 +33,19 @@ const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
   { key: "additional", title: "Additional fields" },
 ];
 
+type VerdictKind = ReturnType<typeof verdict>[number]["kind"];
+
+const VERDICT_KIND_LABELS: Record<VerdictKind, string> = {
+  damage: "Damage",
+  misnamed: "Name mismatch",
+  hidden: "Hidden content",
+  warning: "Partial check",
+  reveals: "Personal information",
+  oddity: "Format note",
+  healthy: "File health",
+  unknown: "File type",
+};
+
 const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additional">, Set<string>> = {
   camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
   location: new Set(["place", "photoplace"]),
@@ -266,7 +279,7 @@ export class Drawer {
     const intro = el("div", "verdict-intro");
     const findings = el("div", "verdict-findings");
     const head = headline(m);
-    intro.append(el("p", "verdict-label", "What hexscope found"));
+    intro.append(el("p", "verdict-label", "The short answer"));
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     intro.append(title);
@@ -277,10 +290,12 @@ export class Drawer {
     const list = el("ul", "verdict-lines");
     for (const line of verdict(m)) {
       const li = el("li", `verdict-line is-${line.kind}`);
+      li.append(el("span", "verdict-kind", VERDICT_KIND_LABELS[line.kind]));
       li.append(el("span", "verdict-text", line.text));
       // A file not read has no part to show.
       if (line.node >= 0 && line.kind !== "unknown") {
-        const show = el("button", "verdict-show", "Show me");
+        const show = el("button", "verdict-show", "Find in file");
+        show.title = "Go to this finding in the file";
         show.addEventListener("click", () => this.showLine(line.node));
         li.append(show);
       }

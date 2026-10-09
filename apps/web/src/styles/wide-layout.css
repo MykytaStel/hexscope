@@ -112,9 +112,9 @@
     align-items: start;
     gap: var(--space-4) clamp(28px, 4vw, 56px);
     margin: 0;
-    padding: clamp(24px, 3vw, 40px);
-    border: 1px solid var(--border);
-    border-radius: 14px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
   }
 
   body[data-view="summary"]:not(.is-playing) .verdict-intro,
@@ -123,8 +123,8 @@
   }
 
   body[data-view="summary"]:not(.is-playing) .verdict-findings {
-    padding-left: clamp(24px, 3vw, 40px);
-    border-left: 1px solid var(--border);
+    padding-left: 0;
+    border-left: 0;
   }
 
   body[data-view="summary"]:not(.is-playing) .verdict-intro > .hint,
