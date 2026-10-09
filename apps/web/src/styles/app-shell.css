@@ -168,10 +168,11 @@
 @media (max-width: 900px) {
   .inspector-sheet {
     position: fixed;
-    inset: auto 0 0;
+    z-index: 49;
+    inset: auto 8px calc(68px + env(safe-area-inset-bottom));
     box-sizing: border-box;
-    width: min(100vw, 640px);
-    max-width: 100vw;
+    width: min(calc(100vw - 16px), 640px);
+    height: fit-content;
     max-height: min(72dvh, 640px);
     margin: 0 auto;
     padding: 22px 16px calc(16px + env(safe-area-inset-bottom));
@@ -185,21 +186,78 @@
     box-shadow: 0 -24px 72px rgb(0 0 0 / 0.38);
   }
 
-  .inspector-sheet::before {
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    width: 36px;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--border-strong);
-    content: "";
-    transform: translateX(-50%);
+  .inspector-sheet[data-expanded="false"] {
+    max-height: none;
+    padding: 8px 50px 8px 12px;
+    overflow: visible;
+    border-radius: 11px;
   }
 
-  .inspector-sheet::backdrop {
-    background: rgb(0 0 0 / 0.66);
-    backdrop-filter: blur(3px);
+  .inspector-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .inspector-summary-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .inspector-summary-label {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inspector-summary-range {
+    overflow: hidden;
+    color: var(--muted);
+    font: 11px var(--mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inspector-details-toggle {
+    min-height: 38px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: var(--panel-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .inspector-details-toggle:hover {
+    border-color: var(--text);
+  }
+
+  .inspector-details-toggle:focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  .inspector-sheet[data-expanded="false"] .drawer-node {
+    display: none;
+  }
+
+  .inspector-sheet[data-expanded="true"] .inspector-summary {
+    position: sticky;
+    z-index: 1;
+    top: -22px;
+    margin: -22px -16px 12px;
+    padding: 8px 50px 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
   }
 
   .inspector-sheet .drawer-node {
@@ -218,6 +276,11 @@
     top: 12px;
     right: 12px;
     margin: 0;
+  }
+
+  .inspector-sheet[data-expanded="false"] .dialog-x {
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   @media (prefers-reduced-motion: no-preference) {

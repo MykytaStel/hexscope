@@ -678,7 +678,7 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
   }
 });
 
-test("phone tree selection opens a modal inspector sheet with three clear ways out", async ({ page }, info) => {
+test("phone tree selection opens a compact, non-modal inspector while bytes remain usable", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the inspector sheet is specific to touch screens");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -688,30 +688,77 @@ test("phone tree selection opens a modal inspector sheet with three clear ways o
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.locator("dialog.inspector-sheet")).not.toBeVisible();
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await expect(page.locator("#hex")).toBeVisible();
 
   const firstRow = page.locator("#tree .tree .row").first();
   await firstRow.click();
   const sheet = page.getByRole("dialog", { name: "Вибрана частина" });
   await expect(sheet).toBeVisible();
-  await expect(sheet).toHaveAttribute("aria-modal", "true");
-  await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
+  await expect(sheet).not.toHaveAttribute("aria-modal", "true");
+  expect(await sheet.evaluate((dialog) => dialog.matches(":modal"))).toBe(false);
+  await expect(sheet).toHaveAttribute("data-expanded", "false");
+  await expect(sheet.locator(".inspector-summary")).toBeVisible();
+  await expect(sheet.locator(".drawer-node")).toBeHidden();
   await expect(sheet.getByRole("button", { name: "Закрити" })).toBeVisible();
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 390);
 
+  for (const width of [320, 390, 560, 768, 900]) {
+    await page.setViewportSize({ width, height: 844 });
+    const geometry = await sheet.evaluate((dialog) => {
+      const dock = dialog.getBoundingClientRect();
+      const nav = document.querySelector(".app-nav")!.getBoundingClientRect();
+      return {
+        left: dock.left,
+        right: dock.right,
+        height: dock.height,
+        bottom: dock.bottom,
+        navTop: nav.top,
+        navVisible: getComputedStyle(document.querySelector(".app-nav")!).display !== "none",
+      };
+    });
+    expect(geometry.left, `${width}px dock left inset`).toBeGreaterThanOrEqual(7);
+    expect(geometry.right, `${width}px dock right inset`).toBeLessThanOrEqual(width - 7);
+    expect(geometry.height, `${width}px collapsed dock height`).toBeLessThanOrEqual(76);
+    expect(geometry.bottom, `${width}px dock stays above navigation`).toBeLessThanOrEqual(geometry.navTop + 1);
+    expect(geometry.navVisible, `${width}px navigation remains visible`).toBe(true);
+    await expect(page.locator("html"), `${width}px no horizontal overflow`).toHaveJSProperty("scrollWidth", width);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const canvas = page.locator("#hex .hex-canvas");
+  const canvasBox = await canvas.boundingBox();
+  expect(canvasBox).not.toBeNull();
+  const treeSelection = page.locator("#tree .tree .row.is-selected");
+  const selectionBeforeByteClick = await treeSelection.getAttribute("data-id");
+  await page.mouse.click(canvasBox!.x + Math.min(80, canvasBox!.width / 2), canvasBox!.y + 16);
+  await expect(sheet).toBeVisible();
+  await expect(page.locator("#hex")).toBeVisible();
+  await expect(treeSelection).not.toHaveAttribute("data-id", selectionBeforeByteClick!);
+  await expect(sheet.locator(".inspector-summary")).toContainText((await treeSelection.locator(".label").innerText()).trim());
+
+  const details = sheet.getByRole("button", { name: "Деталі" });
+  await details.click();
+  await expect(details).toHaveAttribute("aria-expanded", "true");
+  await expect(sheet.locator(".drawer-node")).toBeVisible();
+
+  const secondRow = page.locator("#tree .tree .row").nth(1);
+  await secondRow.click();
+  await expect(secondRow).toHaveClass(/is-selected/);
+  await expect(sheet).toHaveAttribute("data-expanded", "false");
+  await expect(sheet.locator(".inspector-summary")).toContainText((await secondRow.locator(".label").innerText()).trim());
+  await expect(page.locator("#hex")).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(sheet).not.toBeVisible();
+  await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
+  await expect(secondRow).toHaveClass(/is-selected/);
+
+  await secondRow.click();
+  await expect(sheet).toBeVisible();
   await sheet.getByRole("button", { name: "Закрити" }).click();
   await expect(sheet).not.toBeVisible();
   await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
-  await firstRow.click();
-  await expect(sheet).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(sheet).not.toBeVisible();
-
-  await firstRow.click();
-  await expect(sheet).toBeVisible();
-  await page.mouse.click(4, 4);
-  await expect(sheet).not.toBeVisible();
-  await expect(firstRow).toHaveClass(/is-selected/);
 });
 
 test("phone inspector survives crossing the desktop breakpoint and returns to the drawer", async ({ page }, info) => {
@@ -723,18 +770,21 @@ test("phone inspector survives crossing the desktop breakpoint and returns to th
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await page.locator("#app-nav [data-app-view='bytes']").click();
   const selectedRow = page.locator("#tree .tree .row").first();
   await selectedRow.click();
 
   const sheet = page.locator("dialog.inspector-sheet");
   await expect(sheet).toBeVisible();
+  await expect(sheet).toHaveAttribute("data-expanded", "false");
+  expect(await sheet.evaluate((dialog) => dialog.matches(":modal"))).toBe(false);
   await page.setViewportSize({ width: 901, height: 844 });
   await expect(sheet).not.toBeVisible();
   await expect(page.locator("#drawer > .drawer-node")).toHaveCount(1);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(sheet).toBeVisible();
+  await expect(sheet).toHaveAttribute("data-expanded", "false");
   await expect(sheet.locator(".drawer-node")).toContainText("Зсув");
   await expect(selectedRow).toHaveClass(/is-selected/);
 });

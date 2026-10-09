@@ -93,6 +93,7 @@ const UK: Record<string, string> = {
   "that reads it.": "— той самий, що читає файл.",
   "Structure": "Структура",
   "Details": "Деталі",
+  "Hide details": "Згорнути деталі",
   "Files": "Файли",
   "Start": "Початок",
   "See what your file reveals about you": "Дізнайтеся, що файл розкриває про вас",
