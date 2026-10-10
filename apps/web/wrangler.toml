@@ -1,0 +1,10 @@
+# Cloudflare Pages: the site in dist/, and the functions in functions/ that
+# count visitors (server/count.ts). The database holds totals only.
+name = "hexscope"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "COUNTS"
+database_name = "hexscope-counts"
+database_id = "00000000-0000-0000-0000-000000000000"

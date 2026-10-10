@@ -165,12 +165,16 @@ jobs:
       # is what grants access to it.
       CLOUDFLARE_ACCOUNT_ID: 1b0f2bd63f1bc3ea8a7d401a7efa857b
     steps:
+      # The site comes from the build; the visit counter's functions and the
+      # database they are bound to (apps/web/wrangler.toml) from the repository.
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: hexscope-site
-          path: dist
+          path: apps/web/dist
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: apps/web
         run: >
           npx --yes wrangler@4 pages deploy dist --project-name hexscope
           --branch "$GITHUB_REF_NAME" --commit-hash "$GITHUB_SHA"

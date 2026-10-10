@@ -28,6 +28,7 @@ import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
+import { countVisit } from "./count";
 
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
@@ -930,5 +931,6 @@ openLinkedSample();
 void openShared();
 openLaunched();
 setTimeout(() => void startDemo($("demo")), 0);
+countVisit();
 
 $("film-roll-open").addEventListener("click", () => void import("./film-roll-ui").then((m) => m.showFilmRoll()).catch((e) => announce(String(e))));

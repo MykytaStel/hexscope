@@ -12,8 +12,11 @@ content, for an issue. Every real bug becomes a test fixture.
 
 ## Principles that do not bend
 
-- **Nothing leaves the device.** No uploads, accounts, analytics, trackers or
-  server processing. A feature that needs a server does not ship.
+- **Nothing leaves the device.** No uploads, accounts, trackers or server
+  processing of files. A feature that needs a server does not ship. The one
+  exception is the website's visit counter (`apps/web/server/count.ts`): empty
+  requests at most once a day, totals only, no cookie, id or address, nothing
+  about files, and every number public at `/stats`. Keep it that small.
 - **The parser never panics and never loops forever**, on any input. Every
   read goes through one bounds-checked accessor (`reader.rs`); parsing code
   never indexes a slice by hand. `#![forbid(unsafe_code)]` everywhere.

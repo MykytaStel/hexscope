@@ -1,0 +1,258 @@
+/* The /stats page: tiles, two column charts and ranked lists, in the guides' type. */
+
+.stats-layout {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 36px 20px 80px;
+}
+
+.stats-page.story-text {
+  max-width: none;
+}
+
+.stats-body {
+  display: grid;
+  gap: 36px;
+  margin-top: 28px;
+}
+
+.stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.stats-tile {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--surface-radius);
+  background: var(--panel);
+}
+
+.stats-tile-label,
+.stats-tile-note {
+  color: var(--muted);
+  font-size: var(--type-small);
+  line-height: 1.4;
+}
+
+.stats-tile-value {
+  color: var(--text);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stats-chart {
+  margin: 0;
+}
+
+.stats-chart-title {
+  margin-bottom: 14px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.stats-plot {
+  position: relative;
+  height: 180px;
+  margin-left: 36px;
+}
+
+.stats-grid {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1px solid var(--border);
+}
+
+.stats-grid-label {
+  position: absolute;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  color: var(--faint);
+  font-size: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stats-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.stats-slot {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+}
+
+.stats-bar {
+  width: 100%;
+  max-width: 24px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+.stats-slot:hover .stats-bar {
+  opacity: 0.8;
+}
+
+.stats-cap {
+  position: absolute;
+  left: 50%;
+  margin-bottom: 4px;
+  transform: translateX(-50%);
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stats-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 2;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: var(--type-small);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.stats-tip[data-edge="start"] {
+  transform: none;
+}
+
+.stats-tip[data-edge="end"] {
+  transform: translateX(-100%);
+}
+
+.stats-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0 0 36px;
+  color: var(--faint);
+  font-size: var(--type-caption);
+}
+
+.stats-table {
+  margin-top: 12px;
+  font-size: var(--type-small);
+}
+
+.stats-table summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.stats-table table {
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 3px 16px 3px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 400;
+}
+
+.stats-table th {
+  color: var(--muted);
+}
+
+.stats-page .stats-where {
+  margin: 0;
+}
+
+.stats-where h2 {
+  margin-bottom: 16px;
+}
+
+.stats-breakdowns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 28px 36px;
+}
+
+.stats-ranked {
+  margin: 0;
+}
+
+.stats-page .stats-ranked h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.stats-page .stats-ranked ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-page .stats-ranked li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: var(--type-small);
+}
+
+.stats-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-name-code {
+  font-family: var(--mono);
+}
+
+.stats-rank-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-rank-track {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.stats-rank-bar {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.stats-none,
+.stats-updated {
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+@media (forced-colors: active) {
+  .stats-bar,
+  .stats-rank-bar {
+    background: CanvasText;
+  }
+}

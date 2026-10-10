@@ -1,6 +1,7 @@
 # Cloudflare Pages headers. hexscope opens files people do not trust, so the
 # page may run only its own code: no inline scripts, nothing from elsewhere,
-# and nothing sent anywhere ('self' only for connect-src, to fetch samples).
+# and nothing sent anywhere ('self' only for connect-src: samples, and the
+# visit counter's empty requests to /api/seen).
 # 'wasm-unsafe-eval' lets the parser's WebAssembly compile, and nothing else.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'

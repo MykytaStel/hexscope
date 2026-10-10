@@ -44,13 +44,14 @@
             <li>The clean copy is made there too, and your browser saves it or hands it to the share sheet, as it would any download.</li>
             <li>When you close the tab, it is gone. Nothing of it is kept: the list of files opened lives in the tab's memory only.</li>
           </ul>
-          <p>There are no accounts, no cookies, no analytics and no ads. The site is a set of static files; like any website, its host sees that a browser asked for the page, and never what is opened with it.</p>
+          <p>There are no accounts, no cookies, no trackers and no ads. The site is a set of static files; like any website, its host sees that a browser asked for the page, and never what is opened with it.</p>
+          <p>To know how many people use it, a page counts a visit without knowing whose it is: one empty request a day, which your browser keeps until midnight, adds one to that day's total. No id, no cookie and no address is kept, and opening a file sends nothing. <a href="stats.html">See every number it keeps</a>.</p>
         </section>
 
         <section>
           <h2><span class="num">2</span> Check it yourself</h2>
           <ul>
-            <li><strong>Watch the network.</strong> Open your browser's developer tools (F12, or ⌥⌘I on a Mac), choose <em>Network</em>, then open a file. Nothing is sent: the only requests are for hexscope's own parts, the first time they are needed.</li>
+            <li><strong>Watch the network.</strong> Open your browser's developer tools (F12, or ⌥⌘I on a Mac), choose <em>Network</em>, then open a file. Nothing is sent: the only requests are for hexscope's own parts, the first time they are needed, and at most once a day the empty visit count (<code>/api/seen</code>).</li>
             <li><strong>Go offline.</strong> After one visit, turn off Wi-Fi and open a file. It works, clean copy and all — which it could not if the file went anywhere.</li>
             <li><strong>Read the page's own rules.</strong> Every page is served with a Content-Security-Policy that lets it talk to its own site only (<code>connect-src 'self'</code>) and submit no forms (<code>form-action 'none'</code>). Your browser enforces it: even a mistake in hexscope could not send a file to another site.</li>
           </ul>
@@ -64,7 +65,7 @@
 
         <p class="story-cta">
           <a class="btn btn-primary" href="./">Check a file</a>
-          <span>Nothing leaves your browser.</span>
+          <span>Your files never leave your browser.</span>
         </p>
 
         <nav class="guide-more" aria-label="More guides">

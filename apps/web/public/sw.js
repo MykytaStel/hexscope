@@ -1,6 +1,7 @@
 // hexscope's service worker. After the first visit the app keeps working
 // offline, and the installed app can receive a file from the share sheet.
-// It fetches only this site's own files, and sends nothing anywhere.
+// It fetches only this site's own files, and leaves the visit counter's
+// requests (/api/) to the browser's own cache, which is what makes them rare.
 
 // The build writes in its version and its files (vite.config.ts): a new
 // deploy is a new cache, and the old one goes once the new one is ready.
@@ -51,7 +52,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   if (req.method === "POST" && url.pathname.endsWith("/share")) {
     event.respondWith(receiveShare(req));
     return;
