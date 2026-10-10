@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "./analysis-i18n";
 import { GUIDE_UK } from "./guide-i18n";
 import { registerLazyTranslations, resolveLocale, translateText } from "./i18n";
 
@@ -212,5 +213,52 @@ describe("the interface language", () => {
     expect(translateText("Pixel 9, 27: part of a copy of 258 bytes from 193 bytes back — 9 bits say so.", "uk")).toContain(
       "на 193 байти раніше",
     );
+  });
+});
+
+describe("every way a file is said to give itself away", () => {
+  it("is said in Ukrainian, alone and in a list", async () => {
+    const { REVEALS } = await import("./verdict");
+    const { CATEGORIES } = await import("./share");
+    const phrases = [...new Set([...Object.values(REVEALS), ...CATEGORIES.map(([, words]) => words)])];
+    for (const phrase of phrases) {
+      expect(translateText(`Reveals ${phrase}.`, "uk"), phrase).not.toContain(phrase);
+    }
+    expect(translateText("Reveals who wrote it, the company and where its files were downloaded from.", "uk")).toBe(
+      "Розкриває автора, компанію, звідки завантажено файли.",
+    );
+  });
+});
+
+describe("what a clean copy leaves out", () => {
+  it("is said in Ukrainian for every kind of file", async () => {
+    const { CLEAN_NOTES } = await import("./cleaner");
+    for (const [kind, note] of Object.entries(CLEAN_NOTES)) {
+      expect(translateText(note, "uk"), kind).not.toBe(note);
+    }
+  });
+});
+
+describe("sizes", () => {
+  it("say their bytes in Ukrainian too", () => {
+    expect(translateText("105.2 KB · 107,746 bytes", "uk")).toBe("105.2 KB · 107\u00a0746 байтів");
+    expect(translateText("1.5 KB · 1,503 bytes", "uk")).toBe("1.5 KB · 1\u00a0503 байти");
+  });
+});
+
+describe("a sensitivity label", () => {
+  it("names its organisation in Ukrainian", () => {
+    expect(
+      translateText("“Confidential”, organisation 72f988bf-86f1-41af-91ab-2d7cd011db47, set by olena@acme.example on 2024-03-02 08:15 UTC", "uk"),
+    ).toBe("«Confidential», організація 72f988bf-86f1-41af-91ab-2d7cd011db47, встановив olena@acme.example, 2024-03-02 08:15 UTC");
+  });
+});
+
+describe("advice", () => {
+  it("is given in Ukrainian for every finding", async () => {
+    const { RULES } = await import("./advice");
+    for (const rule of RULES) {
+      expect(translateText(rule.text, "uk"), rule.text.slice(0, 40)).not.toBe(rule.text);
+    }
   });
 });

@@ -449,6 +449,7 @@ fn decode_segment(
         }
         0xFE => {
             let text = String::from_utf8_lossy(p.rest()).trim().to_string();
+            doc.facts.fill_from(crate::exif::comment(&text, node));
             field(
                 tree,
                 node,
@@ -514,6 +515,38 @@ mod tests {
     use super::*;
     use crate::exif::ByteOrder;
     use crate::exif::testing::{Spec, V, build};
+
+    /// The minimal JPEG with a COM segment after its SOI.
+    fn with_comment(text: &[u8]) -> Vec<u8> {
+        let mut out = jpeg_with_exif(None);
+        let mut com = vec![0xFF, 0xFE];
+        com.extend_from_slice(&((text.len() + 2) as u16).to_be_bytes());
+        com.extend_from_slice(text);
+        out.splice(2..2, com);
+        out
+    }
+
+    #[test]
+    fn a_comment_says_what_wrote_it_or_what_someone_wrote() {
+        let doc = parse_jpeg(&with_comment(
+            b"CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90",
+        ));
+        assert_eq!(
+            doc.facts.software.map(|f| f.text).as_deref(),
+            Some("CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90")
+        );
+        let doc = parse_jpeg(&with_comment(b"Olena's birthday, Kyiv"));
+        assert_eq!(
+            doc.facts.caption.map(|f| f.text).as_deref(),
+            Some("Olena's birthday, Kyiv")
+        );
+        // Bytes that are not text are no fact.
+        let doc = parse_jpeg(&with_comment(&[0x01, 0x9F, 0xFF, 0x00, 0x12]));
+        assert!(doc.facts.caption.is_none() && doc.facts.software.is_none());
+        // And the clean copy drops the comment.
+        let copy = crate::clean::clean(&with_comment(b"Olena's birthday, Kyiv")).unwrap();
+        assert!(parse_jpeg(&copy.bytes).facts.caption.is_none());
+    }
 
     fn labels(doc: &JpegDocument) -> Vec<String> {
         let root = doc.tree.root().unwrap();

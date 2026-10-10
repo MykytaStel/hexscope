@@ -83,7 +83,7 @@ function misnamed(m: FileModel): VerdictLine | null {
 const URGENT = ["hiddentext", "location", "earlier", "updates", "deleted", "photoplace"];
 
 /** What each kind of fact gives away, in words, for the "Reveals" line. */
-const REVEALS: Record<string, string> = {
+export const REVEALS: Record<string, string> = {
   location: "where it was taken",
   serial: "the camera's serial number",
   owner: "the owner's name",
@@ -94,7 +94,10 @@ const REVEALS: Record<string, string> = {
   history: "how it was edited",
   author: "who wrote it",
   editor: "who saved it last",
+  manager: "its manager's name",
   company: "the company",
+  label: "the organisation it belongs to",
+  downloaded: "where its files were downloaded from",
   created: "when it was written",
   editing: "how long it was worked on",
   updates: "earlier versions of itself",

@@ -136,8 +136,7 @@ fn filetime(t: u64) -> Option<String> {
     if secs < 315_532_800 {
         return None;
     }
-    let [y, m, d, hh, mm, _] = crate::clock::civil(secs);
-    Some(format!("{y:04}-{m:02}-{d:02} {hh:02}:{mm:02} UTC"))
+    Some(crate::clock::minute_utc(secs))
 }
 
 /// What the properties give away, as the kinds an Office document's facts use.
@@ -146,7 +145,10 @@ pub(crate) fn facts(stream: &[u8]) -> Vec<(&'static str, String)> {
     for p in read(stream) {
         let kind = match (p.set, p.id) {
             (Set::Summary, 2) => "title",
+            (Set::Summary, 3) => "subject",
             (Set::Summary, 4) => "author",
+            (Set::Summary, 5) => "keywords",
+            (Set::Summary, 6) => "description",
             (Set::Summary, 7) => "template",
             (Set::Summary, 8) => "editor",
             (Set::Summary, 9) => "revisions",
@@ -154,6 +156,8 @@ pub(crate) fn facts(stream: &[u8]) -> Vec<(&'static str, String)> {
             (Set::Summary, 12) => "created",
             (Set::Summary, 13) => "modified",
             (Set::Summary, 18) => "application",
+            (Set::Document, 2) => "category",
+            (Set::Document, 14) => "manager",
             (Set::Document, 15) => "company",
             _ => continue,
         };
