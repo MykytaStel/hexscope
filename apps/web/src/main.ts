@@ -593,7 +593,8 @@ workspace = new WorkspaceController({
   getSelected: () => selected,
   services: {
     async parse(file) {
-      const response = await call({ type: "parse", file });
+      // The advice and clean-copy copy in Ukrainian come with the first file, beside the parser.
+      const [response] = await Promise.all([call({ type: "parse", file }), import("./analysis-i18n").catch(() => undefined)]);
       if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
       return new FileModel(response.result, response.bytes, file.name, file);
     },

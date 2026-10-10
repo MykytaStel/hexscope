@@ -7,6 +7,7 @@
 //! before the entries it describes. It is read into a tree of its own and
 //! grafted in at the end, together with the end records.
 
+pub(crate) mod apple;
 pub(crate) mod docs;
 mod extract;
 mod fields;
@@ -93,7 +94,8 @@ pub fn is_zip(data: &[u8]) -> bool {
 /// Parses a ZIP archive. Never fails: damage is recorded as nodes.
 pub fn parse_zip(data: &[u8]) -> ZipDocument {
     let (tree, entries) = read_entries(data);
-    let facts = office::document_facts(data, &entries);
+    let mut facts = office::document_facts(data, &entries);
+    facts.extend(apple::mac_facts(data, &entries));
     ZipDocument {
         tree,
         entries,

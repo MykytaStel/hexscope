@@ -1549,3 +1549,70 @@ fn content_behind_filters_other_than_flate_is_read() {
         facts(&doc)
     );
 }
+
+/// One page of `content`, with `resources`.
+fn one_page(content: &[u8], resources: &str, more: &[Vec<u8>]) -> Vec<u8> {
+    let mut objects = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << {resources} >> >>").into_bytes(),
+        stream("", content),
+    ];
+    objects.extend_from_slice(more);
+    pdf_of(&objects)
+}
+
+#[test]
+fn a_see_through_box_around_a_line_hides_nothing() {
+    // A text background drawn at no opacity, as a Mac's PDFs have them:
+    // the words show through it, and the same box drawn opaque covers them.
+    let line = "BT /F1 12 Tf 76 680 Td (Copyright 2014, John) Tj ET";
+    let clear = format!("q /GS0 gs 0 g 74 676 200 16 re f Q {line}");
+    let doc = parse_pdf(&one_page(
+        clear.as_bytes(),
+        "/ExtGState << /GS0 5 0 R >>",
+        &[b"<< /ca 0 >>".to_vec()],
+    ));
+    assert_eq!(problems(&doc.tree), Vec::<String>::new());
+    let solid = format!("q /GS0 gs 0 g 74 676 200 16 re f Q {line}");
+    let doc = parse_pdf(&one_page(
+        solid.as_bytes(),
+        "/ExtGState << /GS0 5 0 R >>",
+        &[b"<< /ca 1 >>".to_vec()],
+    ));
+    assert_eq!(problems(&doc.tree), ["text under a black box"]);
+}
+
+#[test]
+fn text_drawn_with_no_opacity_is_not_seen() {
+    let page = b"/GS0 gs BT /F1 12 Tf 72 700 Td (keyword stuffing) Tj ET";
+    let doc = parse_pdf(&one_page(page, "/ExtGState << /GS0 << /ca 0 >> >>", &[]));
+    assert_eq!(problems(&doc.tree), ["text drawn invisibly"]);
+}
+
+#[test]
+fn a_drawing_programs_shadow_is_not_a_scan_under_a_box() {
+    // Dark keys drawn over the keyboard's shadow, a picture with a soft mask.
+    let page = b"q 500 0 0 300 50 400 cm /Im1 Do Q 0.1 g 100 450 40 120 re f 200 450 40 120 re f";
+    let shadow = stream(
+        "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /SMask 6 0 R",
+        &[0],
+    );
+    let mask = stream(
+        "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
+        &[128],
+    );
+    let doc = parse_pdf(&one_page(
+        page,
+        "/XObject << /Im1 5 0 R >>",
+        &[shadow, mask],
+    ));
+    assert_eq!(problems(&doc.tree), Vec::<String>::new());
+    // The same boxes over a scan are what a redaction by drawing looks like.
+    let scan = stream(
+        "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
+        &[200],
+    );
+    let doc = parse_pdf(&one_page(page, "/XObject << /Im1 5 0 R >>", &[scan]));
+    assert_eq!(problems(&doc.tree), ["a picture under a black box"]);
+}

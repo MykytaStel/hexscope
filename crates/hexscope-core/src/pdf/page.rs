@@ -31,6 +31,8 @@ const MAX_SHAPES: usize = 20_000;
 const DARK: f64 = 0.25;
 /// The lightest a fill can be and still show on white paper.
 const WHITE: f64 = 0.95;
+/// How opaque a fill must be to hide what is under it.
+const OPAQUE: f64 = 0.9;
 /// How much of a glyph a box must cover to hide it.
 const COVERED: f64 = 0.5;
 /// Glyphs shorter than this on the page, in points, cannot be read.
@@ -101,6 +103,13 @@ impl Area {
         if size > 0.0 { w * h / size } else { 0.0 }
     }
 
+    /// The part the two have in common, or an empty area.
+    fn and(&self, other: &Area) -> Self {
+        let [l, b, r, t] = self.0;
+        let [ol, ob, or, ot] = other.0;
+        Area([l.max(ol), b.max(ob), r.min(or), t.min(ot)])
+    }
+
     /// Whether the two meet at all.
     fn meets(&self, other: &Area) -> bool {
         self.0[0] <= other.0[2]
@@ -138,6 +147,8 @@ pub(super) struct Glyph {
     /// An area marked for redaction lies over it.
     pub marked: bool,
     pub hidden: Option<Hidden>,
+    /// Past an edge, in a word whose other letters are seen: cut off.
+    pub cut: bool,
 }
 
 /// One exact XObject name operand in the stream that invokes a form.
@@ -424,6 +435,12 @@ struct Graphics {
     font: Option<Font>,
     size: f64,
     mode: u8,
+    /// The bounds of the clipping path the page set with `W`, if any: what
+    /// a shading paints (8.5.4).
+    clip: Option<Area>,
+    /// How opaque fills are, from the graphics state's `ca` (11.6.4.4): a
+    /// box drawn see-through hides nothing, and text drawn at 0 is not seen.
+    alpha: f64,
 }
 
 struct PaintState {
@@ -551,23 +568,25 @@ fn deref_obj(data: &[u8], ctx: &Ctx, obj: &Obj, budget: &mut u64) -> Option<Obj>
     }
 }
 
-fn resource_xobject(
+/// The entry `name` in the resources' `category` (XObject, ExtGState).
+fn resource(
     data: &[u8],
     ctx: &Ctx,
     resources: Option<&Obj>,
     fallback: Option<&Obj>,
+    category: &str,
     name: &str,
     budget: &mut u64,
 ) -> Option<Obj> {
     for scope in [resources, fallback].into_iter().flatten() {
         let resources = deref_obj(data, ctx, scope, budget)?;
-        let Some(xobjects) = resources.get("XObject") else {
+        let Some(entries) = resources.get(category) else {
             continue;
         };
-        let Some(xobjects) = deref_obj(data, ctx, xobjects, budget) else {
+        let Some(entries) = deref_obj(data, ctx, entries, budget) else {
             continue;
         };
-        if let Some(entry) = xobjects.entries().iter().rev().find(|e| e.key == name) {
+        if let Some(entry) = entries.entries().iter().rev().find(|e| e.key == name) {
             return Some(entry.value.obj.clone());
         }
     }
@@ -612,6 +631,15 @@ fn form_bbox(form: &Obj) -> Option<[f64; 4]> {
 const MAX_FORM_DEPTH: usize = 4;
 const MAX_FORM_INVOCATIONS: usize = 10_000;
 
+/// What a `Do` drew.
+enum Placed {
+    /// A form, walked like the page.
+    Form,
+    /// A picture. One seen through — a soft mask, a mask, a stencil — is a
+    /// shadow or an effect a drawing program made, never a scan.
+    Picture { see_through: bool },
+}
+
 #[allow(clippy::too_many_arguments)]
 fn follow_form(
     name_item: &Item,
@@ -626,7 +654,7 @@ fn follow_form(
     forms: &mut FormWalk<'_>,
     w: &mut Walked,
     paint: &mut PaintState,
-) -> Option<bool> {
+) -> Option<Placed> {
     let name = name_item.obj.name()?;
     let scope = resources.or(forms.page_resources.as_ref());
     let legacy = forms
@@ -634,11 +662,12 @@ fn follow_form(
         .as_deref()
         .is_some_and(|v| v == "1.0" || v == "1.1");
     let page_fallback = legacy.then_some(forms.page_resources.as_ref()).flatten();
-    let xobject = resource_xobject(
+    let xobject = resource(
         forms.data,
         forms.ctx,
         scope,
         legacy_fallback.or(page_fallback),
+        "XObject",
         name,
         forms.budget,
     )?;
@@ -647,7 +676,12 @@ fn follow_form(
     };
     let rec = forms.ctx.latest(num)?;
     match rec.value.get("Subtype").and_then(Obj::name) {
-        Some("Image") => return Some(false),
+        Some("Image") => {
+            let see_through = rec.value.get("SMask").is_some()
+                || rec.value.get("Mask").is_some()
+                || matches!(rec.value.get("ImageMask"), Some(Obj::Bool(true)));
+            return Some(Placed::Picture { see_through });
+        }
         Some("Form") => {}
         _ => return None,
     }
@@ -711,7 +745,7 @@ fn follow_form(
     );
     forms.active.pop();
     forms.calls.pop();
-    Some(true)
+    Some(Placed::Form)
 }
 
 /// Paints a page's content. `media` is the page; `marks`, areas marked for
@@ -734,6 +768,8 @@ pub(super) fn walk(content: &[u8], fonts: &Fonts, media: Area, marks: &[Area]) -
             font: None,
             size: 0.0,
             mode: 0,
+            clip: None,
+            alpha: 1.0,
         },
         None,
         None,
@@ -795,6 +831,8 @@ pub(super) fn walk_page(
             font: None,
             size: 0.0,
             mode: 0,
+            clip: None,
+            alpha: 1.0,
         },
         resources,
         None,
@@ -819,6 +857,26 @@ fn finish_walk(w: &mut Walked, marks: &[Area], media: Area, images: &[Area]) {
             w.boxes.push(*m);
         }
     }
+    // A word an edge cuts through — the page's, or a clip's — is cut off,
+    // not hidden: its unseen letters are not reported as text placed away.
+    let text = &w.text;
+    let mut rest = &mut w.glyphs[..];
+    while !rest.is_empty() {
+        let mut len = 1;
+        while len < rest.len() && same_word(text, &rest[len - 1], &rest[len]) {
+            len += 1;
+        }
+        let (word, after) = rest.split_at_mut(len);
+        if word.iter().any(|g| g.hidden.is_none()) {
+            for g in word
+                .iter_mut()
+                .filter(|g| g.hidden == Some(Hidden::OffPage))
+            {
+                g.cut = true;
+            }
+        }
+        rest = after;
+    }
     // A scanned page: an image over most of it, and its text laid out
     // invisibly under the picture of the words, for search. That is OCR,
     // not hiding.
@@ -834,6 +892,26 @@ fn finish_walk(w: &mut Walked, marks: &[Area], media: Area, images: &[Area]) {
             g.hidden = None;
         }
     }
+}
+
+/// Grows `extent` to take in a point.
+fn reach(extent: &mut Option<Area>, (x, y): (f64, f64)) {
+    let [l, b, r, t] = extent.map_or([x, y, x, y], |e| e.0);
+    *extent = Some(Area([l.min(x), b.min(y), r.max(x), t.max(y)]));
+}
+
+/// Whether `b` goes on the word `a` is in: a letter, not a space, beside it
+/// on the same line.
+fn same_word(text: &str, a: &Glyph, b: &Glyph) -> bool {
+    let letter = |g: &Glyph| {
+        text.get(g.text.0 as usize..g.text.1 as usize)
+            .is_some_and(|t| !t.bytes().all(|b| b.is_ascii_whitespace()))
+    };
+    let h = a.area.height().abs().max(b.area.height().abs());
+    letter(a)
+        && letter(b)
+        && (b.area.0[0] - a.area.0[2]).abs() < 0.5 * h
+        && (b.area.0[1] - a.area.0[1]).abs() < 0.3 * h
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -861,6 +939,10 @@ fn walk_stream(
     // shape, which count when they make a rectangle too.
     let mut rects: Vec<Area> = Vec::new();
     let mut points: Vec<(f64, f64)> = Vec::new();
+    // Everything the path reaches, its curves' control points too, which
+    // bound the curve (8.5.2.2); and whether `W` made it the clip.
+    let mut extent: Option<Area> = None;
+    let mut clipping = false;
     let (mut tm, mut tlm) = (IDENTITY, IDENTITY);
     let calls = forms
         .as_deref()
@@ -958,7 +1040,7 @@ fn walk_stream(
                 };
                 let hidden = if clipped_out {
                     Some(Hidden::OffPage)
-                } else if gs.mode == 3 || gs.mode == 7 {
+                } else if gs.mode == 3 || gs.mode == 7 || gs.alpha <= 0.01 {
                     Some(Hidden::Invisible)
                 } else if !area.meets(&media) {
                     Some(Hidden::OffPage)
@@ -982,6 +1064,7 @@ fn walk_stream(
                     covered: on_dark.is_some() && hidden.is_none(),
                     marked: false,
                     hidden,
+                    cut: false,
                 });
                 if let Some(b) = on_dark
                     && hidden.is_none()
@@ -1040,7 +1123,10 @@ fn walk_stream(
             }
             b"re" => {
                 if let Some([x, y, wd, h]) = nums::<4>(&ops) {
-                    rects.push(Area::of(&gs.ctm, x, y, wd, h));
+                    let a = Area::of(&gs.ctm, x, y, wd, h);
+                    rects.push(a);
+                    reach(&mut extent, (a.0[0], a.0[1]));
+                    reach(&mut extent, (a.0[2], a.0[3]));
                 }
             }
             b"m" | b"l" => {
@@ -1048,16 +1134,69 @@ fn walk_stream(
                     if op == b"m" {
                         points.clear();
                     }
-                    points.push(apply(&gs.ctm, x, y));
+                    let p = apply(&gs.ctm, x, y);
+                    points.push(p);
+                    reach(&mut extent, p);
                 }
             }
             // A curve makes the shape something other than a box.
-            b"c" | b"v" | b"y" => points.push((f64::NAN, f64::NAN)),
+            b"c" | b"v" | b"y" => {
+                points.push((f64::NAN, f64::NAN));
+                let xy: Vec<f64> = ops.iter().filter_map(|o| num(&o.obj)).collect();
+                for &[x, y] in xy.as_chunks::<2>().0 {
+                    reach(&mut extent, apply(&gs.ctm, x, y));
+                }
+            }
+            b"W" | b"W*" => clipping = true,
+            b"gs" => {
+                if let (Some(forms), Some(name)) =
+                    (forms.as_deref_mut(), ops.last().and_then(|o| o.obj.name()))
+                {
+                    let scope = resources.as_ref().or(forms.page_resources.as_ref());
+                    let state = resource(
+                        forms.data,
+                        forms.ctx,
+                        scope,
+                        legacy_fallback.as_ref(),
+                        "ExtGState",
+                        name,
+                        forms.budget,
+                    )
+                    .and_then(|o| deref_obj(forms.data, forms.ctx, &o, forms.budget));
+                    if let Some(ca) = state.as_ref().and_then(|s| s.get("ca")).and_then(num) {
+                        gs.alpha = ca;
+                    }
+                }
+            }
+            // A shading paints all of the clip, or the page.
+            b"sh" => {
+                let a = gs.clip.unwrap_or(media);
+                paint.painted.push(a);
+                if paint.fills.len() < MAX_GLYPHS {
+                    paint.fills.push((a, false));
+                }
+            }
             b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*" => {
                 if let Some(a) = rectangle(&points) {
                     rects.push(a);
                 }
-                let dark = gs.fill.is_some_and(|l| l <= DARK);
+                // Any other shape is something white text can show against.
+                // Only its bounds are known, so it is never taken to hide anything.
+                if rects.is_empty()
+                    && let Some(a) = extent
+                {
+                    if gs.fill.is_none_or(|l| l < WHITE) && paint.painted.len() < MAX_GLYPHS {
+                        paint.painted.push(a);
+                    }
+                    if paint.fills.len() < MAX_GLYPHS {
+                        paint.fills.push((a, false));
+                    }
+                }
+                if clipping {
+                    gs.clip = extent.map(|e| gs.clip.map_or(e, |c| c.and(&e)));
+                    clipping = false;
+                }
+                let dark = gs.alpha >= OPAQUE && gs.fill.is_some_and(|l| l <= DARK);
                 for area in &rects {
                     if gs.fill.is_none_or(|l| l < WHITE) && paint.painted.len() < MAX_GLYPHS {
                         paint.painted.push(*area);
@@ -1089,10 +1228,16 @@ fn walk_stream(
                 }
                 rects.clear();
                 points.clear();
+                extent = None;
             }
             b"n" | b"S" | b"s" => {
+                if clipping {
+                    gs.clip = extent.map(|e| gs.clip.map_or(e, |c| c.and(&e)));
+                    clipping = false;
+                }
                 rects.clear();
                 points.clear();
+                extent = None;
             }
             // An image, or a form: what white text could show against.
             b"Do" => {
@@ -1102,9 +1247,9 @@ fn walk_stream(
                 {
                     w.placed.push((name.to_string(), gs.ctm));
                 }
-                let is_form =
+                let placed =
                     if let (Some(forms), Some(name_item)) = (forms.as_deref_mut(), ops.last()) {
-                        match follow_form(
+                        let placed = follow_form(
                             name_item,
                             source_owner,
                             source_parts,
@@ -1117,20 +1262,19 @@ fn walk_stream(
                             forms,
                             w,
                             paint,
-                        ) {
-                            Some(true) => true,
-                            Some(false) => false,
-                            None => {
-                                w.complete = false;
-                                false
-                            }
+                        );
+                        if placed.is_none() {
+                            w.complete = false;
                         }
+                        placed
                     } else {
-                        false
+                        None
                     };
-                if !is_form {
+                if !matches!(placed, Some(Placed::Form)) {
                     paint.painted.push(a);
-                    paint.images.push(a);
+                    if !matches!(placed, Some(Placed::Picture { see_through: true })) {
+                        paint.images.push(a);
+                    }
                     if paint.fills.len() < MAX_GLYPHS {
                         paint.fills.push((a, false));
                     }
@@ -1357,7 +1501,7 @@ mod tests {
             Hidden::OffPage,
             Hidden::Tiny,
         ] {
-            for (_, t) in w.pieces(|g| g.hidden == Some(kind)) {
+            for (_, t) in w.pieces(|g| g.hidden == Some(kind) && !g.cut) {
                 out.push((kind, t));
             }
         }
@@ -1447,6 +1591,32 @@ mod tests {
                 (Hidden::Tiny, "tiny".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn a_word_the_edge_cuts_is_not_hidden_but_one_past_it_is() {
+        // "Velocity" runs past the right edge at 612: its last letters are
+        // cut off, and not reported.
+        let cut = "BT /F1 12 Tf 570 700 Td (Velocity) Tj ET";
+        assert!(hidden(cut).is_empty(), "{:?}", hidden(cut));
+        let past = "BT /F1 12 Tf 570 700 Td (Velo) Tj 60 0 Td (secret) Tj ET";
+        assert_eq!(hidden(past), [(Hidden::OffPage, "secret".to_string())]);
+    }
+
+    #[test]
+    fn white_text_on_a_rounded_panel_or_a_gradient_is_seen() {
+        // A device's panel with rounded corners, drawn with curves, and a
+        // label in white on it.
+        let panel = "0.25 0.28 0.3 rg 60 640 m 260 640 l 270 640 270 650 270 650 c 270 690 l \
+                     270 700 260 700 260 700 c 60 700 l h f \
+                     1 g BT /F1 12 Tf 72 660 Td (POWER) Tj ET";
+        assert!(hidden(panel).is_empty(), "{:?}", hidden(panel));
+        // A gradient fills the clip it is given.
+        let gradient = "q 60 640 200 60 re W n /Sh1 sh Q 1 g BT /F1 12 Tf 72 660 Td (PANIC) Tj ET";
+        assert!(hidden(gradient).is_empty(), "{:?}", hidden(gradient));
+        // On the paper beside them, white text is still not seen.
+        let beside = format!("{panel} 1 g BT /F1 12 Tf 400 300 Td (hidden) Tj ET");
+        assert_eq!(hidden(&beside), [(Hidden::White, "hidden".to_string())]);
     }
 
     #[test]

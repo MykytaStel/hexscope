@@ -234,22 +234,28 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    /// A number, or `N G R` when one follows.
+    /// A number, or `N G R` when one follows. A reference to a number no
+    /// object can have — macOS's Quartz has written a pointer's worth,
+    /// 18446744073386459286 — refers to nothing, which a PDF reads as null.
     fn number(&mut self) -> Option<Obj> {
         let w = self.word();
         let text = std::str::from_utf8(w).ok()?;
-        if let Ok(i) = text.parse::<i64>() {
-            let after = self.pos;
-            if let (Ok(num), true) = (u32::try_from(i), !text.starts_with(['+', '-'])) {
+        let after = self.pos;
+        let int = text.parse::<i64>().ok();
+        if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) {
+            self.skip_ws();
+            if let Some(gen_) = self.uint().and_then(|g| u16::try_from(g).ok()) {
                 self.skip_ws();
-                if let Some(gen_) = self.uint().and_then(|g| u16::try_from(g).ok()) {
-                    self.skip_ws();
-                    if self.keyword(b"R") {
-                        return Some(Obj::Ref(num, gen_));
-                    }
+                if self.keyword(b"R") {
+                    return Some(match int.and_then(|i| u32::try_from(i).ok()) {
+                        Some(num) => Obj::Ref(num, gen_),
+                        None => Obj::Null,
+                    });
                 }
             }
             self.pos = after;
+        }
+        if let Some(i) = int {
             return Some(Obj::Int(i));
         }
         let valid = !text.is_empty()
@@ -391,6 +397,14 @@ mod tests {
         assert_eq!(read(b"-3.5"), Some(Obj::Real("-3.5".into())));
         assert_eq!(read(b"12 0 R"), Some(Obj::Ref(12, 0)));
         assert_eq!(read(b"12 0 obj"), Some(Obj::Int(12)));
+        assert_eq!(read(b"18446744073386459286 0 R"), Some(Obj::Null));
+        assert_eq!(read(b"5000000000 0 R"), Some(Obj::Null));
+        assert_eq!(read(b"5000000000"), Some(Obj::Int(5_000_000_000)));
+        let elem = read(b"<< /S /Art /Pg 18446744073243311120 0 R /K [ 16 0 R ] >>").unwrap();
+        assert!(matches!(elem.get("Pg"), Some(Obj::Null)));
+        assert!(
+            matches!(elem.get("K"), Some(Obj::Array(a)) if a.len() == 1 && a[0].obj == Obj::Ref(16, 0))
+        );
         assert_eq!(read(b"/A#20B"), Some(Obj::Name("A B".into())));
         assert_eq!(
             read(b"(a (b) \\(c\\) \\101\\\nd)"),

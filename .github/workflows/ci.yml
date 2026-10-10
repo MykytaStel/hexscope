@@ -117,16 +117,22 @@ jobs:
       # The page's own script, before any parser: what every visitor waits for.
       # Film-scan clues reuse the image worker and lazy view chunk; this small
       # allowance covers the hook that inserts its result after local analysis.
-      # The clearer analyzer answer labels and explicit finding action use up to 300 extra bytes.
+      # The clearer analyzer answer labels and explicit finding action use up to 300 extra bytes,
+      # and advice and clean-copy notes for new findings 600 more; their Ukrainian copy loads
+      # beside the parser instead, which leaves the chunk every page shares 1.5 KB smaller.
       - name: JavaScript size budget
         run: |
           main=$(gzip -9c apps/web/dist/assets/main-*.js | wc -c)
-          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 65600)."
-          test "$main" -le 65600
+          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 66200)."
+          test "$main" -le 66200
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
-      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix.
+      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix,
+      # 1200 for reading a PDF's opacity, clips and curved fills: what stopped real
+      # drawings from being reported as hidden text; and 3800 for what a Mac's archive
+      # notes about its files (where each was downloaded from), Office sensitivity labels
+      # and the rest of a document's properties, and comments in pictures.
       # The optional roll/TIFF module is budgeted separately and is never an initial parser.
       - name: WebAssembly size budget
         run: |
@@ -134,9 +140,9 @@ jobs:
           test "$(echo "$sizes" | wc -l)" -eq 2
           media=$(echo "$sizes" | head -1)
           full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290400)."
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 295400)."
           test "$media" -le 140000
-          test "$full" -le 290400
+          test "$full" -le 295400
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000

@@ -333,10 +333,8 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
         );
     }
     if let Some(node) = comment_node {
-        facts.caption = facts.caption.take().or(Some(crate::exif::Fact {
-            text: comments.join(" · ").chars().take(MAX_SHOWN).collect(),
-            node,
-        }));
+        let text: String = comments.join(" · ").chars().take(MAX_SHOWN).collect();
+        facts.fill_from(crate::exif::comment(&text, node));
     }
     let mut summary = String::from("GIF");
     if let (Some(w), Some(h)) = (width, height) {
@@ -384,6 +382,16 @@ mod tests {
                 .iter()
                 .any(|n| matches!(n.kind, NodeKind::Error | NodeKind::Warning))
         );
+    }
+
+    #[test]
+    fn a_programs_stamp_is_the_software_not_a_caption() {
+        let doc = parse_gif(&gif(b"GIF SmartSaver Ver1.1a"));
+        assert_eq!(
+            doc.facts.software.map(|f| f.text).as_deref(),
+            Some("GIF SmartSaver Ver1.1a")
+        );
+        assert!(doc.facts.caption.is_none());
     }
 
     #[test]

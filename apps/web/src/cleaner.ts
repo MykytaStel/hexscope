@@ -7,6 +7,27 @@ import type { FileModel } from "./model";
 import { KEPT_NOTE } from "./knowledge";
 import { dismissTour } from "./tour";
 
+/** What each kind of clean copy leaves out, said before it is made. */
+export const CLEAN_NOTES: Record<string, string> = {
+  zip: "Removes the document's properties, the camera data and location of every photo in it, and the properties of a workbook or deck kept inside it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
+  archive:
+    "Leaves out what the Mac noted about each file in __MACOSX — where it was downloaded from, with which app, its tags. The files inside are copied byte for byte.",
+  webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
+  gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
+  heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
+  png: "Removes the text notes — an image generator's prompt among them — EXIF, XMP, Content Credentials and the time it was last changed. The pixels are copied byte for byte.",
+  video:
+    "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
+  audio:
+    "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte.",
+  wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
+  office97:
+    "Blanks the document's properties where they lie — title, author, last editor, company, template, dates, editing time — and the sectors no part uses, where deleted text can remain. Nothing else in the file moves.",
+  pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data.",
+  picture:
+    "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.",
+};
+
 /** Builds the clean-copy panel and keeps its verified result beside its facts. */
 export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup: HTMLElement): HTMLElement {
   const format = m.file.format;
@@ -15,23 +36,10 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
   // The visible action is in the verdict; this control runs the existing clean-copy flow.
   button.hidden = true;
   button.title = "Makes the copy in this tab: nothing is uploaded";
-  const notes: Record<string, string> = {
-    zip: "Removes the document's properties, the camera data and location of every photo in it, and the properties of a workbook or deck kept inside it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.",
-    webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
-    gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
-    heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
-    png: "Removes the text notes — an image generator's prompt among them — EXIF, XMP, Content Credentials and the time it was last changed. The pixels are copied byte for byte.",
-    video:
-      "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",
-    wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
-    office97:
-      "Blanks the document's properties where they lie — title, author, last editor, company, template, dates, editing time — and the sectors no part uses, where deleted text can remain. Nothing else in the file moves.",
-    pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data.",
-  };
-  const note =
-    (isAudio(m) ? "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte." : undefined) ??
-    notes[format] ??
-    "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.";
+  const office = m.file.labels.includes("[Content_Types].xml");
+  const note = isAudio(m)
+    ? CLEAN_NOTES.audio
+    : (CLEAN_NOTES[format === "zip" && !office ? "archive" : format] ?? CLEAN_NOTES.picture);
   const limits = cleanLimits(m);
   box.append(button, el("p", "hint", note));
   // A workbook's or a deck's comments and notes are its content: gone only when asked.

@@ -1,5 +1,11 @@
 //! Dates from counts of seconds, without a calendar library.
 
+/// Seconds since 1970-01-01 UTC as `2024-03-02 09:38 UTC`.
+pub(crate) fn minute_utc(secs: i64) -> String {
+    let [y, m, d, hh, mm, _] = civil(secs);
+    format!("{y:04}-{m:02}-{d:02} {hh:02}:{mm:02} UTC")
+}
+
 /// Seconds since 1970-01-01 UTC as year, month, day, hour, minute, second.
 pub(crate) fn civil(secs: i64) -> [i64; 6] {
     let days = secs.div_euclid(86_400);
