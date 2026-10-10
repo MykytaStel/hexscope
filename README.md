@@ -21,8 +21,7 @@ behind it; where supported, save a clean copy from the same page.
 It also works offline after the first visit. File parsing happens in your
 browser: Hexscope does not upload your files or send telemetry. The website
 counts how many people visit — totals per day, without cookies, ids or
-addresses, never anything about a file — and shows every number it keeps at
-[/stats](https://hexscope.pages.dev/stats).
+addresses, never anything about a file — read only by its author.
 
 ## What you can do
 

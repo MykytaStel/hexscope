@@ -146,13 +146,13 @@ function memoryDb(fail = false): D1Database & { totals: Map<string, number> } {
   };
 }
 
-function context(db: D1Database | undefined, path: string, headers: Record<string, string> = {}): Context {
+function context(db: D1Database | undefined, path: string, headers: Record<string, string> = {}, key?: string): Context {
   const period = path.split("/").pop();
   return {
     request: Object.assign(new Request(`https://hexscope.pages.dev${path}`, { headers: { "Sec-Fetch-Site": "same-origin", ...headers } }), {
       cf: { country: "UA" },
     }),
-    env: { COUNTS: db },
+    env: { COUNTS: db, STATS_KEY: key },
     params: { period },
   };
 }
@@ -189,15 +189,25 @@ describe("the endpoints", () => {
     await seen(context(db, "/api/seen/day"), now);
     await seen(context(db, "/api/seen/month"), now);
     await seen(context(db, "/api/seen/new"), now);
-    const res = await stats(context(db, "/api/stats"), now);
+    const res = await stats(context(db, "/api/stats", { Authorization: "Bearer the-key" }, "the-key"), now);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     const body = await res.json();
     expect(body.today).toEqual({ day: "2026-10-10", people: 1, new: 1 });
     expect(body.month).toEqual({ month: "2026-10", people: 1 });
     expect(body.top.country).toEqual([["UA", 1]]);
   });
 
+  it("shows the figures only to whoever has the key", async () => {
+    const db = memoryDb();
+    expect((await stats(context(db, "/api/stats"), now)).status).toBe(404);
+    expect((await stats(context(db, "/api/stats", {}, "the-key"), now)).status).toBe(401);
+    expect((await stats(context(db, "/api/stats", { Authorization: "Bearer the-kez" }, "the-key"), now)).status).toBe(401);
+    expect((await stats(context(db, "/api/stats", { Authorization: "Bearer the-key" }, "the-key"), now)).status).toBe(200);
+  });
+
   it("says the figures are unavailable without a database", async () => {
-    expect((await stats(context(undefined, "/api/stats"), now)).status).toBe(503);
-    expect((await stats(context(memoryDb(true), "/api/stats"), now)).status).toBe(503);
+    const auth = { Authorization: "Bearer k" };
+    expect((await stats(context(undefined, "/api/stats", auth, "k"), now)).status).toBe(503);
+    expect((await stats(context(memoryDb(true), "/api/stats", auth, "k"), now)).status).toBe(503);
   });
 });

@@ -256,3 +256,36 @@
     background: CanvasText;
   }
 }
+
+.stats-key {
+  display: grid;
+  gap: 10px;
+  max-width: 360px;
+  margin-top: 28px;
+}
+
+.stats-key input[type="password"] {
+  min-height: var(--control-height);
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--control-radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.stats-remember {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+.stats-key .btn {
+  justify-self: start;
+}
+
+.stats-forget {
+  margin-top: 20px;
+}

@@ -1,5 +1,6 @@
-// The visit counter's open numbers, drawn from a stand-in for /api/stats, and
-// the promise behind it: nothing is counted from anywhere but the real site.
+// The visit counter's numbers, drawn from a stand-in for /api/stats for the
+// key's holder, and the promise behind it: nothing is counted from anywhere
+// but the real site.
 import { expect, test, type Page } from "@playwright/test";
 
 const day = (offset: number) => new Date(Date.UTC(2026, 9, 10 - offset)).toISOString().slice(0, 10);
@@ -18,13 +19,33 @@ const FIGURES = {
   },
 };
 
-async function stats(page: Page, answer: object | null): Promise<void> {
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
-  await page.route("**/api/stats", (route) =>
-    answer ? route.fulfill({ json: answer }) : route.fulfill({ status: 503, json: { error: "unavailable" } }),
-  );
+async function stats(page: Page, answer: object | null, key: string | null = "the-key"): Promise<void> {
+  await page.addInitScript((k) => {
+    localStorage.setItem("hexscope.language", "en");
+    if (k) localStorage.setItem("hexscope.statsKey", k);
+  }, key);
+  await page.route("**/api/stats", (route) => {
+    if (route.request().headers().authorization !== "Bearer the-key") return route.fulfill({ status: 401, json: { error: "key" } });
+    return answer ? route.fulfill({ json: answer }) : route.fulfill({ status: 503, json: { error: "unavailable" } });
+  });
   await page.goto("./stats");
 }
+
+test("asks for the key, refuses a wrong one and keeps the right one", async ({ page }) => {
+  await stats(page, FIGURES, null);
+  const form = page.locator("#stats-key");
+  await expect(form).toBeVisible();
+  await page.getByLabel("The site's key").fill("wrong");
+  await page.getByRole("button", { name: "Show the numbers" }).click();
+  await expect(page.locator("#stats-key-note")).toHaveText("That key does not open them.");
+  await page.getByLabel("The site's key").fill("the-key");
+  await page.getByRole("button", { name: "Show the numbers" }).click();
+  await expect(page.locator(".stats-tile").first()).toContainText("12");
+  expect(await page.evaluate(() => localStorage.getItem("hexscope.statsKey"))).toBe("the-key");
+  await page.getByRole("button", { name: "Forget the key on this device" }).click();
+  await expect(form).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("hexscope.statsKey"))).toBeNull();
+});
 
 test("shows every number the counter keeps", async ({ page }) => {
   await stats(page, FIGURES);

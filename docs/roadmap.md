@@ -8,7 +8,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ## Principles
 
-- **Local by default:** no file uploads, accounts, telemetry, or server-side inspection. The website counts visitors as daily totals only — no cookie, id or address, nothing about files — and publishes every number at `/stats`.
+- **Local by default:** no file uploads, accounts, telemetry, or server-side inspection. The website counts visitors as daily totals only — no cookie, id or address, nothing about files — read only by the maintainer, with the site's key.
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
 - **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web, CLI, and GitHub Action.
 - **Copies stay under user control:** never silently alter the source; keep a successfully produced copy available when post-write verification is incomplete, and refuse to produce one when source content cannot be inspected safely.

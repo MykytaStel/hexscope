@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="./theme.js"></script>
-    <meta name="description" content="How many people use hexscope, counted without knowing who: every number the counter keeps." />
+    <meta name="description" content="How many people use hexscope, counted without knowing who." />
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#090b0d" />
-    <title>Open numbers — hexscope</title>
+    <title>Numbers — hexscope</title>
     <link rel="canonical" href="https://hexscope.pages.dev/stats" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon-192.png" />
@@ -26,13 +26,19 @@
 
     <main class="stats-layout">
       <article class="story-text stats-page">
-        <p class="story-kicker">Open numbers</p>
+        <p class="story-kicker">Numbers</p>
         <h1>How many people use hexscope</h1>
-        <p class="story-lede">Counted without knowing who: no cookies, no ids, no addresses kept. These are all the numbers there are.</p>
+        <p class="story-lede">Counted without knowing who: no cookies, no ids, no addresses kept. These are all the numbers there are, and only the site's key shows them.</p>
 
-        <div id="stats" class="stats-body" aria-live="polite">
-          <p class="stats-none">Loading…</p>
-        </div>
+        <form id="stats-key" class="stats-key" hidden>
+          <label for="stats-key-input">The site's key</label>
+          <input id="stats-key-input" type="password" autocomplete="current-password" required />
+          <label class="stats-remember"><input id="stats-remember" type="checkbox" checked /> Remember on this device</label>
+          <button class="btn btn-primary" type="submit">Show the numbers</button>
+          <p id="stats-key-note" class="stats-none" role="status"></p>
+        </form>
+        <div id="stats" class="stats-body" aria-live="polite" hidden></div>
+        <p class="stats-forget" hidden><button id="stats-forget" class="btn" type="button">Forget the key on this device</button></p>
 
         <section>
           <h2>How it counts</h2>

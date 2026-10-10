@@ -242,7 +242,8 @@ for (const scheme of ["dark", "light"] as const) {
       await check(page, "privacy");
     });
 
-    test("the open numbers", async ({ page }) => {
+    test("the numbers", async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("hexscope.statsKey", "k"));
       await page.route("**/api/stats", (route) =>
         route.fulfill({
           json: {
@@ -256,7 +257,7 @@ for (const scheme of ["dark", "light"] as const) {
       );
       await page.goto("./stats");
       await expect(page.locator(".stats-tile")).toHaveCount(3);
-      await check(page, "open numbers");
+      await check(page, "numbers");
     });
 
     test("the keyboard list", async ({ page }, info) => {

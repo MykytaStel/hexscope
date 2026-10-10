@@ -1,5 +1,6 @@
 // The /stats page: every number the visit counter keeps, drawn from
-// /api/stats. Text is written in English and translated like any page's.
+// /api/stats for whoever has the site's key, which this device may keep.
+// Text is written in English and translated like any page's.
 import "./stats.css";
 import { currentLocale } from "./i18n";
 
@@ -196,17 +197,74 @@ function render(): void {
   root.replaceChildren(tiles, daily, monthly, where, note);
 }
 
-async function load(): Promise<void> {
+const STORED = "hexscope.statsKey";
+const form = document.getElementById("stats-key") as HTMLFormElement | null;
+const input = document.getElementById("stats-key-input") as HTMLInputElement | null;
+const remember = document.getElementById("stats-remember") as HTMLInputElement | null;
+const note = document.getElementById("stats-key-note");
+const forget = document.getElementById("stats-forget");
+
+function stored(): string | null {
+  try {
+    return localStorage.getItem(STORED);
+  } catch {
+    return null;
+  }
+}
+
+function keep(key: string | null): void {
+  try {
+    if (key) localStorage.setItem(STORED, key);
+    else localStorage.removeItem(STORED);
+  } catch {
+    // A browser that keeps nothing asks for the key each time.
+  }
+}
+
+/** Asks for the key, saying why when one was refused. */
+function ask(why = ""): void {
+  if (!form || !root) return;
+  root.hidden = true;
+  if (forget?.parentElement) forget.parentElement.hidden = true;
+  form.hidden = false;
+  if (note) note.textContent = why;
+  input?.focus();
+}
+
+async function load(key: string, save: boolean): Promise<void> {
   if (!root) return;
   try {
-    const res = await fetch("/api/stats", { credentials: "omit" });
+    const res = await fetch("/api/stats", { credentials: "omit", headers: { Authorization: `Bearer ${key}` } });
+    if (res.status === 401) {
+      keep(null);
+      return ask("That key does not open them.");
+    }
+    if (res.status === 404) return ask("The numbers are off: no key is set on the server.");
     if (!res.ok) throw new Error(String(res.status));
     figures = (await res.json()) as Stats;
+    if (save) keep(key);
+    if (form) form.hidden = true;
+    root.hidden = false;
+    if (forget?.parentElement) forget.parentElement.hidden = !stored();
     render();
   } catch {
+    root.hidden = false;
     root.replaceChildren(el("p", "stats-none", "The numbers are not available right now."));
   }
 }
 
+form?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (input?.value) void load(input.value, remember?.checked ?? false);
+});
+forget?.addEventListener("click", () => {
+  keep(null);
+  figures = null;
+  root?.replaceChildren();
+  ask();
+});
+
 window.addEventListener("hexscope:locale", render);
-void load();
+const saved = stored();
+if (saved) void load(saved, true);
+else ask();

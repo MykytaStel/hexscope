@@ -44,3 +44,6 @@ apps/web/test-results/
 apps/web/playwright-report/
 
 apps/web/src/wasm-raster/
+
+# Wrangler's local secrets for pages dev
+apps/web/.dev.vars
