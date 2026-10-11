@@ -18,6 +18,13 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
+      # One version for the site, the CLI and the crates (docs/releasing.md):
+      # the changelog must say what is in it.
+      - name: Version and changelog agree
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          echo "::notice::hexscope $version"
+          grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
       # Installs exactly the toolchain, components and targets that
       # rust-toolchain.toml pins, so CI and local builds cannot drift.
       - run: rustup toolchain install

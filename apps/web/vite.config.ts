@@ -6,6 +6,17 @@ import { defineConfig, type Plugin } from "vite";
 
 const page = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 
+/** hexscope's version, kept once for the site, the CLI and the crates: in the workspace's Cargo.toml. */
+const VERSION = /^\[workspace\.package\][^[]*?^version = "([^"]+)"/m.exec(readFileSync(page("../../Cargo.toml"), "utf8"))?.[1] ?? "dev";
+
+/** Writes the version into every page where it says %HEXSCOPE_VERSION%. */
+function version(): Plugin {
+  return {
+    name: "hexscope-version",
+    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION),
+  };
+}
+
 /** Files the service worker does not keep: the samples have their own list,
  * and the rest is for crawlers, link previews and the host. */
 const NOT_KEPT = /^(samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.png$)/;
@@ -70,9 +81,9 @@ export default defineConfig({
   // Relative asset paths so the build works from any subpath, e.g. GitHub Pages.
   base: "./",
   worker: { format: "es" },
-  plugins: [precache()],
+  plugins: [version(), precache()],
   // The commit a report names, so a bug can be matched to the code it met.
-  define: { __BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? "dev").slice(0, 7)) },
+  define: { __BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? "dev").slice(0, 7)), __VERSION__: JSON.stringify(VERSION) },
   build: {
     target: "es2022",
     rollupOptions: {
