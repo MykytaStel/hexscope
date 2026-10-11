@@ -1,0 +1,15 @@
+# Cloudflare Pages: the site in dist/, and the functions in functions/ that
+# count visitors (server/count.ts). The database holds totals only; the
+# STATS_KEY secret (set in Cloudflare, never here) is what reads them.
+name = "hexscope"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-01"
+
+# Until the database exists, the functions answer and count nothing. To start:
+#   npx wrangler@4 d1 create hexscope-counts
+#   npx wrangler@4 d1 migrations apply hexscope-counts --remote
+# then put its id below and uncomment the block.
+# [[d1_databases]]
+# binding = "COUNTS"
+# database_name = "hexscope-counts"
+# database_id = ""

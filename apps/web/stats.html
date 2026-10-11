@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="How many people use hexscope, counted without knowing who." />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#090b0d" />
+    <title>Numbers — hexscope</title>
+    <link rel="canonical" href="https://hexscope.pages.dev/stats" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="stats-layout">
+      <article class="story-text stats-page">
+        <p class="story-kicker">Numbers</p>
+        <h1>How many people use hexscope</h1>
+        <p class="story-lede">Counted without knowing who: no cookies, no ids, no addresses kept. These are all the numbers there are, and only the site's key shows them.</p>
+
+        <form id="stats-key" class="stats-key" hidden>
+          <label for="stats-key-input">The site's key</label>
+          <input id="stats-key-input" type="password" autocomplete="current-password" required />
+          <label class="stats-remember"><input id="stats-remember" type="checkbox" checked /> Remember on this device</label>
+          <button class="btn btn-primary" type="submit">Show the numbers</button>
+          <p id="stats-key-note" class="stats-none" role="status"></p>
+        </form>
+        <div id="stats" class="stats-body" aria-live="polite" hidden></div>
+        <p class="stats-forget" hidden><button id="stats-forget" class="btn" type="button">Forget the key on this device</button></p>
+
+        <section>
+          <h2>How it counts</h2>
+          <ul>
+            <li>When a page opens, it sends an empty request to <code>/api/seen/day</code>. The answer tells your browser to keep it until midnight UTC, so your browser does not ask again that day. The same for the month and, once, for “new”.</li>
+            <li>The server adds one to that day's total, plus your country (from the network, by Cloudflare), the site you came from, the page, phone or computer, and the language. Only totals are kept: nothing in the database can tell one person from another.</li>
+            <li>Opening a file sends nothing. With “Do Not Track” or Global Privacy Control turned on, pages send nothing at all.</li>
+          </ul>
+          <p>The code is open: <a href="https://github.com/MykytaStel/hexscope/blob/main/apps/web/server/count.ts" target="_blank" rel="noopener noreferrer">server/count.ts</a> and <a href="https://github.com/MykytaStel/hexscope/blob/main/apps/web/src/count.ts" target="_blank" rel="noopener noreferrer">src/count.ts</a>. More in <a href="your-files-stay-private.html">Your files stay on your device</a>.</p>
+        </section>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+    <script type="module" src="/src/stats.ts"></script>
+  </body>
+</html>

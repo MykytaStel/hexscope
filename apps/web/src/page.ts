@@ -2,10 +2,12 @@
 import { GUIDE_UK } from "./guide-i18n";
 import { themeButton } from "./theme";
 import { currentLocale, installLocale, languageButton, registerLazyTranslations } from "./i18n";
+import { countVisit } from "./count";
 
 registerLazyTranslations(GUIDE_UK);
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton(), themeButton());
+countVisit();
 
 // Keep the article's language in step with the shared language selector so
 // assistive technology reads every guide in the language currently displayed.

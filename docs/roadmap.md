@@ -8,7 +8,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ## Principles
 
-- **Local by default:** no file uploads, accounts, telemetry, or server-side inspection.
+- **Local by default:** no file uploads, accounts, telemetry, or server-side inspection. The website counts visitors as daily totals only — no cookie, id or address, nothing about files — read only by the maintainer, with the site's key.
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
 - **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web, CLI, and GitHub Action.
 - **Copies stay under user control:** never silently alter the source; keep a successfully produced copy available when post-write verification is incomplete, and refuse to produce one when source content cannot be inspected safely.
@@ -99,7 +99,7 @@ Build a continuously tested corpus from synthetic fixtures and redistributable s
 ## Out of scope unless the product direction changes
 
 - Uploading user files or reports to a service for analysis.
-- Accounts, analytics, or background storage of inspected files.
+- Accounts, per-person analytics or tracking, or background storage of inspected files.
 - Calling Hexscope a malware scanner or treating a heuristic as proof of authenticity.
 - Silently cropping, redacting, or overwriting a source image.
 
