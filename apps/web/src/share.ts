@@ -6,7 +6,7 @@ import type { FileModel } from "./model";
 import { list } from "./verdict";
 
 /** Each kind of fact as a category, most telling first. */
-const CATEGORIES: [string, string][] = [
+export const CATEGORIES: [string, string][] = [
   ["covered", "text that was blacked out but not removed"],
   ["hiddentext", "text hidden from view"],
   ["location", "where it was taken"],
@@ -21,6 +21,7 @@ const CATEGORIES: [string, string][] = [
   ["riskyfile", "an attachment that runs or opens a site"],
   ["sentfrom", "the address it was sent from"],
   ["computer", "the sender's computer's name"],
+  ["downloaded", "where its files were downloaded from"],
   ["updates", "earlier versions of itself"],
   ["deleted", "text that was deleted"],
   ["earlier", "text an edit took off the page"],
@@ -44,7 +45,9 @@ const CATEGORIES: [string, string][] = [
   ["owner", "the owner's name"],
   ["author", "who wrote it"],
   ["editor", "who saved it last"],
+  ["manager", "its manager's name"],
   ["company", "the company"],
+  ["label", "the organisation it belongs to"],
   ["comments", "who commented"],
   ["tracked", "who changed what"],
   ["photo", "the camera behind its photos"],
@@ -72,6 +75,8 @@ const CATEGORIES: [string, string][] = [
   ["title", "its title"],
   ["subject", "its subject"],
   ["keywords", "its keywords"],
+  ["description", "its description"],
+  ["tags", "its Finder tags"],
   ["thumbnail", "a hidden preview of the picture"],
   ["paths", "the user name of the computer that built it"],
   ["names", "its functions' names"],

@@ -728,13 +728,13 @@ fn replacement(name: &str) -> Option<(&'static str, &'static str)> {
     match name {
         "docProps/core.xml" => Some((
             EMPTY_CORE,
-            "document properties: title, author, last editor, dates",
+            "document properties: title, subject, author, last editor, keywords, description, dates",
         )),
         "docProps/app.xml" => Some((
             EMPTY_APP,
-            "application properties: company, application, template, editing time",
+            "application properties: company, manager, application, template, editing time",
         )),
-        "docProps/custom.xml" => Some((EMPTY_CUSTOM, "custom properties")),
+        "docProps/custom.xml" => Some((EMPTY_CUSTOM, "custom properties and sensitivity labels")),
         _ => None,
     }
 }
@@ -864,7 +864,11 @@ fn clean_zip(
         .iter()
         .map(|e| revise(data, e, options))
         .collect();
-    if !doc.entries.iter().any(|e| replacement(&e.name).is_some())
+    use crate::zip::apple::is_apple_double;
+    if !doc
+        .entries
+        .iter()
+        .any(|e| replacement(&e.name).is_some() || is_apple_double(&e.name))
         && media.iter().all(Option::is_none)
         && revised.iter().all(Option::is_none)
     {
@@ -879,9 +883,15 @@ fn clean_zip(
     let mut parts = Vec::with_capacity(doc.entries.len());
     let mut removed = Vec::new();
     let mut extras = 0u64;
+    let mut mac = 0u64;
     for ((e, photo), change) in doc.entries.iter().zip(&media).zip(&revised) {
         if e.data.len != e.compressed {
             return Err(CleanError::Damaged);
+        }
+        // A Mac's notes about the files are not files: the copy leaves them out.
+        if is_apple_double(&e.name) {
+            mac += e.uncompressed.max(1);
+            continue;
         }
         // The original local header: its times and its exact name bytes.
         let (name, time, extra) = header_of(data, tree, e).ok_or(CleanError::Damaged)?;
@@ -932,6 +942,13 @@ fn clean_zip(
         });
     }
     let out = assemble(&parts).ok_or(CleanError::Zip64)?;
+
+    if mac > 0 {
+        removed.push(Removed {
+            what: "__MACOSX: what the Mac noted about each file — where it was downloaded from, with which app, its tags".into(),
+            bytes: mac,
+        });
+    }
 
     if extras > 0 {
         removed.push(Removed {

@@ -27,7 +27,7 @@ export interface Tip {
   guide?: [string, string];
 }
 
-const RULES: Rule[] = [
+export const RULES: Rule[] = [
   {
     when: ["prompt", "ai", "credentials"],
     text: "A picture an image generator made carries the prompt it was given, the program and often the model — and Content Credentials name who or what made it and how it was edited. Whoever gets the file can read them. The clean copy leaves them out; to be open that AI made it, say so where you post it.",
@@ -162,6 +162,15 @@ const RULES: Rule[] = [
     when: ["names", "toolchain", "sourcemap", "debug", "debuginfo"],
     formats: ["wasm"],
     text: "Custom sections can be left out at build time: wasm-bindgen --remove-name-section --remove-producers-section, or wasm-opt --strip-debug --strip-producers. The clean copy does it for this file.",
+  },
+  {
+    when: ["downloaded", "tags"],
+    text: "A Mac adds a hidden note for each file it zips: where the file was downloaded from — often the address of the email, chat or page it came in — with which app and when, and its Finder tags. The clean copy leaves the notes out; on a Mac, tools that zip without __MACOSX, such as zip -r in Terminal, do too.",
+  },
+  {
+    when: ["label", "manager"],
+    formats: ["zip", "office97"],
+    text: "A sensitivity label names the organisation the document belongs to — its Microsoft 365 tenant — and sometimes who labelled it. If the label must stay, by your organisation's rules, send the original; otherwise the clean copy removes it with the other properties.",
   },
   {
     when: ["thumbnail"],

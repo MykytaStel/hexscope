@@ -255,6 +255,8 @@ fn text_facts(notes: &[TextNote]) -> PhotoFacts {
             "Author" => set(&mut f.owner, text, node),
             "Software" => set(&mut f.software, text, node),
             "Creation Time" => set(&mut f.taken, text, node),
+            "Comment" => f.fill_from(crate::exif::comment(text, node)),
+            "Title" | "Description" => set(&mut f.caption, text, node),
             "Source" => set(&mut f.camera, text, node),
             "XML:com.adobe.xmp" => f.fill_from(crate::exif::xmp::from_xmp(text, node)),
             other => f.fill_from(crate::exif::c2pa::from_generator_note(other, text, node)),

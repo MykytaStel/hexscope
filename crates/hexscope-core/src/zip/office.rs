@@ -66,6 +66,11 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
             node,
         );
         push("revisions", element_text(&xml, "cp:revision"), node);
+        push("subject", element_text(&xml, "dc:subject"), node);
+        push("keywords", element_text(&xml, "cp:keywords"), node);
+        push("description", element_text(&xml, "dc:description"), node);
+        push("category", element_text(&xml, "cp:category"), node);
+        push("status", element_text(&xml, "cp:contentStatus"), node);
     }
     if let Some((xml, node)) = read("docProps/app.xml") {
         push("company", element_text(&xml, "Company"), node);
@@ -78,6 +83,12 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         let minutes = element_text(&xml, "TotalTime").and_then(|t| t.parse::<u64>().ok());
         push("editing", minutes.filter(|&m| m > 0).map(duration), node);
         push("template", element_text(&xml, "Template"), node);
+        push("manager", element_text(&xml, "Manager"), node);
+    }
+    if let Some((xml, node)) = read("docProps/custom.xml") {
+        let (label, others) = custom_properties(&xml);
+        push("label", label, node);
+        push("custom", others, node);
     }
 
     let read_part = |name: &str| {
@@ -385,6 +396,71 @@ fn texts(xml: &str, name: &str) -> Vec<String> {
         from = body + len;
     }
     out
+}
+
+/// What `docProps/custom.xml` says: a Microsoft sensitivity label — its
+/// name, the organisation's tenant id, who set it and when — and the other
+/// properties, by name and value.
+#[inline(never)]
+fn custom_properties(xml: &str) -> (Option<String>, Option<String>) {
+    let [mut name, mut site, mut owner, mut set] = [None, None, None, None];
+    let mut others = Vec::new();
+    let mut count = 0;
+    let mut from = 0;
+    while let Some((start, body)) = find_tag(xml, from, "property") {
+        from = body;
+        let Some(key) = attribute(&xml[start..body], "name") else {
+            continue;
+        };
+        let value = xml[body..]
+            .find("</property>")
+            .and_then(|end| xml[body..body + end].split_once('>')?.1.split_once('<'))
+            .map(|(v, _)| decode(v.trim()))
+            .unwrap_or_default();
+        if let Some(rest) = key.strip_prefix("MSIP_Label_") {
+            let slot = match rest.rsplit_once('_').map(|(_, k)| k) {
+                Some("Name") => &mut name,
+                Some("SiteId") => &mut site,
+                Some("Owner") => &mut owner,
+                Some("SetDate") => &mut set,
+                _ => continue,
+            };
+            if !value.is_empty() {
+                *slot = Some(value);
+            }
+            continue;
+        }
+        count += 1;
+        if others.len() < 5 {
+            others.push(if value.is_empty() {
+                key
+            } else {
+                format!("{key}: {value}")
+            });
+        }
+    }
+    let label = (name.is_some() || site.is_some()).then(|| {
+        let mut out = match name {
+            Some(n) => format!("“{n}”"),
+            None => "a label".to_string(),
+        };
+        if let Some(s) = site {
+            out.push_str(&format!(", organisation {s}"));
+        }
+        if let Some(o) = owner {
+            out.push_str(&format!(", set by {o}"));
+        }
+        if let Some(d) = set {
+            out.push_str(&format!(" on {}", date(d)));
+        }
+        cap(out)
+    });
+    let mut list = others.join(" · ");
+    if count > others.len() {
+        list.push_str(" +");
+        list.push_str(&(count - others.len()).to_string());
+    }
+    (label, (!list.is_empty()).then(|| cap(list)))
 }
 
 /// A sheet's or a slide's number, from its part's name: `slide7.xml` is 7.
@@ -813,7 +889,9 @@ fn attribute(tag: &str, name: &str) -> Option<String> {
 }
 
 /// The text of the first `<name …>text</name>` element, decoded and trimmed.
-/// `None` for a missing, empty or self-closing element.
+/// `None` for a missing, empty or self-closing element. Never inlined: one
+/// copy serves every property read.
+#[inline(never)]
 pub(crate) fn element_text(xml: &str, name: &str) -> Option<String> {
     // `<dc:creator>` or `<dc:creator attr…>`, not `<dc:creatorX>`.
     let (_, body) = find_tag(xml, 0, name)?;
@@ -983,6 +1061,43 @@ mod tests {
         );
         assert_eq!(doc.facts[0].node, doc.entries[0].node);
         assert_eq!(doc.facts[5].node, doc.entries[1].node);
+    }
+
+    #[test]
+    fn the_rest_of_the_properties_and_a_sensitivity_label_are_read() {
+        let core = r#"<cp:coreProperties><dc:subject>Board</dc:subject><cp:keywords>plan, budget</cp:keywords><dc:description>draft v3 for Ivan</dc:description><cp:category>Finance</cp:category><cp:contentStatus>Draft</cp:contentStatus></cp:coreProperties>"#;
+        let app = "<Properties><Manager>Petro Shevchenko</Manager></Properties>";
+        let custom = r#"<Properties><property fmtid="{D5CDD505}" pid="2" name="MSIP_Label_2096f6a2_Enabled"><vt:lpwstr>true</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="3" name="MSIP_Label_2096f6a2_SetDate"><vt:lpwstr>2024-03-02T08:15:00Z</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="4" name="MSIP_Label_2096f6a2_Name"><vt:lpwstr>Confidential</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="5" name="MSIP_Label_2096f6a2_SiteId"><vt:lpwstr>72f988bf-86f1-41af-91ab-2d7cd011db47</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="6" name="MSIP_Label_2096f6a2_Owner"><vt:lpwstr>olena@acme.example</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="7" name="Client"><vt:lpwstr>Acme &amp; Sons</vt:lpwstr></property><property fmtid="{D5CDD505}" pid="8" name="Reviewed"><vt:bool>true</vt:bool></property></Properties>"#;
+        let b = build(&Archive {
+            entries: vec![
+                Entry::new("docProps/core.xml", core.as_bytes(), 8),
+                Entry::new("docProps/app.xml", app.as_bytes(), 8),
+                Entry::new("docProps/custom.xml", custom.as_bytes(), 8),
+            ],
+            ..Default::default()
+        });
+        let doc = parse_zip(&b.bytes);
+        let facts: Vec<_> = doc
+            .facts
+            .iter()
+            .map(|f| (f.kind, f.text.as_str()))
+            .collect();
+        assert_eq!(
+            facts,
+            [
+                ("subject", "Board"),
+                ("keywords", "plan, budget"),
+                ("description", "draft v3 for Ivan"),
+                ("category", "Finance"),
+                ("status", "Draft"),
+                ("manager", "Petro Shevchenko"),
+                (
+                    "label",
+                    "“Confidential”, organisation 72f988bf-86f1-41af-91ab-2d7cd011db47, set by olena@acme.example on 2024-03-02 08:15 UTC"
+                ),
+                ("custom", "Client: Acme & Sons · Reviewed: true"),
+            ]
+        );
     }
 
     const COMMENTS: &str = r#"<w:comments xmlns:w="x"><w:comment w:id="0" w:author="Olena Koval" w:initials="OK"><w:p><w:r><w:t>too low</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author='Petro &amp; Co'/><w:comment w:id="2" w:author="Olena Koval"/></w:comments>"#;

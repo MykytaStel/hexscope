@@ -50,7 +50,7 @@ const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additi
   camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
   location: new Set(["place", "photoplace"]),
   dates: new Set(["taken", "created", "modified", "updates", "timezone"]),
-  creator: new Set(["software", "author", "editor", "producer", "application", "company", "template", "mailer", "sentfrom", "computer"]),
+  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "mailer", "sentfrom", "computer"]),
 };
 
 function metadataGroupFor(kind: string): MetadataGroupKey {
@@ -160,7 +160,7 @@ export class Drawer {
     const fileGroup = el("div", "group");
     fileGroup.append(el("h2", undefined, "File"));
     const grid = el("dl", "facts");
-    fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
+    fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
     if (f.ihdr) {
       const [w, h, depth, color, interlace] = f.ihdr;
@@ -499,7 +499,7 @@ export class Drawer {
     }
     const generalList = groupElements.get("general")!.list;
     fact(generalList, "File", f.format.toUpperCase());
-    fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString()} bytes`);
+    fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
     if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
 
@@ -1011,7 +1011,7 @@ export class Drawer {
     const len = m.len(id);
     if (len > 0) {
       fact(grid, "Offset", `${hex(start)} · ${start.toLocaleString()}`, true);
-      fact(grid, "Length", len === 1 ? "1 byte" : `${len.toLocaleString()} bytes`, true);
+      fact(grid, "Length", len === 1 ? "1 byte" : `${len.toLocaleString("en")} bytes`, true);
     } else {
       fact(grid, "Offset", "— no bytes to point at");
     }
