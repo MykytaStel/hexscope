@@ -374,7 +374,11 @@ impl BoxBody for Ctx {
                 if !plain {
                     f.full_box()?;
                 }
+                // Its `ilst` counts from the first of its own keys: a track's
+                // meta and the movie's each have theirs.
+                let outer = std::mem::take(&mut self.keys);
                 walk(f.tree, node, data, f.at, end, depth + 1, self);
+                self.keys = outer;
             }
             "hdlr" => {
                 f.full_box()?;

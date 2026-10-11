@@ -126,7 +126,9 @@ jobs:
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
-      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix.
+      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix,
+      # and 1200 for reading a PDF's opacity, clips and curved fills: what stopped real
+      # drawings from being reported as hidden text.
       # The optional roll/TIFF module is budgeted separately and is never an initial parser.
       - name: WebAssembly size budget
         run: |
@@ -134,9 +136,9 @@ jobs:
           test "$(echo "$sizes" | wc -l)" -eq 2
           media=$(echo "$sizes" | head -1)
           full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 290400)."
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 291600)."
           test "$media" -le 140000
-          test "$full" -le 290400
+          test "$full" -le 291600
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000

@@ -364,3 +364,56 @@ fn a_movie_larger_than_memory_is_read_by_its_headers() {
     let copy = crate::clean::clean_video_gapped(&huge, &[gap]).unwrap();
     assert_eq!(copy.bytes.len(), huge.len());
 }
+
+/// A box: its size, its type and its body.
+fn bx(typ: &[u8; 4], body: &[u8]) -> Vec<u8> {
+    let mut out = ((body.len() + 8) as u32).to_be_bytes().to_vec();
+    out.extend_from_slice(typ);
+    out.extend_from_slice(body);
+    out
+}
+
+/// A QuickTime `meta` box: its `mdta` handler, its keys, and a text for each.
+fn mdta(items: &[(&str, &str)]) -> Vec<u8> {
+    let mut hdlr = vec![0; 8];
+    hdlr.extend_from_slice(b"mdta");
+    hdlr.extend_from_slice(&[0; 13]);
+    let mut keys = vec![0, 0, 0, 0];
+    keys.extend_from_slice(&(items.len() as u32).to_be_bytes());
+    let mut ilst = Vec::new();
+    for (i, (key, value)) in items.iter().enumerate() {
+        keys.extend(bx(b"mdta", key.as_bytes()));
+        let mut data = vec![0, 0, 0, 1, 0, 0, 0, 0];
+        data.extend_from_slice(value.as_bytes());
+        ilst.extend(bx(&(i as u32 + 1).to_be_bytes(), &bx(b"data", &data)));
+    }
+    bx(
+        b"meta",
+        &[bx(b"hdlr", &hdlr), bx(b"keys", &keys), bx(b"ilst", &ilst)].concat(),
+    )
+}
+
+#[test]
+fn each_meta_box_names_its_items_by_its_own_keys() {
+    // A Mac's screen recording: the track's meta has one key of its own
+    // before the movie's, whose items count from 1 again.
+    let track = bx(b"trak", &mdta(&[("com.apple.quicktime.pixeldensity", "2")]));
+    let movie = mdta(&[
+        ("com.apple.quicktime.make", "Apple"),
+        ("com.apple.quicktime.model", "Mac16,6"),
+        ("com.apple.quicktime.software", "macOS 15.2 (24C101)"),
+        (
+            "com.apple.quicktime.creationdate",
+            "2025-06-16T19:12:48-0700",
+        ),
+    ]);
+    let file = [
+        bx(b"ftyp", b"qt  \0\0\0\0qt  "),
+        bx(b"moov", &[track, movie].concat()),
+    ]
+    .concat();
+    let doc = parse_video(&file);
+    assert_eq!(doc.facts.camera.unwrap().text, "Apple Mac16,6");
+    assert_eq!(doc.facts.software.unwrap().text, "macOS 15.2 (24C101)");
+    assert_eq!(doc.facts.taken.unwrap().text, "2025-06-16 19:12:48 -07:00");
+}

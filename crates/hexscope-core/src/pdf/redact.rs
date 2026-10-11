@@ -491,7 +491,7 @@ pub(super) fn check(
             (Hidden::Tiny, "text too small to see", "too small to see"),
         ];
         for (kind, label, how) in kinds {
-            let pieces = w.pieces(|g| g.hidden == Some(kind) && !g.covered && !g.marked);
+            let pieces = w.pieces(|g| g.hidden == Some(kind) && !g.covered && !g.marked && !g.cut);
             let Some((node, range)) = at else { break };
             if pieces.is_empty() || hidden_facts >= MAX_HIDDEN_FACTS {
                 continue;
