@@ -8,6 +8,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Changed
+
+- The visit numbers are read only by the site's author, straight from the
+  database with `pnpm stats`; the `/stats` page and its key are gone.
+
 ## [0.3.0] — 2026-10-12
 
 ### Added

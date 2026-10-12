@@ -1,6 +1,6 @@
 # Cloudflare Pages: the site in dist/, and the functions in functions/ that
-# count visitors (server/count.ts). The database holds totals only; the
-# STATS_KEY secret (set in Cloudflare, never here) is what reads them.
+# count visitors (server/count.ts). The database holds totals only, read by
+# the account's owner alone: pnpm stats (scripts/stats.mjs).
 name = "hexscope"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-09-01"
