@@ -15,6 +15,7 @@ export const CLEAN_NOTES: Record<string, string> = {
   webp: "Leaves out the EXIF, XMP and Content Credentials chunks: camera, place, dates, editing history, who or what made it. The picture is copied byte for byte.",
   gif: "Leaves out the comments and the XMP. Every frame is copied byte for byte, with its timing.",
   heif: "Blanks the camera data, location, serial numbers and XMP where they lie, so the file keeps its size. The picture and its thumbnail are copied unchanged.",
+  tiff: "Empties the camera, place, time and serial number tags where they lie, and the EXIF and GPS tables, so the file keeps its size. The picture is copied byte for byte.",
   png: "Removes the text notes — an image generator's prompt among them — EXIF, XMP, Content Credentials and the time it was last changed. The pixels are copied byte for byte.",
   video:
     "Blanks the location, the camera, the software and the dates where they lie, so the file keeps its size. The picture and sound are copied byte for byte.",

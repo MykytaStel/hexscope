@@ -122,6 +122,10 @@ pub fn summary_of(doc: &Document) -> Summary {
             photo(&d.facts, &mut facts);
             ("gif", true)
         }
+        Document::Tiff(d) => {
+            photo(&d.facts, &mut facts);
+            ("tiff", true)
+        }
         Document::Video(d) => {
             photo(&d.facts, &mut facts);
             ("video", true)

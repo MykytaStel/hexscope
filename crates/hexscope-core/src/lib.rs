@@ -27,6 +27,7 @@ pub mod png;
 pub mod reader;
 pub mod repair;
 pub mod summary;
+pub mod tiff;
 pub mod verification;
 pub mod video;
 pub mod wasm;

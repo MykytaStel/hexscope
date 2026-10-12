@@ -22,7 +22,7 @@ frame.gif: gif
 frame.heic: heif
 frame.jpg: jpeg
 frame.png: png
-frame.tiff: unknown
+frame.tiff: tiff
 looks-like.pdf: zip
   title: Q4 plan
   author: Olena Petrenko

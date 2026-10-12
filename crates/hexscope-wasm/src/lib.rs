@@ -951,6 +951,13 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
+        Document::Tiff(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "tiff";
+            parsed.dimensions = doc.width.zip(doc.height).map(|(w, h)| [w, h]);
+            add_facts(&mut parsed, &doc.facts);
+            parsed
+        }
         Document::Video(doc) => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "video";

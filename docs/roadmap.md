@@ -38,15 +38,18 @@ part, a new link preview and a demo. Details in the changelog.
 
 ### 0.4.0 — Scans and the formats people send (target 2026-10-26)
 
-1. TIFF in the core: scanners' and cameras' metadata, location, and a copy
-   blanked in place.
+1. ~~TIFF in the core: scanners' and cameras' metadata, location, and a copy
+   blanked in place.~~ Done 2026-10-13: read by the EXIF reader, its copy
+   empties the tags and the EXIF and GPS tables where they lie; confirmed
+   removal covers it.
 2. LibreOffice documents (ODT, ODS, ODP): author, dates, editing time,
    comments, tracked changes.
 3. RTF: author, company, operator.
 4. A file whose name says one format and whose bytes another — a Word file
    named `.pdf` — is named as such by the core, for the CLI too.
-5. The full parser split per format, so a new format does not grow what
-   every visitor downloads. Done when: the corpus snapshot shows TIFF, ODT and
+5. ~~The full parser split per format, so a new format does not grow what
+   every visitor downloads.~~ Done 2026-10-13: one build for pictures and
+   movies, one with PDF, one with Office, email and WebAssembly. Done when: the corpus snapshot shows TIFF, ODT and
    RTF read, and confirmed removal covers them.
 
 ### 0.5.0 — Faster, smaller, easier to change (target 2026-11-09)

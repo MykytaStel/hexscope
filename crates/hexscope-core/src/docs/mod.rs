@@ -140,6 +140,14 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
         Format::Webp => crate::webp::docs::describe(label, problem),
         Format::Gif => crate::gif::docs::describe(label, problem),
+        // A TIFF file is the block EXIF is made of: the same tables explain it.
+        Format::Tiff if label == "TIFF" => Some(
+            Doc::new(
+                "A TIFF image, as scanners and cameras save them: a header, then directories of tags — the picture's size and colours, where its strips of pixels lie, and the same camera, place and time tags a JPEG's EXIF carries.",
+            )
+            .cite("TIFF 6.0", "https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf"),
+        ),
+        Format::Tiff => crate::exif::docs::describe(label, problem),
         Format::Pdf if cfg!(feature = "pdf") => crate::pdf::docs::describe(tree, node, problem),
         Format::Video => crate::video::docs::describe(tree, node, problem),
         Format::Zip if cfg!(feature = "office") => crate::zip::docs::describe(tree, node, problem),

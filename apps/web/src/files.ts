@@ -46,6 +46,7 @@ export function kindWord(m: FileModel): string {
     case "png":
     case "webp":
     case "gif":
+    case "tiff":
       return "Picture";
     case "video":
       return / audio\b/.test(m.value(0)) ? "Recording" : "Video";
@@ -73,6 +74,8 @@ export function kindOf(m: FileModel): string {
       return "JPEG";
     case "png":
       return "PNG";
+    case "tiff":
+      return "TIFF";
     case "heif":
     case "webp":
     case "gif":
@@ -112,6 +115,8 @@ const TYPES: Record<string, string> = {
   png: "image/png",
   webp: "image/webp",
   gif: "image/gif",
+  tif: "image/tiff",
+  tiff: "image/tiff",
   heic: "image/heic",
   heif: "image/heif",
   avif: "image/avif",
