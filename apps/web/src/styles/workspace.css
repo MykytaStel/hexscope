@@ -105,8 +105,26 @@
   line-height: 1.35;
 }
 
-.hex-bar:has(.search:not([hidden])) .status {
-  display: none;
+/* Under the bytes: the byte under the pointer, the part chosen, the file's size. */
+.hex-statusbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.hex-statusbar-file {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--muted);
+  font: 12px var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* --- tree ----------------------------------------------------------------- */

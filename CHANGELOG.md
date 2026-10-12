@@ -17,6 +17,21 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   finding is confirmed.
 - The coverage table in `docs/verification-coverage.md` is written from the
   core's contract, and a test fails when they differ.
+- **Links that open a sample where it matters.** `?sample=photo.jpg&view=metadata`
+  opens a view, `&part=GPS IFD` selects a part; the guides' samples use them.
+
+### Changed
+
+- **Metadata is a view of its own:** every field the file has, grouped, the
+  extra ones open — the answer and the actions stay on the overview.
+- **A status bar under the bytes:** the byte under the pointer on the left,
+  the part chosen and the file's size on the right.
+- A new link preview in the site's look, and a demo at the top of the README
+  (`scripts/make-demo.mjs` records it again).
+
+### Fixed
+
+- The note under the short answer no longer sits on the findings below it.
 
 ## [0.2.0] — 2026-10-11
 

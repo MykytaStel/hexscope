@@ -97,6 +97,9 @@ status.setAttribute("aria-atomic", "true");
 let statusOffset = -1;
 const touchPointer = matchMedia("(hover: none)");
 
+const statusFile = $("statusbar-file");
+
+/** The bar under the bytes: the byte under the pointer, then the part chosen and the file's size. */
 function renderStatus(): void {
   const model = typeof workspace === "undefined" ? null : workspace?.model;
   const message = statusOffset >= 0 && model
@@ -105,6 +108,14 @@ function renderStatus(): void {
       ? "Tap a byte"
       : "Hover a byte or row; click to pin";
   status.textContent = translateText(message, currentLocale());
+  if (!model) {
+    statusFile.textContent = "";
+    return;
+  }
+  const part = typeof selected === "number" && selected > 0
+    ? `${translateText(model.label(selected), currentLocale())} · ${translateText(`${model.len(selected).toLocaleString("en")} bytes`, currentLocale())} · `
+    : "";
+  statusFile.textContent = `${part}${formatBytes(model.bytes.length)}`;
 }
 
 function setStatusOffset(offset: number): void {
@@ -249,7 +260,11 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
     : view === "content"
       ? $("drawer").querySelector<HTMLElement>(contentTargetSelector)
       : null;
-  if (view === "overview") {
+  if (view === "metadata") {
+    // The view of every field: the extra ones too, open.
+    for (const more of $("drawer").querySelectorAll<HTMLDetailsElement>(".metadata-groups details")) more.open = true;
+  }
+  if (view === "overview" || view === "metadata") {
     requestAnimationFrame(() => file?.scrollTo({ top: 0, behavior: "smooth" }));
   } else if (target) {
     requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -428,6 +443,7 @@ function select(id: number, offset?: number): void {
   // While playing, the button is also how the player closes: keep it.
   playBtn.hidden = !canPlay() && !player.isOpen;
   syncAppNavigation();
+  renderStatus();
 }
 
 /** Selects a node without scrolling to it: the view is already where it should be. */
@@ -628,6 +644,7 @@ workspace = new WorkspaceController({
     remember,
     afterOpen(model) {
       arrive();
+      if (followLink(model)) return;
       // Only a standalone file gets the first-open tour; nested entries do not.
       if (model.source) {
         setTimeout(() => {
@@ -826,9 +843,29 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-sample]"))
 
 // The guides link to a sample by name, as ?sample=photo.jpg. Only the
 // samples on this page can be opened this way; the name picks a button.
+/** Where a link asked the sample to open: a view, and a part by its name. */
+let linked: { view: WorkspaceView | null; part: string | null } | null = null;
+const LINKABLE_VIEWS: readonly WorkspaceView[] = ["overview", "metadata", "content", "structure", "bytes"];
+
+/** Opens the linked view and part once the sample is shown; whether a link asked for one. */
+function followLink(model: FileModel): boolean {
+  const asked = linked;
+  linked = null;
+  if (!asked || (!asked.view && !asked.part)) return false;
+  const part = asked.part?.toLowerCase();
+  const id = part ? model.file.labels.findIndex((label) => label.toLowerCase() === part) : -1;
+  tourDismissedByNavigation = true;
+  setWorkspaceView(asked.view ?? (id > 0 ? "bytes" : "overview"));
+  if (id > 0) select(id);
+  return true;
+}
+
 function openLinkedSample(): void {
-  const name = new URLSearchParams(location.search).get("sample");
+  const params = new URLSearchParams(location.search);
+  const name = params.get("sample");
   if (!name) return;
+  const view = params.get("view") as WorkspaceView | null;
+  linked = { view: view && LINKABLE_VIEWS.includes(view) ? view : null, part: params.get("part") };
   history.replaceState(null, "", location.pathname);
   const btn = [...document.querySelectorAll<HTMLButtonElement>("[data-sample]")].find((b) => b.dataset.name === name);
   btn?.click();

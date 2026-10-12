@@ -513,6 +513,9 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
 
+  // On the overview the extra fields wait folded; the Metadata view opens them.
+  const folded = page.locator("#drawer .metadata-group[data-metadata-group='additional'] details");
+  await expect(folded).not.toHaveAttribute("open", "");
   const metadataNav = page.locator("#app-nav [data-app-view='metadata']");
   if (await metadataNav.isVisible()) await metadataNav.click();
 
@@ -526,9 +529,8 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
 
   const additional = metadata.locator(".metadata-group[data-metadata-group='additional']");
   await expect(additional).toContainText("Додаткові поля");
-  await expect(additional.locator("details")).not.toHaveAttribute("open", "");
-  await expect(additional.locator("dd[data-kind='thumbnail']")).toBeHidden();
-  await additional.locator("summary").click();
+  if (await metadataNav.isVisible()) await expect(additional.locator("details")).toHaveAttribute("open", "");
+  else await additional.locator("summary").click();
   await expect(additional.locator("dd[data-kind='thumbnail']")).toBeVisible();
 
   const locationRow = metadata.locator(".metadata-group[data-metadata-group='location'] dd[data-kind='location']");
@@ -2460,4 +2462,21 @@ test("a QR code a PDF draws in boxes, and an Outlook message kept as RTF", async
   await page.locator("#picker").setInputFiles(new URL("../../../crates/hexscope-core/tests/fixtures/phishing-rtf.msg", import.meta.url).pathname);
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
   await expect(page.locator(".reveal-list")).toContainText("goes to login.example.info");
+});
+
+test("a link opens a sample at the view and the part it names", async ({ page }) => {
+  await page.goto("./?sample=photo.jpg&part=GPS%20IFD");
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#statusbar-file")).toContainText("GPS IFD");
+  await page.goto("./?sample=report.docx&view=metadata");
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
+  await expect(page.locator(".overview-answer")).toBeHidden();
+  await expect(page.locator("#drawer .metadata-groups")).toBeVisible();
+});
+
+test("a guide's sample opens where the guide is about", async ({ page }) => {
+  await page.goto("./remove-location-from-photo");
+  await page.locator('a[href*="sample=photo.jpg"]').first().click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
+  await expect(page.locator('#drawer .reveal-list dt[data-kind="location"]')).toBeVisible();
 });
