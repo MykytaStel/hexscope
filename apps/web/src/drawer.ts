@@ -400,6 +400,7 @@ export class Drawer {
       heif: "What this photo reveals",
       webp: "What this image reveals",
       gif: "What this image reveals",
+      tiff: "What this image reveals",
       png: "What this image reveals",
       video: "What this video reveals",
       wasm: "What this module reveals",
@@ -415,7 +416,7 @@ export class Drawer {
     }
     // The picture it is about, and where it was taken, drawn: what the
     // numbers below mean, before reading them.
-    const pictured = ["jpeg", "png", "heif", "webp", "gif"].includes(f.format);
+    const pictured = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
     if (pictured || f.location) {
       const hero = el("div", f.location ? "reveal-hero has-map" : "reveal-hero");
       group.append(hero);

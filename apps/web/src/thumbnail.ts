@@ -80,8 +80,9 @@ export async function decodePicture(m: FileModel): Promise<ImageBitmap | null> {
       const { width, height, pixels } = f.preview;
       return await createImageBitmap(new ImageData(new Uint8ClampedArray(pixels), width, height));
     }
-    // Safari decodes HEIC and AVIF; where the browser cannot, there is simply no picture.
+    // Safari decodes HEIC, AVIF and TIFF; where the browser cannot, there is simply no picture.
     if (f.format === "heif") return await createImageBitmap(new Blob([m.bytes as BlobPart]));
+    if (f.format === "tiff") return await createImageBitmap(new Blob([m.bytes as BlobPart], { type: "image/tiff" }));
     if (f.format === "webp" || f.format === "gif") {
       return await createImageBitmap(new Blob([m.bytes as BlobPart], { type: `image/${f.format}` }));
     }

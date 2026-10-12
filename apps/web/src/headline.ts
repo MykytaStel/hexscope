@@ -33,6 +33,7 @@ export function noun(m: FileModel): string {
     case "png":
     case "webp":
     case "gif":
+    case "tiff":
       return "picture";
     case "video":
       return / audio\b/.test(m.value(0)) ? "recording" : "video";

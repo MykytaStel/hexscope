@@ -8,6 +8,7 @@ use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
+use crate::tiff::{self, TiffDocument, parse_tiff_file};
 use crate::video::{self, VideoDocument, parse_video};
 use crate::wasm::{self, WasmDocument, parse_wasm};
 use crate::webp::{self, WebpDocument, parse_webp};
@@ -20,6 +21,7 @@ pub enum Format {
     Heif,
     Webp,
     Gif,
+    Tiff,
     Video,
     Pdf,
     Zip,
@@ -38,6 +40,7 @@ pub enum Document {
     Heif(HeifDocument),
     Webp(WebpDocument),
     Gif(GifDocument),
+    Tiff(TiffDocument),
     Video(VideoDocument),
     Pdf(PdfDocument),
     Zip(ZipDocument),
@@ -55,6 +58,7 @@ impl Document {
             Document::Heif(d) => &d.tree,
             Document::Webp(d) => &d.tree,
             Document::Gif(d) => &d.tree,
+            Document::Tiff(d) => &d.tree,
             Document::Video(d) => &d.tree,
             Document::Pdf(d) => &d.tree,
             Document::Zip(d) => &d.tree,
@@ -72,6 +76,7 @@ impl Document {
             Document::Heif(_) => Format::Heif,
             Document::Webp(_) => Format::Webp,
             Document::Gif(_) => Format::Gif,
+            Document::Tiff(_) => Format::Tiff,
             Document::Video(_) => Format::Video,
             Document::Pdf(_) => Format::Pdf,
             Document::Zip(_) => Format::Zip,
@@ -102,6 +107,9 @@ pub fn parse(data: &[u8]) -> Document {
     }
     if gif::is_gif(data) {
         return Document::Gif(parse_gif(data));
+    }
+    if tiff::is_tiff(data) {
+        return Document::Tiff(parse_tiff_file(data));
     }
     if video::is_video(data) {
         return Document::Video(parse_video(data));

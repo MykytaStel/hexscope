@@ -116,6 +116,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("png", PNG),
     ("webp", PHOTO_AND_THUMBNAIL),
     ("heif", PHOTO),
+    ("tiff", PHOTO),
     ("video", VIDEO),
     ("pdf", PDF),
     ("zip", OFFICE),
@@ -541,7 +542,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 5 + 9 + 20 + 15);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 20 + 15);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));

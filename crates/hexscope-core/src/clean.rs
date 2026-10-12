@@ -113,6 +113,7 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Webp(doc) => clean_webp(data, &doc),
         Document::Gif(doc) => clean_gif(data, &doc),
+        Document::Tiff(doc) => crate::tiff::clean_tiff(data, &doc),
         Document::Zip(doc) if cfg!(feature = "office") => clean_zip(data, &doc, options, false),
         Document::Pdf(_) if cfg!(feature = "pdf") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),

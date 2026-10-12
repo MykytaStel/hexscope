@@ -24,6 +24,7 @@ file, such as a photo in a document, is not covered.
 | `png` | location, camera, lens, serial, owner, taken, software, ai, prompt |
 | `webp` | location, camera, lens, serial, owner, taken, software, thumbnail |
 | `heif` | location, camera, lens, serial, owner, taken, software |
+| `tiff` | location, camera, lens, serial, owner, taken, software |
 | `video` | location, camera, owner, taken, software |
 | `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
 | `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags |

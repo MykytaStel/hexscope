@@ -63,6 +63,7 @@ fn photos_lose_every_covered_finding() {
         ("photo.png", "png", None),
         ("cwebp-photo.webp", "webp", Some("thumbnail")),
         ("photo.heic", "heif", None),
+        ("photo.tif", "tiff", None),
     ] {
         let removed = confirmed(name, format);
         for kind in all.iter().chain(extra.iter()) {

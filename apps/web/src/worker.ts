@@ -126,14 +126,15 @@ const load = (family: Family): Promise<Module> =>
 const loadMedia = () => load("media");
 const loadPdf = () => load("pdf");
 
-/** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, and the ISO boxes of HEIF and MP4. */
+/** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, TIFF, and the ISO boxes of HEIF and MP4. */
 function isMedia(b: Uint8Array): boolean {
   const png = b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
   const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
   const iso = b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70;
   const webp = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45;
   const gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38;
-  return png || jpeg || iso || webp || gif;
+  const tiff = (b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0x00) || (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0x00 && b[3] === 0x2a);
+  return png || jpeg || iso || webp || gif || tiff;
 }
 /** The build that reads these bytes, asked in the order the core asks: pictures, a WebAssembly module, a PDF, then the rest. */
 function familyOf(b: Uint8Array): Family {

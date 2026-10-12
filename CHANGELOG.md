@@ -10,6 +10,12 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **TIFF.** Scans and camera TIFFs say where they were taken, the camera and
+  its serial number, the owner, the time and the software, read by the same
+  code as a JPEG's EXIF. The clean copy empties those tags and the EXIF and
+  GPS tables where they lie, so every strip of the picture stays where it
+  was, and confirmed removal covers it.
+
 - **Guides for what people search.** An EXIF viewer page, how to remove
   metadata from a PDF and from Word, Excel and PowerPoint files, and whether
   a picture says AI made it — each in English and Ukrainian, linked from every
