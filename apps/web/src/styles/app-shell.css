@@ -480,3 +480,11 @@
     column-gap: clamp(12px, 2vw, 24px);
   }
 }
+
+/* Metadata: every field the file has, grouped, and nothing else — the answer,
+   the picture and the actions stay on the overview. */
+body[data-state="ready"][data-app-view="metadata"] .drawer-file > :not(.overview-flow),
+body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveals),
+body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups) {
+  display: none;
+}

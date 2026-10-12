@@ -264,6 +264,10 @@
   font-size: 15px;
 }
 
+/* The note on how the answer was found stands apart from the findings under it. */
+.verdict-intro > .hint:last-child {
+  margin-bottom: var(--space-4);
+}
 
 .verdict-lines {
   display: grid;

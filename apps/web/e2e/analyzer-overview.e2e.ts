@@ -134,6 +134,7 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#app-nav [data-app-view='overview']").click();
   await page.locator(".verdict-show").click();
   await expect(page.locator('.reveal-list dt[data-kind="location"]')).toHaveClass(/is-flash/);
 });
