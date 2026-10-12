@@ -261,6 +261,7 @@ const UK: Record<string, string> = {
   "a cropped photo": "обрізане фото",
   "an iPhone photo": "фото з iPhone",
   "a Wi-Fi QR code": "QR-код Wi-Fi",
+  "an AI-made picture": "картинка, створена ШІ",
   "an iPhone video": "відео з iPhone",
   "a Word document": "документ Word",
   "a spreadsheet": "електронна таблиця",
@@ -446,6 +447,8 @@ const UK: Record<string, string> = {
   "Why a PNG won't open": "Чому PNG не відкривається",
   "How DEFLATE works, step by step": "Як працює DEFLATE, крок за кроком",
   "hexscope — see what a file gives away before you send it": "hexscope — дізнайтеся, що файл розкриває, перш ніж його надіслати",
+  "View and remove metadata from photos and PDFs — hexscope": "Перегляд і видалення метаданих фото та PDF — hexscope",
+  "Free EXIF and metadata viewer and remover. See a photo's location and camera, a PDF's author and hidden text, a Word file's comments — and save a clean copy. Nothing is uploaded.": "Безкоштовний перегляд і видалення EXIF та метаданих. Дізнайтеся, де зроблено фото й якою камерою, хто автор PDF і що в ньому приховано, чиї коментарі у файлі Word, — і збережіть очищену копію. Нічого не передається.",
   "Check what a photo or document gives away before you send it — its location, the owner's name, text under black boxes, comments — and save a clean copy. In your browser; nothing is uploaded.": "Перевірте, що фото чи документ розкриває, перш ніж його надіслати: геолокацію, ім’я власника, текст під чорними прямокутниками, коментарі — і збережіть очищену копію. Прямо в браузері, нічого не завантажується.",
   "Where your photo was taken, who wrote your document, why a file won't open — shown byte by byte, in your browser. Nothing is uploaded.": "Де зроблено фото, хто написав документ, чому файл не відкривається — байт за байтом, у вашому браузері. Нічого не завантажується.",
   "hexscope: a sample photo and what it reveals — where it was taken, the camera's serial number, the owner and the date.": "hexscope: зразок фото і що воно розкриває — місце зйомки, серійний номер фотоапарата, власника й дату.",
@@ -613,7 +616,7 @@ const REVEAL_WORDS: Record<string, string> = {
   "the compiler that built it": "компілятор, яким його зібрано",
   "that it is a screenshot": "що це знімок екрана",
   "the prompt it was made from": "запит, за яким його створено",
-  "that AI made it": "що його створив ШІ",
+  "that AI made it": "участь ШІ",
   "who or what made it": "хто або що його створило",
   "the mail app": "поштову програму",
   "the sender's time zone": "часовий пояс відправника",
@@ -671,7 +674,8 @@ function translateRevealList(value: string): string {
     else if (rest.startsWith(" and ")) rest = rest.slice(5);
     else if (rest) return value;
   }
-  return parts.join(", ");
+  // "а, б і в", as the English says "a, b and c".
+  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} і ${parts[parts.length - 1]}`;
 }
 
 export function resolveLocale(saved: string | null, browserLanguages: readonly string[]): Locale {

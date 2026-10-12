@@ -10,6 +10,17 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **Guides for what people search.** An EXIF viewer page, how to remove
+  metadata from a PDF and from Word, Excel and PowerPoint files, and whether
+  a picture says AI made it — each in English and Ukrainian, linked from every
+  guide, the home page and the sitemap.
+
+- **An AI-made picture among the samples**: a PNG with the prompt, settings
+  and model a Stable Diffusion web UI writes.
+
+- A PNG's clean copy is confirmed to have lost what made it and the prompt
+  (`ai`, `prompt` in the removal contract), with a real file as evidence.
+
 - **hexscope.org.** The site moves to its own address; hexscope.pages.dev
   forwards to it, and the canonical links, sitemap and link preview name it.
 
@@ -40,12 +51,20 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 - Browsers that have seen the site come back to it over HTTPS only.
 
+- The home page's title and description say what it is in the words people
+  search with — metadata, EXIF — and its structured data lists what it does.
+
+- In Ukrainian, a list of what a file reveals ends with “і”, and a button's
+  name in quotes has no space inside them.
+
 ### Fixed
 
 - Visits to hexscope.org are counted: the counter still waited for
   hexscope.pages.dev, which now forwards there.
 
 - The share card and its sentence name hexscope.org.
+
+- The guides' section numbers are readable in the dark theme.
 
 ## [0.3.0] — 2026-10-12
 

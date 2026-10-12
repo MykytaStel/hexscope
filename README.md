@@ -101,7 +101,11 @@ scanning service.
 - [Verified photo batches, CLI/web film rolls, TIFF16 and local privacy mosaic](docs/photo-platform.md)
 - [Reproducible real-scan measurements and research limits](docs/film-evaluation.md)
 
+- [EXIF viewer: what a photo's metadata says](https://hexscope.org/exif-viewer)
 - [Remove location and other metadata from a photo](https://hexscope.org/remove-location-from-photo)
+- [Was this picture made by AI? What its file says](https://hexscope.org/ai-image-metadata)
+- [Remove metadata from a PDF](https://hexscope.org/remove-metadata-from-pdf)
+- [Remove metadata from Word, Excel and PowerPoint](https://hexscope.org/remove-metadata-from-word)
 - [What an edited PDF may still contain](https://hexscope.org/pdf-hidden-versions)
 - [Why a PNG may not open](https://hexscope.org/png-wont-open)
 - [Explore DEFLATE step by step](https://hexscope.org/deflate)

@@ -46,6 +46,11 @@ const PHOTO_AND_THUMBNAIL: &[&str] = &[
     "software",
     "thumbnail",
 ];
+/// A PNG's copy also leaves out every text note, an image generator's among
+/// them, and its Content Credentials: what made it and the prompt go too.
+const PNG: &[&str] = &[
+    "location", "camera", "lens", "serial", "owner", "taken", "software", "ai", "prompt",
+];
 /// A video's copy blanks its metadata items and zeroes every header's times.
 const VIDEO: &[&str] = &["location", "camera", "owner", "taken", "software"];
 /// A PDF is written anew without its Info dictionary and XMP.
@@ -108,7 +113,7 @@ const OFFICE97: &[&str] = &[
 /// exact combinations remain `present` or `unchecked`.
 pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("jpeg", PHOTO_AND_THUMBNAIL),
-    ("png", PHOTO),
+    ("png", PNG),
     ("webp", PHOTO_AND_THUMBNAIL),
     ("heif", PHOTO),
     ("video", VIDEO),
@@ -536,7 +541,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 7 + 8 + 7 + 5 + 9 + 20 + 15);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 5 + 9 + 20 + 15);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));

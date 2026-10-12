@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="See a photo's EXIF metadata — GPS location, camera, serial number, date, editing software — in your browser, without uploading it, and save a copy without it." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>EXIF viewer: see what a photo's metadata says — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/exif-viewer" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/exif-viewer" />
+    <meta property="og:title" content="EXIF viewer: what a photo's metadata says" />
+    <meta property="og:description" content="Where a photo was taken, on what camera, by whom and when — read from the file in your browser, without uploading it." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Photo metadata</p>
+        <h1>EXIF viewer: what a photo's metadata says</h1>
+        <p class="story-lede">
+          A photo carries a block of facts about itself, written by the phone or camera that took it: where and when, on what, and sometimes by whom. hexscope shows every one of them, in your browser. The photo is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a photo</a>
+          <a class="btn" href="./?sample=photo.jpg&amp;view=metadata">Try a sample photo</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Open a photo</h2>
+          <p>Drop a photo on hexscope, or choose one. It reads JPEG, an iPhone's HEIC, PNG, WebP and AVIF, and the videos phones record (MP4 and MOV).</p>
+          <ul>
+            <li><strong>The card at the top</strong> says in plain words what the photo gives away: where it was taken, the camera, its serial number, the owner, the time.</li>
+            <li><strong>Metadata</strong> lists every field the file holds, by its name, with its value.</li>
+            <li><strong>Bytes</strong> shows where each field lies in the file, for when you want to see it for yourself.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> What the fields mean</h2>
+          <ul>
+            <li><strong>Location</strong> (GPSLatitude, GPSLongitude, GPSAltitude): where the photo was taken, often to within a few metres.</li>
+            <li><strong>Date and time</strong> (DateTimeOriginal, OffsetTimeOriginal): when, to the second, with the time zone.</li>
+            <li><strong>Camera and lens</strong> (Make, Model, LensModel), and how the photo was taken: exposure, aperture, ISO, focal length.</li>
+            <li><strong>Serial numbers</strong> (BodySerialNumber, LensSerialNumber): the same in every photo a camera takes, so they tie photos to one camera, and to its owner.</li>
+            <li><strong>Owner</strong> (Artist, CameraOwnerName, Copyright): a name, if one was set in the camera.</li>
+            <li><strong>Software</strong>: the program that last saved it.</li>
+            <li><strong>Thumbnail</strong>: a small copy of the picture. An editor that does not update it leaves the uncropped picture inside a cropped photo.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Beyond EXIF</h2>
+          <p>EXIF is the best known block, not the only one. hexscope reads the others a photo may carry too:</p>
+          <ul>
+            <li><strong>XMP</strong>: Adobe's metadata, which often repeats the location and dates, and keeps the history of the edits.</li>
+            <li><strong>IPTC</strong>: the caption, keywords, credits and the place in words, as newsrooms and photo tools write them.</li>
+            <li><strong>The maker's notes</strong> of Apple, Canon, Nikon and Fujifilm cameras: more serial numbers, how many photos the camera has taken, and on an iPhone the IDs that tie a photo to its Live Photo and the rest of its burst.</li>
+            <li><strong>Content Credentials</strong>: who or what made the picture, and whether it says AI made it. See <a href="ai-image-metadata.html">Was this picture made by AI?</a></li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Remove it</h2>
+          <p>Under <em>What this photo reveals</em>, press <em>Remove it — save a clean copy</em>: hexscope saves a copy without the camera data, the location, the serial numbers, the maker's notes and the thumbnail. The picture is copied byte for byte: nothing is recompressed, nothing loses quality. Open the copy in hexscope to check that nothing is left.</p>
+          <p>More on the location, and how to stop a phone adding it: <a href="remove-location-from-photo.html">How to remove the location from a photo</a>.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Why in the browser</h2>
+          <p>Most online EXIF viewers upload your photo to read it. hexscope reads it in the tab you opened: nothing is sent, it works offline after the first visit, and its code is <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">open source</a>. How to check that for yourself: <a href="your-files-stay-private.html">Your files stay on your device</a>.</p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a photo now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="ai-image-metadata.html">Was this picture made by AI?</a></li>
+            <li><a href="remove-metadata-from-pdf.html">How to remove metadata from a PDF</a></li>
+            <li><a href="remove-metadata-from-word.html">How to remove metadata from a Word document</a></li>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="black-out-a-pdf.html">How to black out a PDF properly</a></li>
+            <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a></li>
+            <li><a href="is-this-email-real.html">Is this email real?</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+          </ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

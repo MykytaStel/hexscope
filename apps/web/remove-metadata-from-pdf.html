@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="A PDF keeps its author, the programs that made it, its dates and often its earlier versions. See what yours holds and save a copy without it, in your browser — nothing is uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>How to remove metadata from a PDF — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/remove-metadata-from-pdf" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/remove-metadata-from-pdf" />
+    <meta property="og:title" content="How to remove metadata from a PDF" />
+    <meta property="og:description" content="The author, the programs, the dates and the earlier versions a PDF keeps — and a copy without them, made in your browser." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">PDF metadata</p>
+        <h1>How to remove metadata from a PDF</h1>
+        <p class="story-lede">
+          Besides its pages, a PDF keeps notes about itself: who wrote it, with which programs, when it was made and changed — and often the version it was before the last edit. hexscope shows them and saves a copy without them, in your browser. The file is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a PDF</a>
+          <a class="btn" href="./?sample=report.pdf&amp;view=metadata">Try an edited PDF</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What a PDF's metadata holds</h2>
+          <ul>
+            <li><strong>Document properties</strong>: the title, the author, the subject and keywords, the program the document was written in, the one that made the PDF, and when it was created and last changed.</li>
+            <li><strong>XMP</strong>: the same again in another block, often with a history of the steps that made the file.</li>
+            <li><strong>Earlier versions.</strong> A PDF edited and saved again often keeps what it was before, with what the edit took off the page. See <a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a>.</li>
+            <li><strong>Comments</strong> and the names of their authors, and the EXIF of every photo on its pages: where each was taken, with which camera.</li>
+          </ul>
+          <p class="guide-note">Open the sample edited PDF: its author is Olena Koval, and an earlier version still inside it says “Salary: 4,200 EUR a month”.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it</h2>
+          <p>Open the PDF in hexscope. Under <em>What this document reveals</em>, press <em>Remove it — save a clean copy</em>. The PDF is written anew in your browser:</p>
+          <ul>
+            <li>without its properties and XMP, and without its earlier versions;</li>
+            <li>with the camera data taken out of its photos;</li>
+            <li>with the text under black boxes, and text no one can see, taken out letter by letter, and marks for redaction applied.</li>
+          </ul>
+          <p>Then press <em>Open the clean copy</em>. hexscope reads the copy back and says, for each thing it found, that it is gone: the author, the title, the subject, the keywords, the programs, the dates and the history.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Other ways, and their catches</h2>
+          <ul>
+            <li><strong>Adobe Acrobat Pro</strong>: <em>Sanitize Document</em> (under <em>Redact</em>) removes metadata, hidden text, comments and earlier versions. Changing the fields in <em>File → Properties</em> only overwrites what the properties show; the XMP and earlier versions may still say the old.</li>
+            <li><strong>ExifTool</strong>: its PDF edits are added as a new version, so the old metadata stays in the file, and can be brought back. Rewrite the file afterwards (for example with qpdf) for the old to go.</li>
+            <li><strong>Print to PDF</strong> makes a new file, but it names the program that printed it and the time you printed.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Many PDFs at once</h2>
+          <p>Drop a folder of PDFs on the page, or choose several: each is listed with what it gives away, and <em>Save clean copies</em> saves the clean ones as a ZIP. For a website or a repository, the <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">command line and GitHub Action</a> do the same before anything is published.</p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a PDF now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul>
+            <li><a href="exif-viewer.html">EXIF viewer: what a photo's metadata says</a></li>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="ai-image-metadata.html">Was this picture made by AI?</a></li>
+            <li><a href="remove-metadata-from-word.html">How to remove metadata from a Word document</a></li>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="black-out-a-pdf.html">How to black out a PDF properly</a></li>
+            <li><a href="hidden-text-in-pdf.html">Text no one can see in a PDF</a></li>
+            <li><a href="pdf-hidden-versions.html">Deleted from a PDF, but still inside it</a></li>
+            <li><a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a></li>
+            <li><a href="is-this-email-real.html">Is this email real?</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+          </ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

@@ -52,7 +52,7 @@ describe("the interface language", () => {
     expect(translateText("Choose a file", "uk")).toBe("Вибрати файл");
     expect(translateText("This photo gives away 8 things", "uk")).toBe("Фото розкриває 8 фактів");
     expect(translateText("Reveals where it was taken, the camera and the camera's serial number.", "uk")).toBe(
-      "Розкриває місце зйомки, фотоапарат, серійний номер фотоапарата.",
+      "Розкриває місце зйомки, фотоапарат і серійний номер фотоапарата.",
     );
     expect(translateText("Reveals a link that says one site and goes to another.", "uk")).toBe(
       "Розкриває посилання, що веде не туди, куди обіцяє.",
@@ -225,7 +225,7 @@ describe("every way a file is said to give itself away", () => {
       expect(translateText(`Reveals ${phrase}.`, "uk"), phrase).not.toContain(phrase);
     }
     expect(translateText("Reveals who wrote it, the company and where its files were downloaded from.", "uk")).toBe(
-      "Розкриває автора, компанію, звідки завантажено файли.",
+      "Розкриває автора, компанію і звідки завантажено файли.",
     );
   });
 });

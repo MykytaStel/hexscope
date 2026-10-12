@@ -75,6 +75,17 @@ fn photos_lose_every_covered_finding() {
 }
 
 #[test]
+fn ai_pictures_lose_what_made_them_and_the_prompt() {
+    let removed = confirmed("ai-picture.png", "png");
+    for kind in ["ai", "prompt"] {
+        assert!(
+            removed.iter().any(|k| k == kind),
+            "ai-picture.png lacks {kind} as evidence"
+        );
+    }
+}
+
+#[test]
 fn videos_lose_place_camera_owner_time_and_software() {
     let mut seen: Vec<String> = Vec::new();
     for name in ["iphone.mov", "android.mp4", "voice.m4a"] {

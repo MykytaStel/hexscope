@@ -58,7 +58,10 @@ function inUkrainian(html: string, path: string): string {
     .replace(new RegExp(`(rel="canonical" href=")${SITE}[^"]*"`), `$1${SITE}${ukPath(path)}"`)
     .replace(new RegExp(`(property="og:url" content=")${SITE}[^"]*"`), `$1${SITE}${ukPath(path)}"`)
     // Files of the site are one folder up; pages stay beside it, in Ukrainian.
-    .replace(/\b(src|href)="\.\/(?!["?#])/g, '$1="../');
+    .replace(/\b(src|href)="\.\/(?!["?#])/g, '$1="../')
+    // «Name» around a button's name in italics: no space inside the quotes.
+    .replace(/«\s+(<(?:em|strong|a)\b)/g, "«$1")
+    .replace(/(<\/(?:em|strong|a)>)\s+»/g, "$1»");
 }
 
 function between(html: string, open: RegExp, close: string): string {
@@ -67,6 +70,17 @@ function between(html: string, open: RegExp, close: string): string {
   const start = m.index + m[0].length;
   return decode(html.slice(start, html.indexOf(close, start)).replace(/<[^>]+>/g, "")).trim();
 }
+
+/** What the app does, in the words people search with. */
+const FEATURES = [
+  "EXIF and metadata viewer for photos",
+  "Remove the location and camera data from a photo",
+  "See whether a picture says AI made it, and its prompt",
+  "Remove metadata from PDF files",
+  "Remove metadata from Word, Excel and PowerPoint files",
+  "Find text hidden under black boxes in a PDF",
+  "Check an email's headers for signs of phishing",
+];
 
 /** What the page is, for search engines: the app as a free web application, every other page an article. */
 function structured(html: string, url: string, lang: "en" | "uk", version: string): string {
@@ -88,6 +102,7 @@ function structured(html: string, url: string, lang: "en" | "uk", version: strin
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
         softwareVersion: version,
         inLanguage: lang,
+        featureList: FEATURES.map((f) => (lang === "uk" ? uk(f) : f)),
       }
     : null;
   const article = {
