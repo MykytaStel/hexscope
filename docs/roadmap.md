@@ -13,50 +13,43 @@ how a version is made is in [releasing.md](releasing.md).
 |---|---|---|
 | 0.1.0 | First published version | shipped 2026-10-02 |
 | 0.2.0 | Checked clean copies, film lab, redesign, Ukrainian, private counter | shipped 2026-10-11 |
-| 0.3.0 | Launch: people see it | 2026-10-25 |
-| 0.4.0 | Trust in every clean copy | 2026-11-08 |
-| 0.5.0 | Scans and the formats people send | 2026-11-22 |
-| 0.6.0 | Faster, smaller, easier to change | 2026-12-06 |
-| 1.0.0 | Stable | when its criteria hold, not before 2026-12-20 |
+| 0.3.0 | Trust in every clean copy, a clearer analyzer, a preview and a demo | shipped 2026-10-12 |
+| Launch | The author's device test, then the posts | when the author has tested |
+| 0.4.0 | Scans and the formats people send | 2026-10-26 |
+| 0.5.0 | Faster, smaller, easier to change | 2026-11-09 |
+| 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
-### 0.3.0 — Launch (target 2026-10-25)
+### 0.3.0 — shipped 2026-10-12
+
+What was planned as 0.3.0 and 0.4.0, released together: confirmed removal
+for documents, HEIC photos and videos, the coverage table written from the
+core, a corpus of real kinds of files as a snapshot test, Metadata as its own
+view, a status bar under the bytes, links that open a sample at a view and a
+part, a new link preview and a demo. Details in the changelog.
+
+### Launch (when the author has tested)
 
 1. Real devices: a photo picked in iPhone Safari keeps or loses its GPS — the
    answer goes into the guide and the verdict.
-2. A link preview (og.png) in the new design, English and Ukrainian, and a
-   15-second demo for the README and posts.
-3. Design fixes from the 2026-10-10 review: the verdict's spacing, Metadata as
-   a view of its own, the analyzer's status row, guides that open a sample at
-   the right view.
-4. Posts: Show HN, r/privacy, r/rust, DOU — written together, posted by the
+2. Posts: Show HN, r/privacy, r/rust, DOU — written together, posted by the
    author.
-5. Done when: two weeks of the counter's numbers are read, and what people
+3. Done when: two weeks of the counter's numbers are read, and what people
    open most decides 0.4.0's order.
 
-### 0.4.0 — Trust in every clean copy (target 2026-11-08)
-
-1. Confirmed removal for Word, Excel and PowerPoint, old and new, in the
-   shared verification — the result says removed, not unchecked.
-2. Confirmed removal for HEIC photos and videos.
-3. A coverage table generated from the core: for each format, what is found,
-   what the copy removes, what is confirmed.
-4. The real-file corpus as a CI test: files made in CI by ffmpeg, LibreOffice
-   and ImageMagick, whose findings must not change unnoticed.
-5. Done when: no format the site cleans says only "unchecked".
-
-### 0.5.0 — Scans and the formats people send (target 2026-11-22)
+### 0.4.0 — Scans and the formats people send (target 2026-10-26)
 
 1. TIFF in the core: scanners' and cameras' metadata, location, and a copy
    blanked in place.
 2. LibreOffice documents (ODT, ODS, ODP): author, dates, editing time,
    comments, tracked changes.
 3. RTF: author, company, operator.
-4. The full parser split per format, so a new format does not grow what
-   every visitor downloads.
-5. Done when: a file from a scanner, a LibreOffice user or an old Word
-   export gets the same answer a JPEG does.
+4. A file whose name says one format and whose bytes another — a Word file
+   named `.pdf` — is named as such by the core, for the CLI too.
+5. The full parser split per format, so a new format does not grow what
+   every visitor downloads. Done when: the corpus snapshot shows TIFF, ODT and
+   RTF read, and confirmed removal covers them.
 
-### 0.6.0 — Faster, smaller, easier to change (target 2026-12-06)
+### 0.5.0 — Faster, smaller, easier to change (target 2026-11-09)
 
 1. The analyzer's script apart from the landing page's: the first page loads
    less, and the page budget has room again.
