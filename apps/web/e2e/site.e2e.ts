@@ -88,7 +88,9 @@ test("Film Lab shows distinct archival frames and credits their source", async (
   const frames = film.locator(".film-frame img");
   await expect(frames).toHaveCount(4);
   await frames.first().scrollIntoViewIfNeeded();
-  await expect.poll(() => frames.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth > 1000))).toBe(true);
+  // Small copies, sharp on a 2x screen at the tiles' size; the originals stay samples.
+  await expect.poll(() => frames.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth >= 500))).toBe(true);
+  expect(await frames.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).currentSrc.includes("/thumbs/")))).toBe(true);
   const tileHeights = await frames.evaluateAll((images) => images.map((image) => image.getBoundingClientRect().height));
   expect(Math.min(...tileHeights)).toBeGreaterThan(120);
   expect(Math.max(...tileHeights)).toBeLessThanOrEqual(240);

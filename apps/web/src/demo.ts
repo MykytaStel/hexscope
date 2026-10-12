@@ -27,20 +27,29 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function startDemo(host: HTMLElement): Promise<void> {
   if (!idle()) return;
 
-  const said = await photoScene();
-  if (!idle() || !said) return;
-
-  const frame = el("div", "demo-frame");
-  const image = el("img", "demo-image") as HTMLImageElement;
+  // The page holds the scene from the start (index.html), so the sections
+  // below never move; built here only where a page does not.
+  const frame = host.querySelector<HTMLElement>(".demo-frame") ?? el("div", "demo-frame");
+  const image = frame.querySelector<HTMLImageElement>(".demo-image") ?? (el("img", "demo-image") as HTMLImageElement);
   image.alt = "";
   image.setAttribute("aria-hidden", "true");
   frame.append(image);
-  const caption = el("p", "demo-caption");
-  const side = el("div", "demo-side");
-  const kicker = el("p", "demo-kicker");
-  const told = el("dl", "demo-facts");
-  told.hidden = true;
+  const side = host.querySelector<HTMLElement>(".demo-side") ?? el("div", "demo-side");
+  const kicker = side.querySelector<HTMLElement>(".demo-kicker") ?? el("p", "demo-kicker");
+  const told = side.querySelector<HTMLElement>(".demo-facts") ?? el("dl", "demo-facts");
+  const caption = side.querySelector<HTMLElement>(".demo-caption") ?? el("p", "demo-caption");
   side.append(kicker, told, caption);
+
+  const said = await photoScene();
+  if (!idle()) return;
+  if (!said) {
+    // The page's rows are the sample's own facts: show them as they are.
+    for (const row of told.querySelectorAll(".demo-fact")) {
+      row.removeAttribute("aria-hidden");
+      row.classList.add("is-shown");
+    }
+    return;
+  }
 
   // Revealing the facts must not move the sections below the hero.
   let width = 0;
@@ -53,7 +62,7 @@ export async function startDemo(host: HTMLElement): Promise<void> {
     if (height > (parseFloat(side.style.minHeight) || 0)) side.style.minHeight = `${height}px`;
   }).observe(side);
 
-  host.replaceChildren(frame, side);
+  if (frame.parentElement !== host) host.replaceChildren(frame, side);
   host.hidden = false;
   await tell(said, image, kicker, told, caption, matchMedia("(prefers-reduced-motion: reduce)").matches);
 }
@@ -115,12 +124,15 @@ async function tell(
   reduceMotion: boolean,
 ): Promise<void> {
   kicker.textContent = "Sample file · example metadata";
-  const imageUrl = URL.createObjectURL(said.picture);
-  image.src = imageUrl;
-  try {
-    await image.decode();
-  } finally {
-    URL.revokeObjectURL(imageUrl);
+  // The page already shows the same photo; a page without it gets it here.
+  if (!image.getAttribute("src")) {
+    const imageUrl = URL.createObjectURL(said.picture);
+    image.src = imageUrl;
+    try {
+      await image.decode();
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
   }
   told.replaceChildren();
   told.classList.remove("is-clean");
