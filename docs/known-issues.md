@@ -120,10 +120,12 @@ gigabyte or more can take more memory than a phone gives a tab. When the
 browser ends the reader for it, the page says so and the next file starts
 afresh; the command line tool has no such limit.
 
-**WebAssembly size.** Two builds, chosen by a file's first bytes: about
-128 KB gzipped for pictures and movies (CI budget 140,000 bytes), and about
-283 KB for everything (budget 290,000), fetched only for a document. The
-whole grew from 58 KB as ZIP, the explanations, the file map, the clean
+**WebAssembly size.** Three builds, chosen by a file's first bytes: about
+131 KB gzipped for pictures and movies (CI budget 140,000 bytes), about
+221 KB with PDF (budget 228,000) and about 212 KB with Office, email and
+WebAssembly (budget 220,000), each fetched only for a file it reads. Until
+0.4 there was one build for every document, 295 KB; splitting it by family
+lets a new format grow only its own. The whole grew from 58 KB as ZIP, the explanations, the file map, the clean
 copy, HEIF, PDF and its decryption, PNG metadata, video, WebAssembly,
 MakerNotes, the PDF page walk with its fonts, repair, Office's hidden
 parts, email, Content Credentials and compound files arrived, and came

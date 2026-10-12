@@ -2,7 +2,7 @@
 // objects: the one place that knows how the WebAssembly side packs them.
 // No DOM and no worker globals, so it runs in tests as it runs in the
 // worker.
-import type { Parsed } from "./wasm/hexscope_wasm.js";
+import type { Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import type { Blackout, PageArea, ParsedFile } from "./model";
 
 /** Joins the strings the WebAssembly side packs into one. */

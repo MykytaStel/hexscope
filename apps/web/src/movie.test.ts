@@ -3,14 +3,14 @@
 // parser, as `logic.test.ts` loads it.
 import { readFileSync } from "node:fs";
 import { beforeAll, describe as group, expect, it } from "vitest";
-import { cleanCopy, cleanMovie, entropy, initSync, isMovie, parse, parseMovie } from "./wasm/hexscope_wasm.js";
+import { cleanCopy, cleanMovie, entropy, initSync, isMovie, parse, parseMovie } from "./wasm-media/hexscope_media.js";
 import { describe } from "./describe";
 import { assemble, movieEntropy, readMovie } from "./movie";
 import { Missing } from "./missing";
 import { StoredZip } from "./zipwrite";
 
 beforeAll(() => {
-  initSync({ module: readFileSync(new URL("./wasm/hexscope_wasm_bg.wasm", import.meta.url)) });
+  initSync({ module: readFileSync(new URL("./wasm-media/hexscope_media_bg.wasm", import.meta.url)) });
 });
 
 /** The sample video with its media grown to `size` bytes, as a file. */

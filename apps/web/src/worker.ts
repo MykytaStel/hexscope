@@ -1,7 +1,7 @@
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
-import type { CleanCopy, Parsed } from "./wasm/hexscope_wasm.js";
+import type { CleanCopy, Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
@@ -86,10 +86,19 @@ export interface PagePicture {
   rgba?: Uint8ClampedArray;
 }
 
-/** The parser's two builds: all of it, and pictures and movies alone — half the size, and what most files need. */
-type Module = typeof import("./wasm/hexscope_wasm.js");
-let full: Promise<Module> | null = null;
-let media: Promise<Module> | null = null;
+/**
+ * The parser's builds, one per family of files: pictures and movies alone
+ * (what most files need), and each with PDF, or with Office, email and
+ * WebAssembly. A file loads only the one that reads it.
+ */
+type Module = typeof import("./wasm-pdf/hexscope_pdf.js");
+type Family = "media" | "pdf" | "docs";
+const loaded: Partial<Record<Family, Promise<Module>>> = {};
+const IMPORTS: Record<Family, () => Promise<unknown>> = {
+  media: () => import("./wasm-media/hexscope_media.js"),
+  pdf: () => import("./wasm-pdf/hexscope_pdf.js"),
+  docs: () => import("./wasm-docs/hexscope_docs.js"),
+};
 /**
  * Why a parser could not be had, in words. A failed load is not kept: the
  * next file tries again, so a dropped connection is not the end of the tab.
@@ -102,27 +111,20 @@ function unavailable(): Error {
       : "you are offline, and this part of hexscope has not been saved for offline use yet",
   );
 }
-const loadFull = () =>
-  (full ??= import("./wasm/hexscope_wasm.js")
-    .then(async (m) => {
+const load = (family: Family): Promise<Module> =>
+  (loaded[family] ??= IMPORTS[family]()
+    .then(async (imported) => {
+      // The same interface in each, less what the other families need.
+      const m = imported as Module;
       await m.default();
       return m;
     })
     .catch(() => {
-      full = null;
+      delete loaded[family];
       throw unavailable();
     }));
-const loadMedia = () =>
-  (media ??= import("./wasm-media/hexscope_wasm.js")
-    .then(async (m) => {
-      await m.default();
-      // The same interface, less what documents need.
-      return m as unknown as Module;
-    })
-    .catch(() => {
-      media = null;
-      throw unavailable();
-    }));
+const loadMedia = () => load("media");
+const loadPdf = () => load("pdf");
 
 /** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, and the ISO boxes of HEIF and MP4. */
 function isMedia(b: Uint8Array): boolean {
@@ -133,23 +135,32 @@ function isMedia(b: Uint8Array): boolean {
   const gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38;
   return png || jpeg || iso || webp || gif;
 }
-const moduleFor = (b: Uint8Array) => (isMedia(b) ? loadMedia() : loadFull());
+/** The build that reads these bytes, asked in the order the core asks: pictures, a WebAssembly module, a PDF, then the rest. */
+function familyOf(b: Uint8Array): Family {
+  if (isMedia(b)) return "media";
+  const wasm = b[0] === 0x00 && b[1] === 0x61 && b[2] === 0x73 && b[3] === 0x6d;
+  if (!wasm && isPdf(b)) return "pdf";
+  return "docs";
+}
+const moduleFor = (b: Uint8Array) => load(familyOf(b));
 
 /**
- * Once a picture has been read, the whole parser is fetched quietly — not
- * started — so the service worker has it for opening a document offline.
- * Not on a connection that asks to save data.
+ * Once a picture has been read, the document builds are fetched quietly —
+ * not started — so the service worker has them for opening a document
+ * offline. Not on a connection that asks to save data.
  */
 let prefetched = false;
-function prefetchFull(): void {
-  if (prefetched || full) return;
+function prefetchDocuments(): void {
+  if (prefetched || loaded.pdf || loaded.docs) return;
   prefetched = true;
   const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
   if (saveData || !navigator.onLine) return;
   setTimeout(() => {
-    if (full) return;
-    void import("./wasm/hexscope_wasm.js").catch(() => {});
-    void fetch(new URL("./wasm/hexscope_wasm_bg.wasm", import.meta.url)).catch(() => {});
+    for (const family of ["pdf", "docs"] as const) {
+      if (!loaded[family]) void IMPORTS[family]().catch(() => {});
+    }
+    void fetch(new URL("./wasm-pdf/hexscope_pdf_bg.wasm", import.meta.url)).catch(() => {});
+    void fetch(new URL("./wasm-docs/hexscope_docs_bg.wasm", import.meta.url)).catch(() => {});
   }, 10_000);
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
@@ -284,7 +295,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
   };
   if (req.picture) await look(req.picture, "");
   if (req.pdf) {
-    const t = (await loadFull()).pdfPictures(req.pdf, PDF_PAGES);
+    const t = (await loadPdf()).pdfPictures(req.pdf, PDF_PAGES);
     for (let i = 0; i < t.count; i++) {
       const where = `the picture on page ${t.page(i)}`;
       const at = t.jpeg(i);
@@ -297,7 +308,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
     }
     t.free();
     // A code a page draws in boxes, as label and invoice makers do: the boxes painted, then read.
-    const shapes = (await loadFull()).pdfShapes(req.pdf, PDF_PAGES);
+    const shapes = (await loadPdf()).pdfShapes(req.pdf, PDF_PAGES);
     for (let i = 0; i < shapes.count; i++) {
       const [left, bottom, right, top] = shapes.media(i);
       const scale = Math.min(4, CODE_SCAN / Math.max(right - left, top - bottom));
@@ -411,7 +422,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     clearParsedStack();
     rememberParsedSource(parsed, result, req.id);
     stack = [parsed];
-    if (isMedia(bytes)) prefetchFull();
+    if (isMedia(bytes)) prefetchDocuments();
     // The parser keeps its own copy: these bytes go to the page, moved, not
     // copied, so a large file is held twice at most rather than three times.
     post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
@@ -563,7 +574,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "pageTexts") {
-    const t = (await loadFull()).pageTexts(req.bytes);
+    const t = (await loadPdf()).pageTexts(req.bytes);
     const pages: PageGlyphs[] = [];
     for (let i = 0; i < t.count; i++) {
       const texts = t.texts(i);
@@ -575,7 +586,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "pagePictures") {
-    const t = (await loadFull()).pagePictures(req.bytes, req.page);
+    const t = (await loadPdf()).pagePictures(req.bytes, req.page);
     const pictures: PagePicture[] = [];
     const moved: ArrayBuffer[] = [];
     for (let i = 0; i < t.count; i++) {
@@ -598,7 +609,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 
   if (req.type === "redact") {
-    const wasm = await loadFull();
+    const wasm = await loadPdf();
     const painted = await paintJpegs(req.bytes, wasm.jpegsUnder(req.bytes, req.areas));
     const c = wasm.redactCopy(req.bytes, req.areas, painted.nums, painted.lens, painted.bytes);
     postCopy(req.id, c, (b) => new Blob([b as BlobPart]));
@@ -681,8 +692,7 @@ function answer(req: WorkerRequest): Promise<void> {
     const text = err instanceof Error ? err.message : String(err);
     const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
     if (crashed) {
-      full = null;
-      media = null;
+      for (const family of Object.keys(loaded) as Family[]) delete loaded[family];
       stack = [];
     }
     post({
