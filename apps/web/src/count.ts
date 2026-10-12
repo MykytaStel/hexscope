@@ -3,7 +3,7 @@
 // send nothing at all. Opening a file sends nothing, ever.
 
 /** Only the real site counts: not a preview, not a copy, not a test run. */
-const COUNTED = new Set(["hexscope.pages.dev"]);
+const COUNTED = new Set(["hexscope.org"]);
 
 export function countVisit(): void {
   if (!COUNTED.has(location.hostname)) return;
@@ -24,7 +24,8 @@ function about(): Record<string, string> {
   const coarse = matchMedia("(pointer: coarse)").matches;
   const device = !coarse ? "computer" : Math.min(screen.width, screen.height) >= 600 ? "tablet" : "phone";
   const out: Record<string, string> = {
-    "X-Seen-Page": location.pathname,
+    // The page not found says so, rather than whatever address was mistyped.
+    "X-Seen-Page": document.body.dataset.page ?? location.pathname,
     "X-Seen-Device": device,
     "X-Seen-Lang": document.documentElement.lang === "uk" ? "uk" : "en",
   };

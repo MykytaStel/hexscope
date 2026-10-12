@@ -15,13 +15,13 @@ function version(): Plugin {
   return {
     name: "hexscope-version",
     // And the site's address, should a build name another (seo.ts).
-    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION).replaceAll("https://hexscope.pages.dev", SITE),
+    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION).replaceAll("https://hexscope.org", SITE),
   };
 }
 
 /** Files the service worker does not keep: the samples have their own list,
  * and the rest is for crawlers, link previews and the host. */
-const NOT_KEPT = /^(samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.png$)/;
+const NOT_KEPT = /^(samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.jpg$|(uk\/)?404\.html$|[0-9a-f]{32}\.txt$)/;
 
 /**
  * Writes into the built sw.js every file of this build, and a version made
@@ -94,7 +94,7 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       // The app, the story page that explains DEFLATE with its player, the
-      // guides, which are plain pages.
+      // guides, which are plain pages, and the page for a wrong address.
       input: {
         main: page("index.html"),
         deflate: page("deflate.html"),
@@ -107,6 +107,8 @@ export default defineConfig({
         email: page("is-this-email-real.html"),
         screenshot: page("what-a-screenshot-gives-away.html"),
         privacy: page("your-files-stay-private.html"),
+        // What the host answers, with a 404, for an address that is no page.
+        notfound: page("404.html"),
       },
     },
   },

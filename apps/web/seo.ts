@@ -25,6 +25,22 @@ const uk = (text: string) => translateText(text, "uk");
 export const pathOf = (file: string) => (file === "index.html" ? "/" : `/${file.replace(/\.html$/, "")}`);
 const ukPath = (path: string) => (path === "/" ? "/uk/" : `/uk${path}`);
 
+/** The page the host answers with, and a 404, for an address that is no page. */
+const NOT_FOUND = "404.html";
+
+/** Links to pages by the address the host serves them at, not `name.html`, which it redirects. */
+const cleanLinks = (html: string) => html.replace(/\bhref="([a-z0-9-]+)\.html(#[^"]*)?"/g, 'href="$1$2"');
+
+/**
+ * The page not found, at any depth: the host serves it for /a/b/c too, so its
+ * files and links start at the root (or at /uk/ for the Ukrainian one).
+ */
+const fromRoot = (html: string, base: "/" | "/uk/") =>
+  html
+    .replace(/\b(src|href)="(?:\.\.?\/)+(?=[^"])/g, '$1="/')
+    .replace(/\bhref="\.\/"/g, `href="${base}"`)
+    .replace(/\bhref="([a-z0-9-]+)"/g, `href="${base}$1"`);
+
 /** The same page in Ukrainian: its words, its language, its own address, its files one folder up. */
 function inUkrainian(html: string, path: string): string {
   const parts = html.split(/(<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>)/i);
@@ -95,6 +111,13 @@ const alternates = (path: string) =>
     `<link rel="alternate" hreflang="x-default" href="${SITE}${path}" />`,
   ].join("\n    ");
 
+/** The language of a link preview, and the other one it exists in. */
+const locales = (lang: "en" | "uk") =>
+  [
+    `<meta property="og:locale" content="${lang === "uk" ? "uk_UA" : "en_US"}" />`,
+    `<meta property="og:locale:alternate" content="${lang === "uk" ? "en_US" : "uk_UA"}" />`,
+  ].join("\n    ");
+
 /** Writes the Ukrainian pages, the language links, structured data, sitemap and robots.txt into `out`. */
 export function writeSeo(out: string, pages: readonly string[], version: string): void {
   registerLazyTranslations(GUIDE_UK);
@@ -103,10 +126,16 @@ export function writeSeo(out: string, pages: readonly string[], version: string)
   const urls: string[] = [];
   for (const file of pages) {
     const path = pathOf(file);
-    const html = readFileSync(join(out, file), "utf8");
+    const html = cleanLinks(readFileSync(join(out, file), "utf8"));
     const ukHtml = inUkrainian(html, path);
+    if (file === NOT_FOUND) {
+      // Not a page to find: no language links, no description, not in the sitemap.
+      writeFileSync(join(out, file), fromRoot(html, "/"));
+      writeFileSync(join(out, "uk", file), fromRoot(ukHtml, "/uk/"));
+      continue;
+    }
     const head = (h: string, url: string, lang: "en" | "uk") =>
-      h.replace("</head>", `    ${alternates(path)}\n    ${structured(h, url, lang, version)}\n  </head>`);
+      h.replace("</head>", `    ${alternates(path)}\n    ${locales(lang)}\n    ${structured(h, url, lang, version)}\n  </head>`);
     writeFileSync(join(out, file), head(html, `${SITE}${path}`, "en"));
     writeFileSync(join(out, "uk", file), head(ukHtml, `${SITE}${ukPath(path)}`, "uk"));
     const links = ["en", "uk", "x-default"]

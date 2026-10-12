@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="There is no page at this address. Open a file in hexscope, or read one of its guides." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Page not found — hexscope</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story" data-page="/404">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">404</p>
+        <h1>This page is not here</h1>
+        <p class="story-lede">
+          The address may be mistyped, or the page has moved. hexscope itself is one click away: open a photo or a document and see what it gives away, in your browser.
+        </p>
+
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file</a>
+          <span>Your files never leave your browser.</span>
+        </p>
+
+        <nav class="guide-more" aria-label="Guides">
+          <p><strong>Or read a guide</strong></p>
+          <ul>
+            <li><a href="remove-location-from-photo.html">How to remove the location from a photo</a></li>
+            <li><a href="check-document-before-sending.html">Check a document before you send it</a></li>
+            <li><a href="black-out-a-pdf.html">How to black out a PDF properly</a></li>
+            <li><a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a></li>
+            <li><a href="is-this-email-real.html">Is this email real?</a></li>
+            <li><a href="png-wont-open.html">Why won't my PNG open?</a></li>
+            <li><a href="your-files-stay-private.html">Your files stay on your device</a></li>
+          </ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

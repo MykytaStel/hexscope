@@ -186,6 +186,12 @@ jobs:
         run: >
           npx --yes wrangler@4 pages deploy dist --project-name hexscope
           --branch "$GITHUB_REF_NAME" --commit-hash "$GITHUB_SHA"
+      # Search engines that take IndexNow hear of the new pages at once; one
+      # that does not answer is no reason to call the deploy failed.
+      - name: Tell search engines
+        if: env.CLOUDFLARE_API_TOKEN != '' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: node scripts/indexnow.mjs apps/web/dist
       - name: Nothing to deploy with
         if: env.CLOUDFLARE_API_TOKEN == ''
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set, so nothing was deployed."
