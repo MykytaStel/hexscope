@@ -107,6 +107,10 @@ export default defineConfig({
         email: page("is-this-email-real.html"),
         screenshot: page("what-a-screenshot-gives-away.html"),
         privacy: page("your-files-stay-private.html"),
+        exif: page("exif-viewer.html"),
+        ai: page("ai-image-metadata.html"),
+        pdfmeta: page("remove-metadata-from-pdf.html"),
+        officemeta: page("remove-metadata-from-word.html"),
         // What the host answers, with a 404, for an address that is no page.
         notfound: page("404.html"),
       },

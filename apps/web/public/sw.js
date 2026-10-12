@@ -13,7 +13,7 @@ const SHARED = "hexscope-shared";
 // The samples are small, and the landing page offers them: kept from the
 // start, so they open offline too — unless the connection asks to save data.
 const SAMPLES = [
-  "broken.png", "budget.xlsx", "cropped.jpg", "deflate-demo.zip", "hello.wasm", "message.eml", "phishing.eml",
+  "ai-picture.png", "broken.png", "budget.xlsx", "cropped.jpg", "deflate-demo.zip", "hello.wasm", "message.eml", "phishing.eml",
   "phishing.msg", "photo.heic", "photo.jpg", "plan.doc", "progressive.jpg", "redacted.pdf", "report.docx", "report.pdf",
   "sample.png", "video.mov", "wifi.png",
 ].map((n) => new URL(`samples/${n}`, self.registration.scope).href);
