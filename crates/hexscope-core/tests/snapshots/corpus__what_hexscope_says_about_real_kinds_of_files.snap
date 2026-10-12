@@ -1,0 +1,77 @@
+---
+source: crates/hexscope-core/tests/corpus.rs
+expression: out
+---
+anim.gif: gif
+clip-faststart.mov: video
+  location: 50.45010, 30.52340
+  owner: Olena
+  software: Lavf63.1.101
+clip.mp4: video
+  location: 48.85840, 2.29449
+  owner: Olena
+  taken: 2026-06-14 18:32:07 UTC
+  software: Lavf63.1.101
+ditto.zip: zip
+frame-sips.jpg: jpeg
+frame-sips.pdf: pdf
+  producer: macOS Version 27.0 (Build 26A428) Quartz PDFContext
+  created: 2026-10-10 15:03 UTC
+  modified: 2026-10-10 15:03 UTC
+frame.gif: gif
+frame.heic: heif
+frame.jpg: jpeg
+frame.png: png
+frame.tiff: unknown
+looks-like.pdf: zip
+  title: Q4 plan
+  author: Olena Petrenko
+  editor: Ivan
+  subject: Board
+  description: draft v3
+  company: Acme LLC
+memo.m4a: video
+  owner: Ivan
+  software: Lavf63.1.101
+phish.eml: eml, not read whole
+  ! Hidden: replies go to another domain
+  ! Hidden: the sender's domain did not vouch for it
+  sentfrom: 203.0.113.7, where the sender connected from, in the first server's Received line
+  computer: desktop-7f3k2.local
+  mailer: Microsoft Outlook 16.0
+  timezone: UTC+03:00, the sender's clock when it was sent
+  replyto: refunds@gmail.com — not the sender's paypa1-secure.com
+  authfail: SPF, DMARC failed: the domain it claims to come from did not vouch for it
+  weblinks: 1 link, to 198.51.100.9
+plain.zip: zip
+plan-cups.pdf: pdf
+  producer: macOS Version 27.0 (Build 26A428) Quartz PDFContext
+  created: 2026-10-10 15:02 UTC
+  modified: 2026-10-10 15:02 UTC
+plan.doc: office97
+  title: Q4 plan
+  subject: Board
+  author: Olena Petrenko
+  description: draft v3
+  editor: Ivan
+  company: Acme LLC
+plan.docx: zip
+  title: Q4 plan
+  author: Olena Petrenko
+  editor: Ivan
+  subject: Board
+  description: draft v3
+  company: Acme LLC
+plan.odt: zip
+plan.rtf: unknown
+truncated.docx: zip, not read whole
+  ! Damage: no end of central directory: the archive is incomplete
+  ! Damage: data runs past the end of the file
+truncated.jpg: jpeg, not read whole
+  ! Damage: no EOI marker: the image never ends
+truncated.pdf: pdf, not read whole
+  ! Damage: the stream has no endstream: the file was cut short
+  ! Oddity: object 10 0 has no endobj
+  ! Damage: the file ends without %%EOF: it was cut short
+  ! Damage: PDF not fully checked
+wrong-ext.jpg: png

@@ -1,0 +1,14 @@
+Received: from mail.example.org (mail.example.org [203.0.113.7])
+	by mx.example.com with ESMTPS; Fri, 9 Oct 2026 10:00:00 +0300
+From: "PayPal Support" <support@paypa1-secure.com>
+Reply-To: refunds@gmail.com
+To: olena@example.com
+Subject: Your account is limited
+Date: Fri, 9 Oct 2026 09:59:58 +0300
+Message-ID: <abc@desktop-7f3k2.local>
+X-Mailer: Microsoft Outlook 16.0
+Authentication-Results: mx.example.com; spf=fail smtp.mailfrom=paypa1-secure.com; dkim=none; dmarc=fail
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<p>Please <a href="http://198.51.100.9/login">verify at https://www.paypal.com/</a> within 24h.</p>
