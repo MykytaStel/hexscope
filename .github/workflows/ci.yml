@@ -125,13 +125,14 @@ jobs:
       # Film-scan clues reuse the image worker and lazy view chunk; this small
       # allowance covers the hook that inserts its result after local analysis.
       # The clearer analyzer answer labels and explicit finding action use up to 300 extra bytes,
-      # and advice and clean-copy notes for new findings 600 more; their Ukrainian copy loads
-      # beside the parser instead, which leaves the chunk every page shares 1.5 KB smaller.
+      # advice and clean-copy notes for new findings 600 more (their Ukrainian copy loads
+      # beside the parser instead, which leaves the chunk every page shares 1.5 KB smaller),
+      # and the Metadata view, the status bar under the bytes and links to a view 300 more.
       - name: JavaScript size budget
         run: |
           main=$(gzip -9c apps/web/dist/assets/main-*.js | wc -c)
-          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 66200)."
-          test "$main" -le 66200
+          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 66500)."
+          test "$main" -le 66500
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all.
