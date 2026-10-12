@@ -351,7 +351,7 @@ checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
 name = "hexscope-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hexscope-core",
  "hexscope-raster",
@@ -362,7 +362,7 @@ dependencies = [
 
 [[package]]
 name = "hexscope-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "flate2",
@@ -373,14 +373,14 @@ dependencies = [
 
 [[package]]
 name = "hexscope-inflate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
 ]
 
 [[package]]
 name = "hexscope-raster"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hexscope-core",
  "image",
@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "hexscope-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "hexscope-core",

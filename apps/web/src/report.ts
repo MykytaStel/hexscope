@@ -8,6 +8,7 @@ import { dismissable } from "./dialogs";
 
 /** The commit the site was built from, set by the build. */
 declare const __BUILD__: string;
+declare const __VERSION__: string;
 
 /** Levels of the tree listed, and lines at most. */
 const DEPTH = 3;
@@ -41,7 +42,7 @@ export function structureReport(m: FileModel): string {
   const f = m.file;
   const lines = [
     "hexscope structure report — the file's layout, none of its content",
-    `build ${typeof __BUILD__ === "string" ? __BUILD__ : "dev"}`,
+    `hexscope ${typeof __VERSION__ === "string" ? __VERSION__ : "dev"}, build ${typeof __BUILD__ === "string" ? __BUILD__ : "dev"}`,
     `format ${f.format} · ${m.bytes.length.toLocaleString("en")} bytes · parsed in ${f.parseMs.toFixed(1)} ms`,
     "",
   ];

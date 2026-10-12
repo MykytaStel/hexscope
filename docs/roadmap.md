@@ -2,6 +2,79 @@
 
 This is the project's shared product and engineering roadmap. It describes priorities and decision gates, not release dates. Work moves forward in small, reviewable slices; a feature is not considered complete until the user-facing behavior, CLI/core parity where applicable, tests, and hosted state agree.
 
+## Versions — what we do and when
+
+Each version is a short list with a target date and a plain test of done.
+Dates are targets, not promises: a version ships when its list is done, and
+what slips moves to the next. What shipped is in [CHANGELOG.md](../CHANGELOG.md);
+how a version is made is in [releasing.md](releasing.md).
+
+| Version | Theme | Target |
+|---|---|---|
+| 0.1.0 | First published version | shipped 2026-10-02 |
+| 0.2.0 | Checked clean copies, film lab, redesign, Ukrainian, private counter | shipped 2026-10-11 |
+| 0.3.0 | Launch: people see it | 2026-10-25 |
+| 0.4.0 | Trust in every clean copy | 2026-11-08 |
+| 0.5.0 | Scans and the formats people send | 2026-11-22 |
+| 0.6.0 | Faster, smaller, easier to change | 2026-12-06 |
+| 1.0.0 | Stable | when its criteria hold, not before 2026-12-20 |
+
+### 0.3.0 — Launch (target 2026-10-25)
+
+1. Real devices: a photo picked in iPhone Safari keeps or loses its GPS — the
+   answer goes into the guide and the verdict.
+2. A link preview (og.png) in the new design, English and Ukrainian, and a
+   15-second demo for the README and posts.
+3. Design fixes from the 2026-10-10 review: the verdict's spacing, Metadata as
+   a view of its own, the analyzer's status row, guides that open a sample at
+   the right view.
+4. Posts: Show HN, r/privacy, r/rust, DOU — written together, posted by the
+   author.
+5. Done when: two weeks of the counter's numbers are read, and what people
+   open most decides 0.4.0's order.
+
+### 0.4.0 — Trust in every clean copy (target 2026-11-08)
+
+1. Confirmed removal for Word, Excel and PowerPoint, old and new, in the
+   shared verification — the result says removed, not unchecked.
+2. Confirmed removal for HEIC photos and videos.
+3. A coverage table generated from the core: for each format, what is found,
+   what the copy removes, what is confirmed.
+4. The real-file corpus as a CI test: files made in CI by ffmpeg, LibreOffice
+   and ImageMagick, whose findings must not change unnoticed.
+5. Done when: no format the site cleans says only "unchecked".
+
+### 0.5.0 — Scans and the formats people send (target 2026-11-22)
+
+1. TIFF in the core: scanners' and cameras' metadata, location, and a copy
+   blanked in place.
+2. LibreOffice documents (ODT, ODS, ODP): author, dates, editing time,
+   comments, tracked changes.
+3. RTF: author, company, operator.
+4. The full parser split per format, so a new format does not grow what
+   every visitor downloads.
+5. Done when: a file from a scanner, a LibreOffice user or an old Word
+   export gets the same answer a JPEG does.
+
+### 0.6.0 — Faster, smaller, easier to change (target 2026-12-06)
+
+1. The analyzer's script apart from the landing page's: the first page loads
+   less, and the page budget has room again.
+2. The stylesheets merged into one set of tokens and layers, without
+   overrides fighting each other.
+3. Large files on phones within a time and memory budget.
+4. An accessibility pass over the new design: screen readers, keyboard,
+   zoom, both themes.
+5. Done when: the first page is lighter than in 0.2.0 and axe is clean.
+
+### 1.0.0 — Stable (when these hold)
+
+- The CLI's flags, exit codes, JSON and SARIF are documented and kept.
+- Every format with a clean copy has confirmed removal.
+- Four weeks with no reported false alarm left unfixed.
+- Tested on iOS Safari, Android Chrome and desktop browsers.
+- crates.io carries the same version as the site.
+
 ## Product direction
 
 Hexscope should help a person understand what a file reveals before they share it, then let them act safely. It should also make file formats understandable to curious people, down to the bytes. Analysis stays on the user's device, conclusions stay tied to parser evidence, and unsupported cases are described as unchecked rather than clear.
