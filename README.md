@@ -9,7 +9,7 @@ safely. Your files stay on your device.
 [Privacy](https://hexscope.pages.dev/your-files-stay-private) ·
 [Guides](https://hexscope.pages.dev/remove-location-from-photo)
 
-![Hexscope inspecting a photo's metadata and bytes](apps/web/public/og.png)
+![A sample photo opened in Hexscope: it gives away eight things, its location on a map, and a clean copy confirmed to have none of them](docs/demo.gif)
 
 ## Try it
 

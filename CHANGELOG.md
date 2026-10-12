@@ -26,6 +26,8 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   extra ones open — the answer and the actions stay on the overview.
 - **A status bar under the bytes:** the byte under the pointer on the left,
   the part chosen and the file's size on the right.
+- A new link preview in the site's look, and a demo at the top of the README
+  (`scripts/make-demo.mjs` records it again).
 
 ### Fixed
 

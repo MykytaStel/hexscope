@@ -8,7 +8,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 out="$here/../apps/web/public"
 chrome=${CHROME:-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}
 shot() { "$chrome" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
-  --window-size="$2" --screenshot="$out/$3" "file://$here/brand/$1" >/dev/null 2>&1; }
+  --allow-file-access-from-files --window-size="$2" --screenshot="$out/$3" "file://$here/brand/$1" >/dev/null 2>&1; }
 shot og.html 1200,630 og.png
 shot icon.html 512,512 icon-512.png
 shot icon.html 512,512 icon-maskable-512.png
