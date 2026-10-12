@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
+import { SITE, writeSeo } from "./seo";
 
 const page = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 
@@ -13,7 +14,8 @@ const VERSION = /^\[workspace\.package\][^[]*?^version = "([^"]+)"/m.exec(readFi
 function version(): Plugin {
   return {
     name: "hexscope-version",
-    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION),
+    // And the site's address, should a build name another (seo.ts).
+    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION).replaceAll("https://hexscope.pages.dev", SITE),
   };
 }
 
@@ -29,13 +31,17 @@ const NOT_KEPT = /^(samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.p
  */
 function precache(): Plugin {
   let out = "";
+  let pages: string[] = [];
   return {
     name: "hexscope-precache",
     apply: "build",
     configResolved(config) {
       out = config.build.outDir.startsWith("/") ? config.build.outDir : join(config.root, config.build.outDir);
+      pages = Object.values(config.build.rollupOptions.input as Record<string, string>).map((p) => basename(p));
     },
     closeBundle() {
+      // The Ukrainian pages and what search engines read first, so the worker keeps them too.
+      writeSeo(out, pages, VERSION);
       const walk = (dir: string): string[] =>
         readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : [join(dir, d.name)]));
       const files = walk(out)
@@ -45,7 +51,7 @@ function precache(): Plugin {
       const hash = createHash("sha256");
       for (const f of files) hash.update(f).update(readFileSync(join(out, f)));
       // Pages by the address the host serves them at: it redirects `.html`.
-      const urls = files.map((f) => (f === "index.html" ? "./" : f.replace(/\.html$/, "")));
+      const urls = files.map((f) => (f === "index.html" ? "./" : f.endsWith("/index.html") ? f.slice(0, -"index.html".length) : f.replace(/\.html$/, "")));
       const sw = join(out, "sw.js");
       const text = readFileSync(sw, "utf8");
       const built = text

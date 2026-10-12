@@ -6,6 +6,7 @@ import { StepKind, STRIDE } from "./deflate";
 import { FileModel } from "./model";
 import { Player } from "./player";
 import { call, playerSource } from "./rpc";
+import { siteUrl } from "./files";
 
 const host = document.getElementById("story-player")!;
 const player = new Player(host, { onHead: () => {}, onClose: () => {} }, true);
@@ -50,7 +51,7 @@ drawCopyDiagram();
 document.fonts?.ready.then(drawCopyDiagram);
 
 async function start(): Promise<void> {
-  const bytes = new Uint8Array(await (await fetch("samples/deflate-demo.zip")).arrayBuffer());
+  const bytes = new Uint8Array(await (await fetch(siteUrl("samples/deflate-demo.zip"))).arrayBuffer());
   const parsed = await call({ type: "parse", file: new File([bytes], "deflate-demo.zip") });
   if (parsed.type !== "parsed") throw new Error("could not read the demo");
   const model = new FileModel(parsed.result, bytes, "rain.txt");

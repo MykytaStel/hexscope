@@ -6,6 +6,17 @@ const lazyTranslations: Record<string, string> = {};
 /** Adds copy for an optional, dynamically loaded feature without bloating the first page bundle. */
 export function registerLazyTranslations(translations: Readonly<Record<string, string>>): void {
   Object.assign(lazyTranslations, translations);
+  // A page written in Ukrainian (the /uk/ pages) turns back to English with these too.
+  for (const [english, ukrainian] of Object.entries(translations)) lazyReverse.set(ukrainian, english);
+}
+
+const lazyReverse = new Map<string, string>();
+
+/** The English a Ukrainian text was translated from, keeping the spaces around it. */
+function untranslate(value: string): string | undefined {
+  const content = value.trim();
+  const english = reverse.get(content) ?? lazyReverse.get(content.replace(/\s+/g, " "));
+  return english === undefined ? undefined : value.replace(content, english);
 }
 
 // Keep the source copy as the key: the English UI remains the canonical copy,
@@ -417,6 +428,23 @@ const UK: Record<string, string> = {
   "Company": "Компанія",
   "Application": "Застосунок",
   "Template": "Шаблон",
+  "The selection still contains searchable text.": "У виділенні досі є текст, який можна знайти пошуком.",
+  "Review the file before sharing.": "Перевірте файл, перш ніж ділитися ним.",
+  "Film Lab": "Плівкова лабораторія",
+  "— the structure beside the hex, every part with its spec reference": "— структура поруч із hex, кожна частина з посиланням на специфікацію",
+  "— text or hex, and the part of the file it falls in": "— текст або hex і частина файла, де він трапляється",
+  "— two files, or a file and its clean copy": "— два файли або файл і його очищена копія",
+  "— the whole structure, with its explanations": "— уся структура з поясненнями",
+  "— the same checks in": "— ті самі перевірки в",
+  "Remove the location from a photo": "Як прибрати геолокацію з фото",
+  "Black out a PDF properly": "Як правильно замалювати PDF",
+  "What an edited PDF still holds": "Що досі зберігає відредагований PDF",
+  "Why a PNG won't open": "Чому PNG не відкривається",
+  "How DEFLATE works, step by step": "Як працює DEFLATE, крок за кроком",
+  "hexscope — see what a file gives away before you send it": "hexscope — дізнайтеся, що файл розкриває, перш ніж його надіслати",
+  "Check what a photo or document gives away before you send it — its location, the owner's name, text under black boxes, comments — and save a clean copy. In your browser; nothing is uploaded.": "Перевірте, що фото чи документ розкриває, перш ніж його надіслати: геолокацію, ім’я власника, текст під чорними прямокутниками, коментарі — і збережіть очищену копію. Прямо в браузері, нічого не завантажується.",
+  "Where your photo was taken, who wrote your document, why a file won't open — shown byte by byte, in your browser. Nothing is uploaded.": "Де зроблено фото, хто написав документ, чому файл не відкривається — байт за байтом, у вашому браузері. Нічого не завантажується.",
+  "hexscope: a sample photo and what it reveals — where it was taken, the camera's serial number, the owner and the date.": "hexscope: зразок фото і що воно розкриває — місце зйомки, серійний номер фотоапарата, власника й дату.",
   "Subject": "Тема",
   "Description": "Опис",
   "Category": "Категорія",
@@ -817,7 +845,7 @@ function localizeText(node: Text): void {
   if (!parent || parent.closest("script, style, textarea, [data-language-control]")) return;
   let state = sourceText.get(node);
   if (!state || node.data !== state.rendered) {
-    const source = reverse.get(node.data) ?? node.data;
+    const source = untranslate(node.data) ?? node.data;
     state = { source, rendered: node.data };
   }
   const translated = translateText(state.source, currentLocale());
@@ -833,7 +861,7 @@ function localizeAttribute(element: Element, name: string): void {
   let state = values.get(name);
   const current = element.getAttribute(name) ?? "";
   if (!state || current !== state.rendered) {
-    const source = reverse.get(current) ?? current;
+    const source = untranslate(current) ?? current;
     state = { source, rendered: current };
   }
   const translated = translateText(state.source, currentLocale());
@@ -884,7 +912,9 @@ export function setLocale(locale: Locale): void {
 export function installLocale(): void {
   if (installed || typeof document === "undefined") return;
   installed = true;
-  activeLocale = resolveLocale(storageValue(), typeof navigator === "undefined" ? [] : [...navigator.languages, navigator.language]);
+  // A page written in Ukrainian (/uk/) reads in Ukrainian unless a language was chosen.
+  const written = document.documentElement.lang === "uk" ? ["uk"] : [];
+  activeLocale = resolveLocale(storageValue(), [...written, ...(typeof navigator === "undefined" ? [] : [...navigator.languages, navigator.language])]);
   localizeDocument();
   new MutationObserver((records) => {
     for (const record of records) {
