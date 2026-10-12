@@ -54,6 +54,10 @@ describe("the interface language", () => {
     expect(translateText("Reveals where it was taken, the camera and the camera's serial number.", "uk")).toBe(
       "Розкриває місце зйомки, фотоапарат і серійний номер фотоапарата.",
     );
+    expect(translateText("Reveals where it was taken, the camera, the camera's serial number, the owner's name and 4 more things.", "uk")).toBe(
+      "Розкриває місце зйомки, фотоапарат, серійний номер фотоапарата, ім’я власника і ще 4.",
+    );
+    expect(translateText("Reveals who wrote it and 1 more thing.", "uk")).toBe("Розкриває автора і ще 1.");
     expect(translateText("Reveals a link that says one site and goes to another.", "uk")).toBe(
       "Розкриває посилання, що веде не туди, куди обіцяє.",
     );
