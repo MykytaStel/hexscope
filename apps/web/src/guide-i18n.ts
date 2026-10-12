@@ -206,7 +206,7 @@ const guideEntries: [string, string][] = [
   ["Open the sample", "Приклад файла —"],
   ["Word document", "Документ Word"],
   ["Open the clean copy", "Відкрити очищену копію"],
-  ["Remove it — save a clean copy", "Прибрати дані й зберегти очищену копію"],
+  ["Remove it — save a clean copy", "Зберегти копію без цих даних"],
   ["Black out text yourself", "Приховати текст вручну"],
   ["Email addresses", "Адреси електронної пошти"],
   ["Phone numbers", "Номери телефонів"],

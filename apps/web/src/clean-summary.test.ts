@@ -33,6 +33,15 @@ describe("clean copy summary", () => {
     expect(cleanCopySummary({ removed: [], present: [{ kind: "camera", label: "Camera" }], unchecked: [] }).clear).toBe(false);
   });
 
+  it("says what it removed and that nothing is left, under the number removed", () => {
+    expect(cleanCopySummaryLabel({ state: "checked", removed: 8, present: 0, unchecked: 0, clear: true })).toBe(
+      "removed — nothing is left in the copy",
+    );
+    expect(cleanCopySummaryLabel({ state: "checked", removed: 0, present: 0, unchecked: 0, clear: true })).toBe(
+      "No findings found in the copy",
+    );
+  });
+
   it("does not say findings were removed when none were confirmed removed", () => {
     expect(cleanCopySummaryLabel({ state: "checked", removed: 0, present: 2, unchecked: 4, clear: false })).toBe(
       "Findings remain in the copy",

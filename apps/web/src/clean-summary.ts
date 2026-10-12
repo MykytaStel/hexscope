@@ -11,7 +11,8 @@ export interface CleanCopySummary {
 /** Lead with the most consequential state without implying that zero findings were removed. */
 export function cleanCopySummaryLabel(summary: CleanCopySummary): string {
   if (summary.state === "unverified") return "Copy not checked";
-  if (summary.clear) return "No findings found in the copy";
+  // Under the number of what was removed: that it was, and nothing is left.
+  if (summary.clear) return summary.removed > 0 ? "removed — nothing is left in the copy" : "No findings found in the copy";
   if (summary.present > 0) return "Findings remain in the copy";
   if (summary.removed > 0) return "Confirmed removed";
   return "Copy not fully checked";

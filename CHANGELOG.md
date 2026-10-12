@@ -75,6 +75,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Fixed
 
+- After a clean copy, its card says what its number means: “8 removed —
+  nothing is left in the copy”, not a bare 8 over “nothing found”.
+
+- What a file reveals adds up to the headline: four named, “and 4 more”.
+
+- In Ukrainian, the clean copy has one name, and its button fits a phone:
+  «Зберегти копію без цих даних».
+
 - Visits to hexscope.org are counted: the counter still waited for
   hexscope.pages.dev, which now forwards there.
 

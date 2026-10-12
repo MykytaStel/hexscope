@@ -50,10 +50,11 @@ const UK: Record<string, string> = {
   "things it gave away": "фактів було розкрито",
   "Checking the copy…": "Перевіряємо копію…",
   "Copy not checked": "Копію не перевірено",
-  "Confirmed removed": "Підтверджено видалено",
+  "Confirmed removed": "прибрано й перевірено",
   "Findings remain in the copy": "У копії залишилися дані",
   "Copy not fully checked": "Копію перевірено не повністю",
   "No findings found in the copy": "У копії нічого не знайдено",
+  "removed — nothing is left in the copy": "прибрано — у копії нічого не лишилося",
   "Compare with the original": "Порівняти з оригіналом",
   "File A": "Файл A",
   "File B": "Файл B",
@@ -297,7 +298,7 @@ const UK: Record<string, string> = {
   "Go to this finding in the file": "Перейти до цього факту у файлі",
   "This guide is currently available in English. The page controls are in Ukrainian.": "Цей посібник поки доступний лише англійською. Елементи керування сторінкою перекладені українською.",
   "Show where in the file this is": "Показати це місце у файлі",
-  "Remove it — save a clean copy": "Прибрати дані й зберегти чисту копію",
+  "Remove it — save a clean copy": "Зберегти копію без цих даних",
   "Checking the copy in this tab…": "Перевіряємо копію в цій вкладці…",
   "Removed": "Видалено",
   "Still present": "Залишилося в копії",
@@ -532,7 +533,7 @@ const UK: Record<string, string> = {
   "Theme: dark (click to follow your system)": "Тема: темна (натисніть для теми системи)",
   "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Show me” goes to the bytes.": "Спершу коротка відповідь: файл пошкоджений, щось приховує, розкриває дані чи справний. «Показати» прокручує до знайденого факту.",
   "The answer first, in plain words: damaged, hiding something, giving something away, or healthy. “Find in file” takes you to the fact in the summary, or to its bytes when there isn't one.": "Спершу коротка відповідь: файл пошкоджений, щось приховує, розкриває дані чи справний. «Знайти у файлі» веде до факту у зведенні, а якщо його там немає — до байтів.",
-  "Places, names, serial numbers, deleted text. “Remove it — save a clean copy” makes a copy without them, here in the tab: nothing is uploaded.": "Місця, імена, серійні номери, видалений текст. «Прибрати дані й зберегти чисту копію» створює копію тут, у вкладці. Нічого не передається.",
+  "Places, names, serial numbers, deleted text. “Remove it — save a clean copy” makes a copy without them, here in the tab: nothing is uploaded.": "Місця, імена, серійні номери, видалений текст. «Зберегти копію без цих даних» створює копію тут, у вкладці. Нічого не передається.",
   "Every byte, explained": "Кожен байт із поясненням",
   "Press ? for the keyboard: O opens a file, N goes to the next problem. Drop several files at once to check them all.": "Натисніть ?, щоб побачити клавіші: O відкриває файл, N переходить до наступної проблеми. Перетягніть кілька файлів, щоб перевірити їх разом.",
   "Would you like to share what this file reveals?": "Поділитися тим, що розкриває цей файл?",
@@ -662,6 +663,12 @@ function translateRevealList(value: string): string {
   const parts: string[] = [];
   let rest = value;
   while (rest) {
+    // "… and 4 more things": the count of the rest, last in the list.
+    const more = /^(\d+) more things?$/.exec(rest);
+    if (more) {
+      parts.push(`ще ${more[1]}`);
+      break;
+    }
     const item = vocabulary.find((phrase) => {
       if (!rest.startsWith(phrase)) return false;
       const tail = rest.slice(phrase.length);

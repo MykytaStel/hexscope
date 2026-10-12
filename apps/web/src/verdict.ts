@@ -1,4 +1,5 @@
 import { Concern, FileModel, Kind } from "./model";
+import { categories } from "./share";
 
 /** One line of the verdict: what kind of finding, the sentence, where to look. */
 export interface VerdictLine {
@@ -244,7 +245,11 @@ export function verdict(m: FileModel): VerdictLine[] {
     const first = top === "location" ? (f.location?.node ?? -1) : (f.facts.find((x) => x.kind === top)?.node ?? -1);
     // A message is read by whoever got it: what it says is about its sender.
     const lead = email ? "Tells you about its sender: " : "Reveals ";
-    lines.push({ kind: "reveals", text: `${lead}${list(given.slice(0, 4))}.`, node: first });
+    // Four named, and how many more, so the line adds up to the headline's count.
+    const named = given.slice(0, 4);
+    const more = categories(m).length - named.length;
+    const items = more > 0 ? [...named, more === 1 ? "1 more thing" : `${more} more things`] : named;
+    lines.push({ kind: "reveals", text: `${lead}${list(items)}.`, node: first });
   }
 
   if (odd.length > 0 && damage.length === 0) {
