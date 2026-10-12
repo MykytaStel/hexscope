@@ -18,6 +18,12 @@ const guideEntries: [string, string][] = [
   ["Try an edited PDF", "Перевірити змінений PDF"],
   ["Check a photo", "Перевірити фото"],
   ["Check a photo now", "Перевірити фото зараз"],
+  // The page for an address that does not exist.
+  ["Page not found — hexscope", "Сторінку не знайдено — hexscope"],
+  ["There is no page at this address. Open a file in hexscope, or read one of its guides.", "За цією адресою немає сторінки. Відкрийте файл у hexscope або прочитайте один із посібників."],
+  ["This page is not here", "Такої сторінки немає"],
+  ["The address may be mistyped, or the page has moved. hexscope itself is one click away: open a photo or a document and see what it gives away, in your browser.", "Можливо, в адресі помилка або сторінку перенесли. Сам hexscope — за один клік: відкрийте фото чи документ і подивіться, що він розкриває, просто у браузері."],
+  ["Or read a guide", "Або прочитайте посібник"],
   ["Try a sample photo", "Перевірити тестове фото"],
   ["Try a sample video", "Перевірити тестове відео"],
   ["Check a screenshot", "Перевірити знімок екрана"],

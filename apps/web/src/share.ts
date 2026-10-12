@@ -116,7 +116,7 @@ function noun(m: FileModel): string {
   }
 }
 
-const SITE = "https://hexscope.pages.dev";
+const SITE = "https://hexscope.org";
 
 /** One sentence, ready to paste. */
 export function sentence(m: FileModel): string {
@@ -170,7 +170,7 @@ async function card(m: FileModel): Promise<Blob | null> {
 
   ctx.fillStyle = "#9aa4b8";
   ctx.font = font(500, 26);
-  ctx.fillText("Checked in the browser — nothing uploaded.  hexscope.pages.dev", 80, h - 56);
+  ctx.fillText("Checked in the browser — nothing uploaded.  hexscope.org", 80, h - 56);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }

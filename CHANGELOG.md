@@ -19,10 +19,33 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   structured data (a free web application, articles) and listed in a sitemap
   of both. The site's address is set once (`SITE` in `apps/web/seo.ts`).
 
+- **A page for a wrong address.** A mistyped or old address now gets a real
+  404 with a way back to the app and the guides, in English or Ukrainian,
+  instead of the app's home page answering for every address.
+
+- Search engines that take IndexNow (Bing, Yandex and others) hear of the
+  site's pages after each deploy.
+
 ### Changed
 
 - The visit numbers are read only by the site's author, straight from the
   database with `pnpm stats`; the `/stats` page and its key are gone.
+
+- Pages link to each other by the address the host serves them at, the home
+  page and the DEFLATE story name their own address, and link previews say
+  which language they are in.
+
+- The link preview is a JPEG half the size, so apps that skip large images
+  (WhatsApp) show it.
+
+- Browsers that have seen the site come back to it over HTTPS only.
+
+### Fixed
+
+- Visits to hexscope.org are counted: the counter still waited for
+  hexscope.pages.dev, which now forwards there.
+
+- The share card and its sentence name hexscope.org.
 
 ## [0.3.0] — 2026-10-12
 

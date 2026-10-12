@@ -32,3 +32,31 @@ test("a sample opens from the Ukrainian app", async ({ page }) => {
   await page.goto("./uk/?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toHaveText("Фото розкриває 8 фактів");
 });
+
+test("the home page names its own address", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://hexscope.org/");
+});
+
+test("guides link to pages by the address the host serves, not name.html", async ({ page }) => {
+  for (const path of ["./remove-location-from-photo", "./uk/remove-location-from-photo"]) {
+    await page.goto(path);
+    await expect(page.locator(".guide-more a").first()).toBeVisible();
+    expect(await page.locator('a[href$=".html"]').count()).toBe(0);
+  }
+});
+
+test("the page for a wrong address works at any depth, in each language, and is never indexed", async ({ page, request }) => {
+  await page.goto("./404");
+  await expect(page.locator("h1")).toHaveText("This page is not here");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+  await expect(page.locator(".guide-more a").first()).toHaveAttribute("href", "/remove-location-from-photo");
+  for (const src of await page.locator("script[src], link[href]").evaluateAll((els) => els.map((e) => e.getAttribute("src") ?? e.getAttribute("href")))) {
+    expect(src).toMatch(/^(\/|https:)/);
+  }
+  await page.goto("./uk/404");
+  await expect(page.locator("h1")).toHaveText("Такої сторінки немає");
+  await expect(page.locator(".brand")).toHaveAttribute("href", "/uk/");
+  await expect(page.locator(".guide-more a").first()).toHaveAttribute("href", "/uk/remove-location-from-photo");
+  expect(await (await request.get("./sitemap.xml")).text()).not.toContain("404");
+});

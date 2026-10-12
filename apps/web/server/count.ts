@@ -44,8 +44,8 @@ export interface Answer {
   headers: Record<string, string>;
 }
 
-/** The site's own address: a visit from it is not "from" anywhere. */
-export const HOST = "hexscope.pages.dev";
+/** The site's own addresses, old and new: a visit from them is not "from" anywhere. */
+export const HOSTS = ["hexscope.org", "hexscope.pages.dev"];
 
 const DAY = 86_400_000;
 /** "New" is counted against one fixed start: any earlier answer means seen before. */
@@ -123,7 +123,7 @@ export function page(path: string | null): string | null {
 export function fromHost(host: string | null): string | null {
   if (!host) return null;
   const name = host.trim().toLowerCase().replace(/^www\./, "");
-  if (!name || name === HOST || name.endsWith(`.${HOST}`)) return null;
+  if (!name || HOSTS.some((host) => name === host || name.endsWith(`.${host}`))) return null;
   const label = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
   return name.length <= 100 && new RegExp(`^${label}(?:\\.${label})+$`).test(name) ? name : "other";
 }

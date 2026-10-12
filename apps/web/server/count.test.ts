@@ -67,6 +67,8 @@ describe("counting a visit once per period", () => {
 describe("what a visit is said to come from", () => {
   it("is a site's name, without www, and never this site", () => {
     expect(fromHost("www.reddit.com")).toBe("reddit.com");
+    expect(fromHost("hexscope.org")).toBeNull();
+    expect(fromHost("www.hexscope.org")).toBeNull();
     expect(fromHost("hexscope.pages.dev")).toBeNull();
     expect(fromHost("feat-x.hexscope.pages.dev")).toBeNull();
     expect(fromHost("")).toBeNull();
