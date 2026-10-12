@@ -54,6 +54,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 - The home page's title and description say what it is in the words people
   search with — metadata, EXIF — and its structured data lists what it does.
 
+- The home page loads faster on phones: the demo's photo and its facts are in
+  the page from the start, so nothing below it jumps when the demo begins
+  (layout shift 0.23 → under 0.1), and the archive frames are shown from small
+  copies (≈190 KB instead of ≈950 KB) while the originals stay samples.
+
 - In Ukrainian, a list of what a file reveals ends with “і”, and a button's
   name in quotes has no space inside them.
 

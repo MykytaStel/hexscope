@@ -119,7 +119,21 @@
             </div>
           <p class="load-error" id="load-error" role="alert" hidden></p>
         </div>
-        <figure class="demo" id="demo" hidden aria-label="A demonstration on a sample image"></figure>
+        <!-- In the page from the start, so nothing moves when the demo begins:
+             the sample photo and its real facts, shown by src/demo.ts once read. -->
+        <figure class="demo" id="demo" aria-label="A demonstration on a sample image">
+          <div class="demo-frame"><img class="demo-image" src="./samples/photo.jpg" alt="" aria-hidden="true" width="640" height="480" fetchpriority="high" /></div>
+          <div class="demo-side">
+            <p class="demo-kicker">Sample file · example metadata</p>
+            <dl class="demo-facts">
+              <div class="demo-fact" aria-hidden="true"><dt>Location</dt><dd>48.8584° N, 2.2945° E</dd></div>
+              <div class="demo-fact" aria-hidden="true"><dt>Owner</dt><dd>Sample Owner</dd></div>
+              <div class="demo-fact" aria-hidden="true"><dt>Camera serial</dt><dd>HX-000042</dd></div>
+              <div class="demo-fact" aria-hidden="true"><dt>Taken</dt><dd>2026-06-14 18:32</dd></div>
+            </dl>
+            <p class="demo-caption">A photo, as a camera or phone saves it. Inside it:</p>
+          </div>
+        </figure>
       </div>
 
       <ul class="landing-proof">
@@ -246,19 +260,19 @@
             </div>
             <div class="film-contact-sheet">
               <figure class="film-frame">
-                <img src="./samples/apollo11/as11-40-5903.jpg" alt="Apollo 11 frame AS11-40-5903: astronaut standing on the lunar surface" width="1280" height="1249" loading="lazy" />
+                <img src="./thumbs/as11-40-5903.webp" alt="Apollo 11 frame AS11-40-5903: astronaut standing on the lunar surface" width="560" height="547" loading="lazy" />
                 <figcaption><span>01</span><code>AS11-40-5903</code></figcaption>
               </figure>
               <figure class="film-frame">
-                <img src="./samples/apollo11/as11-40-5902.jpg" alt="Apollo 11 frame AS11-40-5902: astronaut beside the lunar module" width="1240" height="1280" loading="lazy" />
+                <img src="./thumbs/as11-40-5902.webp" alt="Apollo 11 frame AS11-40-5902: astronaut beside the lunar module" width="560" height="579" loading="lazy" />
                 <figcaption><span>02</span><code>AS11-40-5902</code></figcaption>
               </figure>
               <figure class="film-frame">
-                <img src="./samples/apollo11/as11-40-5875.jpg" alt="Apollo 11 frame AS11-40-5875: astronaut and flag on the lunar surface" width="1237" height="1280" loading="lazy" />
+                <img src="./thumbs/as11-40-5875.webp" alt="Apollo 11 frame AS11-40-5875: astronaut and flag on the lunar surface" width="560" height="580" loading="lazy" />
                 <figcaption><span>03</span><code>AS11-40-5875</code></figcaption>
               </figure>
               <figure class="film-frame">
-                <img src="./samples/apollo11/KSC-AS11-40-5869.jpg" alt="Apollo 11 frame KSC-AS11-40-5869: astronaut at the lunar module ladder" width="1027" height="1280" loading="lazy" />
+                <img src="./thumbs/KSC-AS11-40-5869.webp" alt="Apollo 11 frame KSC-AS11-40-5869: astronaut at the lunar module ladder" width="560" height="698" loading="lazy" />
                 <figcaption><span>04</span><code>KSC-AS11-40-5869</code></figcaption>
               </figure>
             </div>
