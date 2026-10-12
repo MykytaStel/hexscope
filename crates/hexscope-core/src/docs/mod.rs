@@ -148,22 +148,14 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
             .cite("TIFF 6.0", "https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf"),
         ),
         Format::Tiff => crate::exif::docs::describe(label, problem),
-        Format::Pdf if cfg!(feature = "pdf") => {
-            crate::pdf::docs::describe(tree, node, problem)
-        }
+        Format::Pdf if cfg!(feature = "pdf") => crate::pdf::docs::describe(tree, node, problem),
         Format::Video => crate::video::docs::describe(tree, node, problem),
-        Format::Zip if cfg!(feature = "office") => {
-            crate::zip::docs::describe(tree, node, problem)
-        }
+        Format::Zip if cfg!(feature = "office") => crate::zip::docs::describe(tree, node, problem),
         Format::Wasm if cfg!(feature = "module") => {
             crate::wasm::docs::describe(tree, node, problem)
         }
-        Format::Eml if cfg!(feature = "mail") => {
-            crate::eml::docs::describe(tree, node, problem)
-        }
-        Format::Cfb if cfg!(feature = "office") => {
-            crate::cfb::docs::describe(tree, node, problem)
-        }
+        Format::Eml if cfg!(feature = "mail") => crate::eml::docs::describe(tree, node, problem),
+        Format::Cfb if cfg!(feature = "office") => crate::cfb::docs::describe(tree, node, problem),
         Format::Unknown => crate::document::docs(label),
         _ => None,
     }
