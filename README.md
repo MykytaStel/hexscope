@@ -4,17 +4,17 @@
 unexpected structure and damage — then make a clean copy when Hexscope can do so
 safely. Your files stay on your device.
 
-[Open Hexscope](https://hexscope.pages.dev/?sample=photo.jpg) ·
+[Open Hexscope](https://hexscope.org/?sample=photo.jpg) ·
 [Install the CLI](https://crates.io/crates/hexscope-cli) ·
-[Privacy](https://hexscope.pages.dev/your-files-stay-private) ·
-[Guides](https://hexscope.pages.dev/remove-location-from-photo)
+[Privacy](https://hexscope.org/your-files-stay-private) ·
+[Guides](https://hexscope.org/remove-location-from-photo)
 
 ![A sample photo opened in Hexscope: it gives away eight things, its location on a map, and a clean copy confirmed to have none of them](docs/demo.gif)
 
 ## Try it
 
-Open the [web app](https://hexscope.pages.dev/) and choose a file, or
-[load the sample photo](https://hexscope.pages.dev/?sample=photo.jpg). Hexscope
+Open the [web app](https://hexscope.org/) and choose a file, or
+[load the sample photo](https://hexscope.org/?sample=photo.jpg). Hexscope
 shows a plain-language summary first. Select a finding to see the exact bytes
 behind it; where supported, save a clean copy from the same page.
 
@@ -101,10 +101,10 @@ scanning service.
 - [Verified photo batches, CLI/web film rolls, TIFF16 and local privacy mosaic](docs/photo-platform.md)
 - [Reproducible real-scan measurements and research limits](docs/film-evaluation.md)
 
-- [Remove location and other metadata from a photo](https://hexscope.pages.dev/remove-location-from-photo)
-- [What an edited PDF may still contain](https://hexscope.pages.dev/pdf-hidden-versions)
-- [Why a PNG may not open](https://hexscope.pages.dev/png-wont-open)
-- [Explore DEFLATE step by step](https://hexscope.pages.dev/deflate)
+- [Remove location and other metadata from a photo](https://hexscope.org/remove-location-from-photo)
+- [What an edited PDF may still contain](https://hexscope.org/pdf-hidden-versions)
+- [Why a PNG may not open](https://hexscope.org/png-wont-open)
+- [Explore DEFLATE step by step](https://hexscope.org/deflate)
 
 ## For Rust users and contributors
 

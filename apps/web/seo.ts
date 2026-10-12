@@ -8,7 +8,7 @@ import { GUIDE_UK } from "./src/guide-i18n";
 import { registerLazyTranslations, translateText } from "./src/i18n";
 
 /** Where the site lives; HEXSCOPE_SITE overrides it for a build. */
-export const SITE = (process.env.HEXSCOPE_SITE ?? "https://hexscope.pages.dev").replace(/\/$/, "");
+export const SITE = (process.env.HEXSCOPE_SITE ?? "https://hexscope.org").replace(/\/$/, "");
 
 const DECODED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 const decode = (s: string) =>

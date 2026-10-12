@@ -10,6 +10,9 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **hexscope.org.** The site moves to its own address; hexscope.pages.dev
+  forwards to it, and the canonical links, sitemap and link preview name it.
+
 - **The site in Ukrainian for search engines.** Every page has a Ukrainian
   copy of its own at `/uk/…`, written at build time, so a search in Ukrainian
   finds the guides; the two are linked to each other (hreflang), described as
