@@ -8,6 +8,16 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **Confirmed clean copies for more files.** Word, Excel and PowerPoint, old
+  and new, HEIC photos and videos now say *Removed* for each property they
+  lose instead of *Not checked*; photos also confirm the lens, the date, the
+  software and the thumbnail. The CLI's `clean --verify` exits 0 when every
+  finding is confirmed.
+- The coverage table in `docs/verification-coverage.md` is written from the
+  core's contract, and a test fails when they differ.
+
 ## [0.2.0] — 2026-10-11
 
 ### Added

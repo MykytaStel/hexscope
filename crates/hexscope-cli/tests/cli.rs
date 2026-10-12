@@ -447,12 +447,16 @@ fn clean_verify_checks_the_written_copy_and_emits_value_free_json() {
         &fixture("photo.jpg"),
     ]);
 
-    assert_eq!(code, 1, "{out}{err}");
+    // Every finding of the photo is confirmed removed: nothing to fail on.
+    assert_eq!(code, 0, "{out}{err}");
     assert_eq!(out.lines().count(), 1, "{out}");
     assert!(out.contains("\"schema_version\":1"), "{out}");
     assert!(out.contains("\"operation_state\":\"written\""), "{out}");
-    assert!(out.contains("\"kind\":\"location\""), "{out}");
-    assert!(out.contains("\"reason\":\"coverage_incomplete\""), "{out}");
+    assert!(
+        out.contains("\"kind\":\"location\",\"reason\":\"removed\""),
+        "{out}"
+    );
+    assert!(!out.contains("\"reason\":\"coverage_incomplete\""), "{out}");
     for (_, value) in source_values {
         assert!(
             !out.contains(&value),
@@ -483,15 +487,13 @@ fn clean_verify_human_output_names_kinds_without_values() {
         &fixture("photo.jpg"),
     ]);
 
-    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(code, 0, "{out}{err}");
     assert!(out.contains("Removed:\n    Location"), "{out}");
     assert!(out.contains("    Camera\n"), "{out}");
     assert!(out.contains("    Camera serial\n"), "{out}");
     assert!(out.contains("    Owner\n"), "{out}");
-    assert!(
-        out.contains("Not checked:\n    Lens — Hexscope cannot yet confirm whether this JPEG finding was removed."),
-        "{out}"
-    );
+    assert!(out.contains("    Lens\n"), "{out}");
+    assert!(out.contains("Not checked:\n    (none)"), "{out}");
     assert!(out.contains("Still present:\n    (none)"), "{out}");
     assert!(!out.contains("coverage_incomplete"), "{out}");
     assert!(!out.contains(" (removed)"), "{out}");
@@ -548,7 +550,7 @@ fn clean_verify_handles_batch_outputs_and_in_place_replacement() {
         "--in-place",
         in_place.to_str().unwrap(),
     ]);
-    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(code, 0, "{out}{err}");
     assert_eq!(out.lines().count(), 1, "{out}");
     assert!(out.contains("\"source\":\""), "{out}");
     assert!(out.contains("\"output\":\""), "{out}");
@@ -558,6 +560,24 @@ fn clean_verify_handles_batch_outputs_and_in_place_replacement() {
             .iter()
             .any(|(kind, _)| *kind == "location")
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_verify_returns_one_when_a_finding_is_not_checked() {
+    // A PDF's earlier versions are outside what a copy is confirmed to lose.
+    let dir = std::env::temp_dir().join(format!("hexscope-verify-pdf-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        dir.join("report.pdf").to_str().unwrap(),
+        &core_fixture("report.pdf"),
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.contains("\"reason\":\"coverage_incomplete\""), "{out}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

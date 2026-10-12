@@ -60,6 +60,18 @@ fn its_clean_copy_blanks_the_properties_and_moves_nothing() {
     let again = parse_cfb(&copy.bytes);
     assert_eq!(again.kind, Kind::Word);
     assert_eq!(kinds(&again), Vec::<&str>::new());
+    // No text and no time is left in either property stream, whatever its
+    // property: what lets a copy's verification call every kind removed.
+    let c2 = Compound::open(&copy.bytes).unwrap();
+    for name in ["\u{5}SummaryInformation", "\u{5}DocumentSummaryInformation"] {
+        let i = c2.find(0, name).unwrap();
+        let e = &c2.entries[i];
+        assert_eq!(
+            super::props::blanks(&c2.read(e, e.size)),
+            Vec::new(),
+            "{name}"
+        );
+    }
     // The document itself is untouched.
     let c = Compound::open(&data).unwrap();
     let word = &c.entries[c.find(0, "WordDocument").unwrap()];

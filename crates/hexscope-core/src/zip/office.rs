@@ -1100,6 +1100,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_clean_copy_is_confirmed_to_lose_every_property() {
+        use crate::verification::{VERIFIED_REMOVAL, compare, snapshot};
+        let core = r#"<cp:coreProperties><dc:title>Plan</dc:title><dc:subject>Board</dc:subject><dc:creator>Olena</dc:creator><cp:keywords>budget</cp:keywords><dc:description>draft</dc:description><cp:lastModifiedBy>Ivan</cp:lastModifiedBy><cp:revision>3</cp:revision><cp:category>Finance</cp:category><cp:contentStatus>Draft</cp:contentStatus><dcterms:created>2025-11-02T09:14:00Z</dcterms:created><dcterms:modified>2025-11-03T09:14:00Z</dcterms:modified></cp:coreProperties>"#;
+        let app = "<Properties><Template>Normal.dotm</Template><TotalTime>12</TotalTime><Application>Microsoft Office Word</Application><Manager>Petro</Manager><Company>Acme</Company></Properties>";
+        let custom = r#"<Properties><property name="MSIP_Label_1_Name"><vt:lpwstr>Confidential</vt:lpwstr></property><property name="MSIP_Label_1_SiteId"><vt:lpwstr>72f988bf</vt:lpwstr></property><property name="Client"><vt:lpwstr>Acme</vt:lpwstr></property></Properties>"#;
+        let b = build(&Archive {
+            entries: vec![
+                Entry::new("[Content_Types].xml", b"<Types/>", 8),
+                Entry::new("docProps/core.xml", core.as_bytes(), 8),
+                Entry::new("docProps/app.xml", app.as_bytes(), 8),
+                Entry::new("docProps/custom.xml", custom.as_bytes(), 8),
+            ],
+            ..Default::default()
+        });
+        let before = crate::summary::summarize(&b.bytes);
+        let copy = crate::clean::clean(&b.bytes).unwrap();
+        let after = crate::summary::summarize(&copy.bytes);
+        assert!(before.complete && after.complete);
+        let report = compare(&snapshot(&before), &snapshot(&after));
+        let covered = VERIFIED_REMOVAL
+            .iter()
+            .find(|(f, _)| *f == "zip")
+            .unwrap()
+            .1;
+        let removed: Vec<_> = report.removed.iter().map(|i| i.kind.as_str()).collect();
+        for kind in covered
+            .iter()
+            .filter(|k| !["downloaded", "tags"].contains(k))
+        {
+            assert!(removed.contains(kind), "{kind}: {report:?}");
+        }
+    }
+
     const COMMENTS: &str = r#"<w:comments xmlns:w="x"><w:comment w:id="0" w:author="Olena Koval" w:initials="OK"><w:p><w:r><w:t>too low</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author='Petro &amp; Co'/><w:comment w:id="2" w:author="Olena Koval"/></w:comments>"#;
     const BODY: &str = r#"<w:document><w:body><w:p><w:r><w:instrText>PAGE</w:instrText></w:r><w:ins w:id="3" w:author="Petro &amp; Co" w:date="2025-11-02T09:00:00Z"><w:r><w:t>new</w:t></w:r></w:ins><w:del w:id="4" w:author="Olena Koval"><w:r><w:delText xml:space="preserve">we can pay </w:delText></w:r><w:r><w:delText>40k max</w:delText></w:r></w:del><w:r><w:t>kept</w:t></w:r><w:del w:id="5" w:author="Olena Koval"><w:r><w:delText>&lt;draft&gt;</w:delText><w:delText/></w:r></w:del></w:p></w:body></w:document>"#;
 

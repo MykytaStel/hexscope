@@ -1834,15 +1834,11 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   await expect(page.locator(".tour")).toHaveCount(0);
   await expect(page.locator(".before-after")).toBeInViewport();
   const after = page.locator(".ba-side.is-after");
-  await expect(after.locator(".ba-count")).toHaveText("4");
-  await expect(after.locator(".ba-what")).toHaveText("Confirmed removed");
-  await expect(after.locator(".ba-verification-item")).toHaveCount(2);
-  await expect(after.locator(".ba-verification-item").nth(0)).toContainText("Still present");
-  await expect(after.locator(".ba-verification-item").nth(0).locator("strong")).toHaveText("0");
-  await expect(after.locator(".ba-verification-item").nth(1)).toContainText("Not checked");
-  await expect(after.locator(".ba-verification-item").nth(1).locator("strong")).toHaveText("4");
-  await expect(page.locator(".ba-side.is-after")).not.toHaveClass(/is-clear/);
-  await expect(page.locator(".copy-verification")).toContainText("Not checked");
+  // Every fact the photo gave away is confirmed gone from the copy.
+  await expect(after.locator(".ba-count")).toHaveText("8");
+  await expect(after.locator(".ba-what")).toHaveText("No findings found in the copy");
+  await expect(after).toHaveClass(/is-clear/);
+  await expect(after.locator(".ba-verification-item")).toHaveCount(0);
   // A computer saves it; a phone may offer to share it instead.
   if (saved.length > 0) expect(saved).toEqual(["photo-clean.jpg"]);
 });
@@ -1857,25 +1853,36 @@ test("clean copy verification reparses a generated photo", async ({ page }) => {
   await expect(report).toHaveRole("status");
   await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
   const removed = report.locator(".copy-verification-group").nth(0);
-  await expect(removed).toContainText("Camera");
-  await expect(removed).toContainText("Location");
-  await expect(report).toContainText("Still present");
-  await expect(report).toContainText("Not checked");
-  await expect(report).toContainText("Hexscope cannot yet confirm whether this JPEG finding was removed.");
+  for (const kind of ["Camera", "Location", "Lens", "Serial number", "Owner", "Taken", "Software", "Thumbnail"]) {
+    await expect(removed).toContainText(kind);
+  }
+  await expect(report).not.toContainText("Hexscope cannot yet confirm");
   await expect(report).not.toContainText("48.8584");
-  await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
 });
 
 test("clean-copy coverage explanations are translated in Ukrainian", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
   page.on("download", (download) => void download.cancel());
-  await page.goto("./?sample=photo.jpg");
+  // A PDF's earlier versions are outside what a copy is confirmed to lose.
+  await page.goto("./?sample=report.pdf");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.locator(".verdict-cta").click();
 
   await expect(page.locator(".copy-verification")).toContainText(
-    "Hexscope поки не може підтвердити, чи видалено цей факт у форматі JPEG.",
+    "Hexscope поки не може підтвердити, чи видалено цей факт у форматі PDF.",
   );
+});
+
+test("a document's clean copy is confirmed to lose its properties", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=report.docx");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+
+  const removed = page.locator(".copy-verification .copy-verification-group").nth(0);
+  for (const kind of ["Title", "Author", "Last saved by"]) {
+    await expect(removed).toContainText(kind);
+  }
 });
 
 test("clean copy verification checks that selected PDF text left the searchable copy", async ({ page }) => {
@@ -2110,13 +2117,14 @@ test("a spreadsheet's clean copy keeps what is part of it, and says so", async (
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after");
-  await expect(after.locator(".ba-count")).toHaveText("0");
+  // Its properties are confirmed gone; its hidden sheets are part of it, and stay.
+  await expect(after.locator(".ba-count")).toHaveText("4");
   await expect(after.locator(".ba-what")).toHaveText("Findings remain in the copy");
   await expect(after.locator(".ba-verification-item")).toHaveCount(2);
   await expect(after.locator(".ba-verification-item").nth(0)).toContainText("Still present");
   await expect(after.locator(".ba-verification-item").nth(0).locator("strong")).toHaveText("2");
   await expect(after.locator(".ba-verification-item").nth(1)).toContainText("Not checked");
-  await expect(after.locator(".ba-verification-item").nth(1).locator("strong")).toHaveText("4");
+  await expect(after.locator(".ba-verification-item").nth(1).locator("strong")).toHaveText("0");
   await expect(page.locator(".cleaner")).toContainText("Kept: what is part of a workbook or a deck itself");
 });
 
@@ -2421,7 +2429,8 @@ test("an Outlook message is read as an email, and an old Word file is cleaned", 
   await expect(page.locator(".verdict-title")).toHaveText("This document gives away 2 things");
   await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("0");
+  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("2");
+  await expect(page.locator(".ba-side.is-after")).toHaveClass(/is-clear/);
   if (saved.length > 0) expect(saved).toEqual(["plan-clean.doc"]);
 });
 
