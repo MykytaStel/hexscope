@@ -95,6 +95,7 @@ function memoryDb(fail = false): D1Database & { totals: Map<string, number> } {
       totals.set(key, (totals.get(key) ?? 0) + 1);
       return {};
     },
+    first: async () => null,
   });
   return {
     totals,

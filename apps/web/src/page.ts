@@ -3,11 +3,34 @@ import { GUIDE_UK } from "./guide-i18n";
 import { themeButton } from "./theme";
 import { currentLocale, installLocale, languageButton, registerLazyTranslations } from "./i18n";
 import { countVisit } from "./count";
+import { openFeedback } from "./feedback";
+import { showWays } from "./support";
 
 registerLazyTranslations(GUIDE_UK);
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton(), themeButton());
 countVisit();
+
+const ways = document.getElementById("support-ways");
+if (ways) showWays(ways);
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-feedback]")) b.addEventListener("click", () => openFeedback({ kind: "idea" }));
+
+// At the end of every article: a way to tell the developer, and to thank them.
+const article = document.querySelector<HTMLElement>(".story-text");
+if (article && !ways) {
+  const foot = document.createElement("p");
+  foot.className = "story-foot story-reach";
+  const write = document.createElement("button");
+  write.className = "link";
+  write.textContent = "Something wrong or missing? Write to the developer";
+  write.addEventListener("click", () => openFeedback({ kind: "idea" }));
+  const support = document.createElement("a");
+  // Beside the article: /support, or /uk/support from a Ukrainian page.
+  support.href = "support";
+  support.textContent = "Support the project";
+  foot.append(write, document.createTextNode(" · "), support);
+  article.append(foot);
+}
 
 // Keep the article's language in step with the shared language selector so
 // assistive technology reads every guide in the language currently displayed.

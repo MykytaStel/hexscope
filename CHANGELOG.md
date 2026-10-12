@@ -10,6 +10,20 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **Write to the developer, without an account.** A problem, an idea or
+  thanks goes from the page itself — from the footer, the end of every guide,
+  or a file's “Report a problem”, which can attach the file's structure
+  report (its layout, none of its content) when ticked. What is sent is what
+  the form shows; never the file, never an address. Read by the developer
+  with `pnpm feedback`.
+
+- **A way to thank the developer**: a support page with ways to help, and,
+  after the third clean copy, one quiet line saying how — closed for good
+  with ×.
+
+- Installed as an app, hexscope also opens TIFF files from the computer or a
+  phone's share sheet.
+
 - **TIFF.** Scans and camera TIFFs say where they were taken, the camera and
   its serial number, the owner, the time and the software, read by the same
   code as a JPEG's EXIF. The clean copy empties those tags and the EXIF and

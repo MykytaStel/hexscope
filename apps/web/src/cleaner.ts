@@ -6,6 +6,7 @@ import { currentLocale, translateText } from "./i18n";
 import type { FileModel } from "./model";
 import { KEPT_NOTE } from "./knowledge";
 import { dismissTour } from "./tour";
+import { thanksLine } from "./support";
 
 /** What each kind of clean copy leaves out, said before it is made. */
 export const CLEAN_NOTES: Record<string, string> = {
@@ -130,6 +131,8 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
       }
     });
     if (verification) box.append(verification);
+    const thanks = thanksLine();
+    if (thanks) box.append(thanks);
   });
   return box;
 }

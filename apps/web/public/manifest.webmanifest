@@ -72,7 +72,10 @@
             "application/vnd.ms-powerpoint",
             ".ppt",
             "application/vnd.ms-outlook",
-            ".msg"
+            ".msg",
+            "image/tiff",
+            ".tif",
+            ".tiff"
           ]
         }
       ]
@@ -153,6 +156,10 @@
         ],
         "application/vnd.ms-outlook": [
           ".msg"
+        ],
+        "image/tiff": [
+          ".tif",
+          ".tiff"
         ]
       }
     }

@@ -1,4 +1,5 @@
 import "./style.css";
+import { openFeedback } from "./feedback";
 import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
@@ -51,6 +52,7 @@ let batchController: BatchController;
 let workspace: WorkspaceController;
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-feedback]")) b.addEventListener("click", () => openFeedback());
 // "Take the tour": on the sample photo, from the start.
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
   b.addEventListener("click", () => {
