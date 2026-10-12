@@ -13,11 +13,42 @@ and the finding is absent from the output. Hexscope captures the source facts
 before cleaning, then reads back the written copy. A value-free result from
 this same core contract is used by the Web worker and `hexscope clean --verify`.
 
-| Format | Findings eligible for **Removed** | Required scope | Evidence and limits | Interfaces |
-| --- | --- | --- | --- | --- |
-| JPEG, PNG, WebP | camera, serial, owner, location | whole file | The complete source snapshot and read-back parse are compared for these four file-level kinds. A region-scoped or incomplete parse does not qualify. | Web worker and CLI. The Web skips read-back verification for copies larger than 10 MiB. |
-| PDF | author, title, subject, keywords, application, producer, created, modified, history | whole file | The complete source snapshot and read-back parse are compared for these currently supported file-level Info/XMP kinds. Page content, revisions, annotations, hidden text, and other findings are outside this removal claim. | Web worker and CLI. The Web skips read-back verification for copies larger than 10 MiB. |
-| Every other format, finding, or scope | none | — | A finding still observed in the copy is **Still present**. If it is absent but its removal is outside this contract, the result is **Not checked**. Incomplete reads remain **Not checked**. | Same shared core result where verification is available; Web-only QR and selected-PDF-text checks are supplemental and do not expand this matrix. |
+The table below is written from that contract, and a core test fails when
+the two differ. Every finding is file-scoped: a fact about one entry inside a
+file, such as a photo in a document, is not covered.
+
+<!-- coverage:start -->
+| Format | Findings a clean copy is confirmed to have removed |
+| --- | --- |
+| `jpeg` | location, camera, lens, serial, owner, taken, software, thumbnail |
+| `png` | location, camera, lens, serial, owner, taken, software |
+| `webp` | location, camera, lens, serial, owner, taken, software, thumbnail |
+| `heif` | location, camera, lens, serial, owner, taken, software |
+| `video` | location, camera, owner, taken, software |
+| `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
+| `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags |
+| `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
+<!-- coverage:end -->
+
+Why each row can be trusted:
+
+- **Photos** (JPEG, PNG, WebP, HEIC): the copy drops or blanks EXIF, XMP,
+  IPTC, the maker's notes and comments as a whole, so no copy of these kinds
+  can stay in another block.
+- **Videos** (MP4, MOV, M4A): the copy blanks every metadata item where it
+  lies and zeroes the creation and change times of every header.
+- **PDF**: the copy is written anew without the Info dictionary and XMP. Page
+  content, earlier versions, annotations and hidden text are outside this row.
+- **Word, Excel, PowerPoint** (`zip`): the copy replaces the core, app and
+  custom properties with empty parts and leaves out a Mac's `__MACOSX` notes.
+  Comments, tracked changes and embedded files are outside this row.
+- **Office 97-2003**: the copy blanks both property streams where they lie.
+- **Every other format, finding, or scope**: none. A finding still observed in
+  the copy is **Still present**; absent but uncovered, it is **Not checked**,
+  as is anything from an incomplete read.
+
+The Web skips read-back verification for copies larger than 10 MiB; the CLI
+reads back every copy it is asked to verify.
 
 ## User-facing result meanings
 

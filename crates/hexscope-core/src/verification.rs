@@ -31,115 +31,102 @@ pub struct VerificationCapability {
     pub scope: &'static str,
 }
 
-/// Canonical clean-copy removal contract shared by the core, Web, and CLI.
-/// Reports outside these exact combinations remain `present` or `unchecked`.
-pub const VERIFIED_REMOVAL_CAPABILITIES: &[VerificationCapability] = &[
-    VerificationCapability {
-        format: "jpeg",
-        kind: "camera",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "jpeg",
-        kind: "serial",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "jpeg",
-        kind: "owner",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "jpeg",
-        kind: "location",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "png",
-        kind: "camera",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "png",
-        kind: "serial",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "png",
-        kind: "owner",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "png",
-        kind: "location",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "webp",
-        kind: "camera",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "webp",
-        kind: "serial",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "webp",
-        kind: "owner",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "webp",
-        kind: "location",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "author",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "title",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "subject",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "keywords",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "application",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "producer",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "created",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "modified",
-        scope: "file",
-    },
-    VerificationCapability {
-        format: "pdf",
-        kind: "history",
-        scope: "file",
-    },
+/// What a photo's clean copy removes wherever it is kept: EXIF, XMP, IPTC and
+/// the maker's notes go whole, so nothing of these kinds can stay behind.
+const PHOTO: &[&str] = &[
+    "location", "camera", "lens", "serial", "owner", "taken", "software",
 ];
+const PHOTO_AND_THUMBNAIL: &[&str] = &[
+    "location",
+    "camera",
+    "lens",
+    "serial",
+    "owner",
+    "taken",
+    "software",
+    "thumbnail",
+];
+/// A video's copy blanks its metadata items and zeroes every header's times.
+const VIDEO: &[&str] = &["location", "camera", "owner", "taken", "software"];
+/// A PDF is written anew without its Info dictionary and XMP.
+const PDF: &[&str] = &[
+    "author",
+    "title",
+    "subject",
+    "keywords",
+    "application",
+    "producer",
+    "created",
+    "modified",
+    "history",
+];
+/// Word, Excel and PowerPoint: the copy replaces docProps/core.xml, app.xml and
+/// custom.xml with empty ones and leaves out a Mac's __MACOSX notes.
+const OFFICE: &[&str] = &[
+    "title",
+    "subject",
+    "author",
+    "editor",
+    "keywords",
+    "description",
+    "category",
+    "status",
+    "created",
+    "modified",
+    "revisions",
+    "company",
+    "manager",
+    "application",
+    "editing",
+    "template",
+    "label",
+    "custom",
+    "downloaded",
+    "tags",
+];
+/// Office 97-2003: the copy blanks both property streams where they lie.
+const OFFICE97: &[&str] = &[
+    "title",
+    "subject",
+    "author",
+    "editor",
+    "keywords",
+    "description",
+    "category",
+    "created",
+    "modified",
+    "revisions",
+    "company",
+    "manager",
+    "application",
+    "editing",
+    "template",
+];
+
+/// Canonical clean-copy removal contract shared by the core, Web, and CLI:
+/// each format and the file-scoped findings it covers. Reports outside these
+/// exact combinations remain `present` or `unchecked`.
+pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
+    ("jpeg", PHOTO_AND_THUMBNAIL),
+    ("png", PHOTO),
+    ("webp", PHOTO_AND_THUMBNAIL),
+    ("heif", PHOTO),
+    ("video", VIDEO),
+    ("pdf", PDF),
+    ("zip", OFFICE),
+    ("office97", OFFICE97),
+];
+
+/// Every covered combination, one by one.
+pub fn verified_removal_capabilities() -> impl Iterator<Item = VerificationCapability> {
+    VERIFIED_REMOVAL.iter().flat_map(|(format, kinds)| {
+        kinds.iter().map(move |kind| VerificationCapability {
+            format,
+            kind,
+            scope: "file",
+        })
+    })
+}
 
 /// Stable machine-readable explanation for one result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -526,9 +513,10 @@ fn scope_end(order: &[usize], start: usize, findings: &[VerificationFinding]) ->
 }
 
 fn covered(format: &str, kind: &str, scope: &str) -> bool {
-    VERIFIED_REMOVAL_CAPABILITIES.iter().any(|capability| {
-        capability.format == format && capability.kind == kind && capability.scope == scope
-    })
+    scope == "file"
+        && VERIFIED_REMOVAL
+            .iter()
+            .any(|(f, kinds)| *f == format && kinds.contains(&kind))
 }
 
 #[cfg(test)]
@@ -545,44 +533,44 @@ mod tests {
 
     #[test]
     fn removal_capability_contract_is_unique_and_matches_the_verification_gate() {
-        let tuples = VERIFIED_REMOVAL_CAPABILITIES
-            .iter()
+        let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-
-        assert_eq!(
-            tuples,
-            [
-                ("jpeg", "camera", "file"),
-                ("jpeg", "serial", "file"),
-                ("jpeg", "owner", "file"),
-                ("jpeg", "location", "file"),
-                ("png", "camera", "file"),
-                ("png", "serial", "file"),
-                ("png", "owner", "file"),
-                ("png", "location", "file"),
-                ("webp", "camera", "file"),
-                ("webp", "serial", "file"),
-                ("webp", "owner", "file"),
-                ("webp", "location", "file"),
-                ("pdf", "author", "file"),
-                ("pdf", "title", "file"),
-                ("pdf", "subject", "file"),
-                ("pdf", "keywords", "file"),
-                ("pdf", "application", "file"),
-                ("pdf", "producer", "file"),
-                ("pdf", "created", "file"),
-                ("pdf", "modified", "file"),
-                ("pdf", "history", "file"),
-            ]
-        );
+        assert_eq!(tuples.len(), 8 + 7 + 8 + 7 + 5 + 9 + 20 + 15);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));
         }
-        assert!(!covered("jpeg", "lens", "file"));
+        assert!(!covered("jpeg", "caption", "file"));
         assert!(!covered("jpeg", "camera", "region"));
-        assert!(!covered("png", "camera", "region"));
+        assert!(!covered("png", "thumbnail", "file"));
+        assert!(!covered("zip", "comments", "file"));
+        assert!(!covered("gif", "caption", "file"));
+    }
+
+    /// The coverage table in docs/verification-coverage.md, as this contract
+    /// writes it: the document cannot say more, or less, than the code.
+    #[test]
+    fn the_coverage_document_is_this_contract() {
+        let doc = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/verification-coverage.md"
+        ))
+        .unwrap();
+        let table: String = VERIFIED_REMOVAL
+            .iter()
+            .map(|(format, kinds)| format!("| `{format}` | {} |\n", kinds.join(", ")))
+            .collect();
+        let start =
+            doc.find("<!-- coverage:start -->\n").unwrap() + "<!-- coverage:start -->\n".len();
+        let end = doc.find("<!-- coverage:end -->").unwrap();
+        assert_eq!(
+            &doc[start..end],
+            format!(
+                "| Format | Findings a clean copy is confirmed to have removed |\n| --- | --- |\n{table}"
+            ),
+            "update docs/verification-coverage.md to this table"
+        );
     }
 
     fn snapshot(
@@ -790,7 +778,11 @@ mod tests {
     #[test]
     fn verification_marks_uncovered_and_incomplete_findings_unchecked() {
         let uncovered = compare(
-            &snapshot("jpeg", true, vec![finding("lens", "file", Some("lens A"))]),
+            &snapshot(
+                "jpeg",
+                true,
+                vec![finding("caption", "file", Some("caption A"))],
+            ),
             &snapshot("jpeg", true, vec![]),
         );
         assert_eq!(
@@ -826,11 +818,11 @@ mod tests {
 
         let wrong_format = compare(
             &snapshot(
-                "heif",
+                "gif",
                 true,
                 vec![finding("camera", "file", Some("camera A"))],
             ),
-            &snapshot("heif", true, vec![]),
+            &snapshot("gif", true, vec![]),
         );
         assert_eq!(
             wrong_format.unchecked[0].reason,

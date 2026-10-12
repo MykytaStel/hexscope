@@ -2304,11 +2304,12 @@ mod tests {
         assert!(report.contains("\"kind\":\"location\""), "{report}");
         assert!(report.contains("\"removed\":["), "{report}");
         assert!(report.contains("\"present\":[]"), "{report}");
-        assert!(report.contains("\"kind\":\"lens\""), "{report}");
+        // Every finding of the photo, the lens among them, is confirmed removed.
         assert!(
-            report.contains("\"reason\":\"coverage_incomplete\""),
+            report.contains("\"kind\":\"lens\",\"reason\":\"removed\""),
             "{report}"
         );
+        assert!(report.contains("\"unchecked\":[]"), "{report}");
     }
 
     #[test]

@@ -9,6 +9,8 @@ homepage.workspace = true
 readme = "README.md"
 keywords = ["file-formats", "parsing", "metadata", "privacy", "forensics"]
 categories = ["parser-implementations", "compression"]
+# The test corpus and fixtures are for this repository's checks, not for users of the crate.
+exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots"]
 
 [features]
 default = ["documents"]
