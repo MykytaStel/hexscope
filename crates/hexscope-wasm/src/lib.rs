@@ -648,7 +648,9 @@ impl Parsed {
                     .map_err(str::to_string)
             }
             None => Err("this file is not an archive".to_string()),
-            Some(_) if !cfg!(feature = "office") => Err("this module opens no archives".to_string()),
+            Some(_) if !cfg!(feature = "office") => {
+                Err("this module opens no archives".to_string())
+            }
             Some(zip) => match zip.entries.get(index as usize) {
                 None => Err(format!("there is no entry {index}")),
                 Some(e) if !openable(e) => Err("this entry cannot be opened".to_string()),

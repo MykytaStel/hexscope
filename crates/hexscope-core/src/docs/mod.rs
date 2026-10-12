@@ -140,22 +140,14 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Heif => crate::heif::docs::describe(tree, node, problem),
         Format::Webp => crate::webp::docs::describe(label, problem),
         Format::Gif => crate::gif::docs::describe(label, problem),
-        Format::Pdf if cfg!(feature = "pdf") => {
-            crate::pdf::docs::describe(tree, node, problem)
-        }
+        Format::Pdf if cfg!(feature = "pdf") => crate::pdf::docs::describe(tree, node, problem),
         Format::Video => crate::video::docs::describe(tree, node, problem),
-        Format::Zip if cfg!(feature = "office") => {
-            crate::zip::docs::describe(tree, node, problem)
-        }
+        Format::Zip if cfg!(feature = "office") => crate::zip::docs::describe(tree, node, problem),
         Format::Wasm if cfg!(feature = "module") => {
             crate::wasm::docs::describe(tree, node, problem)
         }
-        Format::Eml if cfg!(feature = "mail") => {
-            crate::eml::docs::describe(tree, node, problem)
-        }
-        Format::Cfb if cfg!(feature = "office") => {
-            crate::cfb::docs::describe(tree, node, problem)
-        }
+        Format::Eml if cfg!(feature = "mail") => crate::eml::docs::describe(tree, node, problem),
+        Format::Cfb if cfg!(feature = "office") => crate::cfb::docs::describe(tree, node, problem),
         Format::Unknown => crate::document::docs(label),
         _ => None,
     }
