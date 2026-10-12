@@ -5,6 +5,7 @@
 // the whole text before copying it.
 import { Kind, type FileModel } from "./model";
 import { dismissable } from "./dialogs";
+import { openFeedback } from "./feedback";
 
 /** The commit the site was built from, set by the build. */
 declare const __BUILD__: string;
@@ -98,17 +99,24 @@ export function openReport(m: FileModel): void {
   issue.href = ISSUE;
   issue.target = "_blank";
   issue.rel = "noopener noreferrer";
+  // Straight to the developer, with this report attached: no account needed.
+  const send = el("button", "btn btn-primary", "Send to the developer");
+  send.addEventListener("click", () => {
+    dialog.close();
+    openFeedback({ kind: "bug", report: text.value });
+  });
+  copy.className = "btn";
   const close = el("button", "btn", "Close");
   close.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialog.remove());
   const actions = el("div", "report-actions");
-  actions.append(copy, issue, close);
+  actions.append(send, copy, issue, close);
   dialog.append(
     el("h2", undefined, "Report a problem with this file"),
     el(
       "p",
       "hint",
-      "This is the file's layout — its parts, where they are and how big — and none of what it says. Read it before you share it: nothing is sent unless you paste it somewhere yourself.",
+      "This is the file's layout — its parts, where they are and how big — and none of what it says. Read it before you share it: nothing is sent until you choose to send it.",
     ),
     text,
     actions,

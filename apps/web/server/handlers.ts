@@ -1,13 +1,17 @@
-// The endpoint behind the counter, on Cloudflare Pages Functions with a
-// D1 database bound as COUNTS (wrangler.toml). The database holds one table of
-// totals (migrations/0001_counts.sql); nothing in it can name a visitor. The
-// totals are read only by the account's owner: \`pnpm stats\` (scripts/stats.mjs).
+// The endpoints behind the counter and the messages people send, on
+// Cloudflare Pages Functions with a D1 database bound as COUNTS
+// (wrangler.toml). It holds a table of totals (migrations/0001_counts.sql),
+// in which nothing can name a visitor, and the messages people chose to send
+// (migrations/0002_feedback.sql). Both are read only by the account's owner:
+// \`pnpm stats\` (scripts/stats.mjs) and \`pnpm feedback\` (scripts/feedback.mjs).
 
 import { answer, PERIODS, type Period, type Row } from "./count";
+import { check, DAILY, type Feedback } from "./feedback";
 
 export interface D1Statement {
   bind(...values: unknown[]): D1Statement;
   run(): Promise<unknown>;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
 }
 
 export interface D1Database {
@@ -60,4 +64,54 @@ async function add(env: Env, rows: readonly Row[]): Promise<void> {
   if (!env.COUNTS) throw new Error("No COUNTS database bound");
   const db = env.COUNTS;
   await db.batch(rows.map((r) => db.prepare(ADD).bind(r.period, r.metric, r.value)));
+}
+
+/** The messages table, made on first use so a new deployment needs no step of its own. */
+const FEEDBACK_TABLE = `CREATE TABLE IF NOT EXISTS feedback (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  message TEXT NOT NULL,
+  contact TEXT NOT NULL DEFAULT '',
+  report TEXT NOT NULL DEFAULT '',
+  page TEXT NOT NULL DEFAULT '',
+  lang TEXT NOT NULL DEFAULT '',
+  version TEXT NOT NULL DEFAULT '',
+  device TEXT NOT NULL DEFAULT '',
+  done INTEGER NOT NULL DEFAULT 0
+)`;
+const KEEP = "INSERT INTO feedback (day, kind, message, contact, report, page, lang, version, device) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+
+/** POST /api/feedback — keeps a message someone chose to send; says only whether it was kept. */
+export async function feedback({ request, env }: Context, now = new Date()): Promise<Response> {
+  if (request.method !== "POST") return new Response("POST only", { status: 405, headers: { Allow: "POST" } });
+  let body: unknown = null;
+  const raw = await request.text();
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    // Checked below as nothing said.
+  }
+  const checked = check({
+    fetchSite: request.headers.get("Sec-Fetch-Site"),
+    contentType: request.headers.get("Content-Type"),
+    length: raw.length,
+    body,
+  });
+  if (!checked.ok) return new Response(checked.reason, { status: checked.status });
+  if (!env.COUNTS) return new Response("not kept: no database", { status: 503 });
+  try {
+    const kept = await keep(env.COUNTS, checked.feedback, now.toISOString().slice(0, 10));
+    return kept ? new Response(null, { status: 204 }) : new Response("too many messages today", { status: 429 });
+  } catch {
+    return new Response("not kept", { status: 503 });
+  }
+}
+
+async function keep(db: D1Database, f: Feedback, day: string): Promise<boolean> {
+  await db.prepare(FEEDBACK_TABLE).run();
+  const today = await db.prepare("SELECT COUNT(*) AS n FROM feedback WHERE day = ?1").bind(day).first<{ n: number }>();
+  if ((today?.n ?? 0) >= DAILY) return false;
+  await db.prepare(KEEP).bind(day, f.kind, f.message, f.contact, f.report, f.page, f.lang, f.version, f.device).run();
+  return true;
 }

@@ -111,6 +111,7 @@ export default defineConfig({
         ai: page("ai-image-metadata.html"),
         pdfmeta: page("remove-metadata-from-pdf.html"),
         officemeta: page("remove-metadata-from-word.html"),
+        support: page("support.html"),
         // What the host answers, with a 404, for an address that is no page.
         notfound: page("404.html"),
       },
