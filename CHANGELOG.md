@@ -8,6 +8,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **The site in Ukrainian for search engines.** Every page has a Ukrainian
+  copy of its own at `/uk/…`, written at build time, so a search in Ukrainian
+  finds the guides; the two are linked to each other (hreflang), described as
+  structured data (a free web application, articles) and listed in a sitemap
+  of both. The site's address is set once (`SITE` in `apps/web/seo.ts`).
+
 ### Changed
 
 - The visit numbers are read only by the site's author, straight from the

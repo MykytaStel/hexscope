@@ -5,6 +5,12 @@ import type { FileModel } from "./model";
 import { misfit } from "./verdict";
 import { formatBytes } from "./dom";
 
+/** A file of the site — a sample, the service worker — by its path from the site's root,
+ * whatever page asks: this module lives one folder down, in assets/ or src/. */
+export const siteUrl = (path: string): string => new URL("../" + path, HERE).href;
+// Held apart: Vite reads `new URL(…, import.meta.url)` as an asset to bundle, which these are not.
+const HERE = import.meta.url;
+
 /** The largest file read in a tab: past it, browsers cannot hold it whole. */
 export const MAX_FILE = 2 * 1024 ** 3 - 1;
 

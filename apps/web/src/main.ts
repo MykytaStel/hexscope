@@ -23,7 +23,7 @@ import { SearchBar } from "./search";
 import { announce } from "./announce";
 import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
-import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, tooLarge } from "./files";
+import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, siteUrl, tooLarge } from "./files";
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
@@ -790,7 +790,7 @@ async function loadSample(path: string, name: string): Promise<void> {
   // A dropped connection gets a second try before it is said.
   for (let attempt = 0; attempt < 2 && !res; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 800));
-    res = await fetch(path).catch(() => null);
+    res = await fetch(siteUrl(path)).catch(() => null);
   }
   if (!res) {
     loadFailed(
@@ -900,7 +900,7 @@ function openLaunched(): void {
 // Offline after the first visit, and installable. Only in production: in
 // development the cache would serve stale modules.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  void navigator.serviceWorker.register("./sw.js");
+  void navigator.serviceWorker.register(siteUrl("sw.js"));
 }
 problemsBtn.addEventListener("click", () => {
   toBytes();

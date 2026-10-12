@@ -2,6 +2,7 @@
 // photo reveal, and what does its clean copy remove? Technical examples live
 // in the collapsed "Look inside" section below.
 import { call } from "./rpc";
+import { siteUrl } from "./files";
 
 const DWELL_MS = 2400;
 const FACT_MS = 900;
@@ -68,7 +69,7 @@ interface Said {
 /** Parse one ordinary photo and verify the clean copy before showing its result. */
 async function photoScene(): Promise<Said | null> {
   try {
-    const bytes = new Uint8Array(await (await fetch(PHOTO)).arrayBuffer());
+    const bytes = new Uint8Array(await (await fetch(siteUrl(PHOTO))).arrayBuffer());
     if (!idle()) return null;
     const picture = new Blob([bytes as BlobPart], { type: "image/jpeg" });
     const decoded = await createImageBitmap(picture);
