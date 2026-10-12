@@ -242,24 +242,6 @@ for (const scheme of ["dark", "light"] as const) {
       await check(page, "privacy");
     });
 
-    test("the numbers", async ({ page }) => {
-      await page.addInitScript(() => localStorage.setItem("hexscope.statsKey", "k"));
-      await page.route("**/api/stats", (route) =>
-        route.fulfill({
-          json: {
-            today: { day: "2026-10-10", people: 3, new: 2 },
-            month: { month: "2026-10", people: 30 },
-            days: Array.from({ length: 30 }, (_, i) => ({ day: `2026-09-${String(i + 1).padStart(2, "0")}`, people: i, new: 1 })),
-            months: Array.from({ length: 12 }, (_, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, people: i * 3 })),
-            top: { country: [["UA", 5]], from: [], page: [["/", 5]], device: [["phone", 5]], lang: [["en", 5]] },
-          },
-        }),
-      );
-      await page.goto("./stats");
-      await expect(page.locator(".stats-tile")).toHaveCount(3);
-      await check(page, "numbers");
-    });
-
     test("the keyboard list", async ({ page }, info) => {
       test.skip(info.project.name !== "computer", "keys are for a computer");
       await page.goto("./");

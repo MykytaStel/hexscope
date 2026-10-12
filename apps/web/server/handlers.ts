@@ -1,13 +1,12 @@
-// The two endpoints behind the counter, on Cloudflare Pages Functions with a
+// The endpoint behind the counter, on Cloudflare Pages Functions with a
 // D1 database bound as COUNTS (wrangler.toml). The database holds one table of
 // totals (migrations/0001_counts.sql); nothing in it can name a visitor. The
-// totals are read only with the key kept as the STATS_KEY secret.
+// totals are read only by the account's owner: \`pnpm stats\` (scripts/stats.mjs).
 
-import { answer, firstDay, firstMonth, PERIODS, summarize, type Period, type Row, type Stats, type Total } from "./count";
+import { answer, PERIODS, type Period, type Row } from "./count";
 
 export interface D1Statement {
   bind(...values: unknown[]): D1Statement;
-  all<T>(): Promise<{ results: T[] }>;
   run(): Promise<unknown>;
 }
 
@@ -18,8 +17,6 @@ export interface D1Database {
 
 export interface Env {
   COUNTS?: D1Database;
-  /** The key that reads the totals; with none set, they cannot be read. */
-  STATS_KEY?: string;
 }
 
 export interface Context {
@@ -63,44 +60,4 @@ async function add(env: Env, rows: readonly Row[]): Promise<void> {
   if (!env.COUNTS) throw new Error("No COUNTS database bound");
   const db = env.COUNTS;
   await db.batch(rows.map((r) => db.prepare(ADD).bind(r.period, r.metric, r.value)));
-}
-
-// The figures change slowly and the database bills each row it reads: one
-// worker keeps what it last read for five minutes, for the key's holder only.
-let kept: { at: number; stats: Stats } | null = null;
-const KEEP = 5 * 60_000;
-
-/** Whether two strings are the same, taking as long for every pair of one length. */
-function same(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-/** GET /api/stats — the totals, for whoever has the key: people a day, a month, and where they came from. */
-export async function stats({ request, env }: Context, now = new Date()): Promise<Response> {
-  const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" };
-  if (!env.STATS_KEY) return new Response(JSON.stringify({ error: "off" }), { status: 404, headers });
-  const given = request.headers.get("Authorization")?.replace(/^Bearer\s+/, "") ?? "";
-  if (!same(given, env.STATS_KEY)) return new Response(JSON.stringify({ error: "key" }), { status: 401, headers });
-  if (kept && now.getTime() - kept.at < KEEP) return new Response(JSON.stringify(kept.stats), { headers });
-  if (!env.COUNTS) return new Response(JSON.stringify({ error: "unavailable" }), { status: 503, headers });
-  try {
-    const db = env.COUNTS;
-    const [days, months] = await Promise.all([
-      db.prepare("SELECT period, metric, value, n FROM counts WHERE period >= ?1 AND length(period) = 10").bind(firstDay(now)).all<Total>(),
-      db.prepare("SELECT period, metric, value, n FROM counts WHERE period >= ?1 AND length(period) = 7 AND metric = 'people'").bind(firstMonth(now)).all<Total>(),
-    ]);
-    const figures = summarize([...days.results, ...months.results], now);
-    kept = { at: now.getTime(), stats: figures };
-    return new Response(JSON.stringify(figures), { headers });
-  } catch {
-    return new Response(JSON.stringify({ error: "unavailable" }), { status: 503, headers });
-  }
-}
-
-/** For tests: forget what the last read kept. */
-export function forgetKept(): void {
-  kept = null;
 }

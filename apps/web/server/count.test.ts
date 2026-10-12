@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { answer, fromHost, page, periodEnd, periodStart, summarize, type Total, type Visit } from "./count";
-import { forgetKept, seen, stats, type Context, type D1Database, type D1Statement } from "./handlers";
+import { describe, expect, it } from "vitest";
+import { answer, fromHost, page, periodEnd, periodStart, type Visit } from "./count";
+import { seen, type Context, type D1Database, type D1Statement } from "./handlers";
 
 const at = (iso: string) => new Date(iso);
 
@@ -82,40 +82,7 @@ describe("what a visit is said to come from", () => {
   });
 });
 
-describe("the public figures", () => {
-  const now = at("2026-10-10T12:00:00Z");
-  const totals: Total[] = [
-    { period: "2026-10-10", metric: "people", value: "", n: 12 },
-    { period: "2026-10-10", metric: "new", value: "", n: 9 },
-    { period: "2026-10-09", metric: "people", value: "", n: 5 },
-    { period: "2026-09-01", metric: "people", value: "", n: 99 },
-    { period: "2026-10", metric: "people", value: "", n: 15 },
-    { period: "2026-09", metric: "people", value: "", n: 40 },
-    { period: "2026-10-10", metric: "country", value: "UA", n: 8 },
-    { period: "2026-10-09", metric: "country", value: "UA", n: 3 },
-    { period: "2026-10-10", metric: "country", value: "PL", n: 4 },
-    { period: "2026-09-01", metric: "country", value: "US", n: 99 },
-  ];
-
-  it("fills every one of the last 30 days and 12 months, oldest first", () => {
-    const s = summarize(totals, now);
-    expect(s.days).toHaveLength(30);
-    expect(s.days[0]).toEqual({ day: "2026-09-11", people: 0, new: 0 });
-    expect(s.days.at(-2)).toEqual({ day: "2026-10-09", people: 5, new: 0 });
-    expect(s.today).toEqual({ day: "2026-10-10", people: 12, new: 9 });
-    expect(s.months).toHaveLength(12);
-    expect(s.months[0].month).toBe("2025-11");
-    expect(s.months.slice(-2)).toEqual([{ month: "2026-09", people: 40 }, { month: "2026-10", people: 15 }]);
-    expect(s.month).toEqual({ month: "2026-10", people: 15 });
-  });
-
-  it("ranks where people came from over the last 30 days only", () => {
-    expect(summarize(totals, now).top.country).toEqual([["UA", 11], ["PL", 4]]);
-    expect(summarize(totals, now).top.from).toEqual([]);
-  });
-});
-
-/** A D1 database in memory, enough for the two statements the endpoints run. */
+/** A D1 database in memory, enough for the statement the endpoint runs. */
 function memoryDb(fail = false): D1Database & { totals: Map<string, number> } {
   const totals = new Map<string, number>();
   const statement = (sql: string, values: unknown[] = []): D1Statement => ({
@@ -126,18 +93,6 @@ function memoryDb(fail = false): D1Database & { totals: Map<string, number> } {
       totals.set(key, (totals.get(key) ?? 0) + 1);
       return {};
     },
-    async all<T>() {
-      if (fail) throw new Error("D1 is down");
-      const from = String(values[0]);
-      const results = [...totals].map(([k, n]) => {
-        const [period, metric, value] = k.split("|");
-        return { period, metric, value, n };
-      });
-      const wanted = sql.includes("length(period) = 10")
-        ? results.filter((r) => r.period.length === 10 && r.period >= from)
-        : results.filter((r) => r.period.length === 7 && r.period >= from && r.metric === "people");
-      return { results: wanted as T[] };
-    },
   });
   return {
     totals,
@@ -146,19 +101,18 @@ function memoryDb(fail = false): D1Database & { totals: Map<string, number> } {
   };
 }
 
-function context(db: D1Database | undefined, path: string, headers: Record<string, string> = {}, key?: string): Context {
+function context(db: D1Database | undefined, path: string, headers: Record<string, string> = {}): Context {
   const period = path.split("/").pop();
   return {
     request: Object.assign(new Request(`https://hexscope.pages.dev${path}`, { headers: { "Sec-Fetch-Site": "same-origin", ...headers } }), {
       cf: { country: "UA" },
     }),
-    env: { COUNTS: db, STATS_KEY: key },
+    env: { COUNTS: db },
     params: { period },
   };
 }
 
-describe("the endpoints", () => {
-  beforeEach(forgetKept);
+describe("the endpoint", () => {
   const now = at("2026-10-10T12:00:00Z");
 
   it("counts a visit and its details, then nothing for the same browser that day", async () => {
@@ -184,30 +138,6 @@ describe("the endpoints", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("serves the figures from the totals", async () => {
-    const db = memoryDb();
-    await seen(context(db, "/api/seen/day"), now);
-    await seen(context(db, "/api/seen/month"), now);
-    await seen(context(db, "/api/seen/new"), now);
-    const res = await stats(context(db, "/api/stats", { Authorization: "Bearer the-key" }, "the-key"), now);
-    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
-    const body = await res.json();
-    expect(body.today).toEqual({ day: "2026-10-10", people: 1, new: 1 });
-    expect(body.month).toEqual({ month: "2026-10", people: 1 });
-    expect(body.top.country).toEqual([["UA", 1]]);
-  });
 
-  it("shows the figures only to whoever has the key", async () => {
-    const db = memoryDb();
-    expect((await stats(context(db, "/api/stats"), now)).status).toBe(404);
-    expect((await stats(context(db, "/api/stats", {}, "the-key"), now)).status).toBe(401);
-    expect((await stats(context(db, "/api/stats", { Authorization: "Bearer the-kez" }, "the-key"), now)).status).toBe(401);
-    expect((await stats(context(db, "/api/stats", { Authorization: "Bearer the-key" }, "the-key"), now)).status).toBe(200);
-  });
 
-  it("says the figures are unavailable without a database", async () => {
-    const auth = { Authorization: "Bearer k" };
-    expect((await stats(context(undefined, "/api/stats", auth, "k"), now)).status).toBe(503);
-    expect((await stats(context(memoryDb(true), "/api/stats", auth, "k"), now)).status).toBe(503);
-  });
 });

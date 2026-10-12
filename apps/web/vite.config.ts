@@ -88,7 +88,7 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       // The app, the story page that explains DEFLATE with its player, the
-      // guides, which are plain pages, and the visit counter's open numbers.
+      // guides, which are plain pages.
       input: {
         main: page("index.html"),
         deflate: page("deflate.html"),
@@ -101,7 +101,6 @@ export default defineConfig({
         email: page("is-this-email-real.html"),
         screenshot: page("what-a-screenshot-gives-away.html"),
         privacy: page("your-files-stay-private.html"),
-        stats: page("stats.html"),
       },
     },
   },
