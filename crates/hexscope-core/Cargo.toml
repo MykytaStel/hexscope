@@ -14,10 +14,20 @@ exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots"]
 
 [features]
 default = ["documents"]
-# PDF, Office and other ZIP archives, email and WebAssembly. Without it the
+# PDF, Office and other ZIP archives, email and WebAssembly. Without them the
 # dispatchers reach only pictures and movies — PNG, JPEG, HEIF, MP4 — and
-# the linker leaves the rest out: the browser's small first module.
-documents = []
+# the linker leaves the rest out: the browser's small first module. Each is
+# its own feature, so the browser can load a module per family of files.
+documents = ["pdf", "office", "mail", "module"]
+# PDF, its redaction, page texts and pictures.
+pdf = []
+# ZIP archives (Word, Excel, PowerPoint, iWork, EPUB, APK) and the Office 97
+# and Outlook files kept in compound documents.
+office = []
+# Email saved as .eml.
+mail = []
+# WebAssembly modules.
+module = []
 
 [dependencies]
 hexscope-inflate = { path = "../hexscope-inflate", version = "0.3.0" }

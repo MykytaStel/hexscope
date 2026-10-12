@@ -135,22 +135,20 @@ jobs:
           test "$main" -le 66500
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
-      # Their sizes are budgets, raised on purpose or not at all.
-      # The full parser gets 300 additional bytes for the verified PNG/WebP capability matrix,
-      # 1200 for reading a PDF's opacity, clips and curved fills: what stopped real
-      # drawings from being reported as hidden text; and 4600 for what a Mac's archive
-      # notes about its files (where each was downloaded from), Office sensitivity labels
-      # and the rest of a document's properties, and comments in pictures.
+      # Their sizes are budgets, raised on purpose or not at all. The parser
+      # is built per family of files, so a file loads only what reads it, and
+      # a new format grows only its own family: pictures and movies alone;
+      # with PDF; with Office, email and WebAssembly. Each family's budget
+      # leaves room for the formats planned next (TIFF; LibreOffice, RTF).
       # The optional roll/TIFF module is budgeted separately and is never an initial parser.
       - name: WebAssembly size budget
         run: |
-          sizes=$(for f in apps/web/dist/assets/hexscope_wasm*.wasm; do gzip -9c "$f" | wc -c; done | sort -n)
-          test "$(echo "$sizes" | wc -l)" -eq 2
-          media=$(echo "$sizes" | head -1)
-          full=$(echo "$sizes" | tail -1)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $full for everything (budget 296200)."
+          size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
+          media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs)
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 220000)."
           test "$media" -le 140000
-          test "$full" -le 296200
+          test "$pdf" -le 228000
+          test "$docs" -le 220000
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000

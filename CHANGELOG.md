@@ -54,6 +54,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 - The home page's title and description say what it is in the words people
   search with — metadata, EXIF — and its structured data lists what it does.
 
+- **A document loads a quarter less.** The parser is built per family of
+  files: a PDF fetches 221 KB of WebAssembly instead of 295 KB, a Word file
+  or an email 212 KB, a photo 131 KB as before. A new format now grows only
+  its own family.
+
 - The home page loads faster on phones: the demo's photo and its facts are in
   the page from the start, so nothing below it jumps when the demo begins
   (layout shift 0.23 → under 0.1), and the archive frames are shown from small

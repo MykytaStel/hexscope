@@ -113,11 +113,11 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Heif(doc) => clean_heif(data, &doc),
         Document::Webp(doc) => clean_webp(data, &doc),
         Document::Gif(doc) => clean_gif(data, &doc),
-        Document::Zip(doc) if cfg!(feature = "documents") => clean_zip(data, &doc, options, false),
-        Document::Pdf(_) if cfg!(feature = "documents") => crate::pdf::clean::clean_pdf(data),
+        Document::Zip(doc) if cfg!(feature = "office") => clean_zip(data, &doc, options, false),
+        Document::Pdf(_) if cfg!(feature = "pdf") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
-        Document::Wasm(doc) if cfg!(feature = "documents") => clean_wasm(data, &doc),
-        Document::Cfb(doc) if cfg!(feature = "documents") => clean_cfb(data, &doc),
+        Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
+        Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     cleaned.removed = merged(cleaned.removed);

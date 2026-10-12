@@ -1,10 +1,13 @@
 // What the page says about each sample, from the real parser: the headline,
 // the verdict, the tips, what a share card counts, and an email's way.
-// The WebAssembly build is loaded from disk, as the worker loads it; run
-// `pnpm wasm` first.
+// The WebAssembly builds are loaded from disk, as the worker loads them —
+// the PDF one for a PDF, the documents one for the rest; run `pnpm wasm`
+// first.
 import { readFileSync } from "node:fs";
 import { beforeAll, describe as group, expect, it } from "vitest";
-import { initSync, parse } from "./wasm/hexscope_wasm.js";
+import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
+import * as docsBuild from "./wasm-docs/hexscope_docs.js";
+import { isPdf } from "./paint";
 import { describe } from "./describe";
 import { FileModel } from "./model";
 import { headline, listed } from "./headline";
@@ -20,8 +23,11 @@ import { translateText } from "./i18n";
 const here = (path: string) => new URL(path, import.meta.url);
 
 beforeAll(() => {
-  initSync({ module: readFileSync(here("./wasm/hexscope_wasm_bg.wasm")) });
+  pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
+  docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
 });
+
+const parse = (b: Uint8Array) => (isPdf(b) ? pdfBuild : docsBuild).parse(b);
 
 function open(name: string, bytes?: Uint8Array): FileModel {
   const b = bytes ?? new Uint8Array(readFileSync(here(`../public/samples/${name}`)));

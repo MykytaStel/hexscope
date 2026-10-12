@@ -632,21 +632,25 @@ impl Parsed {
     #[wasm_bindgen(js_name = extractEntry)]
     pub fn extract_entry(&mut self, index: u32) -> Vec<u8> {
         self.extract_error.clear();
+        // Each family's way in only where the build reads that family.
+        let attached = !self.attachment_names.is_empty();
         let result = match &self.zip {
-            _ if !cfg!(feature = "documents") => Err("this module opens no documents".to_string()),
-            None if !self.attachment_names.is_empty() && self.format == "eml" => {
+            None if cfg!(feature = "mail") && attached && self.format == "eml" => {
                 hexscope_core::eml::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
             }
-            None if !self.attachment_names.is_empty() && self.format == "msg" => {
+            None if cfg!(feature = "office") && attached && self.format == "msg" => {
                 hexscope_core::cfb::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
             }
-            None if !self.attachment_names.is_empty() => {
+            None if cfg!(feature = "pdf") && attached && self.format == "pdf" => {
                 hexscope_core::pdf::attachment_bytes(&self.pdf_source, index as usize)
                     .map_err(str::to_string)
             }
             None => Err("this file is not an archive".to_string()),
+            Some(_) if !cfg!(feature = "office") => {
+                Err("this module opens no archives".to_string())
+            }
             Some(zip) => match zip.entries.get(index as usize) {
                 None => Err(format!("there is no entry {index}")),
                 Some(e) if !openable(e) => Err("this entry cannot be opened".to_string()),
@@ -669,7 +673,7 @@ impl Parsed {
     /// time. Returns false, changing nothing, if the entry cannot be played.
     #[wasm_bindgen(js_name = selectEntry)]
     pub fn select_entry(&mut self, index: u32) -> bool {
-        if !cfg!(feature = "documents") {
+        if !cfg!(feature = "office") {
             return false;
         }
         let Some(zip) = &self.zip else {
@@ -954,7 +958,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             add_facts(&mut parsed, &doc.facts);
             parsed
         }
-        Document::Pdf(doc) if cfg!(feature = "documents") => {
+        Document::Pdf(doc) if cfg!(feature = "pdf") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "pdf";
             for f in &doc.facts {
@@ -983,7 +987,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
-        Document::Zip(doc) if cfg!(feature = "documents") => {
+        Document::Zip(doc) if cfg!(feature = "office") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "zip";
             for f in &doc.facts {
@@ -995,7 +999,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             });
             parsed
         }
-        Document::Eml(doc) if cfg!(feature = "documents") => {
+        Document::Eml(doc) if cfg!(feature = "mail") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "eml";
             for f in &doc.facts {
@@ -1007,7 +1011,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
-        Document::Cfb(doc) if cfg!(feature = "documents") => {
+        Document::Cfb(doc) if cfg!(feature = "office") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = doc.kind.format();
             for f in &doc.facts {
@@ -1019,7 +1023,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
-        Document::Wasm(doc) if cfg!(feature = "documents") => {
+        Document::Wasm(doc) if cfg!(feature = "module") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "wasm";
             for f in &doc.facts {
@@ -1111,7 +1115,7 @@ fn into_copy(
     }
 }
 
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 fn page_areas(areas: &[f64]) -> Vec<(u32, [f64; 4])> {
     areas
         .as_chunks::<5>()
@@ -1126,7 +1130,7 @@ fn page_areas(areas: &[f64]) -> Vec<(u32, [f64; 4])> {
 /// and top in its points. The JPEG pictures under them come painted, as
 /// `jpegsUnder` asked: object numbers, each one's length, and their bytes
 /// one after another. See `hexscope_core::clean::redact`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = redactCopy)]
 pub fn redact_copy(
     bytes: &[u8],
@@ -1155,7 +1159,7 @@ pub fn redact_copy(
 /// for each, its object number, width, height, where its bytes start, how
 /// many there are, how many rectangles, then each rectangle's `x0 y0 x1
 /// y1` in pixels from the top left. See `hexscope_core::pdf::jpegs_under`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = jpegsUnder)]
 pub fn jpegs_under(bytes: &[u8], areas: &[f64]) -> Vec<f64> {
     let mut out = Vec::new();
@@ -1174,13 +1178,13 @@ pub fn jpegs_under(bytes: &[u8], areas: &[f64]) -> Vec<f64> {
 }
 
 /// Every page's visible text, glyph by glyph, for choosing what to black out.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 pub struct PageTexts {
     pages: Vec<hexscope_core::pdf::PageText>,
 }
 
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 impl PageTexts {
     /// Pages read.
@@ -1226,7 +1230,7 @@ impl PageTexts {
 }
 
 /// Reads every page's visible text: see `hexscope_core::pdf::page_texts`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = pageTexts)]
 pub fn page_texts(bytes: &[u8]) -> PageTexts {
     PageTexts {
@@ -1236,7 +1240,7 @@ pub fn page_texts(bytes: &[u8]) -> PageTexts {
 
 /// The pictures a PDF page draws, to show a scanned page while choosing
 /// what to black out on it.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 pub struct PagePictures {
     pictures: Vec<hexscope_core::pdf::PagePicture>,
@@ -1244,7 +1248,7 @@ pub struct PagePictures {
     pages: Vec<u32>,
 }
 
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 impl PagePictures {
     #[wasm_bindgen(getter)]
@@ -1291,7 +1295,7 @@ impl PagePictures {
 }
 
 /// See `hexscope_core::pdf::page_pictures`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = pagePictures)]
 pub fn page_pictures(bytes: &[u8], page: u32) -> PagePictures {
     let pictures = hexscope_core::pdf::page_pictures(bytes, page);
@@ -1303,13 +1307,13 @@ pub fn page_pictures(bytes: &[u8], page: u32) -> PagePictures {
 
 /// The dark boxes pages fill, where there are enough to be a QR code drawn
 /// in boxes: see `hexscope_core::pdf::shapes`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 pub struct PdfShapes {
     pages: Vec<(u32, [f64; 4], Vec<[f64; 4]>)>,
 }
 
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen]
 impl PdfShapes {
     #[wasm_bindgen(getter)]
@@ -1335,7 +1339,7 @@ impl PdfShapes {
     }
 }
 
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = pdfShapes)]
 pub fn pdf_shapes(bytes: &[u8], pages: u32) -> PdfShapes {
     PdfShapes {
@@ -1345,7 +1349,7 @@ pub fn pdf_shapes(bytes: &[u8], pages: u32) -> PdfShapes {
 
 /// Every picture the first `pages` pages draw, each once: see
 /// `hexscope_core::pdf::pictures`.
-#[cfg(feature = "documents")]
+#[cfg(feature = "pdf")]
 #[wasm_bindgen(js_name = pdfPictures)]
 pub fn pdf_pictures(bytes: &[u8], pages: u32) -> PagePictures {
     let (pages, pictures) = hexscope_core::pdf::pictures(bytes, pages)

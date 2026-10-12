@@ -106,24 +106,23 @@ pub fn parse(data: &[u8]) -> Document {
     if video::is_video(data) {
         return Document::Video(parse_video(data));
     }
-    // Without documents, what follows is never reached, and not linked.
-    let documents = cfg!(feature = "documents");
-    if documents && wasm::is_wasm(data) {
+    // A family left out of the build is never reached, and not linked.
+    if cfg!(feature = "module") && wasm::is_wasm(data) {
         return Document::Wasm(parse_wasm(data));
     }
-    if documents && pdf::is_pdf(data) {
+    if cfg!(feature = "pdf") && pdf::is_pdf(data) {
         return Document::Pdf(parse_pdf(data));
     }
-    if documents && cfb::is_cfb(data) {
+    if cfg!(feature = "office") && cfb::is_cfb(data) {
         return Document::Cfb(parse_cfb(data));
     }
     // After the images, whose files may carry a ZIP on their end: an
     // archive is what the file is only when nothing earlier claimed it.
-    if documents && zip::is_zip(data) {
+    if cfg!(feature = "office") && zip::is_zip(data) {
         return Document::Zip(parse_zip(data));
     }
     // Text last: a message is header lines, and nothing binary claims it.
-    if documents && eml::is_eml(data) {
+    if cfg!(feature = "mail") && eml::is_eml(data) {
         return Document::Eml(parse_eml(data));
     }
     Document::Unknown(unknown(data))
