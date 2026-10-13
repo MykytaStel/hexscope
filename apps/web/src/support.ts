@@ -9,8 +9,14 @@ export interface Way {
   note: string;
 }
 
-/** Empty until the developer's links are set; the page then shows only the other ways to help. */
-export const WAYS: Way[] = [];
+/** With none, the page shows only the other ways to help. */
+export const WAYS: Way[] = [
+  {
+    label: "Monobank jar",
+    href: "https://send.monobank.ua/jar/8onzpLEBC",
+    note: "A card from any Ukrainian bank, Apple Pay or Google Pay.",
+  },
+];
 
 const KEY = "hexscope.cleans";
 const QUIET = "hexscope.thanks-hidden";

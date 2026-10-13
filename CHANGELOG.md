@@ -17,9 +17,10 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   the form shows; never the file, never an address. Read by the developer
   with `pnpm feedback`.
 
-- **A way to thank the developer**: a support page with ways to help, and,
-  after the third clean copy, one quiet line saying how — closed for good
-  with ×.
+- **A way to thank the developer**: a support page with ways to help — a
+  Monobank jar, which takes a card from any Ukrainian bank, Apple Pay or
+  Google Pay — and, after the third clean copy, one quiet line saying how,
+  closed for good with ×. The repository's Sponsor button leads there too.
 
 - Installed as an app, hexscope also opens TIFF files from the computer or a
   phone's share sheet.
