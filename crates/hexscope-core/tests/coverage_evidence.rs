@@ -60,6 +60,8 @@ fn photos_lose_every_covered_finding() {
     ];
     for (name, format, extra) in [
         ("photo.jpg", "jpeg", Some("thumbnail")),
+        // With an HDR gain map after the picture, as an iPhone saves it.
+        ("iphone-hdr.jpg", "jpeg", Some("thumbnail")),
         ("photo.png", "png", None),
         ("cwebp-photo.webp", "webp", Some("thumbnail")),
         ("photo.heic", "heif", None),

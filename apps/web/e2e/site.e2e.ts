@@ -1554,29 +1554,23 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
   }
 });
 
-test("the first-run tour stays above the fixed bottom navigation", async ({ page }) => {
-  await page.setViewportSize({ width: 620, height: 739 });
+test("a phone goes without the tour, and a computer's tour rings the part it is about", async ({ page }, info) => {
   await page.addInitScript(() => localStorage.removeItem("hexscope.tour"));
   await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  if (info.project.name === "phone") {
+    // The first result is not covered by a note: the answer explains itself.
+    await page.waitForTimeout(400);
+    await expect(page.locator(".tour")).toHaveCount(0);
+    await expect(page.locator(".footnote-links [data-tour]")).toBeHidden();
+    return;
+  }
   await expect(page.locator(".tour")).toBeVisible();
-  await page.locator(".tour .btn-primary").click();
-  await expect(page.locator(".tour")).toBeVisible();
-  await expect(page.locator("#app-nav")).toBeVisible();
-
-  const layout = await page.evaluate(() => {
-    const bubble = document.querySelector<HTMLElement>(".tour")!.getBoundingClientRect();
-    const nav = document.querySelector<HTMLElement>("#app-nav")!;
-    const navBox = nav.getBoundingClientRect();
-    return {
-      bubbleTop: bubble.top,
-      bubbleBottom: bubble.bottom,
-      navTop: navBox.top,
-      navPosition: getComputedStyle(nav).position,
-    };
-  });
-  expect(layout.navPosition).toBe("fixed");
-  expect(layout.bubbleTop).toBeGreaterThanOrEqual(8);
-  expect(layout.bubbleBottom).toBeLessThanOrEqual(layout.navTop - 8);
+  const ring = await page.locator(".tour-lit").evaluate((e) => ({ radius: getComputedStyle(e).borderRadius, offset: getComputedStyle(e).outlineOffset }));
+  expect(ring.radius).not.toBe("0px");
+  expect(Number.parseFloat(ring.offset)).toBeGreaterThanOrEqual(6);
+  const gap = await page.evaluate(() => document.querySelector(".tour")!.getBoundingClientRect().top - document.querySelector(".tour-lit")!.getBoundingClientRect().bottom);
+  expect(gap).toBeGreaterThanOrEqual(12);
 });
 
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
@@ -1686,7 +1680,7 @@ test("the landing page has a clear primary action, three sample choices, and a r
   await page.locator('#examples [data-example-panel="photo"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toContainText("Фото розкриває");
   await expect(page.locator(".verdict-lines .is-reveals")).toContainText("Розкриває місце зйомки");
-  await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити дані");
+  await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити");
   await expect(page.locator(".advice")).toContainText("Серійний номер є в кожному фото з цього фотоапарата.");
   await expect(page.locator(".advice")).toContainText("Ім’я власника береться з налаштувань фотоапарата.");
 });
@@ -1820,7 +1814,7 @@ test("file results show the summary before evidence and available actions", asyn
   }
 });
 
-test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }) => {
+test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }, info) => {
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
   await expect(page.locator(".verdict-title")).toHaveText(/^This photo gives away \d+ things$/);
@@ -1829,7 +1823,8 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   await expect(page.locator(".sharer")).toBeHidden();
   await expect(page.locator(".cleaner .btn-clean")).toBeHidden();
   await expect(page.locator(".verdict-actions .verdict-cta")).toBeVisible();
-  await expect(page.locator(".tour")).toContainText("fact in the summary");
+  // A phone goes without the tour.
+  if (info.project.name !== "phone") await expect(page.locator(".tour")).toContainText("fact in the summary");
   // Where the keyboard starts: the answer.
   await expect(page.locator(".verdict-title")).toBeFocused();
   await expect(page.locator(".place-map svg")).toBeVisible();

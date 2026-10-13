@@ -323,13 +323,19 @@ fn jpeg_what(label: &str) -> String {
         (_, "JFXX") => "a JFIF thumbnail".into(),
         ("COM", _) => "a comment".into(),
         ("data after the end of the image", _) => "data after the end of the picture".into(),
+        (crate::jpeg::LISTED_PICTURE, _) => {
+            "a second picture for HDR screens or depth: the photo looks the same".into()
+        }
         _ => format!("{label}: application data"),
     }
 }
 
 /// Segments that say how to show the picture, not who took it.
 fn jpeg_keeps(label: &str) -> bool {
-    !(label.starts_with("APP") || label == "COM" || label == "data after the end of the image")
+    !(label.starts_with("APP")
+        || label == "COM"
+        || label == "data after the end of the image"
+        || label == crate::jpeg::LISTED_PICTURE)
         || label == "APP0 · JFIF"
         || label.ends_with("· ICC")
         || label.ends_with("· Adobe")

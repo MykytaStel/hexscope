@@ -118,8 +118,9 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     diff.title = translateText("What the copy took out, part by part", currentLocale());
     diff.addEventListener("click", () => cleaning.compare(new File([r.copy], "the clean copy")));
     actions.append(open, diff);
+    // After sharing and saving, which most people come for.
     const copy = copyPictureButton(m);
-    if (copy) actions.prepend(copy);
+    if (copy) actions.insertBefore(copy, open);
     box.append(limits);
     const verification = copyVerification(r, (report) => {
       renderBeforeAfter(comparison, report);

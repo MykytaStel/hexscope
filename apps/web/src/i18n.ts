@@ -131,7 +131,7 @@ const UK: Record<string, string> = {
   "File workspace": "Робоча область файла",
   "Bytes": "Байти",
   "Contains location": "Містить геолокацію",
-  "This photo records where it was taken — click to see the bytes": "У фото записано місце зйомки — натисніть, щоб побачити дані",
+  "This photo records where it was taken — click to see it": "У фото записано місце зйомки — натисніть, щоб побачити",
   "What was found": "Що знайдено",
   "The picture": "Зображення",
   "The picture, with its 8×8 blocks": "Зображення з блоками 8×8",
@@ -537,6 +537,25 @@ const UK: Record<string, string> = {
   "Share what it revealed": "Поділитися результатом",
   "Only the kinds of thing, never what they are.": "Лише типи знайдених даних — без самих значень.",
   "What was removed": "Що видалено",
+  "Save it": "Зберегти",
+  // A file found inside another, as the list of them names it.
+  "A 7-Zip archive": "Архів 7-Zip",
+  "A GIF picture": "Зображення GIF",
+  "A JPEG picture": "Зображення JPEG",
+  "A PDF document": "Документ PDF",
+  "A PNG picture": "Зображення PNG",
+  "A RAR archive": "Архів RAR",
+  "A WebAssembly module": "Модуль WebAssembly",
+  "A WebP picture": "Зображення WebP",
+  "A ZIP archive": "Архів ZIP",
+  "A gzip archive": "Архів gzip",
+  "An ELF program": "Програма ELF",
+  "An MP3 file": "Файл MP3",
+  "An MP4, HEIC or QuickTime file": "Файл MP4, HEIC або QuickTime",
+  "An Ogg audio or video file": "Аудіо чи відео Ogg",
+  "Kept only the orientation, so the picture stays the right way up.": "Залишено лише орієнтацію, щоб фото не перевернулося.",
+  "Colours": "Кольори",
+  "identifier": "ідентифікатор",
   "Made a clean copy.": "Очищену копію створено.",
   "Open the clean copy": "Відкрити очищену копію",
   "Check it yourself: the card should now be empty": "Перевірте самі: тепер у картці не має бути цих даних",
@@ -816,7 +835,7 @@ export function translateText(value: string, locale: Locale): string {
   match = /^Tells you about its sender: (.+)\.$/.exec(value);
   if (match) return `Що лист розповідає про відправника: ${translateRevealList(match[1])}.`;
   match = /^Hidden in it: (.+)\.$/.exec(value);
-  if (match) return `Приховано у файлі: ${match[1]}.`;
+  if (match) return `Приховано у файлі: ${translateText(match[1], locale)}.`;
   match = /^Possible signs of impersonation: (.+)\.$/.exec(value);
   if (match) return `Можливі ознаки підміни відправника: ${match[1]}.`;
   match = /^Damaged: (\d+) (place|places) could not be read properly\. It may not open, or open only partly\.$/.exec(value);
@@ -865,6 +884,13 @@ export function translateText(value: string, locale: Locale): string {
       );
     return `Піксель ${match[1]}, ${match[2]}: частина копії з ${match[3]} байтів, узятої ${distance}; це закодовано у ${match[5]} бітах.`;
   }
+  match = /^(Hidden in it|Files inside): (\d+) files?$/.exec(value);
+  if (match) {
+    const count = Number(match[2]);
+    return `${match[1] === "Files inside" ? "Файли всередині" : "Приховано у файлі"}: ${count} ${ukrainianCountWord(count, "файл", "файли", "файлів")}`;
+  }
+  match = /^parsed in ([\d.]+) ms$/.exec(value);
+  if (match) return `розібрано за ${match[1].replace(".", ",")} мс`;
   match = /^What was removed · (.+)$/.exec(value);
   if (match) return `Що видалено · ${match[1]}`;
   match = /^Saved as “(.+)” — look for it in your downloads\.$/.exec(value);

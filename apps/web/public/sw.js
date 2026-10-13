@@ -4,11 +4,14 @@
 // requests (/api/) to the browser's own cache, which is what makes them rare.
 
 // The build writes in its version and its files (vite.config.ts): a new
-// deploy is a new cache, and the old one goes once the new one is ready.
+// deploy is a new cache. The one before it stays until the next deploy, for
+// a page still open on it that has yet to load a part — the clean copy's
+// check, a WebAssembly build — which the server no longer has.
 const BUILD = "dev";
 const FILES = [];
 const CACHE = `hexscope-${BUILD}`;
 const SHARED = "hexscope-shared";
+const ORDER = "hexscope-order";
 
 // The samples are small, and the landing page offers them: kept from the
 // start, so they open offline too — unless the connection asks to save data.
@@ -41,9 +44,18 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      for (const key of await caches.keys()) {
-        if (key !== CACHE && key !== SHARED) await caches.delete(key);
-      }
+      const keys = await caches.keys();
+      const builds = keys.filter((key) => key !== CACHE && key !== SHARED && key !== ORDER);
+      // The build this one follows; before the order was kept, whichever is there.
+      const book = await caches.open(ORDER);
+      const where = new URL("order", self.registration.scope).href;
+      const known = await book
+        .match(where)
+        .then((res) => (res ? res.json() : []))
+        .catch(() => []);
+      const before = known.filter((key) => key !== CACHE && builds.includes(key)).at(-1) ?? builds.at(-1);
+      for (const key of builds) if (key !== before) await caches.delete(key);
+      await book.put(where, new Response(JSON.stringify(before ? [before, CACHE] : [CACHE])));
       await self.clients.claim();
     })(),
   );
@@ -67,7 +79,8 @@ async function cacheFirst(req) {
   const cache = await caches.open(CACHE);
   // Kept by the install, asked for by the page as a module with an Origin
   // header: a server's Vary would make the two differ, for the same bytes.
-  const hit = await cache.match(req, { ignoreVary: true });
+  // A page open on the build before asks for its own files: they are there.
+  const hit = (await cache.match(req, { ignoreVary: true })) ?? (await caches.match(req, { ignoreVary: true }));
   if (hit) return hit;
   const res = await fetch(req);
   if (res.ok) await cache.put(req, res.clone());

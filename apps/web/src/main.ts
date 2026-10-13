@@ -602,13 +602,20 @@ function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   plain.textContent = `${kindWord(m)}  ·  ${formatBytes(m.bytes.length)}`;
   const full = document.createElement("span");
   full.className = "meta-full";
-  full.textContent = chips.join("  ·  ");
+  // Each its own text, so each is translated on its own: "parsed in 2 ms" is not a whole line.
+  full.replaceChildren(...chips.flatMap((chip, i) => (i > 0 ? [document.createTextNode("  ·  "), chipText(chip)] : [chipText(chip)])));
   meta.append(plain, full);
   info.replaceChildren(name, meta);
 
   // A location is not damage, so it gets its own badge rather than joining
   // the problems count — but it is the first thing a person should see.
   locationBtn.hidden = !f.location;
+}
+
+function chipText(text: string): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.textContent = text;
+  return span;
 }
 
 workspace = new WorkspaceController({
@@ -914,8 +921,15 @@ problemsBtn.addEventListener("click", () => {
   hex.flash(selected);
 });
 locationBtn.addEventListener("click", () => {
+  const where = workspace.model?.file.location;
+  // On a phone, where it was taken is the map and the place in the summary:
+  // the bytes are a tab away for whoever wants them.
+  if (where && narrow.matches) {
+    setWorkspaceView("overview", false);
+    if (drawer.showFact(where.node)) return;
+  }
   toBytes();
-  if (workspace.model?.file.location) point(workspace.model.file.location.node);
+  if (where) point(where.node);
 });
 playBtn.addEventListener("click", () => {
   if (player.isOpen) return closePlayer();

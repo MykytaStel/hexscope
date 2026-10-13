@@ -6,6 +6,15 @@ import { registerLazyTranslations, resolveLocale, translateText, untranslate } f
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 describe("the interface language", () => {
+  it("names what was found inside a file, and how fast it was read, in Ukrainian", () => {
+    expect(translateText("Hidden in it: 1 file", "uk")).toBe("Приховано у файлі: 1 файл");
+    expect(translateText("Files inside: 3 files", "uk")).toBe("Файли всередині: 3 файли");
+    expect(translateText("Hidden in it: data after the end of the image.", "uk")).toBe("Приховано у файлі: дані після кінця зображення.");
+    expect(translateText("parsed in 5.5 ms", "uk")).toBe("розібрано за 5,5 мс");
+    expect(translateText("Save it", "uk")).toBe("Зберегти");
+    expect(translateText("A JPEG picture", "uk")).toBe("Зображення JPEG");
+  });
+
   it("turns Ukrainian back into English, and leaves English as it is", () => {
     expect(untranslate("Віддячити розробнику")).toBe("Thank the developer");
     expect(untranslate(" Банка monobank ")).toBe(" Monobank jar ");
