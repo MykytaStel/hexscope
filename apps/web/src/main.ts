@@ -30,6 +30,7 @@ import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
 import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
 import { countVisit } from "./count";
+import { wireInstall } from "./install";
 
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
@@ -53,6 +54,7 @@ let workspace: WorkspaceController;
 
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-shortcuts]")) b.addEventListener("click", openShortcuts);
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-feedback]")) b.addEventListener("click", () => openFeedback());
+wireInstall();
 // "Take the tour": on the sample photo, from the start.
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-tour]")) {
   b.addEventListener("click", () => {

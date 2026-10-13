@@ -297,6 +297,22 @@
 
 .report > * { min-width: 0; margin-block: 0; }
 
+/* A grid ignores the ×'s float: it goes in the heading's row, at its end,
+   and the heading leaves it room. */
+.report[open] > .dialog-x {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: end;
+  align-self: start;
+  margin: -6px -6px 0 0;
+}
+
+.report[open] > .dialog-x + h2 {
+  grid-row: 1;
+  grid-column: 1;
+  padding-right: 40px;
+}
+
 .report .btn {
   min-height: var(--control-height);
   height: auto;
@@ -440,6 +456,15 @@
 .feedback-status:empty { display: none; }
 .feedback-status { margin: 0; font-size: var(--type-small); color: var(--muted); }
 .feedback-done { margin: 0; font-size: 17px; }
+
+/* The three taps that install hexscope on an iPhone or an iPad. */
+.install-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding-left: 22px;
+  line-height: 1.5;
+}
 
 /* After a few clean copies, once: a quiet way to thank the developer. */
 .thanks-line {

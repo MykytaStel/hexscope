@@ -10,6 +10,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **Install the app**, from the menu or the footer: where the browser offers
+  it (Chrome, Edge, Android) the button asks it; an iPhone or iPad, which has
+  no such offer, is shown the three taps to Add to Home Screen. Nothing shows
+  where hexscope is installed already.
+
 - **Write to the developer, without an account.** A problem, an idea or
   thanks goes from the page itself — from the footer, the end of every guide,
   or a file's “Report a problem”, which can attach the file's structure
@@ -92,6 +97,8 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Fixed
 
+- Every dialog's × sits in the corner beside its heading, not on a line of
+  its own at the left.
 - **A photo from an iPhone is no longer said to hide something.** After the
   picture, an iPhone keeps a second one — the HDR gain map — and lists it in
   the file's MPF index. hexscope now reads that index and shows the picture as

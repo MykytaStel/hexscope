@@ -40,7 +40,8 @@ textarea {
 }
 
 .landing-nav a,
-.landing-menu nav a {
+.landing-menu nav a,
+.landing-menu nav .link {
   color: var(--muted);
   font-size: 13px;
   text-decoration: none;
@@ -48,8 +49,13 @@ textarea {
 }
 
 .landing-nav a:hover,
-.landing-menu nav a:hover {
+.landing-menu nav a:hover,
+.landing-menu nav .link:hover {
   color: var(--text);
+}
+
+.landing-menu nav .link {
+  text-align: left;
 }
 
 .landing-menu > summary::marker {
@@ -1414,12 +1420,14 @@ body[data-state="ready"] .topbar {
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
   }
 
-  .landing-menu nav a {
+  .landing-menu nav a,
+  .landing-menu nav .link {
     padding: 9px 10px;
     border-radius: 6px;
   }
 
-  .landing-menu nav a:hover {
+  .landing-menu nav a:hover,
+  .landing-menu nav .link:hover {
     background: var(--panel-2);
   }
 
