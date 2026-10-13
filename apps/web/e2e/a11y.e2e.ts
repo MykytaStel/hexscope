@@ -179,6 +179,7 @@ for (const scheme of ["dark", "light"] as const) {
       await page.getByRole("button", { name: "Close film scans" }).click();
       const photo = await readFile("../../crates/hexscope-core/tests/fixtures/photo.png");
       await page.locator("#picker-empty").setInputFiles(["a.png", "b.png"].map((name) => ({ name, mimeType: "image/png", buffer: photo })));
+      await page.locator(".batch-tools > summary").click();
       await page.getByRole("button", { name: "Photo privacy mosaic", exact: true }).click();
       const mosaic = page.locator(".photo-mosaic");
       await expect(mosaic.locator("[role=status]")).toContainText("2 / 2 files checked");

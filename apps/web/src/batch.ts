@@ -79,6 +79,15 @@ type Show = "all" | "reveals" | "problems";
 /** Rows drawn at a time: a folder of thousands would make the page crawl. */
 const PAGE = 300;
 
+/** A report in sentences, each its own text so each is translated on its own. */
+function sentences(text: string): Node[] {
+  return text
+    .trim()
+    .split(/(?<=[.…])\s+/)
+    .filter(Boolean)
+    .flatMap((line, i) => [...(i ? [document.createTextNode(" ")] : []), el("span", undefined, line)]);
+}
+
 export class BatchView {
   private status = el("p", "batch-result");
   private show: Show = "all";
@@ -95,12 +104,15 @@ export class BatchView {
 
   /** Says how saving the clean copies went, under the button. */
   set result(text: string) {
-    this.status.textContent = text;
+    this.status.replaceChildren(...sentences(text));
   }
 
   /** Says what is ready, with what to do with it. */
   offer(text: string, ...actions: HTMLButtonElement[]): void {
-    this.status.replaceChildren(text, ...actions.map((a) => (a.classList.add("batch-action"), a)));
+    const buttons = el("div", "batch-actions");
+    buttons.append(...actions.map((a) => (a.classList.add("batch-action"), a)));
+    this.status.replaceChildren(...sentences(text), buttons);
+    this.host.querySelector(".batch-head .btn-clean")?.classList.replace("btn-clean", "btn-again");
   }
 
   /** Draws the list, at most a few times a second while files are read. */
@@ -148,12 +160,16 @@ export class BatchView {
         hidden ? `${hidden} ${hidden === 1 ? "hides" : "hide"} something` : "",
         damaged ? `${damaged} damaged` : "",
       ].filter(Boolean);
-      summary.textContent = parts.length ? `${parts.join(" · ")}.` : "No personal metadata found by the available checks. Visible content has not been cleared.";
+      // Each part its own text, so each is translated on its own.
+      if (parts.length) summary.append(...parts.flatMap((part, i) => [...(i ? [" · "] : []), el("span", undefined, part)]), ".");
+      else summary.textContent = "No personal metadata found by the available checks. Visible content has not been cleared.";
     }
     const phone = this.hooks.canShareCopies();
     const chosen = items.filter((i) => cleanable(i) && !i.skip).length;
     const copies = plural(chosen, "clean copy", "clean copies");
-    const save = el("button", "btn btn-clean", busy || chosen === 0 ? (phone ? "Make clean copies" : "Save clean copies (.zip)") : phone ? `Make ${copies}` : `Save ${copies} (.zip)`);
+    // Once the copies wait to be shared, sharing is the one thing to do: making them again steps back.
+    const offered = this.status.querySelector(".batch-actions") !== null;
+    const save = el("button", `btn ${offered ? "btn-again" : "btn-clean"}`, busy || chosen === 0 ? (phone ? "Make clean copies" : "Save clean copies (.zip)") : phone ? `Make ${copies}` : `Save ${copies} (.zip)`);
     save.disabled = busy || chosen === 0;
     save.title = phone
       ? "Makes the copies in this tab, to share or save: nothing is uploaded"
@@ -165,15 +181,26 @@ export class BatchView {
     box.type = "checkbox";
     box.checked = this.keepNames;
     box.addEventListener("change", () => (this.keepNames = box.checked));
-    keep.append(box, " Keep the original names");
-    keep.hidden = busy || chosen === 0;
+    keep.append(box, el("span", undefined, "Keep the original names"));
+    // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
+    keep.hidden = busy || chosen === 0 || phone;
     head.append(label, title, summary, save, keep, this.status);
+    // The tools for a whole roll of photos, out of the way of the one thing most come for.
+    const tools: HTMLButtonElement[] = [];
     if (!busy && items.length <= 1000 && this.hooks.mosaic) {
       const mosaic = el("button", "btn", "Photo privacy mosaic");
-      mosaic.addEventListener("click", () => this.hooks.mosaic?.(items)); head.append(mosaic);
+      mosaic.addEventListener("click", () => this.hooks.mosaic?.(items));
+      tools.push(mosaic);
     }
     if (!busy && this.hooks.filmRoll) {
-      const roll = el("button", "btn", "Process film scans"); roll.addEventListener("click", () => this.hooks.filmRoll?.(items)); head.append(roll);
+      const roll = el("button", "btn", "Process film scans");
+      roll.addEventListener("click", () => this.hooks.filmRoll?.(items));
+      tools.push(roll);
+    }
+    if (tools.length) {
+      const more = el("details", "batch-tools");
+      more.append(el("summary", undefined, "More tools"), ...tools);
+      head.append(more);
     }
 
     const isProblem = (i: BatchItem) =>

@@ -55,8 +55,10 @@ export function renderCopyVerification(
       ["Still present", report.present],
       ["Not checked", report.unchecked],
     ];
+    // Only what has something under it: an empty "Still present" says
+    // nothing the card above does not already say.
     region.replaceChildren(
-      ...groups.map(([heading, items]) => {
+      ...groups.filter(([, items]) => items.length > 0).map(([heading, items]) => {
         const group = el("section", "copy-verification-group");
         group.append(el("h3", undefined, heading));
         const list = el("ul", "copy-verification-list");

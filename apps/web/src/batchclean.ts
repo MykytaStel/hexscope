@@ -73,7 +73,12 @@ export async function cleanCopies(items: BatchItem[], keepNames: boolean, view: 
   view.render?.(items);
   const receipt = batchReceipt(rows);
   const reportBlob = new Blob([JSON.stringify(receipt, null, 2)], { type: "application/json" });
-  const said: string[] = [`Findings: ${receipt.removed} removed, ${receipt.present} present, ${receipt.unchecked} unchecked. ZIP includes an index-only JSON receipt. Visible content is not cleared by these metadata checks.`];
+  // The receipt goes in a ZIP; copies shared to a chat go without one.
+  const said: string[] = [
+    `Findings: ${receipt.removed} removed, ${receipt.present} present, ${receipt.unchecked} unchecked.`,
+    ...(share ? [] : ["ZIP includes an index-only JSON receipt."]),
+    "Visible content is not cleared by these metadata checks.",
+  ];
   const name = "hexscope-clean-copies.zip";
   const saveZip = (z: StoredZip) => saveAs(name, z.finish());
   if (made > 0 && !share) {

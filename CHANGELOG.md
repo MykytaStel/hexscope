@@ -97,6 +97,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Fixed
 
+- **Several photos on a phone**: one full-width button makes the clean
+  copies and the next shares them all; making them again steps back once
+  they are ready. The photo tools fold under “More tools”, the names option
+  is only offered for a ZIP, and the receipt is only promised when there is a
+  ZIP. In Ukrainian, the whole batch view is translated, numbers agreeing.
+- After a clean copy, its check shows only what has something under it: no
+  empty “Still present” or “Not checked”.
+
 - Every dialog's × sits in the corner beside its heading, not on a line of
   its own at the left.
 - **A photo from an iPhone is no longer said to hide something.** After the

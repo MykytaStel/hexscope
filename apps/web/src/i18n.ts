@@ -538,6 +538,25 @@ const UK: Record<string, string> = {
   "Only the kinds of thing, never what they are.": "Лише типи знайдених даних — без самих значень.",
   "What was removed": "Що видалено",
   "Save it": "Зберегти",
+  // Several files at once.
+  "Nothing leaves this tab.": "Ніщо не залишає цієї вкладки.",
+  "No personal metadata found by the available checks. Visible content has not been cleared.": "Доступні перевірки не знайшли особистих метаданих. Видимий вміст не очищено.",
+  "No personal metadata found by the available checks.": "Доступні перевірки не знайшли особистих метаданих.",
+  "Make clean copies": "Зробити чисті копії",
+  "Save clean copies (.zip)": "Зберегти чисті копії (.zip)",
+  "Makes the copies in this tab, to share or save: nothing is uploaded": "Копії робляться в цій вкладці — щоб поділитися чи зберегти; нічого не завантажується",
+  "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded": "Копії робляться в цій вкладці й зберігаються одним ZIP; нічого не завантажується",
+  "Keep the original names": "Зберегти початкові назви",
+  "More tools": "Ще інструменти",
+  "Show": "Показати",
+  "Open this file": "Відкрити цей файл",
+  "Still reading": "Ще читаю",
+  "Making the clean copies…": "Роблю чисті копії…",
+  "ZIP includes an index-only JSON receipt.": "У ZIP додано звіт JSON — лише номери файлів, без самих даних.",
+  "Visible content is not cleared by these metadata checks.": "Те, що видно на фото чи сторінці, ці перевірки метаданих не очищають.",
+  "Save as a ZIP": "Зберегти як ZIP",
+  "Nothing to clean.": "Нічого чистити.",
+  "Copy not created · unchecked": "Копію не створено · не перевірено",
   "Install the app": "Встановити застосунок",
   "Install hexscope on this iPhone": "Встановіть hexscope на цей iPhone",
   "Install hexscope on this iPad": "Встановіть hexscope на цей iPad",
@@ -773,6 +792,17 @@ function ruleWord(count: number): string {
   return "правил";
 }
 
+/** "з 3 файлів", "з 21 файла": the genitive after "з". */
+function ofFiles(count: number): string {
+  return count % 10 === 1 && count % 100 !== 11 ? "файла" : "файлів";
+}
+
+/** "1 чисту копію", "3 чисті копії", "5 чистих копій"; standing alone "1 чиста копія"; shared "3 чистими копіями". */
+function cleanCopies(count: number, form: "nominative" | "accusative" | "instrumental"): string {
+  if (form === "instrumental") return ukrainianCountWord(count, "чистою копією", "чистими копіями", "чистими копіями");
+  return ukrainianCountWord(count, form === "nominative" ? "чиста копія" : "чисту копію", "чисті копії", "чистих копій");
+}
+
 function ukrainianCountWord(count: number, one: string, few: string, many: string): string {
   const lastTwo = count % 100;
   const last = count % 10;
@@ -892,6 +922,46 @@ export function translateText(value: string, locale: Locale): string {
       );
     return `Піксель ${match[1]}, ${match[2]}: частина копії з ${match[3]} байтів, узятої ${distance}; це закодовано у ${match[5]} бітах.`;
   }
+  match = /^(\d+) files?$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "файл", "файли", "файлів")}`;
+  match = /^(\d+) of (\d+) files? needs? a look$/.exec(value);
+  if (match) return `${match[1]} з ${match[2]} ${ofFiles(Number(match[2]))} варто переглянути`;
+  match = /^Reading (\d+) of (\d+)…$/.exec(value);
+  if (match) return `Читаю ${match[1]} з ${match[2]}…`;
+  match = /^Nothing personal found in these (\d+) files$/.exec(value);
+  if (match) return `У цих ${match[1]} файлах особистих даних не знайдено`;
+  match = /^(\d+) reveals? something about you(\.?)$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "файл розкриває", "файли розкривають", "файлів розкривають")} щось про вас${match[2]}`;
+  match = /^(\d+) hides? something$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "файл щось приховує", "файли щось приховують", "файлів щось приховують")}`;
+  match = /^(\d+) damaged$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "пошкоджений", "пошкоджені", "пошкоджених")}`;
+  match = /^(All|Give something away|Damaged or hiding something) · (\d+)$/.exec(value);
+  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Damaged or hiding something": "Пошкоджені або приховують" }[match[1]]} · ${match[2]}`;
+  match = /^\+(\d+) more$/.exec(value);
+  if (match) return `ще ${match[1]}`;
+  match = /^Make (\d+) clean cop(?:y|ies)$/.exec(value);
+  if (match) return `Зробити ${match[1]} ${cleanCopies(Number(match[1]), "accusative")}`;
+  match = /^Share (\d+) clean cop(?:y|ies)$/.exec(value);
+  if (match) return `Поділитися ${match[1]} ${cleanCopies(Number(match[1]), "instrumental")}`;
+  match = /^(\d+) removed · (\d+) present · (\d+) unchecked$/.exec(value);
+  if (match) return `прибрано ${match[1]} · залишилося ${match[2]} · не перевірено ${match[3]}`;
+  match = /^Save (\d+) clean cop(?:y|ies) \(\.zip\)$/.exec(value);
+  if (match) return `Зберегти ${match[1]} ${cleanCopies(Number(match[1]), "accusative")} (.zip)`;
+  match = /^Made (\d+) clean cop(?:y|ies)\.$/.exec(value);
+  if (match) return `Готово: ${match[1]} ${cleanCopies(Number(match[1]), "nominative")}.`;
+  match = /^Saved (\d+) clean cop(?:y|ies) as (.+)\.$/.exec(value);
+  if (match) return `Збережено ${match[1]} ${cleanCopies(Number(match[1]), "accusative")} як ${match[2]}.`;
+  match = /^Making the clean copies… (\d+) of (\d+)$/.exec(value);
+  if (match) return `Роблю чисті копії… ${match[1]} з ${match[2]}`;
+  match = /^Findings: (\d+) removed, (\d+) present, (\d+) unchecked\.$/.exec(value);
+  if (match) return `Знахідки: прибрано ${match[1]}, залишилося ${match[2]}, не перевірено ${match[3]}.`;
+  match = /^(\d+) files? had nothing hexscope can remove\.$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "файл не має", "файли не мають", "файлів не мають")} нічого, що hexscope може прибрати.`;
+  match = /^Not cleaned — (.+)\.$/.exec(value);
+  if (match) return `Не очищено — ${match[1]}.`;
+  match = /^(\d+) files? read\. (.+)$/.exec(value);
+  if (match) return `Прочитано ${match[1]} ${ukrainianCountWord(Number(match[1]), "файл", "файли", "файлів")}. ${translateText(match[2], locale)}`;
   match = /^(Hidden in it|Files inside): (\d+) files?$/.exec(value);
   if (match) {
     const count = Number(match[2]);
