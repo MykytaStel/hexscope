@@ -10,6 +10,16 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **LibreOffice documents** (.odt, .ods, .odp): who made it and who saved it
+  last, when, how long it was edited, the program and the system it ran on,
+  who printed it and the printer's name, the template's path, its comments
+  and tracked changes — with the text a deletion still holds — the picture of
+  its first page kept inside, and the photos in it. The clean copy empties
+  its properties and settings, accepts the changes, deletes the comments,
+  blanks the thumbnail and cleans the photos, and is confirmed to have lost
+  them. Word's tracked changes and the photos in a document are now
+  confirmed removed too.
+
 - **Install the app**, from the menu or the footer: where the browser offers
   it (Chrome, Edge, Android) the button asks it; an iPhone or iPad, which has
   no such offer, is shown the three taps to Add to Home Screen. Nothing shows

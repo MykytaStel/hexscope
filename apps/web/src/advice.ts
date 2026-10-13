@@ -151,7 +151,7 @@ export const RULES: Rule[] = [
   {
     when: ["author", "editor", "company"],
     formats: ["zip", "office97"],
-    text: "Word, Excel and PowerPoint write the name of the account that made and saved a file. The clean copy removes it; in Office, File → Info → Check for Issues → Inspect Document does too.",
+    text: "Word, Excel, PowerPoint and LibreOffice write the name of the account that made and saved a file. The clean copy removes it; so do File → Info → Check for Issues → Inspect Document in Office, and Tools → Options → Security → Options → “Remove personal information on saving” in LibreOffice.",
   },
   {
     when: ["author", "application", "producer", "created", "modified"],
@@ -174,7 +174,18 @@ export const RULES: Rule[] = [
   },
   {
     when: ["thumbnail"],
+    formats: ["jpeg", "heif", "png", "webp", "gif", "tiff"],
     text: "The thumbnail is a second, small copy of the picture. Editors do not always update it, so it can still show what was cropped out.",
+  },
+  {
+    when: ["thumbnail"],
+    formats: ["zip"],
+    text: "LibreOffice keeps a picture of the first page inside the file, for file browsers to show: anyone can see the page without opening the document. The clean copy puts a blank one in its place.",
+  },
+  {
+    when: ["printer", "printed"],
+    formats: ["zip"],
+    text: "A printer's name often says where the document was printed — a company, an office, a floor — and the file also says who printed it last. The clean copy empties the settings and properties that hold them.",
   },
 ];
 

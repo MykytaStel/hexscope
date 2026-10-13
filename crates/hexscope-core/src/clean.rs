@@ -753,8 +753,13 @@ fn revise(
     data: &[u8],
     e: &crate::zip::ZipEntry,
     options: CleanOptions,
+    odf: bool,
 ) -> Option<(Vec<u8>, String)> {
     use crate::zip::office::MAX_PART;
+    // An OpenDocument file's own parts: its properties, settings, thumbnail and text.
+    if odf && let Some(change) = crate::zip::odf::revise(data, e) {
+        return Some(change);
+    }
     use crate::zip::revise::{accept, blank_notes, emptied, is_comments, is_story};
     if e.uncompressed > MAX_PART {
         return None;
@@ -811,8 +816,8 @@ fn revise(
 /// A photo placed in an Office document, cleaned like one opened on its
 /// own; `None` when it is not a JPEG or PNG, or has nothing to remove.
 fn clean_media(data: &[u8], e: &crate::zip::ZipEntry) -> Option<Cleaned> {
-    use crate::zip::office::{MAX_PART, is_media};
-    if !is_media(&e.name) || e.uncompressed > MAX_PART {
+    use crate::zip::office::MAX_PART;
+    if e.uncompressed > MAX_PART {
         return None;
     }
     let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
@@ -847,6 +852,10 @@ fn clean_zip(
 ) -> Result<Cleaned, CleanError> {
     use crate::zip::office::{MAX_EMBEDDED, MAX_PHOTOS, is_embedded};
     let tree = &doc.tree;
+    // Where the document keeps its photos: Office's media folders, an OpenDocument file's Pictures.
+    let placed = |name: &str| {
+        crate::zip::office::is_media(name) || (doc.odf && crate::zip::odf::is_picture(name))
+    };
     let (mut photos, mut files) = (0, 0);
     let media: Vec<Option<Cleaned>> = doc
         .entries
@@ -859,7 +868,7 @@ fn clean_zip(
                 files += 1;
                 return clean_embedded(data, e, options);
             }
-            if photos >= MAX_PHOTOS || !crate::zip::office::is_media(&e.name) {
+            if photos >= MAX_PHOTOS || !placed(&e.name) {
                 return None;
             }
             photos += 1;
@@ -869,7 +878,7 @@ fn clean_zip(
     let revised: Vec<Option<(Vec<u8>, String)>> = doc
         .entries
         .iter()
-        .map(|e| revise(data, e, options))
+        .map(|e| revise(data, e, options, doc.odf))
         .collect();
     use crate::zip::apple::is_apple_double;
     if !doc
@@ -924,7 +933,7 @@ fn clean_zip(
                     (0, &xml[..], crc32(xml), xml.len() as u64)
                 }
                 (Some(c), None) => {
-                    let what = if crate::zip::office::is_media(&e.name) {
+                    let what = if placed(&e.name) {
                         "what the photo reveals"
                     } else {
                         "who made it, and what else it reveals"

@@ -98,6 +98,8 @@ export const REVEALS: Record<string, string> = {
   author: "who wrote it",
   editor: "who saved it last",
   manager: "its manager's name",
+  printer: "the printer's name",
+  printed: "who printed it",
   company: "the company",
   label: "the organisation it belongs to",
   downloaded: "where its files were downloaded from",

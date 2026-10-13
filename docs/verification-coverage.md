@@ -27,7 +27,7 @@ file, such as a photo in a document, is not covered.
 | `tiff` | location, camera, lens, serial, owner, taken, software |
 | `video` | location, camera, owner, taken, software |
 | `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
-| `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags |
+| `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail |
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 <!-- coverage:end -->
 
@@ -42,7 +42,14 @@ Why each row can be trusted:
   content, earlier versions, annotations and hidden text are outside this row.
 - **Word, Excel, PowerPoint** (`zip`): the copy replaces the core, app and
   custom properties with empty parts and leaves out a Mac's `__MACOSX` notes.
-  Comments, tracked changes and embedded files are outside this row.
+  Word's tracked changes are accepted, with the text a deletion held, and each
+  photo placed in a document is cleaned as a photo of its own. Comments and
+  embedded files are outside this row.
+- **OpenDocument** (.odt, .ods, .odp, also `zip`): the copy empties
+  `meta.xml` and `settings.xml` — who made it, the program and system, who
+  printed it, the printer — turns the first page's thumbnail into a blank
+  pixel, accepts tracked changes, deletes comments, and cleans the photos
+  under `Pictures/`.
 - **Office 97-2003**: the copy blanks both property streams where they lie.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,

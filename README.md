@@ -39,8 +39,8 @@ addresses, never anything about a file — read only by its author.
 ### Formats
 
 Hexscope reads PNG, JPEG, HEIC/HEIF, AVIF, WebP, GIF, TIFF, MP4/QuickTime, PDF, ZIP
-archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, `.apk`, `.jar`,
-`.epub`), legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
+archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, LibreOffice's
+`.odt`, `.ods`, `.odp`, `.apk`, `.jar`, `.epub`), legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
 and WebAssembly modules. What it can inspect or change varies by format. For
 known limits — including password-protected PDFs and legacy Office document
 text — see [known issues](docs/known-issues.md).

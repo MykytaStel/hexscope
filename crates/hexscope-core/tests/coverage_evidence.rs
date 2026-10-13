@@ -108,6 +108,38 @@ fn documents_lose_their_properties_and_a_macs_notes() {
     for kind in ["title", "author", "editor", "created", "company"] {
         assert!(docx.iter().any(|k| k == kind), "report.docx: {kind}");
     }
+    // Tracked changes accepted with the text a deletion held, and the photo in it cleaned.
+    let tracked = confirmed("tracked.docx", "zip");
+    for kind in ["tracked", "deleted", "photoplace"] {
+        assert!(tracked.iter().any(|k| k == kind), "tracked.docx: {kind}");
+    }
+    // LibreOffice's: its meta.xml and settings.xml, the first page's thumbnail,
+    // tracked changes and the photo under Pictures/.
+    let odt = confirmed("lease.odt", "zip");
+    for kind in [
+        "title",
+        "author",
+        "editor",
+        "created",
+        "modified",
+        "revisions",
+        "editing",
+        "application",
+        "template",
+        "custom",
+        "printed",
+        "printer",
+        "thumbnail",
+        "tracked",
+        "deleted",
+        "photoplace",
+    ] {
+        assert!(odt.iter().any(|k| k == kind), "lease.odt: {kind}");
+    }
+    let ods = confirmed("budget.ods", "zip");
+    for kind in ["author", "printer", "thumbnail"] {
+        assert!(ods.iter().any(|k| k == kind), "budget.ods: {kind}");
+    }
     let mac = confirmed("mac-report.zip", "zip");
     assert_eq!(mac, ["downloaded", "tags"]);
     let doc = confirmed("plan.doc", "office97");

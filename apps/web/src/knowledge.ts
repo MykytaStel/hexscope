@@ -17,6 +17,11 @@ export const COLOR_TYPES: Record<number, string> = {
 /** What QR codes say: the picture's pixels, so a clean copy keeps them. */
 const QR = ["qrwifi", "qrsecret", "qrtrick", "qrplace", "qrcontact", "qrlink", "qrtext"];
 
+/** LibreOffice's documents, .odt, .ods, .odp: a mimetype beside their content. */
+export function isOpenDocument(labels: readonly string[]): boolean {
+  return labels.includes("mimetype") && labels.includes("content.xml");
+}
+
 export const KEPT: Record<string, string[]> = {
   jpeg: QR,
   png: QR,
@@ -110,6 +115,8 @@ export const FACT_LABELS: Record<string, string> = {
   custom: "Custom properties",
   downloaded: "Downloaded from",
   tags: "Finder tags",
+  printer: "Printer",
+  printed: "Printed",
   producer: "PDF made by",
   encryption: "Encryption",
   updates: "Edited",

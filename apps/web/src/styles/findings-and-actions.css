@@ -57,6 +57,13 @@
   gap: 12px;
 }
 
+/* The part of a document a line is about, as the file names it. */
+.clean-part {
+  font: 12px var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .clean-size {
   flex: none;
   font-family: var(--mono);

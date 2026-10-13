@@ -419,7 +419,7 @@ const UK: Record<string, string> = {
   "Email, archives & technical files": "Електронна пошта, архіви й технічні файли",
   "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Film Lab.",
   "Includes MOV and M4V files.": "Зокрема файли MOV і M4V.",
-  "Older Word, Excel and PowerPoint formats included.": "Також підтримуються старі формати Word, Excel і PowerPoint.",
+  "Older Word, Excel and PowerPoint formats, and LibreOffice's, included.": "Також підтримуються старі формати Word, Excel і PowerPoint і документи LibreOffice.",
   "Common file types inside ZIP archives are supported too.": "Також підтримуються поширені типи файлів усередині ZIP-архівів.",
   "Image formats": "Формати зображень",
   "Video formats": "Відеоформати",
@@ -502,6 +502,8 @@ const UK: Record<string, string> = {
   "Custom properties": "Власні властивості",
   "Downloaded from": "Звідки завантажено",
   "Finder tags": "Теги Finder",
+  "Printer": "Принтер",
+  "Printed": "Надруковано",
   "Keywords": "Ключові слова",
   "PDF made by": "Створено програмою",
   "Encryption": "Шифрування",
@@ -741,6 +743,10 @@ const REVEAL_WORDS: Record<string, string> = {
   "its Finder tags": "теги Finder",
   "the organisation it belongs to": "організацію, якій він належить",
   "its manager's name": "ім’я керівника",
+  "the printer's name": "назву принтера",
+  "who printed it": "хто його друкував",
+  "the printer it was printed on": "принтер, на якому його друкували",
+  "who printed it and when": "хто й коли його друкував",
   "its description": "опис",
 };
 
@@ -969,6 +975,14 @@ export function translateText(value: string, locale: Locale): string {
   }
   match = /^parsed in ([\d.]+) ms$/.exec(value);
   if (match) return `розібрано за ${match[1].replace(".", ",")} мс`;
+  match = /^(\d+) tracked changes, accepted$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "виправлення", "виправлення", "виправлень")} прийнято`;
+  match = /^(\d+) comments and who wrote them$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "коментар", "коментарі", "коментарів")} і хто їх написав`;
+  match = /^(\d+) tracked changes and comment marks, accepted or removed$/.exec(value);
+  if (match) return `${match[1]} виправлень і позначок коментарів прийнято або прибрано`;
+  match = /^(\d+) pieces of text no one can see$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "фрагмент", "фрагменти", "фрагментів")} тексту, якого ніхто не бачить`;
   match = /^What was removed · (.+)$/.exec(value);
   if (match) return `Що видалено · ${match[1]}`;
   match = /^Saved as “(.+)” — look for it in your downloads\.$/.exec(value);
