@@ -22,6 +22,7 @@ pub mod jpeg;
 pub mod map;
 pub mod model;
 pub mod mosaic;
+pub mod naming;
 pub mod pdf;
 pub mod png;
 pub mod reader;

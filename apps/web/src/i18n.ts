@@ -799,6 +799,33 @@ function ruleWord(count: number): string {
   return "правил";
 }
 
+/** What a misnamed file is, as the line about its name says it. */
+const KIND_IN_WORDS: Record<string, string> = {
+  "a JPEG": "JPEG",
+  "a PNG": "PNG",
+  "a HEIF image (HEIC or AVIF)": "зображення HEIF (HEIC або AVIF)",
+  "a HEIC image": "зображення HEIC",
+  "an AVIF image": "зображення AVIF",
+  "a WebP image": "зображення WebP",
+  "a GIF": "GIF",
+  "a TIFF image": "зображення TIFF",
+  "an MP4 or QuickTime movie": "відео MP4 або QuickTime",
+  "a PDF": "PDF",
+  "a ZIP archive": "архів ZIP",
+  "a WebAssembly module": "модуль WebAssembly",
+  "an email": "електронний лист",
+  "an Outlook message": "повідомлення Outlook",
+  "a Word, Excel or PowerPoint 97–2003 file": "файл Word, Excel чи PowerPoint 97–2003",
+  "a Rich Text document": "документ RTF",
+  "a Word document": "документ Word",
+  "an Excel workbook": "книга Excel",
+  "a PowerPoint presentation": "презентація PowerPoint",
+  "a LibreOffice text document": "текстовий документ LibreOffice",
+  "a LibreOffice spreadsheet": "таблиця LibreOffice",
+  "a LibreOffice presentation": "презентація LibreOffice",
+  "an EPUB book": "книга EPUB",
+};
+
 /** "з 3 файлів", "з 21 файла": the genitive after "з". */
 function ofFiles(count: number): string {
   return count % 10 === 1 && count % 100 !== 11 ? "файла" : "файлів";
@@ -969,6 +996,8 @@ export function translateText(value: string, locale: Locale): string {
   if (match) return `Не очищено — ${match[1]}.`;
   match = /^(\d+) files? read\. (.+)$/.exec(value);
   if (match) return `Прочитано ${match[1]} ${ukrainianCountWord(Number(match[1]), "файл", "файли", "файлів")}. ${translateText(match[2], locale)}`;
+  match = /^Named \.(\S+), but it is (.+)\. Apps that go by the name may refuse it or call it damaged; renaming it to (\S+) fixes that\.$/.exec(value);
+  if (match) return `Названо .${match[1]}, але це ${KIND_IN_WORDS[match[2]] ?? match[2]}. Програми, що зважають на назву, можуть не відкрити його або назвати пошкодженим; перейменування на ${match[3]} це виправить.`;
   match = /^(Hidden in it|Files inside): (\d+) files?$/.exec(value);
   if (match) {
     const count = Number(match[2]);
