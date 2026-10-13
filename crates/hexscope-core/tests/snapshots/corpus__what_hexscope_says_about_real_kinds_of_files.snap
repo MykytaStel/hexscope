@@ -69,7 +69,13 @@ plan.odt: zip
   application: CocoaODFWriter/2775.1
   subject: Board
   description: draft v3
-plan.rtf: unknown
+plan.rtf: rtf
+  title: Q4 plan
+  subject: Board
+  description: draft v3
+  author: Olena Petrenko
+  editor: Ivan
+  company: Acme LLC
 truncated.docx: zip, not read whole
   ! Damage: no end of central directory: the archive is incomplete
   ! Damage: data runs past the end of the file

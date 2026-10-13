@@ -44,6 +44,7 @@ export function noun(m: FileModel): string {
     case "msg":
       return "email";
     case "office97":
+    case "rtf":
       return "document";
     case "wasm":
       return "module";

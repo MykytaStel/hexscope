@@ -119,6 +119,7 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Video(doc) => clean_video(data, &doc),
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
+        Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     cleaned.removed = merged(cleaned.removed);
@@ -719,6 +720,48 @@ fn clean_heif(data: &[u8], doc: &HeifDocument) -> Result<Cleaned, CleanError> {
         bytes: out,
         removed,
         orientation_kept: orientation.filter(|_| doc.exif.is_some()),
+    })
+}
+
+// --- RTF -----------------------------------------------------------------------
+
+/// An RTF document without its information group, the program and template
+/// that made it, its custom properties and editing-session numbers, and the
+/// names of who changed and commented on it. The text is copied as it is:
+/// tracked changes and comments stay, without their authors.
+fn clean_rtf(data: &[u8], doc: &crate::rtf::RtfDocument) -> Result<Cleaned, CleanError> {
+    if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
+        return Err(CleanError::Damaged);
+    }
+    if doc.edits.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut out = Vec::with_capacity(data.len());
+    let mut at = 0usize;
+    let mut removed: Vec<Removed> = Vec::new();
+    for e in &doc.edits {
+        let (start, end) = (e.range.start as usize, e.range.end() as usize);
+        // An edit inside one already made — a comment's author in a removed group — is part of it.
+        if start < at {
+            continue;
+        }
+        out.extend_from_slice(data.get(at..start).ok_or(CleanError::Damaged)?);
+        out.extend_from_slice(&e.with);
+        at = end;
+        let bytes = (end - start).saturating_sub(e.with.len()) as u64;
+        match removed.iter_mut().find(|r| r.what == e.what) {
+            Some(r) => r.bytes += bytes,
+            None => removed.push(Removed {
+                what: e.what.into(),
+                bytes,
+            }),
+        }
+    }
+    out.extend_from_slice(data.get(at..).ok_or(CleanError::Damaged)?);
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
     })
 }
 

@@ -10,6 +10,15 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **RTF documents**: their title, author, who saved them last, company,
+  manager, dates, printing date, versions and editing time, the program and
+  the template with its path, custom properties, who made the tracked changes
+  and wrote the comments, and the text a deletion still holds — Ukrainian
+  names in Windows code page 1251 read right. The clean copy leaves out the
+  information and the rest, accepts the tracked changes and deletes the
+  comments, and is confirmed to have lost them.
+- A document's custom properties count among the things it gives away.
+
 - **LibreOffice documents** (.odt, .ods, .odp): who made it and who saved it
   last, when, how long it was edited, the program and the system it ran on,
   who printed it and the printer's name, the template's path, its comments

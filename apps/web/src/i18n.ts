@@ -744,6 +744,7 @@ const REVEAL_WORDS: Record<string, string> = {
   "the organisation it belongs to": "організацію, якій він належить",
   "its manager's name": "ім’я керівника",
   "the printer's name": "назву принтера",
+  "its custom properties": "власні властивості",
   "who printed it": "хто його друкував",
   "the printer it was printed on": "принтер, на якому його друкували",
   "who printed it and when": "хто й коли його друкував",

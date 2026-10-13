@@ -99,6 +99,31 @@ const OFFICE: &[&str] = &[
     "printer",
     "thumbnail",
 ];
+/// RTF: the copy leaves out the information group, the generator, the
+/// template and the custom properties, accepts tracked changes and deletes
+/// comments.
+const RTF: &[&str] = &[
+    "title",
+    "subject",
+    "author",
+    "editor",
+    "manager",
+    "company",
+    "category",
+    "keywords",
+    "description",
+    "created",
+    "modified",
+    "printed",
+    "revisions",
+    "editing",
+    "application",
+    "template",
+    "custom",
+    "tracked",
+    "deleted",
+    "comments",
+];
 /// Office 97-2003: the copy blanks both property streams where they lie.
 const OFFICE97: &[&str] = &[
     "title",
@@ -131,6 +156,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("pdf", PDF),
     ("zip", OFFICE),
     ("office97", OFFICE97),
+    ("rtf", RTF),
 ];
 
 /// Every covered combination, one by one.
@@ -552,7 +578,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 27 + 15);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 27 + 15 + 20);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));

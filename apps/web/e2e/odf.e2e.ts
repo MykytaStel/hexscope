@@ -11,7 +11,7 @@ test("a LibreOffice document says who made, edited and printed it, and its clean
   page.on("download", (download) => void download.cancel());
   await page.goto("./");
   await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/lease.odt", import.meta.url).pathname);
-  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 19 things");
+  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 20 things");
   const facts = page.locator(".reveal-list");
   for (const label of ["Author", "Last saved by", "Printer", "Printed", "Thumbnail", "Deleted text"]) {
     await expect(facts.locator("dt", { hasText: label }).first()).toBeVisible();
