@@ -51,3 +51,26 @@ test("on a phone, the location badge shows the place in the summary, not the byt
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
   await expect(page.locator(".reveal-list dt.is-flash")).toHaveText("Location");
 });
+
+test("on a phone, several photos are cleaned with one button and shared with the next, in Ukrainian", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "sharing several copies at once is the phone's way");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    Object.defineProperty(navigator, "canShare", { value: () => true });
+  });
+  await page.goto("./");
+  const photo = new URL("../public/samples/photo.jpg", import.meta.url).pathname;
+  const iphone = new URL("./fixtures/iphone-hdr.jpg", import.meta.url).pathname;
+  await page.locator("#picker-empty").setInputFiles([photo, iphone]);
+  await expect(page.locator(".batch-title")).toHaveText("2 з 2 файлів варто переглянути");
+  const make = page.locator(".batch-head .btn-clean");
+  await expect(make).toHaveText("Зробити 2 чисті копії");
+  await expect(page.locator(".batch-keep")).toBeHidden();
+  await make.click();
+  const share = page.locator(".batch-actions .btn-primary");
+  await expect(share).toHaveText("Поділитися 2 чистими копіями");
+  // Sharing is now the one thing to do.
+  await expect(page.locator(".batch-head .btn-clean")).toHaveCount(0);
+  await expect(page.locator(".batch-head .btn-again")).toBeVisible();
+  await expect(page.locator("#batch")).toContainText("прибрано 8 · залишилося 0 · не перевірено 0");
+});
