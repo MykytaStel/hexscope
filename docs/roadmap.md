@@ -42,8 +42,13 @@ part, a new link preview and a demo. Details in the changelog.
    blanked in place.~~ Done 2026-10-13: read by the EXIF reader, its copy
    empties the tags and the EXIF and GPS tables where they lie; confirmed
    removal covers it.
-2. LibreOffice documents (ODT, ODS, ODP): author, dates, editing time,
-   comments, tracked changes.
+2. ~~LibreOffice documents (ODT, ODS, ODP): author, dates, editing time,
+   comments, tracked changes.~~ Done 2026-10-13: meta.xml (who made it,
+   who saved and printed it, the program and system), the printer in
+   settings.xml, comments, tracked changes with the deleted text, the
+   first page's thumbnail and the photos inside; its copy empties those
+   parts, accepts the changes and blanks the thumbnail; confirmed removal
+   covers it.
 3. RTF: author, company, operator.
 4. A file whose name says one format and whose bytes another — a Word file
    named `.pdf` — is named as such by the core, for the CLI too.

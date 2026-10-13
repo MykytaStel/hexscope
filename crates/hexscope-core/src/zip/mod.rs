@@ -11,6 +11,7 @@ pub(crate) mod apple;
 pub(crate) mod docs;
 mod extract;
 mod fields;
+pub(crate) mod odf;
 pub(crate) mod office;
 pub(crate) mod revise;
 #[cfg(test)]
@@ -57,6 +58,8 @@ pub struct ZipDocument {
     pub entries: Vec<ZipEntry>,
     /// What an Office document's properties reveal; empty for other archives.
     pub facts: Vec<DocumentFact>,
+    /// An OpenDocument file: LibreOffice's .odt, .ods, .odp.
+    pub odf: bool,
 }
 
 /// One entry, as the central directory describes it and the local header
@@ -95,11 +98,17 @@ pub fn is_zip(data: &[u8]) -> bool {
 pub fn parse_zip(data: &[u8]) -> ZipDocument {
     let (tree, entries) = read_entries(data);
     let mut facts = office::document_facts(data, &entries);
+    let odf = odf::is_odf(data, &entries);
+    if odf {
+        facts.extend(odf::odf_facts(data, &entries));
+        facts.extend(office::photo_facts(data, &entries, odf::is_picture));
+    }
     facts.extend(apple::mac_facts(data, &entries));
     ZipDocument {
         tree,
         entries,
         facts,
+        odf,
     }
 }
 

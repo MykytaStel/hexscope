@@ -88,6 +88,16 @@ const OFFICE: &[&str] = &[
     "custom",
     "downloaded",
     "tags",
+    // Word's and an OpenDocument file's tracked changes, accepted in the copy
+    // with the text a deletion held, and the photos placed in a document.
+    "tracked",
+    "deleted",
+    "photoplace",
+    "photo",
+    // An OpenDocument file's printer, who printed it, and its first page's thumbnail.
+    "printed",
+    "printer",
+    "thumbnail",
 ];
 /// Office 97-2003: the copy blanks both property streams where they lie.
 const OFFICE97: &[&str] = &[
@@ -542,7 +552,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 20 + 15);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 27 + 15);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));

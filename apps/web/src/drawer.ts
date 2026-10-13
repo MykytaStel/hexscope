@@ -15,7 +15,7 @@ import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
-import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, mapLink, openReason, playReason } from "./knowledge";
+import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink, openReason, playReason } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
 import { copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
@@ -50,7 +50,7 @@ const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additi
   camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
   location: new Set(["place", "photoplace"]),
   dates: new Set(["taken", "created", "modified", "updates", "timezone"]),
-  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "mailer", "sentfrom", "computer"]),
+  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "mailer", "sentfrom", "computer", "printer", "printed"]),
 };
 
 function metadataGroupFor(kind: string): MetadataGroupKey {
@@ -587,8 +587,9 @@ export class Drawer {
         link?.replaceChildren(quoted[1], ...bars);
       }
       // What the clean copy cannot take out stays unstruck.
-      // A Word document's comments go with the clean copy; a workbook's or a deck's stay.
-      const word = f.format === "zip" && f.labels.includes("word/document.xml");
+      // A Word document's comments go with the clean copy, and a LibreOffice
+      // document's; a workbook's or a deck's stay.
+      const word = f.format === "zip" && (f.labels.includes("word/document.xml") || isOpenDocument(f.labels));
       if (KEPT[f.format]?.includes(fact.kind) && !(word && fact.kind === "comments")) {
         dd.dataset.kept = "";
         term?.setAttribute("data-kept", "");

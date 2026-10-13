@@ -139,7 +139,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         push("hiddentext", unseen_text(&xml), node);
     }
     sheets_and_slides(data, entries, &mut facts);
-    facts.extend(photo_facts(data, entries));
+    facts.extend(photo_facts(data, entries, is_media));
     facts.extend(embedded_facts(data, entries));
     facts.extend(word_links(data, entries));
     facts
@@ -380,7 +380,7 @@ fn embedded_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
 
 /// Every element's text: `<a:t>one</a:t>…<a:t>two</a:t>`.
 #[inline(never)]
-fn texts(xml: &str, name: &str) -> Vec<String> {
+pub(super) fn texts(xml: &str, name: &str) -> Vec<String> {
     let close = format!("</{name}>");
     let mut out = Vec::new();
     let mut from = 0;
@@ -684,13 +684,17 @@ pub(crate) fn is_media(name: &str) -> bool {
         .any(|dir| name.starts_with(dir))
 }
 
-/// What the photos placed in the document say: each JPEG or PNG under
-/// `media/` is read as a photo of its own.
-fn photo_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
+/// What the photos placed in the document say: each JPEG or PNG where
+/// `placed` says the document keeps its pictures is read as a photo of its own.
+pub(super) fn photo_facts(
+    data: &[u8],
+    entries: &[ZipEntry],
+    placed: fn(&str) -> bool,
+) -> Vec<DocumentFact> {
     let mut out = Vec::new();
     let photos = entries
         .iter()
-        .filter(|e| is_media(&e.name) && e.uncompressed <= MAX_PART)
+        .filter(|e| placed(&e.name) && e.uncompressed <= MAX_PART)
         .take(MAX_PHOTOS);
     for e in photos {
         let Ok(bytes) = extract(data, e, MAX_PART) else {
@@ -803,7 +807,7 @@ fn unseen_text(xml: &str) -> Option<String> {
 }
 
 /// `3 comments by Olena and Petro`: distinct authors in order of appearance.
-fn by(what: String, authors: &[String]) -> String {
+pub(super) fn by(what: String, authors: &[String]) -> String {
     let mut names: Vec<&str> = Vec::new();
     for a in authors {
         if !a.is_empty() && !names.contains(&a.as_str()) {
@@ -825,14 +829,14 @@ fn by(what: String, authors: &[String]) -> String {
     }
 }
 
-fn plural(n: usize, one: &str, many: &str) -> String {
+pub(super) fn plural(n: usize, one: &str, many: &str) -> String {
     format!("{n} {}", if n == 1 { one } else { many })
 }
 
 /// Where the next `<name …>` tag starts, and where its body starts, after
 /// its `>`. Lookalikes with a longer name, such as `<w:delText>` for
 /// `<w:del>`, are passed over.
-fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize, usize)> {
+pub(super) fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize, usize)> {
     let open = format!("<{name}");
     loop {
         let at = from + xml[from..].find(&open)?;
@@ -863,7 +867,7 @@ fn tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
 
 /// The value of `name="…"` or `name='…'` in a tag, decoded.
 #[inline(never)]
-fn attribute(tag: &str, name: &str) -> Option<String> {
+pub(super) fn attribute(tag: &str, name: &str) -> Option<String> {
     let mut from = 0;
     loop {
         let at = from + tag[from..].find(name)?;
@@ -908,7 +912,7 @@ pub(crate) fn element_text(xml: &str, name: &str) -> Option<String> {
 
 /// The five predefined entities and numeric references; anything else is
 /// left as written.
-fn decode(s: &str) -> String {
+pub(super) fn decode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;
     while let Some(amp) = rest.find('&') {
@@ -949,7 +953,7 @@ fn decode(s: &str) -> String {
     out
 }
 
-fn cap(mut s: String) -> String {
+pub(super) fn cap(mut s: String) -> String {
     if s.len() > MAX_TEXT {
         let mut end = MAX_TEXT;
         while !s.is_char_boundary(end) {
@@ -973,6 +977,21 @@ fn date(raw: String) -> String {
     // character straddling position 16 must not become a panic.
     match (raw.get(..10), raw.get(11..16)) {
         (Some(day), Some(time)) if shaped => format!("{day} {time} UTC"),
+        _ => raw,
+    }
+}
+
+/// An OpenDocument date, written in the author's own time and without its
+/// zone: `2024-03-01T10:20:30.123` as `2024-03-01 10:20`. One in UTC reads
+/// as `date` writes it.
+pub(super) fn date_time(raw: String) -> String {
+    if raw.ends_with('Z') {
+        return date(raw);
+    }
+    match (raw.get(..10), raw.get(10..11), raw.get(11..16)) {
+        (Some(day), Some("T"), Some(time)) if day.as_bytes().get(4) == Some(&b'-') => {
+            format!("{day} {time}")
+        }
         _ => raw,
     }
 }
@@ -1126,10 +1145,19 @@ mod tests {
             .unwrap()
             .1;
         let removed: Vec<_> = report.removed.iter().map(|i| i.kind.as_str()).collect();
-        for kind in covered
-            .iter()
-            .filter(|k| !["downloaded", "tags"].contains(k))
-        {
+        // The properties only: the other kinds have evidence of their own in tests/coverage_evidence.rs.
+        let elsewhere = [
+            "downloaded",
+            "tags",
+            "tracked",
+            "deleted",
+            "photoplace",
+            "photo",
+            "printed",
+            "printer",
+            "thumbnail",
+        ];
+        for kind in covered.iter().filter(|k| !elsewhere.contains(k)) {
             assert!(removed.contains(kind), "{kind}: {report:?}");
         }
     }

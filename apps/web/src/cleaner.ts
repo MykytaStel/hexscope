@@ -85,10 +85,19 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     const ul = el("ul", "clean-list");
     for (const item of r.removed) {
       const li = el("li");
-      // A sentence starts with a capital; a path such as "word/media/…" stays as named.
-      const path = /^[^\s:]+\//.test(item.what);
-      const what = path ? item.what : item.what.charAt(0).toUpperCase() + item.what.slice(1);
-      li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
+      // A part of a document — "meta.xml: who made it…" — is named as the file
+      // names it, and what it held is said in words, each translated on its own.
+      const part = /^([^\s:]+\.[A-Za-z0-9]+): (.+)$/.exec(item.what);
+      if (part) {
+        const said = el("span");
+        said.append(el("code", "clean-part", part[1]), ": ", ...part[2].split("; ").flatMap((x, i) => [...(i ? ["; "] : []), el("span", undefined, x)]));
+        li.append(said, el("span", "clean-size", formatBytes(item.bytes)));
+      } else {
+        // A sentence starts with a capital; a path such as "word/media/…" stays as named.
+        const path = /^[^\s:]+\//.test(item.what);
+        const what = path ? item.what : item.what.charAt(0).toUpperCase() + item.what.slice(1);
+        li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
+      }
       ul.append(li);
     }
     removed.append(ul);

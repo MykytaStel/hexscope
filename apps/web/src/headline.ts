@@ -3,6 +3,7 @@
 import type { FileModel } from "./model";
 import { categories } from "./share";
 import { verdict } from "./verdict";
+import { isOpenDocument } from "./knowledge";
 
 export interface Headline {
   /** danger: act before sending; warning: worth a look; ok: nothing found; neutral: not read. */
@@ -47,7 +48,10 @@ export function noun(m: FileModel): string {
     case "wasm":
       return "module";
     case "zip":
-      return ["word/document.xml", "xl/workbook.xml", "ppt/presentation.xml"].some((l) => f.labels.includes(l)) ? "document" : "archive";
+      // Word, Excel and PowerPoint by their main part; LibreOffice by its mimetype beside its content.
+      return ["word/document.xml", "xl/workbook.xml", "ppt/presentation.xml"].some((l) => f.labels.includes(l)) || isOpenDocument(f.labels)
+        ? "document"
+        : "archive";
     default:
       return "file";
   }

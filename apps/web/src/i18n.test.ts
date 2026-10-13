@@ -15,6 +15,14 @@ describe("the interface language", () => {
     expect(translateText("A JPEG picture", "uk")).toBe("Зображення JPEG");
   });
 
+  it("names what a document's clean copy took out of each part", () => {
+    expect(translateText("2 tracked changes, accepted", "uk")).toBe("2 виправлення прийнято");
+    expect(translateText("5 tracked changes, accepted", "uk")).toBe("5 виправлень прийнято");
+    expect(translateText("3 comments and who wrote them", "uk")).toBe("3 коментарі і хто їх написав");
+    expect(translateText("a picture of the first page", "uk")).toBe("зображення першої сторінки");
+    expect(translateText("Printer", "uk")).toBe("Принтер");
+  });
+
   it("turns Ukrainian back into English, and leaves English as it is", () => {
     expect(untranslate("Віддячити розробнику")).toBe("Thank the developer");
     expect(untranslate(" Банка monobank ")).toBe(" Monobank jar ");
