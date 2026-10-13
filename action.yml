@@ -12,8 +12,9 @@ inputs:
   fail-on:
     description: >-
       Fail when a file has any of these, comma-separated: reveals, hidden,
-      damage, oddity, or kinds of fact such as location, serial, author,
-      covered. "none" never fails.
+      damage, oddity, misnamed (a name that says another format than the
+      file is), or kinds of fact such as location, serial, author, covered.
+      "none" never fails.
     default: reveals,hidden,damage
 
 runs:
