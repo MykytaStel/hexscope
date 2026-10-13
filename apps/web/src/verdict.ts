@@ -53,6 +53,32 @@ const NAMES: Record<string, [string, string]> = {
   rtf: ["a Rich Text document", ".rtf"],
 };
 
+/** Documents a ZIP can be, with the extensions that are their own. */
+const ZIP_KINDS: [string, string, string[]][] = [
+  ["a Word document", ".docx", ["docx", "docm"]],
+  ["an Excel workbook", ".xlsx", ["xlsx", "xlsm"]],
+  ["a PowerPoint presentation", ".pptx", ["pptx", "pptm"]],
+  ["a LibreOffice text document", ".odt", ["odt"]],
+  ["a LibreOffice spreadsheet", ".ods", ["ods"]],
+  ["a LibreOffice presentation", ".odp", ["odp"]],
+  ["an EPUB book", ".epub", ["epub"]],
+];
+
+/** Which document a ZIP is: Office's by its main part, OpenDocument's and EPUB's by the mimetype stored first. */
+function zipKind(m: FileModel): [string, string, string[]] | undefined {
+  const labels = m.file.labels;
+  if (labels.includes("word/document.xml")) return ZIP_KINDS[0];
+  if (labels.includes("xl/workbook.xml")) return ZIP_KINDS[1];
+  if (labels.includes("ppt/presentation.xml")) return ZIP_KINDS[2];
+  // A local header of 30 bytes, then the name "mimetype", then what it says.
+  const mime = new TextDecoder().decode(m.bytes.subarray(38, 38 + 64));
+  if (mime.startsWith("application/vnd.oasis.opendocument.text")) return ZIP_KINDS[3];
+  if (mime.startsWith("application/vnd.oasis.opendocument.spreadsheet")) return ZIP_KINDS[4];
+  if (mime.startsWith("application/vnd.oasis.opendocument.presentation")) return ZIP_KINDS[5];
+  if (mime.startsWith("application/epub+zip")) return ZIP_KINDS[6];
+  return undefined;
+}
+
 /** A name's extension that says another format than the bytes, what they are, and the extension that fits them. */
 export function misfit(m: FileModel): { ext: string; what: string; fits: string } | null {
   const f = m.file;
@@ -60,8 +86,14 @@ export function misfit(m: FileModel): { ext: string; what: string; fits: string 
   if (dot <= 0 || f.format === "unknown") return null;
   const ext = m.name.slice(dot + 1).toLowerCase();
   const claimed = Object.keys(EXTENSIONS).find((k) => EXTENSIONS[k].includes(ext));
-  if (!claimed || claimed === f.format) return null;
-  let [what, fits] = NAMES[f.format];
+  if (!claimed) return null;
+  // A document in a ZIP is named as what it is: a Word file called .xlsx is misnamed too.
+  const kind = f.format === "zip" ? zipKind(m) : undefined;
+  if (claimed === f.format) {
+    const namedAsDocument = ZIP_KINDS.some(([, , exts]) => exts.includes(ext));
+    if (!kind || !namedAsDocument || kind[2].includes(ext)) return null;
+  }
+  let [what, fits] = kind ? [kind[0], kind[1]] : NAMES[f.format];
   // A HEIF says which it is: "HEIC · …" or "AVIF · …".
   const brand = f.format === "heif" ? m.value(0).split(" · ")[0] : "";
   if (brand === "HEIC" || brand === "AVIF") [what, fits] = [`a ${brand} image`, `.${brand.toLowerCase()}`];

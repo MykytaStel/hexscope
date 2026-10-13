@@ -54,8 +54,11 @@ part, a new link preview and a demo. Details in the changelog.
    revision table and comments, and the text tracked deletions hold; its
    copy leaves those out, accepts the changes and deletes the comments;
    confirmed removal covers it.
-4. A file whose name says one format and whose bytes another — a Word file
-   named `.pdf` — is named as such by the core, for the CLI too.
+4. ~~A file whose name says one format and whose bytes another — a Word file
+   named `.pdf` — is named as such by the core, for the CLI too.~~ Done
+   2026-10-13: `hexscope_core::naming`, down to the kind of document a ZIP
+   holds; the CLI prints it, puts it in JSON and SARIF, and fails on it with
+   `--fail-on misnamed`.
 5. ~~The full parser split per format, so a new format does not grow what
    every visitor downloads.~~ Done 2026-10-13: one build for pictures and
    movies, one with PDF, one with Office, email and WebAssembly. Done when: the corpus snapshot shows TIFF, ODT and

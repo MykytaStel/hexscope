@@ -18,6 +18,8 @@ mod movie;
 use hexscope_core::Document;
 use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
 use hexscope_core::docs::Concern;
+use hexscope_core::document::parse;
+use hexscope_core::naming::{Misnamed, misnamed};
 use hexscope_core::repair::repair;
 use hexscope_core::summary::{Summary, summarize, summary_of};
 use hexscope_core::verification::{
@@ -45,7 +47,8 @@ PATH is a file or a folder, read with everything inside it.
 
 check:
   --fail-on WHAT   exit 1 when a file has any of WHAT, a comma-separated list of
-                   reveals, hidden, damage, oddity, or kinds of fact such as
+                   reveals, hidden, damage, oddity, misnamed (a name that says
+                   another format than the bytes), or kinds of fact such as
                    location, serial, author, covered (default: reveals,hidden,damage);
                    none never fails
   --json           one JSON object per file, one per line
@@ -230,9 +233,13 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
 }
 
 /// The groups a summary falls in, for `--fail-on`: its concerns, `reveals`
-/// when it gives something away, and the kinds of what it gives away.
-fn tags(s: &Summary) -> Vec<&str> {
+/// when it gives something away, the kinds of what it gives away, and
+/// `misnamed` when its name says another format.
+fn tags<'a>(s: &'a Summary, mis: Option<&Misnamed>) -> Vec<&'a str> {
     let mut t = Vec::new();
+    if mis.is_some() {
+        t.push("misnamed");
+    }
     for (concern, name) in [
         (Concern::Damage, "damage"),
         (Concern::Hidden, "hidden"),
@@ -268,27 +275,36 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     let mut results: Vec<(String, String)> = Vec::new();
     for path in files(&o.paths)? {
         let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
-        let s = match movie::read(&path).map_err(failed_to_read)? {
-            Some(m) => summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
-            None => summarize(&std::fs::read(&path).map_err(failed_to_read)?),
+        let (s, mis) = match movie::read(&path).map_err(failed_to_read)? {
+            Some(m) => (
+                summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
+                None,
+            ),
+            None => {
+                let data = std::fs::read(&path).map_err(failed_to_read)?;
+                let doc = parse(&data);
+                let mis = misnamed(&path.display().to_string(), &doc, &data);
+                (summary_of(&doc), mis)
+            }
         };
-        let quiet = s.problems.is_empty() && s.facts.is_empty();
+        let mis = mis.as_ref();
+        let quiet = s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
         if s.format == "unknown" && !o.all {
             continue;
         }
         read += 1;
-        let tags = tags(&s);
+        let tags = tags(&s, mis);
         let fails = o.fail_on.iter().any(|f| tags.contains(&f.as_str()));
         failed += usize::from(fails);
         if o.sarif {
-            results.extend(sarif_results(&path, &s));
+            results.extend(sarif_results(&path, &s, mis));
         } else if o.json {
-            println!("{}", json(&path, &s));
+            println!("{}", json(&path, &s, mis));
         } else if !github && (!quiet || o.all) {
-            print!("{}", human(&path, &s));
+            print!("{}", human(&path, &s, mis));
         }
         if github && fails {
-            for line in annotations(&path, &s) {
+            for line in annotations(&path, &s, mis) {
                 println!("{line}");
             }
         }
@@ -314,8 +330,19 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     })
 }
 
-fn human(path: &Path, s: &Summary) -> String {
+/// What a misnamed file is, and the name that fits, in one line.
+fn misnamed_line(m: &Misnamed) -> String {
+    format!(
+        "named .{}, but it is {}: apps that go by the name may refuse it; renaming it to {} fixes that",
+        m.ext, m.what, m.fits
+    )
+}
+
+fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     let mut out = format!("{}  {}\n", path.display(), s.format);
+    if let Some(m) = mis {
+        let _ = writeln!(out, "  misnamed {}", misnamed_line(m));
+    }
     for p in &s.problems {
         let _ = writeln!(
             out,
@@ -329,7 +356,7 @@ fn human(path: &Path, s: &Summary) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {kind}: {text}");
     }
-    if s.problems.is_empty() && s.facts.is_empty() {
+    if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
         out.push_str("  nothing found\n");
     }
     out
@@ -337,9 +364,15 @@ fn human(path: &Path, s: &Summary) -> String {
 
 /// GitHub Actions workflow commands contain the path and finding kind, but
 /// never the finding value. Values stay out of the runner's logs.
-fn annotations(path: &Path, s: &Summary) -> Vec<String> {
+fn annotations(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> Vec<String> {
     let file = escape_workflow_property(&path.display().to_string());
     let mut out = Vec::new();
+    if let Some(m) = mis {
+        out.push(format!(
+            "::notice file={file},title=hexscope: misnamed::named .{}, but it is {}; rename it to {}",
+            m.ext, m.what, m.fits
+        ));
+    }
     for p in &s.problems {
         let level = if p.concern == Concern::Oddity {
             "notice"
@@ -404,7 +437,7 @@ fn json_str(s: &str) -> String {
     out
 }
 
-fn json(path: &Path, s: &Summary) -> String {
+fn json(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     let problems: Vec<String> = s
         .problems
         .iter()
@@ -423,8 +456,16 @@ fn json(path: &Path, s: &Summary) -> String {
         .iter()
         .map(|(k, t)| format!("{{\"kind\":\"{k}\",\"text\":{}}}", json_str(t)))
         .collect();
+    let misnamed = mis.map_or(String::new(), |m| {
+        format!(
+            ",\"misnamed\":{{\"ext\":{},\"is\":{},\"fits\":{}}}",
+            json_str(&m.ext),
+            json_str(m.what),
+            json_str(m.fits)
+        )
+    });
     format!(
-        "{{\"file\":{},\"format\":\"{}\",\"problems\":[{}],\"reveals\":[{}]}}",
+        "{{\"file\":{},\"format\":\"{}\",\"problems\":[{}],\"reveals\":[{}]{misnamed}}}",
         json_str(&path.display().to_string()),
         s.format,
         problems.join(","),
@@ -434,9 +475,15 @@ fn json(path: &Path, s: &Summary) -> String {
 
 /// A finding as a SARIF 2.1.0 result: damage an error, what is hidden or
 /// given away a warning, a broken rule a note; the part's bytes as a region.
-fn sarif_results(path: &Path, s: &Summary) -> Vec<(String, String)> {
+fn sarif_results(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> Vec<(String, String)> {
     let uri = json_str(&path.display().to_string().replace('\\', "/"));
     let mut out = Vec::new();
+    if let Some(m) = mis {
+        out.push(("misnamed".to_string(), format!(
+            "{{\"ruleId\":\"misnamed\",\"level\":\"note\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}}}}}}]}}",
+            json_str(&misnamed_line(m))
+        )));
+    }
     for p in &s.problems {
         let (rule, level) = match p.concern {
             Concern::Damage => ("damage", "error"),
@@ -472,6 +519,7 @@ fn sarif(results: &[(String, String)]) -> String {
                 "damage" => "Part of the file is damaged".to_string(),
                 "hidden" => "Something is hidden or disguised".to_string(),
                 "oddity" => "A rule of the format is broken".to_string(),
+                "misnamed" => "The name says another format than the file is".to_string(),
                 other => format!("The file reveals {}", other.trim_start_matches("reveals/")),
             };
             format!(

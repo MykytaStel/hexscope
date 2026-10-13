@@ -10,6 +10,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **A file named as another format** — a Word document called `.pdf`, a HEIC
+  photo called `.jpg` — is named by the core, so the CLI says it too: what
+  the file is and the name that fits, in its output, JSON (`misnamed`) and
+  SARIF, and `--fail-on misnamed` fails on it. A document in a ZIP is named
+  as what it is: a Word file called `.xlsx`, or a LibreOffice spreadsheet
+  called `.xlsx`, is misnamed, and the name that fits is `.docx` or `.ods`,
+  not `.zip` — on the site as well, where the line is now in Ukrainian too.
+
 - **RTF documents**: their title, author, who saved them last, company,
   manager, dates, printing date, versions and editing time, the program and
   the template with its path, custom properties, who made the tracked changes

@@ -60,6 +60,7 @@ cargo install --locked hexscope-cli
 ```sh
 hexscope check photos/                              # inspect files in a folder
 hexscope check --fail-on location,serial photos/    # choose what fails the check
+hexscope check --fail-on misnamed uploads/          # a Word file named .pdf, a HEIC named .jpg
 hexscope clean --out clean/ photos/                 # write clean copies separately
 hexscope repair --out recovered/ broken.png         # recover supported damaged files
 hexscope redact --text "Private Name" report.pdf    # redact matching PDF text

@@ -733,3 +733,37 @@ fn a_long_video_is_checked_and_cleaned_without_its_media_in_memory() {
     assert_eq!(code, 0, "{out}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_name_that_says_another_format_is_named_and_can_fail_the_check() {
+    let dir = std::env::temp_dir().join(format!("hexscope-misnamed-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pdf = dir.join("contract.pdf");
+    std::fs::copy(core_fixture("report.docx"), &pdf).unwrap();
+    let pdf = pdf.to_str().unwrap();
+
+    let (code, out, _) = run(&["check", pdf]);
+    assert_eq!(code, 1, "it still reveals its author");
+    assert!(
+        out.contains("misnamed named .pdf, but it is a Word document"),
+        "{out}"
+    );
+    assert!(out.contains("renaming it to .docx"), "{out}");
+
+    let (_, json, _) = run(&["check", "--json", pdf]);
+    assert!(
+        json.contains(r#""misnamed":{"ext":"pdf","is":"a Word document","fits":".docx"}"#),
+        "{json}"
+    );
+
+    let (code, _, _) = run(&[
+        "check",
+        "--fail-on",
+        "misnamed",
+        &core_fixture("report.docx"),
+    ]);
+    assert_eq!(code, 0, "a name that fits does not fail");
+    let (code, _, _) = run(&["check", "--fail-on", "misnamed", pdf]);
+    assert_eq!(code, 1);
+    std::fs::remove_dir_all(&dir).ok();
+}
