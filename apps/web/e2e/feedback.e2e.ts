@@ -73,15 +73,24 @@ test("after the third clean copy, a quiet thanks line shows once, and closes for
 test("the support page offers ways to help, and every guide ends with a way to write", async ({ page }) => {
   await page.goto("./support");
   await expect(page.locator("h1")).toHaveText("Support hexscope");
-  const jar = page.getByRole("link", { name: "Monobank jar" });
-  await expect(jar).toHaveAttribute("href", "https://send.monobank.ua/jar/8onzpLEBC");
-  await expect(jar).toHaveAttribute("target", "_blank");
-  await expect(jar).toHaveAttribute("rel", "noopener noreferrer");
+  // Ko-fi first for the world, the Monobank jar first for Ukrainian readers.
+  const ways = page.locator("#support-ways a");
+  await expect(ways).toHaveText(["Ko-fi", "Monobank jar"]);
+  await expect(ways.first()).toHaveAttribute("href", "https://ko-fi.com/mykytacherven");
+  await expect(ways.last()).toHaveAttribute("href", "https://send.monobank.ua/jar/8onzpLEBC");
+  for (const way of await ways.all()) {
+    await expect(way).toHaveAttribute("target", "_blank");
+    await expect(way).toHaveAttribute("rel", "noopener noreferrer");
+  }
   await expect(page.locator(".story-text .num")).toHaveText(["1", "2", "3"]);
   await expect(page.getByRole("button", { name: "write here" })).toBeVisible();
+  // A full stop after a link stays a full stop.
+  await expect(page.locator(".story-text")).toContainText("github.com/MykytaStel/hexscope.");
+  await expect(page.locator(".story-text")).not.toContainText("it is.");
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await expect(page.locator("#support-ways")).toContainText("Банка monobank");
+  await expect(ways).toHaveText(["Банка monobank", "Ko-fi"]);
   await expect(page.locator("#support-ways")).toContainText("Картка будь-якого банку");
+  await expect(page.locator("#support-ways")).toContainText("Звідусіль: картка чи PayPal");
   await page.goto("./exif-viewer");
   await expect(page.locator(".story-reach")).toContainText("Write to the developer");
   await expect(page.locator(".story-reach a")).toHaveAttribute("href", "support");

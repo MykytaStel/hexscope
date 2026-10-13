@@ -1,22 +1,37 @@
 // Ways to thank the developer: shown on /support, and once, gently, after a
 // few clean copies. Plain links, opened in a new tab: no payment script runs
 // on this site, and nothing about the visitor goes with them.
+import { currentLocale, type Locale } from "./i18n";
 
 export interface Way {
   label: string;
   href: string;
   /** Who it suits, in a few words. */
   note: string;
+  /** Whose readers see it first: the way that suits them best. */
+  first: Locale;
 }
 
 /** With none, the page shows only the other ways to help. */
 export const WAYS: Way[] = [
   {
+    label: "Ko-fi",
+    href: "https://ko-fi.com/mykytacherven",
+    note: "From anywhere: a card or PayPal, once or every month.",
+    first: "en",
+  },
+  {
     label: "Monobank jar",
     href: "https://send.monobank.ua/jar/8onzpLEBC",
     note: "A card from any Ukrainian bank, Apple Pay or Google Pay.",
+    first: "uk",
   },
 ];
+
+/** The ways in the order that suits a reader of `locale`: theirs first. */
+export function waysFor(locale: Locale): Way[] {
+  return [...WAYS.filter((w) => w.first === locale), ...WAYS.filter((w) => w.first !== locale)];
+}
 
 const KEY = "hexscope.cleans";
 const QUIET = "hexscope.thanks-hidden";
@@ -78,15 +93,20 @@ export function showWays(list: HTMLElement): void {
     shown.forEach((num, i) => (num.textContent = String(i + 1)));
     return;
   }
-  for (const way of WAYS) {
-    const item = document.createElement("li");
-    const a = document.createElement("a");
-    a.className = "btn";
-    a.href = way.href;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.textContent = way.label;
-    item.append(a, document.createTextNode(` ${way.note}`));
-    list.append(item);
-  }
+  const fill = () =>
+    list.replaceChildren(
+      ...waysFor(currentLocale()).map((way) => {
+        const item = document.createElement("li");
+        const a = document.createElement("a");
+        a.className = "btn";
+        a.href = way.href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = way.label;
+        item.append(a, document.createTextNode(` ${way.note}`));
+        return item;
+      }),
+    );
+  fill();
+  window.addEventListener("hexscope:locale", fill);
 }

@@ -17,10 +17,12 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   the form shows; never the file, never an address. Read by the developer
   with `pnpm feedback`.
 
-- **A way to thank the developer**: a support page with ways to help — a
-  Monobank jar, which takes a card from any Ukrainian bank, Apple Pay or
-  Google Pay — and, after the third clean copy, one quiet line saying how,
-  closed for good with ×. The repository's Sponsor button leads there too.
+- **A way to thank the developer**: a support page with ways to help — Ko-fi,
+  from anywhere by card or PayPal, once or every month, and a Monobank jar,
+  which takes a card from any Ukrainian bank, Apple Pay or Google Pay, shown
+  first to Ukrainian readers — and, after the third clean copy, one quiet line
+  saying how, closed for good with ×. The repository's Sponsor button leads
+  there too.
 
 - Installed as an app, hexscope also opens TIFF files from the computer or a
   phone's share sheet.
@@ -89,6 +91,9 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   name in quotes has no space inside them.
 
 ### Fixed
+
+- On an English page, a full stop after a link or a bold word no longer
+  turns into “it is.”.
 
 - After a clean copy, its card says what its number means: “8 removed —
   nothing is left in the copy”, not a bare 8 over “nothing found”.

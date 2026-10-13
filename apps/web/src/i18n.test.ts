@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import "./analysis-i18n";
 import { GUIDE_UK } from "./guide-i18n";
-import { registerLazyTranslations, resolveLocale, translateText } from "./i18n";
+import { registerLazyTranslations, resolveLocale, translateText, untranslate } from "./i18n";
 
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 describe("the interface language", () => {
+  it("turns Ukrainian back into English, and leaves English as it is", () => {
+    expect(untranslate("Віддячити розробнику")).toBe("Thank the developer");
+    expect(untranslate(" Банка monobank ")).toBe(" Monobank jar ");
+    // A full stop after a link is English already, whatever else "." translates.
+    expect(untranslate(".")).toBeUndefined();
+    expect(untranslate("Thank the developer")).toBeUndefined();
+  });
+
   it("keeps an explicit language choice ahead of the browser language", () => {
     expect(resolveLocale("uk", ["en-US"])).toBe("uk");
     expect(resolveLocale("en", ["uk-UA"])).toBe("en");
