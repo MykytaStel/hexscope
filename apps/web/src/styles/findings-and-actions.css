@@ -1182,10 +1182,49 @@ body[data-state="batch"] .layout {
   grid-row: 1 / span 3;
 }
 
-/* The specialist tools stay together at the edge of the batch summary. */
-.batch-head > .btn:not(.btn-clean) {
+.batch-head .btn-clean,
+.batch-head .btn-again {
   grid-column: 2;
-  justify-self: stretch;
+  grid-row: 1 / span 3;
+  min-height: var(--control-height);
+  height: auto;
+  justify-content: center;
+  padding: 0 var(--space-4);
+}
+
+/* The specialist tools, folded at the edge of the batch summary. */
+.batch-tools {
+  grid-column: 2;
+  justify-self: end;
+  font-size: var(--type-small);
+}
+
+.batch-tools > summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.batch-tools[open] {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.batch-tools .btn {
+  min-height: var(--control-height);
+  height: auto;
+  justify-content: center;
+}
+
+/* What to do with the copies once made: one row of equal buttons. */
+.batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.batch-actions .batch-action {
+  margin: 0;
   min-height: var(--control-height);
   height: auto;
   justify-content: center;
@@ -1321,16 +1360,24 @@ body[data-state="batch"] .layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .batch-head .btn-clean {
+  /* On a phone, the one thing to do takes the whole width, as it does for one file. */
+  .batch-head .btn-clean,
+  .batch-head .btn-again {
     grid-column: 1;
     grid-row: auto;
-    justify-self: start;
+    justify-self: stretch;
     margin-top: 8px;
   }
 
-  .batch-head > .btn:not(.btn-clean) {
+  .batch-tools {
     grid-column: 1;
     justify-self: start;
+    margin-top: var(--space-2);
+  }
+
+  .batch-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

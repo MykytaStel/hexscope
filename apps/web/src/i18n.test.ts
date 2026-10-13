@@ -23,6 +23,19 @@ describe("the interface language", () => {
     expect(translateText("Printer", "uk")).toBe("Принтер");
   });
 
+  it("says how many files and clean copies, with Ukrainian number agreement", () => {
+    expect(translateText("3 files", "uk")).toBe("3 файли");
+    expect(translateText("2 of 21 files need a look", "uk")).toBe("2 з 21 файла варто переглянути");
+    expect(translateText("1 reveals something about you", "uk")).toBe("1 файл розкриває щось про вас");
+    expect(translateText("5 reveal something about you", "uk")).toBe("5 файлів розкривають щось про вас");
+    expect(translateText("Make 1 clean copy", "uk")).toBe("Зробити 1 чисту копію");
+    expect(translateText("Make 3 clean copies", "uk")).toBe("Зробити 3 чисті копії");
+    expect(translateText("Share 3 clean copies", "uk")).toBe("Поділитися 3 чистими копіями");
+    expect(translateText("Made 5 clean copies.", "uk")).toBe("Готово: 5 чистих копій.");
+    expect(translateText("Findings: 24 removed, 0 present, 3 unchecked.", "uk")).toBe("Знахідки: прибрано 24, залишилося 0, не перевірено 3.");
+    expect(translateText("+4 more", "uk")).toBe("ще 4");
+  });
+
   it("turns Ukrainian back into English, and leaves English as it is", () => {
     expect(untranslate("Віддячити розробнику")).toBe("Thank the developer");
     expect(untranslate(" Банка monobank ")).toBe(" Monobank jar ");

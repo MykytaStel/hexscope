@@ -74,6 +74,7 @@ test("batch reports readback and shows local correlations without exporting pers
   const receipt = JSON.parse(zip.get("hexscope-report.json")!.toString());
   // Seven findings in each photo, every one confirmed removed.
   expect(receipt).toMatchObject({ written: 2, failed: 0, removed: 14, unchecked: 0 });
+  await page.locator(".batch-tools > summary").click();
   await page.getByRole("button", { name: "Photo privacy mosaic", exact: true }).click();
   const mosaic = page.locator(".photo-mosaic"); await expect(mosaic.getByRole("status")).toContainText("2 / 3 files checked");
   await expect(mosaic).toContainText("1: a.png → 2: b.png");
