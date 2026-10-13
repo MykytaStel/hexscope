@@ -5,6 +5,7 @@ use crate::docs::{Concern, Doc, Table, lookup};
 
 const T81: &str = "https://www.w3.org/Graphics/JPEG/itu-t81.pdf";
 const JFIF: &str = "https://www.w3.org/Graphics/JPEG/jfif3.pdf";
+const MPF: &str = "https://www.cipa.jp/std/documents/e/DC-X007-KEY_E.pdf";
 
 const fn t81(text: &'static str, cite: &'static str) -> Doc {
     Doc::new(text).cite(cite, T81)
@@ -70,7 +71,9 @@ const TABLE: Table = &[
     ("* segment runs past the end of the file", damage("A segment claims more bytes than the file has left: it was cut short.")),
     ("* segment truncated before its length", damage("The file stops before a segment's length.")),
     ("SOF segment truncated", damage("The frame header is too short to hold the picture's size.")),
-    ("data after the end of the image", Doc::new("Bytes after the picture ends. Phones keep extra pictures here, and files made to be two formats at once hide data here too.").concern(Concern::Hidden)),
+    ("data after the end of the image", Doc::new("Bytes after the picture ends that nothing in the file accounts for: files made to be two formats at once hide data here.").concern(Concern::Hidden)),
+    ("picture listed in the MPF index", Doc::new("A second picture the camera keeps after the main one: an HDR gain map that brightens highlights on HDR screens, or a depth map. Part of the photo, not hidden.").cite("CIPA DC-x 007", MPF)),
+    ("pictures after this one", Doc::new("How many more pictures the index lists after the main one, and where they are.").cite("CIPA DC-x 007", MPF)),
 ];
 
 #[cfg(test)]

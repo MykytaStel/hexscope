@@ -22,7 +22,13 @@ pub struct JpegDocument {
     /// From the first APP1 EXIF segment; empty when there is none.
     pub facts: PhotoFacts,
     pub has_exif: bool,
+    /// The pictures after this one that its MPF index lists, where the file
+    /// holds them: phones keep an HDR gain map or a depth map there.
+    pub pictures: Vec<ByteRange>,
 }
+
+/// The label of a picture an MPF index lists after the main one.
+pub const LISTED_PICTURE: &str = "picture listed in the MPF index";
 
 fn marker_name(m: u8) -> String {
     match m {
@@ -116,6 +122,7 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
         height: None,
         facts: PhotoFacts::default(),
         has_exif: false,
+        pictures: Vec::new(),
     };
 
     let mut r = Reader::new(data);
@@ -307,20 +314,126 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
             ByteRange::new(data.len() as u64, 0),
         );
     } else if r.remaining() > 0 {
-        // Some phones append data after EOI; so do files crafted to be two
-        // formats at once. Either way it is worth seeing.
-        let extra = r.remaining() as u64;
-        tree.add(
-            Some(root),
-            "data after the end of the image",
-            ByteRange::new(r.pos(), extra),
-            NodeKind::Warning,
-            Some(Value::Bytes(extra)),
-        );
+        after_the_end(&mut tree, root, data, r.pos(), &doc.pictures);
     }
 
     doc.tree = tree;
     doc
+}
+
+/// What follows the end of the picture. Phones keep more pictures there and
+/// list them in the MPF index — an HDR gain map, a depth map — and those are
+/// shown as what they are. Anything else, which nothing in the file accounts
+/// for, may be a file made to be two formats at once: worth seeing.
+fn after_the_end(tree: &mut ParseTree, root: NodeId, data: &[u8], from: u64, listed: &[ByteRange]) {
+    let end = data.len() as u64;
+    let mut listed: Vec<ByteRange> = listed
+        .iter()
+        .copied()
+        .filter(|p| p.start >= from && p.len > 0 && p.end() <= end)
+        // A picture is a JPEG of its own: an index cannot vouch for anything else.
+        .filter(|p| data.get(p.start as usize..p.start as usize + 2) == Some(&[0xFF, 0xD8][..]))
+        .collect();
+    listed.sort_by_key(|p| p.start);
+    let mut at = from;
+    for p in listed {
+        if p.start < at {
+            continue;
+        }
+        unaccounted(tree, root, at, p.start - at);
+        let bytes = &data[p.start as usize..p.end() as usize];
+        tree.add(
+            Some(root),
+            LISTED_PICTURE,
+            p,
+            NodeKind::Container,
+            Some(Value::Text(picture_kind(bytes).into())),
+        );
+        at = p.end();
+    }
+    unaccounted(tree, root, at, end - at);
+}
+
+fn unaccounted(tree: &mut ParseTree, root: NodeId, at: u64, len: u64) {
+    if len == 0 {
+        return;
+    }
+    tree.add(
+        Some(root),
+        "data after the end of the image",
+        ByteRange::new(at, len),
+        NodeKind::Warning,
+        Some(Value::Bytes(len)),
+    );
+}
+
+/// What a picture after the main one is for, from the metadata it carries.
+fn picture_kind(bytes: &[u8]) -> &'static str {
+    let head = &bytes[..bytes.len().min(64 * 1024)];
+    let has = |needle: &[u8]| head.windows(needle.len()).any(|w| w == needle);
+    if has(b"HDRGainMap") || has(b"hdrgm") || has(b"urn:iso:std:iso:ts:21496") {
+        "HDR gain map"
+    } else if has(b"Depth") || has(b"depth") {
+        "depth map"
+    } else {
+        "picture"
+    }
+}
+
+/// The pictures an MPF index (CIPA DC-007) lists after the first, as ranges
+/// of the file. Its offsets count from the index's own TIFF header, which
+/// starts four bytes into `payload`, at `at + 4` in the file.
+fn listed_pictures(payload: &[u8], at: u64) -> Vec<ByteRange> {
+    let Some(tiff) = payload.get(4..) else {
+        return Vec::new();
+    };
+    let big = match tiff.get(..2) {
+        Some(b"MM") => true,
+        Some(b"II") => false,
+        _ => return Vec::new(),
+    };
+    let u16_at = |i: usize| {
+        tiff.get(i..i + 2).map(|b| {
+            let b = [b[0], b[1]];
+            if big {
+                u16::from_be_bytes(b)
+            } else {
+                u16::from_le_bytes(b)
+            }
+        })
+    };
+    let u32_at = |i: usize| {
+        tiff.get(i..i + 4).map(|b| {
+            let b = [b[0], b[1], b[2], b[3]];
+            if big {
+                u32::from_be_bytes(b)
+            } else {
+                u32::from_le_bytes(b)
+            }
+        })
+    };
+    let Some(ifd) = u32_at(4).map(|o| o as usize) else {
+        return Vec::new();
+    };
+    let count = u16_at(ifd).unwrap_or(0).min(64) as usize;
+    // MPEntry, 0xB002: sixteen bytes a picture — attributes, size, offset,
+    // and two dependent pictures.
+    let Some((entries, len)) = (0..count)
+        .map(|k| ifd + 2 + k * 12)
+        .find(|&e| u16_at(e) == Some(0xB002))
+        .and_then(|e| Some((u32_at(e + 8)? as usize, u32_at(e + 4)? as usize)))
+    else {
+        return Vec::new();
+    };
+    (0..(len / 16).min(64))
+        .map_while(|i| {
+            let e = entries + i * 16;
+            Some((u32_at(e + 4)?, u32_at(e + 8)?))
+        })
+        // The first picture is this one, at offset zero.
+        .filter(|&(size, offset)| offset != 0 && size != 0)
+        .map(|(size, offset)| ByteRange::new(at + 4 + offset as u64, size as u64))
+        .collect()
 }
 
 fn field(tree: &mut ParseTree, parent: NodeId, label: &str, start: u64, len: u64, value: Value) {
@@ -435,6 +548,18 @@ fn decode_segment(
                 at + ID,
                 payload.len() as u64 - ID,
                 Value::Text(shown),
+            );
+        }
+        0xE2 if app_kind(payload) == Some("MPF") => {
+            field(tree, node, "identifier", at, 4, Value::Text("MPF".into()));
+            doc.pictures = listed_pictures(payload, at);
+            field(
+                tree,
+                node,
+                "pictures after this one",
+                at + 4,
+                payload.len() as u64 - 4,
+                Value::U64(doc.pictures.len() as u64),
             );
         }
         0xEB if app_kind(payload) == Some("JUMBF") => {
@@ -651,6 +776,56 @@ mod tests {
             .unwrap();
         assert_eq!(extra.kind, NodeKind::Warning);
         assert_eq!(extra.range.len, appended.len() as u64);
+    }
+
+    #[test]
+    fn a_picture_the_mpf_index_lists_is_a_picture_not_hidden() {
+        // Laid out as an iPhone writes it: the photo, then its HDR gain map.
+        let data = include_bytes!("../../tests/fixtures/iphone-hdr.jpg");
+        let doc = parse_jpeg(data);
+        let picture = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.label == LISTED_PICTURE)
+            .unwrap();
+        assert_eq!(picture.value, Some(Value::Text("HDR gain map".into())));
+        assert_eq!(picture.range.end(), data.len() as u64);
+        assert!(
+            !labels(&doc)
+                .iter()
+                .any(|l| l == "data after the end of the image")
+        );
+    }
+
+    #[test]
+    fn an_mpf_index_vouches_only_for_the_jpegs_it_lists() {
+        let fixture = include_bytes!("../../tests/fixtures/iphone-hdr.jpg");
+        let listed = parse_jpeg(fixture).pictures[0];
+
+        // Bytes past the listed picture are still something nothing accounts for.
+        let mut more = fixture.to_vec();
+        more.extend_from_slice(b"PK\x03\x04 a hidden zip");
+        let doc = parse_jpeg(&more);
+        let extra = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|n| n.label == "data after the end of the image")
+            .unwrap();
+        assert_eq!(extra.range.start, listed.end());
+        assert!(labels(&doc).iter().any(|l| l == LISTED_PICTURE));
+
+        // Where the index points at something that is not a JPEG, it is not believed.
+        let mut forged = fixture.to_vec();
+        forged[listed.start as usize] = 0;
+        let doc = parse_jpeg(&forged);
+        assert!(!labels(&doc).iter().any(|l| l == LISTED_PICTURE));
+        assert!(
+            labels(&doc)
+                .iter()
+                .any(|l| l == "data after the end of the image")
+        );
     }
 
     #[test]

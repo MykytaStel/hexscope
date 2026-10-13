@@ -167,7 +167,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         }),
         Format::Jpeg if label == "thumbnail" => Some(Role::Thumbnail),
         Format::Jpeg if depth == 1 => Some(match label {
-            "scan data" => Role::Content,
+            "scan data" | crate::jpeg::LISTED_PICTURE => Role::Content,
             "COM" => Role::Metadata,
             l if l.starts_with("APP") && !l.ends_with("· JFIF") => Role::Metadata,
             _ => Role::Structure,
