@@ -49,7 +49,11 @@ part, a new link preview and a demo. Details in the changelog.
    first page's thumbnail and the photos inside; its copy empties those
    parts, accepts the changes and blanks the thumbnail; confirmed removal
    covers it.
-3. RTF: author, company, operator.
+3. ~~RTF: author, company, operator.~~ Done 2026-10-13: the information
+   group, generator, template path, custom properties, the names in the
+   revision table and comments, and the text tracked deletions hold; its
+   copy leaves those out, accepts the changes and deletes the comments;
+   confirmed removal covers it.
 4. A file whose name says one format and whose bytes another — a Word file
    named `.pdf` — is named as such by the core, for the CLI too.
 5. ~~The full parser split per format, so a new format does not grow what

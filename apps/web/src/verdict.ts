@@ -32,6 +32,7 @@ const EXTENSIONS: Record<string, string[]> = {
   eml: ["eml", "msg822", "mbox"],
   msg: ["msg"],
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
+  rtf: ["rtf"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -49,6 +50,7 @@ const NAMES: Record<string, [string, string]> = {
   eml: ["an email", ".eml"],
   msg: ["an Outlook message", ".msg"],
   office97: ["a Word, Excel or PowerPoint 97–2003 file", ".doc"],
+  rtf: ["a Rich Text document", ".rtf"],
 };
 
 /** A name's extension that says another format than the bytes, what they are, and the extension that fits them. */
@@ -99,6 +101,7 @@ export const REVEALS: Record<string, string> = {
   editor: "who saved it last",
   manager: "its manager's name",
   printer: "the printer's name",
+  custom: "its custom properties",
   printed: "who printed it",
   company: "the company",
   label: "the organisation it belongs to",

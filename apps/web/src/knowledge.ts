@@ -78,6 +78,10 @@ export const LIMITS: Record<string, string[]> = {
     "What the text says: names, addresses and details written in the document itself.",
     "What pasted pictures show: a screenshot can show a desktop, a name, an open tab.",
   ],
+  rtf: [
+    "What the text says: names, addresses and details written in the document itself.",
+    "What pictures in it show: a screenshot can show a desktop, a name, an open tab.",
+  ],
   office97: [
     "What the text says, and its comments and tracked changes: hexscope reads an old Office file's properties, not its text. Save it as .docx, .xlsx or .pptx and check that copy to see them.",
     "Text Word kept from before a fast save, inside the document itself.",
@@ -198,7 +202,7 @@ export function roleName(role: number, format: string): string {
           ? "Pages, fonts, images"
           : format === "eml" || format === "msg"
             ? "Message and attachments"
-          : format === "office97"
+          : format === "office97" || format === "rtf"
             ? "The document"
           : format === "wasm"
             ? "Code and data"

@@ -8,6 +8,7 @@ use crate::jpeg::{self, JpegDocument, parse_jpeg};
 use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
+use crate::rtf::{self, RtfDocument, parse_rtf};
 use crate::tiff::{self, TiffDocument, parse_tiff_file};
 use crate::video::{self, VideoDocument, parse_video};
 use crate::wasm::{self, WasmDocument, parse_wasm};
@@ -28,6 +29,7 @@ pub enum Format {
     Wasm,
     Eml,
     Cfb,
+    Rtf,
     Unknown,
 }
 
@@ -47,6 +49,7 @@ pub enum Document {
     Wasm(WasmDocument),
     Eml(EmlDocument),
     Cfb(CfbDocument),
+    Rtf(RtfDocument),
     Unknown(ParseTree),
 }
 
@@ -65,6 +68,7 @@ impl Document {
             Document::Wasm(d) => &d.tree,
             Document::Eml(d) => &d.tree,
             Document::Cfb(d) => &d.tree,
+            Document::Rtf(d) => &d.tree,
             Document::Unknown(t) => t,
         }
     }
@@ -83,6 +87,7 @@ impl Document {
             Document::Wasm(_) => Format::Wasm,
             Document::Eml(_) => Format::Eml,
             Document::Cfb(_) => Format::Cfb,
+            Document::Rtf(_) => Format::Rtf,
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -128,6 +133,10 @@ pub fn parse(data: &[u8]) -> Document {
     // archive is what the file is only when nothing earlier claimed it.
     if cfg!(feature = "office") && zip::is_zip(data) {
         return Document::Zip(parse_zip(data));
+    }
+    // A document in Rich Text Format: text, but opened by its own signature.
+    if cfg!(feature = "office") && rtf::is_rtf(data) {
+        return Document::Rtf(parse_rtf(data));
     }
     // Text last: a message is header lines, and nothing binary claims it.
     if cfg!(feature = "mail") && eml::is_eml(data) {

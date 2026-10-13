@@ -29,6 +29,7 @@ file, such as a photo in a document, is not covered.
 | `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
 | `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail |
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
+| `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
 <!-- coverage:end -->
 
 Why each row can be trusted:
@@ -51,6 +52,11 @@ Why each row can be trusted:
   pixel, accepts tracked changes, deletes comments, and cleans the photos
   under `Pictures/`.
 - **Office 97-2003**: the copy blanks both property streams where they lie.
+- **RTF**: the copy leaves out the information group, the generator, the
+  template, the custom properties and the editing-session numbers; tracked
+  deletions in groups of their own go with their text, insertions lose their
+  marks, and comments go with who wrote them. A deletion sharing its group
+  with other text stays, and is reported **Still present**.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.

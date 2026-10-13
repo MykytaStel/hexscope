@@ -238,6 +238,15 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             }
             _ => None,
         },
+        // A document's information says who and when; its text is it.
+        Format::Rtf => match label {
+            "info" | "generator" | "template" | "user properties" | "revision table"
+            | "rsid table" | "data store" | "comment" | "comment author" | "comment initials" => {
+                Some(Role::Metadata)
+            }
+            "text" => Some(Role::Content),
+            _ => Some(Role::Structure),
+        },
         // A message's header says who and where; its text and files are it.
         Format::Eml => match label {
             "headers" => Some(Role::Metadata),

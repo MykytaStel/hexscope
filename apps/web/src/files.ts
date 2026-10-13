@@ -103,6 +103,8 @@ export function kindOf(m: FileModel): string {
       return first.replace(" 97–2003 document", " 97–2003").replace(" 97–2003 workbook", " 97–2003").replace(" 97–2003 presentation", " 97–2003");
     case "cfb":
       return "Compound file";
+    case "rtf":
+      return "Rich Text";
     default:
       return "";
   }
@@ -133,6 +135,10 @@ const TYPES: Record<string, string> = {
   doc: "application/msword",
   xls: "application/vnd.ms-excel",
   ppt: "application/vnd.ms-powerpoint",
+  rtf: "application/rtf",
+  odt: "application/vnd.oasis.opendocument.text",
+  ods: "application/vnd.oasis.opendocument.spreadsheet",
+  odp: "application/vnd.oasis.opendocument.presentation",
   msg: "application/vnd.ms-outlook",
 };
 

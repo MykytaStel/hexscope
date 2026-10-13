@@ -75,7 +75,15 @@
             ".msg",
             "image/tiff",
             ".tif",
-            ".tiff"
+            ".tiff",
+            "application/rtf",
+            ".rtf",
+            "application/vnd.oasis.opendocument.text",
+            ".odt",
+            "application/vnd.oasis.opendocument.spreadsheet",
+            ".ods",
+            "application/vnd.oasis.opendocument.presentation",
+            ".odp"
           ]
         }
       ]
@@ -160,6 +168,18 @@
         "image/tiff": [
           ".tif",
           ".tiff"
+        ],
+        "application/rtf": [
+          ".rtf"
+        ],
+        "application/vnd.oasis.opendocument.text": [
+          ".odt"
+        ],
+        "application/vnd.oasis.opendocument.spreadsheet": [
+          ".ods"
+        ],
+        "application/vnd.oasis.opendocument.presentation": [
+          ".odp"
         ]
       }
     }

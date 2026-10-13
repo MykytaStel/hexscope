@@ -72,6 +72,7 @@ export const CATEGORIES: [string, string][] = [
   ["application", "the program it was written in"],
   ["producer", "the program that made the PDF"],
   ["template", "the template it came from"],
+  ["custom", "its custom properties"],
   ["printer", "the printer it was printed on"],
   ["printed", "who printed it and when"],
   ["title", "its title"],

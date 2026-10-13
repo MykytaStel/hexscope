@@ -150,7 +150,7 @@ export const RULES: Rule[] = [
   },
   {
     when: ["author", "editor", "company"],
-    formats: ["zip", "office97"],
+    formats: ["zip", "office97", "rtf"],
     text: "Word, Excel, PowerPoint and LibreOffice write the name of the account that made and saved a file. The clean copy removes it; so do File → Info → Check for Issues → Inspect Document in Office, and Tools → Options → Security → Options → “Remove personal information on saving” in LibreOffice.",
   },
   {

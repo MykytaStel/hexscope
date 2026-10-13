@@ -140,6 +140,28 @@ fn documents_lose_their_properties_and_a_macs_notes() {
     for kind in ["author", "printer", "thumbnail"] {
         assert!(ods.iter().any(|k| k == kind), "budget.ods: {kind}");
     }
+    // Rich Text Format: its information group and the rest, its tracked
+    // changes accepted and its comments deleted.
+    let rtf = confirmed("lease.rtf", "rtf");
+    for kind in [
+        "title",
+        "author",
+        "editor",
+        "company",
+        "created",
+        "modified",
+        "printed",
+        "revisions",
+        "editing",
+        "application",
+        "template",
+        "custom",
+        "tracked",
+        "deleted",
+        "comments",
+    ] {
+        assert!(rtf.iter().any(|k| k == kind), "lease.rtf: {kind}");
+    }
     let mac = confirmed("mac-report.zip", "zip");
     assert_eq!(mac, ["downloaded", "tags"]);
     let doc = confirmed("plan.doc", "office97");

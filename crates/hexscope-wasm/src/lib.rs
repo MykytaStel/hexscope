@@ -1030,6 +1030,14 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
+        Document::Rtf(doc) if cfg!(feature = "office") => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "rtf";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            parsed
+        }
         Document::Wasm(doc) if cfg!(feature = "module") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "wasm";

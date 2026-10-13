@@ -156,6 +156,7 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         }
         Format::Eml if cfg!(feature = "mail") => crate::eml::docs::describe(tree, node, problem),
         Format::Cfb if cfg!(feature = "office") => crate::cfb::docs::describe(tree, node, problem),
+        Format::Rtf if cfg!(feature = "office") => crate::rtf::docs::describe(label, problem),
         Format::Unknown => crate::document::docs(label),
         _ => None,
     }
