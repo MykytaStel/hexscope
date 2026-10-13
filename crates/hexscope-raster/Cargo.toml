@@ -2,8 +2,12 @@
 name = "hexscope-raster"
 version.workspace = true
 edition.workspace = true
+description = "Decodes and encodes film scans for hexscope's film lab: JPEG, PNG, WebP and 16-bit TIFF around its codec-free renderer"
 license.workspace = true
-publish = false
+repository.workspace = true
+readme = "README.md"
+# The scans its tests develop are for this repository's checks.
+exclude = ["tests/fixtures"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -14,7 +18,7 @@ native = ["image/jpeg", "image/png", "image/webp"]
 web = ["dep:wasm-bindgen"]
 
 [dependencies]
-hexscope-core = { path = "../hexscope-core", default-features = false }
+hexscope-core = { path = "../hexscope-core", version = "0.4.0", default-features = false }
 image = { version = "=0.25.10", default-features = false, features = ["tiff"] }
 tiff = { version = "0.11", default-features = false, features = ["deflate", "lzw", "jpeg"] }
 serde = { version = "1", features = ["derive"] }
