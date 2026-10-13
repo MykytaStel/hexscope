@@ -8,6 +8,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Changed
+
+- `hexscope-raster`, the film lab's codecs, is published with the other
+  crates, so `cargo install hexscope-cli` builds the `film` command too.
+
 ## [0.4.0] — 2026-10-13
 
 ### Added

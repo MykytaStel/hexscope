@@ -16,7 +16,8 @@ Fixed or Removed. Say what changed for people, not which files.
 1. Pick the number: until 1.0, a new feature or a change to the CLI's JSON
    is a minor version (0.3.0), fixes only are a patch (0.2.1).
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
-   dependency on `hexscope-inflate` and the CLI's on `hexscope-core`.
+   dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
+   and the CLI's on `hexscope-core` and `hexscope-raster`.
 3. In `CHANGELOG.md`, rename `[Unreleased]` to `[0.3.0] — YYYY-MM-DD`, start
    a new empty `[Unreleased]`, and update the compare links at the bottom.
 4. Open a pull request; CI checks that the changelog has the new version.
@@ -27,6 +28,8 @@ Fixed or Removed. Say what changed for people, not which files.
    gh release create v0.3.0 --title "hexscope 0.3.0" --notes-file <(sed -n '/^## \[0.3.0\]/,/^## \[/p' CHANGELOG.md | sed '$d')
    ```
 
-6. Publishing to crates.io is a separate decision each time: core first, then
-   the CLI (`cargo publish -p hexscope-inflate`, `-p hexscope-core`,
-   `-p hexscope-cli`).
+6. Publishing to crates.io is a separate decision each time. From a clean
+   checkout of the tagged commit, `cargo publish --workspace --dry-run`,
+   then `cargo publish --workspace`: it publishes `hexscope-inflate`,
+   `hexscope-core`, `hexscope-raster` and `hexscope-cli` in that order, each
+   once the one before is in the index.
