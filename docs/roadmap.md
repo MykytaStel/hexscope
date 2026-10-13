@@ -14,8 +14,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.1.0 | First published version | shipped 2026-10-02 |
 | 0.2.0 | Checked clean copies, film lab, redesign, Ukrainian, private counter | shipped 2026-10-11 |
 | 0.3.0 | Trust in every clean copy, a clearer analyzer, a preview and a demo | shipped 2026-10-12 |
+| 0.4.0 | Scans and the formats people send: TIFF, LibreOffice, RTF, misnamed files, one build per family | shipped 2026-10-13 |
 | Launch | The author's device test, then the posts | when the author has tested |
-| 0.4.0 | Scans and the formats people send | 2026-10-26 |
 | 0.5.0 | Faster, smaller, easier to change | 2026-11-09 |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
@@ -36,7 +36,9 @@ part, a new link preview and a demo. Details in the changelog.
 3. Done when: two weeks of the counter's numbers are read, and what people
    open most decides 0.4.0's order.
 
-### 0.4.0 — Scans and the formats people send (target 2026-10-26)
+### 0.4.0 — shipped 2026-10-13
+
+Scans and the formats people send, two weeks early: every item below is done.
 
 1. ~~TIFF in the core: scanners' and cameras' metadata, location, and a copy
    blanked in place.~~ Done 2026-10-13: read by the EXIF reader, its copy
