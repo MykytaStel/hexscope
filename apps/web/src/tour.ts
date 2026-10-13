@@ -1,9 +1,15 @@
-// The first time a file is open, four short notes point at what to read
-// first: the verdict, what the file gives away and how to remove it, the
-// bytes behind every finding, and the keys. Once seen — or skipped — they
-// do not come back; "Show the tour" on the landing page brings them back.
+// The first time a file is open on a computer, four short notes point at
+// what to read first: the verdict, what the file gives away and how to
+// remove it, the bytes behind every finding, and the keys. Once seen — or
+// skipped — they do not come back; "Take the tour" in the footer brings them
+// back.
 
 const SEEN = "hexscope.tour";
+/**
+ * Phones go without it: the answer explains itself, and on a small screen a
+ * note over the first result hides the very thing it points at.
+ */
+const PHONE = "(max-width: 900px), (pointer: coarse)";
 
 interface Step {
   /** Where the note points; the step is left out when it is not on screen. */
@@ -79,7 +85,7 @@ function visible(el: Element | null): el is HTMLElement {
 
 /** Starts the tour if it has not been seen; call once a file is on screen. */
 export function maybeTour(): void {
-  if (seen() || document.querySelector(".tour, .film-lab-entry[open]")) return;
+  if (seen() || matchMedia(PHONE).matches || document.querySelector(".tour, .film-lab-entry[open]")) return;
   // Each target is a list tried in order: the first that is on screen.
   const find = (target: string) =>
     target
@@ -137,8 +143,10 @@ export function maybeTour(): void {
     const b = bubble.getBoundingClientRect();
     // Below the part when there is room, above it when not. If the part is
     // taller than the usable area, place the note at the bottom edge.
-    let top = r.bottom + margin;
-    if (top + b.height > bottom) top = Math.max(margin, Math.min(r.top - b.height - margin, bottom - b.height));
+    // Clear of the ring around the part, which stands a little way out.
+    const gap = margin + 10;
+    let top = r.bottom + gap;
+    if (top + b.height > bottom) top = Math.max(margin, Math.min(r.top - b.height - gap, bottom - b.height));
     const left = Math.min(Math.max(margin, r.left), innerWidth - b.width - margin);
     bubble.style.top = `${Math.round(top)}px`;
     bubble.style.left = `${Math.round(left)}px`;

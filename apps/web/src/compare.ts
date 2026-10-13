@@ -221,7 +221,8 @@ function fileCard(model: FileModel, side: "a" | "b"): HTMLElement {
           return;
         }
         try {
-          const preview = drawn(bitmap, format === "jpeg" ? model.file.orientation : 1, 640);
+          const shown = Math.max(frame.clientWidth, frame.clientHeight, 320) * (devicePixelRatio || 1);
+          const preview = drawn(bitmap, format === "jpeg" ? model.file.orientation : 1, Math.min(2048, Math.ceil(shown)));
           preview.className = "compare-preview-image";
           preview.setAttribute("role", "img");
           preview.setAttribute("aria-label", tr(side === "a" ? "Preview of file A" : "Preview of file B"));

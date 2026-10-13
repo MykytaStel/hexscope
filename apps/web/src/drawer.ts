@@ -320,18 +320,21 @@ export class Drawer {
    * into view; otherwise, or for a part with no fact, its bytes.
    */
   private showLine(node: number): void {
+    if (document.body.dataset.view === "bytes" || !this.showFact(node)) this.onSelect(node);
+  }
+
+  /** Brings the summary's fact for a part into view, if it has one; says whether it did. */
+  showFact(node: number): boolean {
     const row = this.file.querySelector<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
     const label = row?.previousElementSibling as HTMLElement | null;
-    if (!row || !label || document.body.dataset.view === "bytes") {
-      this.onSelect(node);
-      return;
-    }
+    if (!row || !label) return false;
     label.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     for (const e of [label, row]) {
       e.classList.remove("is-flash");
       void e.offsetWidth;
       e.classList.add("is-flash");
     }
+    return true;
   }
 
   /** Files found inside this one, each to open or save. */
@@ -351,7 +354,10 @@ export class Drawer {
       open.addEventListener("click", () => this.cleaning.openInside(bytes(), name));
       const save = el("button", "btn", "Save");
       save.addEventListener("click", () => this.cleaning.save(name, bytes().slice()));
-      li.append(el("span", "inside-what", `${e.what.charAt(0).toUpperCase()}${e.what.slice(1)}`), " at ", at, el("span", "clean-size", formatBytes(e.end - e.start)), open, save);
+      // What it is, where, and how big on one line; what to do with it on the next.
+      const actions = el("span", "inside-actions");
+      actions.append(open, save);
+      li.append(el("span", "inside-what", `${e.what.charAt(0).toUpperCase()}${e.what.slice(1)}`), at, el("span", "clean-size", formatBytes(e.end - e.start)), actions);
       ul.append(li);
     }
     box.append(ul);
@@ -425,7 +431,10 @@ export class Drawer {
         hero.append(frame);
         void decodePicture(m).then((b) => {
           if (!b) return frame.remove();
-          const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, 480);
+          // As sharp as the screen shows it: a phone's screen has three
+          // pixels to each of the page's.
+          const side = Math.min(2048, Math.ceil(Math.max(frame.clientWidth, frame.clientHeight, 360) * (devicePixelRatio || 1)));
+          const c = drawn(b, f.format === "jpeg" ? f.orientation : 1, side);
           c.className = "reveal-picture";
           c.setAttribute("role", "img");
           c.setAttribute("aria-label", "The picture");

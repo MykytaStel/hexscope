@@ -94,7 +94,7 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
         mapShadow: getComputedStyle(map).boxShadow,
         findingsDivider: findings ? Number.parseFloat(getComputedStyle(findings).borderLeftWidth) : 0,
         showBackground: showStyle.backgroundColor,
-        showPadding: Number.parseFloat(showStyle.paddingLeft),
+        showDecoration: showStyle.textDecorationLine,
         showHeight: show.getBoundingClientRect().height,
       };
     });
@@ -114,8 +114,9 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
     expect(surfaces.pictureWidthGap, `the photo uses its column width at ${width}px`).toBeLessThanOrEqual(1);
     expect(surfaces.mapShadow, `the map is not boxed in at ${width}px`).toBe("none");
     expect(surfaces.findingsDivider, `desktop findings are not separated by another frame at ${width}px`).toBe(0);
-    expect(surfaces.showBackground, `the file action reads as a button at ${width}px`).not.toBe("rgba(0, 0, 0, 0)");
-    expect(surfaces.showPadding, `the file action has a visible hit area at ${width}px`).toBeGreaterThanOrEqual(8);
+    // "Find in file" goes somewhere: it reads as a link, leaving the clean copy the one button.
+    expect(surfaces.showBackground, `the file action is not dressed as a button at ${width}px`).toBe("rgba(0, 0, 0, 0)");
+    expect(surfaces.showDecoration, `the file action reads as a link at ${width}px`).toBe("underline");
     expect(surfaces.showHeight, `the file action is easy to hit at ${width}px`).toBeGreaterThanOrEqual(30);
   }
 

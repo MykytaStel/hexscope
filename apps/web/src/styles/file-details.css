@@ -415,39 +415,47 @@
 .tour {
   position: fixed;
   z-index: 40;
-  width: min(320px, calc(100vw - 24px));
+  width: min(340px, calc(100vw - 24px));
   overflow-y: auto;
-  padding: 14px 16px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
-  border-radius: 12px;
-  background: var(--panel);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--surface-radius);
+  background: var(--panel-2);
   color: var(--text);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
-  font-size: 14px;
-  line-height: 1.45;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.4);
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.tour strong {
+  display: block;
+  font-size: var(--type-body);
 }
 
 .tour p {
-  margin: 6px 0 12px;
+  margin: var(--space-2) 0 var(--space-4);
   color: var(--muted);
 }
 
 .tour-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .tour-count {
   margin-right: auto;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 
+/* The part a note is about: a soft ring a little way out, rounded like the
+   panels, so its text never touches it. Rounded even where the layout squares
+   a panel's corners: the ring is there only while the note is. */
 .tour-lit {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 8px;
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: var(--space-2);
+  border-radius: var(--surface-radius) !important;
   transition: outline-color 200ms ease;
 }
 

@@ -92,6 +92,26 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Fixed
 
+- **A photo from an iPhone is no longer said to hide something.** After the
+  picture, an iPhone keeps a second one — the HDR gain map — and lists it in
+  the file's MPF index. hexscope now reads that index and shows the picture as
+  what it is, so the verdict no longer says “Hidden in it”, and the clean
+  copy, which still leaves it out, is confirmed clean instead of “not fully
+  checked”. Bytes after the picture that no index lists are still flagged.
+- A page left open while a new version came out checks its clean copy again:
+  the previous version's files stay until the one after, instead of going the
+  moment the new one arrives.
+- On a phone: no tour over the first result; the clean copy's actions stand
+  one under another, all the same size, sharing first; “Find in file” reads
+  as a link, leaving one button on the card; the location badge shows the
+  place in the summary rather than the bytes; the photo is drawn as sharp as
+  the screen; and the keys and tour links leave the footer.
+- On a computer, the tour rings the part it is about with a rounded, softer
+  outline that its text never touches, and its note stands clear of it.
+- In Ukrainian: what a clean copy removed, the files found inside a file, “Save
+  it”, the kept orientation, the bytes view's colours and how fast a file was
+  read are translated.
+
 - On an English page, a full stop after a link or a bold word no longer
   turns into “it is.”.
 

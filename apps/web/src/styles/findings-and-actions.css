@@ -264,6 +264,20 @@
   font-size: 15px;
 }
 
+/* On a phone the one thing to do takes the whole width, and the other ways
+   sit under it. */
+@media (max-width: 640px) {
+  .verdict-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .verdict-actions .btn {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 /* The note on how the answer was found stands apart from the findings under it. */
 .verdict-intro > .hint:last-child {
   margin-bottom: var(--space-4);
@@ -303,28 +317,38 @@
   min-width: 0;
 }
 
+/* "Find in file" goes somewhere, so it reads as a link: one button on the
+   card, the copy without the data, and nothing else dressed as one. */
 .verdict-show {
   grid-column: 2;
   grid-row: 2;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
   font: inherit;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--type-small);
+  font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 4px;
   cursor: pointer;
 }
 
+.verdict-show::after {
+  content: "→";
+  margin-left: 6px;
+  text-decoration: none;
+}
+
 .verdict-show:hover {
-  background: color-mix(in srgb, var(--accent) 17%, transparent);
+  text-decoration-color: currentColor;
 }
 
 .verdict-show:focus-visible {
@@ -1025,6 +1049,14 @@ body[data-state="empty"] .layout {
 .footnote-links a {
   font-size: inherit;
   line-height: 1.5;
+}
+
+/* Keys and the tour are for a computer: a phone has neither. */
+@media (max-width: 900px), (pointer: coarse) {
+  .footnote-links [data-shortcuts],
+  .footnote-links [data-tour] {
+    display: none;
+  }
 }
 
 .footnote a {
