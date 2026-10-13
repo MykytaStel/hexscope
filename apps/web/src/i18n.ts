@@ -13,9 +13,13 @@ export function registerLazyTranslations(translations: Readonly<Record<string, s
 const lazyReverse = new Map<string, string>();
 
 /** The English a Ukrainian text was translated from, keeping the spaces around it. */
-function untranslate(value: string): string | undefined {
+export function untranslate(value: string): string | undefined {
   const content = value.trim();
-  const english = reverse.get(content) ?? lazyReverse.get(content.replace(/\s+/g, " "));
+  const normalized = content.replace(/\s+/g, " ");
+  // Text that is already English stays as it is, though it may also be some
+  // other text's Ukrainian: a lone "." after a link is just a full stop.
+  if (Object.hasOwn(UK, normalized) || Object.hasOwn(lazyTranslations, normalized)) return undefined;
+  const english = reverse.get(content) ?? lazyReverse.get(normalized);
   return english === undefined ? undefined : value.replace(content, english);
 }
 

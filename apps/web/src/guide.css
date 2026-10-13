@@ -94,6 +94,24 @@
   margin-top: 6px;
 }
 
+/* The support page's ways to give: a button each, and who it suits beside it. */
+.story-text .support-ways {
+  padding-left: 0;
+  list-style: none;
+}
+
+.support-ways li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: var(--muted);
+}
+
+.story-text .support-ways a.btn {
+  color: var(--text);
+}
+
 .story-text code {
   font: 13.5px var(--mono);
   background: var(--panel);
