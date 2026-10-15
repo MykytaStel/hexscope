@@ -708,13 +708,10 @@ fn domain(value: &str) -> Option<String> {
 }
 
 /// A domain without its subdomains, for comparing who sends and who is
-/// replied to: `mail.example.org` is `example.org`.
+/// replied to: `mail.example.org` is `example.org`, `mail.rozetka.com.ua`
+/// is `rozetka.com.ua`.
 fn base(d: &str) -> &str {
-    let last = d.rfind('.').unwrap_or(0);
-    match d.get(..last).and_then(|h| h.rfind('.')) {
-        Some(i) => d.get(i + 1..).unwrap_or(d),
-        None => d,
-    }
+    links::base_domain(d)
 }
 
 fn quote(items: &[String]) -> String {

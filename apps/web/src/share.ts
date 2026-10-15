@@ -22,6 +22,7 @@ export const CATEGORIES: [string, string][] = [
   ["sentfrom", "the address it was sent from"],
   ["computer", "the sender's computer's name"],
   ["downloaded", "where its files were downloaded from"],
+  ["folder", "the folder it was saved in"],
   ["updates", "earlier versions of itself"],
   ["deleted", "text that was deleted"],
   ["earlier", "text an edit took off the page"],

@@ -24,8 +24,12 @@ fn hidden_text_that_survives_in_a_pdf_copy_is_reported_present() {
     assert!(!hidden.unexpected);
 }
 
+/// An attachment and text under a black box are findings read whole: the
+/// copy is read completely, its properties are confirmed gone, and the
+/// hidden text it no longer holds stays unchecked only because the contract
+/// does not cover it yet.
 #[test]
-fn removed_hidden_pdf_findings_stay_unchecked_when_a_parse_is_incomplete() {
+fn removed_hidden_pdf_findings_outside_the_contract_stay_unchecked() {
     let source_bytes = include_bytes!("fixtures/redacted.pdf");
     let source = summarize(source_bytes);
     assert!(source.facts.iter().any(|(kind, _)| *kind == "covered"));
@@ -41,16 +45,22 @@ fn removed_hidden_pdf_findings_stay_unchecked_when_a_parse_is_incomplete() {
     );
     assert!(output.facts.iter().any(|(kind, _)| *kind == "attachments"));
 
+    assert!(source.complete && output.complete);
     let report = compare(&snapshot(&source), &snapshot(&output));
 
-    assert!(report.removed.is_empty());
+    for kind in ["title", "producer"] {
+        assert!(
+            report.removed.iter().any(|item| item.kind == kind),
+            "{kind}: {report:?}"
+        );
+    }
     assert!(report.present.iter().any(|item| {
         item.kind == "attachments" && item.reason == VerificationReason::StillPresent
     }));
     for kind in ["covered", "hiddentext"] {
         assert!(
             report.unchecked.iter().any(|item| {
-                item.kind == kind && item.reason == VerificationReason::ParseIncomplete
+                item.kind == kind && item.reason == VerificationReason::CoverageIncomplete
             }),
             "{kind}: {:?}",
             report.unchecked

@@ -50,7 +50,7 @@ const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additi
   camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
   location: new Set(["place", "photoplace"]),
   dates: new Set(["taken", "created", "modified", "updates", "timezone"]),
-  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "mailer", "sentfrom", "computer", "printer", "printed"]),
+  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "folder", "mailer", "sentfrom", "computer", "printer", "printed"]),
 };
 
 function metadataGroupFor(kind: string): MetadataGroupKey {

@@ -486,6 +486,7 @@ const UK: Record<string, string> = {
   "Sensitivity label": "Мітка конфіденційності",
   "Custom properties": "Власні властивості",
   "Downloaded from": "Звідки завантажено",
+  "Saved in": "Збережено в теці",
   "Finder tags": "Теги Finder",
   "Printer": "Принтер",
   "Printed": "Надруковано",
@@ -725,6 +726,7 @@ const REVEAL_WORDS: Record<string, string> = {
   "what it asks its host to do": "що він просить зробити середовище",
   "where its source map is": "де лежить його карта коду",
   "where its files were downloaded from": "звідки завантажено файли",
+  "the folder it was saved in": "теку, де його збережено",
   "its Finder tags": "теги Finder",
   "the organisation it belongs to": "організацію, якій він належить",
   "its manager's name": "ім’я керівника",
@@ -993,6 +995,9 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} виправлень і позначок коментарів прийнято або прибрано`;
   match = /^(\d+) pieces of text no one can see$/.exec(value);
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "фрагмент", "фрагменти", "фрагментів")} тексту, якого ніхто не бачить`;
+  // What a custom XML part of a document says about people: "SharePoint properties: who, who".
+  match = /^(SharePoint properties|custom XML): (.+)$/.exec(value);
+  if (match) return `${match[1] === "custom XML" ? "власний XML" : "властивості SharePoint"}: ${match[2]}`;
   match = /^What was removed · (.+)$/.exec(value);
   if (match) return `Що видалено · ${match[1]}`;
   match = /^Saved as “(.+)” — look for it in your downloads\.$/.exec(value);

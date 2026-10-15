@@ -15,6 +15,28 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   metadata from LibreOffice and RTF files, and telling what type a file
   really is when its name says another. Two new samples go with them: a
   LibreOffice lease and a HEIC photo named `.jpg`.
+- **What Office on Windows leaves** is found and taken out of a clean copy:
+  the folder Excel last saved a workbook in (`x15ac:absPath`, a path with the
+  account's name), the folder of a Word document's template, the printer a
+  printer-settings part names, SharePoint's properties kept as custom XML
+  (with the names and addresses in them), a picture of the first page, and
+  Word's editing-session numbers (`w:rsid`), which tie documents written in
+  the same sittings to one another. The test files `windows.docx` and
+  `windows.xlsx` are written as Office writes these parts
+  (`scripts/make-sample-windows-office.py`).
+
+### Fixed
+
+- **A link to a site under `.com.ua`, `.org.ua`, `.co.uk` and other shared
+  suffixes** was compared by its last two labels, so `rozetka.com.ua` and
+  `rozetka-sale.com.ua` counted as one site and a lying link went unsaid.
+  The registered name now counts the suffixes anyone registers under — in
+  emails, Word documents and PDFs, and for replies and bounces sent to
+  another domain.
+- **A clean copy with any hidden finding left in it** — an attachment, text
+  under a black box — was called not completely read, and every finding
+  went unchecked. Only bytes that were not read make a copy incomplete now:
+  damage, and data nothing in the file accounts for.
 
 ### Changed
 

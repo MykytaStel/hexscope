@@ -807,6 +807,10 @@ fn revise(
     if e.uncompressed > MAX_PART {
         return None;
     }
+    // What Office says about the computer: the folder, the template's path, the printer.
+    if !odf && let Some(change) = crate::zip::traces::revise(data, e) {
+        return Some(change);
+    }
     // Excel's and PowerPoint's comments and notes, when asked for.
     if options.comments_and_notes && blank_notes(&e.name, "").is_some() {
         let bytes = crate::zip::extract(data, e, MAX_PART).ok()?;
@@ -838,6 +842,8 @@ fn revise(
     let (out, n) = accept(xml);
     // Text no reader sees — hidden, white, too small — goes too.
     let (out, hidden) = crate::zip::revise::drop_hidden(&out);
+    // The editing-session numbers that tie it to other documents go too.
+    let (out, sessions) = crate::zip::traces::drop_sessions(&out);
     let mut said = Vec::new();
     if n > 0 {
         said.push(if n == 1 {
@@ -852,6 +858,9 @@ fn revise(
         } else {
             format!("{hidden} pieces of text no one can see")
         });
+    }
+    if sessions > 0 {
+        said.push("editing-session numbers".to_string());
     }
     (!said.is_empty()).then(|| (out.into_bytes(), said.join("; ")))
 }

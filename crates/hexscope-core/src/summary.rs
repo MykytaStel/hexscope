@@ -27,7 +27,10 @@ pub struct Summary {
     /// What it gives away: a kind such as `location` or `author`, and its
     /// text.
     pub facts: Vec<(&'static str, String)>,
-    /// False when the parser reported a warning or an error node.
+    /// False when part of the file was not read: damage, bytes nothing in
+    /// the file accounts for, or metadata the reader could not finish. A
+    /// hidden finding the parser read whole — an attachment, text under a
+    /// black box — leaves it complete: what it hides is a fact of its own.
     pub complete: bool,
 }
 
@@ -73,6 +76,16 @@ fn photo(facts: &PhotoFacts, out: &mut Vec<(&'static str, String)>) {
             out.push((kind, f.text.clone()));
         }
     }
+}
+
+/// A problem that leaves bytes unread: damage, or data nothing in the file
+/// accounts for, before or after it or in sectors no stream claims.
+fn unread(p: &Problem) -> bool {
+    p.concern == Concern::Damage
+        || (p.concern == Concern::Hidden
+            && ["data after", "data before", "unclaimed"]
+                .iter()
+                .any(|s| p.label.starts_with(s)))
 }
 
 pub fn summarize(data: &[u8]) -> Summary {
@@ -156,7 +169,7 @@ pub fn summary_of(doc: &Document) -> Summary {
         }
         Document::Unknown(_) => ("unknown", true),
     };
-    let complete = problems.is_empty() && metadata_complete;
+    let complete = metadata_complete && !problems.iter().any(unread);
     Summary {
         format,
         problems,

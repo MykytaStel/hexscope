@@ -94,10 +94,13 @@ const OFFICE: &[&str] = &[
     "deleted",
     "photoplace",
     "photo",
-    // An OpenDocument file's printer, who printed it, and its first page's thumbnail.
+    // An OpenDocument file's printer, who printed it, and its first page's thumbnail;
+    // the printer, thumbnail and template path Office on Windows keeps too.
     "printed",
     "printer",
     "thumbnail",
+    // The folder Excel last saved a workbook in.
+    "folder",
 ];
 /// RTF: the copy leaves out the information group, the generator, the
 /// template and the custom properties, accepts tracked changes and deletes
@@ -578,7 +581,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 27 + 15 + 20);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 28 + 15 + 20);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));
@@ -1190,21 +1193,43 @@ mod tests {
     }
 
     #[test]
-    fn verification_summary_is_incomplete_when_it_has_a_warning_or_error() {
+    fn verification_summary_is_incomplete_when_bytes_were_not_read() {
         use crate::document::Document;
         use crate::model::{ByteRange, NodeKind, ParseTree};
-        use crate::summary::summary_of;
+        use crate::summary::{summarize, summary_of};
 
-        let mut tree = ParseTree::new();
-        let root = tree.add(
-            None,
-            "unknown",
-            ByteRange::new(0, 1),
-            NodeKind::Container,
-            None,
+        let tree = |kind| {
+            let mut tree = ParseTree::new();
+            let root = tree.add(
+                None,
+                "unknown",
+                ByteRange::new(0, 1),
+                NodeKind::Container,
+                None,
+            );
+            tree.add(Some(root), "something", ByteRange::new(0, 1), kind, None);
+            tree
+        };
+        // A broken rule, read whole, leaves nothing unread; damage does.
+        assert!(summary_of(&Document::Unknown(tree(NodeKind::Warning))).complete);
+        assert!(!summary_of(&Document::Unknown(tree(NodeKind::Error))).complete);
+        // Data nothing in the file accounts for was not read either.
+        let fixture = |name: &str| {
+            std::fs::read(format!(
+                "{}/tests/fixtures/{name}",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap()
+        };
+        let mut appended = fixture("photo.jpg");
+        appended.extend_from_slice(b"PK\x03\x04 a zip hidden after the picture");
+        assert!(!summarize(&appended).complete);
+        // An attachment and text under a black box are findings read whole.
+        let pdf = summarize(&fixture("redacted.pdf"));
+        assert!(
+            !pdf.problems.is_empty() && pdf.complete,
+            "{:?}",
+            pdf.problems
         );
-        tree.warning(root, "warning", ByteRange::new(0, 1));
-
-        assert!(!summary_of(&Document::Unknown(tree)).complete);
     }
 }

@@ -176,15 +176,71 @@ pub(crate) fn named(text: &str) -> Option<String> {
     ok.then(|| bare.to_string())
 }
 
-/// The registered part of a domain, near enough: its last two labels.
-/// `login.example-bank.com` → `example-bank.com`. Two-part suffixes such as
-/// `co.uk` are rare in links that lie, and too many to list.
+/// Suffixes under which anyone registers a name of their own, as a whole
+/// country's `.ua` or `.uk` sites do: `rozetka.com.ua` is a site, not a part
+/// of `com.ua`. Not the whole Public Suffix List, which is too big to carry:
+/// the second-level names of the countries' domains people meet most.
+const SHARED: [&str; 44] = [
+    "com.ua",
+    "org.ua",
+    "net.ua",
+    "in.ua",
+    "gov.ua",
+    "edu.ua",
+    "biz.ua",
+    "co.ua",
+    "pp.ua",
+    "kiev.ua",
+    "kyiv.ua",
+    "lviv.ua",
+    "od.ua",
+    "odesa.ua",
+    "dp.ua",
+    "kh.ua",
+    "kharkov.ua",
+    "zp.ua",
+    "co.uk",
+    "org.uk",
+    "ac.uk",
+    "gov.uk",
+    "me.uk",
+    "ltd.uk",
+    "com.au",
+    "net.au",
+    "org.au",
+    "co.nz",
+    "co.jp",
+    "ne.jp",
+    "or.jp",
+    "co.kr",
+    "com.br",
+    "com.cn",
+    "com.tr",
+    "com.pl",
+    "com.mx",
+    "co.in",
+    "co.za",
+    "com.ar",
+    "com.sg",
+    "com.hk",
+    "co.il",
+    "com.tw",
+];
+
+/// The registered part of a domain: its last two labels, or three under a
+/// shared suffix. `login.example-bank.com` → `example-bank.com`,
+/// `pay.rozetka.com.ua` → `rozetka.com.ua`.
 pub(crate) fn base_domain(d: &str) -> &str {
-    let last = d.rfind('.').unwrap_or(0);
-    match d.get(..last).and_then(|h| h.rfind('.')) {
-        Some(i) => d.get(i + 1..).unwrap_or(d),
-        None => d,
+    let from = |cut: usize| d[..cut].rfind('.').map_or(0, |i| i + 1);
+    let Some(last) = d.rfind('.') else { return d };
+    let two = from(last);
+    if two == 0 {
+        return d;
     }
+    if SHARED.contains(&&d[two..]) {
+        return &d[from(two - 1)..];
+    }
+    &d[two..]
 }
 
 /// Whether a link's words name another site than the one it goes to.
@@ -300,6 +356,22 @@ pub(super) fn risky(name: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_registered_name_counts_shared_suffixes() {
+        assert_eq!(base_domain("login.example-bank.com"), "example-bank.com");
+        assert_eq!(base_domain("example.com"), "example.com");
+        assert_eq!(base_domain("localhost"), "localhost");
+        assert_eq!(base_domain("pay.rozetka.com.ua"), "rozetka.com.ua");
+        assert_eq!(base_domain("rozetka.com.ua"), "rozetka.com.ua");
+        assert_eq!(base_domain("com.ua"), "com.ua");
+        assert_eq!(base_domain("www.bbc.co.uk"), "bbc.co.uk");
+        // Two sites under one shared suffix are two sites.
+        assert!(says_elsewhere("www.rozetka.com.ua", "rozetka-sale.com.ua"));
+        assert!(!says_elsewhere("www.rozetka.com.ua", "pay.rozetka.com.ua"));
+        assert!(!says_elsewhere("privatbank.ua", "www.privatbank.ua"));
+    }
+
     use super::*;
 
     #[test]
