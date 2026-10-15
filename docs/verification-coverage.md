@@ -21,7 +21,7 @@ file, such as a photo in a document, is not covered.
 | Format | Findings a clean copy is confirmed to have removed |
 | --- | --- |
 | `jpeg` | location, camera, lens, serial, owner, taken, software, thumbnail |
-| `png` | location, camera, lens, serial, owner, taken, software, ai, prompt |
+| `png` | location, camera, lens, serial, owner, taken, software, ai, prompt, caption |
 | `webp` | location, camera, lens, serial, owner, taken, software, thumbnail |
 | `heif` | location, camera, lens, serial, owner, taken, software |
 | `tiff` | location, camera, lens, serial, owner, taken, software |

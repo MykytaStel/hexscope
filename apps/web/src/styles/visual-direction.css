@@ -1816,6 +1816,14 @@ body[data-state="ready"] .topbar {
   }
 }
 
+/* On a phone the header's Open repeats the landing's own button: it shows
+   only once that one has scrolled away (main.ts marks the body). */
+@media (max-width: 640px) {
+  body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[data-opens="picker"] {
+    display: none;
+  }
+}
+
 /* The header's open action is repeated in the landing hero. */
 @media (max-width: 360px) {
   body[data-state="empty"] .topbar {

@@ -17,8 +17,8 @@ export function list(items: string[]): string {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-/** The extensions each format is named with. */
-const EXTENSIONS: Record<string, string[]> = {
+/** The extensions each format is named with — as the core's naming.rs says (a test holds them together). */
+export const EXTENSIONS: Record<string, string[]> = {
   jpeg: ["jpg", "jpeg", "jpe", "jfif"],
   png: ["png"],
   heif: ["heic", "heif", "hif", "avif"],
@@ -29,7 +29,7 @@ const EXTENSIONS: Record<string, string[]> = {
   pdf: ["pdf"],
   zip: ["zip", "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "odt", "ods", "odp", "epub", "apk", "aab", "jar", "war", "xpi", "ipa", "whl", "nupkg", "kmz", "3mf", "usdz"],
   wasm: ["wasm"],
-  eml: ["eml", "msg822", "mbox"],
+  eml: ["eml", "mbox"],
   msg: ["msg"],
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
   rtf: ["rtf"],
@@ -53,8 +53,8 @@ const NAMES: Record<string, [string, string]> = {
   rtf: ["a Rich Text document", ".rtf"],
 };
 
-/** Documents a ZIP can be, with the extensions that are their own. */
-const ZIP_KINDS: [string, string, string[]][] = [
+/** Documents a ZIP can be, with the extensions that are their own, as naming.rs lists them. */
+export const ZIP_KINDS: [string, string, string[]][] = [
   ["a Word document", ".docx", ["docx", "docm"]],
   ["an Excel workbook", ".xlsx", ["xlsx", "xlsm"]],
   ["a PowerPoint presentation", ".pptx", ["pptx", "pptm"]],
@@ -62,6 +62,7 @@ const ZIP_KINDS: [string, string, string[]][] = [
   ["a LibreOffice spreadsheet", ".ods", ["ods"]],
   ["a LibreOffice presentation", ".odp", ["odp"]],
   ["an EPUB book", ".epub", ["epub"]],
+  ["an Android app", ".apk", ["apk", "aab"]],
 ];
 
 /** Which document a ZIP is: Office's by its main part, OpenDocument's and EPUB's by the mimetype stored first. */
@@ -76,6 +77,7 @@ function zipKind(m: FileModel): [string, string, string[]] | undefined {
   if (mime.startsWith("application/vnd.oasis.opendocument.spreadsheet")) return ZIP_KINDS[4];
   if (mime.startsWith("application/vnd.oasis.opendocument.presentation")) return ZIP_KINDS[5];
   if (mime.startsWith("application/epub+zip")) return ZIP_KINDS[6];
+  if (labels.includes("AndroidManifest.xml")) return ZIP_KINDS[7];
   return undefined;
 }
 

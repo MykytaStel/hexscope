@@ -327,14 +327,16 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
 /// for, may be a file made to be two formats at once: worth seeing.
 fn after_the_end(tree: &mut ParseTree, root: NodeId, data: &[u8], from: u64, listed: &[ByteRange]) {
     let end = data.len() as u64;
-    let mut listed: Vec<ByteRange> = listed
-        .iter()
-        .copied()
-        .filter(|p| p.start >= from && p.len > 0 && p.end() <= end)
-        // A picture is a JPEG of its own: an index cannot vouch for anything else.
-        .filter(|p| data.get(p.start as usize..p.start as usize + 2) == Some(&[0xFF, 0xD8][..]))
-        .collect();
-    listed.sort_by_key(|p| p.start);
+    let listed: Vec<ByteRange> = crate::model::sorted_by(
+        listed
+            .iter()
+            .copied()
+            .filter(|p| p.start >= from && p.len > 0 && p.end() <= end)
+            // A picture is a JPEG of its own: an index cannot vouch for anything else.
+            .filter(|p| data.get(p.start as usize..p.start as usize + 2) == Some(&[0xFF, 0xD8][..]))
+            .collect(),
+        |p| p.start,
+    );
     let mut at = from;
     for p in listed {
         if p.start < at {

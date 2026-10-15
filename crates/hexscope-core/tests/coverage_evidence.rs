@@ -78,6 +78,14 @@ fn photos_lose_every_covered_finding() {
 }
 
 #[test]
+fn a_pictures_text_notes_go_with_its_caption_and_owner() {
+    let removed = confirmed("notes.png", "png");
+    for kind in ["owner", "caption"] {
+        assert!(removed.iter().any(|k| k == kind), "notes.png: {kind}");
+    }
+}
+
+#[test]
 fn ai_pictures_lose_what_made_them_and_the_prompt() {
     let removed = confirmed("ai-picture.png", "png");
     for kind in ["ai", "prompt"] {

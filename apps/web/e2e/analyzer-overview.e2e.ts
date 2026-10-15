@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openView } from "./views";
 
 let pageErrors: string[] = [];
 
@@ -121,7 +122,7 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
   }
 
   for (const view of ["content", "metadata"] as const) {
-    await page.locator(`#app-nav [data-app-view='${view}']`).click();
+    await openView(page, view);
     for (const width of [320, 390, 640, 768, 900, 1024, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       const content = await page.locator("#drawer").evaluate((root) => ({

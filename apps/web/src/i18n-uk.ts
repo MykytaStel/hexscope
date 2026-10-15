@@ -810,6 +810,7 @@ const KIND_IN_WORDS: Record<string, string> = {
   "a LibreOffice spreadsheet": "таблиця LibreOffice",
   "a LibreOffice presentation": "презентація LibreOffice",
   "an EPUB book": "книга EPUB",
+  "an Android app": "застосунок Android",
 };
 
 /** "з 3 файлів", "з 21 файла": the genitive after "з". */

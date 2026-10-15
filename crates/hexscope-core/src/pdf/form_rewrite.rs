@@ -352,11 +352,13 @@ fn checked_edits(
     edits: &[StreamEdit],
     bytes: &[u8],
 ) -> Result<Vec<(usize, usize, Vec<u8>)>, FormRewriteError> {
-    let mut out = edits
-        .iter()
-        .map(|edit| (edit.start, edit.end, edit.replacement.clone()))
-        .collect::<Vec<_>>();
-    out.sort_by_key(|edit| edit.0);
+    let out = crate::model::sorted_by(
+        edits
+            .iter()
+            .map(|edit| (edit.start, edit.end, edit.replacement.clone()))
+            .collect::<Vec<_>>(),
+        |edit| edit.0 as u64,
+    );
     let mut end = 0;
     for (start, next_end, _) in &out {
         if *start < end || *next_end < *start || *next_end > bytes.len() {
@@ -555,8 +557,9 @@ fn patch_one(
     Ok(out)
 }
 
-fn apply_patches(bytes: &mut Vec<u8>, mut patches: Vec<Patch>) -> Result<(), FormRewriteError> {
-    patches.sort_by_key(|patch| std::cmp::Reverse(patch.start));
+fn apply_patches(bytes: &mut Vec<u8>, patches: Vec<Patch>) -> Result<(), FormRewriteError> {
+    // From the end of the bytes back, so each patch leaves the next one's place as it was.
+    let patches = crate::model::sorted_by(patches, |patch| u64::MAX - patch.start as u64);
     let mut previous_start = bytes.len();
     for patch in patches {
         if patch.start > patch.end || patch.end > previous_start || patch.end > bytes.len() {

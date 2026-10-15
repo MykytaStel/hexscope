@@ -81,6 +81,14 @@ document.addEventListener("click", (e) => {
   if (button) document.getElementById(button.dataset.opens ?? "")?.click();
 });
 
+// The landing's own button, on screen or scrolled away: on a phone the header's Open shows only then.
+const heroButton = document.querySelector(".hero-actions .btn-primary");
+if (heroButton && "IntersectionObserver" in window) {
+  new IntersectionObserver(([seen]) => {
+    document.body.dataset.heroButton = seen.isIntersecting ? "shown" : "away";
+  }).observe(heroButton);
+}
+
 // Every way a file comes in.
 wireInputs({ open: (files) => withApp((a) => a.openFiles(files)), fail: (message) => withApp((a) => a.loadFailed(message)) });
 

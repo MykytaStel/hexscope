@@ -4,6 +4,7 @@
 import { Buffer } from "node:buffer";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { openView } from "./views";
 
 // Whatever the page throws, and whatever its Content-Security-Policy blocks,
 // fails the test that met it.
@@ -30,7 +31,7 @@ async function home(page: Page): Promise<void> {
 
 /** Use the shared workspace navigation on desktop and phone. */
 async function openBytes(page: Page): Promise<void> {
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
 }
 
 test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
@@ -244,7 +245,7 @@ test("landing connects its examples to the real file analyzer", async ({ page })
   await page.locator(".deeper-open-sample").click();
   await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
 });
@@ -337,7 +338,7 @@ test("desktop bytes workspace keeps structure labels readable", async ({ page },
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
 
   for (const width of [901, 1024, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -368,7 +369,7 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
 
   for (const width of [901, 1024, 1099]) {
     await page.setViewportSize({ width, height: 768 });
@@ -399,7 +400,7 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
   await expect(page.locator(".pane-drawer .drawer-node .node-label")).toHaveText("Вибрана частина");
   await expect(page.locator(".pane-drawer .drawer-node")).toBeVisible();
 
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await openView(page, "structure");
   for (const width of [901, 1024, 1099]) {
     await page.setViewportSize({ width, height: 768 });
     const panes = await page.evaluate(() => {
@@ -417,7 +418,7 @@ test("tablet structure and bytes keep the selected part in a full-width reading 
   await expect(page.locator(".pane-drawer .drawer-node .node-label")).toHaveText("Вибрана частина");
   await expect(page.locator(".pane-drawer .drawer-node")).toBeVisible();
 
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   for (const [width, height] of [[390, 844], [768, 1024], [900, 1024]] as const) {
     await page.setViewportSize({ width, height });
     const panes = await page.evaluate(() => {
@@ -544,7 +545,7 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   await expect(selectedTreeRow.locator(".label")).toContainText("GPS IFD");
   const inspector = page.locator("dialog.inspector-sheet");
   if (await inspector.isVisible()) await inspector.getByRole("button", { name: "Закрити" }).click();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
 });
@@ -617,8 +618,12 @@ test("phone analyzer opens on overview and reaches bytes through workspace navig
   const nav = page.getByRole("navigation", { name: "Робоча область файла" });
   await expect(nav).toBeVisible();
   await expect(page.locator("#viewswitch")).toBeHidden();
+  // The bytes are for the curious: under More, which closes on the choice and says it is open.
+  await nav.locator(".app-nav-more > summary").click();
   await nav.getByRole("button", { name: "Байти", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(nav.locator(".app-nav-more")).not.toHaveAttribute("open");
+  await expect(nav.locator(".app-nav-more > summary")).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#hex")).toBeVisible();
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", page.viewportSize()!.width);
   await nav.getByRole("button", { name: "Огляд", exact: true }).click();
@@ -637,9 +642,15 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
   const nav = page.getByRole("navigation", { name: "Робоча область файла" });
   await expect(nav).toBeVisible();
   await expect(page.locator("#viewswitch")).toBeHidden();
-  for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти"]) {
+  for (const label of ["Огляд", "Метадані", "Вміст"]) {
     await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
   }
+  // The structure and the bytes wait under More.
+  await nav.locator(".app-nav-more > summary").click();
+  for (const label of ["Структура", "Байти"]) {
+    await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
+  }
+  await nav.locator(".app-nav-more > summary").click();
 
   await nav.getByRole("button", { name: "Метадані", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
@@ -647,10 +658,12 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
   await nav.getByRole("button", { name: "Вміст", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "content");
   await expect(page.locator("#drawer .reveal-hero")).toBeInViewport();
+  await nav.locator(".app-nav-more > summary").click();
   await nav.getByRole("button", { name: "Структура", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "structure");
   await expect(page.locator("#tree")).toBeVisible();
   await expect(page.locator("#hex")).toBeHidden();
+  await nav.locator(".app-nav-more > summary").click();
   await nav.getByRole("button", { name: "Байти", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
@@ -675,9 +688,9 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
 
   await page.setViewportSize({ width: 320, height: 740 });
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 320);
-  for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти"]) {
-    const button = nav.getByRole("button", { name: label, exact: true });
-    const dimensions = await button.evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
+  // The bar's own items, More among them, fit their labels at 320 pixels.
+  for (const item of [...["Огляд", "Метадані", "Вміст"].map((label) => nav.getByRole("button", { name: label, exact: true })), more.locator("summary")]) {
+    const dimensions = await item.evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
     expect(dimensions.content).toBeLessThanOrEqual(dimensions.width);
   }
 });
@@ -692,7 +705,7 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.locator("dialog.inspector-sheet")).not.toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   await expect(page.locator("#hex")).toBeVisible();
 
   const firstRow = page.locator("#tree .tree .row").first();
@@ -774,7 +787,7 @@ test("phone inspector survives crossing the desktop breakpoint and returns to th
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   const selectedRow = page.locator("#tree .tree .row").first();
   await selectedRow.click();
 
@@ -802,7 +815,7 @@ test("phone inspector reopens when selection changes before the native close eve
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await openView(page, "structure");
   const rows = page.locator("#tree .tree .row");
   await rows.first().click();
 
@@ -831,7 +844,7 @@ test("phone inspector keeps its request through rapid queued breakpoint closes",
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await openView(page, "structure");
   await page.locator("#tree .tree .row").first().click();
 
   const sheet = page.locator("dialog.inspector-sheet");
@@ -874,7 +887,7 @@ test("phone inspector keeps a newer selection when explicit close races with res
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='structure']").click();
+  await openView(page, "structure");
   await page.locator("#tree .tree .row").first().click();
 
   const sheet = page.locator("dialog.inspector-sheet");
@@ -987,9 +1000,9 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   const button = await summary.boundingBox();
   expect(button).not.toBeNull();
   expect(button!.height).toBeLessThanOrEqual(36);
-  const primaryAction = await page.locator(".topbar .actions > .btn[data-opens='picker']").boundingBox();
-  expect(primaryAction).not.toBeNull();
-  expect(primaryAction!.x + primaryAction!.width).toBeLessThanOrEqual(390);
+  // The header's Open repeats the landing's own button: hidden while that one shows.
+  const headerOpen = page.locator(".topbar .actions > .btn[data-opens='picker']");
+  await expect(headerOpen).toBeHidden();
 
   await summary.click();
   const menu = page.locator(".landing-menu nav");
@@ -1004,6 +1017,13 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+  // Scrolled past the landing's button, the header's Open is at hand, inside the screen.
+  await summary.click();
+  await page.locator("#examples, .landing-proof").first().scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 900);
+  await expect(headerOpen).toBeVisible();
+  const open = await headerOpen.boundingBox();
+  expect(open!.x + open!.width).toBeLessThanOrEqual(390);
 });
 
 /** Opens a sample from its door on the landing page. */
@@ -1578,7 +1598,7 @@ test("a phone goes without the tour, and a computer's tour rings the part it is 
 test("the phone bytes view reserves room for reading the bytes", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the compact tree is specific to touch screens");
   await openDoor(page, /Check a photo/);
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   const treeHeight = await page.locator(".pane-tree").evaluate((e) => e.getBoundingClientRect().height);
   expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
 });
@@ -1589,7 +1609,7 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   await page.waitForTimeout(400);
   await expect(page.locator(".tour")).toHaveCount(0);
 
@@ -1624,7 +1644,7 @@ test("the byte grid lets a keyboard user move to and pin the exact byte", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='bytes']").click();
+  await openView(page, "bytes");
   const bytes = page.locator(".hex-scroller");
   await bytes.focus();
 
@@ -1732,7 +1752,8 @@ test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
   await expect(toolbar).toBeVisible();
   await expect(page.locator(".topbar .location-badge")).toBeVisible();
   await expect(page.locator(".topbar .viewswitch")).toBeHidden();
-  await expect(page.locator("#app-nav [data-app-view='bytes']")).toBeVisible();
+  // The bytes are a tap away, under More.
+  await expect(page.locator("#app-nav .app-nav-more > summary")).toBeVisible();
   const bounds = await toolbar.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, right: rect.right };

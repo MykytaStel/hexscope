@@ -153,6 +153,17 @@ const picture = new PictureView({
 // On a phone the file opens on its summary; the tree and the bytes are a
 // tap away, and anything that points into the bytes goes there.
 const narrow = matchMedia("(max-width: 900px)");
+
+// On a phone the bar keeps the views of the answer; the structure and the
+// bytes, for the curious, wait under More, which says when one of them is open.
+const expertViews = ["structure", "bytes"].map((v) => appNavigation.querySelector<HTMLElement>(`[data-app-view="${v}"]`)!);
+const moreViews = appNavigation.querySelector<HTMLElement>(".app-nav-more-actions")!;
+function placeExpertViews(): void {
+  if (narrow.matches) moreViews.prepend(...expertViews);
+  else appNavigation.querySelector('[data-app-view="content"]')?.after(...expertViews);
+}
+placeExpertViews();
+narrow.addEventListener("change", placeExpertViews);
 /** The view a wide screen opens on: the answer, unless the person chose the bytes. */
 const VIEW = "hexscope.view";
 function wideView(): "summary" | "bytes" {
@@ -212,6 +223,10 @@ function syncAppNavigation(): void {
       button.setAttribute("aria-pressed", String(playing));
     }
   }
+  // More says it holds the view open now, to the eye and to a screen reader.
+  const more = appNavigation.querySelector(".app-nav-more > summary");
+  if (moreViews.querySelector('[aria-current="page"]')) more?.setAttribute("aria-current", "page");
+  else more?.removeAttribute("aria-current");
 }
 narrow.addEventListener("change", () => {
   appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!.open = !narrow.matches;
@@ -244,6 +259,8 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
 appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
+  // A phone's More closes on whatever was chosen in it.
+  if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appView) {
     tourDismissedByNavigation = true;
     dismissTour();
