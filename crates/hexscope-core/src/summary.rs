@@ -79,13 +79,17 @@ fn photo(facts: &PhotoFacts, out: &mut Vec<(&'static str, String)>) {
 }
 
 /// A problem that leaves bytes unread: damage, or data nothing in the file
-/// accounts for, before or after it or in sectors no stream claims.
+/// accounts for — before or after it, in sectors no stream claims, in a ZIP
+/// past its end or in entries nothing points at.
 fn unread(p: &Problem) -> bool {
+    let l = p.label.as_str();
     p.concern == Concern::Damage
         || (p.concern == Concern::Hidden
-            && ["data after", "data before", "unclaimed"]
+            && (["data after", "data before", "unclaimed"]
                 .iter()
-                .any(|s| p.label.starts_with(s)))
+                .any(|s| l.starts_with(s))
+                || l.ends_with("after the end of the archive")
+                || l.ends_with("nothing points at")))
 }
 
 pub fn summarize(data: &[u8]) -> Summary {

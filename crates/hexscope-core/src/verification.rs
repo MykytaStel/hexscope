@@ -1230,6 +1230,9 @@ mod tests {
         let mut appended = fixture("photo.jpg");
         appended.extend_from_slice(b"PK\x03\x04 a zip hidden after the picture");
         assert!(!summarize(&appended).complete);
+        let mut zip = fixture("report.docx");
+        zip.extend_from_slice(b"bytes past the archive's end");
+        assert!(!summarize(&zip).complete);
         // An attachment and text under a black box are findings read whole.
         let pdf = summarize(&fixture("redacted.pdf"));
         assert!(
