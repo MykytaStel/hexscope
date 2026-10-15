@@ -271,3 +271,16 @@ mod tests {
         assert_eq!(ByteRange::new(8, 25).end(), 33);
     }
 }
+
+/// `items` in the order of `key`, ties kept in the order they came: sorted
+/// by `(key, index)` pairs, the one sort the WebAssembly builds carry, rather
+/// than a stable sort of each item type, a few kilobytes apiece.
+pub(crate) fn sorted_by<T>(items: Vec<T>, key: impl Fn(&T) -> u64) -> Vec<T> {
+    let mut order: Vec<(u64, usize)> = items.iter().enumerate().map(|(i, t)| (key(t), i)).collect();
+    order.sort_unstable();
+    let mut slots: Vec<Option<T>> = items.into_iter().map(Some).collect();
+    order
+        .into_iter()
+        .filter_map(|(_, i)| slots[i].take())
+        .collect()
+}

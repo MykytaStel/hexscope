@@ -48,6 +48,9 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   header. A result naming a server the message never came through — as
   anyone can type into a message — is now said to be one, as a sign of
   forgery.
+- A ZIP with bytes past its end, or in entries nothing points at, was taken
+  for completely read; and a PNG's caption, which every copy loses, was said
+  to be unchecked.
 - A Ukrainian support page drew its ways to give in English: the words it
   draws for itself were only in the articles' dictionary, which a Ukrainian
   page no longer loads.
@@ -60,6 +63,8 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   Overview, Metadata, Content — and the structure and the bytes wait under
   More, which says when one of them is open. On the landing the header's
   Open shows only once the landing's own button has scrolled away.
+- The WebAssembly builds are 1.4–2.8 KB smaller: three stable sorts of
+  their own item types gave way to the one key sort the builds share.
 - **What the core says about a file reads in Ukrainian:** about 30 kinds of
   finding written as sentences — tracked changes, attachments, links, signs
   of forgery, hidden text, hidden rows, editing history, what a module asks
