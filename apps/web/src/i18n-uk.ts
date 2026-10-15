@@ -999,6 +999,11 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} виправлень і позначок коментарів прийнято або прибрано`;
   match = /^(\d+) pieces of text no one can see$/.exec(value);
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "фрагмент", "фрагменти", "фрагментів")} тексту, якого ніхто не бачить`;
+  // What a clean copy took out of a PDF's pages, and a picture's text notes.
+  match = /^Text under black boxes, marked for redaction, or hidden: (\d+) characters?$/.exec(value);
+  if (match) return `Текст під чорними прямокутниками, позначений для приховування або невидимий: ${match[1]} ${ukrainianCountWord(Number(match[1]), "символ", "символи", "символів")}`;
+  match = /^Text notes: (.+)$/.exec(value);
+  if (match) return `Текстові нотатки: ${match[1]}`;
   // A pass that a server the message never came through wrote.
   match = /^says (.+) passed, but (.+), which says so, is not a server it came through$/.exec(value);
   if (match) return `каже, що ${match[1]} пройдено, але ${match[2]}, який це стверджує, не є сервером, через який пройшов лист`;
@@ -1013,7 +1018,129 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `Карта з позначкою місця зйомки: ${match[1]}`;
   match = /^(.+?) is open\. (.+)$/.exec(value);
   if (match) return `${match[1]} відкрито. ${match[2].split(/(?<=\.) /).map((line) => translateText(line, locale)).join(" ")}`;
-  return value;
+  return factSentence(value) ?? value;
+}
+
+/** "Olena and Petro", "A, B and 2 others", as the core joins names. */
+const names = (list: string) =>
+  list.replace(/ and (\d+) others?$/, (_, n: string) => ` та ще ${n}`).replace(/ and (?=[^,]*$)/, " і ");
+
+/** A count of things in words: "2 hidden rows" → "2 приховані рядки". */
+function counted(text: string): string {
+  const words: [RegExp, [string, string, string]][] = [
+    [/^insertions?$/, ["вставка", "вставки", "вставок"]],
+    [/^deletions?$/, ["видалення", "видалення", "видалень"]],
+    [/^comments?$/, ["коментар", "коментарі", "коментарів"]],
+    [/^hidden rows?$/, ["прихований рядок", "приховані рядки", "прихованих рядків"]],
+    [/^hidden columns?$/, ["прихований стовпець", "приховані стовпці", "прихованих стовпців"]],
+    [/^files?$/, ["файл", "файли", "файлів"]],
+    [/^links?$/, ["посилання", "посилання", "посилань"]],
+    [/^steps?$/, ["крок", "кроки", "кроків"]],
+    [/^functions?$/, ["функція", "функції", "функцій"]],
+    [/^function names?$/, ["назва функції", "назви функцій", "назв функцій"]],
+  ];
+  return text.replace(/(\d+) ([a-z ]+?)(?=$| and |,)/g, (all, n: string, word: string) => {
+    const forms = words.find(([re]) => re.test(word))?.[1];
+    return forms ? `${n} ${ukrainianCountWord(Number(n), ...forms)}` : all;
+  }).replace(/ and (?=\d)/g, " і ");
+}
+
+/** What a module asks its host to do, phrase by phrase. */
+const CAN: Record<string, string> = {
+  "reach the network": "виходити в мережу",
+  "open files by name": "відкривати файли за назвою",
+  "write to files or the console": "писати у файли чи консоль",
+  "read files or input": "читати файли чи введення",
+  "keep data in the browser": "зберігати дані в браузері",
+  "read environment variables": "читати змінні середовища",
+  "read its command line": "читати свій командний рядок",
+  "read the clock": "читати годинник",
+  "draw random numbers": "брати випадкові числа",
+  "change the page it runs in": "змінювати сторінку, на якій працює",
+  "use the clipboard": "користуватися буфером обміну",
+  "ask where you are": "питати, де ви",
+  "use the camera or microphone": "користуватися камерою чи мікрофоном",
+};
+
+/** How text on a PDF page is hidden. */
+const HIDDEN: Record<string, string> = {
+  "drawn invisibly": "намальований невидимим",
+  "in white on white": "білим по білому",
+  "off the page": "поза сторінкою",
+  "too small to see": "задрібний, щоб побачити",
+};
+
+/** What an attachment is, in an email's warning. */
+const RISKY: Record<string, string> = {
+  "a web page: opened, it can show a sign-in page for any site, or send you to one": "вебсторінка: відкрита, вона може показати сторінку входу будь-якого сайту або перенаправити на неї",
+  "a program: opened, it runs on your computer": "програма: відкрита, вона запускається на вашому комп’ютері",
+  "a shortcut that opens a program or a site": "ярлик, що відкриває програму чи сайт",
+  "a disk image, which can carry programs past your computer's warnings": "образ диска, який може пронести програми повз попередження комп’ютера",
+  "an Office file with macros: programs that run when allowed": "файл Office з макросами: програмами, що запускаються, коли їм дозволити",
+};
+
+/**
+ * The sentences the core writes as what a file gives away — "1 deletion by
+ * Petro, not accepted yet" — with the names, addresses and quotes they hold
+ * kept as they are.
+ */
+function factSentence(v: string): string | undefined {
+  let m: RegExpExecArray | null;
+  if ((m = /^((?:\d+ (?:insertions?|deletions?))(?: and \d+ (?:insertions?|deletions?))?)(?: by (.+))?, not accepted yet$/.exec(v)))
+    return `${counted(m[1])}${m[2] ? ` від ${names(m[2])}` : ""}, ще не прийнято`;
+  if ((m = /^(\d+ comments?) by (.+)$/.exec(v))) return `${counted(m[1])} від ${names(m[2])}`;
+  if ((m = /^(\d+ files?): (.+)$/.exec(v))) return `${counted(m[1])}: ${m[2]}`;
+  if ((m = /^(\d+ links?), to (.+)$/.exec(v))) return `${counted(m[1])}, на ${m[2].replace(/ and (\d+) more$/, " і ще $1")}`;
+  if (v.startsWith("a link reads “"))
+    return v.replace(/a link reads “(.+?)” and goes to ([^;]+)/g, "посилання з текстом «$1» веде на $2").replace(/; and (\d+) more$/, "; і ще $1");
+  if ((m = /^(.+), shown as “(.+)”: letters of other alphabets that pass for Latin ones$/.exec(v)))
+    return `${m[1]}, показано як «${m[2]}»: літери інших абеток, схожі на латинські`;
+  if ((m = /^(.+) — not the sender's (.+)$/.exec(v))) return `${m[1]} — а не ${m[2]}, як у відправника`;
+  if ((m = /^bounces go to (.+), not the sender's (.+)$/.exec(v))) return `листи-відмови йдуть на ${m[1]}, а не на ${m[2]} відправника`;
+  if ((m = /^(.+) passed: the sender's domain vouched for it$/.exec(v))) return `${m[1]}: пройдено — домен відправника підтвердив лист`;
+  if ((m = /^(.+) failed: the domain it claims to come from did not vouch for it$/.exec(v)))
+    return `${m[1]}: не пройдено — домен, від імені якого надіслано лист, його не підтвердив`;
+  if ((m = /^(UTC[^,]*), the sender's clock when it was sent$/.exec(v))) return `${m[1]}, годинник відправника на момент надсилання`;
+  if ((m = /^(.+?), where the sender connected from(?:, and (.+?), the computer's address on its own network)?, in the first server's (.+) line$/.exec(v)))
+    return `${m[1]} — звідки підключився відправник${m[2] ? `, і ${m[2]} — адреса комп’ютера в його власній мережі` : ""}, у рядку ${m[3]} першого сервера`;
+  if ((m = /^“(.+)” is( named to look like a (\.\w+),)? (.+)$/.exec(v)) && RISKY[m[4]])
+    return `«${m[1]}» —${m[3] ? ` названо так, ніби це ${m[3]},` : ""} ${RISKY[m[4]]}`;
+  if ((m = /^(.+), but it opens without a password, so anyone can read it$/.exec(v)))
+    return `${m[1]}, але відкривається без пароля, тож прочитати може будь-хто`;
+  if ((m = /^embedded JPEG, (\d+) bytes$/.exec(v))) return `вбудований JPEG, ${m[1]} ${ukrainianCountWord(Number(m[1]), "байт", "байти", "байтів")}`;
+  if ((m = /^a picture of the first page, (\d+×\d+)$/.exec(v))) return `зображення першої сторінки, ${m[1]}`;
+  if ((m = /^on (\d+) slides?: (.+)$/.exec(v)))
+    return `на ${m[1]} ${ukrainianCountWord(Number(m[1]), "слайді", "слайдах", "слайдах")}: ${m[2]}`;
+  if ((m = /^slides? (\d[\d, ]*(?: and \d+ more)?)$/.exec(v))) return `${/,/.test(m[1]) ? "слайди" : "слайд"} ${m[1].replace(/ and (\d+) more$/, " і ще $1")}`;
+  if ((m = /^page (\d+): an area marked for redaction was never applied: (.+)$/.exec(v)))
+    return `сторінка ${m[1]}: ділянку, позначену для приховування, так і не приховано: ${m[2]}`;
+  if ((m = /^page (\d+): (“.+)$/.exec(v))) return `сторінка ${m[1]}: ${m[2]}`;
+  if ((m = /^page (\d+), (drawn invisibly|in white on white|off the page|too small to see): (.+)$/.exec(v)))
+    return `сторінка ${m[1]}, ${HIDDEN[m[2]]}: ${m[3]}`;
+  if (v === "once after it was first saved; the earlier version is still inside") return "раз після першого збереження; попередня версія досі всередині";
+  if ((m = /^(\d+) times after it was first saved; the earlier versions are still inside$/.exec(v)))
+    return `${m[1]} ${ukrainianCountWord(Number(m[1]), "раз", "рази", "разів")} після першого збереження; попередні версії досі всередині`;
+  if (/^\d+ hidden (rows?|columns?)( and \d+ hidden columns?)?$/.test(v)) return counted(v);
+  if ((m = /^(\d+ steps?) in (.+), last on (.+)$/.exec(v))) return `${counted(m[1])} у ${m[2]}, востаннє ${m[3]}`;
+  if ((m = /^(.+), in paths like (.+)$/.exec(v))) return `${m[1]}, у шляхах на кшталт ${m[2]}`;
+  if ((m = /^(?:module “(.+)”, )?(\d+ function names?)$/.exec(v))) return `${m[1] ? `модуль «${m[1]}», ` : ""}${counted(m[2])}`;
+  if ((m = /^(?:(.+) \()?(\d+ functions?) from (.+?)\)?$/.exec(v)) && (!m[1] || m[1].split(/, | and /).every((c) => CAN[c]))) {
+    const can = m[1] ? m[1].split(/, | and /).map((c) => CAN[c]) : [];
+    const list = can.length > 1 ? `${can.slice(0, -1).join(", ")} і ${can[can.length - 1]}` : (can[0] ?? "");
+    const from = `${counted(m[2])} з ${m[3].replace(/ and (\d+) more$/, " і ще $1")}`;
+    return list ? `${list} (${from})` : from;
+  }
+  if ((m = /^made with (.+?)(?:, model (.+))?$/.exec(v))) return `створено в ${m[1]}${m[2] ? `, модель ${m[2]}` : ""}`;
+  if ((m = /^(?:(\d+) h)?\s?(?:(\d+) min)?$/.exec(v)) && (m[1] || m[2]))
+    return [m[1] && `${m[1]} год`, m[2] && `${m[2]} хв`].filter(Boolean).join(" ");
+  if ((m = /^“(.+)”, from (.+)$/.exec(v))) return `«${m[1]}», з ${m[2]}`;
+  if ((m = /^(\d+ steps?) recorded$/.exec(v))) return `записано ${counted(m[1])}`;
+  if ((m = /^(.+), with a password to open it: hexscope cannot read its contents$/.exec(v)))
+    return `${m[1]}, відкривається лише з паролем: hexscope не може прочитати вміст`;
+  // A photo placed in a document: where, on what, whose.
+  if (/: taken at |· serial |· owner /.test(v))
+    return v.replace(": taken at ", ": знято в ").replace("· serial ", "· серійний номер ").replace("· owner ", "· власник ");
+  return undefined;
 }
 
 const reverse = new Map(Object.entries(UK).map(([english, ukrainian]) => [ukrainian, english]));
