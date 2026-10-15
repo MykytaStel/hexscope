@@ -92,7 +92,10 @@ jobs:
   web:
     runs-on: ubuntu-26.04
     steps:
+      # The whole history: each page's dates for search engines are its commits' (seo.ts).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - name: Install wasm-bindgen CLI (must match the pinned crate)
@@ -178,6 +181,11 @@ jobs:
         with:
           name: hexscope-site
           path: apps/web/dist
+      # The sitemap as it was, so search engines hear only of the pages that changed.
+      - name: Keep the sitemap before the deploy
+        if: env.CLOUDFLARE_API_TOKEN != '' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: curl -fsS https://hexscope.org/sitemap.xml -o "$RUNNER_TEMP/sitemap-before.xml"
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: apps/web
@@ -189,7 +197,7 @@ jobs:
       - name: Tell search engines
         if: env.CLOUDFLARE_API_TOKEN != '' && github.ref == 'refs/heads/main'
         continue-on-error: true
-        run: node scripts/indexnow.mjs apps/web/dist
+        run: node scripts/indexnow.mjs apps/web/dist "$RUNNER_TEMP/sitemap-before.xml"
       - name: Nothing to deploy with
         if: env.CLOUDFLARE_API_TOKEN == ''
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set, so nothing was deployed."

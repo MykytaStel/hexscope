@@ -17,7 +17,18 @@ test("a guide has a Ukrainian page of its own, linked both ways", async ({ page 
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://hexscope.org/uk/remove-location-from-photo");
   await expect(page.locator('link[hreflang="en"]')).toHaveAttribute("href", "https://hexscope.org/remove-location-from-photo");
   const data = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent()) ?? "{}");
-  expect(data).toMatchObject({ "@type": "Article", inLanguage: "uk", headline: "Як прибрати геолокацію з фото" });
+  const [article, crumbs] = data["@graph"];
+  expect(article).toMatchObject({ "@type": "Article", inLanguage: "uk", headline: "Як прибрати геолокацію з фото" });
+  // Dated by the page's own commits, not by the day of the build.
+  expect(article.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(article.dateModified >= article.datePublished).toBe(true);
+  expect(crumbs).toMatchObject({
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { position: 1, item: "https://hexscope.org/uk/" },
+      { position: 2, name: "Як прибрати геолокацію з фото", item: "https://hexscope.org/uk/remove-location-from-photo" },
+    ],
+  });
 });
 
 test("the app is described as a free web application, in each language", async ({ page }) => {
@@ -68,6 +79,10 @@ test("the pages people search for are written in both languages and listed in th
     ["ai-image-metadata", "Was this picture made by AI? What its file says", "Чи створив цю картинку ШІ? Що каже сам файл"],
     ["remove-metadata-from-pdf", "How to remove metadata from a PDF", "Як видалити метадані з PDF"],
     ["remove-metadata-from-word", "How to remove metadata from a Word document", "Як видалити метадані з документа Word"],
+    ["remove-metadata-from-photo", "How to remove EXIF and metadata from a photo", "Як видалити EXIF і метадані з фото"],
+    ["remove-metadata-from-video", "How to remove metadata from a video", "Як видалити метадані з відео"],
+    ["remove-metadata-from-libreoffice", "How to remove metadata from LibreOffice and RTF files", "Як видалити метадані з файлів LibreOffice і RTF"],
+    ["what-file-type-is-this", "What type of file is this?", "Що це за файл?"],
   ]) {
     expect(sitemap).toContain(`<loc>https://hexscope.org/${path}</loc>`);
     expect(sitemap).toContain(`<loc>https://hexscope.org/uk/${path}</loc>`);
@@ -92,4 +107,22 @@ test("an AI picture says what made it and the prompt, and its clean copy is conf
   await page.goto("./?sample=ai-picture.png&view=metadata");
   await expect(page.locator(":visible", { hasText: /made with Stable Diffusion, model sdxl_base_1\.0/ }).last()).toBeVisible();
   await expect(page.locator(":visible", { hasText: /a quiet sunset over a calm sea/ }).last()).toBeVisible();
+});
+
+test("every guide links to every other one", async ({ page }) => {
+  await page.goto("./what-file-type-is-this");
+  const links = await page.locator(".guide-more a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+  expect(links).not.toContain("what-file-type-is-this");
+  expect(links).toEqual(expect.arrayContaining(["remove-metadata-from-video", "remove-metadata-from-libreoffice", "exif-viewer", "png-wont-open"]));
+});
+
+test("the samples a guide offers open: a photo with the wrong name, and a LibreOffice document", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=holiday.jpg");
+  await expect(page.locator(".verdict")).toContainText("Named .jpg, but it is a HEIC image.");
+  await page.goto("./?sample=lease.odt&view=metadata");
+  await expect(page.locator(":visible", { hasText: /HP LaserJet Pro M404/ }).last()).toBeVisible();
 });

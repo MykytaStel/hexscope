@@ -8,10 +8,24 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **Four guides**, in English and Ukrainian: removing EXIF and metadata from
+  a photo, removing metadata and the location from a video, removing
+  metadata from LibreOffice and RTF files, and telling what type a file
+  really is when its name says another. Two new samples go with them: a
+  LibreOffice lease and a HEIC photo named `.jpg`.
+
 ### Changed
 
 - `hexscope-raster`, the film lab's codecs, is published with the other
   crates, so `cargo install hexscope-cli` builds the `film` command too.
+- Every guide lists all the others, made from one list at build, so a new
+  guide is linked from each page at once.
+- Search engines get each page's real dates — from its commits, not the day
+  of the build — in the sitemap and in the page's structured data, with a
+  breadcrumb back to the home page; after a deploy, IndexNow hears only of
+  the pages that changed.
 
 ## [0.4.0] — 2026-10-13
 

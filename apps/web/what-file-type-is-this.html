@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="A file named .jpg can be an iPhone's HEIC photo, and one named .pdf a Word document. hexscope reads a file's first bytes and says what it really is, and the name that fits — in your browser, nothing uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>What type of file is this? Find a file's real format — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/what-file-type-is-this" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/what-file-type-is-this" />
+    <meta property="og:title" content="What type of file is this?" />
+    <meta property="og:description" content="A file's name can say one format while its bytes are another. See what a file really is, and the name that fits, in your browser." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">File types</p>
+        <h1>What type of file is this?</h1>
+        <p class="story-lede">
+          A file's extension is only part of its name, and anyone, or any app, can change it. What a file really is is written in its first bytes. hexscope reads them, in your browser, and says what the file is — and when its name says otherwise, the name that fits. The file is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a file</a>
+          <a class="btn" href="./?sample=holiday.jpg">Try a photo with the wrong name</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> Why the name and the file disagree</h2>
+          <ul>
+            <li><strong>A phone's photo, renamed</strong>: an iPhone takes photos in HEIC, and some apps and transfers name them .jpg without converting them.</li>
+            <li><strong>A download under the wrong name</strong>: a site sends a Word document as contract.pdf.</li>
+            <li><strong>A file renamed by hand</strong>, to get it past a form that takes only some kinds of file.</li>
+            <li><strong>A document that is a ZIP inside</strong>: .docx, .xlsx, .pptx, .odt, .epub and .apk files are all ZIP archives, so one renamed to another of them still looks like a ZIP.</li>
+          </ul>
+          <p>Apps that go by the name then refuse the file, or say it is damaged. The bytes are fine; only the name is wrong.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Check a file</h2>
+          <p>Open the file in hexscope. It reads the bytes the file begins with — its signature — and names the format from them, whatever the name says; for a ZIP, it looks inside to tell a Word document from a spreadsheet or a book. When the name says another format, the first line of the answer says so, and which name fits:</p>
+          <p class="guide-note">Named .jpg, but it is a HEIC image. Apps that go by the name may refuse it or call it damaged; renaming it to .heic fixes that.</p>
+          <p>Rename the file to the name it suggests. The file itself does not change, so nothing is lost.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> What it recognises</h2>
+          <ul>
+            <li><strong>Pictures</strong>: JPEG, PNG, HEIC, AVIF, WebP, GIF and TIFF.</li>
+            <li><strong>Videos and sound</strong>: MP4, QuickTime (.mov) and M4A.</li>
+            <li><strong>Documents</strong>: PDF; Word, Excel and PowerPoint, old and new; LibreOffice's .odt, .ods and .odp; RTF; EPUB books.</li>
+            <li><strong>Email messages</strong>: saved messages (.eml) and Outlook's .msg.</li>
+            <li><strong>Archives and programs</strong>: ZIP, Android apps (.apk) and WebAssembly.</li>
+          </ul>
+          <p>It also names many kinds of file it does not open — MP3, WAV, FLAC and Ogg recordings, RAR, 7-Zip and gzip archives, BMP and JPEG 2000 pictures, PostScript, SQLite databases, and Windows, Mac and Linux programs — so you know what you have, and what to open it with.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> When the name fits and the file still will not open</h2>
+          <p>Then the file may be damaged: cut short by a download, or broken in a copy. hexscope says where the damage begins and, for PNG, JPEG and ZIP files, can save what survived. More: <a href="png-wont-open.html">Why won't my PNG open?</a></p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Many files, or in a script</h2>
+          <p>Drop a folder on the page to check every file in it. On your own computer, the <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">command line tool</a> lists every file whose name says another format, and exits with 1 if it finds one — before the files go anywhere:</p>
+          <p><code>hexscope check --fail-on misnamed files/</code></p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a file now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

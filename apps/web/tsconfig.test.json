@@ -12,7 +12,8 @@
     "functions",
     "e2e",
     "playwright.config.ts",
-    "seo.ts"
+    "seo.ts",
+    "guides.ts"
   ],
   "exclude": []
 }

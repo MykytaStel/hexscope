@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="A video from an iPhone or an Android phone says where it was recorded, on which phone and when. See it and save a copy of the MP4 or MOV without it — the picture and sound untouched. In your browser, nothing is uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Remove metadata and the location from a video (MP4, MOV) — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/remove-metadata-from-video" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/remove-metadata-from-video" />
+    <meta property="og:title" content="How to remove metadata from a video" />
+    <meta property="og:description" content="Where a phone's video was recorded, on which phone and when — and a copy without it, made in your browser without re-encoding." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Video metadata</p>
+        <h1>How to remove metadata from a video</h1>
+        <p class="story-lede">
+          Phones write where a video was recorded into the file, with the phone's make and model, its software and the time. None of it shows when the video plays. hexscope shows it and saves a copy without it, in your browser, without re-encoding the video. The video is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a video</a>
+          <a class="btn" href="./?sample=video.mov&amp;view=metadata">Try a sample video</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What a video says</h2>
+          <ul>
+            <li><strong>Where it was recorded</strong>, often to within a few metres. An iPhone writes it in the movie's QuickTime metadata, an Android phone in its user data, some cameras in a location box of their own.</li>
+            <li><strong>The phone or camera</strong>: its make and model.</li>
+            <li><strong>When</strong>: the date and time it was recorded, and the creation and change times that every MP4 keeps in its headers.</li>
+            <li><strong>The software</strong>: the phone's system version, or the app that saved it last.</li>
+            <li><strong>Who</strong>: an author's name, if one was set.</li>
+            <li><strong>XMP</strong>: the editing history and the author, as video editors write them.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it</h2>
+          <p>Open the video in hexscope. It reads MP4 and QuickTime (.mov) files, and M4A sound, up to 2 GB; a long video opens quickly, as the picture and sound are not loaded to read what is around them. Under <em>What this video reveals</em>, press <em>Remove it — save a clean copy</em>. In the copy:</p>
+          <ul>
+            <li>every metadata item is blanked where it lies, so the file keeps its size and its layout;</li>
+            <li>the creation and change times in the headers become zero;</li>
+            <li>the picture and sound are copied byte for byte: nothing is re-encoded, nothing loses quality.</li>
+          </ul>
+          <p>Then press <em>Open the clean copy</em> and check that nothing is left.</p>
+          <p class="guide-note">Action cameras and dashcams can record a whole route as a track beside the picture. hexscope does not read such tracks: turn the GPS off in the camera's settings, or remove the track in a video editor.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> On the phone</h2>
+          <ul>
+            <li><strong>iPhone</strong>: when you share a video, tap <em>Options</em> at the top and turn off <em>Location</em>. To stop the camera adding it: Settings → Privacy &amp; Security → Location Services → Camera → Never.</li>
+            <li><strong>Android</strong>: in the camera app's settings, turn off the option to save the location. Its name depends on the phone's maker.</li>
+          </ul>
+          <p>Apps that recompress a video usually drop this data on the way. Everything that sends the file as it is keeps it: email attachments, cloud links, AirDrop, and messaging apps when you send the video as a file.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Many videos at once</h2>
+          <p>Choose several videos, or drop a folder on the page, and <em>Save clean copies</em> saves them as one ZIP. For videos larger than a browser takes, the <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">command line tool</a> cleans files of any size on your own computer, without holding them in memory:</p>
+          <p><code>hexscope clean --verify --out clean/ videos/</code></p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a video now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

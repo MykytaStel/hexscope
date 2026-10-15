@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="An ODT, ODS or ODP file keeps who made it, the LibreOffice version and system, who printed it and on which printer, a picture of its first page, comments and tracked changes. See them and save a clean copy in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Remove metadata from LibreOffice (ODT, ODS, ODP) and RTF files — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/remove-metadata-from-libreoffice" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/remove-metadata-from-libreoffice" />
+    <meta property="og:title" content="How to remove metadata from LibreOffice and RTF files" />
+    <meta property="og:description" content="Who made it, who printed it and on which printer, comments and tracked changes — and a copy without them, made in your browser." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">LibreOffice metadata</p>
+        <h1>How to remove metadata from LibreOffice and RTF files</h1>
+        <p class="story-lede">
+          A document saved in LibreOffice says who made it, on which version and system, how long it was edited, and who printed it last, on which printer. It keeps a picture of its first page, and its comments and tracked changes. None of it shows on the page. hexscope shows it and saves a copy without it, in your browser. The file is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a document</a>
+          <a class="btn" href="./?sample=lease.odt&amp;view=metadata">Try a LibreOffice document</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What a LibreOffice file keeps</h2>
+          <ul>
+            <li><strong>Properties</strong>: who made it and who saved it last, when, how many times and for how long it was edited, its template, and any custom fields.</li>
+            <li><strong>The program and the system</strong>: the version of LibreOffice, and the operating system it ran on.</li>
+            <li><strong>Printing</strong>: who printed it last and when, and the printer's name, which often names the office.</li>
+            <li><strong>A thumbnail</strong>: a picture of the first page, which file managers show as a preview.</li>
+            <li><strong>Tracked changes</strong>, with the text each deletion took out, and <strong>comments</strong>, with the name of whoever wrote each one.</li>
+            <li><strong>Photos</strong> placed in it, each with its own EXIF: where it was taken, with which camera.</li>
+          </ul>
+          <p class="guide-note">The sample lease names the printer on the office's second floor, and keeps a deleted line that still says “The landlord accepts 18 000 UAH; offer that first.”</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it</h2>
+          <p>Open the file in hexscope. It reads LibreOffice's text documents (.odt), spreadsheets (.ods) and presentations (.odp). Under <em>What this document reveals</em>, press <em>Remove it — save a clean copy</em>. In the copy:</p>
+          <ul>
+            <li>the properties, and the settings that name the printer, are emptied;</li>
+            <li>the thumbnail becomes a blank picture, so the file still opens everywhere;</li>
+            <li>tracked changes are accepted — what was deleted goes, with its text — and comments are deleted with their authors;</li>
+            <li>photos lose their EXIF.</li>
+          </ul>
+          <p>Then press <em>Open the clean copy</em>, and hexscope says what is gone.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> RTF files</h2>
+          <p>An RTF file — what WordPad, TextEdit and many older programs save — keeps the same kind of facts in plain text: the author and who saved it last, the company, when it was created, revised and printed, the program and its template, custom properties, and who made each tracked change. Its clean copy leaves them out, accepts tracked deletions and removes comments. A deletion that shares its group with other text stays, and hexscope says so.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> In LibreOffice itself</h2>
+          <ul>
+            <li><strong>Personal information</strong>: <em>Tools → Options → LibreOffice → Security → Options</em>, turn on <em>Remove personal information on saving</em>, then save the file again.</li>
+            <li><strong>Properties</strong>: <em>File → Properties → General</em>, turn off <em>Apply user data</em> and press <em>Reset Properties</em>.</li>
+            <li><strong>Tracked changes</strong>: <em>Edit → Track Changes → Accept All</em>.</li>
+            <li><strong>Comments</strong>: right-click a comment and choose <em>Delete All Comments</em>.</li>
+          </ul>
+          <p>Each works on the file open in LibreOffice, one at a time. Check the result either way: open the saved file in hexscope and see what is left.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Many files at once</h2>
+          <p>Drop a folder on the page, or choose several files, and <em>Save clean copies</em> saves the clean ones as one ZIP, and on your own computer the <a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">command line tool</a> does the same:</p>
+          <p><code>hexscope clean --verify --out clean/ documents/</code></p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a document now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>
