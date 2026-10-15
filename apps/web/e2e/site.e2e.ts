@@ -623,7 +623,7 @@ test("phone analyzer opens on overview and reaches bytes through workspace navig
   await nav.getByRole("button", { name: "Байти", exact: true }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(nav.locator(".app-nav-more")).not.toHaveAttribute("open");
-  await expect(nav.locator(".app-nav-more > summary")).toHaveAttribute("data-current", "");
+  await expect(nav.locator(".app-nav-more > summary")).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#hex")).toBeVisible();
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", page.viewportSize()!.width);
   await nav.getByRole("button", { name: "Огляд", exact: true }).click();

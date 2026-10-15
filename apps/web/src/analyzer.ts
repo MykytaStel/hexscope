@@ -223,7 +223,10 @@ function syncAppNavigation(): void {
       button.setAttribute("aria-pressed", String(playing));
     }
   }
-  appNavigation.querySelector(".app-nav-more > summary")?.toggleAttribute("data-current", !!moreViews.querySelector('[aria-current="page"]'));
+  // More says it holds the view open now, to the eye and to a screen reader.
+  const more = appNavigation.querySelector(".app-nav-more > summary");
+  if (moreViews.querySelector('[aria-current="page"]')) more?.setAttribute("aria-current", "page");
+  else more?.removeAttribute("aria-current");
 }
 narrow.addEventListener("change", () => {
   appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!.open = !narrow.matches;

@@ -344,7 +344,7 @@
   }
 
   .app-nav button[aria-current="page"],
-  .app-nav-more > summary[data-current] {
+  .app-nav-more > summary[aria-current="page"] {
     border-color: transparent;
     border-bottom-color: var(--text);
     background: var(--panel-2);
