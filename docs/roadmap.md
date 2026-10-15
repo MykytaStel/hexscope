@@ -76,10 +76,36 @@ Scans and the formats people send, two weeks early: every item below is done.
    starts with 18 KB of script instead of about 85 KB.
 2. The stylesheets merged into one set of tokens and layers, without
    overrides fighting each other.
-3. Large files on phones within a time and memory budget.
+3. Large files on phones within a time and memory budget. Waits for the
+   author's phone: where a tab gives out decides the budget.
 4. An accessibility pass over the new design: screen readers, keyboard,
-   zoom, both themes.
+   zoom, both themes. Done in part 2026-10-15: axe clean in both themes, the
+   phone bar says which view is open under More; the screen-reader pass waits
+   for a device.
 5. Done when: the first page is lighter than in 0.2.0 and axe is clean.
+
+Also done for 0.5.0, from two audits (2026-10-15): what Office on Windows
+leaves (the folder, the template's path, the printer, SharePoint's
+properties, editing-session numbers) found and taken out; a PDF's notes,
+authors and carried files out of its copy; links under shared suffixes
+(`.com.ua`, `.co.uk`) told apart; a typed-in SPF pass named as forgery;
+copies no longer called incomplete for a finding read whole; articles in
+the reader's language as their own pages; every sentence and explanation a
+reader meets in Ukrainian, held by a test over every test file; one key
+sort in place of three, 1.4–2.8 KB off each WebAssembly build.
+
+### Next, after the launch
+
+- An HDR photo's copy keeps its gain map, cleaned of what it says — it
+  needs the gain map's own metadata kept (Ultra HDR, ISO 21496-1) and an
+  iPhone to check it on.
+- The core says what it finds as codes with values, not English sentences,
+  and the page words them in each language.
+- The stylesheets in one set of tokens, checked against screenshots of
+  every page and state before and after.
+- Sound files: MP3, FLAC and Ogg tags, once a build has room for them.
+- Research to publish: what messengers and social networks take out of a
+  file sent through them, and what still ties a cleaned file to its author.
 
 ### 1.0.0 — Stable (when these hold)
 
