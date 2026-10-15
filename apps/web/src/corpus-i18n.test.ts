@@ -2,9 +2,8 @@
 // through the dictionary: a sentence reworded in Rust, or a new one, is shown
 // in English until someone adds it. This reads every test file and sample
 // with the real parser and names each sentence a reader meets — the verdict,
-// the headline, the tips, the findings that are sentences, what a clean copy took out — that has no
-// Ukrainian. Field-by-field explanations in the Structure and Bytes views
-// are for the curious and are not held to this.
+// the headline, the tips, the findings that are sentences, what a clean copy took out, what each
+// part of the file is — that has no Ukrainian.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
@@ -18,6 +17,7 @@ import { advice } from "./advice";
 import { translateText } from "./i18n";
 import "./i18n-uk";
 import "./analysis-i18n";
+import "./docs-i18n";
 
 const here = (path: string) => new URL(path, import.meta.url);
 
@@ -80,6 +80,11 @@ describe("every sentence a reader meets about a real file", () => {
         ...advice(m).map((t) => t.text),
       ];
       said.push(...m.file.facts.filter((f) => !DATA.has(f.kind)).map((f) => f.text));
+      // What each part is, as the Structure and Bytes views explain it.
+      for (let i = 0; i < m.file.labels.length; i++) {
+        const doc = m.doc(i);
+        if (doc) said.push(doc.text);
+      }
       const copy = build.cleanCopy(bytes, false);
       if (!copy.error) said.push(...removedLines(copy.removed));
       for (const s of said) {

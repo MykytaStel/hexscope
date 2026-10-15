@@ -63,6 +63,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   Overview, Metadata, Content — and the structure and the bytes wait under
   More, which says when one of them is open. On the landing the header's
   Open shows only once the landing's own button has scrolled away.
+- **The Structure and Bytes views explain each part in Ukrainian:** the 512
+  explanations a reader meets on real files — what a field, a box, a chunk
+  or an object is — have their Ukrainian, loaded with the analyzer for a
+  reader in Ukrainian only (27 KB gzipped). The corpus test now holds every
+  explanation shown for a test file to its translation.
 - The WebAssembly builds are 1.4–2.8 KB smaller: three stable sorts of
   their own item types gave way to the one key sort the builds share.
 - **What the core says about a file reads in Ukrainian:** about 30 kinds of

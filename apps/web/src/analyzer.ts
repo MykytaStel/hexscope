@@ -26,7 +26,11 @@ import { recentFiles, remember } from "./recent";
 import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, siteUrl, tooLarge } from "./files";
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
-import { currentLocale, loadUkrainian, translateText } from "./i18n";
+import { currentLocale, loadUkrainian, translateText, withUkrainian } from "./i18n";
+
+// What each part of a file is, in Ukrainian, for the Structure and Bytes
+// views: it comes with the analyzer, and only for a reader in Ukrainian.
+withUkrainian(() => import("./docs-i18n"));
 
 let batchController: BatchController;
 let workspace: WorkspaceController;
