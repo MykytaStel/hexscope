@@ -16,7 +16,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.3.0 | Trust in every clean copy, a clearer analyzer, a preview and a demo | shipped 2026-10-12 |
 | 0.4.0 | Scans and the formats people send: TIFF, LibreOffice, RTF, misnamed files, one build per family | shipped 2026-10-13 |
 | Launch | The author's device test, then the posts | when the author has tested |
-| 0.5.0 | Faster, smaller, easier to change | 2026-11-09 |
+| 0.5.0 | Faster, smaller, easier to change; what Office on Windows leaves; all of it in Ukrainian | shipped 2026-10-15 |
+| 0.6.0 | What the device test finds: large files on phones, a screen reader, the stylesheets merged | after the launch |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.3.0 — shipped 2026-10-12
@@ -66,7 +67,10 @@ Scans and the formats people send, two weeks early: every item below is done.
    movies, one with PDF, one with Office, email and WebAssembly. Done when: the corpus snapshot shows TIFF, ODT and
    RTF read, and confirmed removal covers them.
 
-### 0.5.0 — Faster, smaller, easier to change (target 2026-11-09)
+### 0.5.0 — shipped 2026-10-15
+
+Shipped three weeks early. Items 1 and 5 are done and 4 in part; 2 is
+begun and 3 waits for the author's phone. What is left moves to 0.6.0.
 
 1. The analyzer's script apart from the landing page's: the first page loads
    less, and the page budget has room again. Begun 2026-10-15: the Ukrainian
