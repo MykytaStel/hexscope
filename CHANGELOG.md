@@ -30,7 +30,8 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 - **A link to a site under `.com.ua`, `.org.ua`, `.co.uk` and other shared
   suffixes** was compared by its last two labels, so `rozetka.com.ua` and
   `rozetka-sale.com.ua` counted as one site and a lying link went unsaid.
-  The registered name now counts the suffixes anyone registers under — in
+  The registered name now counts the suffixes anyone registers under (106
+  of them, Ukraine's regional ones among them) — in
   emails, Word documents and PDFs, and for replies and bounces sent to
   another domain.
 - **A clean copy with any hidden finding left in it** — an attachment, text
