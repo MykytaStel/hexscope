@@ -27,7 +27,7 @@ registerLazyTranslations({
   "Creating and checking JPEG…": "Створення та перевірка JPEG…", "Create JPEG copy": "Створити JPEG-копію", "Download JPEG": "Завантажити JPEG",
   "Save recipe": "Зберегти рецепт", "Load recipe": "Завантажити рецепт", "Reset adjustments": "Скинути налаштування",
   "Reuse these settings on another scan. A recipe contains adjustments, not the photo or its filename.": "Застосуйте налаштування до іншого скану. Рецепт містить параметри, без фото чи назви файла.",
-  "Could not load this recipe. Choose a Hexscope film recipe, version 1, smaller than 16 KiB.": "Не вдалося прочитати рецепт. Виберіть рецепт плівкового фото Hexscope версії 1, менший за 16 КіБ.",
+  "Could not load this recipe. Choose a hexscope film recipe, version 1, smaller than 16 KiB.": "Не вдалося прочитати рецепт. Виберіть рецепт плівкового фото hexscope версії 1, менший за 16 КіБ.",
   "Could not process this scan. Try a smaller JPEG, PNG or WebP.": "Не вдалося обробити скан. Спробуйте менший JPEG, PNG або WebP.",
   "Preview: up to 1200 px. JPEG copy: up to 4096 px and 12 megapixels. Sources: up to 50 MiB and 120 megapixels. The master stays intact.": "Перегляд: до 1200 px. JPEG-копія: до 4096 px і 12 мегапікселів. Оригінали: до 50 МіБ і 120 мегапікселів. Майстер-копія зберігається.",
   "Output re-read": "Повторне читання результату", "No metadata findings detected in the output JPEG.": "У створеному JPEG не виявлено метаданих.",
@@ -170,7 +170,7 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
       const next = readFilmRecipe(await file.text());
       if (disposed || before !== revision) return;
       calibrationRevision++; settings = next; pendingPoint = undefined; syncControls(); schedule();
-    } catch { message.textContent = "Could not load this recipe. Choose a Hexscope film recipe, version 1, smaller than 16 KiB."; }
+    } catch { message.textContent = "Could not load this recipe. Choose a hexscope film recipe, version 1, smaller than 16 KiB."; }
     finally { recipeInput.value = ""; }
   });
   const reset = el("button", "btn", "Reset adjustments");

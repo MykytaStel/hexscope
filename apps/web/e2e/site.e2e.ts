@@ -101,7 +101,7 @@ test("Film Lab shows distinct archival frames and credits their source", async (
   await expect(film.getByRole("link", { name: /NASA Apollo 11 archive/i })).toHaveAttribute("href", /nasa\.gov/);
   await expect(film).toContainText(/Published positive scans/);
   await expect(film.getByRole("button", { name: "Process film scans · JPEG / TIFF" })).toBeVisible();
-  await expect(film.getByRole("button", { name: "Open frame AS11-40-5903 in Hexscope →" })).toHaveAttribute(
+  await expect(film.getByRole("button", { name: "Open frame AS11-40-5903 in hexscope →" })).toHaveAttribute(
     "data-sample",
     "samples/apollo11/as11-40-5903.jpg",
   );
@@ -1465,7 +1465,7 @@ test("the landing groups film scans and local multi-photo actions with their rig
   await expect(tools).toBeVisible();
   await expect(tools.getByRole("heading", { name: "Film scans" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Process film scans · JPEG / TIFF" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Open frame AS11-40-5903 in Hexscope →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Open frame AS11-40-5903 in hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" })).toHaveAttribute("data-opens", "picker-empty");
   await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
   await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
@@ -1473,7 +1473,7 @@ test("the landing groups film scans and local multi-photo actions with their rig
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await expect(tools.getByRole("heading", { name: "Плівкові скани" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Обробити плівкові скани · JPEG / TIFF" })).toBeVisible();
-  await expect(tools.getByRole("button", { name: "Відкрити кадр AS11-40-5903 у Hexscope →" })).toBeVisible();
+  await expect(tools.getByRole("button", { name: "Відкрити кадр AS11-40-5903 у hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
 
   await page.getByRole("button", { name: "Switch language to English" }).click();
@@ -1878,7 +1878,7 @@ test("clean copy verification reparses a generated photo", async ({ page }) => {
   for (const kind of ["Camera", "Location", "Lens", "Serial number", "Owner", "Taken", "Software", "Thumbnail"]) {
     await expect(removed).toContainText(kind);
   }
-  await expect(report).not.toContainText("Hexscope cannot yet confirm");
+  await expect(report).not.toContainText("hexscope cannot yet confirm");
   await expect(report).not.toContainText("48.8584");
 });
 
@@ -1891,7 +1891,7 @@ test("clean-copy coverage explanations are translated in Ukrainian", async ({ pa
   await page.locator(".verdict-cta").click();
 
   await expect(page.locator(".copy-verification")).toContainText(
-    "Hexscope поки не може підтвердити, чи видалено цей факт у форматі PDF.",
+    "hexscope поки не може підтвердити, чи видалено цей факт у форматі PDF.",
   );
 });
 

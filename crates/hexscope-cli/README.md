@@ -33,7 +33,7 @@ scan cannot look complete. In GitHub Actions, annotations identify the file and
 finding kind without printing finding values into runner logs. Explicit `--json`
 and `--sarif` output remains detailed.
 
-The command-line tool uses the same parser as the Hexscope web app. It does
+The command-line tool uses the same parser as the hexscope web app. It does
 not upload files or send telemetry.
 
 Licensed under either MIT or Apache-2.0, at your option.
