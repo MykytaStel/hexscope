@@ -39,7 +39,7 @@ const LETTER: [f64; 4] = [0.0, 0.0, 612.0, 792.0];
 
 /// Annotation types that are comments: notes, highlights, marks (12.5.6.2).
 /// Attached files are named apart, in [`super::forms`].
-const COMMENTS: [&str; 14] = [
+pub(super) const COMMENTS: [&str; 14] = [
     "Text",
     "FreeText",
     "Highlight",
@@ -511,7 +511,15 @@ pub(super) fn check(
         }
 
         for (a, node, _) in &p.annots {
-            if COMMENTS.contains(&subtype(a)) {
+            // A note, or a mark with an author or a note's words: what a
+            // person typed or signed on the page with no name on it is not one.
+            let words = matches!(a.get("Contents"), Some(Obj::Str(t)) if !t.is_empty());
+            let said = subtype(a) == "Text"
+                || a.get("T").is_some()
+                || (words
+                    && ["Highlight", "Underline", "StrikeOut", "Squiggly", "Caret"]
+                        .contains(&subtype(a)));
+            if COMMENTS.contains(&subtype(a)) && said {
                 comments += 1;
                 comment_node.get_or_insert(*node);
                 if let Some(Obj::Str(t)) = a.get("T") {

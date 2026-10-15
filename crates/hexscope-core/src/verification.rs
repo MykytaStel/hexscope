@@ -53,7 +53,9 @@ const PNG: &[&str] = &[
 ];
 /// A video's copy blanks its metadata items and zeroes every header's times.
 const VIDEO: &[&str] = &["location", "camera", "owner", "taken", "software"];
-/// A PDF is written anew without its Info dictionary and XMP.
+/// A PDF is written anew without its Info dictionary and XMP, the text under
+/// its black boxes or hidden, its notes and who wrote each annotation, and
+/// the files it carries unless it names them as part of itself (/AF).
 const PDF: &[&str] = &[
     "author",
     "title",
@@ -64,6 +66,10 @@ const PDF: &[&str] = &[
     "created",
     "modified",
     "history",
+    "covered",
+    "hiddentext",
+    "comments",
+    "attachments",
 ];
 /// Word, Excel and PowerPoint: the copy replaces docProps/core.xml, app.xml and
 /// custom.xml with empty ones and leaves out a Mac's __MACOSX notes.
@@ -581,7 +587,7 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 9 + 28 + 15 + 20);
+        assert_eq!(tuples.len(), 8 + 9 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20);
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));

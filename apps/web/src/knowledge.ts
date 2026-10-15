@@ -31,8 +31,9 @@ export const KEPT: Record<string, string[]> = {
   wasm: ["paths", "imports"],
   zip: ["comments", "hiddensheets", "hiddencells", "links", "notes", "hiddenslides", "embedded", "weblinks", "linkmismatch", "linkidn", ...QR],
   // The copy keeps every object the document reaches, byte for byte: its
-  // links, and what it does when opened, with them.
-  pdf: ["comments", "form", "attachments", "weblinks", "linkmismatch", "opens", "scripts", "launch", "submits", ...QR],
+  // links, and what it does when opened, with them. Attached files stay only
+  // when the document names them as part of itself (/AF).
+  pdf: ["form", "attachments", "weblinks", "linkmismatch", "opens", "scripts", "launch", "submits", ...QR],
 };
 const QR_KEPT = "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.";
 
@@ -43,7 +44,7 @@ export const KEPT_NOTE: Record<string, string> = {
   webp: QR_KEPT,
   gif: QR_KEPT,
   wasm: "Kept: what it imports, which is the program itself, and any paths in its data, which its error messages print. Only a new build, with the paths remapped, can take those out.",
-  pdf: "Kept: comments, form answers, attached files, links, and anything it does when opened, which are part of the document. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.",
+  pdf: "Kept: form answers, links, and anything it does when opened, which are part of the document, and files an e-invoice or a PDF/A-3 file names as part of itself. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.",
   zip: "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.",
 };
 

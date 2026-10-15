@@ -37,6 +37,19 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   under a black box — was called not completely read, and every finding
   went unchecked. Only bytes that were not read make a copy incomplete now:
   damage, and data nothing in the file accounts for.
+- **A PDF's clean copy kept its notes, who wrote every comment, and the files
+  it carried.** Now notes and their pop-ups go, every other annotation loses
+  its author and dates, a highlight the words of its note, and attached files
+  go — as in Word's copy. What a person typed or signed on the page stays,
+  and so do the files an e-invoice or a PDF/A-3 file names as part of itself
+  (`/AF`). Comments, attachments, text under boxes and hidden text join the
+  PDF row of the removal contract, with `redacted.pdf` as evidence.
+- **An email's "SPF passed"** was believed from any `Authentication-Results`
+  header. A result naming a server the message never came through — as
+  anyone can type into a message — is now said to be one, as a sign of
+  forgery.
+- The clean copy of an iPhone photo said it looks the same without its HDR
+  gain map; on an HDR screen its highlights are less bright, and it says so.
 
 ### Changed
 

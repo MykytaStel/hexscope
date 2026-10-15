@@ -344,7 +344,7 @@ const UK: Record<string, string> = {
   "The output page was incomplete, so this selection could not be checked.": "Сторінку копії прочитано не повністю, тому вибраний текст не перевірено.",
   "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.": "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.",
   "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.": "Залишено QR-код, бо він є частиною зображення. Перед надсиланням зафарбуйте його інструментом «Приховати частину зображення».",
-  "Kept: comments, form answers, attached files, links, and anything it does when opened, which are part of the document. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.": "Залишено коментарі, відповіді у формах, вкладені файли, посилання та дії під час відкриття — це частини документа. Якщо їх не слід надсилати, видаліть їх у редакторі PDF або надрукуйте новий PDF лише зі сторінками.",
+  "Kept: form answers, links, and anything it does when opened, which are part of the document, and files an e-invoice or a PDF/A-3 file names as part of itself. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.": "Залишено відповіді у формах, посилання та дії під час відкриття — це частини документа, а також файли, які e-інвойс чи файл PDF/A-3 називає своєю частиною. Якщо їх не слід надсилати, видаліть їх у редакторі PDF або надрукуйте новий PDF лише зі сторінками.",
   "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.": "Залишено вміст самої таблиці чи презентації: коментарі, приховані аркуші, рядки й слайди, нотатки доповідача, посилання та вкладені файли. Видаліть їх у Word, Excel або PowerPoint і збережіть файл.",
   "Copy a clean picture": "Копіювати очищене зображення",
   "Puts the picture on the clipboard without anything else, to paste into a chat": "Копіює саме зображення без зайвих даних, щоб вставити його в чат",
@@ -995,6 +995,9 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} виправлень і позначок коментарів прийнято або прибрано`;
   match = /^(\d+) pieces of text no one can see$/.exec(value);
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "фрагмент", "фрагменти", "фрагментів")} тексту, якого ніхто не бачить`;
+  // A pass that a server the message never came through wrote.
+  match = /^says (.+) passed, but (.+), which says so, is not a server it came through$/.exec(value);
+  if (match) return `каже, що ${match[1]} пройдено, але ${match[2]}, який це стверджує, не є сервером, через який пройшов лист`;
   // What a custom XML part of a document says about people: "SharePoint properties: who, who".
   match = /^(SharePoint properties|custom XML): (.+)$/.exec(value);
   if (match) return `${match[1] === "custom XML" ? "власний XML" : "властивості SharePoint"}: ${match[2]}`;

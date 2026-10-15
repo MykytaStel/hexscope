@@ -50,6 +50,22 @@ fn header<'a>(hs: &'a [Header], name: &str) -> Option<&'a Header> {
     hs.iter().find(|h| h.name.eq_ignore_ascii_case(name))
 }
 
+/// The servers that say they received the message: the host after `by` in
+/// each `Received` line.
+fn receivers(hs: &[Header]) -> Vec<String> {
+    hs.iter()
+        .filter(|h| h.name.eq_ignore_ascii_case("Received"))
+        .filter_map(|h| {
+            let after = h.value.split(" by ").nth(1)?.trim_start();
+            let host: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-')
+                .collect();
+            host.contains('.').then(|| host.to_ascii_lowercase())
+        })
+        .collect()
+}
+
 /// Whether a file reads as a message: header lines from its first byte, one
 /// of them a sender, a date or a message ID, with nothing but text before
 /// the body.
@@ -910,14 +926,36 @@ fn check(tree: &mut ParseTree, w: &Walk) -> Vec<DocumentFact> {
                 .into_iter()
                 .filter(|m| v.contains(&format!("{m}=pass")))
                 .collect();
-            fact(
-                "auth",
-                format!(
-                    "{} passed: the sender's domain vouched for it",
-                    passed.join(", ").to_ascii_uppercase()
-                ),
-                h.node,
-            );
+            // Who wrote the result: the server it names before its first `;`,
+            // when it names one, must be one the message came through — or the
+            // sender wrote "passed" into the message themselves (RFC 8601 §5).
+            let id = v.split(';').next().unwrap_or("").trim();
+            let named = !id.contains('=') && id.contains('.');
+            if named && !receivers(hs).iter().any(|r| base(r) == base(id)) {
+                let (start, len) = (h.start as u64, (h.end - h.start) as u64);
+                tree.warning(
+                    h.node,
+                    "a check result no server it came through wrote",
+                    ByteRange::new(start, len),
+                );
+                fact(
+                    "authfail",
+                    format!(
+                        "says {} passed, but {id}, which says so, is not a server it came through",
+                        passed.join(", ").to_ascii_uppercase()
+                    ),
+                    h.node,
+                );
+            } else {
+                fact(
+                    "auth",
+                    format!(
+                        "{} passed: the sender's domain vouched for it",
+                        passed.join(", ").to_ascii_uppercase()
+                    ),
+                    h.node,
+                );
+            }
         }
     }
 
