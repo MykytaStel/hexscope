@@ -75,7 +75,7 @@ const JPEG_COMPLETE_FILE_KINDS = new Set([
 
 const noStableValue = "This finding has no stable value to compare.";
 const stillPresent = "This finding is still present in the copy.";
-const noCompleteCoverage = (format: string) => `Hexscope does not have complete ${format.toUpperCase()} coverage for this finding yet.`;
+const noCompleteCoverage = (format: string) => `hexscope does not have complete ${format.toUpperCase()} coverage for this finding yet.`;
 
 function stableValue(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
@@ -212,7 +212,7 @@ const PDF_TEXT_LABEL = "Selected PDF text";
 const PDF_AREA_KIND = "pdf-picture";
 const PDF_AREA_LABEL = "Text in the selected picture area";
 const PDF_AREA_UNCHECKED_REASON =
-  "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.";
+  "The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR.";
 
 function normalizedPdfText(text: string): string {
   return text.normalize("NFC").toLowerCase().split(/\s+/u).filter(Boolean).join(" ");

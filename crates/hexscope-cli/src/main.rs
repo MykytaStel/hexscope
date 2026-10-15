@@ -846,11 +846,11 @@ fn verification_reason_text(reason: VerificationReason, format: &str) -> Option<
             Some("This finding has no stable value to compare.".into())
         }
         VerificationReason::CoverageIncomplete => Some(format!(
-            "Hexscope cannot yet confirm whether this {} finding was removed.",
+            "hexscope cannot yet confirm whether this {} finding was removed.",
             format.to_uppercase()
         )),
         VerificationReason::ParseIncomplete => Some(
-            "Hexscope could not completely read the copy, so its findings were not checked.".into(),
+            "hexscope could not completely read the copy, so its findings were not checked.".into(),
         ),
         VerificationReason::UnexpectedOutput => {
             Some("This finding appeared in the copy but was not found in the source file.".into())
@@ -1109,12 +1109,12 @@ mod verification_display_tests {
             ),
             (
                 VerificationReason::CoverageIncomplete,
-                Some("Hexscope cannot yet confirm whether this JPEG finding was removed."),
+                Some("hexscope cannot yet confirm whether this JPEG finding was removed."),
             ),
             (
                 VerificationReason::ParseIncomplete,
                 Some(
-                    "Hexscope could not completely read the copy, so its findings were not checked.",
+                    "hexscope could not completely read the copy, so its findings were not checked.",
                 ),
             ),
             (
@@ -1141,7 +1141,7 @@ mod verification_display_tests {
 
         assert_eq!(
             verification_reason_text(VerificationReason::CoverageIncomplete, "pdf").as_deref(),
-            Some("Hexscope cannot yet confirm whether this PDF finding was removed.")
+            Some("hexscope cannot yet confirm whether this PDF finding was removed.")
         );
     }
 }

@@ -134,8 +134,8 @@ describe("the interface language", () => {
       "Оцифровані позитивні кадри з архіву Apollo 11 NASA.",
     );
     expect(translateText("NASA Apollo 11 archive", "uk")).toBe("Архів NASA «Аполлон-11»");
-    expect(translateText("NASA is not affiliated with Hexscope.", "uk")).toBe("NASA не пов’язана з Hexscope.");
-    expect(translateText("Open frame AS11-40-5903 in Hexscope →", "uk")).toBe("Відкрити кадр AS11-40-5903 у Hexscope →");
+    expect(translateText("NASA is not affiliated with hexscope.", "uk")).toBe("NASA не пов’язана з hexscope.");
+    expect(translateText("Open frame AS11-40-5903 in hexscope →", "uk")).toBe("Відкрити кадр AS11-40-5903 у hexscope →");
     expect(translateText("See the synthetic frame-detection test", "uk")).toBe("Переглянути синтетичний тест пошуку кадру");
     expect(translateText("A simple illustration tests the detector; it is not a photograph.", "uk")).toBe(
       "Проста ілюстрація перевіряє детектор; це не фотографія.",
@@ -173,11 +173,11 @@ describe("the interface language", () => {
     expect(translateText("This finding appeared in the copy but was not found in the source file.", "uk")).toBe(
       "Цього факту не було у вихідному файлі, але він з’явився в копії.",
     );
-    expect(translateText("Hexscope cannot yet confirm whether this JPEG finding was removed.", "uk")).toBe(
-      "Hexscope поки не може підтвердити, чи видалено цей факт у форматі JPEG.",
+    expect(translateText("hexscope cannot yet confirm whether this JPEG finding was removed.", "uk")).toBe(
+      "hexscope поки не може підтвердити, чи видалено цей факт у форматі JPEG.",
     );
-    expect(translateText("Hexscope could not completely read the copy, so its findings were not checked.", "uk")).toBe(
-      "Hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
+    expect(translateText("hexscope could not completely read the copy, so its findings were not checked.", "uk")).toBe(
+      "hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
     );
     expect(translateText("No comparable findings were available to check.", "uk")).toBe(
       "Не було фактів, які можна було порівняти.",
@@ -191,17 +191,17 @@ describe("the interface language", () => {
     expect(translateText("Check unavailable.", "uk")).toBe("Перевірка недоступна.");
     expect(
       translateText(
-        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.",
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR.",
         "uk",
       ),
-    ).toBe("Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.");
+    ).toBe("Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях.");
     expect(
       translateText(
-        "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR. Check unavailable.",
+        "The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR. Check unavailable.",
         "uk",
       ),
     ).toBe(
-      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях. Перевірка недоступна.",
+      "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях. Перевірка недоступна.",
     );
   });
 

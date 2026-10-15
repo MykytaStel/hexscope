@@ -12,9 +12,9 @@ const UK: Record<string, string> = {
   "Process film scans": "Обробити плівкові скани",
   "Published positive scans from NASA’s Apollo 11 archive.": "Оцифровані позитивні кадри з архіву Apollo 11 NASA.",
   "NASA Apollo 11 archive": "Архів NASA «Аполлон-11»",
-  "NASA is not affiliated with Hexscope.": "NASA не пов’язана з Hexscope.",
+  "NASA is not affiliated with hexscope.": "NASA не пов’язана з hexscope.",
   "APOLLO 11 · ARCHIVE": "АПОЛЛО-11 · АРХІВ",
-  "Open frame AS11-40-5903 in Hexscope →": "Відкрити кадр AS11-40-5903 у Hexscope →",
+  "Open frame AS11-40-5903 in hexscope →": "Відкрити кадр AS11-40-5903 у hexscope →",
   "4 distinct frames · 70 mm": "4 різні кадри · 70 мм",
   "See the synthetic frame-detection test": "Переглянути синтетичний тест пошуку кадру",
   "A simple illustration tests the detector; it is not a photograph.": "Проста ілюстрація перевіряє детектор; це не фотографія.",
@@ -151,11 +151,11 @@ const UK: Record<string, string> = {
   "Switch views to see how the file format is built.": "Перемикайте вигляд, щоб побачити, як улаштований формат файла.",
   "Inspect the bytes": "Перегляньте байти",
   "Open the raw data behind the selected part.": "Перейдіть до вихідних даних вибраної частини.",
-  "Try this sample in Hexscope →": "Перевірити цей приклад у Hexscope →",
-  "Hexscope workspace": "Робоча область Hexscope",
+  "Try this sample in hexscope →": "Перевірити цей приклад у hexscope →",
+  "hexscope workspace": "Робоча область hexscope",
   "photo.jpg · sample analysis": "photo.jpg · аналіз прикладу",
-  "Hexscope analyzing a sample photo": "Hexscope аналізує тестове фото",
-  "Hexscope analyzing a sample photo across its finding, structure and bytes": "Hexscope аналізує тестове фото: знахідка, структура й байти",
+  "hexscope analyzing a sample photo": "hexscope аналізує тестове фото",
+  "hexscope analyzing a sample photo across its finding, structure and bytes": "hexscope аналізує тестове фото: знахідка, структура й байти",
   "Apollo 11 film scan contact sheet": "Контактний аркуш скану плівки «Аполлона-11»",
   "The DEFLATE player": "Програвач DEFLATE",
   "The word 'byte' written once, then a back-reference pointing ten bytes back instead of writing it again.": "Слово «byte» записане один раз, а далі замість повтору — посилання на десять байтів назад.",
@@ -340,13 +340,13 @@ const UK: Record<string, string> = {
   "This finding has no stable value to compare.": "Значення цього факту не вдалося надійно порівняти.",
   "This copy is larger than the 10 MiB verification limit.": "Копія перевищує ліміт перевірки 10 МіБ.",
   "Check unavailable.": "Перевірка недоступна.",
-  "Hexscope could not completely read the copy, so its findings were not checked.": "Hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
+  "hexscope could not completely read the copy, so its findings were not checked.": "hexscope не зміг повністю прочитати копію, тому факти в ній не перевірено.",
   "No comparable findings were available to check.": "Не було фактів, які можна було порівняти.",
   "No searchable text was available for this selection.": "У вибраному місці не було доступного для пошуку тексту.",
   "The source page was incomplete, so this selection could not be checked.": "Вихідну сторінку прочитано не повністю, тому вибраний текст не перевірено.",
   "The corresponding output page could not be checked.": "Не вдалося перевірити відповідну сторінку копії.",
   "The output page was incomplete, so this selection could not be checked.": "Сторінку копії прочитано не повністю, тому вибраний текст не перевірено.",
-  "The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR.": "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.",
+  "The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR.": "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях.",
   "Kept: the QR code, which is part of the picture. Black it out with “Black out part of the picture” before sending.": "Залишено QR-код, бо він є частиною зображення. Перед надсиланням зафарбуйте його інструментом «Приховати частину зображення».",
   "Kept: form answers, links, and anything it does when opened, which are part of the document, and files an e-invoice or a PDF/A-3 file names as part of itself. Delete them in a PDF editor — or print to a new PDF, which keeps only the pages — if they should not travel with it.": "Залишено відповіді у формах, посилання та дії під час відкриття — це частини документа, а також файли, які e-інвойс чи файл PDF/A-3 називає своєю частиною. Якщо їх не слід надсилати, видаліть їх у редакторі PDF або надрукуйте новий PDF лише зі сторінками.",
   "Kept: what is part of a workbook or a deck itself — its comments, hidden sheets, rows and slides, speaker notes, links to other files and to sites — and files kept inside it, such as the workbook behind a chart. Remove them in Word, Excel or PowerPoint, then save.": "Залишено вміст самої таблиці чи презентації: коментарі, приховані аркуші, рядки й слайди, нотатки доповідача, посилання та вкладені файли. Видаліть їх у Word, Excel або PowerPoint і збережіть файл.",
@@ -402,7 +402,7 @@ const UK: Record<string, string> = {
   "The first or last byte in this row": "На перший або останній байт цього рядка",
   "Select this part": "Вибрати цю частину",
   "Supported formats": "Підтримувані формати",
-  "See what Hexscope can open. What it can inspect or change depends on the format.": "Дізнайтеся, які файли може відкрити Hexscope. Можливості перевірки й очищення залежать від формату.",
+  "See what hexscope can open. What it can inspect or change depends on the format.": "Дізнайтеся, які файли може відкрити hexscope. Можливості перевірки й очищення залежать від формату.",
   "Photos & images": "Фото й зображення",
   "Documents & Office": "Документи й файли Office",
   "Email, archives & technical files": "Електронна пошта, архіви й технічні файли",
@@ -841,13 +841,13 @@ function translateText(value: string, locale: Locale): string {
   const normalized = content.replace(/\s+/g, " ");
   const exact = UK[normalized] ?? lazyTranslations[normalized];
   if (exact) return `${leading}${exact}${trailing}`;
-  const pictureReason = /^The selected area was redacted by the operation, but text inside its pixels was not checked because Hexscope does not use OCR\.(?: (.*))?$/.exec(normalized);
+  const pictureReason = /^The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR\.(?: (.*))?$/.exec(normalized);
   if (pictureReason) {
-    const reason = "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: Hexscope не розпізнає текст на зображеннях.";
+    const reason = "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях.";
     return `${leading}${reason}${pictureReason[1] ? ` ${translateText(pictureReason[1], locale)}` : ""}${trailing}`;
   }
-  const coverage = /^Hexscope cannot yet confirm whether this ([A-Z]+) finding was removed\.$/.exec(normalized);
-  if (coverage) return `${leading}Hexscope поки не може підтвердити, чи видалено цей факт у форматі ${coverage[1]}.${trailing}`;
+  const coverage = /^hexscope cannot yet confirm whether this ([A-Z]+) finding was removed\.$/.exec(normalized);
+  if (coverage) return `${leading}hexscope поки не може підтвердити, чи видалено цей факт у форматі ${coverage[1]}.${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
   const label = /^“(.+)”, organisation ([\w-]+)(?:, set by (\S+))?(?: on (.+))?$/.exec(value);
   if (label) {

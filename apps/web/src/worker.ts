@@ -509,7 +509,7 @@ async function handle(req: WorkerRequest): Promise<void> {
       const safeParserReport = parserReport ?? uncheckedReport(
         parserFindings,
         [],
-        sourceParsed ? "Hexscope could not completely read the copy, so its findings were not checked." : "Check unavailable.",
+        sourceParsed ? "hexscope could not completely read the copy, so its findings were not checked." : "Check unavailable.",
       );
 
       const qrFindings = req.sourceFindings.filter((finding) => finding.kind.startsWith("qr"));
@@ -562,7 +562,7 @@ async function handle(req: WorkerRequest): Promise<void> {
       post({
         id: req.id,
         type: "verification",
-        report: uncheckedReport(req.sourceFindings, selections, "Hexscope could not completely read the copy, so its findings were not checked."),
+        report: uncheckedReport(req.sourceFindings, selections, "hexscope could not completely read the copy, so its findings were not checked."),
       });
     } finally {
       try {
