@@ -2288,7 +2288,9 @@ test("every public guide has a complete Ukrainian version, including its page ti
 });
 
 test("guide articles have a translated desktop contents list without narrowing phones", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("hexscope.language")) localStorage.setItem("hexscope.language", "uk");
+  });
   await page.goto("./remove-location-from-photo.html");
 
   const toc = page.locator(".guide-toc");

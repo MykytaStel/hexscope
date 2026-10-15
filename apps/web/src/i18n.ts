@@ -191,7 +191,18 @@ export function installLocale(): void {
   });
 }
 
-export function languageButton(): HTMLButtonElement {
+/** Keeps a chosen language for the next page, without translating this one. */
+export function chooseLocale(locale: Locale): void {
+  activeLocale = locale;
+  try {
+    localStorage.setItem(LANGUAGE_KEY, locale);
+  } catch {
+    // The page still opens in it; only the next visit forgets.
+  }
+}
+
+/** The button that switches language: here, or with `go`, by opening the page in the other one. */
+export function languageButton(go?: (locale: Locale) => void): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn language-button";
@@ -203,7 +214,13 @@ export function languageButton(): HTMLButtonElement {
     button.title = target === "uk" ? "Перемкнути мову на українську" : "Switch language to English";
   };
   refresh();
-  button.addEventListener("click", () => setLocale(currentLocale() === "en" ? "uk" : "en"));
+  button.addEventListener("click", () => {
+    const target = currentLocale() === "en" ? "uk" : "en";
+    if (go) {
+      chooseLocale(target);
+      go(target);
+    } else setLocale(target);
+  });
   window.addEventListener("hexscope:locale", refresh);
   return button;
 }

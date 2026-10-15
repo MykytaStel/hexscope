@@ -18,6 +18,13 @@ try {
   document.documentElement.dataset.written = written ? "uk" : "en";
   var ukrainian = savedLanguage === "uk" || (savedLanguage !== "en" && (written || navigator.languages.some((language) => language.toLowerCase().startsWith("uk"))));
   document.documentElement.lang = ukrainian ? "uk" : "en";
+  // An article in the other language than the reader's: its own page in theirs,
+  // before anything is drawn, rather than this one translated as it shows.
+  if (document.documentElement.dataset.page === "article" && ukrainian !== written) {
+    var path = location.pathname;
+    var other = written ? path.replace(/^\/uk(\/|$)/, "/") : "/uk" + path;
+    location.replace(other + location.search + location.hash);
+  }
 } catch (e) {
   // English remains the default when storage or browser language is unavailable.
 }

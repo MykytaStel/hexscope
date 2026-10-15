@@ -42,6 +42,10 @@ const UK: Record<string, string> = {
   "Support the project": "Підтримати проєкт",
   // What every article adds for itself (page.ts), on a /uk/ page too, where the articles' own copy is not loaded.
   "On this page": "На цій сторінці",
+  // The ways to support, which the support page draws for itself (support.ts).
+  "From anywhere: a card or PayPal, once or every month.": "Звідусіль: картка чи PayPal, разово або щомісяця.",
+  "Monobank jar": "Банка monobank",
+  "A card from any Ukrainian bank, Apple Pay or Google Pay.": "Картка будь-якого банку, Apple Pay чи Google Pay.",
   "Something is wrong": "Щось не так",
   "An idea": "Ідея",
   "Thanks": "Подяка",

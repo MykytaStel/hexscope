@@ -48,11 +48,23 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   header. A result naming a server the message never came through — as
   anyone can type into a message — is now said to be one, as a sign of
   forgery.
+- A Ukrainian support page drew its ways to give in English: the words it
+  draws for itself were only in the articles' dictionary, which a Ukrainian
+  page no longer loads.
 - The clean copy of an iPhone photo said it looks the same without its HDR
   gain map; on an HDR screen its highlights are less bright, and it says so.
 
 ### Changed
 
+- **An article opens in the reader's language as its own page:** a guide,
+  the support or the privacy page in the other language than the reader's
+  opens its `/uk/` or English page before anything is drawn, with where it
+  was on the page, and the language button opens the other page instead of
+  translating this one. Nothing flashes in the wrong language, and no
+  article loads the articles' dictionary any more. The app itself still
+  switches in place, so an open file stays open.
+- The landing says by its button that nothing is uploaded, where it is seen
+  first, not only below the demo.
 - **Pages load less for a reader in English:** the Ukrainian words are a file
   of their own, loaded only when a page is read in Ukrainian or was written
   in it. A guide now loads about 7 KB of script instead of about 78 KB, and

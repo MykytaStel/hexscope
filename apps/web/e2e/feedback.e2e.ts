@@ -3,8 +3,9 @@
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
+  // English to begin with; a language chosen on a page then holds, as an article switches by opening its other page.
   await page.addInitScript(() => {
-    localStorage.setItem("hexscope.language", "en");
+    if (!localStorage.getItem("hexscope.language")) localStorage.setItem("hexscope.language", "en");
     localStorage.setItem("hexscope.tour", "done");
   });
 });
@@ -88,9 +89,12 @@ test("the support page offers ways to help, and every guide ends with a way to w
   await expect(page.locator(".story-text")).toContainText("github.com/MykytaStel/hexscope.");
   await expect(page.locator(".story-text")).not.toContainText("it is.");
   await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await expect(page).toHaveURL(/\/uk\/support$/);
   await expect(ways).toHaveText(["Банка monobank", "Ko-fi"]);
   await expect(page.locator("#support-ways")).toContainText("Картка будь-якого банку");
   await expect(page.locator("#support-ways")).toContainText("Звідусіль: картка чи PayPal");
+  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await expect(page).toHaveURL(/\/support$/);
   await page.goto("./exif-viewer");
   await expect(page.locator(".story-reach")).toContainText("Write to the developer");
   await expect(page.locator(".story-reach a")).toHaveAttribute("href", "support");
