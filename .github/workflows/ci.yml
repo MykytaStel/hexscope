@@ -147,14 +147,17 @@ jobs:
       # with PDF; with Office, email and WebAssembly. Each family's budget
       # leaves room for the formats planned next (TIFF; LibreOffice, RTF).
       # The optional roll/TIFF module is budgeted separately and is never an initial parser.
+      # The documents' budget rose from 235000 for what Office on Windows leaves —
+      # the folder, the template's path, the printer, SharePoint's properties,
+      # editing-session numbers — found and taken out of clean copies.
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
           media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 235000)."
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 239000)."
           test "$media" -le 140000
           test "$pdf" -le 228000
-          test "$docs" -le 235000
+          test "$docs" -le 239000
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000

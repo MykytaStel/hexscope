@@ -33,7 +33,7 @@ looks-like.pdf: zip
 memo.m4a: video
   owner: Ivan
   software: Lavf63.1.101
-phish.eml: eml, not read whole
+phish.eml: eml
   ! Hidden: replies go to another domain
   ! Hidden: the sender's domain did not vouch for it
   sentfrom: 203.0.113.7, where the sender connected from, in the first server's Received line

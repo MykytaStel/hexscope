@@ -16,6 +16,7 @@ pub(crate) mod office;
 pub(crate) mod revise;
 #[cfg(test)]
 pub(crate) mod testing;
+pub(crate) mod traces;
 pub(crate) mod write;
 
 use crate::fixed::fixed;

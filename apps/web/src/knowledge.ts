@@ -118,6 +118,7 @@ export const FACT_LABELS: Record<string, string> = {
   label: "Sensitivity label",
   custom: "Custom properties",
   downloaded: "Downloaded from",
+  folder: "Saved in",
   tags: "Finder tags",
   printer: "Printer",
   printed: "Printed",

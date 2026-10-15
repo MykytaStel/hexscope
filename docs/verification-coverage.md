@@ -27,7 +27,7 @@ file, such as a photo in a document, is not covered.
 | `tiff` | location, camera, lens, serial, owner, taken, software |
 | `video` | location, camera, owner, taken, software |
 | `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
-| `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail |
+| `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail, folder |
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 | `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
 <!-- coverage:end -->
@@ -44,7 +44,12 @@ Why each row can be trusted:
 - **Word, Excel, PowerPoint** (`zip`): the copy replaces the core, app and
   custom properties with empty parts and leaves out a Mac's `__MACOSX` notes.
   Word's tracked changes are accepted, with the text a deletion held, and each
-  photo placed in a document is cleaned as a photo of its own. Comments and
+  photo placed in a document is cleaned as a photo of its own. What Office on
+  Windows leaves goes too: the folder Excel last saved a workbook in
+  (`x15ac:absPath`), the folder of a Word document's template (the file name
+  stays), the printer a printer-settings part names, SharePoint's properties
+  kept as custom XML, a JPEG or PNG picture of the first page (now a blank
+  pixel), and Word's editing-session numbers (`w:rsid`). Comments and
   embedded files are outside this row.
 - **OpenDocument** (.odt, .ods, .odp, also `zip`): the copy empties
   `meta.xml` and `settings.xml` — who made it, the program and system, who

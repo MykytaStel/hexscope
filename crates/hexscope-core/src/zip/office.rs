@@ -30,7 +30,7 @@ pub struct DocumentFact {
     /// title, author, editor, created, modified, revisions, editing,
     /// company, application, template, comments, tracked, deleted, or
     /// photoplace and photo for a photo in it with and without a location,
-    /// embedded for a file kept inside it.
+    /// embedded for a file kept inside it, folder for where it was saved.
     pub kind: &'static str,
     pub text: String,
     pub node: NodeId,
@@ -142,6 +142,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
     facts.extend(photo_facts(data, entries, is_media));
     facts.extend(embedded_facts(data, entries));
     facts.extend(word_links(data, entries));
+    facts.extend(super::traces::trace_facts(data, entries));
     facts
 }
 
@@ -855,7 +856,7 @@ pub(super) fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize,
 /// an iterator, and never inlined: one copy of the loop serves every
 /// caller, which keeps the WebAssembly build small.
 #[inline(never)]
-fn tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
+pub(super) fn tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     let mut out = Vec::new();
     let mut from = 0;
     while let Some((start, end)) = find_tag(xml, from, name) {
@@ -1156,6 +1157,7 @@ mod tests {
             "printed",
             "printer",
             "thumbnail",
+            "folder",
         ];
         for kind in covered.iter().filter(|k| !elsewhere.contains(k)) {
             assert!(removed.contains(kind), "{kind}: {report:?}");

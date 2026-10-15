@@ -162,6 +162,16 @@ fn documents_lose_their_properties_and_a_macs_notes() {
     ] {
         assert!(rtf.iter().any(|k| k == kind), "lease.rtf: {kind}");
     }
+    // What Office on Windows leaves: the folder a workbook was saved in, the
+    // template's path, the printer, SharePoint's properties and the first page.
+    let docx = confirmed("windows.docx", "zip");
+    for kind in ["author", "template", "printer", "custom", "thumbnail"] {
+        assert!(docx.iter().any(|k| k == kind), "windows.docx: {kind}");
+    }
+    let xlsx = confirmed("windows.xlsx", "zip");
+    for kind in ["author", "folder", "printer"] {
+        assert!(xlsx.iter().any(|k| k == kind), "windows.xlsx: {kind}");
+    }
     let mac = confirmed("mac-report.zip", "zip");
     assert_eq!(mac, ["downloaded", "tags"]);
     let doc = confirmed("plan.doc", "office97");

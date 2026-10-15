@@ -180,7 +180,12 @@ export const RULES: Rule[] = [
   {
     when: ["thumbnail"],
     formats: ["zip"],
-    text: "LibreOffice keeps a picture of the first page inside the file, for file browsers to show: anyone can see the page without opening the document. The clean copy puts a blank one in its place.",
+    text: "LibreOffice and Office keep a picture of the first page inside the file, for file browsers to show: anyone can see the page without opening the document. The clean copy puts a blank one in its place.",
+  },
+  {
+    when: ["folder"],
+    formats: ["zip"],
+    text: "Excel writes into the workbook the folder it was last saved in — on Windows a path with the account's name in it, such as C:\\Users\\name\\Documents. The clean copy takes it out.",
   },
   {
     when: ["printer", "printed"],

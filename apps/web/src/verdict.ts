@@ -138,6 +138,7 @@ export const REVEALS: Record<string, string> = {
   company: "the company",
   label: "the organisation it belongs to",
   downloaded: "where its files were downloaded from",
+  folder: "the folder it was saved in",
   created: "when it was written",
   editing: "how long it was worked on",
   updates: "earlier versions of itself",
