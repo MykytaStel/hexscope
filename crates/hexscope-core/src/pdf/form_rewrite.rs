@@ -585,7 +585,7 @@ fn name_bytes(name: &str) -> Vec<u8> {
     out
 }
 
-fn serialize(object: &Obj) -> Vec<u8> {
+pub(super) fn serialize(object: &Obj) -> Vec<u8> {
     let mut out = Vec::new();
     serialize_into(object, &mut out);
     out

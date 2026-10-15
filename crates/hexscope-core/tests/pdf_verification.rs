@@ -24,48 +24,36 @@ fn hidden_text_that_survives_in_a_pdf_copy_is_reported_present() {
     assert!(!hidden.unexpected);
 }
 
-/// An attachment and text under a black box are findings read whole: the
-/// copy is read completely, its properties are confirmed gone, and the
-/// hidden text it no longer holds stays unchecked only because the contract
-/// does not cover it yet.
+/// A redacted PDF's copy, read whole, is confirmed to have lost the text
+/// under its boxes and hidden in white, its note and who wrote it, the file
+/// it carried, and its properties.
 #[test]
-fn removed_hidden_pdf_findings_outside_the_contract_stay_unchecked() {
+fn a_redacted_pdfs_copy_is_confirmed_without_what_it_hid() {
     let source_bytes = include_bytes!("fixtures/redacted.pdf");
     let source = summarize(source_bytes);
-    assert!(source.facts.iter().any(|(kind, _)| *kind == "covered"));
-    assert!(source.facts.iter().any(|(kind, _)| *kind == "hiddentext"));
-
     let cleaned = clean::clean(source_bytes).unwrap();
     let output = summarize(&cleaned.bytes);
-    assert!(
-        !output
-            .facts
-            .iter()
-            .any(|(kind, _)| *kind == "covered" || *kind == "hiddentext")
-    );
-    assert!(output.facts.iter().any(|(kind, _)| *kind == "attachments"));
-
     assert!(source.complete && output.complete);
-    let report = compare(&snapshot(&source), &snapshot(&output));
+    assert!(output.facts.is_empty(), "{:?}", output.facts);
 
-    for kind in ["title", "producer"] {
+    let report = compare(&snapshot(&source), &snapshot(&output));
+    for kind in [
+        "covered",
+        "hiddentext",
+        "comments",
+        "attachments",
+        "title",
+        "producer",
+    ] {
         assert!(
             report.removed.iter().any(|item| item.kind == kind),
             "{kind}: {report:?}"
         );
     }
-    assert!(report.present.iter().any(|item| {
-        item.kind == "attachments" && item.reason == VerificationReason::StillPresent
-    }));
-    for kind in ["covered", "hiddentext"] {
-        assert!(
-            report.unchecked.iter().any(|item| {
-                item.kind == kind && item.reason == VerificationReason::CoverageIncomplete
-            }),
-            "{kind}: {:?}",
-            report.unchecked
-        );
-    }
+    assert!(
+        report.present.is_empty() && report.unchecked.is_empty(),
+        "{report:?}"
+    );
 }
 
 #[test]

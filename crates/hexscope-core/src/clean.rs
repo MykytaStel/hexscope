@@ -325,7 +325,7 @@ fn jpeg_what(label: &str) -> String {
         ("COM", _) => "a comment".into(),
         ("data after the end of the image", _) => "data after the end of the picture".into(),
         (crate::jpeg::LISTED_PICTURE, _) => {
-            "a second picture for HDR screens or depth: the photo looks the same".into()
+            "a second picture for HDR screens or depth: on an HDR screen the copy shows less bright highlights, elsewhere the same".into()
         }
         _ => format!("{label}: application data"),
     }

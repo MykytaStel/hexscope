@@ -26,7 +26,7 @@ export const CLEAN_NOTES: Record<string, string> = {
   rtf: "Leaves out the document's information — title, author, who saved it last, company, dates, editing time — the program and template that made it, its custom properties and the numbers that tie its editing sessions together. Tracked changes are accepted and comments deleted, with their authors; the rest of the text is copied as it is.",
   office97:
     "Blanks the document's properties where they lie — title, author, last editor, company, template, dates, editing time — and the sectors no part uses, where deleted text can remain. Nothing else in the file moves.",
-  pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data.",
+  pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data. Notes go, every other mark loses who made it, and attached files go — what was typed or signed on the page stays.",
   picture:
     "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.",
 };

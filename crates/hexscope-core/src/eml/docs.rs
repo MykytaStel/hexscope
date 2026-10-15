@@ -180,6 +180,14 @@ const PROBLEMS: Table = &[
         .concern(Concern::Hidden),
     ),
     (
+        "a check result no server it came through wrote",
+        Doc::new(
+            "A result that says the sender's domain vouched for it, written by a server the message never passed through: anyone can type it into a message.",
+        )
+        .cite("RFC 8601 §5", RFC8601)
+        .concern(Concern::Hidden),
+    ),
+    (
         "no closing boundary",
         Doc::new("The last part has no closing boundary line: the message may be cut short.").concern(Concern::Damage),
     ),

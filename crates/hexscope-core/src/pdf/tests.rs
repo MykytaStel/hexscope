@@ -215,19 +215,14 @@ fn the_redacted_sample_still_holds_what_its_boxes_cover() {
     // leaves the rest where it was.
     let clean = crate::clean::clean(&fixture("redacted.pdf")).unwrap();
     let after = parse_pdf(&clean.bytes);
-    // The attachment stays, and is still named as such.
-    assert_eq!(
-        problems(&after.tree),
-        ["a file carried inside the document"]
+    // The note and who wrote it go, and so does the file it carried, as
+    // in Word's copy: nothing is left to say.
+    assert!(
+        problems(&after.tree).is_empty(),
+        "{:?}",
+        problems(&after.tree)
     );
-    // Comments are part of the document: they stay.
-    assert_eq!(
-        facts(&after),
-        [
-            ("comments", "1 comment by Olena Koval"),
-            ("attachments", "1 file: “payments.csv”")
-        ]
-    );
+    assert!(facts(&after).is_empty(), "{:?}", facts(&after));
     for gone in [
         "Olena Koval) Tj",
         "4567",
@@ -1615,4 +1610,43 @@ fn a_drawing_programs_shadow_is_not_a_scan_under_a_box() {
     );
     let doc = parse_pdf(&one_page(page, "/XObject << /Im1 5 0 R >>", &[scan]));
     assert_eq!(problems(&doc.tree), ["a picture under a black box"]);
+}
+
+#[test]
+fn a_copy_drops_carried_files_and_notes_but_keeps_what_is_drawn_and_an_e_invoices_data() {
+    let objects = |catalog: &[u8]| {
+        pdf_of(&[
+            catalog.to_vec(),
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots [5 0 R 6 0 R 7 0 R] >>".to_vec(),
+            b"<< /Type /Filespec /F (salaries.csv) /UF (salaries.csv) >>".to_vec(),
+            b"<< /Type /Annot /Subtype /Text /T (Olena Koval) /Contents (ask for 60k) /Rect [0 0 10 10] >>".to_vec(),
+            b"<< /Type /Annot /Subtype /Ink /T (Olena Koval) /M (D:20261001) /Rect [0 0 50 20] /InkList [[0 0 50 20]] >>".to_vec(),
+            b"<< /Type /Annot /Subtype /FreeText /Contents (Olena Koval, 1 Oct) /Rect [0 0 90 20] /DA (/Helv 9 Tf 0 g) >>".to_vec(),
+        ])
+    };
+    let plain = objects(
+        b"<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(a) 4 0 R] >> >> >>",
+    );
+    let before = parse_pdf(&plain);
+    assert!(facts(&before).iter().any(|(k, _)| *k == "comments"));
+    assert!(facts(&before).iter().any(|(k, _)| *k == "attachments"));
+    let copy = crate::clean::clean(&plain).unwrap();
+    assert!(
+        facts(&parse_pdf(&copy.bytes)).is_empty(),
+        "{:?}",
+        facts(&parse_pdf(&copy.bytes))
+    );
+    let text = String::from_utf8_lossy(&copy.bytes);
+    assert!(!text.contains("salaries") && !text.contains("ask for 60k") && !text.contains("/T "));
+    // The signature drawn in ink and the words typed on the page stay.
+    assert!(text.contains("/InkList") && text.contains("Olena Koval, 1 Oct"));
+    // An e-invoice names its data as part of itself: it is kept.
+    let invoice = objects(b"<< /Type /Catalog /Pages 2 0 R /AF [4 0 R] /Names << /EmbeddedFiles << /Names [(a) 4 0 R] >> >> >>");
+    let copy = crate::clean::clean(&invoice).unwrap();
+    assert!(
+        facts(&parse_pdf(&copy.bytes))
+            .iter()
+            .any(|(k, _)| *k == "attachments")
+    );
 }

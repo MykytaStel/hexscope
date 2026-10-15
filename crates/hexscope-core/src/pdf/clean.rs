@@ -77,6 +77,119 @@ impl<'a> Current<'a> {
     }
 }
 
+/// Annotations that are only a note: their whole point is the comment.
+const NOTES: [&str; 2] = ["Text", "Popup"];
+/// Marks on the text whose words are a note, not what the page shows.
+const MARKS: [&str; 5] = ["Highlight", "Underline", "StrikeOut", "Squiggly", "Caret"];
+/// What says who made an annotation, when, and in answer to what.
+const WHO: [&str; 6] = ["T", "M", "CreationDate", "NM", "IRT", "Popup"];
+/// An annotation that shows and says nothing, in a note's place in its page's list.
+const RETIRED: &[u8] = b"<< /Type /Annot /Subtype /Link /Rect [0 0 0 0] /Border [0 0 0] /F 2 >>";
+
+/// An object's value, when it is one without a stream.
+fn value_of<'b>(s: &'b Source) -> Option<&'b Obj> {
+    match s {
+        Source::Top(rec) if rec.stream.is_none() => Some(&rec.value),
+        Source::Top(_) => None,
+        Source::Packed(_, obj) => Some(obj),
+        Source::Rewritten { value, .. } => Some(value),
+    }
+}
+
+/// Object `i` written as `body` instead, its generation kept.
+fn rewrite(current: &mut Current, i: usize, body: Vec<u8>) {
+    let generation = match &current.0[i].2 {
+        Source::Top(rec) => rec.gen_,
+        Source::Packed(..) => 0,
+        Source::Rewritten { generation, .. } => *generation,
+    };
+    if let Some(value) = Lexer::new(&body, 0).value().map(|v| v.obj) {
+        current.0[i].2 = Source::Rewritten {
+            body,
+            value,
+            generation,
+        };
+    }
+}
+
+/// A dictionary without `key`'s entry.
+fn without(entries: &[super::lexer::Entry], key: &str) -> Obj {
+    Obj::Dict(entries.iter().filter(|e| e.key != key).cloned().collect())
+}
+
+/// Takes out notes and who wrote every annotation, and the files carried
+/// inside — unless the document names them as part of itself (`/AF`), as an
+/// e-invoice its data or a PDF/A-3 file its sources. Says whether it took
+/// out comments, and files.
+fn people_and_files(current: &mut Current, root: u32) -> (bool, bool) {
+    use super::form_rewrite::serialize;
+    let catalog = current.get(root).and_then(value_of).cloned();
+    let keep_files = catalog.as_ref().is_some_and(|c| c.get("AF").is_some());
+    let (mut notes, mut files) = (false, false);
+    // The name tree of files goes, and with it what nothing else reaches.
+    if !keep_files && let Some(Obj::Dict(entries)) = &catalog {
+        match entries
+            .iter()
+            .find(|e| e.key == "Names")
+            .map(|e| &e.value.obj)
+        {
+            Some(Obj::Dict(names)) if names.iter().any(|e| e.key == "EmbeddedFiles") => {
+                let mut cat = entries.clone();
+                for e in cat.iter_mut().filter(|e| e.key == "Names") {
+                    e.value.obj = without(names, "EmbeddedFiles");
+                }
+                if let Some(i) = current.index(root) {
+                    rewrite(current, i, serialize(&Obj::Dict(cat)));
+                    files = true;
+                }
+            }
+            Some(&Obj::Ref(n, _)) => {
+                if let Some(i) = current.index(n)
+                    && let Some(Obj::Dict(names)) = value_of(&current.0[i].2)
+                    && names.iter().any(|e| e.key == "EmbeddedFiles")
+                {
+                    let body = serialize(&without(names, "EmbeddedFiles"));
+                    rewrite(current, i, body);
+                    files = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    for i in 0..current.0.len() {
+        let Some(Obj::Dict(entries)) = value_of(&current.0[i].2) else {
+            continue;
+        };
+        let kind = entries
+            .iter()
+            .find(|e| e.key == "Subtype")
+            .and_then(|e| e.value.obj.name())
+            .unwrap_or("");
+        let file = kind == "FileAttachment" && !keep_files;
+        let body = if NOTES.contains(&kind) || file {
+            RETIRED.to_vec()
+        } else if super::redact::COMMENTS.contains(&kind) {
+            let note =
+                |key: &str| MARKS.contains(&kind) && matches!(key, "Contents" | "RC" | "Subj");
+            let kept: Vec<_> = entries
+                .iter()
+                .filter(|e| !WHO.contains(&e.key.as_str()) && !note(&e.key))
+                .cloned()
+                .collect();
+            if kept.len() == entries.len() {
+                continue;
+            }
+            serialize(&Obj::Dict(kept))
+        } else {
+            continue;
+        };
+        notes |= !file;
+        files |= file;
+        rewrite(current, i, body);
+    }
+    (notes, files)
+}
+
 pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     clean_pdf_with(data, &[], &[])
 }
@@ -201,7 +314,10 @@ pub(crate) fn clean_pdf_with(
             },
         ));
     }
-    let current = Current::new(versions);
+    let mut current = Current::new(versions);
+    // Comments and who wrote them, and the files carried inside, as Word's
+    // copy loses them; what a person typed or signed on the page stays.
+    let (notes, files) = people_and_files(&mut current, root);
 
     // Everything the catalog reaches, and nothing else.
     let mut reached = vec![false; current.0.len()];
@@ -362,6 +478,18 @@ pub(crate) fn clean_pdf_with(
         removed.push(Removed {
             what: "XMP: editing history and author".into(),
             bytes: xmp_bytes,
+        });
+    }
+    if notes {
+        removed.push(Removed {
+            what: "Comments and who wrote them".into(),
+            bytes: 0,
+        });
+    }
+    if files {
+        removed.push(Removed {
+            what: "Files carried inside".into(),
+            bytes: 0,
         });
     }
     // First: it is what someone checking a redaction wants to read.

@@ -26,7 +26,7 @@ file, such as a photo in a document, is not covered.
 | `heif` | location, camera, lens, serial, owner, taken, software |
 | `tiff` | location, camera, lens, serial, owner, taken, software |
 | `video` | location, camera, owner, taken, software |
-| `pdf` | author, title, subject, keywords, application, producer, created, modified, history |
+| `pdf` | author, title, subject, keywords, application, producer, created, modified, history, covered, hiddentext, comments, attachments |
 | `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail, folder |
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 | `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
@@ -39,8 +39,13 @@ Why each row can be trusted:
   can stay in another block.
 - **Videos** (MP4, MOV, M4A): the copy blanks every metadata item where it
   lies and zeroes the creation and change times of every header.
-- **PDF**: the copy is written anew without the Info dictionary and XMP. Page
-  content, earlier versions, annotations and hidden text are outside this row.
+- **PDF**: the copy is written anew without the Info dictionary and XMP, and
+  without the text under black boxes, marked for redaction or hidden. Notes
+  and their pop-ups go; every other annotation loses who made it and when,
+  and a mark on the text the words of its note — what a person typed or
+  signed on the page stays. The files it carries go, unless the document
+  names them as part of itself (`/AF`), as an e-invoice or a PDF/A-3 file
+  does.
 - **Word, Excel, PowerPoint** (`zip`): the copy replaces the core, app and
   custom properties with empty parts and leaves out a Mac's `__MACOSX` notes.
   Word's tracked changes are accepted, with the text a deletion held, and each

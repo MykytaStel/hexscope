@@ -103,6 +103,25 @@ fn videos_lose_place_camera_owner_time_and_software() {
 }
 
 #[test]
+fn pdfs_lose_their_properties_hidden_text_notes_and_files() {
+    let pdf = confirmed("report.pdf", "pdf");
+    for kind in [
+        "author",
+        "title",
+        "application",
+        "producer",
+        "created",
+        "history",
+    ] {
+        assert!(pdf.iter().any(|k| k == kind), "report.pdf: {kind}");
+    }
+    let redacted = confirmed("redacted.pdf", "pdf");
+    for kind in ["covered", "hiddentext", "comments", "attachments", "title"] {
+        assert!(redacted.iter().any(|k| k == kind), "redacted.pdf: {kind}");
+    }
+}
+
+#[test]
 fn documents_lose_their_properties_and_a_macs_notes() {
     let docx = confirmed("report.docx", "zip");
     for kind in ["title", "author", "editor", "created", "company"] {

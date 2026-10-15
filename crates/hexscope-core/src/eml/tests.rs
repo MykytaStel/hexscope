@@ -184,3 +184,53 @@ fn ipv6_origins_and_forwarded_messages() {
     );
     assert!(problems(&doc.tree).is_empty());
 }
+
+#[test]
+fn a_pass_is_believed_only_from_a_server_the_message_came_through() {
+    let message = |received: &str, results: &str| {
+        format!(
+            "Received: from mail.sender.example ([203.0.113.7]) by {received} with ESMTPS; Mon, 5 Oct 2026 09:00:00 +0000\r\n\
+             Authentication-Results: {results}\r\n\
+             From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
+        )
+    };
+    // Gmail's own result: its server is the one that received the message.
+    let real = parse_eml(
+        message(
+            "mx.google.com",
+            "mx.google.com; spf=pass smtp.mailfrom=bank.example",
+        )
+        .as_bytes(),
+    );
+    assert!(
+        facts(&real)
+            .iter()
+            .any(|(k, t)| *k == "auth" && t.starts_with("SPF passed")),
+        "{:?}",
+        facts(&real)
+    );
+    // A result naming a server the message never passed: typed in by whoever sent it.
+    let typed =
+        parse_eml(message("mx.provider.example", "mx.google.com; spf=pass; dkim=pass").as_bytes());
+    let said = facts(&typed);
+    assert!(said.iter().all(|(k, _)| *k != "auth"), "{said:?}");
+    assert!(
+        said.iter()
+            .any(|(k, t)| *k == "authfail" && t.contains("mx.google.com")),
+        "{said:?}"
+    );
+    assert!(
+        problems(&typed.tree)
+            .iter()
+            .any(|p| p == "a check result no server it came through wrote")
+    );
+    // Outlook names no server: its result stands as it is.
+    let outlook = parse_eml(
+        message(
+            "mx.outlook.example",
+            "spf=pass (sender IP is 203.0.113.7) smtp.mailfrom=bank.example",
+        )
+        .as_bytes(),
+    );
+    assert!(facts(&outlook).iter().any(|(k, _)| *k == "auth"));
+}
