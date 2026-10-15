@@ -23,6 +23,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   in it. A guide now loads about 7 KB of script instead of about 78 KB, and
   the home page about 25 KB less. A Ukrainian guide read in Ukrainian, which
   is translated at build, no longer loads the articles' dictionary either.
+- **The home page starts with 18 KB of script instead of about 85 KB:** the
+  analyzer that shows an open file is a module of its own, loaded once the
+  page is idle or as soon as a file or a sample is asked for. The size budget
+  in CI now counts the home page's script and what it preloads, and the
+  analyzer on its own.
 - `hexscope-raster`, the film lab's codecs, is published with the other
   crates, so `cargo install hexscope-cli` builds the `film` command too.
 - Every guide lists all the others, made from one list at build, so a new

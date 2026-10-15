@@ -1309,6 +1309,8 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
   expect(dark).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
+  // The structure's list is the analyzer's, which comes by itself once the page is idle.
+  await page.locator(".tree").waitFor({ state: "attached" });
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
