@@ -8,6 +8,8 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-15
+
 ### Added
 
 - **Four guides**, in English and Ukrainian: removing EXIF and metadata from
@@ -366,7 +368,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MykytaStel/hexscope/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MykytaStel/hexscope/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MykytaStel/hexscope/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MykytaStel/hexscope/compare/v0.1.0...v0.2.0
