@@ -139,6 +139,18 @@ jobs:
           echo "::notice::JavaScript: $landing bytes gzipped for the home page (budget 24000), $analyzer for the analyzer (budget 60000)."
           test "$landing" -le 24000
           test "$analyzer" -le 60000
+      # An article is drawn once its stylesheet is here: the tokens, the top bar
+      # and its own type (pages.css), not the app's — about a fifth of it.
+      - name: Article stylesheet budget
+        run: |
+          cd apps/web/dist
+          css=0
+          for f in $(grep -oE 'href="\./assets/[^"]+\.css"' remove-metadata-from-photo.html | sed -E 's/.*"\.\/(assets\/[^"]+)"/\1/'); do
+            css=$((css + $(gzip -9c "$f" | wc -c)))
+          done
+          echo "::notice::CSS: $css bytes gzipped for an article (budget 6000)."
+          test "$css" -gt 0
+          test "$css" -le 6000
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all. The parser

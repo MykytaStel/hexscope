@@ -446,27 +446,12 @@
 
 /* The narrowest phones: the top bar's buttons closer together. */
 @media (max-width: 360px) {
-  .topbar,
-  .actions {
-    gap: 6px;
-  }
-
-  .actions { gap: 2px; }
-
-  .topbar {
-    padding: 0 8px;
-  }
-
   .viewswitch button {
     padding: 6px 6px;
   }
 
   .location-badge {
     padding-inline: 6px;
-  }
-
-  .actions .btn {
-    padding: 0 9px;
   }
 }
 

@@ -29,11 +29,13 @@ describe.each(pages)("%s", (file) => {
 
   it("sets its theme first, and runs a script of the site's own", () => {
     expect(html.indexOf('<script src="./theme.js"></script>')).toBeLessThan(html.indexOf("<title>"));
-    // The DEFLATE story runs its player; every other page the pages' script and stylesheet.
+    // The DEFLATE story runs its player, and the app's stylesheet with it; every
+    // other page the pages' script and their own small stylesheet, not the app's.
     if (file === "deflate.html") expect(html).toMatch(/<script type="module" src="\/src\/[\w-]+\.ts"><\/script>/);
     else {
       expect(html).toContain('<script type="module" src="/src/page.ts"></script>');
-      expect(html).toContain('<link rel="stylesheet" href="/src/style.css" />');
+      expect(html).toContain('<link rel="stylesheet" href="/src/pages.css" />');
+      expect(html).not.toContain("/src/style.css");
     }
   });
 

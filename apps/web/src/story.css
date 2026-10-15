@@ -9,6 +9,10 @@ body.story {
   text-decoration: none;
 }
 
+.story .topbar {
+  height: 64px;
+}
+
 .story-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -20,6 +24,7 @@ body.story {
 
 .story-text {
   max-width: 620px;
+  color: var(--text);
   line-height: 1.6;
   font-size: 15.5px;
 }
@@ -43,6 +48,7 @@ body.story {
 .story-lede {
   color: var(--muted);
   font-size: 17px;
+  line-height: 1.55;
 }
 
 .story-text section {
@@ -55,6 +61,7 @@ body.story {
   gap: 10px;
   margin: 0 0 8px;
   font-size: 21px;
+  letter-spacing: -0.02em;
 }
 
 .story-text .num {
@@ -62,6 +69,7 @@ body.story {
   place-items: center;
   width: 26px;
   height: 26px;
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
@@ -142,6 +150,7 @@ body.story {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--panel);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 

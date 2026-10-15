@@ -1,0 +1,215 @@
+/* What every page wears, the app and the articles alike: the top bar, the
+   buttons and links, the keyboard's focus ring. The articles load this with
+   the tokens and the dialogs (pages.css) and nothing else of the app's. */
+
+html {
+  scroll-behavior: smooth;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+button,
+input,
+select,
+textarea {
+  accent-color: var(--accent);
+}
+
+/* --- top bar ------------------------------------------------------------ */
+
+.topbar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 28px);
+  min-width: 0;
+  padding: 0 clamp(16px, 3.2vw, 48px);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  flex: none;
+}
+
+.brand svg {
+  width: 22px;
+  height: 22px;
+}
+
+.brand svg path {
+  fill: var(--accent);
+}
+
+.brand svg circle {
+  fill: none;
+  stroke: var(--brand-mark-center);
+  stroke-width: 2.5;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.language-button {
+  min-width: 42px;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* --- buttons and links -------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-compact);
+  height: var(--control-height-compact);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius-compact);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.btn-icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn:hover {
+  border-color: var(--faint);
+  background: var(--panel-2);
+}
+
+.btn-primary {
+  min-height: var(--control-height);
+  height: auto;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  border-color: var(--faint);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: not-allowed;
+  filter: none;
+  opacity: 1;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.hint {
+  margin: 0;
+  color: var(--faint);
+}
+
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%);
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* The narrowest phones: the top bar's buttons closer together. */
+@media (max-width: 360px) {
+  .actions {
+    gap: 2px;
+  }
+
+  .actions .btn {
+    padding: 0 9px;
+  }
+}
+
+/* Keyboard focus, always visible: a ring in the accent colour, only when
+   the keyboard put it there. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:where(button, input, select, textarea, summary, a[href], [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

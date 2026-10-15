@@ -121,7 +121,9 @@
 }
 
 .guide-note {
+  border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
+  color: var(--muted);
   background: var(--panel);
   padding: 10px 14px;
   border-radius: 0 6px 6px 0;
@@ -146,6 +148,7 @@
   margin-top: 48px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
+  color: var(--muted);
   font-size: 14.5px;
 }
 

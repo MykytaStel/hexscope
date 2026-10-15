@@ -250,11 +250,6 @@
 
 
 
-.hint {
-  margin: 0;
-  color: var(--faint);
-}
-
 .crumbs {
   display: flex;
   flex-wrap: wrap;

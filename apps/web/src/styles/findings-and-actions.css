@@ -1070,16 +1070,6 @@ body[data-state="empty"] .layout {
   color: var(--accent);
 }
 
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
 body.is-dragging .dropzone {
   display: grid;
   z-index: 10;
@@ -1388,17 +1378,3 @@ body[data-state="loading"] .loading {
   background: color-mix(in srgb, var(--bg) 70%, transparent);
 }
 
-/* Keyboard focus, always visible: a ring in the accent colour, only when
-   the keyboard put it there. */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
