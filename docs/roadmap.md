@@ -69,7 +69,9 @@ Scans and the formats people send, two weeks early: every item below is done.
 ### 0.5.0 — Faster, smaller, easier to change (target 2026-11-09)
 
 1. The analyzer's script apart from the landing page's: the first page loads
-   less, and the page budget has room again.
+   less, and the page budget has room again. Begun 2026-10-15: the Ukrainian
+   dictionaries load only for a page read in Ukrainian — a guide's script
+   went from about 78 KB to 7 KB, the home page's about 25 KB down.
 2. The stylesheets merged into one set of tokens and layers, without
    overrides fighting each other.
 3. Large files on phones within a time and memory budget.

@@ -19,6 +19,7 @@ import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from 
 import { searchable } from "./redactor";
 import type { PageGlyphs } from "./worker";
 import { translateText } from "./i18n";
+import "./i18n-uk";
 
 const here = (path: string) => new URL(path, import.meta.url);
 

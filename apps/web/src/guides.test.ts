@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { GUIDES, guideList } from "../guides";
 import { GUIDE_UK } from "./guide-i18n";
 import { registerLazyTranslations, translateText } from "./i18n";
+import "./i18n-uk";
 
 registerLazyTranslations(GUIDE_UK);
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import "./analysis-i18n";
 import { GUIDE_UK } from "./guide-i18n";
 import { registerLazyTranslations, resolveLocale, translateText, untranslate } from "./i18n";
+import "./i18n-uk";
 
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
