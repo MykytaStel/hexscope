@@ -124,18 +124,21 @@ jobs:
           name: e2e-traces
           path: apps/web/test-results
           if-no-files-found: ignore
-      # The page's own script, before any parser: what every visitor waits for.
-      # Film-scan clues reuse the image worker and lazy view chunk; this small
-      # allowance covers the hook that inserts its result after local analysis.
-      # The clearer analyzer answer labels and explicit finding action use up to 300 extra bytes,
-      # advice and clean-copy notes for new findings 600 more (their Ukrainian copy loads
-      # beside the parser instead, which leaves the chunk every page shares 1.5 KB smaller),
-      # and the Metadata view, the status bar under the bytes and links to a view 300 more.
+      # The page's own script, before any parser: what every visitor waits for —
+      # the home page's script and the chunks it preloads, as index.html names
+      # them. The analyzer that shows an open file is loaded once the page is
+      # idle or a file is asked for, and has a budget of its own.
       - name: JavaScript size budget
         run: |
-          main=$(gzip -9c apps/web/dist/assets/main-*.js | wc -c)
-          echo "::notice::JavaScript: $main bytes gzipped for the page (budget 66500)."
-          test "$main" -le 66500
+          cd apps/web/dist
+          landing=0
+          for f in $(grep -oE '(src|href)="\./assets/[^"]+\.js"' index.html | sed -E 's/.*"\.\/(assets\/[^"]+)"/\1/'); do
+            landing=$((landing + $(gzip -9c "$f" | wc -c)))
+          done
+          analyzer=$(gzip -9c assets/analyzer-*.js | wc -c)
+          echo "::notice::JavaScript: $landing bytes gzipped for the home page (budget 24000), $analyzer for the analyzer (budget 60000)."
+          test "$landing" -le 24000
+          test "$analyzer" -le 60000
       # Every visitor downloads a parser before seeing anything: the small one,
       # for pictures and movies, first; the whole one only for a document.
       # Their sizes are budgets, raised on purpose or not at all. The parser
