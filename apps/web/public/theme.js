@@ -14,6 +14,8 @@ try {
   var savedLanguage = localStorage.getItem("hexscope.language");
   // A page written in Ukrainian (/uk/) stays so unless English was chosen.
   var written = document.documentElement.lang === "uk";
+  // Kept, as the language set below may be another: the page knows what to translate.
+  document.documentElement.dataset.written = written ? "uk" : "en";
   var ukrainian = savedLanguage === "uk" || (savedLanguage !== "en" && (written || navigator.languages.some((language) => language.toLowerCase().startsWith("uk"))));
   document.documentElement.lang = ukrainian ? "uk" : "en";
 } catch (e) {

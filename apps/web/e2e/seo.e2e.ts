@@ -126,3 +126,33 @@ test("the samples a guide offers open: a photo with the wrong name, and a LibreO
   await page.goto("./?sample=lease.odt&view=metadata");
   await expect(page.locator(":visible", { hasText: /HP LaserJet Pro M404/ }).last()).toBeVisible();
 });
+
+test("an English reader downloads no Ukrainian, and a Ukrainian page needs no articles' copy", async ({ page }) => {
+  const dictionaries: string[] = [];
+  page.on("request", (r) => {
+    const name = new URL(r.url()).pathname.split("/").pop() ?? "";
+    if (/i18n/.test(name)) dictionaries.push(name.replace(/-[\w-]{8}\.js$/, ""));
+  });
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("chosen")) localStorage.setItem("hexscope.language", "en");
+  });
+  await page.goto("./remove-location-from-photo");
+  await expect(page.locator(".guide-toc h2, .story-text h1").first()).toBeVisible();
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toHaveText("This photo gives away 8 things");
+  expect(dictionaries).toEqual([]);
+
+  // A /uk/ page read in Ukrainian is Ukrainian already: only the words the page adds come.
+  await page.evaluate(() => {
+    sessionStorage.setItem("chosen", "1");
+    localStorage.setItem("hexscope.language", "uk");
+  });
+  await page.goto("./uk/remove-location-from-photo");
+  await expect(page.locator(".guide-toc h2")).toHaveText("На цій сторінці");
+  expect(dictionaries).toEqual(["i18n-uk"]);
+
+  // Turned to English, it needs the articles' copy to turn back.
+  await page.locator(".topbar .language-button").click();
+  await expect(page.locator("h1")).toHaveText("How to remove the location from a photo");
+  expect(dictionaries).toContain("guide-i18n");
+});

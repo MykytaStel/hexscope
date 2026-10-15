@@ -28,10 +28,13 @@ import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, sav
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { wireInputs } from "./inputs";
-import { currentLocale, installLocale, languageButton, translateText } from "./i18n";
+import { currentLocale, installLocale, languageButton, loadUkrainian, translateText, withUkrainian } from "./i18n";
 import { countVisit } from "./count";
 import { wireInstall } from "./install";
 
+// The advice and clean-copy notes in Ukrainian: only an opened file needs them,
+// and only a reader in Ukrainian, so they come with the dictionary.
+withUkrainian(() => import("./analysis-i18n"));
 installLocale();
 document.querySelector(".topbar .actions")?.prepend(languageButton());
 
@@ -627,8 +630,8 @@ workspace = new WorkspaceController({
   getSelected: () => selected,
   services: {
     async parse(file) {
-      // The advice and clean-copy copy in Ukrainian come with the first file, beside the parser.
-      const [response] = await Promise.all([call({ type: "parse", file }), import("./analysis-i18n").catch(() => undefined)]);
+      // A reader in Ukrainian gets the answer in Ukrainian: the dictionary, if not here yet, comes beside the parser.
+      const [response] = await Promise.all([call({ type: "parse", file }), currentLocale() === "uk" ? loadUkrainian().catch(() => undefined) : undefined]);
       if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
       return new FileModel(response.result, response.bytes, file.name, file);
     },

@@ -1,13 +1,23 @@
 // What every page but the app itself runs: the theme button in its top bar.
-import { GUIDE_UK } from "./guide-i18n";
 import { themeButton } from "./theme";
-import { currentLocale, installLocale, languageButton, registerLazyTranslations } from "./i18n";
+import { currentLocale, installLocale, languageButton, loadUkrainian, registerLazyTranslations, withUkrainian, writtenIn } from "./i18n";
 import { countVisit } from "./count";
 import { openFeedback } from "./feedback";
 import { showWays } from "./support";
 
-registerLazyTranslations(GUIDE_UK);
+const written = writtenIn();
 installLocale();
+// The articles' Ukrainian, only to read a page in the other language: an
+// English reader of an English page, or a Ukrainian one of a /uk/ page, never loads it.
+let guideCopy = false;
+const needGuideCopy = () => {
+  if (guideCopy || currentLocale() === written) return;
+  guideCopy = true;
+  withUkrainian(() => import("./guide-i18n").then((m) => registerLazyTranslations(m.GUIDE_UK)));
+  void loadUkrainian().catch(() => undefined);
+};
+needGuideCopy();
+window.addEventListener("hexscope:locale", needGuideCopy);
 document.querySelector(".topbar .actions")?.prepend(languageButton(), themeButton());
 countVisit();
 

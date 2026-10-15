@@ -18,6 +18,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Changed
 
+- **Pages load less for a reader in English:** the Ukrainian words are a file
+  of their own, loaded only when a page is read in Ukrainian or was written
+  in it. A guide now loads about 7 KB of script instead of about 78 KB, and
+  the home page about 25 KB less. A Ukrainian guide read in Ukrainian, which
+  is translated at build, no longer loads the articles' dictionary either.
 - `hexscope-raster`, the film lab's codecs, is published with the other
   crates, so `cargo install hexscope-cli` builds the `film` command too.
 - Every guide lists all the others, made from one list at build, so a new

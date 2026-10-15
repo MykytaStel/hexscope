@@ -2,7 +2,6 @@
 const guideEntries: [string, string][] = [
   // Shared article navigation and calls to action.
   ["More from hexscope", "Ще від hexscope"],
-  ["On this page", "На цій сторінці"],
   ["Your files never leave your browser.", "Ваші файли не залишають браузер."],
   ["Tell us", "Повідомте нам"],
   ["Open source", "Відкритий код"],
