@@ -18,7 +18,13 @@ const needGuideCopy = () => {
 };
 needGuideCopy();
 window.addEventListener("hexscope:locale", needGuideCopy);
-document.querySelector(".topbar .actions")?.prepend(languageButton(), themeButton());
+// An article is written in each language at build: the button opens the other page.
+const toOther = (locale: string) => {
+  const path = location.pathname;
+  location.href = (locale === "uk" ? `/uk${path}` : path.replace(/^\/uk(\/|$)/, "/")) + location.hash;
+};
+const ownPages = document.documentElement.dataset.page === "article";
+document.querySelector(".topbar .actions")?.prepend(languageButton(ownPages ? toOther : undefined), themeButton());
 countVisit();
 
 const ways = document.getElementById("support-ways");

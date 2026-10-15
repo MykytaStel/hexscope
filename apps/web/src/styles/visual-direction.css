@@ -154,6 +154,27 @@ body[data-state="ready"] .landing-menu {
   color: var(--text);
 }
 
+/* What sets it apart, beside the button: the file goes nowhere. */
+.hero-trust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+.hero-trust svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ok-text, currentColor);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .hero-other-ways > summary,
 .geek-more > summary,
 .landing-more > summary {

@@ -208,8 +208,11 @@ export function writeSeo(out: string, pages: readonly string[], version: string,
     }
     // A Ukrainian page is its English one, in other words: the same dates.
     const dates = committed(root, file, today);
+    // An article has a page of its own in each language, so theme.js opens the
+    // reader's one instead of translating this one (the app translates itself).
+    const article = (h: string) => (file === "index.html" ? h : h.replace(/<html lang="(en|uk)"/, '<html lang="$1" data-page="article"'));
     const head = (h: string, url: string, lang: "en" | "uk") =>
-      h.replace("</head>", `    ${alternates(path)}\n    ${locales(lang)}\n    ${structured(h, url, lang, version, dates)}\n  </head>`);
+      article(h).replace("</head>", `    ${alternates(path)}\n    ${locales(lang)}\n    ${structured(h, url, lang, version, dates)}\n  </head>`);
     writeFileSync(join(out, file), head(html, `${SITE}${path}`, "en"));
     writeFileSync(join(out, "uk", file), head(ukHtml, `${SITE}${ukPath(path)}`, "uk"));
     const links = ["en", "uk", "x-default"]

@@ -151,8 +151,16 @@ test("an English reader downloads no Ukrainian, and a Ukrainian page needs no ar
   await expect(page.locator(".guide-toc h2")).toHaveText("На цій сторінці");
   expect(dictionaries).toEqual(["i18n-uk"]);
 
-  // Turned to English, it needs the articles' copy to turn back.
+  // Turned to English, it opens the English page: nothing is translated, nothing more comes.
   await page.locator(".topbar .language-button").click();
+  await expect(page).toHaveURL(/\/remove-location-from-photo$/);
   await expect(page.locator("h1")).toHaveText("How to remove the location from a photo");
-  expect(dictionaries).toContain("guide-i18n");
+  expect(dictionaries).toEqual(["i18n-uk"]);
+});
+
+test("an article opens in the reader's language before it is drawn, keeping where it was", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+  await page.goto("./exif-viewer#guide-section-2");
+  await expect(page).toHaveURL(/\/uk\/exif-viewer#guide-section-2$/);
+  await expect(page.locator("h1")).toHaveText("Перегляд EXIF: що розповідають метадані фото");
 });
