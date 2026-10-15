@@ -60,6 +60,17 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Changed
 
+- **An article loads a fifth of the stylesheet:** guides, the support page,
+  the privacy page and the 404 page wear the tokens, the top bar, buttons
+  and links, the dialog "Write to the developer" opens and their own type —
+  3.8 KB gzipped in one file instead of the app's 21 KB in three. What every
+  page shares is in one place (`chrome.css`, `dialog.css`); about 25 rules
+  that never won — the redesign's story type under the story's own, a
+  narrow top bar's spacing under the wide one's — are gone. A script
+  (`apps/web/scripts/style-diff.mjs`) reads the computed style of every
+  element in 940 states of two builds and names what differs: only the
+  feedback field's corners changed, which keep their own rounding in
+  keyboard focus now. CI holds an article's stylesheet to 6 KB.
 - **On a phone the workspace's bar keeps the views of the answer** —
   Overview, Metadata, Content — and the structure and the bytes wait under
   More, which says when one of them is open. On the landing the header's

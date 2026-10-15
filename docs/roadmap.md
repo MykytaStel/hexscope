@@ -75,7 +75,11 @@ Scans and the formats people send, two weeks early: every item below is done.
    loaded when the page is idle or a file is asked for — the home page
    starts with 18 KB of script instead of about 85 KB.
 2. The stylesheets merged into one set of tokens and layers, without
-   overrides fighting each other.
+   overrides fighting each other. Begun 2026-10-15: what every page shares
+   (the top bar, buttons, links, focus, dialogs) is one file of its own, and
+   an article loads it with its own type — 3.8 KB gzipped instead of 21 KB.
+   `apps/web/scripts/style-diff.mjs` compares the computed style of every
+   element in two builds, so the rest can be merged one file at a time.
 3. Large files on phones within a time and memory budget. Waits for the
    author's phone: where a tab gives out decides the budget.
 4. An accessibility pass over the new design: screen readers, keyboard,

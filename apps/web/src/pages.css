@@ -1,0 +1,8 @@
+/* The articles' stylesheet: the tokens, the top bar, buttons and links, the
+   dialog "Write to the developer" opens, and the articles' own type — none
+   of the app's. One file, so the build keeps this order. */
+@import "./styles/foundations.css";
+@import "./styles/chrome.css";
+@import "./styles/dialog.css";
+@import "./story.css";
+@import "./guide.css";

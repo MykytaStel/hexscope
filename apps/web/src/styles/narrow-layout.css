@@ -242,11 +242,6 @@ body[data-state="ready"] .viewswitch {
     border-top: 1px solid var(--border);
   }
 
-  .topbar {
-    gap: 10px;
-    padding: 0 10px;
-  }
-
   .fileinfo .meta,
   .btn-play .btn-label,
   .location-badge .badge-label {

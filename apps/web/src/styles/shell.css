@@ -1,39 +1,5 @@
 /* --- top bar ------------------------------------------------------------ */
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  min-width: 0;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  flex: none;
-}
-
-.brand svg {
-  width: 22px;
-  height: 22px;
-}
-
-.brand svg path {
-  fill: var(--accent);
-}
-
-.brand svg circle {
-  fill: none;
-  stroke: var(--brand-mark-center);
-  stroke-width: 2.5;
-}
-
 .fileinfo {
   display: flex;
   align-items: baseline;
@@ -83,74 +49,6 @@
   font-size: 12.5px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-  flex: none;
-}
-
-.language-button {
-  min-width: 42px;
-  justify-content: center;
-  padding: 0 8px;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-height-compact);
-  height: var(--control-height-compact);
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--control-radius-compact);
-  background: var(--panel);
-  color: var(--text);
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.12s, border-color 0.12s;
-}
-
-.btn-icon {
-  width: 32px;
-  padding: 0;
-  justify-content: center;
-}
-
-.btn-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.btn:hover {
-  border-color: var(--faint);
-  background: var(--panel-2);
-}
-
-.btn-primary {
-  min-height: var(--control-height);
-  height: auto;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.btn-primary:hover {
-  background: var(--accent);
-  filter: brightness(1.08);
-}
-
-.btn:disabled,
-.btn[aria-disabled="true"] {
-  border-color: var(--faint);
-  background: var(--panel-2);
-  color: var(--muted);
-  cursor: not-allowed;
-  filter: none;
-  opacity: 1;
 }
 
 .problems {

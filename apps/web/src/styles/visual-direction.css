@@ -1,37 +1,5 @@
 /* Shared visual direction: graphite surfaces, quiet borders, semantic colour. */
 
-html {
-  scroll-behavior: smooth;
-}
-
-a {
-  text-underline-offset: 3px;
-}
-
-button,
-input,
-select,
-textarea {
-  accent-color: var(--accent);
-}
-
-.topbar {
-  position: relative;
-  z-index: 20;
-  gap: clamp(12px, 2vw, 28px);
-  padding-inline: clamp(16px, 3.2vw, 48px);
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(16px);
-}
-
-.brand {
-  color: var(--text);
-}
-
-.brand svg path {
-  fill: var(--accent);
-}
-
 .landing-nav {
   display: flex;
   align-items: center;
@@ -340,18 +308,6 @@ body[data-state="ready"] .landing-menu {
   border-bottom-color: var(--border-strong);
   background: color-mix(in srgb, var(--panel) 55%, transparent);
   transform: none;
-}
-
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
 }
 
 .example-tabs {
@@ -1254,7 +1210,6 @@ body[data-state="ready"] .topbar {
 .drawer-map,
 .copy-verification,
 .film-scan-card,
-.report,
 .compare,
 .blackpicture,
 .shortcuts,
@@ -1270,13 +1225,9 @@ body[data-state="ready"] .topbar {
   border-radius: 7px;
 }
 
-.viewswitch button[aria-pressed="true"],
-.btn[aria-pressed="true"] {
+.viewswitch button[aria-pressed="true"] {
   background: var(--panel-2);
   color: var(--text);
-}
-
-.viewswitch button[aria-pressed="true"] {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
@@ -1288,89 +1239,6 @@ body[data-state="ready"] .topbar {
 
 .tree .row.is-selected {
   box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.story .topbar {
-  height: 64px;
-  border-bottom-color: var(--border);
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(16px);
-}
-
-.story-layout {
-  max-width: 1240px;
-  padding: clamp(36px, 5vw, 64px) clamp(20px, 4vw, 48px) 96px;
-}
-
-.story-text {
-  max-width: 720px;
-  color: var(--text);
-  line-height: 1.7;
-  font-size: 16px;
-}
-
-.story-kicker {
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-}
-
-.story-text h1 {
-  margin-top: 10px;
-  font-size: clamp(34px, 4vw, 48px);
-  letter-spacing: -0.04em;
-}
-
-.story-lede {
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1.55;
-}
-
-.story-text section {
-  margin-top: 40px;
-}
-
-.story-text h2 {
-  font-size: 22px;
-  letter-spacing: -0.02em;
-}
-
-.story-text .num {
-  border: 1px solid var(--border-strong);
-  background: var(--panel-2);
-  color: var(--text);
-}
-
-.story-text .story-note,
-.guide-note {
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--muted);
-  border-radius: 0 8px 8px 0;
-  background: var(--panel);
-  color: var(--muted);
-}
-
-.story-text code {
-  border-color: var(--border);
-  border-radius: 5px;
-  background: var(--panel-2);
-}
-
-.story-player {
-  border-color: var(--border-strong);
-  border-radius: 12px;
-  background: var(--panel);
-  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22);
-}
-
-.story-foot,
-.guide-more {
-  color: var(--muted);
-}
-
-:focus-visible {
-  outline-color: var(--accent);
 }
 
 @media (max-width: 900px) {
@@ -1545,17 +1413,6 @@ body[data-state="ready"] .topbar {
 
   .format-category:nth-child(n + 3) {
     border-top: 1px solid var(--border);
-  }
-
-  .story-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .story-player {
-    position: static;
-    height: min(68vh, 680px);
-    min-height: 380px;
   }
 }
 
@@ -1769,28 +1626,6 @@ body[data-state="ready"] .topbar {
   .footnote-links {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .story-layout {
-    padding: 28px 18px 64px;
-  }
-
-  .story-text h1 {
-    font-size: 34px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
   }
 }
 

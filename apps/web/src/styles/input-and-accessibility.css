@@ -16,19 +16,6 @@
   }
 }
 
-/* Read by screen readers, not shown. */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-
 /* Native controls share one size and one clear keyboard focus treatment. */
 select,
 .photo-tool .film-roll-field select {
@@ -45,11 +32,6 @@ select,
   background-repeat: no-repeat;
   background-size: 6px 6px;
   color: var(--text);
-}
-
-:where(button, input, select, textarea, summary, a[href], [tabindex]):focus-visible {
-  outline: var(--focus-ring-width) solid var(--accent);
-  outline-offset: var(--focus-ring-offset);
 }
 
 /* One disclosure chevron, with a full-height row as its keyboard and pointer target. */

@@ -1383,10 +1383,15 @@ test("shared routes only request their current stylesheets", async ({ page }) =>
     );
 
   await home(page);
-  expect(await stylesheetUrls()).toHaveLength(1);
+  const app = await stylesheetUrls();
+  expect(app).toHaveLength(1);
+  // An article has one small stylesheet of its own, not the app's.
   await page.goto("./check-document-before-sending.html");
   await page.waitForLoadState("networkidle");
-  expect(await stylesheetUrls()).toHaveLength(3);
+  const article = await stylesheetUrls();
+  expect(article).toHaveLength(1);
+  expect(article[0]).not.toBe(app[0]);
+  expect(article[0]).toMatch(/\/assets\/pages-[\w-]+\.css$/);
 });
 
 test("supported file types stay grouped in the mobile catalog", async ({ page }) => {
