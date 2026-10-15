@@ -300,6 +300,8 @@ const UK: Record<string, string> = {
   "More samples to try": "Інші приклади",
   "MORE SAMPLES TO TRY": "ІНШІ ПРИКЛАДИ",
   "a cropped photo": "обрізане фото",
+  "a photo with the wrong name": "фото з неправильною назвою",
+  "a LibreOffice document": "документ LibreOffice",
   "an iPhone photo": "фото з iPhone",
   "a Wi-Fi QR code": "QR-код Wi-Fi",
   "an AI-made picture": "картинка, створена ШІ",

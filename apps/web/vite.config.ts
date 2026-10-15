@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
+import { guideList } from "./guides";
 import { SITE, writeSeo } from "./seo";
 
 const page = (name: string) => fileURLToPath(new URL(name, import.meta.url));
@@ -10,12 +11,16 @@ const page = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 /** hexscope's version, kept once for the site, the CLI and the crates: in the workspace's Cargo.toml. */
 const VERSION = /^\[workspace\.package\][^[]*?^version = "([^"]+)"/m.exec(readFileSync(page("../../Cargo.toml"), "utf8"))?.[1] ?? "dev";
 
-/** Writes the version into every page where it says %HEXSCOPE_VERSION%. */
+/** Writes the version into every page where it says %HEXSCOPE_VERSION%, and the list of the other guides where it says `<ul data-guides>`. */
 function version(): Plugin {
   return {
     name: "hexscope-version",
     // And the site's address, should a build name another (seo.ts).
-    transformIndexHtml: (html) => html.replaceAll("%HEXSCOPE_VERSION%", VERSION).replaceAll("https://hexscope.org", SITE),
+    transformIndexHtml: (html, ctx) =>
+      html
+        .replaceAll("%HEXSCOPE_VERSION%", VERSION)
+        .replaceAll("https://hexscope.org", SITE)
+        .replace("<ul data-guides></ul>", () => `<ul>\n            ${guideList(basename(ctx.filename))}\n          </ul>`),
   };
 }
 
@@ -41,7 +46,7 @@ function precache(): Plugin {
     },
     closeBundle() {
       // The Ukrainian pages and what search engines read first, so the worker keeps them too.
-      writeSeo(out, pages, VERSION);
+      writeSeo(out, pages, VERSION, fileURLToPath(new URL(".", import.meta.url)));
       const walk = (dir: string): string[] =>
         readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : [join(dir, d.name)]));
       const files = walk(out)
@@ -111,6 +116,10 @@ export default defineConfig({
         ai: page("ai-image-metadata.html"),
         pdfmeta: page("remove-metadata-from-pdf.html"),
         officemeta: page("remove-metadata-from-word.html"),
+        photometa: page("remove-metadata-from-photo.html"),
+        videometa: page("remove-metadata-from-video.html"),
+        odfmeta: page("remove-metadata-from-libreoffice.html"),
+        filetype: page("what-file-type-is-this.html"),
         support: page("support.html"),
         // What the host answers, with a 404, for an address that is no page.
         notfound: page("404.html"),

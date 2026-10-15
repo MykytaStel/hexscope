@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="Remove EXIF, the GPS location, camera serial numbers and other metadata from JPEG, HEIC, PNG, WebP and TIFF photos, one or many at once, without recompressing them. In your browser — nothing is uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Remove EXIF data and metadata from a photo — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/remove-metadata-from-photo" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/remove-metadata-from-photo" />
+    <meta property="og:title" content="How to remove EXIF and metadata from a photo" />
+    <meta property="og:description" content="The location, the camera, its serial number and the time a photo carries — and a copy without them, made in your browser without losing quality." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/story.css" />
+    <link rel="stylesheet" href="/src/guide.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Photo metadata</p>
+        <h1>How to remove EXIF and metadata from a photo</h1>
+        <p class="story-lede">
+          A photo carries more than its picture: where it was taken, the camera and its serial number, the time to the second, the program that edited it. hexscope removes all of it and keeps the picture exactly as it was, in your browser. The photo is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a photo</a>
+          <a class="btn" href="./?sample=photo.jpg&amp;view=metadata">Try a sample photo</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What a photo carries</h2>
+          <ul>
+            <li><strong>EXIF</strong>: the location, the date and time with the time zone, the camera and lens, their serial numbers, the owner's name and the software.</li>
+            <li><strong>XMP</strong>: Adobe's block, which often repeats the location and the dates, and keeps a history of the edits.</li>
+            <li><strong>IPTC</strong>: the caption, keywords, credits and the place in words.</li>
+            <li><strong>The maker's notes</strong>: more serial numbers, and on an iPhone the IDs that tie a photo to its Live Photo and the rest of its burst.</li>
+            <li><strong>A thumbnail</strong>: a small copy of the picture, which an editor that crops the photo may leave uncropped.</li>
+            <li><strong>Content Credentials and AI prompts</strong>: who or what made the picture, and the prompt it was made from.</li>
+          </ul>
+          <p>Every field, with its value and where it lies in the file: <a href="exif-viewer.html">EXIF viewer: what a photo's metadata says</a>.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it from one photo</h2>
+          <p>Open the photo in hexscope. It reads JPEG, an iPhone's HEIC, PNG, WebP, AVIF and TIFF. Under <em>What this photo reveals</em>, press <em>Remove it — save a clean copy</em>. In the copy:</p>
+          <ul>
+            <li>the location, the camera and lens, the serial numbers, the owner, the dates and the software are gone, and for a JPEG its thumbnail and comments too;</li>
+            <li>the picture is copied byte for byte: nothing is recompressed, so nothing loses quality;</li>
+            <li>a photo taken sideways keeps its orientation, so it still shows the right way up.</li>
+          </ul>
+          <p>Then press <em>Open the clean copy</em>: hexscope reads the copy back and marks each finding it has checked as removed.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Many photos at once</h2>
+          <p>Choose several photos, or drop a folder on the page: each is listed with what it gives away, and <em>Save clean copies</em> saves them all as one ZIP. On a phone, hexscope offers to share the copies instead, so you can save them to your photos or send them straight on.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> Other ways, and what they leave</h2>
+          <ul>
+            <li><strong>iPhone</strong>: when you share a photo, tap <em>Options</em> at the top and turn off <em>Location</em>. That takes out the location only; the camera and the time stay.</li>
+            <li><strong>Mac</strong>: in Preview, <em>Tools → Show Inspector</em>, then the location tab and <em>Remove Location Info</em>. Again, the location only.</li>
+            <li><strong>Windows</strong>: right-click a JPEG, <em>Properties → Details → Remove Properties and Personal Information</em>. It works for JPEG files.</li>
+            <li><strong>Exporting from an editor</strong> drops some of it, but recompresses the picture, and many editors keep the metadata unless told not to.</li>
+            <li><strong>A screenshot of the photo</strong> carries none of the camera's data, but loses detail and adds facts of its own: see <a href="what-a-screenshot-gives-away.html">What a screenshot gives away</a>.</li>
+          </ul>
+          <p>Whichever way you use, check the result: open the photo you are about to send in hexscope and see what is left.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> On your own computer</h2>
+          <p><a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">The command line tool</a> cleans a whole folder of photos and reads every copy back to confirm what was removed:</p>
+          <p><code>hexscope clean --verify --out clean/ photos/</code></p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a photo now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

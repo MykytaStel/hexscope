@@ -2,6 +2,7 @@
 // copy of every page at /uk/…, links between the two languages, a
 // description of each page as structured data, the sitemap and robots.txt.
 // The site's address is set once, in SITE: buying a domain changes one line.
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { GUIDE_UK } from "./src/guide-i18n";
@@ -75,19 +76,54 @@ function between(html: string, open: RegExp, close: string): string {
 const FEATURES = [
   "EXIF and metadata viewer for photos",
   "Remove the location and camera data from a photo",
+  "Remove the location and metadata from a phone's videos",
   "See whether a picture says AI made it, and its prompt",
   "Remove metadata from PDF files",
   "Remove metadata from Word, Excel and PowerPoint files",
+  "Remove metadata from LibreOffice and RTF documents",
   "Find text hidden under black boxes in a PDF",
   "Check an email's headers for signs of phishing",
+  "Tell a file's real type when its name says another",
 ];
 
-/** What the page is, for search engines: the app as a free web application, every other page an article. */
-function structured(html: string, url: string, lang: "en" | "uk", version: string): string {
+/** When a page was first and last changed: the dates of its first and latest commit. */
+interface Dates {
+  published: string;
+  modified: string;
+}
+
+/** The dates of `file` in `root`'s history; a build outside a clone, or of a page not committed yet, says today. */
+function committed(root: string, file: string, today: string): Dates {
+  try {
+    const days = execFileSync("git", ["log", "--follow", "--format=%cs", "--", file], { cwd: root, encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean);
+    if (days.length > 0) return { published: days[days.length - 1], modified: days[0] };
+  } catch {
+    // No git, or not a clone: the build's own day.
+  }
+  return { published: today, modified: today };
+}
+
+/** Who makes the site, and where else it is. */
+const publisher = {
+  "@type": "Organization",
+  name: "hexscope",
+  url: `${SITE}/`,
+  logo: `${SITE}/icon-512.png`,
+  sameAs: ["https://github.com/MykytaStel/hexscope", "https://crates.io/crates/hexscope-cli"],
+};
+
+/**
+ * What the page is, for search engines: the app as a free web application,
+ * every other page an article with its dates and its place under the home page.
+ */
+function structured(html: string, url: string, lang: "en" | "uk", version: string, dates: Dates): string {
   const description = decode(/name="description" content="([^"]*)"/.exec(html)?.[1] ?? "");
   const title = between(html, /<title>/, "</title>").replace(/ — hexscope$/, "");
-  const site = { "@type": "WebSite", name: "hexscope", url: `${SITE}/` };
-  const app = url === `${SITE}/` || url === `${SITE}/uk/`;
+  const home = `${SITE}${lang === "uk" ? "/uk/" : "/"}`;
+  const app = url === home;
+  const headline = between(html, /<h1[^>]*>/, "</h1>") || title;
   const data = app
     ? {
         "@context": "https://schema.org",
@@ -102,20 +138,37 @@ function structured(html: string, url: string, lang: "en" | "uk", version: strin
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
         softwareVersion: version,
         inLanguage: lang,
+        screenshot: `${SITE}/analyzer-preview.png`,
+        license: "https://github.com/MykytaStel/hexscope/blob/main/LICENSE",
+        publisher,
         featureList: FEATURES.map((f) => (lang === "uk" ? uk(f) : f)),
       }
-    : null;
-  const article = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: between(html, /<h1[^>]*>/, "</h1>") || title,
-    description,
-    url,
-    inLanguage: lang,
-    isPartOf: site,
-    publisher: { "@type": "Organization", name: "hexscope", url: `${SITE}/`, logo: `${SITE}/icon-512.png` },
-  };
-  const json = JSON.stringify(data ?? article).replace(/</g, "\\u003c");
+    : {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            headline,
+            description,
+            url,
+            inLanguage: lang,
+            datePublished: dates.published,
+            dateModified: dates.modified,
+            image: `${SITE}/og.jpg`,
+            isPartOf: { "@type": "WebSite", name: "hexscope", url: home },
+            author: publisher,
+            publisher,
+          },
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "hexscope", item: home },
+              { "@type": "ListItem", position: 2, name: headline, item: url },
+            ],
+          },
+        ],
+      };
+  const json = JSON.stringify(data).replace(/</g, "\\u003c");
   return `<script type="application/ld+json">${json}</script>`;
 }
 
@@ -133,8 +186,11 @@ const locales = (lang: "en" | "uk") =>
     `<meta property="og:locale:alternate" content="${lang === "uk" ? "en_US" : "uk_UA"}" />`,
   ].join("\n    ");
 
-/** Writes the Ukrainian pages, the language links, structured data, sitemap and robots.txt into `out`. */
-export function writeSeo(out: string, pages: readonly string[], version: string): void {
+/**
+ * Writes the Ukrainian pages, the language links, structured data, sitemap
+ * and robots.txt into `out`; each page is dated by its source's history in `root`.
+ */
+export function writeSeo(out: string, pages: readonly string[], version: string, root: string): void {
   registerLazyTranslations(GUIDE_UK);
   mkdirSync(join(out, "uk"), { recursive: true });
   const today = new Date().toISOString().slice(0, 10);
@@ -149,15 +205,17 @@ export function writeSeo(out: string, pages: readonly string[], version: string)
       writeFileSync(join(out, "uk", file), fromRoot(ukHtml, "/uk/"));
       continue;
     }
+    // A Ukrainian page is its English one, in other words: the same dates.
+    const dates = committed(root, file, today);
     const head = (h: string, url: string, lang: "en" | "uk") =>
-      h.replace("</head>", `    ${alternates(path)}\n    ${locales(lang)}\n    ${structured(h, url, lang, version)}\n  </head>`);
+      h.replace("</head>", `    ${alternates(path)}\n    ${locales(lang)}\n    ${structured(h, url, lang, version, dates)}\n  </head>`);
     writeFileSync(join(out, file), head(html, `${SITE}${path}`, "en"));
     writeFileSync(join(out, "uk", file), head(ukHtml, `${SITE}${ukPath(path)}`, "uk"));
     const links = ["en", "uk", "x-default"]
       .map((lang) => `<xhtml:link rel="alternate" hreflang="${lang}" href="${SITE}${lang === "uk" ? ukPath(path) : path}"/>`)
       .join("");
     for (const loc of [`${SITE}${path}`, `${SITE}${ukPath(path)}`]) {
-      urls.push(`  <url><loc>${loc}</loc><lastmod>${today}</lastmod>${links}</url>`);
+      urls.push(`  <url><loc>${loc}</loc><lastmod>${dates.modified}</lastmod>${links}</url>`);
     }
   }
   writeFileSync(

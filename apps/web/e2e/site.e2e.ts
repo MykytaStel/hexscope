@@ -2235,6 +2235,7 @@ test("every public guide has a complete Ukrainian version, including its page ti
     "spf", "dkim", "dmarc", "eur", "wi", "fi", "qr", "f12", "csp", "css", "xml", "url", "http", "https",
     "rust", "cookie",
     "jbig", "jbig2", "ccitt", "fax", "gzip", "javascript", "crc",
+    "libreoffice", "rtf",
   ]);
 
   for (const [path, heading] of guides) {
