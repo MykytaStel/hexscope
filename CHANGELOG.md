@@ -15,6 +15,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   checksum and GitHub's signed record of the workflow that built it. The
   GitHub Action at a released version downloads the one for its runner and
   checks both, instead of compiling for a minute or more.
+- **What metadata removers leave, measured**: hexscope, ExifTool and MAT2
+  cleaned the same 45 files and every copy was read back by both ExifTool and
+  hexscope (`scripts/compare-tools.py`, `docs/research/metadata-removal.md`).
+  And a kit to measure what messengers take out of a file
+  (`docs/research/messenger-study.md`).
 
 ### Changed
 
@@ -40,6 +45,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Fixed
 
+- **A Word 97–2003 document (.doc)** showed and cleaned its property
+  streams, but not Word's own record beside them: the dates, the revision
+  number and the editing time, the list of who saved it and in which
+  folders, and who wrote its comments, with their initials. ExifTool read
+  them in a clean copy; hexscope now shows them and blanks them.
 - Ukrainian guides close every quote they open and keep the space after a
   name in italics ("EXIF — блоку…"); a test reads each built page for it.
 - What a document is made of no longer says "the the document".

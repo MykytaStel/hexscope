@@ -134,6 +134,11 @@ registerLazyTranslations({
   "Tracked changes, accepted": "Виправлення прийнято",
   "Comments and who wrote them": "Коментарі та хто їх написав",
   "Data stored by the program that wrote it": "Дані, які зберегла програма, що його написала",
+  // Word 97–2003's own record of a document.
+  "the document's dates, revision number and editing time": "дати документа, номер редакції й час редагування",
+  "who saved it, and where": "хто зберігав документ і де",
+  "who wrote the comments": "хто писав коментарі",
+  "where the document says the list of who saved it is": "посилання документа на список тих, хто його зберігав",
 });
 
 // The analyzer's own words: the parts of a file, the views and tools, the

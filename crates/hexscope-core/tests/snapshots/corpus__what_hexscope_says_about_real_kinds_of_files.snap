@@ -55,6 +55,8 @@ plan.doc: office97
   description: draft v3
   editor: Ivan
   company: Acme LLC
+  created: 2002-12-09 15:26
+  modified: 2002-12-09 15:26
 plan.docx: zip
   title: Q4 plan
   author: Olena Petrenko

@@ -2451,10 +2451,11 @@ test("an Outlook message is read as an email, and an old Word file is cleaned", 
   await expect(page.locator(".reveal-list")).toContainText("invoice.pdf.html");
 
   await page.goto("./?sample=plan.doc");
-  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 2 things");
+  // Its title and author, and the dates in Word's own record of it.
+  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 4 things");
   await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("2");
+  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("4");
   await expect(page.locator(".ba-side.is-after")).toHaveClass(/is-clear/);
   if (saved.length > 0) expect(saved).toEqual(["plan-clean.doc"]);
 });

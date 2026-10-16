@@ -74,7 +74,8 @@ group("an Outlook message and an old Word file", () => {
   it("names who wrote an old Word file, and cleans it", () => {
     const m = open("plan.doc");
     expect(m.file.format).toBe("office97");
-    expect(headline(m).text).toBe("This document gives away 2 things");
+    // Its title and author, and the dates Word keeps in its own record (the DOP).
+    expect(headline(m).text).toBe("This document gives away 4 things");
     expect(kindOf(m)).toBe("Word 97–2003");
     expect(misfit(m)).toBeNull();
   });

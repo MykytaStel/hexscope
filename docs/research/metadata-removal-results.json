@@ -1,0 +1,3691 @@
+{
+ "versions": {
+  "hexscope": "hexscope 0.5.0",
+  "exiftool": "13.55",
+  "mat2": "mat2 0.15.0"
+ },
+ "files": [
+  {
+   "file": "fixtures/ai-picture.png",
+   "sha256": "3cb60faffcbbb744",
+   "bytes": 20918,
+   "original": {
+    "exiftool": [
+     [
+      "words",
+      "PNG:Parameters"
+     ]
+    ],
+    "hexscope": {
+     "format": "png",
+     "reveals": [
+      "ai",
+      "prompt"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 20649,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 20649,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 11502,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/android.mp4",
+   "sha256": "82d4ce8eff13d332",
+   "bytes": 1530,
+   "original": {
+    "exiftool": [
+     [
+      "location",
+      "UserData:GPSCoordinates"
+     ],
+     [
+      "time",
+      "QuickTime:CreateDate"
+     ],
+     [
+      "time",
+      "QuickTime:ModifyDate"
+     ],
+     [
+      "time",
+      "Track1:MediaCreateDate"
+     ],
+     [
+      "time",
+      "Track1:MediaModifyDate"
+     ],
+     [
+      "time",
+      "Track1:TrackCreateDate"
+     ],
+     [
+      "time",
+      "Track1:TrackModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "video",
+     "reveals": [
+      "location",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 1530,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 1492,
+     "exiftool": [
+      [
+       "time",
+       "QuickTime:CreateDate"
+      ],
+      [
+       "time",
+       "QuickTime:ModifyDate"
+      ],
+      [
+       "time",
+       "Track1:MediaCreateDate"
+      ],
+      [
+       "time",
+       "Track1:MediaModifyDate"
+      ],
+      [
+       "time",
+       "Track1:TrackCreateDate"
+      ],
+      [
+       "time",
+       "Track1:TrackModifyDate"
+      ]
+     ],
+     "hexscope": {
+      "format": "video",
+      "reveals": [
+       "taken"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 1553,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/budget.ods",
+   "sha256": "c79747fdae5da9c7",
+   "bytes": 11550,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "software",
+      "XMP-meta:Generator"
+     ],
+     [
+      "time",
+      "XMP-dc:Date"
+     ],
+     [
+      "words",
+      "XMP-dc:Description"
+     ],
+     [
+      "words",
+      "XMP-dc:Subject"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "application",
+      "author",
+      "comments",
+      "created",
+      "custom",
+      "description",
+      "editing",
+      "editor",
+      "keywords",
+      "modified",
+      "printed",
+      "printer",
+      "revisions",
+      "subject",
+      "template",
+      "thumbnail",
+      "title"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 2445,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write ZIP files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 1585,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "comments"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "samples/budget.xlsx",
+   "sha256": "0a710caa9e2d1d06",
+   "bytes": 2562,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XML:LastModifiedBy"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "time",
+      "XML:CreateDate"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "author",
+      "created",
+      "editor",
+      "hiddencells",
+      "hiddensheets",
+      "title"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 2596,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "hiddencells",
+       "hiddensheets"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write XLSX files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 2344,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "hiddencells",
+       "hiddensheets"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/chrome-highlight.pdf",
+   "sha256": "15d9a7a8ba233a00",
+   "bytes": 26665,
+   "original": {
+    "exiftool": [
+     [
+      "software",
+      "PDF:Creator"
+     ],
+     [
+      "software",
+      "PDF:Producer"
+     ],
+     [
+      "time",
+      "PDF:CreateDate"
+     ],
+     [
+      "time",
+      "PDF:ModifyDate"
+     ],
+     [
+      "words",
+      "PDF:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "pdf",
+     "reveals": [
+      "application",
+      "covered",
+      "created",
+      "hiddentext",
+      "modified",
+      "producer",
+      "title"
+     ],
+     "hidden": [
+      "text in white on white",
+      "text under a black box"
+     ],
+     "problems": 2
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 26983,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 26830,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "application",
+       "covered",
+       "created",
+       "hiddentext",
+       "modified",
+       "producer",
+       "title",
+       "updates"
+      ],
+      "hidden": [
+       "text in white on white",
+       "text under a black box"
+      ],
+      "problems": 2
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 18986,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 2
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/compact.pdf",
+   "sha256": "3702a22325605b78",
+   "bytes": 1339,
+   "original": {
+    "exiftool": [
+     [
+      "history",
+      "XMP-xmpMM:HistoryAction"
+     ],
+     [
+      "person",
+      "PDF:Author"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "software",
+      "PDF:Creator"
+     ],
+     [
+      "software",
+      "PDF:Producer"
+     ],
+     [
+      "software",
+      "XMP-pdf:Producer"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "software",
+      "XMP-xmpMM:HistorySoftwareAgent"
+     ],
+     [
+      "time",
+      "PDF:CreateDate"
+     ],
+     [
+      "time",
+      "XMP-xmp:CreateDate"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "pdf",
+     "reveals": [
+      "application",
+      "author",
+      "created",
+      "history",
+      "producer",
+      "title"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 863,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 1622,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "application",
+       "author",
+       "created",
+       "history",
+       "producer",
+       "title",
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 9313,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 2
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "samples/cropped.jpg",
+   "sha256": "a1a60b050d59705c",
+   "bytes": 9758,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "history",
+      "XMP-xmpMM:HistoryAction"
+     ],
+     [
+      "history",
+      "XMP-xmpMM:HistoryWhen"
+     ],
+     [
+      "history",
+      "XMP-xmpMM:PreservedFileName"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "location",
+      "XMP-iptcCore:Location"
+     ],
+     [
+      "location",
+      "XMP-photoshop:City"
+     ],
+     [
+      "location",
+      "XMP-photoshop:Country"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "software",
+      "XMP-xmpMM:HistorySoftwareAgent"
+     ],
+     [
+      "thumbnail",
+      "IFD1:ThumbnailImage"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [
+      "camera",
+      "history",
+      "lens",
+      "location",
+      "original",
+      "owner",
+      "place",
+      "serial",
+      "software",
+      "taken",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 6470,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 6452,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 6279,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.457
+    }
+   }
+  },
+  {
+   "file": "fixtures/cwebp-photo.webp",
+   "sha256": "afb5a1ec8e6ac7aa",
+   "bytes": 4634,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "thumbnail",
+      "IFD1:ThumbnailImage"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "webp",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 2418,
+     "exiftool": [],
+     "hexscope": {
+      "format": "webp",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 2400,
+     "exiftool": [],
+     "hexscope": {
+      "format": "webp",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] something went wrong when cleaning cwebp-photo.webp: gdk-pixbuf-error-quark: Couldn\u2019t recognize the image file format for file \u201ccwebp-photo.webp\u201d (3)"
+    }
+   }
+  },
+  {
+   "file": "fixtures/ffmpeg.gif",
+   "sha256": "910f5814d0e830d3",
+   "bytes": 3823,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "gif",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 3823,
+     "exiftool": [],
+     "hexscope": {
+      "format": "gif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 3823,
+     "exiftool": [],
+     "hexscope": {
+      "format": "gif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "samples/film-negative.png",
+   "sha256": "fde4b8d16b788d8f",
+   "bytes": 5239,
+   "original": {
+    "exiftool": [
+     [
+      "words",
+      "PNG:Comment"
+     ]
+    ],
+    "hexscope": {
+     "format": "png",
+     "reveals": [
+      "caption"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 5149,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 5149,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 5328,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/gif2webp-anim.webp",
+   "sha256": "b41ba50f1a83b0d0",
+   "bytes": 2050,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "webp",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 2050,
+     "exiftool": [],
+     "hexscope": {
+      "format": "webp",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] something went wrong when cleaning gif2webp-anim.webp: gdk-pixbuf-error-quark: Couldn\u2019t recognize the image file format for file \u201cgif2webp-anim.webp\u201d (3)"
+    }
+   }
+  },
+  {
+   "file": "samples/hello.wasm",
+   "sha256": "9c27ad60f98cc542",
+   "bytes": 28982,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "wasm",
+     "reveals": [
+      "imports",
+      "language",
+      "names",
+      "paths",
+      "toolchain"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 22557,
+     "exiftool": [],
+     "hexscope": {
+      "format": "wasm",
+      "reveals": [
+       "imports",
+       "paths"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "0 image files updated 1 files weren't updated due to errors Error: Writing of this type of file is not supported - apps/web/public/samples/hello.wasm"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] hello.wasm's format (application/wasm) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/icc.jpg",
+   "sha256": "ec31ca74ad595423",
+   "bytes": 1238,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 614,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 632,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/icc.png",
+   "sha256": "cd38a10c4e309078",
+   "bytes": 460,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "png",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 75,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 97,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/icc.webp",
+   "sha256": "e77edb3e081a666e",
+   "bytes": 676,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "webp",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 62,
+     "exiftool": [],
+     "hexscope": {
+      "format": "webp",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] something went wrong when cleaning icc.webp: gdk-pixbuf-error-quark: Couldn\u2019t recognize the image file format for file \u201cicc.webp\u201d (3)"
+    }
+   }
+  },
+  {
+   "file": "fixtures/iphone-hdr.jpg",
+   "sha256": "8b1aca08761fbd91",
+   "bytes": 111375,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "thumbnail",
+      "IFD1:ThumbnailImage"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 103763,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 103745,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 51078,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 2.951
+    }
+   }
+  },
+  {
+   "file": "fixtures/iphone.mov",
+   "sha256": "415a56f84f2c3d80",
+   "bytes": 1851,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "Keys:Make"
+     ],
+     [
+      "device",
+      "Keys:Model"
+     ],
+     [
+      "location",
+      "Keys:GPSCoordinates"
+     ],
+     [
+      "software",
+      "Keys:Software"
+     ],
+     [
+      "time",
+      "Keys:CreationDate"
+     ],
+     [
+      "time",
+      "QuickTime:CreateDate"
+     ],
+     [
+      "time",
+      "QuickTime:ModifyDate"
+     ],
+     [
+      "time",
+      "Track1:MediaCreateDate"
+     ],
+     [
+      "time",
+      "Track1:MediaModifyDate"
+     ],
+     [
+      "time",
+      "Track1:TrackCreateDate"
+     ],
+     [
+      "time",
+      "Track1:TrackModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "video",
+     "reveals": [
+      "camera",
+      "location",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 1851,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 1373,
+     "exiftool": [
+      [
+       "time",
+       "QuickTime:CreateDate"
+      ],
+      [
+       "time",
+       "QuickTime:ModifyDate"
+      ],
+      [
+       "time",
+       "Track1:MediaCreateDate"
+      ],
+      [
+       "time",
+       "Track1:MediaModifyDate"
+      ],
+      [
+       "time",
+       "Track1:TrackCreateDate"
+      ],
+      [
+       "time",
+       "Track1:TrackModifyDate"
+      ]
+     ],
+     "hexscope": {
+      "format": "video",
+      "reveals": [
+       "taken"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] iphone.mov's format (video/quicktime) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/keynote.pptx",
+   "sha256": "f557679308bab611",
+   "bytes": 42166,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "hiddenslides",
+      "notes"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 41256,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "hiddenslides",
+       "notes"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write PPTX files"
+    },
+    "mat2": {
+     "made": false,
+     "said": "ERROR: In file keynote.pptx, element ppt/commentAuthors.xml's format (application/xml) isn't supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/lease.odt",
+   "sha256": "921855c3cf48c9b7",
+   "bytes": 118755,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "software",
+      "XMP-meta:Generator"
+     ],
+     [
+      "time",
+      "XMP-dc:Date"
+     ],
+     [
+      "words",
+      "XMP-dc:Description"
+     ],
+     [
+      "words",
+      "XMP-dc:Subject"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "application",
+      "author",
+      "comments",
+      "created",
+      "custom",
+      "deleted",
+      "description",
+      "editing",
+      "editor",
+      "keywords",
+      "modified",
+      "photoplace",
+      "printed",
+      "printer",
+      "revisions",
+      "subject",
+      "template",
+      "thumbnail",
+      "title",
+      "tracked"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 106398,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write ZIP files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 52885,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "comments"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/lease.rtf",
+   "sha256": "fed549909fe574e7",
+   "bytes": 881,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "RTF:Author"
+     ],
+     [
+      "person",
+      "RTF:Company"
+     ],
+     [
+      "person",
+      "RTF:LastModifiedBy"
+     ],
+     [
+      "time",
+      "RTF:CreateDate"
+     ],
+     [
+      "time",
+      "RTF:LastPrinted"
+     ],
+     [
+      "time",
+      "RTF:ModifyDate"
+     ],
+     [
+      "time",
+      "RTF:RevisionNumber"
+     ],
+     [
+      "time",
+      "RTF:TotalEditTime"
+     ],
+     [
+      "words",
+      "RTF:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "rtf",
+     "reveals": [
+      "application",
+      "author",
+      "comments",
+      "company",
+      "created",
+      "custom",
+      "deleted",
+      "editing",
+      "editor",
+      "modified",
+      "printed",
+      "revisions",
+      "template",
+      "title",
+      "tracked"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 195,
+     "exiftool": [],
+     "hexscope": {
+      "format": "rtf",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write RTF files"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] lease.rtf's format (application/rtf) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/loci.mp4",
+   "sha256": "e4919d03f9d7403e",
+   "bytes": 1588,
+   "original": {
+    "exiftool": [
+     [
+      "location",
+      "UserData:LocationInformation"
+     ],
+     [
+      "time",
+      "QuickTime:CreateDate"
+     ],
+     [
+      "time",
+      "QuickTime:ModifyDate"
+     ],
+     [
+      "time",
+      "Track1:MediaCreateDate"
+     ],
+     [
+      "time",
+      "Track1:MediaModifyDate"
+     ],
+     [
+      "time",
+      "Track1:TrackCreateDate"
+     ],
+     [
+      "time",
+      "Track1:TrackModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "video",
+     "reveals": [
+      "location",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 1588,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 1492,
+     "exiftool": [
+      [
+       "time",
+       "QuickTime:CreateDate"
+      ],
+      [
+       "time",
+       "QuickTime:ModifyDate"
+      ],
+      [
+       "time",
+       "Track1:MediaCreateDate"
+      ],
+      [
+       "time",
+       "Track1:MediaModifyDate"
+      ],
+      [
+       "time",
+       "Track1:TrackCreateDate"
+      ],
+      [
+       "time",
+       "Track1:TrackModifyDate"
+      ]
+     ],
+     "hexscope": {
+      "format": "video",
+      "reveals": [
+       "taken"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 1553,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/mac-report.zip",
+   "sha256": "9519ff1b011f5b2c",
+   "bytes": 1503,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "downloaded",
+      "tags"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 354,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write ZIP files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 951,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "downloaded",
+       "tags"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/message.eml",
+   "sha256": "93c75992302a5568",
+   "bytes": 21237,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "eml",
+     "reveals": [
+      "attachments",
+      "auth",
+      "computer",
+      "mailer",
+      "sentfrom",
+      "timezone"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": false,
+     "said": "0 image files updated 1 files weren't updated due to errors Error: Writing of this type of file is not supported - crates/hexscope-core/tests/fixtures/message.eml"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] message.eml's format (message/rfc822) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/notes.png",
+   "sha256": "4a4f2c9e2cacfc83",
+   "bytes": 214,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "PNG:Author"
+     ],
+     [
+      "time",
+      "PNG:ModifyDate"
+     ],
+     [
+      "words",
+      "PNG:Comment"
+     ]
+    ],
+    "hexscope": {
+     "format": "png",
+     "reveals": [
+      "caption",
+      "owner"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 67,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 67,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 87,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/phishing-rtf.msg",
+   "sha256": "9dc591f81ae7e2e2",
+   "bytes": 6656,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "msg",
+     "reveals": [
+      "attachments",
+      "authfail",
+      "linkmismatch",
+      "replyto",
+      "returnpath",
+      "riskyfile",
+      "sentfrom",
+      "timezone",
+      "weblinks"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": false,
+     "said": "0 image files updated 1 files weren't updated due to errors Error: Writing of this type of file is not supported - crates/hexscope-core/tests/fixtures/phishing-rtf.msg"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] phishing-rtf.msg's format (None) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/phishing.eml",
+   "sha256": "eacc87d91f5ffec5",
+   "bytes": 1325,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "eml",
+     "reveals": [
+      "attachments",
+      "authfail",
+      "linkidn",
+      "linkmismatch",
+      "replyto",
+      "returnpath",
+      "riskyfile",
+      "sentfrom",
+      "timezone",
+      "weblinks"
+     ],
+     "hidden": [
+      "a link goes somewhere other than it says",
+      "a link to an address in lookalike letters",
+      "an attachment that runs or opens a site",
+      "replies go to another domain",
+      "the sender's domain did not vouch for it"
+     ],
+     "problems": 5
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": false,
+     "said": "0 image files updated 1 files weren't updated due to errors Error: Writing of this type of file is not supported - crates/hexscope-core/tests/fixtures/phishing.eml"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] phishing.eml's format (message/rfc822) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/phishing.msg",
+   "sha256": "3fe582e0db1fa351",
+   "bytes": 6656,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "msg",
+     "reveals": [
+      "attachments",
+      "authfail",
+      "linkidn",
+      "linkmismatch",
+      "replyto",
+      "returnpath",
+      "riskyfile",
+      "sentfrom",
+      "timezone",
+      "weblinks"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": false,
+     "said": "0 image files updated 1 files weren't updated due to errors Error: Writing of this type of file is not supported - crates/hexscope-core/tests/fixtures/phishing.msg"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] phishing.msg's format (None) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo-grid.heic",
+   "sha256": "b31f33a91aba4959",
+   "bytes": 38108,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ],
+     [
+      "time",
+      "XMP-photoshop:DateCreated"
+     ],
+     [
+      "time",
+      "XMP-xmp:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "heif",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 38108,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 36972,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 1
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] photo-grid.heic can't be cleaned: HEIC files can't be thoroughly cleaned. Use lightweight mode instead."
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo.avif",
+   "sha256": "cb0aefff816bac7b",
+   "bytes": 3876,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ],
+     [
+      "time",
+      "XMP-photoshop:DateCreated"
+     ],
+     [
+      "time",
+      "XMP-xmp:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "heif",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 3876,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 2776,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 1
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 2776,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 1
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo.heic",
+   "sha256": "5d1342ee7b6945f7",
+   "bytes": 4163,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ],
+     [
+      "time",
+      "XMP-photoshop:DateCreated"
+     ],
+     [
+      "time",
+      "XMP-xmp:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "heif",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 4163,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 3063,
+     "exiftool": [],
+     "hexscope": {
+      "format": "heif",
+      "reveals": [],
+      "hidden": [],
+      "problems": 1
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] photo.heic can't be cleaned: HEIC files can't be thoroughly cleaned. Use lightweight mode instead."
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo.jpg",
+   "sha256": "6053666ab8ac06e1",
+   "bytes": 14297,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "thumbnail",
+      "IFD1:ThumbnailImage"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 11943,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 11925,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 11760,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.481
+    }
+   }
+  },
+  {
+   "file": "samples/photo.jpg",
+   "sha256": "935ab93bc27586f2",
+   "bytes": 107746,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "thumbnail",
+      "IFD1:ThumbnailImage"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 103763,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 103745,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 51078,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 2.951
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo.png",
+   "sha256": "2a9345e1a220cb5b",
+   "bytes": 24791,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "device",
+      "XMP-exifEX:LensModel"
+     ],
+     [
+      "device",
+      "XMP-exifEX:SerialNumber"
+     ],
+     [
+      "device",
+      "XMP-tiff:Make"
+     ],
+     [
+      "device",
+      "XMP-tiff:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSAltitude"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSLatitude"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSLongitude"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "XMP-exif:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "person",
+      "XMP-exifEX:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ],
+     [
+      "time",
+      "XMP-exif:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "XMP-photoshop:DateCreated"
+     ],
+     [
+      "time",
+      "XMP-xmp:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "png",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 22228,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 22215,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 15040,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/photo.tif",
+   "sha256": "eeea31b3778fd3a5",
+   "bytes": 16732,
+   "original": {
+    "exiftool": [
+     [
+      "device",
+      "ExifIFD:LensModel"
+     ],
+     [
+      "device",
+      "ExifIFD:SerialNumber"
+     ],
+     [
+      "device",
+      "IFD0:Make"
+     ],
+     [
+      "device",
+      "IFD0:Model"
+     ],
+     [
+      "location",
+      "GPS:GPSAltitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLatitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitude"
+     ],
+     [
+      "location",
+      "GPS:GPSLongitudeRef"
+     ],
+     [
+      "location",
+      "GPS:GPSVersionID"
+     ],
+     [
+      "person",
+      "ExifIFD:OwnerName"
+     ],
+     [
+      "software",
+      "IFD0:Software"
+     ],
+     [
+      "time",
+      "ExifIFD:DateTimeOriginal"
+     ],
+     [
+      "time",
+      "ExifIFD:OffsetTimeOriginal"
+     ],
+     [
+      "time",
+      "IFD0:ModifyDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "tiff",
+     "reveals": [
+      "camera",
+      "lens",
+      "location",
+      "owner",
+      "serial",
+      "software",
+      "taken"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 16732,
+     "exiftool": [],
+     "hexscope": {
+      "format": "tiff",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 13148,
+     "exiftool": [
+      [
+       "device",
+       "IFD0:Make"
+      ],
+      [
+       "device",
+       "IFD0:Model"
+      ],
+      [
+       "software",
+       "IFD0:Software"
+      ],
+      [
+       "time",
+       "IFD0:ModifyDate"
+      ]
+     ],
+     "hexscope": {
+      "format": "tiff",
+      "reveals": [
+       "camera",
+       "software",
+       "taken"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 15672,
+     "exiftool": [],
+     "hexscope": {
+      "format": "tiff",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/plan.doc",
+   "sha256": "9ef9d9cb33ce5391",
+   "bytes": 19456,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "FlashPix:Author"
+     ],
+     [
+      "time",
+      "MS-DOC:CreateDate"
+     ],
+     [
+      "time",
+      "MS-DOC:ModifyDate"
+     ],
+     [
+      "time",
+      "MS-DOC:RevisionNumber"
+     ],
+     [
+      "words",
+      "FlashPix:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "office97",
+     "reveals": [
+      "author",
+      "created",
+      "modified",
+      "title"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 19456,
+     "exiftool": [],
+     "hexscope": {
+      "format": "office97",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write FPX files"
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] plan.doc's format (application/msword) is not supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/progressive.jpg",
+   "sha256": "99cad7ec6cc1095a",
+   "bytes": 24739,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "jpeg",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 24721,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 22394,
+     "exiftool": [],
+     "hexscope": {
+      "format": "jpeg",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 2.608
+    }
+   }
+  },
+  {
+   "file": "fixtures/redacted.pdf",
+   "sha256": "81dc869940505668",
+   "bytes": 2027,
+   "original": {
+    "exiftool": [
+     [
+      "software",
+      "PDF:Producer"
+     ],
+     [
+      "words",
+      "PDF:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "pdf",
+     "reveals": [
+      "attachments",
+      "comments",
+      "covered",
+      "hiddentext",
+      "producer",
+      "title"
+     ],
+     "hidden": [
+      "a file carried inside the document",
+      "marked for redaction, never redacted",
+      "text in white on white",
+      "text under a black box"
+     ],
+     "problems": 4
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 1633,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 2192,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "attachments",
+       "comments",
+       "covered",
+       "hiddentext",
+       "producer",
+       "title",
+       "updates"
+      ],
+      "hidden": [
+       "a file carried inside the document",
+       "marked for redaction, never redacted",
+       "text in white on white",
+       "text under a black box"
+      ],
+      "problems": 4
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 31861,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 2
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/report.docx",
+   "sha256": "daf77a62998f04f7",
+   "bytes": 3696,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XML:Company"
+     ],
+     [
+      "person",
+      "XML:LastModifiedBy"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "time",
+      "XML:CreateDate"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "author",
+      "company",
+      "created",
+      "editor",
+      "title"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 3801,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write DOCX files"
+    },
+    "mat2": {
+     "made": false,
+     "said": "ERROR: In file report.docx, element docProps/meta.xml's format (application/xml) isn't supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/report.pdf",
+   "sha256": "bf6e629c1aaa6360",
+   "bytes": 2926,
+   "original": {
+    "exiftool": [
+     [
+      "history",
+      "XMP-xmpMM:HistoryAction"
+     ],
+     [
+      "person",
+      "PDF:Author"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "software",
+      "PDF:Creator"
+     ],
+     [
+      "software",
+      "PDF:Producer"
+     ],
+     [
+      "software",
+      "XMP-pdf:Producer"
+     ],
+     [
+      "software",
+      "XMP-xmp:CreatorTool"
+     ],
+     [
+      "software",
+      "XMP-xmpMM:HistorySoftwareAgent"
+     ],
+     [
+      "time",
+      "PDF:CreateDate"
+     ],
+     [
+      "time",
+      "PDF:ModifyDate"
+     ],
+     [
+      "time",
+      "XMP-xmp:CreateDate"
+     ],
+     [
+      "words",
+      "PDF:Title"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "pdf",
+     "reveals": [
+      "application",
+      "author",
+      "created",
+      "earlier",
+      "history",
+      "modified",
+      "producer",
+      "title",
+      "updates"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 911,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 3271,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "application",
+       "author",
+       "created",
+       "earlier",
+       "history",
+       "modified",
+       "producer",
+       "title",
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 12817,
+     "exiftool": [],
+     "hexscope": {
+      "format": "pdf",
+      "reveals": [
+       "updates"
+      ],
+      "hidden": [],
+      "problems": 2
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "samples/sample.png",
+   "sha256": "c90e86090a625661",
+   "bytes": 145,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "png",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": false,
+     "said": "hexscope: 0 copies made"
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 129,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 147,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/tracked.docx",
+   "sha256": "8edd76faec84bc40",
+   "bytes": 18637,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XML:Company"
+     ],
+     [
+      "person",
+      "XML:LastModifiedBy"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "time",
+      "XML:CreateDate"
+     ],
+     [
+      "words",
+      "XMP-dc:Title"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "author",
+      "comments",
+      "company",
+      "created",
+      "deleted",
+      "editor",
+      "photoplace",
+      "title",
+      "tracked"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 16930,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write DOCX files"
+    },
+    "mat2": {
+     "made": false,
+     "said": "ERROR: In file tracked.docx, element docProps/meta.xml's format (application/xml) isn't supported"
+    }
+   }
+  },
+  {
+   "file": "fixtures/voice.m4a",
+   "sha256": "b38accba0896419e",
+   "bytes": 2174,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "ItemList:Artist"
+     ],
+     [
+      "software",
+      "ItemList:Encoder"
+     ]
+    ],
+    "hexscope": {
+     "format": "video",
+     "reveals": [
+      "owner",
+      "software"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 2174,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 2048,
+     "exiftool": [],
+     "hexscope": {
+      "format": "video",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "mat2": {
+     "made": false,
+     "said": "[-] voice.m4a's format (audio/mp4a-latm) is not supported"
+    }
+   }
+  },
+  {
+   "file": "samples/wifi.png",
+   "sha256": "3fa177a79579147d",
+   "bytes": 38567,
+   "original": {
+    "exiftool": [],
+    "hexscope": {
+     "format": "png",
+     "reveals": [],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 38499,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "exiftool": {
+     "made": true,
+     "bytes": 38499,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 47292,
+     "exiftool": [],
+     "hexscope": {
+      "format": "png",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": 0.0
+    }
+   }
+  },
+  {
+   "file": "fixtures/windows.docx",
+   "sha256": "f4fb6866fb1e67cc",
+   "bytes": 3703,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XML:LastModifiedBy"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "time",
+      "XML:CreateDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "author",
+      "created",
+      "custom",
+      "editor",
+      "printer",
+      "template",
+      "thumbnail"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 4052,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write DOCX files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 2484,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "thumbnail"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  },
+  {
+   "file": "fixtures/windows.xlsx",
+   "sha256": "e3e95443210729c8",
+   "bytes": 2436,
+   "original": {
+    "exiftool": [
+     [
+      "person",
+      "XML:LastModifiedBy"
+     ],
+     [
+      "person",
+      "XMP-dc:Creator"
+     ],
+     [
+      "time",
+      "XML:CreateDate"
+     ]
+    ],
+    "hexscope": {
+     "format": "zip",
+     "reveals": [
+      "author",
+      "created",
+      "editor",
+      "folder",
+      "printer"
+     ],
+     "hidden": [],
+     "problems": 0
+    }
+   },
+   "copies": {
+    "hexscope": {
+     "made": true,
+     "bytes": 2939,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    },
+    "exiftool": {
+     "made": false,
+     "said": "Can't write XLSX files"
+    },
+    "mat2": {
+     "made": true,
+     "bytes": 2036,
+     "exiftool": [],
+     "hexscope": {
+      "format": "zip",
+      "reveals": [
+       "folder"
+      ],
+      "hidden": [],
+      "problems": 0
+     },
+     "pixels": null
+    }
+   }
+  }
+ ]
+}

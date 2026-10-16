@@ -10,6 +10,7 @@ mod props;
 mod rtf;
 #[cfg(test)]
 mod tests;
+mod word;
 
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::zip::DocumentFact;
@@ -452,6 +453,24 @@ pub fn parse_cfb(data: &[u8]) -> CfbDocument {
             });
         }
     }
+    // Word's own record of the document, which the property streams do not hold:
+    // what they already said is not said twice.
+    if let Some(w) = (kind == Kind::Word).then(|| word::Word::open(&c)).flatten() {
+        for (kind, text) in w.facts() {
+            let said = matches!(
+                kind,
+                "created" | "modified" | "revisions" | "editing" | "editor" | "printed"
+            );
+            if said && facts.iter().any(|f| f.kind == kind) {
+                continue;
+            }
+            facts.push(DocumentFact {
+                kind,
+                text,
+                node: node_of(Some(w.table)),
+            });
+        }
+    }
     if kind == Kind::Message {
         let m = msg::read(&c);
         for (kind, text, at) in m.facts {
@@ -770,6 +789,25 @@ pub(crate) fn blanks(data: &[u8]) -> Vec<(&'static str, Vec<(u64, u64)>)> {
         }
         if !spans.is_empty() {
             out.push((what, spans));
+        }
+    }
+    if let Some(w) = word::Word::open(&c) {
+        let (table, fib) = w.blanks();
+        let pieces = c.pieces(&c.entries[w.table]);
+        for (what, spans) in table {
+            let mut out_spans = Vec::new();
+            for (a, b) in spans {
+                in_file(&pieces, a as u64, b as u64, &mut out_spans);
+            }
+            out.push((what, out_spans));
+        }
+        let pieces = c.pieces(&c.entries[w.word]);
+        let mut spans = Vec::new();
+        for (a, b) in fib {
+            in_file(&pieces, a as u64, b as u64, &mut spans);
+        }
+        if !spans.is_empty() {
+            out.push(("where the document says the list of who saved it is", spans));
         }
     }
     let size = c.sector();
