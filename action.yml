@@ -20,11 +20,17 @@ inputs:
 runs:
   using: composite
   steps:
-    # Built from this action's own copy of the repository, at the version
-    # the workflow asked for: nothing is downloaded but the toolchain.
-    - name: Build hexscope
+    # At a released version, the release's own build for this runner,
+    # checked against its checksum and GitHub's signed record of the workflow
+    # that built it; anywhere else, built from this action's own copy of the
+    # repository (scripts/action-install.sh).
+    - name: Get hexscope
       shell: bash
-      run: cargo install --locked --quiet --root "$RUNNER_TEMP/hexscope" --path "$GITHUB_ACTION_PATH/crates/hexscope-cli"
+      env:
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_REPOSITORY: ${{ github.action_repository }}
+        GH_TOKEN: ${{ github.token }}
+      run: '"$GITHUB_ACTION_PATH/scripts/action-install.sh" "$RUNNER_TEMP/hexscope"'
     - name: Check
       shell: bash
       env:

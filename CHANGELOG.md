@@ -8,6 +8,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **The command, built for each system, on every release**: Linux (x86-64
+  and ARM, static), macOS (Apple silicon and Intel) and Windows, each with a
+  checksum and GitHub's signed record of the workflow that built it. The
+  GitHub Action at a released version downloads the one for its runner and
+  checks both, instead of compiling for a minute or more.
+
 ### Changed
 
 - **The analyzer in Ukrainian, all of it**: the parts of a file in the bytes'
@@ -28,10 +36,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 - The home page says "nothing is uploaded" once, and in its other places what
   else is true: it works offline, and the developer tools show nothing sent.
 - The README lists every guide, and the crates by the site's version.
+- CI's actions are pinned to commits, and Dependabot proposes their updates.
 
 ### Fixed
 
-- Ukrainian guides closed every quote they open and keep the space after a
+- Ukrainian guides close every quote they open and keep the space after a
   name in italics ("EXIF — блоку…"); a test reads each built page for it.
 - What a document is made of no longer says "the the document".
 - The visitor counter does not count a browser a program drives.

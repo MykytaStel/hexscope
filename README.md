@@ -88,6 +88,11 @@ The published Action checks paths and annotates selected findings on their files
     fail-on: location,serial,covered,hiddentext
 ```
 
+At a released version, the Action downloads that release's build of
+`hexscope` for the runner (Linux, macOS or Windows), checks it against its
+checksum and GitHub's signed record of where it was built, and so starts in
+seconds; at a branch or commit it builds the command from source.
+
 Annotations name the file and finding kind, but leave actual values out of CI
 logs. When `check` runs in GitHub Actions, its default human output is suppressed
 for the same reason; explicitly requested `--json` and `--sarif` remain detailed.
