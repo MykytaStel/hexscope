@@ -5,7 +5,6 @@ import { call } from "./rpc";
 import { siteUrl } from "./files";
 
 const DWELL_MS = 2400;
-const FACT_MS = 900;
 const PHOTO = "samples/photo.jpg";
 const TOLD: [string, string][] = [
   ["location", "Location"],
@@ -43,11 +42,7 @@ export async function startDemo(host: HTMLElement): Promise<void> {
   const said = await photoScene();
   if (!idle()) return;
   if (!said) {
-    // The page's rows are the sample's own facts: show them as they are.
-    for (const row of told.querySelectorAll(".demo-fact")) {
-      row.removeAttribute("aria-hidden");
-      row.classList.add("is-shown");
-    }
+    // The page's rows are the sample's own facts, in view already.
     return;
   }
 
@@ -138,9 +133,10 @@ async function tell(
   told.classList.remove("is-clean");
   told.hidden = false;
   caption.textContent = "A photo, as a camera or phone saves it. Inside it:";
+  // The facts are in view from the first paint: what the photo gives away is
+  // the answer, not something to wait for.
   const rows = said.facts.map(([name, value]) => {
-    const row = el("div", "demo-fact");
-    row.setAttribute("aria-hidden", "true");
+    const row = el("div", "demo-fact is-shown");
     row.append(el("dt", undefined, name), el("dd", undefined, value));
     return row;
   });
@@ -152,22 +148,12 @@ async function tell(
       : "Same photo. Camera details removed in your browser.";
 
   if (reduceMotion) {
-    for (const row of rows) {
-      row.removeAttribute("aria-hidden");
-      row.classList.add("is-shown");
-    }
     told.classList.add("is-clean");
     caption.textContent = cleanCaption;
     return;
   }
 
-  await sleep(FACT_MS);
-  for (const row of rows) {
-    if (!idle()) return;
-    row.removeAttribute("aria-hidden");
-    row.classList.add("is-shown");
-    await sleep(FACT_MS);
-  }
+  await sleep(DWELL_MS);
   if (!idle()) return;
   caption.textContent = "Anyone you send it to can read all of that.";
   await sleep(DWELL_MS);

@@ -284,8 +284,31 @@ describe("what a clean copy leaves out", () => {
 
 describe("sizes", () => {
   it("say their bytes in Ukrainian too", () => {
-    expect(translateText("105.2 KB · 107,746 bytes", "uk")).toBe("105.2 KB · 107\u00a0746 байтів");
-    expect(translateText("1.5 KB · 1,503 bytes", "uk")).toBe("1.5 KB · 1\u00a0503 байти");
+    expect(translateText("105.2 KB · 107,746 bytes", "uk")).toBe("105,2 КБ · 107\u00a0746 байтів");
+    expect(translateText("1.5 KB · 1,503 bytes", "uk")).toBe("1,5 КБ · 1\u00a0503 байти");
+    expect(translateText("145 B", "uk")).toBe("145 Б");
+    expect(translateText("Photo  ·  3.8 MB", "uk")).toBe("Фото · 3,8 МБ");
+    expect(translateText("photo-clean.jpg · 101.3 KB", "uk")).toBe("photo-clean.jpg · 101,3 КБ");
+  });
+
+  it("say what a file is made of in Ukrainian", () => {
+    expect(translateText("Of its 105.2 KB, 96% goes to the picture and 4% to information about it — a second, small copy of the picture among it.", "uk")).toBe(
+      "Із 105,2 КБ: зображення — 96% і відомості про файл — 4%; серед відомостей — друга, маленька копія зображення.",
+    );
+    expect(translateText("Of its 2.0 KB, 20% goes to the pages, fonts, images, 5% to information about it, 58% to the structure that holds it together and 18% to bytes the format does not account for.", "uk")).toBe(
+      "Із 2,0 КБ: сторінки, шрифти й зображення — 20%, відомості про файл — 5%, структура, що його скріплює, — 58% і байти, яких формат не пояснює, — 18%.",
+    );
+  });
+});
+
+describe("what a verdict lists", () => {
+  it("is Ukrainian to its end, the rest counted", () => {
+    expect(translateText("Possible signs of impersonation: replies go to another domain, and 4 more things.", "uk")).toBe(
+      "Можливі ознаки підміни відправника: відповіді йдуть на інший домен і ще 4.",
+    );
+    expect(translateText("Hidden in it: a file carried inside the document, and 1 more thing.", "uk")).toBe("Приховано у файлі: файл, вкладений у документ і ще 1.");
+    expect(translateText("Where replies really go", "uk")).toBe("Справжня адреса для відповідей");
+    expect(translateText("broken.png is open. Damaged: 1 place could not be read properly. It may not open, or open only partly.", "uk")).toMatch(/^broken\.png відкрито\. Пошкоджень: 1\./);
   });
 });
 

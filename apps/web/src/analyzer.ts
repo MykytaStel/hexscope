@@ -590,7 +590,8 @@ function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   meta.className = "meta";
   const plain = document.createElement("span");
   plain.className = "meta-plain";
-  plain.textContent = `${kindWord(m)}  ·  ${formatBytes(m.bytes.length)}`;
+  // Each its own text, so each is translated on its own.
+  plain.replaceChildren(kindWord(m), "  ·  ", formatBytes(m.bytes.length));
   const full = document.createElement("span");
   full.className = "meta-full";
   // Each its own text, so each is translated on its own: "parsed in 2 ms" is not a whole line.

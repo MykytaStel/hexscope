@@ -1,25 +1,25 @@
-# Hexscope
+# hexscope
 
-**See what a file reveals before you share it.** Inspect metadata, hidden content,
-unexpected structure and damage — then make a clean copy when Hexscope can do so
+**See what your file reveals about you — before you send it.** Inspect metadata, hidden content,
+unexpected structure and damage — then make a clean copy when hexscope can do so
 safely. Your files stay on your device.
 
-[Open Hexscope](https://hexscope.org/?sample=photo.jpg) ·
+[Open hexscope](https://hexscope.org/?sample=photo.jpg) ·
 [Install the CLI](https://crates.io/crates/hexscope-cli) ·
 [Privacy](https://hexscope.org/your-files-stay-private) ·
 [Guides](https://hexscope.org/remove-location-from-photo)
 
-![A sample photo opened in Hexscope: it gives away eight things, its location on a map, and a clean copy confirmed to have none of them](docs/demo.gif)
+![A sample photo opened in hexscope: it gives away eight things, its location on a map, and a clean copy confirmed to have none of them](docs/demo.gif)
 
 ## Try it
 
 Open the [web app](https://hexscope.org/) and choose a file, or
-[load the sample photo](https://hexscope.org/?sample=photo.jpg). Hexscope
+[load the sample photo](https://hexscope.org/?sample=photo.jpg). hexscope
 shows a plain-language summary first. Select a finding to see the exact bytes
 behind it; where supported, save a clean copy from the same page.
 
 It also works offline after the first visit. File parsing happens in your
-browser: Hexscope does not upload your files or send telemetry. The website
+browser: hexscope does not upload your files or send telemetry. The website
 counts how many people visit — totals per day, without cookies, ids or
 addresses, never anything about a file — read only by its author.
 
@@ -31,21 +31,21 @@ addresses, never anything about a file — read only by its author.
 - **Inspect the evidence.** Explore a file's structure and bytes, search within
   it, compare files, and follow image pixels to the bytes that produced them.
 - **Make a copy.** Remove supported metadata, redact PDF text or selected areas,
-  and recover supported damaged PNG, JPEG and ZIP files. Hexscope explains what
+  and recover supported damaged PNG, JPEG and ZIP files. hexscope explains what
   it changed so you can inspect the result.
 - **Learn how formats work.** Step through DEFLATE decoding and explore how PNG
   and JPEG data maps to the image.
 
 ### Formats
 
-Hexscope reads PNG, JPEG, HEIC/HEIF, AVIF, WebP, GIF, TIFF, MP4/QuickTime, PDF, ZIP
+hexscope reads PNG, JPEG, HEIC/HEIF, AVIF, WebP, GIF, TIFF, MP4/QuickTime, PDF, ZIP
 archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, LibreOffice's
 `.odt`, `.ods`, `.odp`, `.apk`, `.jar`, `.epub`), RTF, legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
 and WebAssembly modules. What it can inspect or change varies by format. For
 known limits — including password-protected PDFs and legacy Office document
 text — see [known issues](docs/known-issues.md).
 
-Hexscope is a file-structure inspector, **not a virus scanner**. It does not
+hexscope is a file-structure inspector, **not a virus scanner**. It does not
 open links or follow redirects. A finding is an explanation of what the parser
 can establish from the file, not a guarantee that a file is safe.
 
@@ -98,22 +98,44 @@ scanning service.
 
 ## Guides
 
+Photos and videos:
+
+- [EXIF viewer: what a photo's metadata says](https://hexscope.org/exif-viewer)
+- [How to remove EXIF and metadata from a photo](https://hexscope.org/remove-metadata-from-photo)
+- [How to remove the location from a photo](https://hexscope.org/remove-location-from-photo)
+- [How to remove metadata from a video](https://hexscope.org/remove-metadata-from-video)
+- [Was this picture made by AI?](https://hexscope.org/ai-image-metadata)
+- [What a screenshot gives away](https://hexscope.org/what-a-screenshot-gives-away)
+
+Documents and email:
+
+- [How to remove metadata from a PDF](https://hexscope.org/remove-metadata-from-pdf)
+- [How to remove metadata from a Word document](https://hexscope.org/remove-metadata-from-word)
+- [How to remove metadata from LibreOffice and RTF files](https://hexscope.org/remove-metadata-from-libreoffice)
+- [Check a document before you send it](https://hexscope.org/check-document-before-sending)
+- [How to black out a PDF properly](https://hexscope.org/black-out-a-pdf)
+- [Text no one can see in a PDF](https://hexscope.org/hidden-text-in-pdf)
+- [Deleted from a PDF, but still inside it](https://hexscope.org/pdf-hidden-versions)
+- [Is this email real?](https://hexscope.org/is-this-email-real)
+
+Files and formats:
+
+- [What type of file is this?](https://hexscope.org/what-file-type-is-this)
+- [Why won't my PNG open?](https://hexscope.org/png-wont-open)
+- [Explore DEFLATE step by step](https://hexscope.org/deflate)
+- [Your files stay on your device](https://hexscope.org/your-files-stay-private)
+
+Every guide is also in Ukrainian, under [hexscope.org/uk/](https://hexscope.org/uk/).
+
+Film scans and research notes:
+
 - [Film photo lab: negative conversion, border crop and output inspection](docs/film-lab.md)
 - [Verified photo batches, CLI/web film rolls, TIFF16 and local privacy mosaic](docs/photo-platform.md)
 - [Reproducible real-scan measurements and research limits](docs/film-evaluation.md)
 
-- [EXIF viewer: what a photo's metadata says](https://hexscope.org/exif-viewer)
-- [Remove location and other metadata from a photo](https://hexscope.org/remove-location-from-photo)
-- [Was this picture made by AI? What its file says](https://hexscope.org/ai-image-metadata)
-- [Remove metadata from a PDF](https://hexscope.org/remove-metadata-from-pdf)
-- [Remove metadata from Word, Excel and PowerPoint](https://hexscope.org/remove-metadata-from-word)
-- [What an edited PDF may still contain](https://hexscope.org/pdf-hidden-versions)
-- [Why a PNG may not open](https://hexscope.org/png-wont-open)
-- [Explore DEFLATE step by step](https://hexscope.org/deflate)
-
 ## For Rust users and contributors
 
-Version `0.1.0` is published on crates.io:
+Published on crates.io, at the same version as the site:
 
 - [`hexscope-cli`](https://crates.io/crates/hexscope-cli) — command-line tool.
 - [`hexscope-core`](https://crates.io/crates/hexscope-core) — parsing library.
