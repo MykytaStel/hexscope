@@ -1531,11 +1531,12 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await expect(page.locator(".film-scan-card")).toBeVisible();
+  // A camera's photo has no clues of film: nothing is said about film.
+  await page.waitForTimeout(500);
+  await expect(page.locator(".film-scan-card")).toHaveCount(0);
 
   await expect(page.locator(".overview-answer > .verdict")).toHaveCount(1);
   await expect(page.locator(".overview-flow > .reveals")).toHaveCount(1);
-  await expect(page.locator(".overview-flow > .film-scan-card")).toHaveCount(1);
   await expect(page.locator(".overview-flow > .more-details")).toHaveCount(1);
 
   for (const width of [1100, 1280, 1440, 1920]) {
@@ -1547,12 +1548,10 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
       const intro = document.querySelector<HTMLElement>(".verdict-intro")!;
       const findings = document.querySelector<HTMLElement>(".verdict-findings")!;
       const flow = document.querySelector<HTMLElement>(".overview-flow")!;
-      const film = document.querySelector<HTMLElement>(".film-scan-card")!;
       const answerBox = answer.getBoundingClientRect();
       const introBox = intro.getBoundingClientRect();
       const findingsBox = findings.getBoundingClientRect();
       const flowBox = flow.getBoundingClientRect();
-      const filmBox = film.getBoundingClientRect();
       return {
         columns: getComputedStyle(file).gridTemplateColumns.trim().split(/\s+/).length,
         verdictColumns: getComputedStyle(verdict).gridTemplateColumns.trim().split(/\s+/).length,
@@ -1564,8 +1563,6 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
         flowX: flowBox.x,
         flowTop: flowBox.top,
         flowWidth: flowBox.width,
-        filmX: filmBox.x,
-        filmWidth: filmBox.width,
         overflow: document.documentElement.scrollWidth - innerWidth,
       };
     });
@@ -1575,8 +1572,6 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
     expect(layout.flowX, `${width}px: evidence aligns under the answer`).toBeCloseTo(layout.answerX, 0);
     expect(layout.flowTop, `${width}px: evidence follows the answer`).toBeGreaterThan(layout.answerBottom);
     expect(layout.flowWidth, `${width}px: sections share a width`).toBeCloseTo(layout.answerWidth, 0);
-    expect(layout.filmX, `${width}px: film clues stay in the same flow`).toBeCloseTo(layout.flowX, 0);
-    expect(layout.filmWidth, `${width}px: film clues span the evidence column`).toBeCloseTo(layout.flowWidth, 0);
     expect(layout.overflow, `${width}px: no horizontal page scroll`).toBeLessThanOrEqual(0);
   }
 });
@@ -1827,7 +1822,7 @@ test("file results show the summary before evidence and available actions", asyn
     const details = result.locator(".more-details");
     await expect(details).not.toHaveAttribute("open", "");
     await expect(details.locator(".makeup")).toBeHidden();
-    await details.locator("summary").click();
+    await details.locator(":scope > summary").click();
     await expect(details.locator(".makeup")).toBeVisible();
 
     if (example.sample === "photo.jpg") {
@@ -2456,10 +2451,11 @@ test("an Outlook message is read as an email, and an old Word file is cleaned", 
   await expect(page.locator(".reveal-list")).toContainText("invoice.pdf.html");
 
   await page.goto("./?sample=plan.doc");
-  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 2 things");
+  // Its title and author, and the dates in Word's own record of it.
+  await expect(page.locator(".verdict-title")).toHaveText("This document gives away 4 things");
   await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("2");
+  await expect(page.locator(".ba-side.is-after .ba-count")).toHaveText("4");
   await expect(page.locator(".ba-side.is-after")).toHaveClass(/is-clear/);
   if (saved.length > 0) expect(saved).toEqual(["plan-clean.doc"]);
 });

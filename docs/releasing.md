@@ -28,6 +28,12 @@ Fixed or Removed. Say what changed for people, not which files.
    gh release create v0.3.0 --title "hexscope 0.3.0" --notes-file <(sed -n '/^## \[0.3.0\]/,/^## \[/p' CHANGELOG.md | sed '$d')
    ```
 
+   Publishing the release builds the command for Linux (x86-64 and ARM,
+   static), macOS (Apple silicon and Intel) and Windows, and attaches each
+   with its checksum and a build attestation
+   ([`release.yml`](../.github/workflows/release.yml)); the GitHub Action
+   at that tag downloads them. Check the release page lists ten files.
+
 6. Publishing to crates.io is a separate decision each time. From a clean
    checkout of the tagged commit, `cargo publish --workspace --dry-run`,
    then `cargo publish --workspace`: it publishes `hexscope-inflate`,

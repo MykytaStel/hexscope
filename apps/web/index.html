@@ -10,7 +10,7 @@
     <link rel="canonical" href="https://hexscope.org/" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://hexscope.org/" />
-    <meta property="og:title" content="hexscope — see what a file gives away before you send it" />
+    <meta property="og:title" content="hexscope — see what your file reveals before you send it" />
     <meta property="og:description" content="Where your photo was taken, who wrote your document, why a file won't open — shown byte by byte, in your browser. Nothing is uploaded." />
     <meta property="og:image" content="https://hexscope.org/og.jpg" />
     <meta property="og:image:width" content="1200" />
@@ -124,17 +124,18 @@
             </p>
           <p class="load-error" id="load-error" role="alert" hidden></p>
         </div>
-        <!-- In the page from the start, so nothing moves when the demo begins:
-             the sample photo and its real facts, shown by src/demo.ts once read. -->
+        <!-- In the page from the start, so nothing moves when the demo begins
+             and the answer is there at first paint: the sample photo and its
+             real facts; src/demo.ts strikes them once its clean copy is checked. -->
         <figure class="demo" id="demo" aria-label="A demonstration on a sample image">
           <div class="demo-frame"><img class="demo-image" src="./samples/photo.jpg" alt="" aria-hidden="true" width="640" height="480" fetchpriority="high" /></div>
           <div class="demo-side">
             <p class="demo-kicker">Sample file · example metadata</p>
             <dl class="demo-facts">
-              <div class="demo-fact" aria-hidden="true"><dt>Location</dt><dd>48.8584° N, 2.2945° E</dd></div>
-              <div class="demo-fact" aria-hidden="true"><dt>Owner</dt><dd>Sample Owner</dd></div>
-              <div class="demo-fact" aria-hidden="true"><dt>Camera serial</dt><dd>HX-000042</dd></div>
-              <div class="demo-fact" aria-hidden="true"><dt>Taken</dt><dd>2026-06-14 18:32</dd></div>
+              <div class="demo-fact is-shown"><dt>Location</dt><dd>48.8584° N, 2.2945° E</dd></div>
+              <div class="demo-fact is-shown"><dt>Owner</dt><dd>Sample Owner</dd></div>
+              <div class="demo-fact is-shown"><dt>Camera serial</dt><dd>HX-000042</dd></div>
+              <div class="demo-fact is-shown"><dt>Taken</dt><dd>2026-06-14 18:32</dd></div>
             </dl>
             <p class="demo-caption">A photo, as a camera or phone saves it. Inside it:</p>
           </div>
@@ -144,7 +145,7 @@
       <ul class="landing-proof">
         <li class="promise">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.4c0 4.8-3.2 7.8-8 9.6-4.8-1.8-8-4.8-8-9.6V6z" /><path d="m9 12 2 2 4-4" /></svg>
-          <span><strong>Local processing.</strong> Nothing is uploaded; your file stays in this tab.</span>
+          <span><strong>Local processing.</strong> Works offline once opened.</span>
         </li>
         <li class="promise">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 1 1 8 0v3" /></svg>
@@ -349,7 +350,7 @@
         <div class="privacy-copy">
           <p class="privacy-kicker">Local processing.</p>
           <h2 id="privacy-title">The file never leaves this tab</h2>
-          <p>Nothing is uploaded; your file stays in this tab.</p>
+          <p>The file is read by WebAssembly in your browser: the Network tab of its developer tools shows that no file is sent.</p>
         </div>
         <div class="privacy-actions">
           <button class="btn btn-primary" type="button" data-opens="picker-empty">Open a file</button>

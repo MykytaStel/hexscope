@@ -49,7 +49,7 @@ test("on a phone, the location badge shows the place in the summary, not the byt
   await page.goto("./?sample=photo.jpg");
   await page.locator("#location").click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
-  await expect(page.locator(".reveal-list dt.is-flash")).toHaveText("Location");
+  await expect(page.locator(".reveal-list dt.is-flash")).toHaveText("Coordinates");
 });
 
 test("on a phone, several photos are cleaned with one button and shared with the next, in Ukrainian", async ({ page }, info) => {

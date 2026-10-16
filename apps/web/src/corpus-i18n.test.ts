@@ -39,6 +39,12 @@ function corpus(): [string, Uint8Array][] {
   return out;
 }
 
+/** English words left in a line, outside what it quotes from the file: a sentence half translated is not translated. */
+const english = (s: string) =>
+  /\b(the|and|of|to|is|it|its|from|with|not|for|by|was|this|that|goes|more|things?|another|than|what|when|where|who)\b/.test(
+    s.replace(/«[^»]*»|“[^”]*”|"[^"]*"|\S+@\S+|https?:\/\/\S+/g, ""),
+  );
+
 /** A sentence in words, not a name, a number or an address. */
 const prose = (s: string) => /\b[a-z]{3,}\b/.test(s.replace(/\bhexscope\b/g, "")) && !/^[\w.-]+@|https?:\/\//.test(s);
 
@@ -88,7 +94,7 @@ describe("every sentence a reader meets about a real file", () => {
       const copy = build.cleanCopy(bytes, false);
       if (!copy.error) said.push(...removedLines(copy.removed));
       for (const s of said) {
-        if (prose(s) && translateText(s, "uk") === s && !missing.has(s)) missing.set(s, name);
+        if (prose(s) && english(translateText(s, "uk")) && !missing.has(s)) missing.set(s, name);
       }
     }
     expect([...missing].map(([s, name]) => `${name}: ${s}`)).toEqual([]);

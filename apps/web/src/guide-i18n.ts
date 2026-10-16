@@ -638,7 +638,7 @@ const guideEntries: [string, string][] = [
   ["Get a copy without the earlier versions", "Створіть копію без попередніх редакцій"],
   [", press", "», натисніть «"],
   ["press", "натисніть «"],
-  [". hexscope writes the PDF anew, as a single version, with only what its pages use, each part copied byte for byte. The earlier versions, the author, the programs, the dates, the XMP metadata and the file identifier are left behind.", ". hexscope створить PDF заново як одну редакцію й збереже лише дані, потрібні його сторінкам, копіюючи кожну частину без змін. Попередні редакції, автора, назви програм, дати, метадані XMP та ідентифікатор файла буде вилучено."],
+  [". hexscope writes the PDF anew, as a single version, with only what its pages use, each part copied byte for byte. The earlier versions, the author, the programs, the dates, the XMP metadata and the file identifier are left behind.", ". hexscope створить PDF заново як одну редакцію й збереже лише дані, потрібні його сторінкам, копіюючи кожну частину без змін. Попередні редакції, автора, назви програм, дати, метадані XMP та ідентифікатор файла буде вилучено. Натисніть «"],
   ["to check it.", "», щоб перевірити результат."],
   ["In other programs,", "В інших програмах команда «"],
   ["to a new file usually rewrites a PDF from scratch, and printing it to a new PDF certainly does — at the cost of links and form fields.", "зазвичай переписує PDF з нуля. Друк у новий PDF точно це робить, але посилання й поля форм можуть зникнути."],
@@ -800,6 +800,8 @@ const guideEntries: [string, string][] = [
 export const GUIDE_UK: Record<string, string> = Object.fromEntries(
   guideEntries.map(([source, translation]) => [
     source.replace(/\s+/g, " ").trim(),
-    translation.trim(),
+    // A translation keeps a space it starts or ends with: after a name in
+    // italics, ", the block…" may become " — блоку…".
+    translation.replace(/\s+/g, " "),
   ]),
 );

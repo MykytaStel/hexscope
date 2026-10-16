@@ -15,8 +15,16 @@ export async function placeFilmScanCard(target: ParentNode, model: FileModel): P
   if (!file.filmScan) return;
   const reveals = target.querySelector(".reveals");
   if (!reveals) return;
-  const { filmScanCard } = await import("./filmscan-card");
-  if (reveals.isConnected) reveals.after(filmScanCard(file.filmScan, model));
+  const { filmScanCard, filmLabEntry } = await import("./filmscan-card");
+  if (!reveals.isConnected) return;
+  // Only a picture with clues of film says so — "no clues" under every photo
+  // is noise; the film lab stays at hand among the details.
+  if (file.filmScan.availability === "inspected" && file.filmScan.evidenceStrength !== "none") {
+    reveals.after(filmScanCard(file.filmScan, model));
+    return;
+  }
+  const entry = filmLabEntry(file.filmScan, model);
+  if (entry) target.querySelector(".more-details")?.append(entry);
 }
 
 type Look = { picture: Blob; inspectFilmScan?: boolean } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };

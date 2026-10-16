@@ -8,6 +8,53 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **The command, built for each system, on every release**: Linux (x86-64
+  and ARM, static), macOS (Apple silicon and Intel) and Windows, each with a
+  checksum and GitHub's signed record of the workflow that built it. The
+  GitHub Action at a released version downloads the one for its runner and
+  checks both, instead of compiling for a minute or more.
+- **What metadata removers leave, measured**: hexscope, ExifTool and MAT2
+  cleaned the same 45 files and every copy was read back by both ExifTool and
+  hexscope (`scripts/compare-tools.py`, `docs/research/metadata-removal.md`).
+  And a kit to measure what messengers take out of a file
+  (`docs/research/messenger-study.md`).
+
+### Changed
+
+- **The analyzer in Ukrainian, all of it**: the parts of a file in the bytes'
+  colours, what a file is made of, the details pane and its tools, the way an
+  email came, blacking out text and pictures, the keys, finding in a file,
+  several files at once, the DEFLATE player and the pictures' captions —
+  about 250 lines that stayed in English. Sizes read "105,2 КБ", a verdict's
+  list is Ukrainian to its end ("… і ще 4"), and a list's heading names a
+  finding in its own case. A new end-to-end test opens every sample and test
+  file in every view, makes a clean copy, compares, lists several files, and
+  fails on any English word of hexscope's own.
+- The photo's facts are on the home page from its first paint; the clean
+  copy strikes them once it is checked.
+- The home page's top bar and sections share one gutter at every width.
+- The film-scan clues show only where a picture has some: a camera's photo
+  no longer carries a section saying it has none.
+- The row under "Location" is called "Coordinates".
+- The home page says "nothing is uploaded" once, and in its other places what
+  else is true: it works offline, and the developer tools show nothing sent.
+- The README lists every guide, and the crates by the site's version.
+- CI's actions are pinned to commits, and Dependabot proposes their updates.
+
+### Fixed
+
+- **A Word 97–2003 document (.doc)** showed and cleaned its property
+  streams, but not Word's own record beside them: the dates, the revision
+  number and the editing time, the list of who saved it and in which
+  folders, and who wrote its comments, with their initials. ExifTool read
+  them in a clean copy; hexscope now shows them and blanks them.
+- Ukrainian guides close every quote they open and keep the space after a
+  name in italics ("EXIF — блоку…"); a test reads each built page for it.
+- What a document is made of no longer says "the the document".
+- The visitor counter does not count a browser a program drives.
+
 ## [0.5.0] — 2026-10-15
 
 ### Added

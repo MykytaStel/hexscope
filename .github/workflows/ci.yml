@@ -11,13 +11,15 @@ env:
   CARGO_TERM_COLOR: always
 
 # The runner image is named, not "latest": moving to a new Ubuntu is a
-# change made and tested here, not one that arrives unannounced.
+# change made and tested here, not one that arrives unannounced. Actions are
+# pinned to a commit for the same reason, and because a tag can be moved;
+# Dependabot proposes each new version as a pull request.
 
 jobs:
   test:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # One version for the site, the CLI and the crates (docs/releasing.md):
       # the changelog must say what is in it.
       - name: Version and changelog agree
@@ -28,7 +30,7 @@ jobs:
       # Installs exactly the toolchain, components and targets that
       # rust-toolchain.toml pins, so CI and local builds cannot drift.
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
@@ -49,9 +51,9 @@ jobs:
   action:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Passes on what gives nothing away
         uses: ./
         with:
@@ -70,9 +72,9 @@ jobs:
   fuzz:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: rustup toolchain install nightly --profile minimal
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: crates/hexscope-core/fuzz
       - name: Install cargo-fuzz
@@ -93,15 +95,15 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       # The whole history: each page's dates for search engines are its commits' (seo.ts).
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Install wasm-bindgen CLI (must match the pinned crate)
         run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: pnpm
@@ -118,7 +120,7 @@ jobs:
         run: pnpm --filter web exec playwright install --with-deps chromium
       - name: End-to-end tests
         run: pnpm --filter web e2e
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: e2e-traces
@@ -173,7 +175,7 @@ jobs:
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexscope-site
           path: apps/web/dist
@@ -194,8 +196,8 @@ jobs:
     steps:
       # The site comes from the build; the visit counter's functions and the
       # database they are bound to (apps/web/wrangler.toml) from the repository.
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: hexscope-site
           path: apps/web/dist

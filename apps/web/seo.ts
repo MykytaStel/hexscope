@@ -63,7 +63,15 @@ function inUkrainian(html: string, path: string): string {
     .replace(/\b(src|href)="\.\/(?!["?#])/g, '$1="../')
     // «Name» around a button's name in italics: no space inside the quotes.
     .replace(/«\s+(<(?:em|strong|a)\b)/g, "«$1")
-    .replace(/(<\/(?:em|strong|a)>)\s+»/g, "$1»");
+    .replace(/(<\/(?:em|strong|a)>)\s+»/g, "$1»")
+    // Two names in one pair of quotes, «A і B», each in its own: «A» і «B».
+    .replace(
+      /«(<(em|strong|a)\b[^>]*>(?:(?!<\/\2>)[\s\S])*<\/\2>)(\s*(?:і|й|або|та|,)\s*)(<(em|strong|a)\b[^>]*>(?:(?!<\/\5>)[\s\S])*<\/\5>)»/g,
+      "«$1»$3«$4»",
+    )
+    // A quote opened before a name and not closed after it — the next words
+    // are a fragment of their own, shared with other places — closes there.
+    .replace(/«(<(em|strong|a)\b[^>]*>(?:(?!<\/\2>)[\s\S])*<\/\2>)(?!\s*»)/g, "«$1»");
 }
 
 function between(html: string, open: RegExp, close: string): string {
