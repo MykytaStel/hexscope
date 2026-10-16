@@ -19,8 +19,6 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 ### Changed
 
 - CI's actions are pinned to commits, and Dependabot proposes their updates.
-- The site asks Cloudflare to leave out its request for browsers to report
-  failed connections (Network Error Logging).
 
 ## [0.5.0] — 2026-10-15
 
