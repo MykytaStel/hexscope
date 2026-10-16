@@ -164,6 +164,8 @@ const UK: Record<string, string> = {
   "Menu": "Меню",
   "Local processing.": "Обробка локально.",
   "Nothing is uploaded; your file stays in this tab.": "Нічого не передається: файл залишається в цій вкладці.",
+  "Works offline once opened.": "Після першого відкриття працює й без мережі.",
+  "The file is read by WebAssembly in your browser: the Network tab of its developer tools shows that no file is sent.": "Файл читає WebAssembly у вашому браузері: вкладка «Мережа» в інструментах розробника покаже, що файл нікуди не надсилається.",
   "No account.": "Без облікового запису.",
   "No tracking.": "Без відстеження.",
   "Open source.": "Відкритий код.",
@@ -476,7 +478,7 @@ const UK: Record<string, string> = {
   "What an edited PDF still holds": "Що досі зберігає відредагований PDF",
   "Why a PNG won't open": "Чому PNG не відкривається",
   "How DEFLATE works, step by step": "Як працює DEFLATE, крок за кроком",
-  "hexscope — see what a file gives away before you send it": "hexscope — дізнайтеся, що файл розкриває, перш ніж його надіслати",
+  "hexscope — see what your file reveals before you send it": "hexscope — дізнайтеся, що файл розкриває, перш ніж його надіслати",
   "View and remove metadata from photos and PDFs — hexscope": "Перегляд і видалення метаданих фото та PDF — hexscope",
   "Free EXIF and metadata viewer and remover. See a photo's location and camera, a PDF's author and hidden text, a Word file's comments — and save a clean copy. Nothing is uploaded.": "Безкоштовний перегляд і видалення EXIF та метаданих. Дізнайтеся, де зроблено фото й якою камерою, хто автор PDF і що в ньому приховано, чиї коментарі у файлі Word, — і збережіть очищену копію. Нічого не передається.",
   "Check what a photo or document gives away before you send it — its location, the owner's name, text under black boxes, comments — and save a clean copy. In your browser; nothing is uploaded.": "Перевірте, що фото чи документ розкриває, перш ніж його надіслати: геолокацію, ім’я власника, текст під чорними прямокутниками, коментарі — і збережіть очищену копію. Прямо в браузері, нічого не завантажується.",
@@ -632,6 +634,48 @@ const UK: Record<string, string> = {
   "How to remove the location from a photo": "Як прибрати геолокацію з фото",
   "What a screenshot gives away": "Що розкриває знімок екрана",
   "How to black out a PDF properly": "Як правильно приховати дані в PDF",
+  // The DEFLATE player, on its own page and in the analyzer.
+  "Back to the start (Home)": "На початок (Home)",
+  "Step back (←)": "Крок назад (←)",
+  "Play or pause (Space)": "Відтворити чи призупинити (пробіл)",
+  "Step forward (→)": "Крок уперед (→)",
+  "Close (Esc)": "Закрити (Esc)",
+  "Click to jump": "Клацніть, щоб перейти",
+  "Loading the stream…": "Завантажуємо потік…",
+  "Fetching steps…": "Отримуємо кроки…",
+  "New block": "Новий блок",
+  "— stored: the bytes that follow are copied in as they are.": "— без стиснення: наступні байти копіюються як є.",
+  "— fixed Huffman: codes come from the table built into the format.": "— сталий Гаффман: коди беруться з таблиці, вбудованої у формат.",
+  "Literal": "Літерал",
+  "Back-reference": "Зворотне посилання",
+  "The copy overlaps what it is writing, so it repeats a pattern — this is how long runs compress to a few bits.": "Копія накладається на те, що вона пише, тож повторює візерунок — так довгі повтори стискаються до кількох бітів.",
+  "End of block": "Кінець блока",
+  "— an end-of-block code closes it.": "— код кінця блока його закриває.",
+  "Decoding stops here": "Тут декодування зупиняється",
+  "— the compressed data is damaged. Everything before this point decoded; nothing after it can.": "— стиснені дані пошкоджено. Усе до цього місця декодовано; після нього — нічого.",
+  "Stored block: no codes — its bytes are copied as they are.": "Блок без стиснення: кодів немає — його байти копіюються як є.",
+  "Literal/length codes": "Коди літералів і довжин",
+  "Distance codes": "Коди відстаней",
+  "literals in hex · 256 ends the block · 257+ are lengths": "літерали в hex · 256 закінчує блок · 257+ — довжини",
+  "symbols are distance codes": "символи — коди відстаней",
+  "BFINAL · last block": "BFINAL · останній блок",
+  "BFINAL · more follow": "BFINAL · далі ще блоки",
+  "padding to a byte": "доповнення до байта",
+  "NLEN · LEN inverted": "NLEN · інвертована LEN",
+  "code-length code": "код довжин кодів",
+  "end of block": "кінець блока",
+  "fixed Huffman": "сталий Гаффман",
+  "dynamic Huffman": "динамічний Гаффман",
+  "the input ran out": "вхідні дані скінчилися",
+  "no code in this block's table starts with these bits": "жоден код у таблиці цього блока не починається з цих бітів",
+  "the code lengths do not form a valid code": "довжини кодів не утворюють правильного коду",
+  "the distance reaches before the start of the output": "відстань сягає раніше за початок виведених даних",
+  "the symbol is not defined in DEFLATE": "такого символу в DEFLATE немає",
+  "the zlib header does not describe DEFLATE": "заголовок zlib не описує DEFLATE",
+  "the checksum does not match": "контрольна сума не збігається",
+  "the output would exceed the size limit": "виведені дані перевищили б обмеження розміру",
+  "the decoder could not resume here": "декодер не зміг продовжити звідси",
+  "decoding failed": "декодування не вдалося",
 };
 
 const NOUNS: Record<string, string> = {
@@ -742,6 +786,93 @@ const REVEAL_WORDS: Record<string, string> = {
   "its description": "опис",
 };
 
+/** The same kinds of finding standing alone, as a list's heading names them: "Where replies really go". */
+const HEADINGS: Record<string, string> = {
+  "text that was blacked out but not removed": "текст, який зачорнили, але не прибрали",
+  "text hidden from view": "прихований текст",
+  "where it was taken": "місце зйомки",
+  "a Wi-Fi password in a QR code": "пароль Wi-Fi у QR-коді",
+  "a two-factor secret in a QR code": "секрет двофакторної автентифікації в QR-коді",
+  "a QR code that hides where it goes": "QR-код, що приховує, куди веде",
+  "a place in a QR code": "місце в QR-коді",
+  "that its sender's domain did not vouch for it": "домен відправника не підтвердив лист",
+  "where replies really go": "справжня адреса для відповідей",
+  "a link that says one site and goes to another": "посилання, що веде не туди, куди обіцяє",
+  "an address in lookalike letters": "адреса зі схожими літерами",
+  "an attachment that runs or opens a site": "вкладення, що запускає програму або відкриває сайт",
+  "the address it was sent from": "адреса, з якої надіслано лист",
+  "the sender's computer's name": "назва комп’ютера відправника",
+  "where its files were downloaded from": "звідки завантажено його файли",
+  "the folder it was saved in": "тека, де його збережено",
+  "earlier versions of itself": "його попередні версії",
+  "text that was deleted": "видалений текст",
+  "text an edit took off the page": "текст, прибраний зі сторінки під час редагування",
+  "what was filled into its form": "що вписано в його форму",
+  "files attached to it": "вкладені файли",
+  "where its links go": "куди ведуть його посилання",
+  "contact details in a QR code": "контакти в QR-коді",
+  "where a QR code in it leads": "куди веде QR-код усередині",
+  "what a QR code in it says": "що каже QR-код усередині",
+  "where bounces go": "куди йдуть листи-відмови",
+  "the mail app": "поштова програма",
+  "the sender's time zone": "часовий пояс відправника",
+  "whole files kept inside it": "цілі файли всередині",
+  "sheets hidden from view": "приховані аркуші",
+  "hidden rows and columns": "приховані рядки й стовпці",
+  "the speaker's notes": "нотатки доповідача",
+  "hidden slides": "приховані слайди",
+  "paths on the author's computer": "шляхи на комп’ютері автора",
+  "where its photos were taken": "де зроблено фото всередині",
+  "the camera's serial number": "серійний номер фотоапарата",
+  "the owner's name": "ім’я власника",
+  "who wrote it": "хто його написав",
+  "who saved it last": "хто зберіг його останнім",
+  "its manager's name": "ім’я керівника",
+  "the company": "компанія",
+  "the organisation it belongs to": "організація, якій він належить",
+  "who commented": "хто коментував",
+  "who changed what": "хто що змінював",
+  "the camera behind its photos": "фотоапарат, яким зроблено фото всередині",
+  "the camera": "фотоапарат",
+  "how many photos the camera has taken": "скільки знімків зробив фотоапарат",
+  "IDs that link it to other shots": "ідентифікатори, що пов’язують його з іншими знімками",
+  "how long the phone had been on": "скільки часу телефон був увімкнений",
+  "the place it names": "згадане місце",
+  "the file it was made from": "файл, з якого його зроблено",
+  "its caption": "підпис",
+  "the lens": "об’єктив",
+  "when it was taken": "коли зроблено знімок",
+  "when it was written": "коли його написано",
+  "when it was last changed": "коли його востаннє змінювали",
+  "how long it was worked on": "скільки часу над ним працювали",
+  "how many times it was saved": "скільки разів його зберігали",
+  "its editing history": "історія редагування",
+  "the prompt it was made from": "запит, з якого його створено",
+  "that AI made it": "що його створив ШІ",
+  "who or what made it": "хто або що його створило",
+  "the software used": "використана програма",
+  "the program it was written in": "програма, у якій його написано",
+  "the program that made the PDF": "програма, що створила PDF",
+  "the template it came from": "шаблон, з якого його створено",
+  "its custom properties": "власні властивості",
+  "the printer it was printed on": "принтер, на якому його друкували",
+  "who printed it and when": "хто й коли його друкував",
+  "its title": "назва",
+  "its subject": "тема",
+  "its keywords": "ключові слова",
+  "its description": "опис",
+  "its Finder tags": "теги Finder",
+  "a hidden preview of the picture": "прихований попередній перегляд зображення",
+  "the user name of the computer that built it": "ім’я користувача комп’ютера, де його зібрано",
+  "its functions' names": "назви його функцій",
+  "the compiler that built it": "компілятор, яким його зібрано",
+  "the language it was written in": "мова, якою його написано",
+  "what it asks its host to do": "що він просить у середовища",
+  "where its source map is": "де лежить карта коду",
+  "debug info from its source": "налагоджувальні дані з вихідного коду",
+  "may not be from who it says": "може бути не від того, ким назвався",
+};
+
 function translateRevealList(value: string): string {
   const vocabulary = Object.keys(REVEAL_WORDS).sort((a, b) => b.length - a.length);
   const parts: string[] = [];
@@ -833,6 +964,52 @@ function ukrainianCountWord(count: number, one: string, few: string, many: strin
   return many;
 }
 
+
+/** "105.2 KB" as a Ukrainian reader writes it: "105,2 КБ". */
+function size(amount: string, unit: string): string {
+  return `${amount.replace(".", ",")} ${{ B: "Б", KB: "КБ", MB: "МБ", GB: "ГБ" }[unit] ?? unit}`;
+}
+
+/** "3 bits", "1 byte", "12 blocks" in Ukrainian, wherever they stand in a sentence. */
+function units(text: string): string {
+  const forms: Record<string, [string, string, string]> = {
+    bit: ["біт", "біти", "бітів"],
+    byte: ["байт", "байти", "байтів"],
+    block: ["блок", "блоки", "блоків"],
+    row: ["рядок", "рядки", "рядків"],
+    symbol: ["символ", "символи", "символів"],
+  };
+  return text.replace(/(\d[\d,]*) (bit|byte|block|row|symbol)s?\b/g, (_all, n: string, unit: string) => {
+    const count = Number(n.replaceAll(",", ""));
+    return `${count.toLocaleString("uk")} ${ukrainianCountWord(count, ...forms[unit])}`;
+  });
+}
+
+/** What a share of the file goes to, in the sentence under "What it's made of". */
+const MADE_OF: Record<string, string> = {
+  "the picture": "зображення",
+  "the files": "файли",
+  "the pages, fonts, images": "сторінки, шрифти й зображення",
+  "the message and attachments": "лист і вкладення",
+  "the code and data": "код і дані",
+  "the document": "документ",
+  "information about it": "відомості про файл",
+  "the structure that holds it together": "структура, що його скріплює,",
+  "bytes the format does not account for": "байти, яких формат не пояснює,",
+};
+
+/** Which colours a JPEG scan carries, and how much of them. */
+function scanWords(value: string): string {
+  const of = (x: string) => (x === "every colour" ? "усіх кольорів" : x === "grey" ? "сірого" : x);
+  let m = /^all of (.+)$/.exec(value);
+  if (m) return `усе для ${of(m[1])}`;
+  m = /^averages of (.+?)(, one more bit)?$/.exec(value);
+  if (m) return `середні значення ${of(m[1])}${m[2] ? ", ще один біт" : ""}`;
+  m = /^detail (\S+) of (.+?)(, one more bit)?$/.exec(value);
+  if (m) return `деталі ${m[1]} ${of(m[2])}${m[3] ? ", ще один біт" : ""}`;
+  return value;
+}
+
 function translateText(value: string, locale: Locale): string {
   if (locale === "en") return value;
   const leading = value.match(/^\s*/)?.[0] ?? "";
@@ -840,7 +1017,15 @@ function translateText(value: string, locale: Locale): string {
   const content = value.slice(leading.length, value.length - trailing.length);
   const normalized = content.replace(/\s+/g, " ");
   const exact = UK[normalized] ?? lazyTranslations[normalized];
-  if (exact) return `${leading}${exact}${trailing}`;
+  if (exact) {
+    // The source's own spaces stand; one the translation adds is kept where the source had none.
+    const said = leading ? exact.trimStart() : exact;
+    return `${leading}${trailing ? said.trimEnd() : said}${trailing}`;
+  }
+  // A phrase that starts a line or a heading: "Where replies really go".
+  const lower = normalized.charAt(0).toLowerCase() + normalized.slice(1);
+  const asPhrase = lower !== normalized ? (HEADINGS[lower] ?? UK[lower] ?? lazyTranslations[lower] ?? REVEAL_WORDS[lower]) : undefined;
+  if (asPhrase) return `${leading}${asPhrase.charAt(0).toUpperCase()}${asPhrase.slice(1)}${trailing}`;
   const pictureReason = /^The selected area was redacted by the operation, but text inside its pixels was not checked because hexscope does not use OCR\.(?: (.*))?$/.exec(normalized);
   if (pictureReason) {
     const reason = "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях.";
@@ -849,12 +1034,16 @@ function translateText(value: string, locale: Locale): string {
   const coverage = /^hexscope cannot yet confirm whether this ([A-Z]+) finding was removed\.$/.exec(normalized);
   if (coverage) return `${leading}hexscope поки не може підтвердити, чи видалено цей факт у форматі ${coverage[1]}.${trailing}`;
   if (content && content !== value) return `${leading}${translateText(content, locale)}${trailing}`;
+  // Spaced for the eye ("Photo  ·  105.2 KB") or by a line break: read as one line.
+  value = normalized;
   const label = /^“(.+)”, organisation ([\w-]+)(?:, set by (\S+))?(?: on (.+))?$/.exec(value);
   if (label) {
     return `«${label[1]}», організація ${label[2]}${label[3] ? `, встановив ${label[3]}` : ""}${label[4] ? `, ${label[4]}` : ""}`;
   }
   const sized = /^(\d[\d.]* (?:B|KB|MB|GB)) · (\d[\d,]*) bytes?$/.exec(value);
-  if (sized) return `${sized[1]} · ${translateText(`${sized[2]} bytes`, locale)}`;
+  if (sized) return `${translateText(sized[1], locale)} · ${translateText(`${sized[2]} bytes`, locale)}`;
+  const amount = /^(\d+(?:\.\d+)?) (B|KB|MB|GB)$/.exec(value);
+  if (amount) return size(amount[1], amount[2]);
   let byteCount = /^(\d[\d,]*) bytes?$/.exec(value);
   if (byteCount) {
     const count = Number(byteCount[1].replaceAll(",", ""));
@@ -875,7 +1064,7 @@ function translateText(value: string, locale: Locale): string {
   const tourCount = /^(\d+) of (\d+)$/.exec(value);
   if (tourCount) return `Крок ${tourCount[1]} із ${tourCount[2]}`;
   let match = /^(Photo|Picture|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
-  if (match) return `${translateText(match[1], locale)} · ${match[2]}`;
+  if (match) return `${translateText(match[1], locale)} · ${translateText(match[2], locale)}`;
   match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);
   if (match) {
     const count = Number(match[2]);
@@ -889,16 +1078,22 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `У файлі щось приховано`;
   match = /^Nothing personal found in this (photo|picture|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
   if (match) return `Особистих даних у файлі не знайдено`;
-  match = /^Reveals (.+)\.$/.exec(value);
-  if (match) return `Розкриває ${translateRevealList(match[1])}.`;
+  // A list is one sentence: a line of several is said sentence by sentence below.
+  match = /^Reveals ([^]+)\.$/.exec(value);
+  if (match && !match[1].includes(". ")) return `Розкриває ${translateRevealList(match[1])}.`;
   match = /^Tells you about its sender: (.+)\.$/.exec(value);
-  if (match) return `Що лист розповідає про відправника: ${translateRevealList(match[1])}.`;
-  match = /^Hidden in it: (.+)\.$/.exec(value);
-  if (match) return `Приховано у файлі: ${translateText(match[1], locale)}.`;
-  match = /^Possible signs of impersonation: (.+)\.$/.exec(value);
-  if (match) return `Можливі ознаки підміни відправника: ${match[1]}.`;
+  if (match && !match[1].includes(". ")) return `Що лист розповідає про відправника: ${translateRevealList(match[1])}.`;
+  match = /^(Hidden in it|Possible signs of impersonation): (.+?)(?:, and (\d+) more things?)?\.$/.exec(value);
+  if (match && !match[2].includes(". ")) {
+    const head = match[1] === "Hidden in it" ? "Приховано у файлі" : "Можливі ознаки підміни відправника";
+    return `${head}: ${translateText(match[2], locale)}${match[3] ? ` і ще ${match[3]}` : ""}.`;
+  }
   match = /^Damaged: (\d+) (place|places) could not be read properly\. It may not open, or open only partly\.$/.exec(value);
   if (match) return `Пошкоджень: ${match[1]}. Частину даних не вдалося прочитати; файл може не відкритися або відкритися не повністю.`;
+  match = /^Damaged: (\d+) places? could not be read properly\.$/.exec(value);
+  if (match) return `Пошкоджень: ${match[1]}. Частину даних не вдалося прочитати.`;
+  match = /^(Word|Excel|PowerPoint) 97–2003 (document|workbook|presentation)$/.exec(value);
+  if (match) return `${{ document: "Документ", workbook: "Книга", presentation: "Презентація" }[match[2]]} ${match[1]} 97–2003`;
   match = /^Breaks (\d+) (rule|rules) of the format, usually harmlessly\.$/.exec(value);
   if (match) return `Порушує ${match[1]} ${ruleWord(Number(match[1]))} формату — зазвичай без наслідків.`;
   match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) has the wrong name$/.exec(value);
@@ -1018,8 +1213,147 @@ function translateText(value: string, locale: Locale): string {
   match = /^A map with a pin where it was taken: (.+)$/.exec(value);
   if (match) return `Карта з позначкою місця зйомки: ${match[1]}`;
   match = /^(.+?) is open\. (.+)$/.exec(value);
-  if (match) return `${match[1]} відкрито. ${match[2].split(/(?<=\.) /).map((line) => translateText(line, locale)).join(" ")}`;
-  return factSentence(value) ?? value;
+  if (match) return `${match[1]} відкрито. ${sentences(match[2], locale, true)}`;
+  // The sentence to paste beside a shared card.
+  match = /^My (photo|image|video|email|document) was giving away (.+)\. I checked it in my browser with hexscope, and nothing was uploaded: (\S+)$/.exec(value);
+  if (match) {
+    const mine = { photo: "Моє фото розкривало", image: "Моє зображення розкривало", video: "Моє відео розкривало", email: "Мій лист розкривав", document: "Мій документ розкривав" }[match[1]];
+    return `${mine} ${translateRevealList(match[2])}. Перевірено в браузері за допомогою hexscope, нічого не завантажувалося: ${match[3]}`;
+  }
+  // Opening, the views' captions and the sentence under "What it's made of".
+  match = /^Parsing (.+)…$/.exec(value);
+  if (match) return `Читаємо ${match[1]}…`;
+  match = /^(.+?) · (\d+(?:\.\d+)?) (B|KB|MB|GB)$/.exec(value);
+  if (match) return `${translateText(match[1], locale)} · ${size(match[2], match[3])}`;
+  match = /^Of its (\d+(?:\.\d+)?) (B|KB|MB|GB), (.+?)( — a second, small copy of the picture among it)?\.$/.exec(value);
+  if (match) {
+    const shares = [...match[3].matchAll(/(under 1%|\d+%) (?:goes )?to (?:the )?(the picture|the files|the pages, fonts, images|the message and attachments|the code and data|the document|information about it|the structure that holds it together|bytes the format does not account for)/g)];
+    if (shares.length) {
+      const said = shares.map(([, pct, what]) => `${MADE_OF[what]} — ${pct === "under 1%" ? "менше 1%" : pct}`);
+      const list = said.length > 1 ? `${said.slice(0, -1).join(", ")} і ${said[said.length - 1]}` : said[0];
+      return `Із ${size(match[1], match[2])}: ${list}${match[4] ? "; серед відомостей — друга, маленька копія зображення" : ""}.`;
+    }
+  }
+  match = /^(\d+) attachments$/.exec(value);
+  if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "вкладення", "вкладення", "вкладень")}`;
+  match = /^Save a copy with (\d+) places blacked out$/.exec(value);
+  if (match) return `Зберегти копію з ${match[1]} прихованими місцями`;
+  match = /^Page (\d+): what anyone can still (read|see) under the boxes$/.exec(value);
+  if (match) return `Сторінка ${match[1]}: що досі можна ${match[2] === "read" ? "прочитати" : "побачити"} під прямокутниками`;
+  match = /^Page (\d+): as a viewer shows it$/.exec(value);
+  if (match) return `Сторінка ${match[1]}: як її показує переглядач`;
+  // The way an email came: what the receiving server found.
+  match = /^✓ (.+) passed$/.exec(value);
+  if (match) return `✓ ${match[1]}: пройдено`;
+  match = /^✗ (.+) failed — not vouched for$/.exec(value);
+  if (match) return `✗ ${match[1]}: не пройдено — домен лист не підтвердив`;
+  // A picture built up scan by scan, or pass by pass.
+  match = /^All (\d+) scans: the whole picture\.$/.exec(value);
+  if (match) return `Усі скани (${match[1]}): усе зображення.`;
+  match = /^After scan (\d+) of (\d+) \((.+)\): (\d+)% of the file\.$/.exec(value);
+  if (match) return `Після скану ${match[1]} із ${match[2]} (${scanWords(match[3])}): ${match[4]}% файла.`;
+  match = /^All (\d+) passes: the whole picture(?:, (.+) of the file)?\.$/.exec(value);
+  if (match) return `Усі проходи (${match[1]}): усе зображення${match[2] ? `, ${match[2]} файла` : ""}.`;
+  match = /^After pass (\d) of 7: (.+) of the pixels(?:, (.+) of the file)?\.$/.exec(value);
+  if (match) return `Після проходу ${match[1]} із 7: ${match[2]} пікселів${match[3] ? `, ${match[3]} файла` : ""}.`;
+  // What a byte or a pixel of a JPEG is.
+  match = /^Byte (\S+) is part of block (\d+), (\d+)(?: in scan (\d+) of (\d+) \((.+)\))? — (\d+×\d+) pixels, written in (.+)\.$/.exec(value);
+  if (match) {
+    const scan = match[4] ? ` у скані ${match[4]} із ${match[5]} (${scanWords(match[6])})` : "";
+    return `Байт ${match[1]} — частина блока ${match[2]}, ${match[3]}${scan}: ${match[7]} пікселів, записано ${units(match[8])}.`;
+  }
+  match = /^Pixel (\d+), (\d+): its block comes after where the scan stops\.$/.exec(value);
+  if (match) return `Піксель ${match[1]}, ${match[2]}: його блок іде після місця, де скан обривається.`;
+  match = /^Pixel (\d+), (\d+): not decoded\.$/.exec(value);
+  if (match) return `Піксель ${match[1]}, ${match[2]}: не декодовано.`;
+  match = /^Pixel (\d+), (\d+) is in block (\d+), (\d+): (\d+×\d+) pixels, (.+?) of 8×8 samples, written in (.+?) — (.+?) from (\S+)\.$/.exec(value);
+  if (match) return `Піксель ${match[1]}, ${match[2]} — у блоці ${match[3]}, ${match[4]}: ${match[5]} пікселів, ${units(match[6])} відліків 8×8, записано ${units(match[7])} — ${units(match[8])} від ${match[9]}.`;
+  match = /^An average block takes (.+?); this one has (.+)\.$/.exec(value);
+  if (match) return `Середній блок займає ${units(match[1])}; у цього — ${translateText(match[2], locale)}.`;
+  match = /^Pixel (\d+), (\d+) is written a little in each of (\d+) scans — (.+) in all\.$/.exec(value);
+  if (match) return `Піксель ${match[1]}, ${match[2]} записано потроху в кожному з ${match[3]} сканів — разом ${units(match[4])}.`;
+  match = /^Scan (\d+)'s part: block (\d+), (\d+), (\d+×\d+) pixels, (.+?) from (\S+)\.$/.exec(value);
+  if (match) return `Частина скану ${match[1]}: блок ${match[2]}, ${match[3]}, ${match[4]} пікселів, ${units(match[5])} від ${match[6]}.`;
+  match = /^(all of|averages of|detail \S+ of) .+$/.exec(value);
+  if (match) return scanWords(value);
+  match = /^\d[\d,]* (bits?|bytes?)$/.exec(value);
+  if (match) return units(value);
+  // What a byte or a pixel of a PNG is.
+  match = /^Pixel (\d+), (\d+) · (?:pass (\d) of 7, its row (\d+)|row (\d+)) filtered with (.+)\.$/.exec(value);
+  if (match) {
+    const where = match[3] ? `прохід ${match[3]} із 7, його рядок ${match[4]}` : `рядок ${match[5]}`;
+    return `Піксель ${match[1]}, ${match[2]} · ${where}, фільтр ${match[6].replace(/^type /, "тип ")}.`;
+  }
+  match = /^These bits wrote (.+?) of (?:pass (\d), row (\d+)|row (\d+))( and on)?\.$/.exec(value);
+  if (match) return `Ці біти записали ${units(match[1])} ${match[2] ? `проходу ${match[2]}, рядка ${match[3]}` : `рядка ${match[4]}`}${match[5] ? " і далі" : ""}.`;
+  match = /^Its byte, (0x[0-9A-F]+), is a literal: spelled out in the file's bits\.$/.exec(value);
+  if (match) return `Його байт, ${match[1]}, — літерал: записаний у бітах файла як є.`;
+  match = /^It was copied: (.+?) from ([\d,  ]+) back(?: — exactly (.+?) up( in its pass)?| on the same row( in its pass)?)?, shown in blue\.$/.exec(value);
+  if (match) {
+    const rows = match[3] ? ` — рівно на ${units(match[3])} вище${match[4] ? " у його проході" : ""}` : / on the same row/.test(value) ? " у тому самому рядку" : "";
+    return `Скопійовано: ${units(match[1])}, що стоять на ${match[2]} назад${rows}; показано синім.`;
+  }
+  match = /^Step ([\d,  ]+) in the player$/.exec(value);
+  if (match) return `Крок ${match[1]} у плеєрі`;
+  // The DEFLATE player.
+  match = /^Step ([\d,  ]+) of ([\d,  ]+)$/.exec(value);
+  if (match) return `Крок ${match[1]} із ${match[2]}`;
+  match = /^Read (.+?) \(bits ([\d,  ]+)–([\d,  ]+)\) · output byte ([\d,  ]+)$/.exec(value);
+  if (match) return `Прочитано ${units(match[1])} (біти ${match[2]}–${match[3]}) · вихідний байт ${match[4]}`;
+  match = /^Stopped at compressed bit ([\d,  ]+) · output so far ([\d,  ]+) bytes$/.exec(value);
+  if (match) return `Зупинилися на стисненому біті ${match[1]} · виведено ${match[2]} байтів`;
+  match = /^(stored|fixed Huffman|dynamic Huffman) block$/.exec(value);
+  if (match) return `${{ stored: "Блок без стиснення", "fixed Huffman": "Блок зі сталим Гаффманом", "dynamic Huffman": "Блок із динамічним Гаффманом" }[match[1]]}`;
+  match = /^— dynamic Huffman: this block ships its own code tables, ([\d,  ]+) bits of them\.$/.exec(value);
+  if (match) return `— динамічний Гаффман: блок несе власні таблиці кодів, ${units(`${match[1]} bits`)}.`;
+  match = /^— write byte (0x[0-9A-F]{2})( '.')? as it is\.$/.exec(value);
+  if (match) return `— записати байт ${match[1]}${match[2] ?? ""} як є.`;
+  match = /^— copy ([\d,  ]+) bytes from ([\d,  ]+) bytes back\.$/.exec(value);
+  if (match) return `— скопіювати ${units(`${match[1]} bytes`)}, що стоять на ${units(`${match[2]} bytes`)} раніше.`;
+  match = /^This header builds (\d+) literal\/length and (\d+) distance codes, using a (\d+)-symbol code for their lengths\.$/.exec(value);
+  if (match) return `Цей заголовок будує ${match[1]} кодів літералів і довжин та ${match[2]} кодів відстаней, а їхні довжини записано кодом на ${match[3]} символи.`;
+  match = /^code lengths · (\d+) symbols$/.exec(value);
+  if (match) return `довжини кодів · ${units(`${match[1]} symbols`)}`;
+  match = /^literal (0x[0-9A-F]{2})$/.exec(value);
+  if (match) return `літерал ${match[1]}`;
+  match = /^length code (\d+)$/.exec(value);
+  if (match) return `код довжини ${match[1]}`;
+  match = /^distance code (\d+)$/.exec(value);
+  if (match) return `код відстані ${match[1]}`;
+  match = /^(\S+) is past this range$/.exec(value);
+  if (match) return `${match[1]} виходить за цей діапазон`;
+  const fact = factSentence(value);
+  if (fact) return fact;
+  // Several sentences, none of them known as a whole: each on its own.
+  const whole = sentences(value, locale);
+  return whole;
+}
+
+/**
+ * A line made of several sentences, none known as a whole: the longest run
+ * of them that is known, then the rest — "Named .jpg, but it is a HEIC
+ * image. Apps that go by the name…" is two sentences and one translation.
+ */
+function sentences(value: string, locale: Locale, whole = false): string {
+  const parts = value.split(/(?<=\.) (?=[A-Z“])/);
+  if (parts.length < 2) return whole ? translateText(value, locale) : value;
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; ) {
+    let j = parts.length;
+    for (; j > i + 1; j--) {
+      // The whole line was tried already, unless the caller asks for it.
+      if (!whole && i === 0 && j === parts.length) continue;
+      const run = parts.slice(i, j).join(" ");
+      const said = translateText(run, locale);
+      if (said !== run) {
+        out.push(said);
+        break;
+      }
+    }
+    if (j === i + 1) out.push(translateText(parts[i], locale));
+    i = j;
+  }
+  return out.join(" ");
 }
 
 /** "Olena and Petro", "A, B and 2 others", as the core joins names. */
