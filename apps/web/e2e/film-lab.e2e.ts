@@ -93,6 +93,8 @@ test("film lab re-reads metadata-bearing JPEG output and releases its view on an
     localStorage.setItem("hexscope.tour", "done");
   });
   await page.goto("./?sample=photo.jpg");
+  // A camera's photo has no clues of film: the lab is among the details.
+  await page.locator(".more-details > summary").click();
   await page.locator(".film-lab-entry > summary").click();
   const lab = page.locator(".film-lab");
   await expect(lab).toHaveAttribute("data-state", "ready");

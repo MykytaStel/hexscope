@@ -56,7 +56,7 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
   const share = (role: number) => (byRole.get(role)?.bytes ?? 0) / total;
   const pct = (x: number) => (x < 0.01 ? "under 1%" : `${Math.round(x * 100)}%`);
   const about = share(Role.Metadata) + share(Role.Thumbnail);
-  const parts = [`${pct(share(Role.Content))} goes to the ${roleName(Role.Content, m.file.format).toLowerCase()}`];
+  const parts = [`${pct(share(Role.Content))} goes to the ${roleName(Role.Content, m.file.format).toLowerCase().replace(/^the /, "")}`];
   if (about > 0) parts.push(`${pct(about)} to information about it`);
   if (share(Role.Structure) >= 0.01) parts.push(`${pct(share(Role.Structure))} to the structure that holds it together`);
   if (share(Role.Hidden) > 0) parts.push(`${pct(share(Role.Hidden))} to bytes the format does not account for`);

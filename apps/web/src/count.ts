@@ -9,6 +9,8 @@ export function countVisit(): void {
   if (!COUNTED.has(location.hostname)) return;
   const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
   if (nav.globalPrivacyControl || nav.doNotTrack === "1") return;
+  // A browser a program drives — a crawler, a test, a page checker — is no person.
+  if (nav.webdriver) return;
   const later = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 2000));
   later(() => {
     for (const period of ["day", "month", "new"]) {

@@ -18,7 +18,32 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Changed
 
+- **The analyzer in Ukrainian, all of it**: the parts of a file in the bytes'
+  colours, what a file is made of, the details pane and its tools, the way an
+  email came, blacking out text and pictures, the keys, finding in a file,
+  several files at once, the DEFLATE player and the pictures' captions —
+  about 250 lines that stayed in English. Sizes read "105,2 КБ", a verdict's
+  list is Ukrainian to its end ("… і ще 4"), and a list's heading names a
+  finding in its own case. A new end-to-end test opens every sample and test
+  file in every view, makes a clean copy, compares, lists several files, and
+  fails on any English word of hexscope's own.
+- The photo's facts are on the home page from its first paint; the clean
+  copy strikes them once it is checked.
+- The home page's top bar and sections share one gutter at every width.
+- The film-scan clues show only where a picture has some: a camera's photo
+  no longer carries a section saying it has none.
+- The row under "Location" is called "Coordinates".
+- The home page says "nothing is uploaded" once, and in its other places what
+  else is true: it works offline, and the developer tools show nothing sent.
+- The README lists every guide, and the crates by the site's version.
 - CI's actions are pinned to commits, and Dependabot proposes their updates.
+
+### Fixed
+
+- Ukrainian guides close every quote they open and keep the space after a
+  name in italics ("EXIF — блоку…"); a test reads each built page for it.
+- What a document is made of no longer says "the the document".
+- The visitor counter does not count a browser a program drives.
 
 ## [0.5.0] — 2026-10-15
 

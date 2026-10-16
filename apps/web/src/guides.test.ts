@@ -2,7 +2,7 @@
 // fragment by fragment (seo.ts): a fragment without a translation stays in
 // English there. These tests name each one, so a new guide cannot ship half
 // translated.
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GUIDES, guideList } from "../guides";
 import { GUIDE_UK } from "./guide-i18n";
@@ -59,5 +59,36 @@ describe("the list of the other guides", () => {
 
   it("is in every guide, and every guide is a page", () => {
     for (const g of GUIDES) expect(readFileSync(new URL(g.file, root), "utf8")).toContain("<ul data-guides></ul>");
+  });
+});
+
+// The Ukrainian pages as the build writes them, fragment joined to fragment:
+// a quote opened in one and closed in the next, a space lost at a join.
+const built = new URL("../dist/uk/", import.meta.url);
+
+describe.skipIf(!existsSync(built))("the punctuation of every built Ukrainian page", () => {
+  const read = (file: string) =>
+    decode(
+      readFileSync(new URL(file, built), "utf8")
+        .replace(/<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<code\b[\s\S]*?<\/code>/gi, " ")
+        .replace(/<\/?(?:p|li|ul|ol|h[1-6]|div|section|nav|header|footer|main|article|aside|figure|figcaption|dt|dd|td|th|tr|br)\b[^>]*>/gi, " ")
+        .replace(/<[^>]+>/g, ""),
+    ).replace(/\s+/g, " ");
+  const files = existsSync(built) ? readdirSync(built).filter((f) => f.endsWith(".html")) : [];
+
+  it.each(files)("%s closes every quote it opens", (file) => {
+    const text = read(file);
+    expect([(text.match(/«/g) ?? []).length, (text.match(/»/g) ?? []).length]).toEqual([
+      (text.match(/«/g) ?? []).length,
+      (text.match(/«/g) ?? []).length,
+    ]);
+  });
+
+  it.each(files)("%s keeps a space after each sentence and around each dash", (file) => {
+    const text = read(file);
+    const glued = [...text.matchAll(/[a-zа-яіїєґ’][.!?:;][А-ЯІЇЄҐ]|[A-Za-zА-Яа-яІіЇїЄєҐґ]—|—[A-Za-zА-Яа-яІіЇїЄєҐґ]/g)].map((m) =>
+      text.slice(Math.max(0, m.index - 20), m.index + 20),
+    );
+    expect(glued).toEqual([]);
   });
 });

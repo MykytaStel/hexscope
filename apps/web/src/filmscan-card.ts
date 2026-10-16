@@ -68,24 +68,29 @@ export function filmScanCard(result: FilmScanReport, model: FileModel): HTMLElem
   }
 
   card.append(el("p", "hint film-scan-caveat", "These visual clues do not prove that the picture came from film. Digital borders can look similar; grain is not analyzed."));
-  if (model.file.dimensions) {
-    const entry = el("details", "film-lab-entry");
-    const content = el("div");
-    entry.append(el("summary", undefined, "Prepare a film photo to share"), content);
-    let dispose: (() => void) | undefined;
-    let generation = 0;
-    entry.addEventListener("toggle", async () => {
-      const version = ++generation;
-      dispose?.(); dispose = undefined; content.replaceChildren();
-      if (!entry.open) return;
-      dismissTour();
-      try {
-        const { filmLab } = await import("./film-lab-ui");
-        if (!entry.open || version !== generation || !entry.isConnected) return;
-        const lab = filmLab(model, result); dispose = lab.dispose; content.append(lab.view);
-      } catch { if (entry.open) content.append(el("p", "hint", "The film lab could not load. Close and reopen it to try again.")); }
-    });
-    card.append(entry);
-  }
+  const entry = filmLabEntry(result, model);
+  if (entry) card.append(entry);
   return card;
+}
+
+/** The way into the film lab for this picture: beside its clues, or among the details when it has none. */
+export function filmLabEntry(result: FilmScanReport, model: FileModel): HTMLElement | null {
+  if (!model.file.dimensions) return null;
+  const entry = el("details", "film-lab-entry");
+  const content = el("div");
+  entry.append(el("summary", undefined, "Prepare a film photo to share"), content);
+  let dispose: (() => void) | undefined;
+  let generation = 0;
+  entry.addEventListener("toggle", async () => {
+    const version = ++generation;
+    dispose?.(); dispose = undefined; content.replaceChildren();
+    if (!entry.open) return;
+    dismissTour();
+    try {
+      const { filmLab } = await import("./film-lab-ui");
+      if (!entry.open || version !== generation || !entry.isConnected) return;
+      const lab = filmLab(model, result); dispose = lab.dispose; content.append(lab.view);
+    } catch { if (entry.open) content.append(el("p", "hint", "The film lab could not load. Close and reopen it to try again.")); }
+  });
+  return entry;
 }
