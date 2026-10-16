@@ -1007,13 +1007,16 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   await summary.click();
   const menu = page.locator(".landing-menu nav");
   await expect(menu).toBeVisible();
-  const [menuBox, headerBox] = await Promise.all([
+  // The button is measured again with the menu open: the header can lay
+  // itself out anew meanwhile, as the hero's Open comes into view.
+  const [menuBox, headerBox, opened] = await Promise.all([
     menu.boundingBox(),
     page.locator(".topbar").boundingBox(),
+    summary.boundingBox(),
   ]);
   expect(menuBox).not.toBeNull();
   expect(headerBox).not.toBeNull();
-  expect(Math.abs((menuBox!.x + menuBox!.width) - (button!.x + button!.width))).toBeLessThanOrEqual(1);
+  expect(Math.abs((menuBox!.x + menuBox!.width) - (opened!.x + opened!.width))).toBeLessThanOrEqual(1);
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);

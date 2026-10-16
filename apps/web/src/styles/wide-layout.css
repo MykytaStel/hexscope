@@ -38,11 +38,6 @@
     border-top: 1px solid var(--border);
   }
 
-  body.is-playing .layout {
-    grid-template-columns: clamp(220px, 18vw, 280px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) 400px;
-  }
-
   /* The summary alone: a readable measure, with the full-width desktop flow below. */
   body[data-view="summary"]:not(.is-playing) .pane-tree,
   body[data-view="summary"]:not(.is-playing) .pane-hex,
@@ -73,10 +68,6 @@
   }
 
   body.is-playing .pane-drawer {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    border-left: 0;
-    border-top: 1px solid var(--border);
     display: grid;
   }
 }
