@@ -2031,6 +2031,15 @@ body[data-state="empty"] .topbar {
   padding-inline: max(var(--landing-gutter), calc((100% - var(--landing-max)) / 2 + var(--landing-gutter)));
 }
 
+/* A phone's top bar keeps its own narrow edge on the right, where the
+   header's Open joins the language and theme buttons once the hero's is
+   scrolled away; the brand still lines up with the page. */
+@media (max-width: 560px) {
+  body[data-state="empty"] .topbar {
+    padding-inline: var(--landing-gutter) 8px;
+  }
+}
+
 body[data-state="empty"] .empty-card {
   width: min(100%, var(--landing-max));
   max-width: var(--landing-max);
