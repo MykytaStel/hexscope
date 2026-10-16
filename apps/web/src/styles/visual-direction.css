@@ -2001,3 +2001,47 @@ body[data-state="ready"] .topbar {
     font-size: 18px;
   }
 }
+
+/* One gutter for the landing page: the brand in the top bar and the first
+   words of each section stand on one line at every width. */
+body[data-state="empty"] {
+  --landing-max: 1320px;
+  --landing-gutter: clamp(20px, 4vw, 56px);
+}
+
+@media (max-width: 1180px) {
+  body[data-state="empty"] {
+    --landing-gutter: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  body[data-state="empty"] {
+    --landing-gutter: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  body[data-state="empty"] {
+    --landing-gutter: 12px;
+  }
+}
+
+body[data-state="empty"] .topbar {
+  padding-inline: max(var(--landing-gutter), calc((100% - var(--landing-max)) / 2 + var(--landing-gutter)));
+}
+
+/* A phone's top bar keeps its own narrow edges: once the hero's Open is
+   scrolled away, the header's joins the brand, the menu and the language
+   and theme buttons, and the row is all but the screen's width. */
+@media (max-width: 560px) {
+  body[data-state="empty"] .topbar {
+    padding-inline: 8px;
+  }
+}
+
+body[data-state="empty"] .empty-card {
+  width: min(100%, var(--landing-max));
+  max-width: var(--landing-max);
+  padding-inline: var(--landing-gutter);
+}

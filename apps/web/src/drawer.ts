@@ -529,7 +529,8 @@ export class Drawer {
       const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}${
         altitude !== null ? ` · ${Math.round(altitude)}\u00a0m` : ""
       }`;
-      const dd = row("Location", where, node, true, "location");
+      // Under the group "Location", the row says what it is: the coordinates.
+      const dd = row("Coordinates", where, node, true, "location");
       dd.dataset.kind = "location";
       const term = dd.previousElementSibling as HTMLElement | null;
       if (term) term.dataset.kind = "location";
