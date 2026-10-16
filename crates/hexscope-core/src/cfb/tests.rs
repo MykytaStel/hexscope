@@ -38,6 +38,10 @@ fn an_old_word_file_says_who_wrote_it() {
     };
     assert_eq!(fact("author"), Some("Olena Koval"));
     assert_eq!(fact("title"), Some("Plan"));
+    // Word's own record of the document, beside the property streams: the
+    // dates in its DOP, which ExifTool reads as MS-DOC.
+    assert_eq!(fact("created"), Some("2002-12-09 15:26"));
+    assert_eq!(fact("modified"), Some("2002-12-09 15:26"));
     assert_eq!(doc.tree.get(doc.facts[0].node).label, "SummaryInformation");
     // Every byte after the header belongs to one run of sectors, in order.
     let top: Vec<_> = doc
@@ -57,9 +61,16 @@ fn its_clean_copy_blanks_the_properties_and_moves_nothing() {
     let copy = clean(&data).unwrap();
     assert_eq!(copy.bytes.len(), data.len());
     assert!(copy.removed[0].what.starts_with("document properties"));
+    assert!(
+        copy.removed
+            .iter()
+            .any(|r| r.what == "the document's dates, revision number and editing time")
+    );
     let again = parse_cfb(&copy.bytes);
     assert_eq!(again.kind, Kind::Word);
     assert_eq!(kinds(&again), Vec::<&str>::new());
+    let c2 = Compound::open(&copy.bytes).unwrap();
+    assert_eq!(super::word::Word::open(&c2).unwrap().facts(), Vec::new());
     // No text and no time is left in either property stream, whatever its
     // property: what lets a copy's verification call every kind removed.
     let c2 = Compound::open(&copy.bytes).unwrap();
@@ -72,7 +83,7 @@ fn its_clean_copy_blanks_the_properties_and_moves_nothing() {
             "{name}"
         );
     }
-    // The document itself is untouched.
+    // The document itself is untouched: it names no list of who saved it.
     let c = Compound::open(&data).unwrap();
     let word = &c.entries[c.find(0, "WordDocument").unwrap()];
     let before = c.read(word, word.size);
