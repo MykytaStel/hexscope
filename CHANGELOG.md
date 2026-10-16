@@ -10,6 +10,11 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **The command, built for each system, on every release**: Linux (x86-64
+  and ARM, static), macOS (Apple silicon and Intel) and Windows, each with a
+  checksum and GitHub's signed record of the workflow that built it. The
+  GitHub Action at a released version downloads the one for its runner and
+  checks both, instead of compiling for a minute or more.
 - **What metadata removers leave, measured**: hexscope, ExifTool and MAT2
   cleaned the same 45 files and every copy was read back by both ExifTool and
   hexscope (`scripts/compare-tools.py`, `docs/research/metadata-removal.md`).
@@ -36,6 +41,7 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 - The home page says "nothing is uploaded" once, and in its other places what
   else is true: it works offline, and the developer tools show nothing sent.
 - The README lists every guide, and the crates by the site's version.
+- CI's actions are pinned to commits, and Dependabot proposes their updates.
 
 ### Fixed
 
@@ -44,7 +50,7 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   number and the editing time, the list of who saved it and in which
   folders, and who wrote its comments, with their initials. ExifTool read
   them in a clean copy; hexscope now shows them and blanks them.
-- Ukrainian guides closed every quote they open and keep the space after a
+- Ukrainian guides close every quote they open and keep the space after a
   name in italics ("EXIF — блоку…"); a test reads each built page for it.
 - What a document is made of no longer says "the the document".
 - The visitor counter does not count a browser a program drives.
