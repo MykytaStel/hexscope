@@ -2,14 +2,9 @@
 
 .demo {
   display: grid;
-  grid-template-columns: clamp(128px, 12vw, 192px) minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-3);
   margin: 0;
-  padding: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--panel);
   text-align: left;
 }
 
@@ -20,11 +15,8 @@
 .demo-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
   container-type: size;
-  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 0 0 1px var(--border);
 }
 
 .demo-image,
@@ -45,24 +37,17 @@
 .demo-side {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   min-width: 0;
 }
 
 .demo-kicker {
   margin: 0 0 var(--space-1);
-  color: var(--accent);
-  font-weight: 600;
-  font-size: var(--type-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .demo-caption {
   margin: var(--space-2) 0 0;
   font-size: var(--type-small);
   line-height: 1.45;
-  color: var(--muted);
 }
 
 

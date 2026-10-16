@@ -441,7 +441,6 @@
 
 body[data-state="empty"] .empty {
   display: grid;
-  background: var(--bg);
 }
 
 body[data-state="empty"] .layout {
@@ -455,44 +454,29 @@ body[data-state="empty"] .layout {
 }
 
 .empty-card {
-  width: min(100%, 1200px);
-  max-width: 1200px;
   margin-inline: auto;
-  padding: clamp(36px, 3.5vw, 48px) clamp(24px, 4vw, 40px) 56px;
 }
 
 /* The opening: what it does and the way in on the left, it doing it on the right. */
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.9fr);
-  gap: clamp(24px, 2.5vw, 36px);
   /* Top, not centred: the demonstration grows as it plays, and the words
      beside it should not move. */
-  align-items: start;
   margin-bottom: 0;
 }
 
 .hero h1 {
-  max-width: 18ch;
   margin: 0 0 var(--space-3);
-  font-size: var(--type-display);
-  line-height: 1.08;
-  letter-spacing: -0.03em;
 }
 
 .empty-card .lede {
-  max-width: 540px;
   margin: 0 0 var(--space-5);
-  font-size: var(--type-reading);
-  line-height: 1.5;
-  color: var(--muted);
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
 }
 
 .hero-other-ways {
@@ -505,7 +489,6 @@ body[data-state="empty"] .layout {
 .geek-more > summary,
 .landing-more > summary {
   cursor: pointer;
-  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -549,20 +532,13 @@ body[data-state="empty"] .layout {
   display: none;
 }
 
-.landing-proof {
-  margin: var(--space-7) 0 0;
-}
-
 .specialist-tools {
   display: grid;
   grid-template-columns: minmax(210px, 0.7fr) minmax(0, 1.3fr);
   align-items: center;
   gap: var(--space-4) var(--space-5);
-  margin-top: var(--space-6);
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
-  border-radius: var(--surface-radius);
-  background: var(--panel-2);
 }
 
 .specialist-copy,
@@ -572,7 +548,6 @@ body[data-state="empty"] .layout {
 
 .specialist-copy h2 {
   margin: 0;
-  font-size: var(--type-body);
   font-weight: 650;
 }
 
@@ -638,33 +613,20 @@ body[data-state="empty"] .layout {
 }
 
 .format-catalog {
-  margin-top: var(--space-6);
-  padding: clamp(18px, 2vw, 28px);
-  border: 1px solid var(--border);
-  border-radius: var(--surface-radius);
-  background: var(--panel-2);
   text-align: left;
 }
 
 .format-catalog-heading {
-  display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4) var(--space-6);
-  margin-bottom: var(--space-4);
 }
 
 .format-catalog-heading h2 {
   margin: 0;
-  font-size: clamp(19px, 1.8vw, 24px);
   font-weight: 650;
-  letter-spacing: -0.02em;
 }
 
 .format-catalog-heading p {
-  max-width: 48ch;
   margin: 0;
-  color: var(--muted);
   font-size: var(--type-small);
   line-height: 1.5;
 }
@@ -672,7 +634,6 @@ body[data-state="empty"] .layout {
 .format-catalog-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
 }
 
 .format-category {
@@ -687,16 +648,12 @@ body[data-state="empty"] .layout {
 
 .format-category h3 {
   margin: 0 0 var(--space-3);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 650;
   line-height: 1.4;
 }
 
 .format-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -704,13 +661,8 @@ body[data-state="empty"] .layout {
 
 .format-tags code {
   display: inline-flex;
-  min-height: 26px;
   align-items: center;
-  padding: 3px 7px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel);
-  color: var(--muted);
   font: 600 10.5px var(--mono);
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -718,19 +670,8 @@ body[data-state="empty"] .layout {
 
 .format-category-note {
   margin: var(--space-3) 0 0;
-  color: var(--faint);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.doors-title {
-  margin: var(--space-7) 0 var(--space-4);
-  font-size: var(--type-caption);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  text-align: left;
 }
 
 .doors-title + .doors {
@@ -738,9 +679,6 @@ body[data-state="empty"] .layout {
 }
 
 .doors-lede {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: var(--muted);
   text-align: left;
 }
 
@@ -774,11 +712,6 @@ body[data-state="empty"] .layout {
   text-align: left;
 }
 
-.doors-main {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-5);
-}
-
 .door {
   display: grid;
   align-content: start;
@@ -802,11 +735,8 @@ body[data-state="empty"] .layout {
 }
 
 .door-icon {
-  width: 22px;
-  height: 22px;
   margin-bottom: 2px;
   fill: none;
-  stroke: var(--accent);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -819,34 +749,18 @@ body[data-state="empty"] .layout {
 
 .door-title {
   min-width: 0;
-  font-weight: 650;
-  font-size: var(--type-card-title);
-  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
 .door-text {
   min-width: 0;
-  color: var(--muted);
-  font-size: var(--type-small);
-  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .door-go {
   min-width: 0;
-  margin-top: 4px;
-  color: var(--accent);
-  font-size: var(--type-small);
-  font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
-}
-
-/* The everyday doors: the reason most people came, so the largest. */
-.doors-main .door {
-  gap: var(--space-3);
-  padding: var(--space-5);
 }
 
 .doors-main .door-icon {
@@ -856,11 +770,6 @@ body[data-state="empty"] .layout {
   padding: 8px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 13%, transparent);
-}
-
-.doors-main .door-title {
-  font-size: var(--type-card-title);
-  min-height: 2.6em;
 }
 
 .doors-main .door-text {
@@ -909,19 +818,13 @@ body[data-state="empty"] .layout {
 
 .geek-more,
 .landing-more {
-  margin-top: var(--space-5);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 13px;
 }
 
 .geek-more-content {
   padding-top: 8px;
-}
-
-.geek-more-content > .doors-title {
-  margin-top: 0;
 }
 
 .landing-more .more-links {
@@ -1033,23 +936,12 @@ body[data-state="empty"] .layout {
 }
 
 .footnote {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 20px;
   margin: 32px 0 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-  color: var(--faint);
-  font-size: 12.5px;
   text-align: left;
 }
 
 .footnote-links {
-  display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px 18px;
 }
 
 .footnote-links .link,

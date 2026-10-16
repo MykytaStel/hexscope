@@ -33,7 +33,6 @@
   min-height: 42px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
 }
 
 .hex-bar-find {

@@ -23,31 +23,14 @@ body[data-state="ready"] .viewswitch {
   cursor: pointer;
 }
 
-.viewswitch button[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
 @media (max-width: 900px) {
   .hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-5);
     margin-bottom: 0;
   }
 
   .empty-card {
     width: 100%;
     max-width: none;
-    padding: 28px 20px 40px;
-  }
-
-  .hero h1 {
-    max-width: 20ch;
-    font-size: clamp(30px, 4.2vw, 34px);
-  }
-
-  .landing-proof {
-    margin-top: var(--space-5);
   }
 
   .format-catalog {
@@ -61,22 +44,9 @@ body[data-state="ready"] .viewswitch {
     margin-bottom: var(--space-3);
   }
 
-  .format-catalog-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .format-category,
   .format-category + .format-category {
     padding: var(--space-3) 12px;
-  }
-
-  .format-category:nth-child(2n + 1) {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .format-category:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
   }
 
   .doors-title {
@@ -85,7 +55,6 @@ body[data-state="ready"] .viewswitch {
 
   .doors-main {
     gap: var(--space-3);
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .doors-main .door {
@@ -93,7 +62,6 @@ body[data-state="ready"] .viewswitch {
   }
 
   .specialist-tools {
-    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     margin-top: var(--space-5);
     padding: var(--space-4);
@@ -107,7 +75,6 @@ body[data-state="ready"] .viewswitch {
 
   /* At tablet widths, the preview and its explanation still fit on one row. */
   .demo {
-    grid-template-columns: clamp(112px, 24vw, 200px) minmax(0, 1fr);
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3);
@@ -259,27 +226,12 @@ body[data-state="ready"] .viewswitch {
 }
 
 @media (max-width: 560px) {
-  .format-catalog {
-    padding: 16px;
-  }
-
-  .format-catalog-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
   .format-category,
   .format-category + .format-category,
   .format-category:nth-child(2n + 1) {
     padding: 12px 0;
     border-left: 0;
-  }
-
-  .format-category + .format-category {
-    border-top: 1px solid var(--border);
-  }
-
-  .format-category h3 {
-    margin-bottom: var(--space-2);
   }
 }
 

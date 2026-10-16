@@ -1419,7 +1419,6 @@ body[data-state="ready"] .topbar {
 @media (max-width: 560px) {
   body[data-state="empty"] .topbar {
     gap: 4px;
-    padding-inline: 8px;
   }
 
   body[data-state="empty"] .topbar .actions {
