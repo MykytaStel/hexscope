@@ -120,6 +120,8 @@ export default defineConfig({
         videometa: page("remove-metadata-from-video.html"),
         odfmeta: page("remove-metadata-from-libreoffice.html"),
         filetype: page("what-file-type-is-this.html"),
+        compared: page("metadata-removers-compared.html"),
+        sensitive: page("photos-from-sensitive-places.html"),
         support: page("support.html"),
         // What the host answers, with a 404, for an address that is no page.
         notfound: page("404.html"),

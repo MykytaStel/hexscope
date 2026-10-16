@@ -83,6 +83,8 @@ test("the pages people search for are written in both languages and listed in th
     ["remove-metadata-from-video", "How to remove metadata from a video", "Як видалити метадані з відео"],
     ["remove-metadata-from-libreoffice", "How to remove metadata from LibreOffice and RTF files", "Як видалити метадані з файлів LibreOffice і RTF"],
     ["what-file-type-is-this", "What type of file is this?", "Що це за файл?"],
+    ["metadata-removers-compared", "ExifTool, MAT2 or hexscope: what each leaves in a file", "ExifTool, MAT2 чи hexscope: що кожен лишає у файлі"],
+    ["photos-from-sensitive-places", "A photo from a sensitive place: what gives it away", "Фото з чутливого місця: що його видає"],
   ]) {
     expect(sitemap).toContain(`<loc>https://hexscope.org/${path}</loc>`);
     expect(sitemap).toContain(`<loc>https://hexscope.org/uk/${path}</loc>`);

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="A photo can say where it was taken twice: in its file — the location, the time, the phone — and in the picture itself. What to check and remove before you send a photo from a place that should stay unknown. In your browser, nothing is uploaded." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>A photo from a sensitive place: what gives it away — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/photos-from-sensitive-places" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/photos-from-sensitive-places" />
+    <meta property="og:title" content="A photo from a sensitive place: what gives it away" />
+    <meta property="og:description" content="The location, time and phone in the file, and the signs, skyline and reflections in the picture: what to check before you send it." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/pages.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">Safety</p>
+        <h1>A photo from a sensitive place: what gives it away</h1>
+        <p class="story-lede">
+          Where a photo was taken can be read in two places: in its file, which a phone fills with the location, the time and its own details, and in the picture, where a sign or a skyline can be enough. For a shelter, a home, a workplace or anywhere that should stay unknown, check both before you send it.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a photo</a>
+          <a class="btn" href="./?sample=photo.jpg&amp;view=metadata">Try a sample photo</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What the file says</h2>
+          <ul>
+            <li><strong>The location</strong>, often to within a few metres, and sometimes the direction the camera faced.</li>
+            <li><strong>The time</strong>, to the second, with the time zone.</li>
+            <li><strong>The phone or camera</strong>: its make and model, and from many cameras a serial number that is the same in every photo — enough to tell that two photos came from one camera.</li>
+            <li><strong>A small copy of the picture</strong>: some editors leave it as it was, so a cropped photo can still carry what was cropped off.</li>
+          </ul>
+          <p>Open the photo in hexscope: it reads the file in your browser and shows each of these, with the location on a map drawn in the page, not fetched from a map service.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it</h2>
+          <p>Press <em>Remove it — save a clean copy</em>. The copy has no location, camera, time or small copy, and the picture itself is copied byte for byte. Then press <em>Open the clean copy</em> and check that nothing is left. For many photos at once, choose them together or drop a folder on the page.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> What the picture shows</h2>
+          <p>No tool removes what is in the picture. Look at it as a stranger would:</p>
+          <ul>
+            <li>street names, shop signs, house numbers and number plates;</li>
+            <li>landmarks, the skyline, a mountain, a bridge, a distinctive building;</li>
+            <li>the sun and the shadows, which tell the direction and the time of day;</li>
+            <li>reflections in windows, glasses and screens;</li>
+            <li>in a video, also what can be heard: names, announcements, sirens, a language.</li>
+          </ul>
+          <p>To hide part of it, use <em>Black out part of the picture</em>: it saves a new picture with the black in its pixels. Blurring and pixelation can sometimes be undone; solid black cannot.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> How you send it</h2>
+          <p>Messengers and social networks usually recompress a photo sent as a photo and drop its location on the way. A photo sent as a file or a document, by email or through a cloud link keeps all of it. Rules change and apps differ, so check the file you are about to send rather than the app's promise.</p>
+          <p>When a photo is posted can say as much as where: posting while you are still there tells everyone where you are now. Posting later is safer.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Stop the phone writing it</h2>
+          <ul>
+            <li><strong>iPhone</strong>: Settings → Privacy &amp; Security → Location Services → Camera → Never. When you share, tap <em>Options</em> at the top and turn off <em>Location</em>.</li>
+            <li><strong>Android</strong>: in the camera app's settings, turn off the option to save or tag the location. Its name depends on the phone's maker.</li>
+          </ul>
+          <p>Photos already taken keep their location: only new ones are affected.</p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a photo now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

@@ -20,6 +20,9 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   hexscope (`scripts/compare-tools.py`, `docs/research/metadata-removal.md`).
   And a kit to measure what messengers take out of a file
   (`docs/research/messenger-study.md`).
+- **Two guides**, in English and Ukrainian: what ExifTool, MAT2 and hexscope
+  each leave in a file, from that measurement, and what gives away a photo
+  from a sensitive place — in its file, in the picture and in how it is sent.
 
 ### Changed
 
