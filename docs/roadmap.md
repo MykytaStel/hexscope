@@ -17,7 +17,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.4.0 | Scans and the formats people send: TIFF, LibreOffice, RTF, misnamed files, one build per family | shipped 2026-10-13 |
 | Launch | The author's device test, then the posts | when the author has tested |
 | 0.5.0 | Faster, smaller, easier to change; what Office on Windows leaves; all of it in Ukrainian | shipped 2026-10-15 |
-| 0.6.0 | What the device test finds: large files on phones, a screen reader, the stylesheets merged | after the launch |
+| 0.6.0 | All of it in Ukrainian, release builds for the Action, metadata removal measured against ExifTool and MAT2 | shipped 2026-10-16 |
+| 0.7.0 | What the device test finds: large files on phones, a screen reader, the stylesheets merged | after the launch |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.3.0 — shipped 2026-10-12
@@ -101,6 +102,17 @@ copies no longer called incomplete for a finding read whole; articles in
 the reader's language as their own pages; every sentence and explanation a
 reader meets in Ukrainian, held by a test over every test file; one key
 sort in place of three, 1.4–2.8 KB off each WebAssembly build.
+
+### 0.6.0 — shipped 2026-10-16
+
+From the third audit (2026-10-15): about 250 lines of the analyzer that
+stayed in English, now Ukrainian, held by an end-to-end test over every
+sample and test file; the command built for five systems on each release,
+which the Action downloads and checks instead of compiling; hexscope,
+ExifTool and MAT2 on the same 45 files, each copy read back by both
+(docs/research), which found Word 97's own record of a document and had it
+blanked; two guides; the browser bridge in modules; 134 overridden CSS
+declarations out, with a test. What was planned as 0.6.0 is now 0.7.0.
 
 ### Next, after the launch
 
