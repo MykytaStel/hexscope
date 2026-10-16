@@ -15,16 +15,17 @@ Writes messenger-study.md and messenger-study.json into --out.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import importlib.util
-
+# The comparison's readers, loaded from its file: its name is not a module's.
 spec = importlib.util.spec_from_file_location("compare", Path(__file__).resolve().parent / "compare-tools.py")
+if spec is None or spec.loader is None:
+    sys.exit("scripts/compare-tools.py is missing")
 compare = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(compare)  # type: ignore[union-attr]
+spec.loader.exec_module(compare)
 
 ROOT = compare.ROOT
 KIT = ROOT / "apps/web/public/samples"
@@ -37,6 +38,8 @@ def main() -> int:
     parser.add_argument("--hexscope", type=Path, default=ROOT / "target/release/hexscope")
     parser.add_argument("--out", type=Path, default=ROOT / "docs/research")
     args = parser.parse_args()
+    if not args.received.is_dir():
+        sys.exit(f"{args.received} is not a folder")
     received = sorted(p for p in args.received.iterdir() if p.is_file() and p.name.count("__") >= 2)
     if not received:
         sys.exit(f"no files named CHANNEL__MODE__ORIGINAL in {args.received}")
