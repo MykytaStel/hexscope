@@ -4,6 +4,8 @@
 # visit counter's empty requests to /api/seen).
 # 'wasm-unsafe-eval' lets the parser's WebAssembly compile, and nothing else.
 # Browsers that have seen the site once come back over HTTPS only, for a year.
+# Cloudflare's own request that browsers report failed connections to it
+# (NEL, Report-To) is left out: a site that sends nothing anywhere does not ask it.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
@@ -11,6 +13,8 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+  ! NEL
+  ! Report-To
 
 # File names carry a content hash: cache them for good.
 /assets/*

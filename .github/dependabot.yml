@@ -1,0 +1,11 @@
+# Actions are pinned to commits (.github/workflows): this proposes each new
+# version as a pull request, so a pin is updated on purpose and checked by CI.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

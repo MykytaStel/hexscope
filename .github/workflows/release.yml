@@ -1,0 +1,86 @@
+name: Release binaries
+
+# The command-line tool, built for the systems people and CI runners use and
+# attached to each published release with a checksum and a signed record of
+# where it was built: the GitHub Action downloads the one for its runner
+# instead of compiling it, and anyone can use it without Rust.
+on:
+  release:
+    types: [published]
+  # A change to how they are built is built on its pull request, not attached.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - action.yml
+      - scripts/action-install.sh
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-26.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-26.04-arm }
+          - { target: aarch64-apple-darwin, os: macos-26 }
+          - { target: x86_64-apple-darwin, os: macos-26-intel }
+          - { target: x86_64-pc-windows-msvc, os: windows-2025 }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: rustup toolchain install && rustup target add ${{ matrix.target }}
+        shell: bash
+      # Linux builds are static (musl): one file that runs on any distribution.
+      - if: contains(matrix.target, 'linux-musl')
+        run: sudo apt-get update -q && sudo apt-get install -qy musl-tools
+      - name: Build
+        shell: bash
+        run: cargo build --locked --release -p hexscope-cli --target ${{ matrix.target }}
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          name="hexscope-$version-${{ matrix.target }}.tar.gz"
+          exe=hexscope; [[ "${{ matrix.target }}" == *windows* ]] && exe=hexscope.exe
+          mkdir dist
+          cp "target/${{ matrix.target }}/release/$exe" LICENSE dist/
+          tar -czf "$name" -C dist .
+          if command -v sha256sum >/dev/null; then sha256sum "$name"; else shasum -a 256 "$name"; fi > "$name.sha256"
+          ./dist/$exe --version
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.package.outputs.name }}
+      - if: github.event_name == 'release'
+        name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ steps.package.outputs.name }}" "${{ steps.package.outputs.name }}.sha256" --clobber
+
+  # The Action as a workflow uses it, on each kind of runner: the build it
+  # downloads, or, at a ref with none, the one it makes.
+  action:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-26, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: rustup toolchain install
+        shell: bash
+      - name: Passes on what gives nothing away
+        uses: ./
+        with:
+          paths: apps/web/public/samples/sample.png

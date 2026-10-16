@@ -8,6 +8,20 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **The command, built for each system, on every release**: Linux (x86-64
+  and ARM, static), macOS (Apple silicon and Intel) and Windows, each with a
+  checksum and GitHub's signed record of the workflow that built it. The
+  GitHub Action at a released version downloads the one for its runner and
+  checks both, instead of compiling for a minute or more.
+
+### Changed
+
+- CI's actions are pinned to commits, and Dependabot proposes their updates.
+- The site asks Cloudflare to leave out its request for browsers to report
+  failed connections (Network Error Logging).
+
 ## [0.5.0] — 2026-10-15
 
 ### Added
