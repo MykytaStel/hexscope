@@ -10,6 +10,15 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **A table of what was found on the run's page in GitHub Actions**: GitHub
+  shows at most ten annotations of a level for each step, so a folder with
+  more findings showed only some of them. `hexscope check` now also writes
+  the step summary — a row per file with findings: its format, the kinds it
+  gives away and its problems, never their values — with the files it did
+  not read counted.
+
+### Added
+
 - **SVG drawings**, on the page, on the command line and in the Action —
   what they say about whoever made them, and a copy without it:
   - Inkscape's name for the file, the whole path it was last exported to,
