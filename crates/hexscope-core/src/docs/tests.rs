@@ -165,7 +165,7 @@ fn every_exif_tag_is_explained() {
 
 #[test]
 fn explanations_are_one_plain_sentence_and_links_are_https() {
-    let tables: [(&str, Table); 11] = [
+    let tables: [(&str, Table); 12] = [
         ("png", crate::png::docs::ALL),
         ("exif tags", crate::exif::docs::TAGS),
         ("exif", crate::exif::docs::ALL),
@@ -177,6 +177,7 @@ fn explanations_are_one_plain_sentence_and_links_are_https() {
         ("video", crate::video::docs::ALL),
         ("wasm", crate::wasm::docs::ALL),
         ("rtf", crate::rtf::docs::ALL),
+        ("svg", crate::svg::docs::ALL),
     ];
     for (name, table) in tables {
         for (pattern, d) in table.iter().copied() {

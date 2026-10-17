@@ -42,6 +42,7 @@ const EXTENSIONS: &[(&str, &[&str])] = &[
         &["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
     ),
     ("rtf", &["rtf"]),
+    ("svg", &["svg"]),
 ];
 
 /// Documents a ZIP can be, each with the extensions that are its own.
@@ -113,6 +114,7 @@ fn what_it_is(doc: &Document, data: &[u8]) -> Option<(&'static str, &'static str
         Document::Wasm(_) => ("wasm", "a WebAssembly module", ".wasm"),
         Document::Eml(_) => ("eml", "an email", ".eml"),
         Document::Rtf(_) => ("rtf", "a Rich Text document", ".rtf"),
+        Document::Svg(_) => ("svg", "an SVG drawing", ".svg"),
         Document::Cfb(d) => match d.kind {
             crate::cfb::Kind::Message => ("msg", "an Outlook message", ".msg"),
             crate::cfb::Kind::Word => ("office97", "a Word 97–2003 document", ".doc"),

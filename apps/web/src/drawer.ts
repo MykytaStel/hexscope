@@ -410,6 +410,7 @@ export class Drawer {
       png: "What this image reveals",
       video: "What this video reveals",
       wasm: "What this module reveals",
+      svg: "What this drawing reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };

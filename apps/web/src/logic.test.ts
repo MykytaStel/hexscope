@@ -1,13 +1,13 @@
 // What the page says about each sample, from the real parser: the headline,
 // the verdict, the tips, what a share card counts, and an email's way.
-// The WebAssembly builds are loaded from disk, as the worker loads them —
-// the PDF one for a PDF, the documents one for the rest; run `pnpm wasm`
-// first.
+// The WebAssembly builds are loaded from disk, and each file is read by the
+// one the worker picks for it (family.ts); run `pnpm wasm` first.
 import { readFileSync } from "node:fs";
 import { beforeAll, describe as group, expect, it } from "vitest";
+import * as mediaBuild from "./wasm-media/hexscope_media.js";
 import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
 import * as docsBuild from "./wasm-docs/hexscope_docs.js";
-import { isPdf } from "./paint";
+import { familyOf } from "./family";
 import { describe } from "./describe";
 import { FileModel } from "./model";
 import { headline, listed } from "./headline";
@@ -24,11 +24,12 @@ import "./i18n-uk";
 const here = (path: string) => new URL(path, import.meta.url);
 
 beforeAll(() => {
+  mediaBuild.initSync({ module: readFileSync(here("./wasm-media/hexscope_media_bg.wasm")) });
   pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
   docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
 });
 
-const parse = (b: Uint8Array) => (isPdf(b) ? pdfBuild : docsBuild).parse(b);
+const parse = (b: Uint8Array) => ({ media: mediaBuild, pdf: pdfBuild, docs: docsBuild })[familyOf(b)].parse(b);
 
 function open(name: string, bytes?: Uint8Array): FileModel {
   const b = bytes ?? new Uint8Array(readFileSync(here(`../public/samples/${name}`)));

@@ -516,6 +516,28 @@ const entries: [string, string][] = [
   ["The chunk is too short for the fields it must hold.", "Фрагмент закороткий для полів, які мусить містити."],
   ["A chunk's length is impossible, so its bytes cannot be trusted; reading resumes at the next intact chunk.", "Довжина фрагмента неможлива, тож його байтам не можна вірити; читання продовжується з наступного цілого фрагмента."],
   ["A DEFLATE block kept uncompressed, for data that would not get smaller.", "Блок DEFLATE, збережений без стиснення, — для даних, які не стали б меншими."],
+  // SVG drawings.
+  ["An SVG drawing: shapes, text and pictures written as XML, which a browser draws at any size.", "Малюнок SVG: фігури, текст і зображення, записані як XML; браузер малює його в будь-якому розмірі."],
+  ["The line that says the file is XML, and in which version and character encoding.", "Рядок, який каже, що файл — це XML, і в якій версії та кодуванні."],
+  ["An instruction for a program that reads the file, such as which stylesheet to use.", "Вказівка для програми, що читає файл, — наприклад, яку таблицю стилів брати."],
+  ["The document type: which kind of XML this is, sometimes with names it defines for itself, as Illustrator writes them.", "Тип документа: який це різновид XML, іноді з назвами, які він визначає для себе, як пише Illustrator."],
+  ["A comment: text a browser does not show. Illustrator and Sketch write one naming themselves and their version.", "Коментар: текст, який браузер не показує. Illustrator і Sketch пишуть у ньому свою назву й версію."],
+  ["The drawing itself: everything a browser draws, with the attributes of the drawing as a whole.", "Сам малюнок: усе, що малює браузер, з атрибутами малюнка в цілому."],
+  ["Facts about the drawing that are not drawn: who made it, its title, dates and keywords, written as RDF or XMP.", "Відомості про малюнок, яких не видно: хто його створив, назва, дати й ключові слова, записані як RDF або XMP."],
+  ["Inkscape's settings for the drawing: its pages, guides, grid, zoom, and the size and place of the window it was last edited in.", "Налаштування Inkscape для малюнка: сторінки, напрямні, сітка, масштаб, а також розмір і місце вікна, у якому його востаннє редагували."],
+  ["Illustrator's own copy of the drawing, kept so Illustrator can open it again with everything it had: it can hold layers, hidden objects and artboards the drawing does not show.", "Власна копія малюнка від Illustrator — щоб Illustrator міг відкрити його знову з усім, що в ньому було: вона може містити шари, приховані об’єкти й монтажні області, яких малюнок не показує."],
+  ["A script, which runs when the drawing is opened on its own in a browser or put in a page as an object — not when a page shows it as a picture.", "Скрипт: виконується, коли малюнок відкрито окремо в браузері або вставлено в сторінку як об’єкт, — а не коли сторінка показує його як зображення."],
+  ["A script in an attribute, run when something happens to the drawing: when it loads, or someone clicks it.", "Скрипт в атрибуті: виконується, коли з малюнком щось відбувається — він завантажується або на нього клацають."],
+  ["A picture placed in the drawing: linked by its address or path, or carried in the drawing itself as base64.", "Зображення в малюнку: за посиланням на адресу чи шлях або всередині самого малюнка як base64."],
+  ["A photo carried in the drawing as base64. It keeps its own metadata — where it was taken, the camera — as it had in its own file.", "Фото всередині малюнка як base64. Воно зберігає власні метадані — місце зйомки, фотоапарат — як мало у своєму файлі."],
+  ["The name of the file the drawing was saved as in Inkscape.", "Назва файла, під якою малюнок збережено в Inkscape."],
+  ["Where a linked picture was on the author's computer, with the whole path.", "Де пов’язане зображення лежало на комп’ютері автора, з повним шляхом."],
+  ["Where Inkscape last exported the drawing as a picture: older versions keep the whole path, with the user's folder.", "Куди Inkscape востаннє експортував малюнок як зображення: старіші версії зберігають повний шлях із текою користувача."],
+  ["The version of Inkscape that saved the drawing.", "Версія Inkscape, яка зберегла малюнок."],
+  ["The program the drawing was made with, as XMP names it.", "Програма, у якій створено малюнок, як її називає XMP."],
+  ["When the drawing was made, as XMP records it.", "Коли створено малюнок, як записано в XMP."],
+  ["When the drawing was last changed, as XMP records it.", "Коли малюнок востаннє змінено, як записано в XMP."],
+  ["An element is opened and never closed, or closed out of order: the drawing is cut short or damaged.", "Елемент відкрито й не закрито або закрито не в тому порядку: малюнок обрізаний чи пошкоджений."],
 ];
 
 registerLazyTranslations(Object.fromEntries(entries));

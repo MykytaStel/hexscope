@@ -23,6 +23,7 @@ export const CLEAN_NOTES: Record<string, string> = {
   audio:
     "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte.",
   wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
+  svg: "Leaves out the metadata, Inkscape's names, paths and settings, a comment naming the program and Illustrator's own copy of the drawing; a linked picture keeps only its file name, and a photo inside is cleaned as a photo of its own. The shapes, text and scripts are copied as they are.",
   rtf: "Leaves out the document's information — title, author, who saved it last, company, dates, editing time — the program and template that made it, its custom properties and the numbers that tie its editing sessions together. Tracked changes are accepted and comments deleted, with their authors; the rest of the text is copied as it is.",
   office97:
     "Blanks the document's properties where they lie — title, author, last editor, company, template, dates, editing time — and the sectors no part uses, where deleted text can remain. Nothing else in the file moves.",

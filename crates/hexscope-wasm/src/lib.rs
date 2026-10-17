@@ -304,6 +304,14 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
+        Document::Svg(doc) if cfg!(feature = "svg") => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = "svg";
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            parsed
+        }
         Document::Wasm(doc) if cfg!(feature = "module") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "wasm";

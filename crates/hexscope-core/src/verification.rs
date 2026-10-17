@@ -153,6 +153,24 @@ const OFFICE97: &[&str] = &[
     "template",
 ];
 
+/// SVG: the copy leaves out the metadata block, Inkscape's attributes and
+/// settings, a comment naming the program and Illustrator's own copy of the
+/// drawing, cuts linked pictures' paths to their names, and cleans photos
+/// embedded in it as photos of their own.
+const SVG: &[&str] = &[
+    "original",
+    "links",
+    "software",
+    "author",
+    "company",
+    "title",
+    "created",
+    "description",
+    "keywords",
+    "embedded",
+    "photoplace",
+];
+
 /// Canonical clean-copy removal contract shared by the core, Web, and CLI:
 /// each format and the file-scoped findings it covers. Reports outside these
 /// exact combinations remain `present` or `unchecked`.
@@ -167,6 +185,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("zip", OFFICE),
     ("office97", OFFICE97),
     ("rtf", RTF),
+    ("svg", SVG),
 ];
 
 /// Every covered combination, one by one.
@@ -588,7 +607,10 @@ mod tests {
         let tuples = verified_removal_capabilities()
             .map(|capability| (capability.format, capability.kind, capability.scope))
             .collect::<Vec<_>>();
-        assert_eq!(tuples.len(), 8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20);
+        assert_eq!(
+            tuples.len(),
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11
+        );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
             assert!(!tuples[..index].contains(&(*format, *kind, *scope)));
@@ -598,6 +620,7 @@ mod tests {
         assert!(!covered("png", "thumbnail", "file"));
         assert!(!covered("zip", "comments", "file"));
         assert!(!covered("gif", "caption", "file"));
+        assert!(!covered("svg", "scripts", "file"));
     }
 
     /// The coverage table in docs/verification-coverage.md, as this contract

@@ -17,11 +17,12 @@ default = ["documents"]
 # Without them, the small module the page loads first: pictures and movies
 # only. With one, pictures and movies and that family of files (see
 # hexscope-core's features of the same names).
-documents = ["pdf", "office", "mail", "module"]
+documents = ["pdf", "office", "mail", "module", "svg"]
 pdf = ["hexscope-core/pdf"]
 office = ["hexscope-core/office"]
 mail = ["hexscope-core/mail"]
 module = ["hexscope-core/module"]
+svg = ["hexscope-core/svg"]
 
 [dependencies]
 hexscope-core = { path = "../hexscope-core", default-features = false }

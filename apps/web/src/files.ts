@@ -57,6 +57,8 @@ export function kindWord(m: FileModel): string {
       return "Email";
     case "wasm":
       return "WebAssembly module";
+    case "svg":
+      return "Drawing";
     case "unknown":
       return "File";
     default: {
@@ -105,6 +107,8 @@ export function kindOf(m: FileModel): string {
       return "Compound file";
     case "rtf":
       return "Rich Text";
+    case "svg":
+      return "SVG";
     default:
       return "";
   }
@@ -117,6 +121,7 @@ const TYPES: Record<string, string> = {
   png: "image/png",
   webp: "image/webp",
   gif: "image/gif",
+  svg: "image/svg+xml",
   tif: "image/tiff",
   tiff: "image/tiff",
   heic: "image/heic",

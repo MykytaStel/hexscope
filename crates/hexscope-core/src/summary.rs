@@ -171,6 +171,10 @@ pub fn summary_of(doc: &Document) -> Summary {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             ("rtf", true)
         }
+        Document::Svg(d) => {
+            facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
+            ("svg", true)
+        }
         Document::Unknown(_) => ("unknown", true),
     };
     let complete = metadata_complete && !problems.iter().any(unread);

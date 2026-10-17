@@ -18,7 +18,7 @@ default = ["documents"]
 # dispatchers reach only pictures and movies — PNG, JPEG, HEIF, MP4 — and
 # the linker leaves the rest out: the browser's small first module. Each is
 # its own feature, so the browser can load a module per family of files.
-documents = ["pdf", "office", "mail", "module"]
+documents = ["pdf", "office", "mail", "module", "svg"]
 # PDF, its redaction, page texts and pictures.
 pdf = []
 # ZIP archives (Word, Excel, PowerPoint, iWork, EPUB, APK) and the Office 97
@@ -28,6 +28,9 @@ office = []
 mail = []
 # WebAssembly modules.
 module = []
+# SVG drawings: in the browser, read by the small module with the pictures,
+# so a drawing never loads the documents' one.
+svg = []
 
 [dependencies]
 hexscope-inflate = { path = "../hexscope-inflate", version = "0.6.0" }

@@ -3,6 +3,7 @@ import "./analysis-i18n";
 import { GUIDE_UK } from "./guide-i18n";
 import { registerLazyTranslations, resolveLocale, translateText, untranslate } from "./i18n";
 import "./i18n-uk";
+import { OTHERS, READS } from "./verdict";
 
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
@@ -326,5 +327,18 @@ describe("advice", () => {
     for (const rule of RULES) {
       expect(translateText(rule.text, "uk"), rule.text.slice(0, 40)).not.toBe(rule.text);
     }
+  });
+});
+
+describe("a file hexscope does not read", () => {
+  it("is named, and what hexscope reads is said, in Ukrainian", () => {
+    for (const [, what, note] of OTHERS) {
+      const english = `This looks like ${what}. hexscope does not read it: ${READS}.${note ? ` ${note}` : ""}`;
+      expect(translateText(english, "uk"), what).toMatch(/^Схоже, це [а-яіїєґ]/);
+    }
+    expect(translateText(`hexscope does not know this kind of file: ${READS}.`, "uk")).toMatch(/^hexscope не знає/);
+    expect(
+      translateText("Plain text: not a format hexscope takes apart. Its words read in the column beside the bytes.", "uk"),
+    ).toMatch(/^Звичайний текст/);
   });
 });

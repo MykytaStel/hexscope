@@ -913,7 +913,7 @@ pub(crate) fn element_text(xml: &str, name: &str) -> Option<String> {
 
 /// The five predefined entities and numeric references; anything else is
 /// left as written.
-pub(super) fn decode(s: &str) -> String {
+pub(crate) fn decode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;
     while let Some(amp) = rest.find('&') {
@@ -954,7 +954,7 @@ pub(super) fn decode(s: &str) -> String {
     out
 }
 
-pub(super) fn cap(mut s: String) -> String {
+pub(crate) fn cap(mut s: String) -> String {
     if s.len() > MAX_TEXT {
         let mut end = MAX_TEXT;
         while !s.is_char_boundary(end) {

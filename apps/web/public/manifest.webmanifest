@@ -83,7 +83,9 @@
             "application/vnd.oasis.opendocument.spreadsheet",
             ".ods",
             "application/vnd.oasis.opendocument.presentation",
-            ".odp"
+            ".odp",
+            "image/svg+xml",
+            ".svg"
           ]
         }
       ]
@@ -180,6 +182,9 @@
         ],
         "application/vnd.oasis.opendocument.presentation": [
           ".odp"
+        ],
+        "image/svg+xml": [
+          ".svg"
         ]
       }
     }
