@@ -85,6 +85,7 @@ test("the pages people search for are written in both languages and listed in th
     ["what-file-type-is-this", "What type of file is this?", "Що це за файл?"],
     ["metadata-removers-compared", "ExifTool, MAT2 or hexscope: what each leaves in a file", "ExifTool, MAT2 чи hexscope: що кожен лишає у файлі"],
     ["photos-from-sensitive-places", "A photo from a sensitive place: what gives it away", "Фото з чутливого місця: що його видає"],
+    ["remove-metadata-from-svg", "How to remove metadata from an SVG", "Як видалити метадані з SVG"],
   ]) {
     expect(sitemap).toContain(`<loc>https://hexscope.org/${path}</loc>`);
     expect(sitemap).toContain(`<loc>https://hexscope.org/uk/${path}</loc>`);

@@ -111,6 +111,7 @@ Photos and videos:
 - [How to remove EXIF and metadata from a photo](https://hexscope.org/remove-metadata-from-photo)
 - [How to remove the location from a photo](https://hexscope.org/remove-location-from-photo)
 - [How to remove metadata from a video](https://hexscope.org/remove-metadata-from-video)
+- [How to remove metadata from an SVG](https://hexscope.org/remove-metadata-from-svg)
 - [Was this picture made by AI?](https://hexscope.org/ai-image-metadata)
 - [What a screenshot gives away](https://hexscope.org/what-a-screenshot-gives-away)
 

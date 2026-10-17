@@ -9,6 +9,7 @@ export const GUIDES: readonly { file: string; title: string; topic: Topic }[] = 
   { file: "remove-metadata-from-photo.html", title: "How to remove EXIF and metadata from a photo", topic: "photos" },
   { file: "remove-location-from-photo.html", title: "How to remove the location from a photo", topic: "photos" },
   { file: "remove-metadata-from-video.html", title: "How to remove metadata from a video", topic: "photos" },
+  { file: "remove-metadata-from-svg.html", title: "How to remove metadata from an SVG", topic: "photos" },
   { file: "ai-image-metadata.html", title: "Was this picture made by AI?", topic: "photos" },
   { file: "photos-from-sensitive-places.html", title: "A photo from a sensitive place: what gives it away", topic: "photos" },
   { file: "what-a-screenshot-gives-away.html", title: "What a screenshot gives away", topic: "photos" },
