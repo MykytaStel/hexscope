@@ -43,7 +43,10 @@ for people and get better as the wording does.
 sorted order, leaving out `.git`, `node_modules`, `target`, `.venv` and
 `__pycache__`. A symbolic link is never followed: meeting one stops the run
 with exit status 2, so a run that skipped files cannot look complete.
-`batch`, `mosaic` and `film` take up to 1000 files of up to 50 MiB each.
+A file of a format hexscope does not read is left out of `check`'s list
+unless `--all` is given, but never out of its count: the last line says how
+many were not read, by extension. `batch`, `mosaic` and `film` take up to
+1000 files of up to 50 MiB each.
 Every copy is written whole or not at all, and no command changes a file
 it was given unless `clean --in-place` says so.
 
@@ -128,7 +131,9 @@ each file that fails: `::error` for damage and what is hidden, `::warning`
 for what it gives away, `::notice` for an oddity or a misleading name. Each
 names the file and the kind (`title=hexscope: reveals location`) and never
 the value, so values stay out of the runner's log. The text output is left
-out for the same reason.
+out for the same reason. Files of a format hexscope does not read get one
+`::notice` with `title=hexscope: not read`, saying how many and of which
+extensions.
 
 With `--json` or `--sarif` the commands go to standard error, where the
 runner reads them too, so that standard output holds only the report and a
