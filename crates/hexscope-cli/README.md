@@ -27,6 +27,9 @@ Use `--json` for one JSON record per file or `--sarif` for a SARIF 2.1.0
 report that GitHub Code Scanning can ingest. `--help` lists all commands,
 options and exit codes. By default, `check` exits non-zero for reveals,
 hidden content or damage; choose `--fail-on` to tune a CI gate.
+What stays the same from one version to the next — commands, options, exit
+status, and the fields of the JSON and SARIF — is in
+[the command line's contract](https://github.com/MykytaStel/hexscope/blob/main/docs/cli.md).
 
 Folder scans fail when they encounter symlinks or unreadable paths, so a partial
 scan cannot look complete. In GitHub Actions, annotations identify the file and

@@ -8,6 +8,22 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ## [Unreleased]
 
+### Added
+
+- **What the command line keeps from version to version**, in one page
+  (`docs/cli.md`): its commands and options, the exit status of each, the
+  fields of its JSON, SARIF and receipts, every format and kind of finding it
+  reports, and the reasons a clean copy's check gives. A test runs the
+  command over every test file in the repository and fails when the program
+  and the page disagree. `hexscope --help` links to it.
+
+### Fixed
+
+- **In GitHub Actions, a saved `--json` or `--sarif` report was broken**:
+  the annotations for the files that failed were written into the same
+  output, so `hexscope check --sarif > report.sarif` saved a file code
+  scanning could not read. With either option they now go to standard error.
+
 ## [0.6.0] — 2026-10-16
 
 ### Added
