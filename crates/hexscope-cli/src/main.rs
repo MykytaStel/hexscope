@@ -42,6 +42,7 @@ Usage:
   hexscope batch --out DIR PATH...   verified folder copies and an index-only JSON receipt
   hexscope repair [options] PATH...   save copies of damaged files with what survived
   hexscope redact --text WORDS PATH... save PDFs with WORDS taken out of their pages
+  hexscope --help | --version
 
 PATH is a file or a folder, read with everything inside it.
 
@@ -74,6 +75,7 @@ repair:
 
 Exit status: 0, nothing to fail on; 1, something to fail on; 2, a usage or file error.
 In GitHub Actions, findings are also written as annotations on the files.
+What stays the same between versions: https://github.com/MykytaStel/hexscope/blob/main/docs/cli.md
 
 Nothing leaves your machine.";
 
@@ -303,9 +305,15 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         } else if !github && (!quiet || o.all) {
             print!("{}", human(&path, &s, mis));
         }
+        // Standard output holds only the JSON or SARIF asked for, so a
+        // report saved from it stays valid.
         if github && fails {
             for line in annotations(&path, &s, mis) {
-                println!("{line}");
+                if o.json || o.sarif {
+                    eprintln!("{line}");
+                } else {
+                    println!("{line}");
+                }
             }
         }
     }

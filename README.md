@@ -72,7 +72,9 @@ types, and `--fail-on none` reports without failing. Exit `2` means a usage or
 file error. Symlinks and unreadable folders stop the scan with an error rather
 than being silently skipped. Use `--json` for newline-delimited JSON or `--sarif`
 for SARIF 2.1.0.
-Run `hexscope --help` for all options. Clean and repaired files are written as
+Run `hexscope --help` for all options; what stays the same from one version
+to the next — options, exit status, JSON and SARIF — is in
+[docs/cli.md](docs/cli.md). Clean and repaired files are written as
 copies by default; `clean --in-place` is available when you explicitly want to
 replace the originals.
 

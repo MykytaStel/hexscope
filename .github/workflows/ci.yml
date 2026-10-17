@@ -68,6 +68,19 @@ jobs:
       - name: It did fail
         if: steps.leaky.outcome != 'failure'
         run: exit 1
+      - name: Saved reports stay whole
+        # In Actions the annotations go to standard error with --json and
+        # --sarif, so what is saved from standard output is only the report.
+        run: |
+          bin="$RUNNER_TEMP/hexscope/bin/hexscope"
+          set +e
+          "$bin" check --sarif apps/web/public/samples/lease.odt > report.sarif
+          sarif=$?
+          "$bin" check --json apps/web/public/samples/lease.odt > report.jsonl
+          json=$?
+          set -e
+          [ "$sarif" -eq 1 ] && [ "$json" -eq 1 ]
+          python3 -c 'import json; json.load(open("report.sarif")); [json.loads(l) for l in open("report.jsonl")]'
 
   fuzz:
     runs-on: ubuntu-26.04

@@ -130,6 +130,8 @@ declarations out, with a test. What was planned as 0.6.0 is now 0.7.0.
 ### 1.0.0 — Stable (when these hold)
 
 - The CLI's flags, exit codes, JSON and SARIF are documented and kept.
+  Documented in [cli.md](cli.md) on 2026-10-17, and held to the program by
+  `crates/hexscope-cli/tests/contract.rs`.
 - Every format with a clean copy has confirmed removal.
 - Four weeks with no reported false alarm left unfixed.
 - Tested on iOS Safari, Android Chrome and desktop browsers.
@@ -162,7 +164,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ### P0 — Expand verification without creating false reassurance
 
-1. **Publish a format/finding/cleaning coverage matrix.** The narrower verified-removal contract is documented in [`verification-coverage.md`](verification-coverage.md) and enforced by the core. A full inventory of parser extraction and cleaning behavior across all formats remains follow-up work.
+1. **Publish a format/finding/cleaning coverage matrix.** Done: what each format's clean copy is confirmed to remove is in [`verification-coverage.md`](verification-coverage.md), written from the core's contract and held by a core test; every format and kind of finding hexscope reports is listed in [`cli.md`](cli.md), held by a test that runs the command over every test file. These replace the hand-written matrix drafted on 2026-10-03, which described the earlier JPEG-only state.
 2. **Expand PDF verification in narrow slices.** Shared core verification now confirms removal only for complete, file-scope Info/XMP findings: author, title, subject, keywords, application, producer, created, modified, and history. An unsupported fact observed in the cleaned output is reported as present; claims that unsupported revision findings, hidden or covered text, or other PDF content were removed remain unchecked until parser and cleaner evidence proves coverage. Keep Web QR rescanning and selected-PDF-text checks supplemental.
 3. **Add real regression cases for incomplete documents.** The PDF slice now covers surviving hidden text, hidden and revision text absent from copies but left unchecked, unreadable page streams, and findings present only in the compared output. Extend equivalent cases to other formats as their verification coverage grows; every uncertain path must stay unchecked.
 4. **Make coverage understandable in the result UI and CLI.** The shared clean-copy result now names what was removed, remains, or was not checked, with a plain-language reason. Keep any successfully produced copy available when post-write verification is incomplete.
