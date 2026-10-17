@@ -6,6 +6,7 @@ import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
+import { familyOf, isMedia, type Family } from "./family";
 import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
 import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
@@ -87,12 +88,11 @@ export interface PagePicture {
 }
 
 /**
- * The parser's builds, one per family of files: pictures and movies alone
- * (what most files need), and each with PDF, or with Office, email and
- * WebAssembly. A file loads only the one that reads it.
+ * The parser's builds, one per family of files: pictures, movies and SVG
+ * drawings alone (what most files need), and each with PDF, or with Office,
+ * email and WebAssembly. A file loads only the one that reads it (family.ts).
  */
 type Module = typeof import("./wasm-pdf/hexscope_pdf.js");
-type Family = "media" | "pdf" | "docs";
 const loaded: Partial<Record<Family, Promise<Module>>> = {};
 const IMPORTS: Record<Family, () => Promise<unknown>> = {
   media: () => import("./wasm-media/hexscope_media.js"),
@@ -126,23 +126,6 @@ const load = (family: Family): Promise<Module> =>
 const loadMedia = () => load("media");
 const loadPdf = () => load("pdf");
 
-/** Whether the small build reads these bytes: PNG, JPEG, WebP, GIF, TIFF, and the ISO boxes of HEIF and MP4. */
-function isMedia(b: Uint8Array): boolean {
-  const png = b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
-  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
-  const iso = b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70;
-  const webp = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45;
-  const gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38;
-  const tiff = (b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0x00) || (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0x00 && b[3] === 0x2a);
-  return png || jpeg || iso || webp || gif || tiff;
-}
-/** The build that reads these bytes, asked in the order the core asks: pictures, a WebAssembly module, a PDF, then the rest. */
-function familyOf(b: Uint8Array): Family {
-  if (isMedia(b)) return "media";
-  const wasm = b[0] === 0x00 && b[1] === 0x61 && b[2] === 0x73 && b[3] === 0x6d;
-  if (!wasm && isPdf(b)) return "pdf";
-  return "docs";
-}
 const moduleFor = (b: Uint8Array) => load(familyOf(b));
 
 /**

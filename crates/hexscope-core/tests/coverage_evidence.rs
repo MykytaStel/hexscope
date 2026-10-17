@@ -189,6 +189,30 @@ fn documents_lose_their_properties_and_a_macs_notes() {
     ] {
         assert!(rtf.iter().any(|k| k == kind), "lease.rtf: {kind}");
     }
+    // SVG: Inkscape's names, paths and metadata, a photo inside, and
+    // Illustrator's name and its own copy of the drawing.
+    let inkscape = confirmed("inkscape.svg", "svg");
+    for kind in [
+        "original",
+        "links",
+        "software",
+        "author",
+        "company",
+        "title",
+        "created",
+        "description",
+        "keywords",
+        "photoplace",
+    ] {
+        assert!(inkscape.iter().any(|k| k == kind), "inkscape.svg: {kind}");
+    }
+    let illustrator = confirmed("illustrator.svg", "svg");
+    for kind in ["software", "embedded"] {
+        assert!(
+            illustrator.iter().any(|k| k == kind),
+            "illustrator.svg: {kind}"
+        );
+    }
     // What Office on Windows leaves: the folder a workbook was saved in, the
     // template's path, the printer, SharePoint's properties and the first page.
     let docx = confirmed("windows.docx", "zip");

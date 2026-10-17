@@ -544,6 +544,8 @@ function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
     chips.push(...(kind === "ZIP" ? ["ZIP", m.value(0)] : [kind]));
   } else if (f.format === "rtf") {
     chips.push("Rich Text");
+  } else if (f.format === "svg") {
+    chips.push("SVG");
   } else if (f.format === "office97" || f.format === "cfb") {
     chips.push(m.value(0).charAt(0).toUpperCase() + m.value(0).slice(1));
   } else if (f.format === "eml" || f.format === "msg") {

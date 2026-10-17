@@ -177,12 +177,15 @@ jobs:
       # The documents' budget rose from 235000 for what Office on Windows leaves —
       # the folder, the template's path, the printer, SharePoint's properties,
       # editing-session numbers — found and taken out of clean copies.
+      # The small one's rose from 140000 for SVG drawings (about 9 KB), read
+      # there so a drawing, a text file or an unknown one never loads the
+      # documents' build.
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
           media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures and movies (budget 140000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 239000)."
-          test "$media" -le 140000
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 147000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 239000)."
+          test "$media" -le 147000
           test "$pdf" -le 228000
           test "$docs" -le 239000
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)

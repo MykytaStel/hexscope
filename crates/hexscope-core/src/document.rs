@@ -9,6 +9,7 @@ use crate::model::{ByteRange, NodeKind, ParseTree};
 use crate::pdf::{self, PdfDocument, parse_pdf};
 use crate::png::{PngDocument, parse_png};
 use crate::rtf::{self, RtfDocument, parse_rtf};
+use crate::svg::{self, SvgDocument, parse_svg};
 use crate::tiff::{self, TiffDocument, parse_tiff_file};
 use crate::video::{self, VideoDocument, parse_video};
 use crate::wasm::{self, WasmDocument, parse_wasm};
@@ -30,6 +31,7 @@ pub enum Format {
     Eml,
     Cfb,
     Rtf,
+    Svg,
     Unknown,
 }
 
@@ -50,6 +52,7 @@ pub enum Document {
     Eml(EmlDocument),
     Cfb(CfbDocument),
     Rtf(RtfDocument),
+    Svg(SvgDocument),
     Unknown(ParseTree),
 }
 
@@ -69,6 +72,7 @@ impl Document {
             Document::Eml(d) => &d.tree,
             Document::Cfb(d) => &d.tree,
             Document::Rtf(d) => &d.tree,
+            Document::Svg(d) => &d.tree,
             Document::Unknown(t) => t,
         }
     }
@@ -88,6 +92,7 @@ impl Document {
             Document::Eml(_) => Format::Eml,
             Document::Cfb(_) => Format::Cfb,
             Document::Rtf(_) => Format::Rtf,
+            Document::Svg(_) => Format::Svg,
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -137,6 +142,10 @@ pub fn parse(data: &[u8]) -> Document {
     // A document in Rich Text Format: text, but opened by its own signature.
     if cfg!(feature = "office") && rtf::is_rtf(data) {
         return Document::Rtf(parse_rtf(data));
+    }
+    // A drawing in XML, known by its first element.
+    if cfg!(feature = "svg") && svg::is_svg(data) {
+        return Document::Svg(parse_svg(data));
     }
     // Text last: a message is header lines, and nothing binary claims it.
     if cfg!(feature = "mail") && eml::is_eml(data) {

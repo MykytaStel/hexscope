@@ -78,7 +78,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP and GIF images, MP4 and QuickTime videos, PDFs, Office documents, old Word, Excel and PowerPoint files, and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
             }
             CleanError::PictureUnderBox => {
                 "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
@@ -120,6 +120,7 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
+        Document::Svg(doc) if cfg!(feature = "svg") => crate::svg::clean_svg(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
     cleaned.removed = merged(cleaned.removed);
@@ -733,13 +734,19 @@ fn clean_rtf(data: &[u8], doc: &crate::rtf::RtfDocument) -> Result<Cleaned, Clea
     if doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
         return Err(CleanError::Damaged);
     }
-    if doc.edits.is_empty() {
+    apply(data, &doc.edits)
+}
+
+/// A text document's copy: each edit's bytes replaced by what it puts
+/// there, in one pass, and the edits named once each by what they took.
+pub(crate) fn apply(data: &[u8], edits: &[crate::rtf::Edit]) -> Result<Cleaned, CleanError> {
+    if edits.is_empty() {
         return Err(CleanError::NothingToRemove);
     }
     let mut out = Vec::with_capacity(data.len());
     let mut at = 0usize;
     let mut removed: Vec<Removed> = Vec::new();
-    for e in &doc.edits {
+    for e in edits {
         let (start, end) = (e.range.start as usize, e.range.end() as usize);
         // An edit inside one already made — a comment's author in a removed group — is part of it.
         if start < at {

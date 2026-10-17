@@ -6,9 +6,10 @@
 // part of the file is — that has no Ukrainian.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
+import * as mediaBuild from "./wasm-media/hexscope_media.js";
 import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
 import * as docsBuild from "./wasm-docs/hexscope_docs.js";
-import { isPdf } from "./paint";
+import { familyOf } from "./family";
 import { describe as describeParsed, SEPARATOR } from "./describe";
 import { FileModel } from "./model";
 import { headline } from "./headline";
@@ -22,6 +23,7 @@ import "./docs-i18n";
 const here = (path: string) => new URL(path, import.meta.url);
 
 beforeAll(() => {
+  mediaBuild.initSync({ module: readFileSync(here("./wasm-media/hexscope_media_bg.wasm")) });
   pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
   docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
 });
@@ -73,7 +75,7 @@ describe("every sentence a reader meets about a real file", () => {
   it("is said in Ukrainian", () => {
     const missing = new Map<string, string>();
     for (const [name, bytes] of corpus()) {
-      const build = isPdf(bytes) ? pdfBuild : docsBuild;
+      const build = { media: mediaBuild, pdf: pdfBuild, docs: docsBuild }[familyOf(bytes)];
       let m: FileModel;
       try {
         m = new FileModel(describeParsed(build.parse(bytes)), bytes, name);

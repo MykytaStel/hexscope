@@ -149,6 +149,16 @@ export const RULES: Rule[] = [
     text: "The owner's name comes from the camera's own settings: change it there, and new photos will stop carrying it.",
   },
   {
+    when: ["original", "links", "author", "company", "title"],
+    formats: ["svg"],
+    text: "Inkscape keeps the name the drawing was saved as, where it was last exported, and what Document Properties → Metadata holds. The clean copy removes them all; saving as “Plain SVG” leaves out only Inkscape's own attributes, not the metadata.",
+  },
+  {
+    when: ["embedded"],
+    formats: ["svg"],
+    text: "Illustrator keeps its own copy of the drawing when “Preserve Illustrator Editing Capabilities” is on. The clean copy removes it; File → Export → Export As → SVG does not write it.",
+  },
+  {
     when: ["author", "editor", "company"],
     formats: ["zip", "office97", "rtf"],
     text: "Word, Excel, PowerPoint and LibreOffice write the name of the account that made and saved a file. The clean copy removes it; so do File → Info → Check for Issues → Inspect Document in Office, and Tools → Options → Security → Options → “Remove personal information on saving” in LibreOffice.",

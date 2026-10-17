@@ -138,6 +138,30 @@ registerLazyTranslations({
   "the document's dates, revision number and editing time": "дати документа, номер редакції й час редагування",
   "who saved it, and where": "хто зберігав документ і де",
   "who wrote the comments": "хто писав коментарі",
+  // SVG drawings: what a copy takes out, the tips, the findings in sentences.
+  "the comment naming the program": "коментар із назвою програми",
+  "The comment naming the program": "Коментар із назвою програми",
+  "metadata: who made it, its title, dates and keywords": "метадані: хто створив малюнок, назва, дати й ключові слова",
+  "Metadata: who made it, its title, dates and keywords": "Метадані: хто створив малюнок, назва, дати й ключові слова",
+  "Inkscape's settings for its window and pages": "Налаштування Inkscape для вікна й сторінок",
+  "Inkscape's attributes: the file's name, where it was exported, the version": "Атрибути Inkscape: назва файла, куди його експортовано, версія",
+  "Illustrator's own copy of the drawing": "Власна копія малюнка від Illustrator",
+  "the folders of linked pictures (their names stay)": "теки пов’язаних зображень (їхні назви лишаються)",
+  "The folders of linked pictures (their names stay)": "Теки пов’язаних зображень (їхні назви лишаються)",
+  "photos inside it, cleaned as photos of their own": "фото всередині, очищені як окремі фото",
+  "Photos inside it, cleaned as photos of their own": "Фото всередині, очищені як окремі фото",
+  "Illustrator's own copy of the drawing, which can hold layers and objects the drawing does not show":
+    "власна копія малюнка від Illustrator, яка може містити шари й об’єкти, яких малюнок не показує",
+  "Inkscape keeps the name the drawing was saved as, where it was last exported, and what Document Properties → Metadata holds. The clean copy removes them all; saving as “Plain SVG” leaves out only Inkscape's own attributes, not the metadata.":
+    "Inkscape зберігає назву, під якою збережено малюнок, куди його востаннє експортовано, і те, що вписано в «Властивості документа → Метадані». Очищена копія прибирає все це; збереження як «Простий SVG» прибирає лише власні атрибути Inkscape, але не метадані.",
+  "Illustrator keeps its own copy of the drawing when “Preserve Illustrator Editing Capabilities” is on. The clean copy removes it; File → Export → Export As → SVG does not write it.":
+    "Illustrator зберігає власну копію малюнка, коли ввімкнено «Зберегти можливості редагування Illustrator». Очищена копія її прибирає; «Файл → Експорт → Експортувати як → SVG» її не записує.",
+  "The drawing": "Малюнок",
+  "What this drawing reveals": "Що розкриває цей малюнок",
+  "Leaves out the metadata, Inkscape's names, paths and settings, a comment naming the program and Illustrator's own copy of the drawing; a linked picture keeps only its file name, and a photo inside is cleaned as a photo of its own. The shapes, text and scripts are copied as they are.":
+    "Прибирає метадані, назви, шляхи й налаштування Inkscape, коментар із назвою програми та власну копію малюнка від Illustrator; пов’язане зображення зберігає лише назву файла, а фото всередині очищується як окреме фото. Фігури, текст і скрипти копіюються як є.",
+  "Drawing": "Малюнок",
+  "an SVG drawing": "малюнок SVG",
   "where the document says the list of who saved it is": "посилання документа на список тих, хто його зберігав",
 });
 

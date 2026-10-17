@@ -10,6 +10,25 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **SVG drawings**, on the page, on the command line and in the Action —
+  what they say about whoever made them, and a copy without it:
+  - Inkscape's name for the file, the whole path it was last exported to,
+    pictures linked by their path on the author's computer, its version and
+    settings;
+  - the creator, publisher, title, date, description and keywords of the
+    drawing's metadata (RDF or XMP);
+  - a comment naming the program, as Illustrator and Sketch leave;
+  - Illustrator's own copy of the drawing (`i:pgf`), which can hold layers
+    and objects the drawing does not show;
+  - photos embedded as base64 with their GPS, cleaned as photos of their own;
+  - scripts and event handlers, named and left in place.
+
+  Confirmed removal covers it. A sample is on the home page.
+- **A file no other build reads opens with the small one**: a drawing, a
+  text file or an unknown file no longer downloads the parser for documents
+  (about 238 KB); that one is asked for only by ZIP, Office 97, RTF,
+  WebAssembly and email. The small build grew by about 9 KB for SVG.
+
 - **What the command line keeps from version to version**, in one page
   (`docs/cli.md`): its commands and options, the exit status of each, the
   fields of its JSON, SARIF and receipts, every format and kind of finding it
@@ -18,6 +37,10 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   and the page disagree. `hexscope --help` links to it.
 
 ### Fixed
+
+- **What a text file or an unknown one is, in Ukrainian**: "Plain text…",
+  "This looks like an MP3 recording…" and the list of what hexscope reads
+  were shown in English.
 
 - **In GitHub Actions, a saved `--json` or `--sarif` report was broken**:
   the annotations for the files that failed were written into the same

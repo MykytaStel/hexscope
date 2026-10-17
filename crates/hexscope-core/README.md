@@ -28,8 +28,8 @@ The default `documents` feature adds PDF, ZIP-based documents, WebAssembly,
 email and CFB parsing. Disable default features for the smaller
 images-and-video parser.
 
-Supported top-level formats include PNG, JPEG, HEIF, WebP, GIF, video,
-PDF, ZIP, WebAssembly, EML and CFB. Coverage varies within each format;
+Supported top-level formats include PNG, JPEG, HEIF, WebP, GIF, TIFF, SVG,
+video, PDF, ZIP, RTF, WebAssembly, EML and CFB. Coverage varies within each format;
 see the [known issues](https://github.com/MykytaStel/hexscope/blob/main/docs/known-issues.md)
 for current limits.
 

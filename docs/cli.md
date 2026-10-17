@@ -239,8 +239,8 @@ not done, `index`, `operation_state` and `check`.
 `jpeg`, `png`, `webp`, `gif`, `heif` (HEIC and AVIF), `tiff`, `video`
 (MP4, MOV, M4A), `pdf`, `zip` (ZIP archives, Word, Excel, PowerPoint,
 OpenDocument, EPUB, APK), `office97` (Word, Excel and PowerPoint 97–2003),
-`msg` (Outlook), `cfb` (other compound files), `rtf`, `eml`, `wasm`,
-`unknown`.
+`msg` (Outlook), `cfb` (other compound files), `rtf`, `svg`, `eml`,
+`wasm`, `unknown`.
 <!-- formats:end -->
 
 ## Kinds of finding
@@ -256,7 +256,7 @@ more.
 | Who made a document, and when | `author`, `editor`, `title`, `subject`, `keywords`, `description`, `category`, `status`, `company`, `manager`, `label`, `custom`, `created`, `modified`, `printed`, `revisions`, `editing`, `application`, `producer`, `template` |
 | Where it has been | `folder`, `printer`, `links`, `downloaded`, `tags`, `photo`, `photoplace` |
 | What a reader does not see | `covered`, `hiddentext`, `earlier`, `updates`, `deleted`, `tracked`, `comments`, `notes`, `hiddensheets`, `hiddencells`, `hiddenslides`, `form`, `attachments`, `embedded`, `encryption` |
-| What a PDF does when opened | `scripts`, `launch`, `submits`, `opens` |
+| What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `auth`, `authfail`, `riskyfile` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |

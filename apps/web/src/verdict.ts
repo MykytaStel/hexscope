@@ -33,6 +33,7 @@ export const EXTENSIONS: Record<string, string[]> = {
   msg: ["msg"],
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
   rtf: ["rtf"],
+  svg: ["svg"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -51,6 +52,7 @@ const NAMES: Record<string, [string, string]> = {
   msg: ["an Outlook message", ".msg"],
   office97: ["a Word, Excel or PowerPoint 97–2003 file", ".doc"],
   rtf: ["a Rich Text document", ".rtf"],
+  svg: ["an SVG drawing", ".svg"],
 };
 
 /** Documents a ZIP can be, with the extensions that are their own, as naming.rs lists them. */
@@ -190,10 +192,10 @@ export const REVEALS: Record<string, string> = {
  * found; it is not a scan for malware, and says so where it is shown.
  */
 /** What hexscope reads, for a file it does not. */
-const READS = "it reads photos, videos, PDFs, Word, Excel and PowerPoint files, ZIP archives, emails and Outlook messages";
+export const READS = "it reads photos, videos, SVG drawings, PDFs, Word, Excel and PowerPoint files, ZIP archives, emails and Outlook messages";
 
 /** Kinds of file hexscope does not read, known by their first bytes: what to call one, and what to say. */
-const OTHERS: [RegExp, string, string?][] = [
+export const OTHERS: [RegExp, string, string?][] = [
   [/^ID3|^\xff[\xfb\xf3\xf2]/, "an MP3 recording"],
   [/^RIFF....WAVE/s, "a WAV recording"],
   [/^OggS/, "an Ogg recording"],

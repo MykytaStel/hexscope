@@ -291,6 +291,7 @@ const UK: Record<string, string> = {
   "a cropped photo": "обрізане фото",
   "a photo with the wrong name": "фото з неправильною назвою",
   "a LibreOffice document": "документ LibreOffice",
+  "an Inkscape drawing": "малюнок з Inkscape",
   "an iPhone photo": "фото з iPhone",
   "a Wi-Fi QR code": "QR-код Wi-Fi",
   "an AI-made picture": "картинка, створена ШІ",
@@ -630,6 +631,8 @@ const UK: Record<string, string> = {
   "Share the clean copy": "Поділитися очищеною копією",
   "Save a repaired copy": "Зберегти відновлену копію",
   "Save the blacked-out copy": "Зберегти копію з прихованими даними",
+  "Plain text: not a format hexscope takes apart. Its words read in the column beside the bytes.":
+    "Звичайний текст: hexscope не розбирає його як формат. Його слова видно в стовпці поруч із байтами.",
   "The file is empty: there is not a single byte in it. A download or a copy may have stopped before it began.": "Файл порожній: у ньому немає жодного байта. Можливо, завантаження або копіювання перервалося, не розпочавшись.",
   "How to remove the location from a photo": "Як прибрати геолокацію з фото",
   "What a screenshot gives away": "Що розкриває знімок екрана",
@@ -678,6 +681,29 @@ const UK: Record<string, string> = {
   "decoding failed": "декодування не вдалося",
 };
 
+/** What hexscope reads, as the verdict on a file it does not lists it. */
+const READS_UK = "він читає фото, відео, малюнки SVG, PDF, файли Word, Excel і PowerPoint, архіви ZIP, листи й повідомлення Outlook";
+
+/** Kinds of file hexscope does not read, as the verdict names them by their first bytes. */
+const OTHER_UK: Record<string, string> = {
+  "an MP3 recording": "аудіозапис MP3",
+  "a WAV recording": "аудіозапис WAV",
+  "an Ogg recording": "аудіозапис Ogg",
+  "a FLAC recording": "аудіозапис FLAC",
+  "a RAR archive": "архів RAR",
+  "a 7-Zip archive": "архів 7-Zip",
+  "a gzip archive": "архів gzip",
+  "a Rich Text document": "документ RTF",
+  "a PostScript file": "файл PostScript",
+  "a BMP picture": "зображення BMP",
+  "a TIFF picture or a camera's raw file": "зображення TIFF або RAW-файл фотоапарата",
+  "a JPEG 2000 picture": "зображення JPEG 2000",
+  "a Windows program": "програма для Windows",
+  "a Linux program": "програма для Linux",
+  "a Mac program": "програма для Mac",
+  "an SQLite database": "база даних SQLite",
+};
+
 const NOUNS: Record<string, string> = {
   photo: "Фото",
   picture: "Зображення",
@@ -689,6 +715,7 @@ const NOUNS: Record<string, string> = {
   archive: "Архів",
   file: "Файл",
   module: "Модуль",
+  drawing: "Малюнок",
 };
 
 const REVEAL_WORDS: Record<string, string> = {
@@ -1063,20 +1090,20 @@ function translateText(value: string, locale: Locale): string {
   }
   const tourCount = /^(\d+) of (\d+)$/.exec(value);
   if (tourCount) return `Крок ${tourCount[1]} із ${tourCount[2]}`;
-  let match = /^(Photo|Picture|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
+  let match = /^(Photo|Picture|Drawing|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${translateText(match[2], locale)}`;
-  match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);
   if (match) {
     const count = Number(match[2]);
     return `${NOUNS[match[1]]} розкриває ${count} ${factWord(count)}`;
   }
-  match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) is damaged$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) is damaged$/.exec(value);
   if (match) return `${NOUNS[match[1]]} пошкоджен${["photo", "picture", "video"].includes(match[1]) ? "е" : "ий"}`;
-  match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) does more than show pages$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) does more than show pages$/.exec(value);
   if (match) return `${NOUNS[match[1]]} може виконувати дії, а не лише показувати сторінки`;
-  match = /^Something is hidden in this (photo|picture|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
+  match = /^Something is hidden in this (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
   if (match) return `У файлі щось приховано`;
-  match = /^Nothing personal found in this (photo|picture|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
+  match = /^Nothing personal found in this (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
   if (match) return `Особистих даних у файлі не знайдено`;
   // A list is one sentence: a line of several is said sentence by sentence below.
   match = /^Reveals ([^]+)\.$/.exec(value);
@@ -1096,8 +1123,13 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${{ document: "Документ", workbook: "Книга", presentation: "Презентація" }[match[2]]} ${match[1]} 97–2003`;
   match = /^Breaks (\d+) (rule|rules) of the format, usually harmlessly\.$/.exec(value);
   if (match) return `Порушує ${match[1]} ${ruleWord(Number(match[1]))} формату — зазвичай без наслідків.`;
-  match = /^This (photo|picture|video|recording|PDF|email|document|archive|file|module) has the wrong name$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) has the wrong name$/.exec(value);
   if (match) return `${NOUNS[match[1]]}: назва не відповідає вмісту`;
+  // A file no build reads: what it looks like, and what hexscope does read.
+  if (/^hexscope does not know this kind of file: it reads [^.]+\.$/.test(value)) return `hexscope не знає такого типу файлів: ${READS_UK}.`;
+  match = /^This looks like (.+?)\. hexscope does not read it: it reads [^.]+\.(?: (.+))?$/.exec(value);
+  if (match && OTHER_UK[match[1]])
+    return `Схоже, це ${OTHER_UK[match[1]]}. hexscope його не читає: ${READS_UK}.${match[2] ? ` ${translateText(match[2], locale)}` : ""}`;
   match = /^Gives away (\d+) things?$/.exec(value);
   if (match) {
     const count = Number(match[1]);
@@ -1373,6 +1405,8 @@ function counted(text: string): string {
     [/^steps?$/, ["крок", "кроки", "кроків"]],
     [/^functions?$/, ["функція", "функції", "функцій"]],
     [/^function names?$/, ["назва функції", "назви функцій", "назв функцій"]],
+    [/^scripts?$/, ["скрипт", "скрипти", "скриптів"]],
+    [/^event handlers?$/, ["обробник подій", "обробники подій", "обробників подій"]],
   ];
   return text.replace(/(\d+) ([a-z ]+?)(?=$| and |,)/g, (all, n: string, word: string) => {
     const forms = words.find(([re]) => re.test(word))?.[1];
@@ -1472,9 +1506,15 @@ function factSentence(v: string): string | undefined {
   if ((m = /^(\d+ steps?) recorded$/.exec(v))) return `записано ${counted(m[1])}`;
   if ((m = /^(.+), with a password to open it: hexscope cannot read its contents$/.exec(v)))
     return `${m[1]}, відкривається лише з паролем: hexscope не може прочитати вміст`;
-  // A photo placed in a document: where, on what, whose.
+  if ((m = /^(\d+ scripts?)?(?: and )?(\d+ event handlers?)?, which run when the drawing is opened on its own in a browser — not when a page shows it as a picture$/.exec(v)) && (m[1] || m[2]))
+    return `${[m[1], m[2]].filter(Boolean).map((p) => counted(p as string)).join(" і ")}, які виконуються, коли малюнок відкрито окремо в браузері, — а не коли сторінка показує його як зображення`;
+  // A photo placed in a document or a drawing: where, on what, whose.
   if (/: taken at |· serial |· owner /.test(v))
-    return v.replace(": taken at ", ": знято в ").replace("· serial ", "· серійний номер ").replace("· owner ", "· власник ");
+    return v
+      .replace(/^picture (\d+): /, "зображення $1: ")
+      .replace(": taken at ", ": знято в ")
+      .replace("· serial ", "· серійний номер ")
+      .replace("· owner ", "· власник ");
   return undefined;
 }
 

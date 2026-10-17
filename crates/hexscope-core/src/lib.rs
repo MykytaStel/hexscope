@@ -29,6 +29,7 @@ pub mod reader;
 pub mod repair;
 pub mod rtf;
 pub mod summary;
+pub mod svg;
 pub mod tiff;
 pub mod verification;
 pub mod video;

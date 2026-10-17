@@ -208,6 +208,8 @@ export function roleName(role: number, format: string): string {
             ? "The document"
           : format === "wasm"
             ? "Code and data"
+          : format === "svg"
+            ? "The drawing"
             : "Picture";
     case Role.Metadata:
       return "Metadata";

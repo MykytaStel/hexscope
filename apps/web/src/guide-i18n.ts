@@ -274,7 +274,7 @@ const guideEntries: [string, string][] = [
   ["Rename the file to the name it suggests. The file itself does not change, so nothing is lost.", "Перейменуйте файл так, як підказує hexscope. Сам файл не змінюється, тож нічого не втрачається."],
   ["What it recognises", "Що він розпізнає"],
   ["Pictures", "Зображення"],
-  [": JPEG, PNG, HEIC, AVIF, WebP, GIF and TIFF.", ": JPEG, PNG, HEIC, AVIF, WebP, GIF і TIFF."],
+  [": JPEG, PNG, HEIC, AVIF, WebP, GIF and TIFF, and SVG drawings.", ": JPEG, PNG, HEIC, AVIF, WebP, GIF і TIFF, а також малюнки SVG."],
   ["Videos and sound", "Відео й звук"],
   [": MP4, QuickTime (.mov) and M4A.", ": MP4, QuickTime (.mov) і M4A."],
   [": PDF; Word, Excel and PowerPoint, old and new; LibreOffice's .odt, .ods and .odp; RTF; EPUB books.", ": PDF; Word, Excel і PowerPoint, старі й нові; .odt, .ods і .odp з LibreOffice; RTF; книжки EPUB."],

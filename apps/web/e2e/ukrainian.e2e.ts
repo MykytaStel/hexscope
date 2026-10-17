@@ -7,6 +7,7 @@ const SAMPLES = [
   "photo.jpg", "photo.heic", "holiday.jpg", "cropped.jpg", "progressive.jpg", "sample.png", "ai-picture.png",
   "wifi.png", "broken.png", "film-negative.png", "video.mov", "report.pdf", "redacted.pdf", "report.docx",
   "budget.xlsx", "lease.odt", "plan.doc", "message.eml", "phishing.eml", "phishing.msg", "hello.wasm",
+  "drawing.svg",
 ];
 
 /** Words hexscope writes in English that would give a page away as untranslated. */

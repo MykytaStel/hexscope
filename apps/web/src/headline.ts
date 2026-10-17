@@ -48,6 +48,8 @@ export function noun(m: FileModel): string {
       return "document";
     case "wasm":
       return "module";
+    case "svg":
+      return "drawing";
     case "zip":
       // Word, Excel and PowerPoint by their main part; LibreOffice by its mimetype beside its content.
       return ["word/document.xml", "xl/workbook.xml", "ppt/presentation.xml"].some((l) => f.labels.includes(l)) || isOpenDocument(f.labels)

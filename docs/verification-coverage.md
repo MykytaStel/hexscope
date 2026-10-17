@@ -30,6 +30,7 @@ file, such as a photo in a document, is not covered.
 | `zip` | title, subject, author, editor, keywords, description, category, status, created, modified, revisions, company, manager, application, editing, template, label, custom, downloaded, tags, tracked, deleted, photoplace, photo, printed, printer, thumbnail, folder |
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 | `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
+| `svg` | original, links, software, author, company, title, created, description, keywords, embedded, photoplace |
 <!-- coverage:end -->
 
 Why each row can be trusted:
@@ -67,6 +68,13 @@ Why each row can be trusted:
   deletions in groups of their own go with their text, insertions lose their
   marks, and comments go with who wrote them. A deletion sharing its group
   with other text stays, and is reported **Still present**.
+- **SVG**: the copy leaves out the `<metadata>` block whole (RDF and XMP),
+  every attribute in Inkscape's and Sodipodi's namespaces and Inkscape's
+  window settings, a comment naming the program, and Illustrator's own copy
+  of the drawing (`i:pgf`); a picture linked by its path on the author's
+  computer keeps only its file name, and a photo embedded as base64 is
+  cleaned as a photo of its own. Scripts are the drawing's and stay; they
+  are named, not removed.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.

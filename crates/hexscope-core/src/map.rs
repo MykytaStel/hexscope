@@ -247,6 +247,16 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
             "text" => Some(Role::Content),
             _ => Some(Role::Structure),
         },
+        // What a drawing says about its author lies beside it: the program's
+        // settings and attributes, its metadata, a comment naming the program.
+        Format::Svg => match label {
+            "metadata" | "sodipodi:namedview" | "Illustrator data" | "comment" => {
+                Some(Role::Metadata)
+            }
+            l if l.contains(':') || l == "embedded picture" => Some(Role::Metadata),
+            "svg element" | "script" | "image" | "event handler" => Some(Role::Content),
+            _ => Some(Role::Structure),
+        },
         // A message's header says who and where; its text and files are it.
         Format::Eml => match label {
             "headers" => Some(Role::Metadata),
