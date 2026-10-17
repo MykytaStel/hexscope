@@ -274,6 +274,9 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     let github = std::env::var("GITHUB_ACTIONS").is_ok_and(|v| v == "true");
     let mut failed = 0;
     let mut read = 0;
+    // Files of a format hexscope does not know, by extension: left out of
+    // the list, but never out of the count, so a check cannot look complete.
+    let mut unread: Vec<(String, usize)> = Vec::new();
     let mut results: Vec<(String, String)> = Vec::new();
     for path in files(&o.paths)? {
         let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
@@ -292,6 +295,14 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         let mis = mis.as_ref();
         let quiet = s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
         if s.format == "unknown" && !o.all {
+            let ext = path.extension().map_or_else(
+                || "no extension".to_string(),
+                |e| format!(".{}", e.to_string_lossy().to_lowercase()),
+            );
+            match unread.iter_mut().find(|(e, _)| *e == ext) {
+                Some((_, n)) => *n += 1,
+                None => unread.push((ext, 1)),
+            }
             continue;
         }
         read += 1;
@@ -320,14 +331,43 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     if o.sarif {
         println!("{}", sarif(&results));
     }
+    let not_read: usize = unread.iter().map(|(_, n)| n).sum();
+    unread.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let mut kinds: Vec<String> = unread
+        .iter()
+        .take(5)
+        .map(|(ext, n)| format!("{n} {ext}"))
+        .collect();
+    if unread.len() > 5 {
+        kinds.push("…".into());
+    }
+    let kinds = kinds.join(", ");
+    if github && not_read > 0 {
+        let line = format!(
+            "::notice title=hexscope: not read::{not_read} {} of a format hexscope does not read: {kinds}",
+            if not_read == 1 { "file" } else { "files" }
+        );
+        if o.json || o.sarif {
+            eprintln!("{line}");
+        } else {
+            println!("{line}");
+        }
+    }
     if !o.json && !o.sarif {
         let fail_list = if o.fail_on.is_empty() {
             "nothing".to_string()
         } else {
             o.fail_on.join(", ")
         };
+        let not_read = if not_read > 0 {
+            format!(
+                "; {not_read} not read, of a format hexscope does not read ({kinds}): --all lists them"
+            )
+        } else {
+            String::new()
+        };
         eprintln!(
-            "hexscope: read {read} {}; {failed} with something to fail on ({fail_list})",
+            "hexscope: read {read} {}; {failed} with something to fail on ({fail_list}){not_read}",
             if read == 1 { "file" } else { "files" }
         );
     }
@@ -364,7 +404,9 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {kind}: {text}");
     }
-    if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
+    if s.format == "unknown" {
+        out.push_str("  not read: hexscope does not read this format\n");
+    } else if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
         out.push_str("  nothing found\n");
     }
     out
