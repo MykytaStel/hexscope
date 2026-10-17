@@ -515,7 +515,7 @@ const UK: Record<string, string> = {
   "Time zone": "Часовий пояс",
   "Replies go to": "Адреса для відповіді",
   "When opened": "Під час відкриття",
-  "Scripts": "Сценарії",
+  "Scripts": "Скрипти",
   "Opens a program": "Запускає програму",
   "Form goes to": "Куди надсилається форма",
   "Link goes elsewhere": "Посилання веде в інше місце",

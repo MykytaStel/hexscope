@@ -19,7 +19,16 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   (`account`, `emails`). Shared and build accounts (`Shared`, `runner`) and
   names like `icon@2x.png` are not counted. The small WebAssembly build
   grew by about 2.4 KB for it.
-
+- **A table of what was found on the run's page in GitHub Actions**: GitHub
+  shows at most ten annotations of a level for each step, so a folder with
+  more findings showed only some of them. `hexscope check` now also writes
+  the step summary — a row per file with findings: its format, the kinds it
+  gives away and its problems, never their values — with the files it did
+  not read counted.
+- **A guide to what an SVG keeps**, in English and Ukrainian: Inkscape's
+  names and paths, the metadata block, Illustrator's own copy of the
+  drawing, embedded photos and scripts, and how to take them out — with
+  hexscope, in Inkscape and Illustrator themselves, or with SVGO.
 - **SVG drawings**, on the page, on the command line and in the Action —
   what they say about whoever made them, and a copy without it:
   - Inkscape's name for the file, the whole path it was last exported to,

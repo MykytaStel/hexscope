@@ -44,7 +44,7 @@ insta = "1"
 proptest = "1"
 
 [dev-dependencies.criterion]
-version = "0.5"
+version = "0.8"
 
 [[bench]]
 name = "parse"

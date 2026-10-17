@@ -253,6 +253,53 @@ fn files_it_does_not_read_are_counted_by_kind() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// In GitHub Actions the run's page gets a table: a row per file with
+/// findings, kinds and not values, the files not read counted.
+#[test]
+fn github_step_summary_lists_every_file_with_findings_without_values() {
+    let dir = std::env::temp_dir().join(format!("hexscope-summary-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::copy(fixture("photo.jpg"), dir.join("photo.jpg")).unwrap();
+    std::fs::write(dir.join("a|b.psd"), b"8BPS").unwrap();
+    let summary = dir.join("summary.md");
+    std::fs::write(&summary, "earlier step\n").unwrap();
+    let out = Command::new(BIN)
+        .args([
+            "check",
+            "--fail-on",
+            "location",
+            dir.join("photo.jpg").to_str().unwrap(),
+            dir.join("a|b.psd").to_str().unwrap(),
+        ])
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_STEP_SUMMARY", &summary)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let text = std::fs::read_to_string(&summary).unwrap();
+    assert!(text.starts_with("earlier step\n### hexscope\n"), "{text}");
+    assert!(
+        text.contains("Read 1 file; 1 with something to fail on (location); 1 not read"),
+        "{text}"
+    );
+    let row = text.lines().find(|l| l.contains("photo.jpg")).unwrap();
+    assert!(
+        row.contains("| jpeg | location, camera,") && row.ends_with("| yes |"),
+        "{row}"
+    );
+    assert!(
+        !text.contains("48.858"),
+        "a value reached the summary: {text}"
+    );
+
+    // Outside Actions, nothing is written.
+    std::fs::remove_file(&summary).unwrap();
+    let (_, _, _) = run(&["check", dir.join("photo.jpg").to_str().unwrap()]);
+    assert!(!summary.exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn github_annotations_and_usage_errors() {
     let out = Command::new(BIN)

@@ -119,6 +119,7 @@ export default defineConfig({
         photometa: page("remove-metadata-from-photo.html"),
         videometa: page("remove-metadata-from-video.html"),
         odfmeta: page("remove-metadata-from-libreoffice.html"),
+        svgmeta: page("remove-metadata-from-svg.html"),
         filetype: page("what-file-type-is-this.html"),
         compared: page("metadata-removers-compared.html"),
         sensitive: page("photos-from-sensitive-places.html"),
