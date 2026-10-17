@@ -31,6 +31,12 @@ export function parseQuery(q: string): { bytes: Uint8Array; hex: boolean } | nul
   return { bytes: new TextEncoder().encode(q), hex: false };
 }
 
+/** An offset to go to, written `@0x1F0` or `@496`; `null` when the query is not one. */
+export function parseOffset(q: string): number | null {
+  const m = /^@\s*(0x[0-9a-f]+|\d+)$/i.exec(q.trim());
+  return m ? Number(m[1]) : null;
+}
+
 const lower = (b: number) => (b >= 0x41 && b <= 0x5a ? b + 32 : b);
 
 /** Where the needle occurs, up to the limit. Text matches ignore ASCII case. */
@@ -76,8 +82,8 @@ export class SearchBar {
     this.root.hidden = true;
     this.root.setAttribute("role", "search");
     this.input.type = "search";
-    this.input.placeholder = "Find text, or hex: FF D8";
-    this.input.setAttribute("aria-label", "Find in the file: text, or bytes in hex");
+    this.input.placeholder = "Find text, hex: FF D8, or go to @0x1F0";
+    this.input.setAttribute("aria-label", "Find in the file: text, bytes in hex, or @ and an offset to go to");
     this.input.spellcheck = false;
     this.count.className = "search-count";
     this.count.setAttribute("aria-live", "polite");
@@ -137,6 +143,18 @@ export class SearchBar {
 
   private run(): void {
     const bytes = this.hooks.bytes();
+    const to = parseOffset(this.input.value);
+    if (bytes && to !== null) {
+      this.matches = [];
+      if (to >= bytes.length) {
+        this.count.textContent = "past the end of the file";
+        this.hooks.show(-1, -1);
+      } else {
+        this.count.textContent = "";
+        this.hooks.show(to, to + 1);
+      }
+      return;
+    }
     const q = parseQuery(this.input.value);
     if (!bytes || !q) {
       this.matches = [];

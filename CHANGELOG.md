@@ -10,6 +10,15 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **Tools under the bytes**, as a hex editor has them, in a panel that loads
+  only when opened: what the bytes at the cursor read as — 8- to 64-bit
+  whole numbers, unsigned and signed, both byte orders, 32- and 64-bit
+  floats, a Unix time when it could be one, the bits, the UTF-8 character;
+  the SHA-256 of the file and of the part chosen, to copy; and the entropy
+  along the file, low where bytes repeat and high where data is compressed
+  or encrypted, which goes there on a click. And `@0x1F0` (or `@496`) in
+  the find box goes to that offset.
+
 - **SVG drawings**, on the page, on the command line and in the Action —
   what they say about whoever made them, and a copy without it:
   - Inkscape's name for the file, the whole path it was last exported to,

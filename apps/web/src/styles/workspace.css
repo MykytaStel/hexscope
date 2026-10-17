@@ -399,3 +399,74 @@
   font-family: var(--mono);
   color: var(--faint);
 }
+
+/* --- tools under the bytes (bytetools.ts) ---------------------------------- */
+
+.hex-tools {
+  flex: none;
+  max-height: 45%;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.hex-tools > summary {
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hex-tools-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px 24px;
+  padding: 4px 12px 12px;
+}
+
+.hex-tools-body h3 {
+  margin: 4px 0 6px;
+  font-size: 13px;
+}
+
+.bytetools-table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bytetools-table th,
+.bytetools-table td {
+  padding: 2px 10px 2px 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.bytetools-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.bytetools-table .mono,
+.bytetools-hash .mono {
+  font-family: var(--mono);
+}
+
+.bytetools-hash {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.bytetools-hash code {
+  overflow-wrap: anywhere;
+}
+
+.bytetools-entropy {
+  display: block;
+  width: 100%;
+  height: 40px;
+  cursor: pointer;
+}

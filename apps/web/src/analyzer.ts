@@ -94,6 +94,7 @@ function renderStatus(): void {
 
 function setStatusOffset(offset: number): void {
   statusOffset = offset;
+  if (offset >= 0) tools?.setOffset(offset);
   renderStatus();
 }
 
@@ -124,7 +125,27 @@ const hex = new HexView($("hex-body"), {
   },
 });
 const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
-hex.onView = (start, end) => minimap.setView(start, end);
+// What the bytes read as, their hashes and their entropy: a module of its
+// own, loaded the first time its panel under the bytes is opened.
+let tools: import("./bytetools").ByteTools | null = null;
+let view: [number, number] = [0, 0];
+const toolsBox = $<HTMLDetailsElement>("hex-tools");
+toolsBox.addEventListener("toggle", () => {
+  if (!toolsBox.open || tools) return;
+  void import("./bytetools").then(({ ByteTools }) => {
+    tools = new ByteTools($("hex-tools-body"), { jump: (offset) => hex.scrollToOffset(offset) });
+    const m = workspace.model;
+    tools.setModel(m);
+    tools.setView(...view);
+    if (statusOffset >= 0) tools.setOffset(statusOffset);
+    if (m && selected > 0) tools.setPart(m.start(selected), m.len(selected), m.label(selected));
+  });
+});
+hex.onView = (start, end) => {
+  minimap.setView(start, end);
+  view = [start, end];
+  tools?.setView(start, end);
+};
 const tree = new TreeView($("tree"), { onHover: setHover, onSelect: (id) => point(id) });
 const picture = new PictureView({
   locate: async (by, pos) => {
@@ -430,6 +451,7 @@ function select(id: number, offset?: number): void {
   minimap.setSelected(id);
   tree.setSelected(id);
   if (id >= 0) hex.reveal(id);
+  if (model && id > 0) tools?.setPart(model.start(id), model.len(id), model.label(id));
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
   playBtn.hidden = !canPlay() && !player.isOpen;
@@ -441,6 +463,7 @@ function select(id: number, offset?: number): void {
 function selectInPlace(id: number): void {
   const model = workspace.model;
   selected = id;
+  if (model && id > 0) tools?.setPart(model.start(id), model.len(id), model.label(id));
   hex.setSelected(id);
   minimap.setSelected(id);
   tree.setSelected(id);
@@ -458,6 +481,7 @@ const search = new SearchBar($("hex-find"), {
     if (start < 0 || !model) return;
     toBytes();
     selectInPlace(model.nodeAt(start));
+    setStatusOffset(start);
     hex.revealOffset(start, false);
   },
 });
@@ -733,6 +757,7 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   drawer.nested = levels.length;
 
   hex.setModel(m);
+  tools?.setModel(m);
   showLegend($("hex-legend"), m, point);
   search.reset();
   minimap.setModel(m);
