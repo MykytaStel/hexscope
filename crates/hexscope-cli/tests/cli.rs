@@ -215,7 +215,7 @@ fn files_it_does_not_read_are_counted_by_kind() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::copy(fixture("photo.jpg"), dir.join("photo.jpg")).unwrap();
-    std::fs::write(dir.join("logo.svg"), "<svg/>").unwrap();
+    std::fs::write(dir.join("memo.mp3"), b"ID3\x03\x00\x00\x00\x00\x00\x00").unwrap();
     std::fs::write(dir.join("a.HTML"), "<p>a</p>").unwrap();
     std::fs::write(dir.join("b.html"), "<p>b</p>").unwrap();
     let folder = dir.to_str().unwrap();
@@ -224,7 +224,7 @@ fn files_it_does_not_read_are_counted_by_kind() {
     assert_eq!(code, 0);
     assert!(err.contains("read 1 file;"), "{err}");
     assert!(
-        err.contains("3 not read") && err.contains("(2 .html, 1 .svg)"),
+        err.contains("3 not read") && err.contains("(2 .html, 1 .mp3)"),
         "{err}"
     );
 
