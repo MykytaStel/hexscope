@@ -130,9 +130,13 @@ names the file and the kind (`title=hexscope: reveals location`) and never
 the value, so values stay out of the runner's log. The text output is left
 out for the same reason.
 
-With `--json` or `--sarif` the commands go to standard error, so that
-standard output holds only the report and a report saved from it stays
-valid.
+With `--json` or `--sarif` the commands go to standard error, where the
+runner reads them too, so that standard output holds only the report and a
+report saved from it stays valid.
+
+GitHub shows at most 10 annotations of a level for each step; a file that
+gives away more shows its first ten. For every finding, upload the
+`--sarif` report to code scanning.
 
 ## clean --verify --json
 
