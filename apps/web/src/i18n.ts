@@ -209,9 +209,12 @@ export function languageButton(go?: (locale: Locale) => void): HTMLButtonElement
   button.dataset.languageControl = "true";
   const refresh = () => {
     const target = currentLocale() === "en" ? "uk" : "en";
+    // The name it is called by starts with what it shows, so "EN" said aloud finds it.
     button.textContent = target === "uk" ? "UA" : "EN";
-    button.setAttribute("aria-label", target === "uk" ? "Перемкнути мову на українську" : "Switch language to English");
-    button.title = target === "uk" ? "Перемкнути мову на українську" : "Switch language to English";
+    const label = target === "uk" ? "UA — перемкнути мову на українську" : "EN — switch language to English";
+    button.setAttribute("aria-label", label);
+    button.lang = target;
+    button.title = label;
   };
   refresh();
   button.addEventListener("click", () => {

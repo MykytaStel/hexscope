@@ -1,0 +1,26 @@
+name: Live site
+
+# What visitors get from hexscope.org, not from a local build: after each
+# deploy from main, once a week (the host's settings change without a
+# commit), and by hand. scripts/live-check.mjs fails on any script, style,
+# picture or frame from another site and on a weakened policy.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Nothing loads from elsewhere
+        run: node scripts/live-check.mjs https://hexscope.org

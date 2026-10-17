@@ -1,5 +1,7 @@
-# Actions are pinned to commits (.github/workflows): this proposes each new
-# version as a pull request, so a pin is updated on purpose and checked by CI.
+# Each new version is proposed as a pull request, so it is taken on purpose
+# and checked by CI: the actions pinned to commits (.github/workflows), the
+# site's packages and the crates' dependencies. Minor and patch versions come
+# together, once a month; a major version comes on its own.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,3 +11,23 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      packages:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # The types follow the Node the site is built with (24).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      crates:
+        patterns: ["*"]
+        update-types: [minor, patch]

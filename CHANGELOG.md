@@ -17,6 +17,14 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
   command over every test file in the repository and fails when the program
   and the page disagree. `hexscope --help` links to it.
 
+### Changed
+
+- **`hexscope check` counts the files it does not read**: a folder with
+  photos and SVG drawings no longer reads "read 3 files" as if that were all
+  of it — the last line says how many were not read and of which extensions
+  (`3 not read … (2 .svg, 1 .html)`), `--all` lists them as "not read"
+  instead of "nothing found", and in GitHub Actions they get one notice.
+
 ### Fixed
 
 - **In GitHub Actions, a saved `--json` or `--sarif` report was broken**:

@@ -162,6 +162,10 @@ fn a_folder_is_read_through_and_unknown_files_are_left_out() {
         "{out}"
     );
     assert!(err.contains("read 1 file"), "{err}");
+    assert!(
+        err.contains("1 not read") && err.contains("(1 .txt)"),
+        "{err}"
+    );
 
     // Clean it beside itself, then check the copy: nothing to fail on.
     let (code, out, _) = run(&["clean", dir.join("sub/photo.jpg").to_str().unwrap()]);
@@ -200,6 +204,52 @@ fn repair_saves_what_survived() {
         dir.join("broken-repaired.png").to_str().unwrap(),
     ]);
     assert_eq!(code, 0);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Files of a format hexscope does not read are counted and named by kind,
+/// never passed over in silence: a check that skipped them is not complete.
+#[test]
+fn files_it_does_not_read_are_counted_by_kind() {
+    let dir = std::env::temp_dir().join(format!("hexscope-unread-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::copy(fixture("photo.jpg"), dir.join("photo.jpg")).unwrap();
+    std::fs::write(dir.join("logo.svg"), "<svg/>").unwrap();
+    std::fs::write(dir.join("a.HTML"), "<p>a</p>").unwrap();
+    std::fs::write(dir.join("b.html"), "<p>b</p>").unwrap();
+    let folder = dir.to_str().unwrap();
+
+    let (code, _, err) = run(&["check", "--fail-on", "none", folder]);
+    assert_eq!(code, 0);
+    assert!(err.contains("read 1 file;"), "{err}");
+    assert!(
+        err.contains("3 not read") && err.contains("(2 .html, 1 .svg)"),
+        "{err}"
+    );
+
+    let (_, out, _) = run(&["check", "--all", "--fail-on", "none", folder]);
+    assert_eq!(
+        out.matches("not read: hexscope does not read this format")
+            .count(),
+        3,
+        "{out}"
+    );
+
+    for machine in ["--json", "--sarif"] {
+        let out = Command::new(BIN)
+            .args(["check", machine, "--fail-on", "none", folder])
+            .env("GITHUB_ACTIONS", "true")
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!stdout.contains("::notice"), "{stdout}");
+        assert!(
+            stderr.contains("::notice title=hexscope: not read::3 files"),
+            "{stderr}"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
