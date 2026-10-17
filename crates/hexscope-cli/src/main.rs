@@ -294,7 +294,9 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         };
         let mis = mis.as_ref();
         let quiet = s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
-        if s.format == "unknown" && !o.all {
+        // A file of no known format is passed over, and counted, unless its
+        // text names someone.
+        if s.format == "unknown" && s.facts.is_empty() && !o.all {
             let ext = path.extension().map_or_else(
                 || "no extension".to_string(),
                 |e| format!(".{}", e.to_string_lossy().to_lowercase()),
@@ -404,7 +406,7 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {kind}: {text}");
     }
-    if s.format == "unknown" {
+    if s.format == "unknown" && s.facts.is_empty() {
         out.push_str("  not read: hexscope does not read this format\n");
     } else if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
         out.push_str("  nothing found\n");

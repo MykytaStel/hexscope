@@ -762,6 +762,8 @@ const REVEAL_WORDS: Record<string, string> = {
   "IDs that link it to other shots": "ідентифікатори, що пов’язують його з іншими кадрами",
   "how long the phone had been on": "як довго телефон був увімкнений",
   "the user name of the computer that built it": "ім’я користувача комп’ютера, на якому його зібрано",
+  "the account name on its author's computer": "ім’я облікового запису на комп’ютері автора",
+  "email addresses": "адреси електронної пошти",
   "its functions' names": "назви його функцій",
   "the compiler that built it": "компілятор, яким його зібрано",
   "that it is a screenshot": "що це знімок екрана",
@@ -891,6 +893,8 @@ const HEADINGS: Record<string, string> = {
   "its Finder tags": "теги Finder",
   "a hidden preview of the picture": "прихований попередній перегляд зображення",
   "the user name of the computer that built it": "ім’я користувача комп’ютера, де його зібрано",
+  "the account name on its author's computer": "ім’я облікового запису на комп’ютері автора",
+  "email addresses": "адреси електронної пошти",
   "its functions' names": "назви його функцій",
   "the compiler that built it": "компілятор, яким його зібрано",
   "the language it was written in": "мова, якою його написано",
@@ -1491,7 +1495,8 @@ function factSentence(v: string): string | undefined {
     return `${m[1]} ${ukrainianCountWord(Number(m[1]), "раз", "рази", "разів")} після першого збереження; попередні версії досі всередині`;
   if (/^\d+ hidden (rows?|columns?)( and \d+ hidden columns?)?$/.test(v)) return counted(v);
   if ((m = /^(\d+ steps?) in (.+), last on (.+)$/.exec(v))) return `${counted(m[1])} у ${m[2]}, востаннє ${m[3]}`;
-  if ((m = /^(.+), in paths like (.+)$/.exec(v))) return `${m[1]}, у шляхах на кшталт ${m[2]}`;
+  if ((m = /^(.+), in paths like (.+)$/.exec(v))) return `${m[1].replace(/ and (\d+) more$/, " і ще $1")}, у шляхах на кшталт ${m[2]}`;
+  if ((m = /^(\S+@\S+(?:, \S+@\S+)*) and (\d+) more$/.exec(v))) return `${m[1]} і ще ${m[2]}`;
   if ((m = /^(?:module “(.+)”, )?(\d+ function names?)$/.exec(v))) return `${m[1] ? `модуль «${m[1]}», ` : ""}${counted(m[2])}`;
   if ((m = /^(?:(.+) \()?(\d+ functions?) from (.+?)\)?$/.exec(v)) && (!m[1] || m[1].split(/, | and /).every((c) => CAN[c]))) {
     const can = m[1] ? m[1].split(/, | and /).map((c) => CAN[c]) : [];

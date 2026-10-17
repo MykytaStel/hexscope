@@ -10,6 +10,16 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 
 ### Added
 
+- **What a file of no known format still names**: hexscope reads its text —
+  as ASCII and as UTF-16, as Windows programs write it — for home folders
+  (`/Users/olena/…`, `/home/olena/…`, `C:\Users\Olena\…`), which name the
+  account of whoever made or built it, and for email addresses. A Photoshop
+  or Blender file, a compiled program or a database now says so instead of
+  only "not read"; on the command line it is listed and can fail a check
+  (`account`, `emails`). Shared and build accounts (`Shared`, `runner`) and
+  names like `icon@2x.png` are not counted. The small WebAssembly build
+  grew by about 2.4 KB for it.
+
 - **SVG drawings**, on the page, on the command line and in the Action —
   what they say about whoever made them, and a copy without it:
   - Inkscape's name for the file, the whole path it was last exported to,

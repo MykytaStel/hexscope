@@ -53,7 +53,7 @@ const FIXTURES = [
   "android.mp4", "budget.ods", "chrome-highlight.pdf", "compact.pdf", "cwebp-photo.webp", "encrypted-aes-256.pdf",
   "ffmpeg.gif", "gif2webp-anim.webp", "iphone-hdr.jpg", "iphone.mov", "keynote.pptx", "lease.rtf", "loci.mp4",
   "mac-report.zip", "notes.png", "phishing-rtf.msg", "photo-grid.heic", "photo.avif", "photo.tif", "tall-interlaced.png",
-  "tracked.docx", "voice.m4a", "windows.docx", "windows.xlsx",
+  "tracked.docx", "voice.m4a", "windows.docx", "windows.xlsx", "inkscape.svg", "illustrator.svg", "scene.blend",
 ].map((name) => `../../crates/hexscope-core/tests/fixtures/${name}`);
 
 async function inUkrainian(page: import("@playwright/test").Page): Promise<void> {

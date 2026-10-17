@@ -68,7 +68,7 @@ export function listed(h: Headline): string {
 
 export function headline(m: FileModel): Headline {
   const lines = verdict(m);
-  if (m.file.format === "unknown") return { tone: "neutral", text: "Not a kind of file hexscope reads" };
+  if (m.file.format === "unknown" && m.file.facts.length === 0) return { tone: "neutral", text: "Not a kind of file hexscope reads" };
   const n = noun(m);
   const kinds = new Set([...(m.file.location ? ["location"] : []), ...m.file.facts.map((f) => f.kind)]);
   const has = (k: string) => lines.some((l) => l.kind === k);

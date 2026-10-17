@@ -158,6 +158,8 @@ export const FACT_LABELS: Record<string, string> = {
   debuginfo: "Debug info at",
   debug: "Debug info",
   paths: "Built by user",
+  account: "Account on the computer",
+  emails: "Email addresses",
   imports: "Asks its host to",
   covered: "Hidden, not removed",
   hiddentext: "Hidden text",
