@@ -2501,6 +2501,24 @@ test("a link opens a sample at the view and the part it names", async ({ page })
   await expect(page.locator("#drawer .metadata-groups")).toBeVisible();
 });
 
+test("the bytes' tools read the bytes at the cursor, hash the file and go to an offset", async ({ page }) => {
+  await page.goto("./?sample=photo.jpg&view=bytes");
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await page.locator("#hex-tools > summary").click();
+  await expect(page.locator(".bytetools-values h3")).toHaveText("At 0x00000000");
+  await expect(page.locator(".bytetools-table tr", { hasText: "8-bit" })).toContainText("255 · -1 · 0xFF");
+  await page.locator(".bytetools-hash button").first().click();
+  // shasum -a 256 apps/web/public/samples/photo.jpg
+  await expect(page.locator(".bytetools-hash code").first()).toHaveText("935ab93bc27586f2623d30e9fcc0dd97ce645c7654a742097113ae237be6db4a");
+  await expect(page.locator(".bytetools-entropy")).toHaveAttribute("aria-label", /Entropy along the file: \d\.\d \/ 8/);
+  await page.locator(".search-open").click();
+  await page.locator("#hex-find input").fill("@0x1F0");
+  await expect(page.locator(".bytetools-values h3")).toHaveText("At 0x000001F0");
+  await expect(page.locator("#status")).toContainText("0x000001F0");
+  await page.locator("#hex-find input").fill("@999999999");
+  await expect(page.locator(".search-count")).toHaveText("past the end of the file");
+});
+
 test("a guide's sample opens where the guide is about", async ({ page }) => {
   await page.goto("./remove-location-from-photo");
   await page.locator('a[href*="sample=photo.jpg"]').first().click();
