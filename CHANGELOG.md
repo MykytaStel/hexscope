@@ -11,6 +11,17 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.7.2] — 2026-10-19
+
+### Fixed
+
+- **`cargo install hexscope-cli` failed on a compiler a few months old**:
+  0.7.1 needed a feature only the newest Rust accepts, so Rust 1.94 (March
+  2026), for one, stopped with "`if let` guards are experimental". It builds
+  again with Rust 1.88 and later, and the crates now say they need 1.88, so
+  an older compiler gets a clear message instead. The prebuilt commands and
+  Homebrew were not affected.
+
 ## [0.7.1] — 2026-10-19
 
 ### Added
@@ -517,7 +528,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/MykytaStel/hexscope/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/MykytaStel/hexscope/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MykytaStel/hexscope/compare/v0.5.0...v0.6.0
