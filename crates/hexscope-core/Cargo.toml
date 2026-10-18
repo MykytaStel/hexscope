@@ -13,7 +13,11 @@ categories = ["parser-implementations", "compression"]
 exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots"]
 
 [features]
-default = ["documents"]
+default = ["documents", "explain"]
+# The sentence that says what each part of a file is (docs::Doc::text).
+# The browser's builds leave it out and fetch the sentences when they are
+# first shown: tens of kilobytes less in every visitor's first download.
+explain = []
 # PDF, Office and other ZIP archives, email and WebAssembly. Without them the
 # dispatchers reach only pictures and movies — PNG, JPEG, HEIF, MP4 — and
 # the linker leaves the rest out: the browser's small first module. Each is

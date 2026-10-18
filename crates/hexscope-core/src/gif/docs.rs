@@ -42,3 +42,6 @@ const TABLE: Table = &[
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     lookup(TABLE, label, problem)
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];

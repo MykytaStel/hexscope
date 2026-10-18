@@ -44,3 +44,6 @@ pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
         .or_else(|| crate::exif::docs::describe(label, problem))
         .or_else(|| crate::jpeg::docs::describe(label, problem))
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];

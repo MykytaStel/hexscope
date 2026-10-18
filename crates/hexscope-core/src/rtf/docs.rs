@@ -51,9 +51,9 @@ const TABLE: Table = &[
     ("the braces do not balance*", Doc::new("A group opened with a brace is never closed, or one is closed that was never opened: the document is cut short or damaged.").concern(Concern::Damage)),
 ];
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
-
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     lookup(TABLE, label, problem)
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];

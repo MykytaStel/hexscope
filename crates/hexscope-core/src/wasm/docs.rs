@@ -90,16 +90,16 @@ const TABLE: Table = &[
     ("the file ends in a section header", damage("The file stops in the middle of a section's id or size: it was cut short.")),
 ];
 
+const PRODUCER: Doc = Doc::new("Tools the module was made with, under a heading of their own.")
+    .cite("WebAssembly tool conventions", PRODUCERS);
+
 pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<Doc> {
     lookup(TABLE, &node.label, problem).or_else(|| {
         // A producers field of a kind the conventions do not list.
         let parent = node.parent.and_then(|p| tree.try_get(p))?;
-        (!problem && parent.label == "custom section · producers").then_some(
-            Doc::new("Tools the module was made with, under a heading of their own.")
-                .cite("WebAssembly tool conventions", PRODUCERS),
-        )
+        (!problem && parent.label == "custom section · producers").then_some(PRODUCER)
     })
 }
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE, &[("", PRODUCER)]];

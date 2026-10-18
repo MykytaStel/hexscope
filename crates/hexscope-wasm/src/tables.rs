@@ -8,17 +8,16 @@ use super::*;
 #[derive(Default)]
 pub(crate) struct DocTables {
     pub(crate) ids: Vec<i32>,
-    pub(crate) texts: Vec<&'static str>,
-    pub(crate) cites: Vec<&'static str>,
-    pub(crate) urls: Vec<&'static str>,
+    /// Each explanation's sentence and citation, by key: the page fetches them.
+    pub(crate) keys: Vec<u32>,
     pub(crate) concerns: Vec<u8>,
 }
 
 impl DocTables {
     pub(crate) fn build(tree: &ParseTree, format: Format) -> Self {
         let mut t = DocTables::default();
-        // Docs already sent, by where their text and citation live: every
-        // doc is a constant, so its strings' addresses name it. Sorted, for
+        // Docs already sent, by their sentence's key and their concern.
+        // Sorted, for
         // binary search; a file has a few hundred kinds of part at most. A
         // hash map here cost 3 KB of the build.
         let mut seen: Vec<((usize, usize, u8), i32)> = Vec::new();
@@ -26,19 +25,13 @@ impl DocTables {
             let id = match describe(tree, n.id, format) {
                 None => -1,
                 Some(doc) => {
-                    let key = (
-                        doc.text.as_ptr() as usize,
-                        doc.spec.map_or(0, |s| s.cite.as_ptr() as usize),
-                        doc.concern.map_or(0, |c| c as u8),
-                    );
+                    let key = (doc.key as usize, 0, doc.concern.map_or(0, |c| c as u8));
                     match seen.binary_search_by(|(k, _)| k.cmp(&key)) {
                         Ok(i) => seen[i].1,
                         Err(i) => {
-                            t.texts.push(doc.text);
-                            t.cites.push(doc.spec.map_or("", |s| s.cite));
-                            t.urls.push(doc.spec.map_or("", |s| s.url));
+                            t.keys.push(doc.key);
                             t.concerns.push(doc.concern.map_or(0, |c| c as u8));
-                            let id = t.texts.len() as i32 - 1;
+                            let id = t.keys.len() as i32 - 1;
                             seen.insert(i, (key, id));
                             id
                         }

@@ -127,9 +127,9 @@ browser ends the reader for it, the page says so and the next file starts
 afresh; the command line tool has no such limit.
 
 **WebAssembly size.** Three builds, chosen by a file's first bytes: about
-136 KB gzipped for pictures and movies (CI budget 140,000 bytes), about
-225 KB with PDF (budget 228,000) and about 235 KB with Office, email and
-WebAssembly (budget 239,000), each fetched only for a file it reads. Every
+133 KB gzipped for pictures, movies and drawings (CI budget 140,000 bytes),
+about 209 KB with PDF (budget 216,000) and about 217 KB with Office, email
+and WebAssembly (budget 225,000), each fetched only for a file it reads. Every
 sort goes through one `(key, index)` sort (`model::sorted_by`): a stable
 sort of another item type costs two or three kilobytes. Until
 0.4 there was one build for every document, 295 KB; splitting it by family
@@ -151,11 +151,16 @@ down as the build was worked on:
   a 16 MB PNG took 715 ms against 467;
 - then opt-level "z": 41 KB more off the documents' build and 12 KB off
   the pictures', for parsing outside DEFLATE up to half as long again (a
-  5,000-page PDF, parsed and cleaned, 103 to 148 ms).
+  5,000-page PDF, parsed and cleaned, 103 to 148 ms);
+- then the sentence that explains each part, and its citation, left the
+  builds: the core keeps them behind its `explain` feature, the builds
+  name each by a key, and the page fetches them (20 to 30 KB gzipped, one
+  file per build) once a file is open — 15 KB off the pictures' build,
+  17 KB off PDF's and 21 KB off the documents'. Until they arrive, a part
+  shows its name and value without its sentence.
 
 `wasm-opt -O3` saved 7% gzipped and made parsing a 10 MB PNG five to six
-times slower in the browser; it is not used. The biggest single part left
-is the explanations' text.
+times slower in the browser; it is not used.
 
 ## Fixed
 

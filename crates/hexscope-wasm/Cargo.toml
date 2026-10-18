@@ -13,7 +13,10 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["documents"]
+# The browser's builds take neither: `explain` only for the native tests,
+# which read the sentences the page fetches.
+default = ["documents", "explain"]
+explain = ["hexscope-core/explain"]
 # Without them, the small module the page loads first: pictures and movies
 # only. With one, pictures and movies and that family of files (see
 # hexscope-core's features of the same names).

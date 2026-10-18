@@ -182,14 +182,24 @@ jobs:
       # documents' build.
       # Then to 148000 for the names a file of no known format still holds
       # in its text — home folders, email addresses (strings.rs, ~2.4 KB).
+      # All three fell when the sentence explaining each part, and its
+      # citation, left the parser for files of their own (explain-*.js),
+      # fetched once a file is open: 148000 → 140000, 228000 → 216000,
+      # 239000 → 225000, each with room for a format or two.
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
           media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 148000), $pdf with PDF (budget 228000), $docs with Office, email and WebAssembly (budget 239000)."
-          test "$media" -le 148000
-          test "$pdf" -le 228000
-          test "$docs" -le 239000
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 140000), $pdf with PDF (budget 216000), $docs with Office, email and WebAssembly (budget 225000)."
+          test "$media" -le 140000
+          test "$pdf" -le 216000
+          test "$docs" -le 225000
+          # What each part is, fetched after the answer: one file per build.
+          for f in apps/web/dist/assets/explain-*.js; do
+            n=$(gzip -9c "$f" | wc -c)
+            echo "::notice::$(basename "$f"): $n bytes gzipped (budget 34000)."
+            test "$n" -le 34000
+          done
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
           echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
           test "$raster" -le 215000

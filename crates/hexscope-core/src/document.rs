@@ -1,6 +1,7 @@
 //! Recognising a file's format and parsing it with the right module.
 
 use crate::cfb::{self, CfbDocument, parse_cfb};
+use crate::docs::{Concern, Doc, Table};
 use crate::eml::{self, EmlDocument, parse_eml};
 use crate::gif::{self, GifDocument, parse_gif};
 use crate::heif::{self, HeifDocument, parse_heif};
@@ -256,52 +257,53 @@ fn unknown(data: &[u8]) -> UnknownDocument {
 }
 
 /// What the parts of a file hexscope does not read are.
-pub(crate) fn docs(label: &str) -> Option<crate::docs::Doc> {
-    use crate::docs::{Concern, Doc, Table};
-    const TABLE: Table = &[
-        (
-            "File",
-            Doc::new("A file in a format hexscope does not take apart; its bytes are still shown."),
+const DOCS: Table = &[
+    (
+        "File",
+        Doc::new("A file in a format hexscope does not take apart; its bytes are still shown."),
+    ),
+    (
+        "empty file",
+        Doc::new("The file has no bytes at all.").concern(Concern::Damage),
+    ),
+    (
+        "this looks like *",
+        Doc::new("The file starts the way this other format does, one hexscope does not read yet."),
+    ),
+    (
+        "plain text*",
+        Doc::new(
+            "Text, not a format hexscope takes apart: every byte is shown, and the words read in the text column beside them.",
         ),
-        (
-            "empty file",
-            Doc::new("The file has no bytes at all.").concern(Concern::Damage),
+    ),
+    (
+        "a path on someone's computer",
+        Doc::new(
+            "A folder in someone's home, kept in the file's own data: its name is the account of whoever made the file, or the computer it was built on.",
         ),
-        (
-            "this looks like *",
-            Doc::new(
-                "The file starts the way this other format does, one hexscope does not read yet.",
-            ),
+    ),
+    (
+        "an email address",
+        Doc::new(
+            "An email address in the file's own data: whoever wrote it, or whoever the program that made it belonged to.",
         ),
-        (
-            "plain text*",
-            Doc::new(
-                "Text, not a format hexscope takes apart: every byte is shown, and the words read in the text column beside them.",
-            ),
+    ),
+    (
+        "format not recognised*",
+        Doc::new(
+            "The first bytes match no format hexscope knows, so what the file is cannot be told from them.",
         ),
-        (
-            "a path on someone's computer",
-            Doc::new(
-                "A folder in someone's home, kept in the file's own data: its name is the account of whoever made the file, or the computer it was built on.",
-            ),
-        ),
-        (
-            "an email address",
-            Doc::new(
-                "An email address in the file's own data: whoever wrote it, or whoever the program that made it belonged to.",
-            ),
-        ),
-        (
-            "format not recognised*",
-            Doc::new(
-                "The first bytes match no format hexscope knows, so what the file is cannot be told from them.",
-            ),
-        ),
-    ];
+    ),
+];
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[DOCS];
+
+/// The explanation of a part of a file hexscope does not read.
+pub(crate) fn docs(label: &str) -> Option<Doc> {
     // Unknown files are described whatever the node's kind: their only
     // nodes are the root and the message saying what the file is not.
-    TABLE
-        .iter()
+    DOCS.iter()
         .find(|(p, _)| crate::docs::glob(p, label))
         .map(|(_, d)| *d)
 }

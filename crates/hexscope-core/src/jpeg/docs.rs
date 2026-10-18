@@ -76,9 +76,9 @@ const TABLE: Table = &[
     ("pictures after this one", Doc::new("How many more pictures the index lists after the main one, and where they are.").cite("CIPA DC-x 007", MPF)),
 ];
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
-
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     lookup(TABLE, label, problem).or_else(|| crate::exif::docs::describe(label, problem))
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];

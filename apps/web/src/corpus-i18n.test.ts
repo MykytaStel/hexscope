@@ -12,6 +12,7 @@ import * as docsBuild from "./wasm-docs/hexscope_docs.js";
 import { familyOf } from "./family";
 import { describe as describeParsed, SEPARATOR } from "./describe";
 import { FileModel } from "./model";
+import { explain } from "./explanations";
 import { headline } from "./headline";
 import { verdict } from "./verdict";
 import { advice } from "./advice";
@@ -22,10 +23,12 @@ import "./docs-i18n";
 
 const here = (path: string) => new URL(path, import.meta.url);
 
-beforeAll(() => {
+beforeAll(async () => {
   mediaBuild.initSync({ module: readFileSync(here("./wasm-media/hexscope_media_bg.wasm")) });
   pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
   docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
+  // What each part is, as the page fetches it: one file per build.
+  await Promise.all((["png", "pdf", "zip"] as const).map(explain));
 });
 
 /** Every file the tests and the site have, by name. */
@@ -74,6 +77,7 @@ const DATA = new Set([
 describe("every sentence a reader meets about a real file", () => {
   it("is said in Ukrainian", () => {
     const missing = new Map<string, string>();
+    let explained = 0;
     for (const [name, bytes] of corpus()) {
       const build = { media: mediaBuild, pdf: pdfBuild, docs: docsBuild }[familyOf(bytes)];
       let m: FileModel;
@@ -91,7 +95,10 @@ describe("every sentence a reader meets about a real file", () => {
       // What each part is, as the Structure and Bytes views explain it.
       for (let i = 0; i < m.file.labels.length; i++) {
         const doc = m.doc(i);
-        if (doc) said.push(doc.text);
+        if (doc?.text) {
+          said.push(doc.text);
+          explained++;
+        }
       }
       const copy = build.cleanCopy(bytes, false);
       if (!copy.error) said.push(...removedLines(copy.removed));
@@ -100,5 +107,7 @@ describe("every sentence a reader meets about a real file", () => {
       }
     }
     expect([...missing].map(([s, name]) => `${name}: ${s}`)).toEqual([]);
+    // The sentences came: a part without one would pass unread.
+    expect(explained).toBeGreaterThan(1000);
   });
 });

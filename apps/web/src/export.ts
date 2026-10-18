@@ -2,6 +2,7 @@
 // its offset, length, kind, value and explanation, nested as in the tree,
 // with what the file gives away and what is wrong with it. Unlike the
 // report for a bug, it keeps the values: it is for the file's owner.
+import { explain } from "./explanations";
 import { FileModel, Kind } from "./model";
 
 const KIND = ["container", "field", "warning", "error"];
@@ -52,8 +53,9 @@ export function structureJson(m: FileModel): string {
   );
 }
 
-/** Hands the JSON to the browser as a download. */
-export function saveStructure(m: FileModel): void {
+/** Hands the JSON to the browser as a download, with what each part is. */
+export async function saveStructure(m: FileModel): Promise<void> {
+  await explain(m.file.format).catch(() => {});
   const url = URL.createObjectURL(new Blob([structureJson(m)], { type: "application/json" }));
   const a = document.createElement("a");
   a.href = url;

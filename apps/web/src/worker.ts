@@ -190,6 +190,7 @@ const transfers = (r: ParsedFile): Transferable[] => [
   r.segments.buffer,
   r.entries.buffer,
   r.docIds.buffer,
+  r.docKeys.buffer,
   r.docConcerns.buffer,
   r.composition.buffer,
   r.entropy.buffer,

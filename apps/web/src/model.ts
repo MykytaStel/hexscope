@@ -1,3 +1,4 @@
+import { explanation } from "./explanations";
 import { Missing } from "./missing";
 import type { FilmScanReport } from "./filmscan";
 
@@ -27,9 +28,8 @@ export interface ParsedFile {
   entries: Float64Array;
   /** Per node, an index into the doc tables, or -1. */
   docIds: Int32Array;
-  docTexts: string[];
-  docCites: string[];
-  docUrls: string[];
+  /** Per doc, its sentence's key (explanations.ts). */
+  docKeys: Uint32Array;
   /** Per doc: 0 not a problem, 1 damage, 2 something hidden, 3 an oddity. */
   docConcerns: Uint8Array;
   /** What the file is made of: [start, len, role, node or -1] per slice, every byte once. */
@@ -395,12 +395,14 @@ export class FileModel {
     return out;
   }
 
-  /** What node `id` is, or null when nothing explains it. */
+  /** What node `id` is, or null when nothing explains it. Its sentence and
+   * citation are empty until `explain` has fetched them. */
   doc(id: number): NodeDoc | null {
     const f = this.file;
     const d = id >= 0 ? f.docIds[id] : -1;
     if (d === undefined || d < 0) return null;
-    return { text: f.docTexts[d], cite: f.docCites[d], url: f.docUrls[d], concern: f.docConcerns[d] };
+    const said = explanation(f.docKeys[d]);
+    return { text: said?.text ?? "", cite: said?.cite ?? "", url: said?.url ?? "", concern: f.docConcerns[d] };
   }
 
   entry(i: number): ZipEntryInfo {

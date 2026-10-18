@@ -212,3 +212,6 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
     }
     lookup(PARTS, label, false)
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[PARTS, HEADERS, &[("", HEADER)], PROBLEMS];

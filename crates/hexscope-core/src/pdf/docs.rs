@@ -417,5 +417,5 @@ pub(crate) fn describe(_tree: &ParseTree, node: &Node, problem: bool) -> Option<
     lookup(TABLE, &node.label, problem)
 }
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];
