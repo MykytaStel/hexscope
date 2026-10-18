@@ -3,6 +3,7 @@ name = "hexscope-core"
 version.workspace = true
 description = "Parses binary files into a structure tree with byte ranges"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

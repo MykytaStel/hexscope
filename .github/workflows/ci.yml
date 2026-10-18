@@ -47,6 +47,13 @@ jobs:
         run: cargo test --release -p hexscope-core --test big -- --nocapture
       - name: Builds for the browser target
         run: cargo check -p hexscope-core -p hexscope-wasm --target wasm32-unknown-unknown
+      # `cargo install hexscope-cli` builds with whatever compiler the user
+      # has: the published crates must build with their rust-version.
+      - name: Builds with the oldest supported Rust
+        run: |
+          msrv=$(sed -n '/^\[workspace.package\]/,/^\[/s/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          rustup toolchain install "$msrv" --profile minimal
+          cargo +"$msrv" check --locked -p hexscope-cli -p hexscope-raster
 
   # The GitHub Action, run on the samples as a workflow would run it: a
   # photo that gives nothing away passes; the samples, which give plenty
