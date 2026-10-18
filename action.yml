@@ -1,5 +1,5 @@
 name: hexscope
-description: Check files for what they give away — locations, serial numbers, authors, deleted text, black boxes that hide nothing — before they are published.
+description: Check files for what they give away — locations, serial numbers, authors, deleted text — before they are published.
 author: MykytaStel
 branding:
   icon: eye
