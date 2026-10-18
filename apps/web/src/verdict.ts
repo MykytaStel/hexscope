@@ -165,6 +165,8 @@ export const REVEALS: Record<string, string> = {
   linked: "IDs that link it to other shots",
   uptime: "how long the phone had been on",
   paths: "the user name of the computer that built it",
+  account: "the account name on its author's computer",
+  emails: "email addresses",
   names: "its functions' names",
   toolchain: "the compiler that built it",
   screenshot: "that it is a screenshot",
@@ -223,12 +225,32 @@ function other(bytes: Uint8Array): string {
   return `This looks like ${what}. hexscope does not read it: ${READS}.${note ? ` ${note}` : ""}`;
 }
 
+/** What the file gives away, in one line: four things named, the rest counted. */
+function revealsLine(m: FileModel, email: boolean): VerdictLine | null {
+  const f = m.file;
+  const kinds = [...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)];
+  // What can hurt most goes first, so the four named include it.
+  kinds.sort((a, b) => Number(URGENT.includes(b)) - Number(URGENT.includes(a)));
+  const given = [...new Set(kinds.map((k) => REVEALS[k]).filter(Boolean))];
+  if (given.length === 0) return null;
+  // "Show me" goes to the first thing named.
+  const top = kinds.find((k) => REVEALS[k]);
+  const first = top === "location" ? (f.location?.node ?? -1) : (f.facts.find((x) => x.kind === top)?.node ?? -1);
+  // A message is read by whoever got it: what it says is about its sender.
+  const lead = email ? "Tells you about its sender: " : "Reveals ";
+  // Four named, and how many more, so the line adds up to the headline's count.
+  const named = given.slice(0, 4);
+  const more = categories(m).length - named.length;
+  const items = more > 0 ? [...named, more === 1 ? "1 more thing" : `${more} more things`] : named;
+  return { kind: "reveals", text: `${lead}${list(items)}.`, node: first };
+}
+
 export function verdict(m: FileModel): VerdictLine[] {
   const f = m.file;
   if (f.format === "unknown") {
     const message = m.children(0)[0];
     const label = message !== undefined ? m.label(message) : "";
-    return [
+    const lines: VerdictLine[] = [
       {
         kind: "unknown",
         text: label.startsWith("plain text")
@@ -239,6 +261,10 @@ export function verdict(m: FileModel): VerdictLine[] {
         node: message ?? -1,
       },
     ];
+    // Its own text can still name whoever made it: a home folder, an address.
+    const reveals = revealsLine(m, false);
+    if (reveals) lines.push(reveals);
+    return lines;
   }
 
   const concern = (id: number) => m.doc(id)?.concern ?? Concern.None;
@@ -277,22 +303,8 @@ export function verdict(m: FileModel): VerdictLine[] {
     });
   }
 
-  const kinds = [...(f.location ? ["location"] : []), ...f.facts.map((x) => x.kind)];
-  // What can hurt most goes first, so the four named include it.
-  kinds.sort((a, b) => Number(URGENT.includes(b)) - Number(URGENT.includes(a)));
-  const given = [...new Set(kinds.map((k) => REVEALS[k]).filter(Boolean))];
-  if (given.length > 0) {
-    // "Show me" goes to the first thing named.
-    const top = kinds.find((k) => REVEALS[k]);
-    const first = top === "location" ? (f.location?.node ?? -1) : (f.facts.find((x) => x.kind === top)?.node ?? -1);
-    // A message is read by whoever got it: what it says is about its sender.
-    const lead = email ? "Tells you about its sender: " : "Reveals ";
-    // Four named, and how many more, so the line adds up to the headline's count.
-    const named = given.slice(0, 4);
-    const more = categories(m).length - named.length;
-    const items = more > 0 ? [...named, more === 1 ? "1 more thing" : `${more} more things`] : named;
-    lines.push({ kind: "reveals", text: `${lead}${list(items)}.`, node: first });
-  }
+  const reveals = revealsLine(m, email);
+  if (reveals) lines.push(reveals);
 
   if (odd.length > 0 && damage.length === 0) {
     lines.push({

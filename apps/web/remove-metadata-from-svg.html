@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./theme.js"></script>
+    <meta name="description" content="An SVG saved in Inkscape or Illustrator can keep the file's name, the path it was exported to with your user name, who made it, a hidden copy of the whole drawing and photos with their GPS. See what yours keeps and save a clean copy in your browser." />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Remove metadata from an SVG (Inkscape, Illustrator) — hexscope</title>
+    <link rel="canonical" href="https://hexscope.org/remove-metadata-from-svg" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://hexscope.org/remove-metadata-from-svg" />
+    <meta property="og:title" content="How to remove metadata from an SVG" />
+    <meta property="og:description" content="The file's name, folders on your computer, who made it, Illustrator's own copy, photos with GPS — and a copy without them, made in your browser." />
+    <meta property="og:image" content="https://hexscope.org/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="/src/pages.css" />
+  </head>
+  <body class="story">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
+        hexscope
+      </a>
+      <div class="actions"><a class="btn" href="./">Open a file</a></div>
+    </header>
+
+    <main class="guide-layout">
+      <article class="story-text">
+        <p class="story-kicker">SVG metadata</p>
+        <h1>How to remove metadata from an SVG</h1>
+        <p class="story-lede">
+          An SVG is text, and the program that saved it writes more than the drawing: the name the file was saved as, where it was exported to on your computer, who made it, sometimes a whole second copy of the drawing. None of it is drawn, and all of it goes wherever the logo or icon goes — onto a website, into a repository, to a client. hexscope shows it and saves a copy without it, in your browser. The file is not uploaded anywhere.
+        </p>
+        <p class="story-cta">
+          <a class="btn btn-primary" href="./">Check a drawing</a>
+          <a class="btn" href="./?sample=drawing.svg&amp;view=metadata">Try an Inkscape drawing</a>
+        </p>
+
+        <section>
+          <h2><span class="num">1</span> What an SVG can keep</h2>
+          <ul>
+            <li><strong>Inkscape's own attributes</strong>: the name the drawing was saved as, the folder it was last exported to — older versions keep the whole path, with the user's folder — its version, and the size and place of the window it was edited in.</li>
+            <li><strong>Metadata</strong>: what <em>Document Properties → Metadata</em> holds — the creator, publisher, title, date, description and keywords.</li>
+            <li><strong>A comment naming the program</strong>, as Illustrator and Sketch write at the top.</li>
+            <li><strong>Illustrator's own copy of the drawing</strong>, kept when <em>Preserve Illustrator Editing Capabilities</em> is on: it can hold layers, hidden objects and artboards the SVG does not show.</li>
+            <li><strong>Pictures</strong> linked by their path on your computer, and <strong>photos</strong> embedded in it, each with its own EXIF: where it was taken, with which camera.</li>
+          </ul>
+          <p class="guide-note">The sample poster was exported to a folder under /home/olena.koval/Work/Acme and carries a photo that still says it was taken at the Eiffel Tower.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">2</span> Remove it</h2>
+          <p>Open the drawing in hexscope and press <em>Remove it — save a clean copy</em>. In the copy:</p>
+          <ul>
+            <li>the metadata, Inkscape's attributes and settings, the comment naming the program and Illustrator's own copy are left out;</li>
+            <li>a linked picture keeps only its file name, not the folders before it;</li>
+            <li>a photo inside is cleaned as a photo of its own, and put back;</li>
+            <li>the shapes and text are copied as they are.</li>
+          </ul>
+          <p>Then press <em>Open the clean copy</em>, and hexscope says what is gone.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">3</span> Scripts</h2>
+          <p>An SVG can hold scripts. They run when the drawing is opened on its own in a browser, or put in a page as an object — not when a page shows it as a picture. hexscope names them and leaves them in the copy, since they are part of the drawing: if you did not put them there, open the drawing in an editor and look.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">4</span> In the program itself</h2>
+          <ul>
+            <li><strong>Inkscape</strong>: empty <em>File → Document Properties → Metadata</em>, and then save it with <em>File → Save a Copy</em>, choosing <em>Plain SVG</em>, which leaves out Inkscape's own attributes but keeps the metadata.</li>
+            <li><strong>Illustrator</strong>: choose <em>File → Export → Export As → SVG</em>, which does not write Illustrator's own copy; <em>Save As</em> keeps it while <em>Preserve Illustrator Editing Capabilities</em> is on.</li>
+            <li><strong>For a website</strong>: SVGO's default settings leave out metadata, comments and editors' attributes, but not the EXIF of a photo embedded in the drawing.</li>
+          </ul>
+          <p>Check the result either way: open the saved file in hexscope and see what is left.</p>
+        </section>
+
+        <section>
+          <h2><span class="num">5</span> Before you publish a site</h2>
+          <p><a href="https://github.com/MykytaStel/hexscope#on-the-command-line-and-in-ci" target="_blank" rel="noopener noreferrer">The command line tool</a> and its GitHub Action read every SVG in a folder, and can fail a build when one names a folder on someone's computer:</p>
+          <p><code>hexscope check --fail-on links,original,author site/</code></p>
+          <p class="story-cta">
+            <a class="btn btn-primary" href="./">Check a drawing now</a>
+            <span>Your files never leave your browser.</span>
+          </p>
+        </section>
+
+        <nav class="guide-more" aria-label="More guides">
+          <p><strong>More from hexscope</strong></p>
+          <ul data-guides></ul>
+        </nav>
+      </article>
+    </main>
+    <script type="module" src="/src/page.ts"></script>
+  </body>
+</html>

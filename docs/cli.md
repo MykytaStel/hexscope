@@ -135,6 +135,13 @@ out for the same reason. Files of a format hexscope does not read get one
 `::notice` with `title=hexscope: not read`, saying how many and of which
 extensions.
 
+When `GITHUB_STEP_SUMMARY` is set, as it is in every step, `check` also
+appends a table to the run's summary page: a row for each file with
+findings — its path, format, the kinds it gives away, its problems counted
+by concern, and whether it fails — with the totals and the files not read
+above it. Like the annotations it holds kinds, never values, and unlike
+them it is not cut at ten: up to 500 rows, then a count.
+
 With `--json` or `--sarif` the commands go to standard error, where the
 runner reads them too, so that standard output holds only the report and a
 report saved from it stays valid.
@@ -264,6 +271,7 @@ more.
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `auth`, `authfail`, `riskyfile` |
+| Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->
 

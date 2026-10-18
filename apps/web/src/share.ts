@@ -83,6 +83,8 @@ export const CATEGORIES: [string, string][] = [
   ["tags", "its Finder tags"],
   ["thumbnail", "a hidden preview of the picture"],
   ["paths", "the user name of the computer that built it"],
+  ["account", "the account name on its author's computer"],
+  ["emails", "email addresses"],
   ["names", "its functions' names"],
   ["toolchain", "the compiler that built it"],
   ["language", "the language it was written in"],

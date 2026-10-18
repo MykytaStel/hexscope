@@ -4,7 +4,7 @@
   "license": "MIT OR Apache-2.0",
   "scripts": {
     "wasm": "pnpm wasm:media && pnpm wasm:pdf && pnpm wasm:docs && pnpm wasm:raster",
-    "wasm:media": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm --no-default-features --features svg && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --target web --remove-name-section --remove-producers-section --out-dir apps/web/src/wasm-media --out-name hexscope_media",
+    "wasm:media": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm --no-default-features --features svg,strings && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --target web --remove-name-section --remove-producers-section --out-dir apps/web/src/wasm-media --out-name hexscope_media",
     "wasm:pdf": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm --no-default-features --features pdf && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --target web --remove-name-section --remove-producers-section --out-dir apps/web/src/wasm-pdf --out-name hexscope_pdf",
     "wasm:docs": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo build -p hexscope-wasm --target wasm32-unknown-unknown --profile wasm --no-default-features --features office,mail,module && wasm-bindgen target/wasm32-unknown-unknown/wasm/hexscope_wasm.wasm --target web --remove-name-section --remove-producers-section --out-dir apps/web/src/wasm-docs --out-name hexscope_docs",
     "dev": "pnpm wasm && pnpm --filter web dev",

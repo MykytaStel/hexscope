@@ -18,7 +18,7 @@ default = ["documents"]
 # dispatchers reach only pictures and movies — PNG, JPEG, HEIF, MP4 — and
 # the linker leaves the rest out: the browser's small first module. Each is
 # its own feature, so the browser can load a module per family of files.
-documents = ["pdf", "office", "mail", "module", "svg"]
+documents = ["pdf", "office", "mail", "module", "svg", "strings"]
 # PDF, its redaction, page texts and pictures.
 pdf = []
 # ZIP archives (Word, Excel, PowerPoint, iWork, EPUB, APK) and the Office 97
@@ -31,6 +31,9 @@ module = []
 # SVG drawings: in the browser, read by the small module with the pictures,
 # so a drawing never loads the documents' one.
 svg = []
+# Names in the text of files no format reads: home folders, email addresses.
+# In the browser, read by the small module, which such files load.
+strings = []
 
 [dependencies]
 hexscope-inflate = { path = "../hexscope-inflate", version = "0.6.0" }
@@ -41,7 +44,7 @@ insta = "1"
 proptest = "1"
 
 [dev-dependencies.criterion]
-version = "0.5"
+version = "0.8"
 
 [[bench]]
 name = "parse"

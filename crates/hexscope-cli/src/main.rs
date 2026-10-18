@@ -278,6 +278,10 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     // the list, but never out of the count, so a check cannot look complete.
     let mut unread: Vec<(String, usize)> = Vec::new();
     let mut results: Vec<(String, String)> = Vec::new();
+    // In GitHub Actions, a row per file with findings for the run's summary
+    // page: annotations stop at ten of a level per step, the summary does not.
+    let summary_file = std::env::var_os("GITHUB_STEP_SUMMARY").filter(|_| github);
+    let mut rows: Vec<String> = Vec::new();
     for path in files(&o.paths)? {
         let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
         let (s, mis) = match movie::read(&path).map_err(failed_to_read)? {
@@ -294,7 +298,9 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         };
         let mis = mis.as_ref();
         let quiet = s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
-        if s.format == "unknown" && !o.all {
+        // A file of no known format is passed over, and counted, unless its
+        // text names someone.
+        if s.format == "unknown" && s.facts.is_empty() && !o.all {
             let ext = path.extension().map_or_else(
                 || "no extension".to_string(),
                 |e| format!(".{}", e.to_string_lossy().to_lowercase()),
@@ -309,6 +315,9 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
         let tags = tags(&s, mis);
         let fails = o.fail_on.iter().any(|f| tags.contains(&f.as_str()));
         failed += usize::from(fails);
+        if summary_file.is_some() && !quiet {
+            rows.push(summary_row(&path, &s, mis, fails));
+        }
         if o.sarif {
             results.extend(sarif_results(&path, &s, mis));
         } else if o.json {
@@ -353,12 +362,27 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             println!("{line}");
         }
     }
+    let fail_list = if o.fail_on.is_empty() {
+        "nothing".to_string()
+    } else {
+        o.fail_on.join(", ")
+    };
+    if let Some(file) = summary_file {
+        let mut head = format!(
+            "Read {read} {}; {failed} with something to fail on ({fail_list})",
+            if read == 1 { "file" } else { "files" }
+        );
+        if not_read > 0 {
+            let _ = write!(
+                head,
+                "; {not_read} not read, of a format hexscope does not read ({kinds})"
+            );
+        }
+        if let Err(e) = write_summary(Path::new(&file), &head, &rows) {
+            eprintln!("hexscope: the step summary could not be written: {e}");
+        }
+    }
     if !o.json && !o.sarif {
-        let fail_list = if o.fail_on.is_empty() {
-            "nothing".to_string()
-        } else {
-            o.fail_on.join(", ")
-        };
         let not_read = if not_read > 0 {
             format!(
                 "; {not_read} not read, of a format hexscope does not read ({kinds}): --all lists them"
@@ -376,6 +400,75 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
     } else {
         ExitCode::SUCCESS
     })
+}
+
+/// Rows of the summary table, at most; past them, a count.
+const SUMMARY_ROWS: usize = 500;
+
+/// A file with findings as a row of the step summary: its path, format, the
+/// kinds of what it gives away and its problems by concern — never a value,
+/// as with the annotations.
+fn summary_row(path: &Path, s: &Summary, mis: Option<&Misnamed>, fails: bool) -> String {
+    let cell = |t: &str| t.replace('|', "\\|").replace(['\n', '\r'], " ");
+    let file = path.display().to_string();
+    let file = if file.contains('`') {
+        cell(&file)
+    } else {
+        format!("`{}`", cell(&file))
+    };
+    let mut gives: Vec<&str> = Vec::new();
+    for (kind, _) in &s.facts {
+        if !gives.contains(kind) {
+            gives.push(kind);
+        }
+    }
+    if mis.is_some() {
+        gives.push("misnamed");
+    }
+    let problems: Vec<String> = [Concern::Damage, Concern::Hidden, Concern::Oddity]
+        .into_iter()
+        .filter_map(|c| {
+            let n = s.count(c);
+            (n > 0).then(|| format!("{n} {}", concern_name(c)))
+        })
+        .collect();
+    let or_dash = |v: String| if v.is_empty() { "—".to_string() } else { v };
+    format!(
+        "| {file} | {} | {} | {} | {} |",
+        s.format,
+        or_dash(gives.join(", ")),
+        or_dash(problems.join(", ")),
+        if fails { "yes" } else { "" }
+    )
+}
+
+/// Appends the run's table to the step summary GitHub shows on its page.
+fn write_summary(to: &Path, head: &str, rows: &[String]) -> std::io::Result<()> {
+    let mut out = format!("### hexscope\n\n{head}.\n\n");
+    if rows.is_empty() {
+        out.push_str("Nothing found in the files read.\n");
+    } else {
+        out.push_str(
+            "| File | Format | Gives away | Problems | Fails |\n| --- | --- | --- | --- | --- |\n",
+        );
+        for row in rows.iter().take(SUMMARY_ROWS) {
+            out.push_str(row);
+            out.push('\n');
+        }
+        if rows.len() > SUMMARY_ROWS {
+            let _ = writeln!(
+                out,
+                "\n…and {} more files with findings.",
+                rows.len() - SUMMARY_ROWS
+            );
+        }
+    }
+    out.push('\n');
+    std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(to)?
+        .write_all(out.as_bytes())
 }
 
 /// What a misnamed file is, and the name that fits, in one line.
@@ -404,7 +497,7 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {kind}: {text}");
     }
-    if s.format == "unknown" {
+    if s.format == "unknown" && s.facts.is_empty() {
         out.push_str("  not read: hexscope does not read this format\n");
     } else if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
         out.push_str("  nothing found\n");

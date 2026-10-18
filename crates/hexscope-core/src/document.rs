@@ -53,7 +53,15 @@ pub enum Document {
     Cfb(CfbDocument),
     Rtf(RtfDocument),
     Svg(SvgDocument),
-    Unknown(ParseTree),
+    Unknown(UnknownDocument),
+}
+
+/// A file in no format hexscope reads: what it looks like, and what its
+/// text says about who made it (strings.rs).
+#[derive(Debug)]
+pub struct UnknownDocument {
+    pub tree: ParseTree,
+    pub facts: Vec<crate::zip::DocumentFact>,
 }
 
 impl Document {
@@ -73,7 +81,7 @@ impl Document {
             Document::Cfb(d) => &d.tree,
             Document::Rtf(d) => &d.tree,
             Document::Svg(d) => &d.tree,
-            Document::Unknown(t) => t,
+            Document::Unknown(d) => &d.tree,
         }
     }
 
@@ -190,7 +198,7 @@ fn is_text(data: &[u8]) -> bool {
             .all(|c| !c.is_control() || matches!(c, '\t' | '\n' | '\r'))
 }
 
-fn unknown(data: &[u8]) -> ParseTree {
+fn unknown(data: &[u8]) -> UnknownDocument {
     let mut tree = ParseTree::new();
     let root = tree.add(
         None,
@@ -199,10 +207,11 @@ fn unknown(data: &[u8]) -> ParseTree {
         NodeKind::Container,
         None,
     );
+    let text = is_text(data);
     let (label, len) = match (data.is_empty(), identify(data)) {
         (true, _) => ("empty file".to_string(), 0),
         (false, Some((name, len))) => (format!("this looks like {name} — not supported yet"), len),
-        (false, None) if is_text(data) => (
+        (false, None) if text => (
             "plain text, which reads in the column beside the bytes".to_string(),
             data.len() as u64,
         ),
@@ -219,7 +228,31 @@ fn unknown(data: &[u8]) -> ParseTree {
         NodeKind::Field
     };
     tree.add(Some(root), label, ByteRange::new(0, len), kind, None);
-    tree
+    // Plain text says itself in the column beside the bytes; anything else
+    // is looked through for the names its text holds.
+    let mut facts = Vec::new();
+    if cfg!(feature = "strings") && !text {
+        for f in crate::strings::scan(data) {
+            let label = if f.kind == "account" {
+                "a path on someone's computer"
+            } else {
+                "an email address"
+            };
+            let node = tree.add(
+                Some(root),
+                label,
+                ByteRange::new(f.at, f.len),
+                NodeKind::Field,
+                None,
+            );
+            facts.push(crate::zip::DocumentFact {
+                kind: f.kind,
+                text: f.text,
+                node,
+            });
+        }
+    }
+    UnknownDocument { tree, facts }
 }
 
 /// What the parts of a file hexscope does not read are.
@@ -244,6 +277,18 @@ pub(crate) fn docs(label: &str) -> Option<crate::docs::Doc> {
             "plain text*",
             Doc::new(
                 "Text, not a format hexscope takes apart: every byte is shown, and the words read in the text column beside them.",
+            ),
+        ),
+        (
+            "a path on someone's computer",
+            Doc::new(
+                "A folder in someone's home, kept in the file's own data: its name is the account of whoever made the file, or the computer it was built on.",
+            ),
+        ),
+        (
+            "an email address",
+            Doc::new(
+                "An email address in the file's own data: whoever wrote it, or whoever the program that made it belonged to.",
             ),
         ),
         (

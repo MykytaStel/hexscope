@@ -1241,8 +1241,20 @@ mod tests {
             tree
         };
         // A broken rule, read whole, leaves nothing unread; damage does.
-        assert!(summary_of(&Document::Unknown(tree(NodeKind::Warning))).complete);
-        assert!(!summary_of(&Document::Unknown(tree(NodeKind::Error))).complete);
+        assert!(
+            summary_of(&Document::Unknown(crate::document::UnknownDocument {
+                tree: tree(NodeKind::Warning),
+                facts: Vec::new()
+            }))
+            .complete
+        );
+        assert!(
+            !summary_of(&Document::Unknown(crate::document::UnknownDocument {
+                tree: tree(NodeKind::Error),
+                facts: Vec::new()
+            }))
+            .complete
+        );
         // Data nothing in the file accounts for was not read either.
         let fixture = |name: &str| {
             std::fs::read(format!(
