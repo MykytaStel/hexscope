@@ -96,7 +96,8 @@ if (arg === "--check") {
   if (text.includes(`## [${arg}]`)) throw new Error(`CHANGELOG.md already has ${arg}`);
   const next = text.indexOf("\n## [", text.indexOf("## [Unreleased]") + 1);
   const previous = /^## \[(\d+\.\d+\.\d+)\]/m.exec(text.slice(next + 1))[1];
-  const day = new Date().toISOString().slice(0, 10);
+  // The day where the release is made, not in UTC.
+  const day = new Date().toLocaleDateString("sv");
   const url = "https://github.com/MykytaStel/hexscope/compare";
   const written =
     `${text.slice(0, next)}\n## [${arg}] — ${day}\n\n${merged()}\n${text.slice(next)}`.replace(
