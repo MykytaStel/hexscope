@@ -7,12 +7,14 @@ name: Release binaries
 on:
   release:
     types: [published]
-  # A change to how they are built is built on its pull request, not attached.
+  # A change to how they are built, or to the command itself, is built on
+  # its pull request for every system, not attached.
   pull_request:
     paths:
       - .github/workflows/release.yml
       - action.yml
       - scripts/action-install.sh
+      - crates/hexscope-cli/**
 
 env:
   CARGO_TERM_COLOR: always

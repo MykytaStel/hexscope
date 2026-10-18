@@ -537,7 +537,7 @@ fn exit_status_is_as_the_page_says() {
     let out = out.to_str().unwrap();
     let missing = Path::new(out).join("missing.jpg");
     let missing = missing.to_str().unwrap();
-    let cases: [(&[&str], i32); 20] = [
+    let cases: [(&[&str], i32); 21] = [
         (&[], 2),
         (&["--help"], 0),
         (&["--version"], 0),
@@ -561,6 +561,7 @@ fn exit_status_is_as_the_page_says() {
         (&["film", "--out", out, &photo], 2),
         (&["mosaic", "--bogus", &photo], 2),
         (&["mosaic", text], 1),
+        (&["menu", "--bogus"], 2),
     ];
     for (args, expected) in cases {
         let (code, _, err) = hexscope(args, false);
