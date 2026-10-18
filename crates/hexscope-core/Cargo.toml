@@ -40,7 +40,7 @@ svg = []
 strings = []
 
 [dependencies]
-hexscope-inflate = { path = "../hexscope-inflate", version = "0.7.0" }
+hexscope-inflate = { path = "../hexscope-inflate", version = "0.7.1" }
 
 [dev-dependencies]
 flate2 = "1"

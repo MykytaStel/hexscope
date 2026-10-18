@@ -11,6 +11,18 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.7.1] — 2026-10-19
+
+### Added
+
+- **"Clean with hexscope" in the file manager**: `hexscope menu` adds it to
+  Finder's Quick Actions on a Mac, to Send to in Windows' File Explorer and
+  to the Scripts menu of GNOME Files. It runs `clean --verify` on the files
+  picked — each clean copy is saved beside its file — and shows what was
+  removed. `hexscope menu --remove` takes it away.
+- **Homebrew**: `brew install mykytastel/hexscope/hexscope` installs the
+  command built for each release, on macOS and Linux.
+
 ## [0.7.0] — 2026-10-18
 
 ### Added
@@ -505,7 +517,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/MykytaStel/hexscope/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/MykytaStel/hexscope/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MykytaStel/hexscope/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MykytaStel/hexscope/compare/v0.4.0...v0.5.0
