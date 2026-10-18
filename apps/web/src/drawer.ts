@@ -50,7 +50,7 @@ const METADATA_FACT_GROUPS: Record<Exclude<MetadataGroupKey, "general" | "additi
   camera: new Set(["camera", "lens", "serial", "owner", "shutter", "uptime"]),
   location: new Set(["place", "photoplace"]),
   dates: new Set(["taken", "created", "modified", "updates", "timezone"]),
-  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "folder", "mailer", "sentfrom", "computer", "printer", "printed"]),
+  creator: new Set(["software", "author", "editor", "manager", "producer", "application", "company", "label", "template", "downloaded", "folder", "mailer", "sentfrom", "computer", "printer", "printed", "account", "emails"]),
 };
 
 function metadataGroupFor(kind: string): MetadataGroupKey {
@@ -411,6 +411,7 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
       svg: "What this drawing reveals",
+      unknown: "What this file reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };
@@ -509,7 +510,7 @@ export class Drawer {
       groupElements.set(key, { section, list, body });
     }
     const generalList = groupElements.get("general")!.list;
-    fact(generalList, "File", f.format.toUpperCase());
+    fact(generalList, "File", f.format === "unknown" ? "Not a format hexscope reads" : f.format.toUpperCase());
     fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
     if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
@@ -616,6 +617,9 @@ export class Drawer {
     // An encrypted PDF is not rewritten: the copy would drop its protection.
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
+    } else if (f.format === "unknown") {
+      // Found in its text, not read from its structure: there is nothing to rewrite it by.
+      group.append(el("p", "hint", "hexscope does not take this format apart, so it makes no clean copy of it. The program that made the file keeps these names: change them there, or export a copy without them."));
     } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));

@@ -320,7 +320,13 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
-        Document::Unknown(tree) => flatten(&tree),
+        Document::Unknown(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            for f in &doc.facts {
+                parsed.facts.push((f.kind, sanitise(&f.text), f.node));
+            }
+            parsed
+        }
         // A document in the small module, which never makes one.
         other => flatten(other.tree()),
     };

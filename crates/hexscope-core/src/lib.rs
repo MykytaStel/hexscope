@@ -28,6 +28,7 @@ pub mod png;
 pub mod reader;
 pub mod repair;
 pub mod rtf;
+pub mod strings;
 pub mod summary;
 pub mod svg;
 pub mod tiff;

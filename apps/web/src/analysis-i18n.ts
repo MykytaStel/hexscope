@@ -157,6 +157,21 @@ registerLazyTranslations({
   "Illustrator keeps its own copy of the drawing when “Preserve Illustrator Editing Capabilities” is on. The clean copy removes it; File → Export → Export As → SVG does not write it.":
     "Illustrator зберігає власну копію малюнка, коли ввімкнено «Зберегти можливості редагування Illustrator». Очищена копія її прибирає; «Файл → Експорт → Експортувати як → SVG» її не записує.",
   "The drawing": "Малюнок",
+  // What a file of no known format still names in its text.
+  "Account on the computer": "Обліковий запис на комп’ютері",
+  "Email addresses": "Адреси електронної пошти",
+  "What this file reveals": "Що розкриває цей файл",
+  "Not a format hexscope reads": "Формат, який hexscope не читає",
+  "hexscope does not take this format apart, so it makes no clean copy of it. The program that made the file keeps these names: change them there, or export a copy without them.":
+    "hexscope не розбирає цей формат, тож не робить його очищеної копії. Ці імена зберігає програма, що створила файл: змініть їх там або експортуйте копію без них.",
+  "A folder in someone's home, kept in the file's own data: its name is the account of whoever made the file, or the computer it was built on.":
+    "Тека в чиїйсь домашній теці, збережена в даних самого файла: її назва — обліковий запис того, хто створив файл, або комп’ютера, на якому його зібрано.",
+  "An email address in the file's own data: whoever wrote it, or whoever the program that made it belonged to.":
+    "Адреса електронної пошти в даних самого файла: того, хто її вписав, або того, кому належала програма, що створила файл.",
+  "A path on someone's computer": "Шлях на чиємусь комп’ютері",
+  "a path on someone's computer": "шлях на чиємусь комп’ютері",
+  "an email address": "адреса електронної пошти",
+  "An email address": "Адреса електронної пошти",
   "What this drawing reveals": "Що розкриває цей малюнок",
   "Leaves out the metadata, Inkscape's names, paths and settings, a comment naming the program and Illustrator's own copy of the drawing; a linked picture keeps only its file name, and a photo inside is cleaned as a photo of its own. The shapes, text and scripts are copied as they are.":
     "Прибирає метадані, назви, шляхи й налаштування Inkscape, коментар із назвою програми та власну копію малюнка від Illustrator; пов’язане зображення зберігає лише назву файла, а фото всередині очищується як окреме фото. Фігури, текст і скрипти копіюються як є.",

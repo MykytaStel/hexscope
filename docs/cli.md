@@ -271,6 +271,7 @@ more.
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `auth`, `authfail`, `riskyfile` |
+| Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->
 
