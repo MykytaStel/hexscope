@@ -864,3 +864,56 @@ fn a_name_that_says_another_format_is_named_and_can_fail_the_check() {
     assert_eq!(code, 1);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// "Clean with hexscope" goes where this system's file manager looks for it,
+/// runs this very program on what is chosen, and goes away again.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[test]
+fn menu_adds_clean_with_hexscope_and_removes_it() {
+    let home = std::env::temp_dir().join(format!("hexscope-menu-home-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(&home).unwrap();
+    let menu = |args: &[&str]| {
+        let out = Command::new(BIN)
+            .args(args)
+            .env("HOME", &home)
+            .env("XDG_DATA_HOME", home.join("data"))
+            .output()
+            .unwrap();
+        (
+            out.status.code().unwrap(),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+        )
+    };
+    let (code, said) = menu(&["menu"]);
+    assert_eq!(code, 0, "{said}");
+    let script = if cfg!(target_os = "macos") {
+        home.join("Library/Services/Clean with hexscope.workflow/Contents/document.wflow")
+    } else {
+        home.join("data/nautilus/scripts/Clean with hexscope")
+    };
+    let text = std::fs::read_to_string(&script).unwrap();
+    assert!(text.contains("clean --verify"), "{text}");
+    assert!(
+        text.contains(BIN),
+        "the entry runs this program by its full path"
+    );
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&script).unwrap().permissions().mode();
+        assert_eq!(
+            mode & 0o111,
+            0o111,
+            "GNOME Files runs only executable scripts"
+        );
+    }
+    let (code, said) = menu(&["menu", "--remove"]);
+    assert_eq!(code, 0);
+    assert!(said.starts_with("Removed"), "{said}");
+    assert!(!script.exists());
+    let (code, said) = menu(&["menu", "--remove"]);
+    assert_eq!(code, 0);
+    assert!(said.contains("was not there"), "{said}");
+    std::fs::remove_dir_all(home).unwrap();
+}

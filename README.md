@@ -51,11 +51,18 @@ can establish from the file, not a guarantee that a file is safe.
 
 ## Use the CLI
 
-Install the published `hexscope` command:
+Install the published `hexscope` command with Homebrew (macOS, Linux), with
+Cargo, or take the build for your system from a
+[release](https://github.com/MykytaStel/hexscope/releases):
 
 ```sh
+brew install mykytastel/hexscope/hexscope
 cargo install --locked hexscope-cli
 ```
+
+`hexscope menu` adds "Clean with hexscope" where you pick files — Finder's
+Quick Actions, Windows' Send to, the Scripts menu of GNOME Files — so a clean
+copy is one right-click away; `hexscope menu --remove` takes it away.
 
 ```sh
 hexscope check photos/                              # inspect files in a folder

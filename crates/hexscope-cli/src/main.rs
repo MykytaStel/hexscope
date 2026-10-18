@@ -12,6 +12,7 @@
 
 mod batch_report;
 mod film;
+mod menu;
 mod mosaic;
 mod movie;
 
@@ -42,6 +43,7 @@ Usage:
   hexscope batch --out DIR PATH...   verified folder copies and an index-only JSON receipt
   hexscope repair [options] PATH...   save copies of damaged files with what survived
   hexscope redact --text WORDS PATH... save PDFs with WORDS taken out of their pages
+  hexscope menu [--remove]            \"Clean with hexscope\" in Finder, Send to or GNOME Files
   hexscope --help | --version
 
 PATH is a file or a folder, read with everything inside it.
@@ -72,6 +74,9 @@ redact (PDF):
 repair:
   --out DIR        write the copies into DIR (default: beside each file, as NAME-repaired.EXT);
                    for a single file, --out can name the copy itself
+
+menu:
+  --remove         take \"Clean with hexscope\" away again
 
 Exit status: 0, nothing to fail on; 1, something to fail on; 2, a usage or file error.
 In GitHub Actions, findings are also written as annotations on the files.
@@ -114,6 +119,7 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
         "mosaic" => mosaic::run(rest),
         "repair" => copies(rest, Make::Repair),
         "redact" => copies(rest, Make::Redact),
+        "menu" => menu::run(rest),
         // A bare path checks it, as the page would.
         _ => check(args),
     }

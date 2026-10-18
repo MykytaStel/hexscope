@@ -35,6 +35,8 @@ for people and get better as the wording does.
 | `hexscope batch --out DIR PATH...` | Clean copies of a folder, each read back, and a receipt | `DIR/000001-clean.EXT`…, `DIR/hexscope-report.json` |
 | `hexscope mosaic PATH...` | What a set of photos has in common: a serial, a place, an order of dates | Nothing |
 | `hexscope film --recipe JSON --out DIR PATH...` | One film recipe applied to a roll of scans | `DIR/000001-film.jpg`…, `DIR/hexscope-film-report.json` |
+| `hexscope menu` | "Clean with hexscope" where files are picked: a Quick Action in Finder, an entry in Send to on Windows, a script in GNOME Files. It runs `clean --verify` on what is chosen and shows what it said | The entry, in `~/Library/Services`, `%APPDATA%\Microsoft\Windows\SendTo` or `~/.local/share/nautilus/scripts` |
+| `hexscope menu --remove` | Takes that entry away again | — |
 | `hexscope --help` | The usage | — |
 | `hexscope --version` | `hexscope X.Y.Z` | — |
 <!-- commands:end -->
@@ -66,6 +68,7 @@ it was given unless `clean --in-place` says so.
 | `--text WORDS` | redact | What to black out, wherever it appears; give it more than once for more |
 | `--recipe JSON` | film | The [film recipe](#film-recipe) to apply |
 | `--format jpeg\|tiff16` | film | 8-bit JPEG (the default) or 16-bit TIFF |
+| `--remove` | menu | Take "Clean with hexscope" away again |
 | `--help` | — | The usage |
 | `--version` | — | The version |
 <!-- options:end -->
@@ -83,6 +86,7 @@ ignored.
 | `batch` | Every copy written and every finding confirmed removed | A file not copied, or a finding present or not checked | A usage error; the output folder already holds a receipt or a copy |
 | `mosaic` | Every file read as a whole photo | A file could not be checked | A usage error |
 | `film` | Every copy written | A copy not written | A usage error; an invalid recipe; the output folder already holds a copy or a report |
+| `menu` | The entry was added, or removed, or was not there to remove | — | A usage error; a system other than macOS, Windows or Linux; a folder that cannot be written |
 
 `hexscope` with nothing after it prints the usage and exits 2; `--help` and
 `--version` exit 0.

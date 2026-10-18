@@ -37,7 +37,17 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    ([`release.yml`](../.github/workflows/release.yml)); the GitHub Action
    at that tag downloads them. Check the release page lists ten files.
 
-6. Publishing to crates.io is a separate decision each time. From a clean
+6. Once the release lists its ten files, update the Homebrew tap
+   ([MykytaStel/homebrew-hexscope](https://github.com/MykytaStel/homebrew-hexscope))
+   from the checksums they carry, and check it installs:
+
+   ```sh
+   node scripts/homebrew-formula.mjs 0.3.0 > ../homebrew-hexscope/Formula/hexscope.rb
+   (cd ../homebrew-hexscope && git commit -am "hexscope 0.3.0" && git push)
+   brew install mykytastel/hexscope/hexscope && brew test hexscope
+   ```
+
+7. Publishing to crates.io is a separate decision each time. From a clean
    checkout of the tagged commit, `cargo publish --workspace --dry-run`,
    then `cargo publish --workspace`: it publishes `hexscope-inflate`,
    `hexscope-core`, `hexscope-raster` and `hexscope-cli` in that order, each
