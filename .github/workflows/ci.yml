@@ -27,6 +27,9 @@ jobs:
           version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
           echo "::notice::hexscope $version"
           grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+      # What is merged but not released: a file a change (changes/README.md).
+      - name: Unreleased changes are readable
+        run: node scripts/changelog.mjs --check
       # Installs exactly the toolchain, components and targets that
       # rust-toolchain.toml pins, so CI and local builds cannot drift.
       - run: rustup toolchain install
@@ -127,18 +130,6 @@ jobs:
       # email's way — from the real parser, loaded as the worker loads it.
       - name: Web tests
         run: pnpm --filter web test
-      # The built site in a real browser, on a computer's screen and a
-      # phone's: a sample's answer, a clean copy, an email, offline.
-      - name: Install Chromium for end-to-end tests
-        run: pnpm --filter web exec playwright install --with-deps chromium
-      - name: End-to-end tests
-        run: pnpm --filter web e2e
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: failure()
-        with:
-          name: e2e-traces
-          path: apps/web/test-results
-          if-no-files-found: ignore
       # The page's own script, before any parser: what every visitor waits for —
       # the home page's script and the chunks it preloads, as index.html names
       # them. The analyzer that shows an open file is loaded once the page is
@@ -209,11 +200,44 @@ jobs:
           path: apps/web/dist
           if-no-files-found: error
 
+  # The built site in a real browser, on a computer's screen and a phone's: a
+  # sample's answer, a clean copy, an email, offline. The very build that is
+  # deployed, in four parts at once — one run took seven minutes.
+  e2e:
+    needs: web
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: hexscope-site
+          path: apps/web/dist
+      - name: Install Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: End-to-end tests, part ${{ matrix.shard }} of 4
+        run: pnpm --filter web exec playwright test --shard=${{ matrix.shard }}/4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: e2e-traces-${{ matrix.shard }}
+          path: apps/web/test-results
+          if-no-files-found: ignore
+
   # Production from main, a preview URL for every other branch; never from a
   # pull request. Until the CLOUDFLARE_API_TOKEN secret exists (a token with
   # Account → Cloudflare Pages → Edit), the job says so and deploys nothing.
   deploy:
-    needs: [test, web]
+    needs: [test, web, e2e]
     if: github.event_name == 'push'
     runs-on: ubuntu-26.04
     env:

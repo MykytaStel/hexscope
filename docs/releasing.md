@@ -7,9 +7,11 @@ reports; `hexscope --version` prints it.
 
 ## While working
 
-Every merged change that a person would notice adds a line under
-`## [Unreleased]` in [`CHANGELOG.md`](../CHANGELOG.md), in Added, Changed,
-Fixed or Removed. Say what changed for people, not which files.
+Every merged change that a person would notice adds a file of its own to
+[`changes/`](../changes/README.md), with its lines under Added, Changed,
+Fixed or Removed. Say what changed for people, not which files. Pull
+requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
+`node scripts/changelog.mjs` shows how the next version will read.
 
 ## Making a version
 
@@ -18,8 +20,9 @@ Fixed or Removed. Say what changed for people, not which files.
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
    dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
    and the CLI's on `hexscope-core` and `hexscope-raster`.
-3. In `CHANGELOG.md`, rename `[Unreleased]` to `[0.3.0] — YYYY-MM-DD`, start
-   a new empty `[Unreleased]`, and update the compare links at the bottom.
+3. `node scripts/changelog.mjs 0.3.0` writes everything in `changes/` into
+   `CHANGELOG.md` as `[0.3.0] — today`, newest first, adds its compare link
+   at the bottom and removes the files. Read it through once.
 4. Open a pull request; CI checks that the changelog has the new version.
 5. Once it is merged and deployed, tag it and publish the release notes:
 
