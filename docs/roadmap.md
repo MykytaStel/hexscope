@@ -18,7 +18,8 @@ how a version is made is in [releasing.md](releasing.md).
 | Launch | The author's device test, then the posts | when the author has tested |
 | 0.5.0 | Faster, smaller, easier to change; what Office on Windows leaves; all of it in Ukrainian | shipped 2026-10-15 |
 | 0.6.0 | All of it in Ukrainian, release builds for the Action, metadata removal measured against ExifTool and MAT2 | shipped 2026-10-16 |
-| 0.7.0 | What the device test finds: large files on phones, a screen reader, the stylesheets merged | after the launch |
+| 0.7.0 | SVG drawings, tools under the bytes, names in files no format reads, a smaller first download, the CLI's contract | shipped 2026-10-18 |
+| 0.8.0 | What the device test finds: large files on phones, a screen reader, the stylesheets merged | after the launch |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.3.0 — shipped 2026-10-12
@@ -113,6 +114,19 @@ ExifTool and MAT2 on the same 45 files, each copy read back by both
 (docs/research), which found Word 97's own record of a document and had it
 blanked; two guides; the browser bridge in modules; 134 overridden CSS
 declarations out, with a test. What was planned as 0.6.0 is now 0.7.0.
+
+### 0.7.0 — shipped 2026-10-18
+
+From the fourth audit and what other metadata tools are asked for: SVG
+drawings read and cleaned in the small build; files of no known format
+searched for home folders and email addresses; values, SHA-256 and entropy
+under the bytes, and `@offset` in find; a table of findings on an Actions
+run's page; the CLI's options, exit codes and outputs written down and held
+by a test. The sentence explaining each part left the WebAssembly for files
+fetched once a file is open: the first download is 15–21 KB smaller. CI
+runs its browser tests in four parts (9 minutes to under 5), and each
+change's notes are a file of their own. From this release the Action can be
+listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
 
 ### Next, after the launch
 
