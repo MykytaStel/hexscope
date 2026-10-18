@@ -694,9 +694,6 @@ const STRUCTURE: Table = &[
     ),
 ];
 
-#[cfg(test)]
-pub(crate) const ALL: Table = STRUCTURE;
-
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     // A value stored away from its entry means what its tag means.
     let tag = label.strip_suffix(" value").unwrap_or(label);
@@ -704,3 +701,6 @@ pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
         .or_else(|| lookup(MAKER, tag, problem))
         .or_else(|| lookup(STRUCTURE, label, problem))
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[MAKER, TAGS, STRUCTURE];

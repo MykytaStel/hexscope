@@ -62,6 +62,7 @@ function metadataGroupFor(kind: string): MetadataGroupKey {
 
 /** Details for one node on the left, facts about the whole file on the right. */
 export class Drawer {
+  private shown: [FileModel | null, number, boolean] | null = null;
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
   /** How many archives the document on screen sits inside. */
@@ -176,7 +177,7 @@ export class Drawer {
     report.addEventListener("click", () => openReport(m));
     const save = el("button", "link report-link", "Save the structure as JSON");
     save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
-    save.addEventListener("click", () => saveStructure(m));
+    save.addEventListener("click", () => void saveStructure(m));
     const inside = el("button", "link report-link", "Find files inside");
     inside.title = "Looks through every byte for the start of another file: pictures, archives, documents";
     inside.addEventListener("click", () => {
@@ -986,7 +987,13 @@ export class Drawer {
     this.node.replaceChildren(el("p", "problem is-error", text));
   }
 
+  /** Draws the part shown again: its sentence has arrived (explanations.ts). */
+  refreshNode(): void {
+    if (this.shown) this.showNode(...this.shown);
+  }
+
   showNode(m: FileModel | null, id: number, pinned: boolean): void {
+    this.shown = [m, id, pinned];
     this.node.replaceChildren();
     if (!m) return;
     if (id < 0) {
@@ -1018,8 +1025,8 @@ export class Drawer {
     if (kind >= Kind.Warning) {
       const tone =
         doc?.concern === Concern.Hidden ? "is-hidden" : doc?.concern === Concern.Oddity ? "is-warning" : "is-error";
-      this.node.append(el("p", `problem ${tone}`, doc?.text ?? "These bytes break a rule of the format."));
-    } else if (doc) {
+      this.node.append(el("p", `problem ${tone}`, doc?.text || "These bytes break a rule of the format."));
+    } else if (doc?.text) {
       this.node.append(el("p", "explain", doc.text));
     }
 

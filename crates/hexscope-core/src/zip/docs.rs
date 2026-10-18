@@ -442,9 +442,6 @@ const PARTS: Table = &[
     ),
 ];
 
-#[cfg(test)]
-pub(crate) const ALL: Table = PARTS;
-
 pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<Doc> {
     let label = node.label.as_str();
     let Some(parent) = node.parent.and_then(|p| tree.try_get(p)) else {
@@ -463,3 +460,11 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
     }
     lookup(PARTS, label, problem).or_else(|| lookup(IN_DIRECTORY, label, problem))
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[
+    &[("", ROOT), ("", ENTRY), ("", RECORD)],
+    AT_ROOT,
+    IN_DIRECTORY,
+    PARTS,
+];

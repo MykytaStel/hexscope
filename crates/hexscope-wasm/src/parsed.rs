@@ -384,23 +384,11 @@ impl Parsed {
         self.docs.ids.clone()
     }
 
-    /// Explanations, one sentence each, joined by U+001F.
-    #[wasm_bindgen(getter, js_name = docTexts)]
-    pub fn doc_texts(&self) -> String {
-        self.docs.texts.join(&SEPARATOR.to_string())
-    }
-
-    /// Where each explanation's subject is defined, e.g. "PNG §11.2.1";
-    /// empty where none is cited. Joined by U+001F.
-    #[wasm_bindgen(getter, js_name = docCites)]
-    pub fn doc_cites(&self) -> String {
-        self.docs.cites.join(&SEPARATOR.to_string())
-    }
-
-    /// The link for each citation, empty where none. Joined by U+001F.
-    #[wasm_bindgen(getter, js_name = docUrls)]
-    pub fn doc_urls(&self) -> String {
-        self.docs.urls.join(&SEPARATOR.to_string())
+    /// Each explanation's sentence and citation, as a key into what the
+    /// page fetches (hexscope-core's `docs::every`).
+    #[wasm_bindgen(getter, js_name = docKeys)]
+    pub fn doc_keys(&self) -> Vec<u32> {
+        self.docs.keys.clone()
     }
 
     /// Per explanation: 0 not a problem, 1 damage, 2 something hidden,

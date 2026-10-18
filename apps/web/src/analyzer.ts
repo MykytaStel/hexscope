@@ -1,6 +1,7 @@
 // The analyzer: the views of an open file, the workspace that opens it, the
 // batch list and the player. main.ts loads it when a file is asked for, or
 // once the landing page is idle, so the first page waits for none of it.
+import { explain } from "./explanations";
 import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
@@ -770,6 +771,15 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   playBtn.hidden = !canPlay();
   syncAppNavigation();
   void lookForCodes(m);
+  // What each part is comes after the answer: the parser leaves it out.
+  void explain(m.file.format).then(
+    () => {
+      if (m !== workspace.model) return;
+      tree.refreshTitles();
+      drawer.refreshNode();
+    },
+    () => {},
+  );
 }
 
 /** QR codes, looked for once the file is on screen: its card is drawn again with what they say. */

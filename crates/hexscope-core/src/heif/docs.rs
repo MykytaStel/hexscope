@@ -317,6 +317,9 @@ const TABLE: Table = &[
     ),
 ];
 
+const UNKNOWN_BOX: Doc =
+    bmff("A box this tool does not decode; readers skip boxes they do not know.");
+
 pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<Doc> {
     let label = node.label.as_str();
     lookup(TABLE, label, problem).or_else(|| {
@@ -333,14 +336,12 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
                 .iter()
                 .any(|&c| tree.try_get(c).is_some_and(|n| n.label == "type"))
         {
-            Some(bmff(
-                "A box this tool does not decode; readers skip boxes they do not know.",
-            ))
+            Some(UNKNOWN_BOX)
         } else {
             None
         }
     })
 }
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE, &[("", UNKNOWN_BOX)]];

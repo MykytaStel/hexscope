@@ -158,6 +158,9 @@ const TABLE: Table = &[
     ("* box is shorter than its fields", damage("A box is too short to hold what its type says it holds.")),
 ];
 
+const UNKNOWN_BOX: Doc =
+    bmff("A box this tool does not decode; players skip boxes they do not know.");
+
 pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<Doc> {
     lookup(TABLE, &node.label, problem).or_else(|| {
         // Any other box: readers skip what they do not know.
@@ -166,11 +169,9 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
                 .children
                 .iter()
                 .any(|&c| tree.try_get(c).is_some_and(|n| n.label == "type")))
-        .then_some(bmff(
-            "A box this tool does not decode; players skip boxes they do not know.",
-        ))
+        .then_some(UNKNOWN_BOX)
     })
 }
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE, &[("", UNKNOWN_BOX)]];

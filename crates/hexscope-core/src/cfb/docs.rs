@@ -266,3 +266,11 @@ pub(crate) fn describe(tree: &ParseTree, node: &Node, problem: bool) -> Option<D
         .or_else(|| lookup(NAMED, own, problem))
         .or_else(|| (parent.label == "mini stream" && !problem).then_some(STREAM))
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[
+    &[("", ROOT), ("", STREAM), ("", ENTRY)],
+    AT_ROOT,
+    NAMED,
+    FIELDS,
+];

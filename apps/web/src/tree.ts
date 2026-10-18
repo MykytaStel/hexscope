@@ -1,3 +1,4 @@
+import { currentLocale, translateText } from "./i18n";
 import { FileModel, Kind } from "./model";
 
 export interface TreeCallbacks {
@@ -59,6 +60,12 @@ export class TreeView {
       if ((e.target as HTMLElement).closest(".twisty")) this.toggle(id);
       else this.cb.onSelect(id);
     });
+  }
+
+  /** Gives the rows drawn so far their sentences, which arrive after them. */
+  refreshTitles(): void {
+    const m = this.model;
+    if (m) for (const [id, row] of this.rows) row.title = title(m, id);
   }
 
   setModel(model: FileModel | null): void {
@@ -263,9 +270,16 @@ export class TreeView {
     value.textContent = m.value(id);
 
     row.append(twisty, swatch, label, value);
-    const doc = m.doc(id);
-    row.title = `${m.label(id)}${m.value(id) ? ` = ${m.value(id)}` : ""}${doc ? `\n${doc.text}` : ""}`;
+    row.title = title(m, id);
     this.rows.set(id, row);
     return row;
   }
+}
+
+/** A row's tooltip: the part, its value and what it is — the sentence in
+ * the reader's language, as the inspector shows it. */
+function title(m: FileModel, id: number): string {
+  const text = m.doc(id)?.text;
+  const said = text ? `\n${translateText(text, currentLocale())}` : "";
+  return `${m.label(id)}${m.value(id) ? ` = ${m.value(id)}` : ""}${said}`;
 }

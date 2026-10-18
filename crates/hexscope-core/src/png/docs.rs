@@ -536,5 +536,5 @@ pub(crate) fn describe(label: &str, parent: Option<&str>, problem: bool) -> Opti
         .or_else(|| (!problem && parent == Some("PNG")).then_some(UNKNOWN_CHUNK))
 }
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE, &[("", UNKNOWN_CHUNK)]];

@@ -35,9 +35,9 @@ const TABLE: Table = &[
     ("the tags do not close*", Doc::new("An element is opened and never closed, or closed out of order: the drawing is cut short or damaged.").concern(Concern::Damage)),
 ];
 
-#[cfg(test)]
-pub(crate) const ALL: Table = TABLE;
-
 pub(crate) fn describe(label: &str, problem: bool) -> Option<Doc> {
     lookup(TABLE, label, problem)
 }
+
+/// Every explanation here, for the page's copy of the sentences ([`crate::docs::every`]).
+pub(crate) const EVERY: &[Table] = &[TABLE];

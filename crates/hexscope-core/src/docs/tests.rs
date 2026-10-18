@@ -165,31 +165,49 @@ fn every_exif_tag_is_explained() {
 
 #[test]
 fn explanations_are_one_plain_sentence_and_links_are_https() {
-    let tables: [(&str, Table); 12] = [
-        ("png", crate::png::docs::ALL),
-        ("exif tags", crate::exif::docs::TAGS),
-        ("exif", crate::exif::docs::ALL),
-        ("maker notes", crate::exif::docs::MAKER),
-        ("jpeg", crate::jpeg::docs::ALL),
-        ("zip", crate::zip::docs::ALL),
-        ("heif", crate::heif::docs::ALL),
-        ("pdf", crate::pdf::docs::ALL),
-        ("video", crate::video::docs::ALL),
-        ("wasm", crate::wasm::docs::ALL),
-        ("rtf", crate::rtf::docs::ALL),
-        ("svg", crate::svg::docs::ALL),
-    ];
-    for (name, table) in tables {
-        for (pattern, d) in table.iter().copied() {
-            assert!(
-                d.text.len() <= 200,
-                "{name} {pattern}: {} chars",
-                d.text.len()
-            );
-            assert!(d.text.ends_with('.'), "{name} {pattern}: no full stop");
-            if let Some(s) = d.spec {
-                assert!(s.url.starts_with("https://"), "{name} {pattern}");
-                assert!(!s.cite.is_empty());
+    // About two lines of the inspector: the longest, TIFF's, is 215 bytes.
+    for (family, d) in every() {
+        assert!(
+            d.text.len() <= 220,
+            "{family}: {} bytes: {}",
+            d.text.len(),
+            d.text
+        );
+        assert!(d.text.ends_with('.'), "{family}: no full stop: {}", d.text);
+        if let Some(s) = d.spec {
+            assert!(s.url.starts_with("https://"), "{family}: {}", s.url);
+            assert!(!s.cite.is_empty());
+        }
+    }
+}
+
+/// The page finds a sentence and its citation by key in what `every`
+/// lists: each part of every file must be there, and no two different
+/// explanations may share a key.
+#[test]
+fn every_explanation_given_is_listed_and_keys_name_one_sentence() {
+    let named = |d: &Doc| (d.key, d.text, d.spec.map(|s| (s.cite, s.url)));
+    let mut keys: Vec<_> = every().iter().map(|(_, d)| named(d)).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    for pair in keys.windows(2) {
+        assert_ne!(
+            pair[0].0, pair[1].0,
+            "{:?} and {:?} share a key",
+            pair[0], pair[1]
+        );
+    }
+    for (name, bytes) in fixtures().into_iter().chain(damaged()) {
+        let doc = parse(&bytes);
+        let tree = doc.tree();
+        for n in tree.nodes() {
+            if let Some(d) = describe(tree, n.id, doc.format()) {
+                assert!(
+                    keys.binary_search(&named(&d)).is_ok(),
+                    "{:?} in {name}: {:?} is not listed by every()",
+                    n.label,
+                    d.text
+                );
             }
         }
     }

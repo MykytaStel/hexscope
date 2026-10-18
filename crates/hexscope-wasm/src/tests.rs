@@ -603,22 +603,26 @@ fn every_node_carries_its_explanation() {
     let parsed = parse(&fixture("basn2c08.png"));
     let ids = parsed.doc_ids();
     assert_eq!(ids.len(), parsed.labels().split(SEPARATOR).count());
-    let texts: Vec<String> = parsed
-        .doc_texts()
-        .split(SEPARATOR)
-        .map(str::to_string)
-        .collect();
+    let keys = parsed.doc_keys();
     let labels: Vec<String> = parsed
         .labels()
         .split(SEPARATOR)
         .map(str::to_string)
         .collect();
     let ihdr = labels.iter().position(|l| l == "IHDR").unwrap();
-    assert!(texts[ids[ihdr] as usize].starts_with("The image header"));
+    // The page reads the sentence by its key, from what `every` lists.
+    let sentence = |key: u32| {
+        hexscope_core::docs::every()
+            .into_iter()
+            .find(|(_, d)| d.key == key)
+            .map(|(_, d)| d.text)
+    };
+    let header = sentence(keys[ids[ihdr] as usize]).unwrap();
+    assert!(header.starts_with("The image header"), "{header}");
     assert!(ids.iter().all(|&i| i >= 0), "every PNG node is explained");
     // A palette of 256 colours is 256 nodes and one explanation.
     let palette = parse(&fixture("basn3p08.png"));
-    let shared = palette.doc_texts().split(SEPARATOR).count();
+    let shared = palette.doc_keys().len();
     assert!(
         shared * 4 < palette.doc_ids().len(),
         "explanations are shared, not repeated"
@@ -638,12 +642,7 @@ fn every_node_carries_its_explanation() {
         .position(|l| l.starts_with("CRC mismatch"))
         .unwrap();
     assert_eq!(parsed.doc_concerns()[parsed.doc_ids()[crc] as usize], 1);
-    let cites: Vec<String> = parsed
-        .doc_cites()
-        .split(SEPARATOR)
-        .map(str::to_string)
-        .collect();
-    assert_eq!(cites.len(), parsed.doc_concerns().len());
+    assert_eq!(parsed.doc_keys().len(), parsed.doc_concerns().len());
 }
 
 #[test]
