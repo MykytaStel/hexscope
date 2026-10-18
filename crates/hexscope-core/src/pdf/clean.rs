@@ -369,8 +369,15 @@ pub(crate) fn clean_pdf_with(
                 let gen_ = rec.gen_;
                 out.extend_from_slice(format!("{n} {gen_} obj\n").as_bytes());
                 let is_xmp = rec.value.get("Type").and_then(Obj::name) == Some("Metadata");
-                match rec.stream {
-                    Some((range, _)) if is_xmp => {
+                // A picture rewritten for the copy, found here and not in a
+                // match guard: `if let` guards need a newer compiler than
+                // the crate asks for (rust-version).
+                let picture = match rec.stream {
+                    Some(_) if !is_xmp => pictures.iter().find(|p| p.0 == n),
+                    _ => None,
+                };
+                match (rec.stream, picture) {
+                    (Some((range, _)), _) if is_xmp => {
                         xmp_bytes += range.len;
                         out.extend_from_slice(
                             format!(
@@ -382,13 +389,13 @@ pub(crate) fn clean_pdf_with(
                         out.extend_from_slice(EMPTY_XMP);
                         out.extend_from_slice(b"\nendstream");
                     }
-                    Some(_) if let Some((_, dict, bytes)) = pictures.iter().find(|p| p.0 == n) => {
+                    (Some(_), Some((_, dict, bytes))) => {
                         out.extend_from_slice(dict);
                         out.extend_from_slice(b"\nstream\n");
                         out.extend_from_slice(bytes);
                         out.extend_from_slice(b"\nendstream");
                     }
-                    Some((range, _)) => {
+                    (Some((range, _)), None) => {
                         out.extend_from_slice(slice(data, rec.value_range));
                         out.extend_from_slice(b"\nstream\n");
                         if is_photo(rec) {
@@ -400,7 +407,7 @@ pub(crate) fn clean_pdf_with(
                         }
                         out.extend_from_slice(b"\nendstream");
                     }
-                    None => out.extend_from_slice(slice(data, rec.value_range)),
+                    (None, _) => out.extend_from_slice(slice(data, rec.value_range)),
                 }
                 out.extend_from_slice(b"\nendobj\n");
                 offsets.push((n, gen_, at));

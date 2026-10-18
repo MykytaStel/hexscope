@@ -3,6 +3,7 @@ name = "hexscope-cli"
 version.workspace = true
 description = "Checks files for what they give away — locations, serial numbers, authors, black boxes that hide nothing — and cleans or repairs them"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

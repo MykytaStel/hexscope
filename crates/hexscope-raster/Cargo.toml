@@ -2,6 +2,7 @@
 name = "hexscope-raster"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Decodes and encodes film scans for hexscope's film lab: JPEG, PNG, WebP and 16-bit TIFF around its codec-free renderer"
 license.workspace = true
 repository.workspace = true

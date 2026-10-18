@@ -3,6 +3,7 @@ name = "hexscope-inflate"
 version.workspace = true
 description = "DEFLATE and zlib decoded step by step, each step explainable"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

@@ -5,6 +5,10 @@ resolver = "3"
 [workspace.package]
 version = "0.7.1"
 edition = "2024"
+# The oldest compiler the published crates build with, checked in CI: what
+# `cargo install` users need. The repository itself builds with the pinned
+# rust-toolchain.toml.
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/MykytaStel/hexscope"
 homepage = "https://hexscope.org/"

@@ -3,6 +3,7 @@ name = "hexscope-wasm"
 version.workspace = true
 description = "WebAssembly bridge exposing hexscope-core to the browser"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
