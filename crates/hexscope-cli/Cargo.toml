@@ -17,8 +17,8 @@ name = "hexscope"
 path = "src/main.rs"
 
 [dependencies]
-hexscope-core = { path = "../hexscope-core", version = "0.6.0" }
-hexscope-raster = { path = "../hexscope-raster", version = "0.6.0" }
+hexscope-core = { path = "../hexscope-core", version = "0.7.0" }
+hexscope-raster = { path = "../hexscope-raster", version = "0.7.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3.27"
