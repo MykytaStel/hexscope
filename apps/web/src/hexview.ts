@@ -170,6 +170,16 @@ export class HexView {
     this.schedule();
   }
 
+  /** Focus a byte range chosen by another control without changing its selection. */
+  focusAt(offset: number): void {
+    if (!this.model || offset < 0 || offset >= this.model.bytes.length) return;
+    this.focusOffset = offset;
+    this.keyboardActive = true;
+    this.scroller.focus({ preventScroll: true });
+    this.revealOffset(offset, false);
+    this.schedule();
+  }
+
   /** Marks the bytes the DEFLATE player is reading; `-1` clears it. */
   /** Draws again: bytes that were missing have arrived. */
   redraw(): void {

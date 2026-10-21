@@ -24,7 +24,7 @@ export interface ParsedFile {
   segments: Float64Array;
   /** Bytes of wrapper before its DEFLATE data: 2 for zlib, 0 for a ZIP entry. */
   streamHeader: number;
-  /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable, openable. */
+  /** Per ZIP entry: node, method, flags, compressed, uncompressed, playable, openable, central start and length. */
   entries: Float64Array;
   /** Per node, an index into the doc tables, or -1. */
   docIds: Int32Array;
@@ -100,7 +100,20 @@ export interface Slice {
 }
 
 /** Numbers per entry in `ParsedFile.entries`. */
-const ENTRY_STRIDE = 7;
+const ENTRY_STRIDE = 9;
+
+export interface ArchiveTraceRange {
+  start: number;
+  len: number;
+}
+
+export interface ArchiveTraceInfo {
+  centralRecord: ArchiveTraceRange | null;
+  localHeader: ArchiveTraceRange | null;
+  compressedData: ArchiveTraceRange | null;
+  dataComplete: boolean;
+  localHeaderWarning: boolean;
+}
 
 export interface ZipEntryInfo {
   node: number;
@@ -110,6 +123,7 @@ export interface ZipEntryInfo {
   uncompressed: number;
   playable: boolean;
   openable: boolean;
+  centralRecord: ArchiveTraceRange | null;
 }
 
 export interface PhotoFact {
@@ -407,7 +421,40 @@ export class FileModel {
 
   entry(i: number): ZipEntryInfo {
     const e = this.file.entries.subarray(i * ENTRY_STRIDE, (i + 1) * ENTRY_STRIDE);
-    return { node: e[0], method: e[1], flags: e[2], compressed: e[3], uncompressed: e[4], playable: e[5] === 1, openable: e[6] === 1 };
+    const centralStart = e[7];
+    const centralLength = e[8];
+    return {
+      node: e[0],
+      method: e[1],
+      flags: e[2],
+      compressed: e[3],
+      uncompressed: e[4],
+      playable: e[5] === 1,
+      openable: e[6] === 1,
+      centralRecord: centralStart >= 0 && centralLength > 0 ? { start: centralStart, len: centralLength } : null,
+    };
+  }
+
+  /** The byte ranges connecting this entry's central claim to its local data. */
+  archiveTrace(i: number): ArchiveTraceInfo {
+    const entry = this.entry(i);
+    const data = Array.from(this.children(entry.node)).find((id) => this.label(id) === "data");
+    if (data === undefined) {
+      return { centralRecord: entry.centralRecord, localHeader: null, compressedData: null, dataComplete: false, localHeaderWarning: false };
+    }
+    const headerStart = this.start(entry.node);
+    const dataStart = this.start(data);
+    const dataLength = this.len(data);
+    const localHeaderWarning = this.problems.some((id) =>
+      this.top[id] === this.top[entry.node] && this.start(id) < dataStart && this.end(id) > headerStart,
+    );
+    return {
+      centralRecord: entry.centralRecord,
+      localHeader: { start: headerStart, len: Math.max(0, dataStart - headerStart) },
+      compressedData: { start: dataStart, len: dataLength },
+      dataComplete: dataLength === entry.compressed,
+      localHeaderWarning,
+    };
   }
 
   /** Whether the file has a compressed stream the player can step through. */

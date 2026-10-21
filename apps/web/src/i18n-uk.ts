@@ -2,7 +2,7 @@
 // patterns for sentences with numbers and names in them, and the way back.
 // Loaded only when a page reads in Ukrainian (i18n.ts loadUkrainian), or
 // imported where a build or a test needs it; either way it installs itself.
-import { lazyReverse, lazyTranslations, useDictionary, type Locale } from "./i18n";
+import { lazyReverse, lazyTranslations, useDictionary, type Locale } from "./i18n.ts";
 
 // Keep the source copy as the key: the English UI remains the canonical copy,
 // and untranslated technical terms stay readable until they have a reviewed

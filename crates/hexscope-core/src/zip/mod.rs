@@ -78,6 +78,9 @@ pub struct ZipEntry {
     pub data: ByteRange,
     /// The entry's node: its local header, data and any data descriptor.
     pub node: NodeId,
+    /// The exact central-directory record that points to this local entry.
+    /// `None` when the archive was recovered from local headers alone.
+    pub central_record: Option<ByteRange>,
 }
 
 impl ZipEntry {
@@ -228,6 +231,8 @@ struct Central {
     offset_field: ByteRange,
     /// The record's node in the central directory's tree.
     record: Option<NodeId>,
+    /// The record's byte range, which remains stable when its tree is grafted.
+    record_range: Option<ByteRange>,
 }
 
 fn read_archive(
@@ -378,10 +383,17 @@ fn read_archive(
     let mut previous = String::new();
     for (k, &(at, i)) in placed.iter().enumerate() {
         let c = &centrals[i];
+        let next_local = placed
+            .get(placed.partition_point(|&(next, _)| next <= at))
+            .map(|&(next, _)| next)
+            .filter(|&next| next < cd_start);
+        let (limit, boundary) = next_local.map_or((cd_start, "the central directory"), |next| {
+            (next, "the next local entry")
+        });
         if at > covered {
             unreferenced(tree, root, covered, at);
         }
-        let Some(entry) = add_entry(tree, root, data, c, at, k < DETAIL) else {
+        let Some(entry) = add_entry(tree, root, data, c, at, limit, boundary, k < DETAIL) else {
             continue;
         };
         let range = tree.get(entry.node).range;
@@ -630,6 +642,7 @@ fn read_central(
         local: z.offset.unwrap_or(offset as u64),
         offset_field: ByteRange::new(offset_at, 4),
         record: Some(record),
+        record_range: Some(ByteRange::new(at, total)),
     };
     cd.tree
         .set_value(record, Some(Value::Text(summary(&central))));
@@ -654,31 +667,40 @@ fn add_entry(
     data: &[u8],
     c: &Central,
     at: u64,
+    limit: u64,
+    boundary_name: &'static str,
     detail: bool,
 ) -> Option<ZipEntry> {
     let len = data.len() as u64;
     let mut peek = reader_at(data, at + 26);
     let (n, x) = (peek.u16_le().unwrap_or(0), peek.u16_le().unwrap_or(0));
     let header_len = LOCAL_LEN + n as u64 + x as u64;
-    if at + header_len > len {
+    if at + header_len > len || at + header_len > limit {
+        let header_end = at.saturating_add(header_len).min(len).min(limit).max(at);
+        let reason = if boundary_name == "the end of the file" {
+            "local header truncated".to_string()
+        } else {
+            format!("local header runs into {boundary_name}")
+        };
         let node = tree.add(
             Some(root),
             display(&c.name),
-            ByteRange::new(at, len - at),
+            ByteRange::new(at, header_end - at),
             NodeKind::Container,
             None,
         );
-        tree.error(node, "local header truncated", ByteRange::new(at, len - at));
+        tree.error(node, reason, ByteRange::new(at, header_end - at));
         return None;
     }
 
     let data_start = at + header_len;
     let data_end = data_start.saturating_add(c.compressed);
-    let clipped = data_end.min(len);
-    let descriptor = if c.flags & (1 << 3) != 0 && data_end <= len {
+    let boundary_at = limit.min(len);
+    let clipped = data_end.min(boundary_at);
+    let descriptor = if c.flags & (1 << 3) != 0 && data_end <= boundary_at {
         let signed = u32_at(data, data_end) == Some(DESCRIPTOR_SIG);
         let n = if signed { 4 } else { 0 } + 4 + if c.zip64 { 16 } else { 8 };
-        if data_end + n <= len { n } else { 0 }
+        if data_end + n <= boundary_at { n } else { 0 }
     } else {
         0
     };
@@ -784,11 +806,16 @@ fn add_entry(
         NodeKind::Field,
         Some(Value::Text(summary(c))),
     );
-    if data_end > len {
+    if data_end > boundary_at {
+        let reason = if boundary_name == "the end of the file" {
+            "data runs past the end of the file".to_string()
+        } else {
+            format!("compressed data runs into {boundary_name}")
+        };
         tree.error(
             data_node,
-            "data runs past the end of the file",
-            ByteRange::new(data_start, clipped - data_start),
+            reason,
+            ByteRange::new(data_start, clipped.saturating_sub(data_start)),
         );
     }
 
@@ -832,6 +859,7 @@ fn add_entry(
         uncompressed: c.uncompressed,
         data: ByteRange::new(data_start, clipped - data_start),
         node,
+        central_record: c.record_range,
     })
 }
 
@@ -879,8 +907,18 @@ fn scan_local_headers(
             local: pos,
             offset_field: ByteRange::new(pos, 0),
             record: None,
+            record_range: None,
         };
-        let Some(entry) = add_entry(tree, root, data, &c, pos, entries.len() < DETAIL) else {
+        let Some(entry) = add_entry(
+            tree,
+            root,
+            data,
+            &c,
+            pos,
+            len,
+            "the end of the file",
+            entries.len() < DETAIL,
+        ) else {
             break;
         };
         pos = tree.get(entry.node).range.end();
@@ -996,6 +1034,98 @@ mod tests {
         assert_eq!(e.data.start, b.local[1] + 30 + 12);
         assert_eq!(e.data.len, e.compressed);
         assert_eq!(doc.entries[0].data.len, 23, "stored: data is the bytes");
+    }
+
+    #[test]
+    fn compressed_data_never_consumes_central_directory_bytes() {
+        let built = build(&two());
+        let mut bytes = built.bytes;
+        let declared = u32::from_le_bytes(
+            bytes[built.local[1] as usize + 18..][..4]
+                .try_into()
+                .unwrap(),
+        );
+        let oversized = declared + 64;
+        bytes[built.local[1] as usize + 18..][..4].copy_from_slice(&oversized.to_le_bytes());
+        bytes[built.central[1] as usize + 20..][..4].copy_from_slice(&oversized.to_le_bytes());
+
+        let doc = parse_zip(&bytes);
+        let entry = &doc.entries[1];
+        assert_eq!(entry.data.end(), built.central[0]);
+        assert!(
+            problems(&doc.tree)
+                .iter()
+                .any(|(_, message)| message.contains("central directory"))
+        );
+    }
+
+    #[test]
+    fn compressed_data_never_consumes_the_next_local_entry() {
+        let built = build(&two());
+        let mut bytes = built.bytes;
+        let local = built.local[0] as usize;
+        let central = built.central[0] as usize;
+        let declared = u32::from_le_bytes(bytes[local + 18..local + 22].try_into().unwrap());
+        let oversized = declared + 100;
+        bytes[local + 18..local + 22].copy_from_slice(&oversized.to_le_bytes());
+        bytes[central + 20..central + 24].copy_from_slice(&oversized.to_le_bytes());
+
+        let doc = parse_zip(&bytes);
+        assert_eq!(doc.entries[0].data.end(), built.local[1]);
+        assert!(
+            problems(&doc.tree)
+                .iter()
+                .any(|(_, message)| message.contains("next local entry"))
+        );
+    }
+
+    #[test]
+    fn local_header_recovery_has_no_central_record_range() {
+        let built = build(&two());
+        let local_only = &built.bytes[..built.central[0] as usize];
+        let doc = parse_zip(local_only);
+
+        assert_eq!(doc.entries.len(), 2);
+        assert!(
+            doc.entries
+                .iter()
+                .all(|entry| entry.central_record.is_none())
+        );
+    }
+
+    #[test]
+    fn duplicate_names_link_to_the_record_for_each_local_offset() {
+        let archive = Archive {
+            entries: vec![
+                Entry::new("same.txt", b"first", 0),
+                Entry::new("same.txt", b"second", 0),
+            ],
+            ..Default::default()
+        };
+        let built = build(&archive);
+        let mut bytes = built.bytes;
+        let first = built.central[0] as usize;
+        let second = built.central[1] as usize;
+        let end = built.eocd as usize;
+        let first_record = bytes[first..second].to_vec();
+        let second_record = bytes[second..end].to_vec();
+        assert_eq!(first_record.len(), second_record.len());
+        bytes[first..second].copy_from_slice(&second_record);
+        bytes[second..end].copy_from_slice(&first_record);
+
+        let doc = parse_zip(&bytes);
+        assert_eq!(doc.entries.len(), 2);
+        for entry in &doc.entries {
+            let record = entry
+                .central_record
+                .expect("the entry has a central record");
+            let record_local = u32::from_le_bytes(
+                bytes[record.start as usize + 42..record.start as usize + 46]
+                    .try_into()
+                    .unwrap(),
+            ) as u64;
+            assert_eq!(record_local, doc.tree.get(entry.node).range.start);
+        }
     }
 
     #[test]

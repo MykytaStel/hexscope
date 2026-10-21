@@ -59,37 +59,32 @@ export async function readMovie(file: Blob, isMovie: (head: Uint8Array, len: num
   const media = (await topBoxes(file)).filter((b) => b.type === "mdat" && b.size - b.header >= MIN_GAP);
   if (media.length === 0) return null;
 
+  const omitted = media.reduce((n, box) => n + box.size - box.header, 0);
+  const given = new Uint8Array(file.size - omitted);
   const whole = new Uint8Array(file.size);
-  const parts: Uint8Array[] = [];
   const gaps: number[] = [];
   const joins: Movie["joins"] = [];
   const missing: number[] = [];
   let at = 0;
-  let given = 0;
+  let givenAt = 0;
   const take = async (end: number) => {
     const b = await bytesOf(file, at, end);
     whole.set(b, at);
-    parts.push(b);
-    given += b.length;
+    given.set(b, givenAt);
+    givenAt += b.length;
   };
   for (const box of media) {
     const body = box.at + box.header;
     const len = box.size - box.header;
     await take(body);
-    gaps.push(given - box.header, len);
-    joins.push({ at: given, start: body, len });
+    gaps.push(givenAt - box.header, len);
+    joins.push({ at: givenAt, start: body, len });
     missing.push(body, len);
     at = box.at + box.size;
   }
   await take(file.size);
 
-  const bytes = new Uint8Array(given);
-  let o = 0;
-  for (const p of parts) {
-    bytes.set(p, o);
-    o += p.length;
-  }
-  return { given: bytes, gaps: Float64Array.from(gaps), joins, whole, missing: Float64Array.from(missing) };
+  return { given, gaps: Float64Array.from(gaps), joins, whole, missing: Float64Array.from(missing) };
 }
 
 /** The clean copy of a movie: `copy`, the parser's copy of `given`, with the media put back from the file. */
@@ -113,13 +108,23 @@ export async function movieEntropy(file: Blob, movie: Movie, bins: number, entro
   const window = Math.ceil(file.size / n);
   const missing: [number, number][] = [];
   for (let i = 0; i < movie.missing.length; i += 2) missing.push([movie.missing[i], movie.missing[i] + movie.missing[i + 1]]);
-  const values = await Promise.all(
-    Array.from({ length: n }, async (_, i) => {
-      const start = i * window;
-      const end = Math.min(file.size, start + window);
-      const inMedia = missing.some(([a, b]) => start < b && end > a);
-      return entropy(inMedia ? await bytesOf(file, start, Math.min(end, start + 4096)) : movie.whole.subarray(start, end));
-    }),
-  );
+  const samples: { start: number; end: number; mediaAt: number | null }[] = [];
+  let mediaIndex = 0;
+  let removed = 0;
+  for (let i = 0; i < n; i++) {
+    const start = i * window;
+    const end = Math.min(file.size, start + window);
+    while (mediaIndex < missing.length && missing[mediaIndex][1] <= start) {
+      removed += missing[mediaIndex][1] - missing[mediaIndex][0];
+      mediaIndex++;
+    }
+    const next = missing[mediaIndex];
+    const mediaAt = next && start < next[1] && end > next[0] ? Math.max(start, next[0]) : null;
+    samples.push({ start: mediaAt === null ? start - removed : mediaAt, end: mediaAt === null ? end - removed : Math.min(end, mediaAt + 4096), mediaAt });
+  }
+  const values = await Promise.all(samples.map(async ({ start, end, mediaAt }) => {
+    const bytes = mediaAt === null ? movie.whole.subarray(start, end) : await bytesOf(file, start, end);
+    return entropy(bytes);
+  }));
   return { values: Float32Array.from(values), window };
 }
