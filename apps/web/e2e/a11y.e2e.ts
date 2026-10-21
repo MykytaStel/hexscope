@@ -71,6 +71,22 @@ for (const scheme of ["dark", "light"] as const) {
       }
     });
 
+    test("a clean-picture copy action has an accessible name in either language", async ({ page }) => {
+      await page.goto("./?sample=photo.jpg");
+      await expect(page.locator(".verdict-title")).toBeVisible();
+      const otherWays = page.locator(".other-ways");
+      await expect(otherWays).toBeVisible();
+      await otherWays.locator("summary").click();
+      await expect(page.getByRole("button", { name: "Copy a clean picture", exact: true })).toBeVisible();
+
+      await page.evaluate(() => localStorage.setItem("hexscope.language", "uk"));
+      await page.goto("./?sample=photo.jpg");
+      await expect(page.locator(".verdict-title")).toBeVisible();
+      const translatedWays = page.locator(".other-ways");
+      await translatedWays.locator("summary").click();
+      await expect(page.getByRole("button", { name: "Копіювати очищене зображення", exact: true })).toBeVisible();
+    });
+
     test("film roll keeps controls and actions inside the dialog at narrow widths", async ({ page }) => {
       await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
       await page.goto("./");

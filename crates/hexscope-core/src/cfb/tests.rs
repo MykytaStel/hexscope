@@ -105,7 +105,7 @@ fn an_outlook_message_is_checked_as_the_email_it_came_as() {
     for want in [
         "sentfrom",
         "replyto",
-        "authfail",
+        "authclaim",
         "linkmismatch",
         "linkidn",
         "riskyfile",
@@ -119,6 +119,7 @@ fn an_outlook_message_is_checked_as_the_email_it_came_as() {
             .clone()
     };
     assert_eq!(at("replyto"), "internet headers");
+    assert_eq!(at("authclaim"), "internet headers");
     assert_eq!(at("linkmismatch"), "HTML");
     assert_eq!(at("riskyfile"), "attachment 1 › file");
     assert_eq!(doc.attachments, ["invoice.pdf.html"]);

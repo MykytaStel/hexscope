@@ -59,9 +59,9 @@ export const RULES: Rule[] = [
     text: "A link in this document says one site and goes to another, or its address is written in lookalike letters — the way a fake invoice or a fake form gets a sign-in. Do not click it. To visit the site, type its address yourself, and ask whoever sent the document another way.",
   },
   {
-    when: ["replyto", "authfail"],
+    when: ["replyto"],
     formats: ["eml", "msg"],
-    text: "If replies go to another domain, or the sender's domain did not vouch for the message, it may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
+    text: "If replies go to another domain, this message may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.",
     guide: ["is-this-email-real.html", "Is this email real?"],
   },
   {

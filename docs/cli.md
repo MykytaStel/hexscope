@@ -274,7 +274,7 @@ more.
 | What a reader does not see | `covered`, `hiddentext`, `earlier`, `updates`, `deleted`, `tracked`, `comments`, `notes`, `hiddensheets`, `hiddencells`, `hiddenslides`, `form`, `attachments`, `embedded`, `encryption` |
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
-| Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `auth`, `authfail`, `riskyfile` |
+| Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `authclaim`, `riskyfile` |
 | Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->

@@ -35,13 +35,14 @@ memo.m4a: video
   software: Lavf63.1.101
 phish.eml: eml
   ! Hidden: replies go to another domain
-  ! Hidden: the sender's domain did not vouch for it
   sentfrom: 203.0.113.7, where the sender connected from, in the first server's Received line
   computer: desktop-7f3k2.local
   mailer: Microsoft Outlook 16.0
   timezone: UTC+03:00, the sender's clock when it was sent
   replyto: refunds@gmail.com — not the sender's paypa1-secure.com
-  authfail: SPF, DMARC failed: the domain it claims to come from did not vouch for it
+  authclaim: Authentication-Results reports SPF=fail (the header author is unverified)
+  authclaim: Authentication-Results reports DKIM=none (the header author is unverified)
+  authclaim: Authentication-Results reports DMARC=fail (the header author is unverified)
   weblinks: 1 link, to 198.51.100.9
 plain.zip: zip
 plan-cups.pdf: pdf

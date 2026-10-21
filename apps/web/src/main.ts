@@ -129,7 +129,7 @@ if (linked && [...document.querySelectorAll<HTMLElement>("[data-sample]")].some(
   document.body.dataset.state = "loading";
   withApp((a) => a.openLinkedSample());
 } else if (linked) history.replaceState(null, "", location.pathname);
-if (asked.has("shared")) withApp((a) => void a.openShared());
+if (asked.has("shared") || asked.has("share-error")) withApp((a) => void a.openShared());
 // Only a page still empty shows the demo.
 setTimeout(() => void startDemo(document.getElementById("demo")!), 0);
 // The analyzer, ready before the first file: once the page has nothing else to do.

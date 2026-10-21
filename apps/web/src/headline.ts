@@ -14,7 +14,7 @@ export interface Headline {
 /** What gives a file away most: any one of these makes the headline red. */
 const PRESSING = [
   "location", "photoplace", "covered", "hiddentext", "deleted", "earlier", "updates",
-  "prompt", "linkmismatch", "linkidn", "riskyfile", "replyto", "authfail", "opens", "launch",
+  "prompt", "linkmismatch", "linkidn", "riskyfile", "replyto", "opens", "launch",
   "qrwifi", "qrsecret", "qrtrick", "qrplace",
 ];
 
@@ -22,7 +22,7 @@ const PRESSING = [
 const ACTIONS = ["opens", "launch", "scripts", "submits"];
 
 /** A message that may not be from who it says. */
-const FORGED = ["replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "qrtrick"];
+const FORGED = ["replyto", "linkmismatch", "linkidn", "riskyfile", "qrtrick"];
 
 /** What the file is, in a word a person would use. */
 export function noun(m: FileModel): string {

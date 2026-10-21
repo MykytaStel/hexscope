@@ -1,5 +1,7 @@
 import { Concern, FileModel, Kind } from "./model";
-import { categories } from "./share";
+import { categories } from "./fact-categories";
+import { list } from "./list-format";
+export { list } from "./list-format";
 
 /** One line of the verdict: what kind of finding, the sentence, where to look. */
 export interface VerdictLine {
@@ -10,12 +12,6 @@ export interface VerdictLine {
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** "a, b and c" */
-export function list(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
 
 /** The extensions each format is named with — as the core's naming.rs says (a test holds them together). */
 export const EXTENSIONS: Record<string, string[]> = {

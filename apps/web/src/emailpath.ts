@@ -1,7 +1,7 @@
 // The way an email came, drawn: who it says it is from, where it was sent
 // from, the servers that passed it on, and you — with what should not be
 // there marked on the way: replies that go elsewhere, a domain that did
-// not vouch for it, links to other sites. All of it read from the headers
+// report results, links to other sites. All of it read from the headers
 // the file already holds. `mailRoute` reads it; `emailPath` draws it.
 import type { FileModel } from "./model";
 
@@ -58,15 +58,23 @@ export function mailRoute(m: FileModel): Route | null {
   const from = address(fromH.value);
   const stops: Stop[] = [];
 
-  // Who it says it is from, and whether that domain vouched for it.
-  const failed = fact("authfail")?.text;
-  const passed = fact("auth")?.text;
-  const vouch = failed ? `✗ ${failed.split(":")[0]} — not vouched for` : passed ? `✓ ${passed.split(":")[0]}` : "Not checked by the servers";
+  // Reported authentication results stay claims because the file cannot
+  // establish who added the header.
+  const claims = m.file.facts
+    .filter((f) => f.kind === "authclaim")
+    .map((f) => /(?:SPF|DKIM|DMARC)=[A-Za-z0-9_-]+/i.exec(f.text)?.[0])
+    .filter((claim): claim is string => !!claim);
+  const authResults = get("authentication-results");
+  const reported = claims.length
+    ? `Authentication-Results reports ${claims.join(", ")}; Hexscope cannot verify who added the header`
+    : authResults
+      ? "An Authentication-Results header is present, but it contains no recognized SPF, DKIM, or DMARC results; Hexscope cannot verify who added it"
+      : "No Authentication-Results header";
   stops.push({
     label: "Says it is from",
     main: from.addr,
-    notes: [...(from.name ? [from.name] : []), vouch],
-    tone: failed ? "bad" : passed ? "good" : "",
+    notes: [...(from.name ? [from.name] : []), reported],
+    tone: "",
     node: fromH.node,
   });
 
