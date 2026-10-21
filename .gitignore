@@ -22,6 +22,8 @@ dist/
 # Agent scratch space and local tool settings — not part of the project
 .superpowers/
 .claude/
+docs/superpowers/plans/
+docs/superpowers/specs/
 
 # OS and editors
 .DS_Store
