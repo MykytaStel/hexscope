@@ -89,6 +89,38 @@ group("a movie read in parts", () => {
     expect(e.values.every((v) => v >= 0 && v <= 8)).toBe(true);
   });
 
+  it("samples the overlapping media bytes when a window starts before the media", async () => {
+    const bytes = new Uint8Array(1024).fill(1);
+    bytes.fill(9, 384, 640);
+    const movie = {
+      given: bytes.slice(),
+      gaps: new Float64Array(0),
+      joins: [],
+      whole: bytes.slice(),
+      missing: Float64Array.from([384, 256]),
+    };
+    const result = await movieEntropy(new Blob([bytes as BlobPart]), movie, 1, (sample) => sample[0]);
+
+    expect(result.values).toEqual(Float32Array.from([9]));
+  });
+
+  it("keeps the original offsets when sampling bytes after the media", async () => {
+    const bytes = new Uint8Array(1024).fill(1);
+    bytes.fill(9, 384, 640);
+    bytes.fill(7, 640);
+    const movie = {
+      given: bytes.slice(),
+      gaps: new Float64Array(0),
+      joins: [],
+      whole: bytes.slice(),
+      missing: Float64Array.from([384, 256]),
+    };
+
+    const result = await movieEntropy(new Blob([bytes as BlobPart]), movie, 4, (sample) => sample[0]);
+
+    expect(result.values).toEqual(Float32Array.from([1, 9, 9, 7]));
+  });
+
   it("leaves small movies and other files whole", async () => {
     const { file } = longVideo(4 << 20);
     expect(await readMovie(file, isMovie)).toBeNull();

@@ -4,6 +4,23 @@
 import { registerLazyTranslations } from "./i18n";
 
 registerLazyTranslations({
+  "Archive Trace": "Шлях запису в архіві",
+  "Central-directory record": "Запис центрального каталогу",
+  "Local header": "Локальний заголовок",
+  "Compressed data": "Стиснені дані",
+  "Unpacked output": "Розпакований вміст",
+  "Show bytes": "Показати байти",
+  "Show central-directory record bytes": "Показати байти запису центрального каталогу",
+  "Show local header bytes": "Показати байти локального заголовка",
+  "Show compressed data bytes": "Показати байти стиснених даних",
+  "No bytes are available for this range.": "У цьому діапазоні немає доступних байтів.",
+  "No central-directory record is linked to this entry.": "Для цього запису не знайдено пов’язаного запису центрального каталогу.",
+  "The local-header range is unavailable.": "Діапазон локального заголовка недоступний.",
+  "The compressed-data range is unavailable.": "Діапазон стиснених даних недоступний.",
+  "The parser flagged bytes in this local header. Compare the highlighted range with the central record.": "Парсер позначив байти цього локального заголовка. Порівняйте вибраний діапазон із записом каталогу.",
+  "Only part of the declared compressed data is present.": "У файлі є лише частина стиснених даних, заявлених у каталозі.",
+  "Available bytes": "Наявні байти",
+  "Declared bytes": "Заявлені байти",
   "A camera's serial number is in every photo it takes, so photos shared under different names can be traced to one camera. The clean copy removes it.": "Серійний номер є в кожному фото з цього фотоапарата. За ним можна пов’язати знімки, навіть якщо їх надсилали під різними іменами. Очищена копія видаляє цей номер.",
   "The owner's name comes from the camera's own settings: change it there, and new photos will stop carrying it.": "Ім’я власника береться з налаштувань фотоапарата. Змініть його там, щоб нові фото більше не містили це ім’я.",
   "Removes the document's properties, the camera data and location of every photo in it, and the properties of a workbook or deck kept inside it. In a Word document, tracked changes are accepted — what was deleted goes, with its text — and comments are deleted, with their authors.": "Очищена копія видаляє властивості документа, дані фотоапарата й геолокацію кожного фото в ньому, а також властивості вкладеної книги чи презентації. У документі Word виправлення приймаються — видалений текст зникає остаточно, — а коментарі видаляються разом з їхніми авторами.",

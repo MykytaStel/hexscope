@@ -327,3 +327,44 @@ group("an email's way", () => {
       .toBe("Цей спільний файл уже недоступний. Надішліть його ще раз із програми, де він зберігається.");
   });
 });
+
+group("Archive Trace ranges", () => {
+  it("connects an entry to its actual central record, header, and compressed bytes", () => {
+    const m = open("deflate-demo.zip");
+    expect(m.entryCount).toBe(1);
+    const entry = m.entry(0);
+    const trace = m.archiveTrace(0);
+
+    expect(trace.centralRecord).not.toBeNull();
+    expect(m.bytes.subarray(trace.centralRecord!.start, trace.centralRecord!.start + 4)).toEqual(
+      new Uint8Array([0x50, 0x4b, 0x01, 0x02]),
+    );
+    expect(trace.localHeader).not.toBeNull();
+    expect(trace.compressedData).not.toBeNull();
+    const localHeader = trace.localHeader!;
+    const compressedData = trace.compressedData!;
+    expect(localHeader.start).toBe(m.start(entry.node));
+    expect(localHeader.start + localHeader.len).toBe(compressedData.start);
+    expect(compressedData.len).toBe(entry.compressed);
+    expect(trace.dataComplete).toBe(true);
+  });
+
+  it("marks a local-header-only recovery as missing a central record", () => {
+    const complete = open("deflate-demo.zip");
+    const centralRecord = complete.entry(0).centralRecord!;
+    const recovered = open("deflate-demo.zip", complete.bytes.subarray(0, centralRecord.start));
+
+    expect(recovered.entry(0).centralRecord).toBeNull();
+    expect(recovered.archiveTrace(0).centralRecord).toBeNull();
+  });
+
+  it("flags local-header warnings beside the entry's header range", () => {
+    const original = open("deflate-demo.zip");
+    const header = original.archiveTrace(0).localHeader!;
+    const bytes = original.bytes.slice();
+    bytes[header.start + 8] = 0;
+    const altered = open("deflate-demo.zip", bytes);
+
+    expect(altered.archiveTrace(0).localHeaderWarning).toBe(true);
+  });
+});

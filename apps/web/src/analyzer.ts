@@ -343,6 +343,13 @@ const drawer = new Drawer(
     toBytes();
     point(id);
   },
+  (start, len) => {
+    if (len <= 0) return;
+    toBytes();
+    hex.setHead(start, start + len);
+    hex.focusAt(start);
+    setStatusOffset(start);
+  },
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
   setHover,

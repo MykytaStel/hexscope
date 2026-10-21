@@ -57,7 +57,7 @@ let loading: Promise<void> | undefined;
  * translates the page again and tells the parts that listen.
  */
 export function loadUkrainian(): Promise<void> {
-  loading ??= Promise.all([import("./i18n-uk"), ...companions.map((load) => load())])
+  loading ??= Promise.all([import("./i18n-uk.ts"), ...companions.map((load) => load())])
     .then(() => {
       if (installed) localizeDocument();
       window.dispatchEvent(new Event("hexscope:locale"));

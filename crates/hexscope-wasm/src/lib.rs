@@ -32,7 +32,7 @@ pub const STEP_STRIDE: usize = 6;
 
 /// Numbers per entry in [`Parsed::entries`]: node, method, flags,
 /// compressed, uncompressed, playable, openable.
-pub const ENTRY_STRIDE: usize = 7;
+pub const ENTRY_STRIDE: usize = 9;
 
 /// Numbers per slice in [`Parsed::composition`].
 pub const SLICE_STRIDE: usize = 4;

@@ -36,6 +36,51 @@
   margin-top: 10px;
 }
 
+.archive-trace {
+  min-width: 0;
+}
+
+.archive-trace-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-inline-start: 22px;
+}
+
+.archive-trace-step {
+  min-width: 0;
+  padding-inline-start: 3px;
+  overflow-wrap: anywhere;
+}
+
+.archive-trace-step h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.archive-trace-step > .btn {
+  min-height: var(--control-height);
+}
+
+.archive-trace-range {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.archive-trace-byte-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.archive-trace-sizes {
+  margin-top: 5px;
+}
+
 .filename {
   margin: 0;
   font-size: inherit;

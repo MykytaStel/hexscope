@@ -399,7 +399,8 @@ impl Parsed {
     }
 
     /// Per ZIP entry, [`ENTRY_STRIDE`] numbers: `[node, method, flags,
-    /// compressed, uncompressed, playable, openable]`. Empty for other formats.
+    /// compressed, uncompressed, playable, openable, centralStart,
+    /// centralLength]`. A missing central record has `-1, 0`. Empty for other formats.
     #[wasm_bindgen(getter)]
     pub fn entries(&self) -> Vec<f64> {
         let Some(zip) = &self.zip else {
@@ -416,6 +417,8 @@ impl Parsed {
                     e.uncompressed as f64,
                     if playable(e) { 1.0 } else { 0.0 },
                     if openable(e) { 1.0 } else { 0.0 },
+                    e.central_record.map_or(-1.0, |r| r.start as f64),
+                    e.central_record.map_or(0.0, |r| r.len as f64),
                 ]
             })
             .collect()

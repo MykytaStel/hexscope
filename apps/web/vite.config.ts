@@ -3,8 +3,8 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
-import { guideList } from "./guides";
-import { SITE, writeSeo } from "./seo";
+import { guideList } from "./guides.ts";
+import { SITE, writeSeo } from "./seo.ts";
 
 const page = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 

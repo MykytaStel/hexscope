@@ -5,9 +5,9 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { GUIDE_UK } from "./src/guide-i18n";
-import { registerLazyTranslations, translateText } from "./src/i18n";
-import "./src/i18n-uk";
+import { GUIDE_UK } from "./src/guide-i18n.ts";
+import { registerLazyTranslations, translateText } from "./src/i18n.ts";
+import "./src/i18n-uk.ts";
 
 /** Where the site lives; HEXSCOPE_SITE overrides it for a build. */
 export const SITE = (process.env.HEXSCOPE_SITE ?? "https://hexscope.org").replace(/\/$/, "");

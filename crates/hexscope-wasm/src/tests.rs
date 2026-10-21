@@ -548,6 +548,38 @@ fn every_deflated_entry_plays_back_to_its_bytes() {
 }
 
 #[test]
+fn zip_entry_rows_include_the_central_record_range() {
+    let bytes = docx("../hexscope-core/tests/fixtures/report.docx");
+    let parsed = parse(&bytes);
+    let doc = hexscope_core::zip::parse_zip(&bytes);
+    let entries = parsed.entries();
+
+    assert_eq!(entries.len(), doc.entries.len() * ENTRY_STRIDE);
+    for (i, entry) in doc.entries.iter().enumerate() {
+        let row = &entries[i * ENTRY_STRIDE..(i + 1) * ENTRY_STRIDE];
+        if let Some(range) = entry.central_record {
+            assert_eq!(
+                row[7], range.start as f64,
+                "{} starts at its record",
+                entry.name
+            );
+            assert_eq!(row[8], range.len as f64, "{} spans its record", entry.name);
+            assert_eq!(
+                &bytes[range.start as usize..range.start as usize + 4],
+                b"PK\x01\x02"
+            );
+        } else {
+            assert_eq!(
+                (row[7], row[8]),
+                (-1.0, 0.0),
+                "{} has no central record",
+                entry.name
+            );
+        }
+    }
+}
+
+#[test]
 fn what_cannot_be_played_is_refused() {
     let bytes = docx("../../apps/web/public/samples/report.docx");
     let mut parsed = parse(&bytes);
