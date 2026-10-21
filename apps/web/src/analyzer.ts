@@ -911,19 +911,42 @@ export function openLinkedSample(): void {
   btn?.click();
 }
 
-// A file shared to the installed app (Android's share sheet) arrives through
-// the service worker, which keeps it in a cache for this page to pick up.
+// A share id names one complete submission, never a filename.
+const SHARED_ERRORS: Record<string, string> = {
+  empty: "The shared submission is empty. Choose files and try sharing again.",
+  count: "The shared submission has more than 50 files. Share up to 50 files at a time.",
+  size: "The shared submission is larger than 400 MiB. Share a smaller set of files.",
+  storage: "The files could not be saved in this browser. Free up storage and share them again.",
+  receive: "Could not receive these files. Try sharing them again.",
+};
+const SHARED_MISSING = "This shared file is no longer available. Share it again from the app that has it.";
+const SHARED_OPEN_FAILED = "Could not open these shared files. Share them again from the app that has them.";
+
+// A file shared to the installed app arrives through the service worker's
+// local inbox. The legacy single-file key remains readable during migration.
 export async function openShared(): Promise<void> {
-  if (!new URLSearchParams(location.search).has("shared") || !("caches" in window)) return;
+  const params = new URLSearchParams(location.search);
+  if (!params.has("shared") && !params.has("share-error")) return;
+  const id = params.get("shared");
+  const reason = params.get("share-error");
   history.replaceState(null, "", location.pathname);
-  const cache = await caches.open("hexscope-shared");
-  const res = await cache.match("shared-file");
-  if (!res) return;
-  const name = decodeURIComponent(res.headers.get("x-file-name") ?? "shared file");
+  if (reason) {
+    loadFailed(translateText(SHARED_ERRORS[reason] ?? SHARED_ERRORS.receive, currentLocale()));
+    return;
+  }
   document.body.dataset.state = "loading";
-  await cache.delete("shared-file");
-  batchController.clear();
-  await workspace.openFile(new File([await res.blob()], name));
+  try {
+    const { receiveSharedFiles } = await import("./shared-inbox");
+    const result = await receiveSharedFiles(id);
+    if ("reason" in result) {
+      const message = result.reason === "missing" ? SHARED_MISSING : SHARED_OPEN_FAILED;
+      loadFailed(translateText(message, currentLocale()));
+      return;
+    }
+    openFiles(result.files);
+  } catch {
+    loadFailed(translateText(SHARED_OPEN_FAILED, currentLocale()));
+  }
 }
 
 problemsBtn.addEventListener("click", () => {

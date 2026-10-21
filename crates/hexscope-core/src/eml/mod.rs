@@ -5,8 +5,9 @@
 //! through stamp a `Received` line each, the first of them with the address
 //! the sender's computer connected from; the mail program names itself; the
 //! date says the sender's time zone; the message's ID can carry the name of
-//! the computer that wrote it. And whether the sender's domain vouched for
-//! it, or replies go somewhere else, is what tells a forgery.
+//! the computer that wrote it. Authentication-Results may report SPF, DKIM
+//! or DMARC claims, but the saved file cannot establish who added that header.
+//! Replies that go somewhere unexpected can also be a warning sign.
 
 pub(crate) mod docs;
 pub(crate) mod links;
@@ -50,20 +51,94 @@ fn header<'a>(hs: &'a [Header], name: &str) -> Option<&'a Header> {
     hs.iter().find(|h| h.name.eq_ignore_ascii_case(name))
 }
 
-/// The servers that say they received the message: the host after `by` in
-/// each `Received` line.
-fn receivers(hs: &[Header]) -> Vec<String> {
-    hs.iter()
-        .filter(|h| h.name.eq_ignore_ascii_case("Received"))
-        .filter_map(|h| {
-            let after = h.value.split(" by ").nth(1)?.trim_start();
-            let host: String = after
-                .chars()
-                .take_while(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-')
-                .collect();
-            host.contains('.').then(|| host.to_ascii_lowercase())
-        })
-        .collect()
+/// Results in an Authentication-Results value, with comments and quoted
+/// strings kept from being mistaken for method/result statements.
+fn authentication_claims(value: &str) -> Vec<String> {
+    fn collect(clause: &str, out: &mut Vec<String>) {
+        let Some((method, result)) = clause.split_once('=') else {
+            return;
+        };
+        let method = method.trim();
+        let method = if method.eq_ignore_ascii_case("spf") {
+            "SPF"
+        } else if method.eq_ignore_ascii_case("dkim") {
+            "DKIM"
+        } else if method.eq_ignore_ascii_case("dmarc") {
+            "DMARC"
+        } else {
+            return;
+        };
+        let result = result.split_whitespace().next().unwrap_or("");
+        if !matches!(
+            result.to_ascii_lowercase().as_str(),
+            "pass"
+                | "fail"
+                | "softfail"
+                | "neutral"
+                | "none"
+                | "temperror"
+                | "permerror"
+                | "policy"
+                | "bestguesspass"
+        ) {
+            return;
+        }
+        out.push(format!(
+            "Authentication-Results reports {method}={} (the header author is unverified)",
+            result.to_ascii_lowercase()
+        ));
+    }
+
+    let mut claims = Vec::new();
+    let mut clause = String::new();
+    let mut comment_depth = 0usize;
+    let mut quoted = false;
+    let mut escaped = false;
+    for c in value.chars() {
+        if comment_depth > 0 {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '(' {
+                comment_depth += 1;
+            } else if c == ')' {
+                comment_depth -= 1;
+                if comment_depth == 0 {
+                    clause.push(' ');
+                }
+            }
+            continue;
+        }
+        if quoted {
+            clause.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                quoted = false;
+            }
+            continue;
+        }
+        match c {
+            '(' => {
+                comment_depth = 1;
+                clause.push(' ');
+            }
+            '"' => {
+                quoted = true;
+                clause.push(c);
+            }
+            ';' => {
+                collect(&clause, &mut claims);
+                clause.clear();
+            }
+            _ => clause.push(c),
+        }
+    }
+    collect(&clause, &mut claims);
+    claims
 }
 
 /// Whether a file reads as a message: header lines from its first byte, one
@@ -895,67 +970,14 @@ fn check(tree: &mut ParseTree, w: &Walk) -> Vec<DocumentFact> {
         );
     }
 
-    // What the receiving server found when it asked the sender's domain.
-    if let Some(h) = header(hs, "Authentication-Results") {
-        let v = h.value.to_ascii_lowercase();
-        let failed: Vec<&str> = ["spf", "dkim", "dmarc"]
-            .into_iter()
-            .filter(|m| {
-                [format!("{m}=fail"), format!("{m}=softfail")]
-                    .iter()
-                    .any(|f| v.contains(f.as_str()))
-            })
-            .collect();
-        if !failed.is_empty() {
-            let (start, len) = (h.start as u64, (h.end - h.start) as u64);
-            tree.warning(
-                h.node,
-                "the sender's domain did not vouch for it",
-                ByteRange::new(start, len),
-            );
-            fact(
-                "authfail",
-                format!(
-                    "{} failed: the domain it claims to come from did not vouch for it",
-                    failed.join(", ").to_ascii_uppercase()
-                ),
-                h.node,
-            );
-        } else if v.contains("=pass") {
-            let passed: Vec<&str> = ["spf", "dkim", "dmarc"]
-                .into_iter()
-                .filter(|m| v.contains(&format!("{m}=pass")))
-                .collect();
-            // Who wrote the result: the server it names before its first `;`,
-            // when it names one, must be one the message came through — or the
-            // sender wrote "passed" into the message themselves (RFC 8601 §5).
-            let id = v.split(';').next().unwrap_or("").trim();
-            let named = !id.contains('=') && id.contains('.');
-            if named && !receivers(hs).iter().any(|r| base(r) == base(id)) {
-                let (start, len) = (h.start as u64, (h.end - h.start) as u64);
-                tree.warning(
-                    h.node,
-                    "a check result no server it came through wrote",
-                    ByteRange::new(start, len),
-                );
-                fact(
-                    "authfail",
-                    format!(
-                        "says {} passed, but {id}, which says so, is not a server it came through",
-                        passed.join(", ").to_ascii_uppercase()
-                    ),
-                    h.node,
-                );
-            } else {
-                fact(
-                    "auth",
-                    format!(
-                        "{} passed: the sender's domain vouched for it",
-                        passed.join(", ").to_ascii_uppercase()
-                    ),
-                    h.node,
-                );
-            }
+    // An .eml file cannot establish which system added this header or
+    // whether it crossed a trusted boundary. Preserve each result as a claim.
+    for h in hs
+        .iter()
+        .filter(|h| h.name.eq_ignore_ascii_case("Authentication-Results"))
+    {
+        for claim in authentication_claims(&h.value) {
+            fact("authclaim", claim, h.node);
         }
     }
 

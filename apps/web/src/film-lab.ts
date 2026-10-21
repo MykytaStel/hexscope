@@ -14,11 +14,6 @@ export const DEFAULT_FILM_SETTINGS: FilmSettings = { mode: "positive", crop: [0,
 export const MAX_FILM_BYTES = 50 * 1024 * 1024;
 const MAX_PIXELS = 12_000_000;
 const MAX_SAMPLES = 131_072;
-const LINEAR = Float64Array.from({ length: 256 }, (_, v) => {
-  const s = v / 255;
-  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-});
-const srgb = (v: number) => Math.round(255 * Math.max(0, Math.min(1, v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055)));
 
 function bounded(value: unknown, min: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new Error("Invalid film settings.");
@@ -107,41 +102,4 @@ export function sampleFilmBase(pixels: Uint8ClampedArray, width: number, height:
     for (let i = 0; i < size; i += step) add(i);
   }
   return hist.map((h) => Math.max(1, percentile(h, count, point ? 0.5 : 0.95))) as RGB;
-}
-
-/**
- * Convert sRGB to linear transmission, normalize by film base, then map log
- * density through common 1%/99% tone bounds. Shared bounds preserve calibration
- * differences across channels. An 8-bit scan is already tone mapped; this is
- * an adjustable sharing rendition, not calibrated archival color recovery.
- * 256-entry lookup tables keep per-pixel work linear and bounded.
- */
-export function renderFilmPixels(source: Uint8ClampedArray, width: number, height: number, given: FilmSettings): { pixels: Uint8ClampedArray; baseColor: RGB; clipping: { shadows: number; highlights: number } } {
-  const size = checkRaster(source, width, height);
-  const settings = validateFilmSettings(given);
-  const baseColor = settings.baseColor ?? sampleFilmBase(source, width, height);
-  const density = baseColor.map((base) => Float64Array.from(LINEAR, (v) => -Math.log(Math.max(0.0001, Math.min(1, v / LINEAR[base])))));
-  const tones = new Uint32Array(2048);
-  const step = Math.max(1, Math.ceil(size / MAX_SAMPLES));
-  let count = 0, shadows = 0, highlights = 0;
-  for (let i = 0; i < size; i += step) {
-    const rgb = [source[i * 4], source[i * 4 + 1], source[i * 4 + 2]];
-    if (rgb.some((v) => v <= 1)) shadows++;
-    if (rgb.some((v) => v >= 254)) highlights++;
-    const d = (density[0][rgb[0]] + density[1][rgb[1]] + density[2][rgb[2]]) / 3;
-    tones[Math.min(2047, Math.floor(d / 10 * 2047))]++;
-    count++;
-  }
-  const low = percentile(tones, count, 0.01) / 2047 * 10;
-  const high = percentile(tones, count, 0.99) / 2047 * 10;
-  const adjust = (v: number) => srgb(0.18 * (Math.max(0, v) / 0.18) ** settings.contrast * 2 ** settings.exposure);
-  const lut = density.map((channel) => Uint8Array.from(channel, (d, v) => adjust(settings.mode === "positive" ? LINEAR[v] : high - low < 0.005 ? 0.18 : Math.max(0, (d - low) / (high - low)))));
-  const pixels = new Uint8ClampedArray(source.length);
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = lut[0][source[i]], g = lut[1][source[i + 1]], b = lut[2][source[i + 2]];
-    if (settings.mode === "mono-negative") pixels[i] = pixels[i + 1] = pixels[i + 2] = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
-    else { pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; }
-    pixels[i + 3] = 255;
-  }
-  return { pixels, baseColor, clipping: { shadows: Math.round(shadows / count * 1000) / 10, highlights: Math.round(highlights / count * 1000) / 10 } };
 }

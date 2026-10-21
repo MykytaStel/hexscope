@@ -49,7 +49,7 @@ export const KEPT_NOTE: Record<string, string> = {
 };
 
 /** Facts shown first in colour: what someone would least want to send. */
-export const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "authfail", "linkmismatch", "linkidn", "riskyfile", "opens", "launch", "qrwifi", "qrsecret", "qrtrick"];
+export const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "linkmismatch", "linkidn", "riskyfile", "opens", "launch", "qrwifi", "qrsecret", "qrtrick"];
 
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 export function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
@@ -149,8 +149,7 @@ export const FACT_LABELS: Record<string, string> = {
   linkidn: "Lookalike address",
   riskyfile: "Risky attachment",
   returnpath: "Bounces",
-  auth: "Sender checks",
-  authfail: "Sender checks",
+  authclaim: "Unverified email-header results",
   language: "Language",
   toolchain: "Built with",
   sdk: "SDK",

@@ -12,6 +12,10 @@ const FILES = [];
 const CACHE = `hexscope-${BUILD}`;
 const SHARED = "hexscope-shared";
 const ORDER = "hexscope-order";
+const SHARE_TTL = 24 * 60 * 60 * 1000;
+const SHARE_MAX_FILES = 50;
+const SHARE_MAX_BYTES = 400 * 1024 * 1024;
+const SHARE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 // The samples are small, and the landing page offers them: kept from the
 // start, so they open offline too — unless the connection asks to save data.
@@ -56,6 +60,7 @@ self.addEventListener("activate", (event) => {
       const before = known.filter((key) => key !== CACHE && builds.includes(key)).at(-1) ?? builds.at(-1);
       for (const key of builds) if (key !== before) await caches.delete(key);
       await book.put(where, new Response(JSON.stringify(before ? [before, CACHE] : [CACHE])));
+      await purgeSharedInbox(await caches.open(SHARED));
       await self.clients.claim();
     })(),
   );
@@ -106,17 +111,149 @@ async function networkFirst(req) {
   }
 }
 
-// The share sheet posts the file here. It waits in a cache until the page,
-// opened at ?shared, takes it: a file never touches the network.
+// Each share sheet submission gets its own bounded inbox. Files stay local;
+// the redirect names a complete group only after every cache write succeeds.
 async function receiveShare(req) {
-  const form = await req.formData();
-  const file = form.get("file");
-  if (file && typeof file !== "string") {
-    const cache = await caches.open(SHARED);
-    await cache.put(
-      new URL("shared-file", self.registration.scope),
-      new Response(file, { headers: { "x-file-name": encodeURIComponent(file.name) } }),
-    );
+  let cache;
+  try {
+    cache = await caches.open(SHARED);
+    await purgeSharedInbox(cache);
+  } catch {
+    return shareFailure("storage");
   }
-  return Response.redirect(new URL("./?shared=1", self.registration.scope).href, 303);
+  let files;
+  try {
+    const form = await req.formData();
+    files = form.getAll("file").filter((file) => typeof file !== "string" && file && typeof file.size === "number" && typeof file.slice === "function");
+  } catch {
+    return shareFailure("receive");
+  }
+  if (files.length === 0) return shareFailure("empty");
+  if (files.length > SHARE_MAX_FILES) return shareFailure("count");
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  if (!Number.isFinite(total) || files.some((file) => !Number.isFinite(file.size) || file.size < 0) || total > SHARE_MAX_BYTES)
+    return shareFailure("size");
+
+  let id;
+  try {
+    const existing = await cache.keys();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = crypto.randomUUID().toLowerCase();
+      if (SHARE_ID.test(candidate) && !existing.some((key) => key.url.startsWith(new URL(`shared/${candidate}/`, self.registration.scope).href))) {
+        id = candidate;
+        break;
+      }
+    }
+  } catch {
+    return shareFailure("storage");
+  }
+  if (!id) return shareFailure("storage");
+
+  const receivedAt = String(Date.now());
+  const written = [];
+  try {
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const key = new URL(`shared/${id}/${index}`, self.registration.scope);
+      written.push(key);
+      await cache.put(
+        key,
+        new Response(file, {
+          headers: {
+            "x-submission-id": id,
+            "x-file-index": String(index),
+            "x-file-count": String(files.length),
+            "x-file-name": encodeURIComponent(file.name || `shared-file-${index + 1}`),
+            "x-file-type": file.type || "",
+            "x-received-at": receivedAt,
+          },
+        }),
+      );
+    }
+  } catch {
+    await Promise.allSettled(written.map((key) => cache.delete(key)));
+    return shareFailure("storage");
+  }
+  return Response.redirect(new URL(`./?shared=${id}`, self.registration.scope).href, 303);
+}
+
+function shareFailure(reason) {
+  return Response.redirect(new URL(`./?share-error=${reason}`, self.registration.scope).href, 303);
+}
+
+/** Drop expired or malformed entries. A legacy entry receives its timestamp once. */
+async function purgeSharedInbox(cache, now = Date.now()) {
+  const keys = await cache.keys();
+  const legacyUrl = new URL("shared-file", self.registration.scope).href;
+  const legacyConsumedUrl = new URL("shared-file-consumed", self.registration.scope).href;
+  const legacy = keys.find((key) => key.url === legacyUrl);
+  if (keys.some((key) => key.url === legacyConsumedUrl)) {
+    const legacyFiles = keys.filter((key) => key.url === legacyUrl);
+    const removedFiles = await Promise.allSettled(legacyFiles.map((key) => cache.delete(key)));
+    if (removedFiles.every((result) => result.status === "fulfilled")) {
+      await Promise.allSettled(keys.filter((key) => key.url === legacyConsumedUrl).map((key) => cache.delete(key)));
+    }
+  } else if (legacy) {
+    const response = await cache.match(legacy);
+    if (response) {
+      const recordedAt = response.headers.get("x-received-at");
+      const at = recordedAt === null ? Number.NaN : Number(recordedAt);
+      const valid = Number.isSafeInteger(at) && at >= 0 && at <= now;
+      const receivedAt = valid ? at : now;
+      if (!valid) {
+        const headers = new Headers(response.headers);
+        headers.set("x-received-at", String(now));
+        await cache.put(legacy, new Response(response.body, { headers }));
+      }
+      if (now - receivedAt >= SHARE_TTL) await cache.delete(legacy);
+    } else await cache.delete(legacy);
+  }
+
+  const groups = new Map();
+  const malformed = [];
+  const basePath = new URL(self.registration.scope).pathname;
+  for (const key of keys) {
+    if (key.url === legacyUrl || key.url === legacyConsumedUrl) continue;
+    const url = new URL(key.url);
+    const relative = url.pathname.startsWith(basePath) ? url.pathname.slice(basePath.length) : "";
+    const match = /^shared\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(\d+|_consumed)$/.exec(relative);
+    if (url.origin !== new URL(self.registration.scope).origin || !match) {
+      malformed.push(key);
+      continue;
+    }
+    const group = groups.get(match[1]) ?? [];
+    group.push({ key, index: match[2] === "_consumed" ? null : Number(match[2]), consumed: match[2] === "_consumed" });
+    groups.set(match[1], group);
+  }
+  await Promise.allSettled(malformed.map((key) => cache.delete(key)));
+  for (const [id, entries] of groups) {
+    let invalid = entries.some(({ consumed }) => consumed);
+    for (const { key, index, consumed } of entries) {
+      if (consumed) continue;
+      const response = await cache.match(key);
+      const recordedAt = response?.headers.get("x-received-at");
+      const recordedIndex = response?.headers.get("x-file-index");
+      const at = recordedAt === null || recordedAt === undefined ? Number.NaN : Number(recordedAt);
+      if (
+        !response ||
+        response.headers.get("x-submission-id") !== id ||
+        index === null || recordedIndex === null || Number(recordedIndex) !== index ||
+        !Number.isSafeInteger(at) ||
+        at < 0 ||
+        at > now ||
+        now - at >= SHARE_TTL
+      ) {
+        invalid = true;
+        break;
+      }
+    }
+    if (invalid) {
+      const files = entries.filter(({ consumed }) => !consumed);
+      const markers = entries.filter(({ consumed }) => consumed);
+      const removedFiles = await Promise.allSettled(files.map(({ key }) => cache.delete(key)));
+      if (markers.length === 0 || removedFiles.every((result) => result.status === "fulfilled")) {
+        await Promise.allSettled(markers.map(({ key }) => cache.delete(key)));
+      }
+    }
+  }
 }

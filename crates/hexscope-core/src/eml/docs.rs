@@ -73,7 +73,7 @@ const HEADERS: Table = &[
     ),
     (
         "From",
-        msg("Who the message says it is from. Anyone can write anything here; the checks below say whether the domain agreed.", "RFC 5322 §3.6.2"),
+        msg("Who the message says it is from. Anyone can write anything here; another header may report checks, but this file cannot establish who wrote that report.", "RFC 5322 §3.6.2"),
     ),
     ("To", msg("Who it was sent to.", "RFC 5322 §3.6.3")),
     ("Cc", msg("Who was sent a copy, for everyone to see.", "RFC 5322 §3.6.3")),
@@ -99,7 +99,7 @@ const HEADERS: Table = &[
     (
         "Authentication-Results",
         Doc::new(
-            "What the receiving server found when it checked the sender's domain: SPF (the server was allowed to send), DKIM (a signature), DMARC (the policy).",
+            "The header reports SPF, DKIM or DMARC results; this file cannot establish who added it. Treat each result as a claim, not a verified check.",
         )
         .cite("RFC 8601 §2", RFC8601),
     ),
@@ -169,22 +169,6 @@ const PROBLEMS: Table = &[
         Doc::new(
             "Replies go to a different domain than the one the message says it is from — a common sign of a message pretending to be someone else.",
         )
-        .concern(Concern::Hidden),
-    ),
-    (
-        "the sender's domain did not vouch for it",
-        Doc::new(
-            "The receiving server asked the domain in From, and it did not confirm the message: it may not be from who it says.",
-        )
-        .cite("RFC 8601 §2.7", RFC8601)
-        .concern(Concern::Hidden),
-    ),
-    (
-        "a check result no server it came through wrote",
-        Doc::new(
-            "A result that says the sender's domain vouched for it, written by a server the message never passed through: anyone can type it into a message.",
-        )
-        .cite("RFC 8601 §5", RFC8601)
         .concern(Concern::Hidden),
     ),
     (

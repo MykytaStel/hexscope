@@ -13,7 +13,8 @@ import { FileModel } from "./model";
 import { headline, listed } from "./headline";
 import { verdict, misfit } from "./verdict";
 import { advice } from "./advice";
-import { categories, categoryCount } from "./share";
+import { FACT_LABELS } from "./knowledge";
+import { categories, categoryCount, CATEGORIES, sentence as shareSentence } from "./share";
 import { address, mailRoute, receivedBy } from "./emailpath";
 import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from "./files";
 import { searchable } from "./redactor";
@@ -177,7 +178,7 @@ group("the tips", () => {
 
 group("a share card", () => {
   // What a file does or how it is locked is not something it gives away.
-  const NOT_TOLD = ["auth", "encryption", "opens", "launch", "scripts", "submits"];
+  const NOT_TOLD = ["encryption", "opens", "launch", "scripts", "submits"];
 
   it("has a category for every kind of fact a sample gives", () => {
     const samples = ["photo.jpg", "photo.heic", "cropped.jpg", "progressive.jpg", "sample.png", "video.mov", "report.pdf", "redacted.pdf",
@@ -192,6 +193,41 @@ group("a share card", () => {
   it("counts categories, never the same one twice", () => {
     expect(categoryCount(["location", "location", "serial"])).toBe(2);
     expect(categoryCount(["nothing-we-know"])).toBe(0);
+  });
+
+  it("describes an authentication result as an unverified header report", () => {
+    expect(CATEGORIES.find(([kind]) => kind === "authclaim")?.[1]).toBe(
+      "an authentication result reported in the email header, which Hexscope cannot verify",
+    );
+    expect(categoryCount(["authclaim"])).toBe(1);
+  });
+
+  it("keeps category priority, the share sentence, and a representative verdict stable", () => {
+    const m = open("photo.jpg");
+    expect(CATEGORIES.slice(0, 5).map(([kind]) => kind)).toEqual([
+      "covered",
+      "hiddentext",
+      "location",
+      "qrwifi",
+      "qrsecret",
+    ]);
+    expect(shareSentence(m)).toBe(
+      "My photo was giving away where it was taken, the camera's serial number, the owner's name, the camera and 4 more things. I checked it in my browser with hexscope, and nothing was uploaded: https://hexscope.org",
+    );
+    expect(verdict(m).find((line) => line.kind === "reveals")?.text).toBe(
+      "Reveals where it was taken, the camera, the camera's serial number, the owner's name and 4 more things.",
+    );
+  });
+
+  it("keeps category and list helpers outside the share/verdict dependency cycle", () => {
+    const imports = (name: string) => {
+      const source = readFileSync(here(`./${name}.ts`), "utf8");
+      return [...source.matchAll(/from [\"']\.\/([^\"']+)[\"']/g)].map((match) => match[1]);
+    };
+    expect(imports("fact-categories")).toEqual(["model"]);
+    expect(imports("list-format")).toEqual([]);
+    expect(imports("share")).not.toContain("verdict");
+    expect(imports("verdict")).not.toContain("share");
   });
 });
 
@@ -236,16 +272,58 @@ group("an email's way", () => {
 
   it("marks a forged message's sender, reply address, link and attachment", () => {
     const r = mailRoute(open("phishing.eml"))!;
-    expect(r.stops[0]).toMatchObject({ main: "security@example-bank.com", tone: "bad" });
+    expect(r.stops[0]).toMatchObject({ main: "security@example-bank.com", tone: "" });
+    expect(r.stops[0].notes.join(" ")).toContain("Hexscope cannot verify who added the header");
+    expect(r.stops[0].notes.join(" ")).toContain("DMARC=fail");
     expect(r.stops.map((s) => s.label)).toEqual(["Says it is from", "Sent from", "Passed through", "To"]);
     expect(r.off.map((s) => s.main)).toEqual(["verify-account@example.info", "login.example.info", "invoice.pdf.html"]);
   });
 
   it("lists an honest message's servers in the order they passed it on", () => {
     const r = mailRoute(open("message.eml"))!;
-    expect(r.stops[0].tone).toBe("good");
+    expect(r.stops[0].tone).toBe("");
+    expect(r.stops[0].notes.join(" ")).toContain("Hexscope cannot verify who added the header");
+    expect(r.stops[0].notes.join(" ")).toContain("SPF=pass");
     expect(r.stops.filter((s) => s.label === "Passed through").map((s) => s.main)).toEqual(["smtp.example.org", "mx.example.net", "inbox.example.net"]);
     expect(r.stops[1].notes).toContain("MacBook-Pro-Olena.local");
     expect(r.off).toEqual([]);
+  });
+
+  it("distinguishes a present Authentication-Results header without recognized claims", () => {
+    const message = open("message.eml");
+    const withoutClaims = new FileModel(
+      { ...message.file, facts: message.file.facts.filter((fact) => fact.kind !== "authclaim") },
+      message.bytes,
+      message.name,
+    );
+    const notes = mailRoute(withoutClaims)!.stops[0].notes;
+    expect(notes).toContain("Olena Koval");
+    expect(notes.at(-1)).toBe(
+      "An Authentication-Results header is present, but it contains no recognized SPF, DKIM, or DMARC results; Hexscope cannot verify who added it",
+    );
+    expect(translateText(notes.at(-1)!, "uk")).toBe(
+      "У листі є заголовок Authentication-Results, але в ньому не розпізнано результатів SPF, DKIM або DMARC; Hexscope не може перевірити, хто його додав",
+    );
+  });
+
+  it("labels and translates authentication claims without implying verification", () => {
+    expect(FACT_LABELS.authclaim).toBe("Unverified email-header results");
+    expect(translateText("No Authentication-Results header", "uk")).toBe("У листі немає заголовка Authentication-Results");
+    expect(
+      translateText("Authentication-Results reports SPF=pass (the header author is unverified)", "uk"),
+    ).toBe("У заголовку Authentication-Results записано SPF=pass; автора заголовка не перевірено");
+    expect(
+      translateText("Authentication-Results reports SPF=pass, DKIM=pass, DMARC=pass; Hexscope cannot verify who added the header", "uk"),
+    ).toBe("У заголовку Authentication-Results записано SPF=pass, DKIM=pass, DMARC=pass; Hexscope не може перевірити, хто його додав");
+    const tips = advice(open("phishing.eml")).map((tip) => tip.text).join(" ");
+    expect(tips).toContain("If replies go to another domain, this message may not be from who it says.");
+    expect(tips).not.toContain("the sender's domain did not vouch for the message");
+  });
+
+  it("localizes actionable shared-inbox failures", () => {
+    expect(translateText("The shared submission is larger than 400 MiB. Share a smaller set of files.", "uk"))
+      .toBe("Набір завеликий: понад 400 МіБ. Надішліть менший набір файлів.");
+    expect(translateText("This shared file is no longer available. Share it again from the app that has it.", "uk"))
+      .toBe("Цей спільний файл уже недоступний. Надішліть його ще раз із програми, де він зберігається.");
   });
 });

@@ -1716,6 +1716,7 @@ test("a guide changes its full article and language metadata with the shared con
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".guide-language-note")).toHaveCount(0);
   await expect(page.locator("article.story-text h1")).toHaveText("Цей лист справжній?");
+  await expect(page.locator("article.story-text")).toContainText("Результати SPF, DKIM і DMARC у цьому заголовку — лише заяви");
   await expect(page).toHaveTitle("Цей лист справжній? — hexscope");
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await expect(page.locator("meta[name=description]")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
@@ -1725,16 +1726,17 @@ test("a guide changes its full article and language metadata with the shared con
   await page.getByRole("button", { name: "Switch language to English" }).click();
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
   await expect(page.locator("article.story-text h1")).toHaveText("Is this email real?");
+  await expect(page.locator("article.story-text")).toContainText("SPF, DKIM and DMARC results in this header are claims in the saved message");
   await expect(page).toHaveTitle("Is this email real? — hexscope");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("meta[name=description]")).toHaveAttribute(
     "content",
-    "A message can claim any sender. Its headers say where replies really go, whether the sender's domain vouched for it, and where it came from. How to save an email and read them, in your browser, without uploading it.",
+    "A message can claim any sender. Its headers show where replies go and what an Authentication-Results header reports; the saved file cannot show who added it. Learn to read an email's headers in your browser without uploading it.",
   );
   await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "Is this email real?");
   await expect(page.locator("meta[property='og:description']")).toHaveAttribute(
     "content",
-    "Where replies really go, whether the sender's domain vouched for the message, and where it came from: read an email's headers without uploading it.",
+    "Where replies go and what an Authentication-Results header reports; the saved file cannot show who added it. Read an email's headers without uploading it.",
   );
 });
 
@@ -2258,7 +2260,7 @@ test("every public guide has a complete Ukrainian version, including its page ti
     "ftp", "ascii", "huffman", "iso", "rfc", "cve", "ecma", "w3c", "wasm", "webassembly", "github", "gmail",
     "outlook", "thunderbird", "apple", "android", "iphone", "mac", "windows", "pixel", "chrome", "google", "airdrop",
     "mp4", "quicktime", "mov", "markup", "snipping",
-    "spf", "dkim", "dmarc", "eur", "wi", "fi", "qr", "f12", "csp", "css", "xml", "url", "http", "https",
+    "spf", "dkim", "dmarc", "pass", "eur", "wi", "fi", "qr", "f12", "csp", "css", "xml", "url", "http", "https",
     "rust", "cookie",
     "jbig", "jbig2", "ccitt", "fax", "gzip", "javascript", "crc",
     "libreoffice", "rtf", "exiftool", "mat2", "svg",
@@ -2299,6 +2301,7 @@ test("every public guide has a complete Ukrainian version, including its page ti
         if (!text || node.parentElement?.closest("code, script, style, .brand, [data-language-control]")) continue;
         const prose = text
           .replace(/\b(?:Word|Excel|PowerPoint|GitHub Actions?|EXIF|XMP|ECMA-376|Office Open XML|ISO 32000-1)\b/gi, " ")
+          .replace(/\bAuthentication-Results\b/gi, " ")
           .replace(/\bContent-Security-Policy\b/gi, " ")
           .replace(/\bform xobjects?\b/gi, " ")
           .replace(/\bApple Mail\b|\bFrom(?=,)|\bPixel Markup\b|\bSnipping Tool\b/gi, " ");

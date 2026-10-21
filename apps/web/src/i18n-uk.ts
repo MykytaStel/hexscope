@@ -224,7 +224,7 @@ const UK: Record<string, string> = {
   "Try a suspicious email →": "Перевірити підозрілий лист →",
   "BEFORE YOU TRUST AN EMAIL": "ПЕРШ НІЖ ДОВІРЯТИ ЛИСТУ",
   "Is this email real?": "Цей лист справжній?",
-  "Where replies really go, whether the sender's domain vouched for it, and the server it came from.": "Куди насправді підуть відповіді, чи підтвердив домен відправника лист і з якого сервера його надіслано.",
+  "Where replies really go, what the email's Authentication-Results header reports, and the server it came from.": "Куди насправді підуть відповіді, що записано в заголовку Authentication-Results і з якого сервера надіслано лист.",
   "Try a fake bank email →": "Перевірити тестовий лист від банку →",
   "What an email says about its sender": "Що лист розповідає про відправника",
   "The address it was sent from, the computer's name, the time zone — in the headers of every message, yours too.": "Адреса відправлення, назва комп’ютера й часовий пояс — у заголовках кожного листа, зокрема вашого.",
@@ -522,7 +522,11 @@ const UK: Record<string, string> = {
   "Lookalike address": "Схожа адреса",
   "Risky attachment": "Небезпечне вкладення",
   "Bounces": "Адреса повернення",
-  "Sender checks": "Перевірки відправника",
+  "Unverified email-header results": "Неперевірені заяви в заголовках листа",
+  "No Authentication-Results header": "У листі немає заголовка Authentication-Results",
+  "An Authentication-Results header is present, but it contains no recognized SPF, DKIM, or DMARC results; Hexscope cannot verify who added it":
+    "У листі є заголовок Authentication-Results, але в ньому не розпізнано результатів SPF, DKIM або DMARC; Hexscope не може перевірити, хто його додав",
+  "If replies go to another domain, this message may not be from who it says. Do not reply, open its files or follow its links; ask the sender another way — a number you already have.": "Якщо відповіді надходять на інший домен, лист може бути не від того, за кого себе видає. Не відповідайте, не відкривайте його файли й не переходьте за посиланнями; зв’яжіться з відправником іншим способом — за номером, який уже маєте.",
   "Link": "Посилання",
   "Links": "Посилання",
   "Wi-Fi in a QR code": "Дані Wi-Fi у QR-коді",
@@ -592,6 +596,13 @@ const UK: Record<string, string> = {
   "Not a kind of file hexscope reads": "hexscope не читає цей тип файла",
   "This file does more than show pages": "Файл може виконувати дії, а не лише показувати сторінки",
   "No file is open": "Файл не відкрито",
+  "The shared submission is empty. Choose files and try sharing again.": "У наборі немає файлів. Виберіть файли й спробуйте надіслати ще раз.",
+  "The shared submission has more than 50 files. Share up to 50 files at a time.": "У наборі понад 50 файлів. Надсилайте не більше 50 файлів за раз.",
+  "The shared submission is larger than 400 MiB. Share a smaller set of files.": "Набір завеликий: понад 400 МіБ. Надішліть менший набір файлів.",
+  "The files could not be saved in this browser. Free up storage and share them again.": "Не вдалося зберегти файли в цьому браузері. Звільніть місце й надішліть їх ще раз.",
+  "Could not receive these files. Try sharing them again.": "Не вдалося отримати ці файли. Спробуйте надіслати їх ще раз.",
+  "This shared file is no longer available. Share it again from the app that has it.": "Цей спільний файл уже недоступний. Надішліть його ще раз із програми, де він зберігається.",
+  "Could not open these shared files. Share them again from the app that has them.": "Не вдалося відкрити ці спільні файли. Надішліть їх ще раз із програми, де вони зберігаються.",
   "No copy was made": "Копію не створено",
   "Some PDF page or form content could not be fully checked. Search may miss text.": "Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.",
   "PDF not fully checked": "PDF перевірено не повністю",
@@ -734,7 +745,7 @@ const REVEAL_WORDS: Record<string, string> = {
   "where its photos were taken": "місце зйомки фото всередині",
   "the address it was sent from": "адресу відправлення",
   "the sender's computer's name": "назву комп’ютера відправника",
-  "that its sender's domain did not vouch for it": "непідтвердження листа доменом відправника",
+  "an authentication result reported in the email header, which Hexscope cannot verify": "неперевірений результат автентифікації із заголовка листа",
   "where replies really go": "справжню адресу для відповідей",
   "a link that says one site and goes to another": "посилання, що веде не туди, куди обіцяє",
   "an address in lookalike letters": "адресу зі схожими літерами",
@@ -824,7 +835,7 @@ const HEADINGS: Record<string, string> = {
   "a two-factor secret in a QR code": "секрет двофакторної автентифікації в QR-коді",
   "a QR code that hides where it goes": "QR-код, що приховує, куди веде",
   "a place in a QR code": "місце в QR-коді",
-  "that its sender's domain did not vouch for it": "домен відправника не підтвердив лист",
+  "an authentication result reported in the email header, which Hexscope cannot verify": "результат автентифікації, записаний у заголовку листа, який Hexscope не може перевірити",
   "where replies really go": "справжня адреса для відповідей",
   "a link that says one site and goes to another": "посилання, що веде не туди, куди обіцяє",
   "an address in lookalike letters": "адреса зі схожими літерами",
@@ -1278,11 +1289,6 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `Сторінка ${match[1]}: що досі можна ${match[2] === "read" ? "прочитати" : "побачити"} під прямокутниками`;
   match = /^Page (\d+): as a viewer shows it$/.exec(value);
   if (match) return `Сторінка ${match[1]}: як її показує переглядач`;
-  // The way an email came: what the receiving server found.
-  match = /^✓ (.+) passed$/.exec(value);
-  if (match) return `✓ ${match[1]}: пройдено`;
-  match = /^✗ (.+) failed — not vouched for$/.exec(value);
-  if (match) return `✗ ${match[1]}: не пройдено — домен лист не підтвердив`;
   // A picture built up scan by scan, or pass by pass.
   match = /^All (\d+) scans: the whole picture\.$/.exec(value);
   if (match) return `Усі скани (${match[1]}): усе зображення.`;
@@ -1470,9 +1476,10 @@ function factSentence(v: string): string | undefined {
     return `${m[1]}, показано як «${m[2]}»: літери інших абеток, схожі на латинські`;
   if ((m = /^(.+) — not the sender's (.+)$/.exec(v))) return `${m[1]} — а не ${m[2]}, як у відправника`;
   if ((m = /^bounces go to (.+), not the sender's (.+)$/.exec(v))) return `листи-відмови йдуть на ${m[1]}, а не на ${m[2]} відправника`;
-  if ((m = /^(.+) passed: the sender's domain vouched for it$/.exec(v))) return `${m[1]}: пройдено — домен відправника підтвердив лист`;
-  if ((m = /^(.+) failed: the domain it claims to come from did not vouch for it$/.exec(v)))
-    return `${m[1]}: не пройдено — домен, від імені якого надіслано лист, його не підтвердив`;
+  if ((m = /^Authentication-Results reports (SPF|DKIM|DMARC)=([A-Za-z0-9_-]+) \(the header author is unverified\)$/.exec(v)))
+    return `У заголовку Authentication-Results записано ${m[1]}=${m[2]}; автора заголовка не перевірено`;
+  if ((m = /^Authentication-Results reports (.+); Hexscope cannot verify who added the header$/.exec(v)))
+    return `У заголовку Authentication-Results записано ${m[1]}; Hexscope не може перевірити, хто його додав`;
   if ((m = /^(UTC[^,]*), the sender's clock when it was sent$/.exec(v))) return `${m[1]}, годинник відправника на момент надсилання`;
   if ((m = /^(.+?), where the sender connected from(?:, and (.+?), the computer's address on its own network)?, in the first server's (.+) line$/.exec(v)))
     return `${m[1]} — звідки підключився відправник${m[2] ? `, і ${m[2]} — адреса комп’ютера в його власній мережі` : ""}, у рядку ${m[3]} першого сервера`;

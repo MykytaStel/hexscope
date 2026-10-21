@@ -44,3 +44,11 @@ describe.each(pages)("%s", (file) => {
     if (GUIDES.some((g) => g.file === file)) expect(html).toContain("<ul data-guides></ul>");
   });
 });
+
+describe("the installed app shell", () => {
+  it("uses the same theme color as the page", () => {
+    const html = readFileSync(new URL("index.html", root), "utf8");
+    const manifest = JSON.parse(readFileSync(new URL("public/manifest.webmanifest", root), "utf8")) as { theme_color: string };
+    expect(manifest.theme_color).toBe(meta(html, "theme-color"));
+  });
+});

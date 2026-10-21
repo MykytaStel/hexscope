@@ -35,7 +35,9 @@ fn an_ordinary_message_says_where_from_on_what_and_when() {
             ("computer", "MacBook-Pro-Olena.local".to_string()),
             ("mailer", "Apple Mail (2.3826.300.87)".to_string()),
             ("timezone", "UTC+03:00, the sender's clock when it was sent".to_string()),
-            ("auth", "SPF, DKIM, DMARC passed: the sender's domain vouched for it".to_string()),
+            ("authclaim", "Authentication-Results reports SPF=pass (the header author is unverified)".to_string()),
+            ("authclaim", "Authentication-Results reports DKIM=pass (the header author is unverified)".to_string()),
+            ("authclaim", "Authentication-Results reports DMARC=pass (the header author is unverified)".to_string()),
             ("attachments", "1 file: “IMG_2041.jpg”".to_string()),
         ]
     );
@@ -72,13 +74,12 @@ fn a_forgery_is_named_by_its_replies_and_its_domain() {
     )));
     assert!(
         f.iter()
-            .any(|(k, t)| *k == "authfail" && t.starts_with("SPF, DMARC failed"))
+            .any(|(k, t)| *k == "authclaim" && t.contains("DMARC=fail"))
     );
     assert_eq!(
         problems(&doc.tree),
         [
             "replies go to another domain",
-            "the sender's domain did not vouch for it",
             "a link goes somewhere other than it says",
             "a link to an address in lookalike letters",
             "an attachment that runs or opens a site"
@@ -186,51 +187,124 @@ fn ipv6_origins_and_forwarded_messages() {
 }
 
 #[test]
-fn a_pass_is_believed_only_from_a_server_the_message_came_through() {
-    let message = |received: &str, results: &str| {
-        format!(
-            "Received: from mail.sender.example ([203.0.113.7]) by {received} with ESMTPS; Mon, 5 Oct 2026 09:00:00 +0000\r\n\
-             Authentication-Results: {results}\r\n\
-             From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
-        )
-    };
-    // Gmail's own result: its server is the one that received the message.
-    let real = parse_eml(
-        message(
-            "mx.google.com",
-            "mx.google.com; spf=pass smtp.mailfrom=bank.example",
-        )
-        .as_bytes(),
+fn authentication_results_are_unverified_claims_from_every_header() {
+    let data = concat!(
+        "Received: from sender.example by mx.google.com; Mon, 5 Oct 2026 09:00:00 +0000\r\n",
+        "Authentication-Results: mx.google.com; spf=pass (sender IP is 203.0.113.7); dkim=fail; dmarc=softfail\r\n",
+        "Authentication-Results: attacker.example; spf=fail; dkim=pass\r\n",
+        "From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
     );
+    let doc = parse_eml(data.as_bytes());
+    let claims: Vec<_> = doc.facts.iter().filter(|f| f.kind == "authclaim").collect();
+    assert_eq!(claims.len(), 5, "{claims:?}");
+    for value in [
+        "SPF=pass",
+        "DKIM=fail",
+        "DMARC=softfail",
+        "SPF=fail",
+        "DKIM=pass",
+    ] {
+        assert!(
+            claims.iter().any(|f| f.text.contains(value)),
+            "{value}: {claims:?}"
+        );
+    }
     assert!(
-        facts(&real)
+        claims
             .iter()
-            .any(|(k, t)| *k == "auth" && t.starts_with("SPF passed")),
-        "{:?}",
-        facts(&real)
-    );
-    // A result naming a server the message never passed: typed in by whoever sent it.
-    let typed =
-        parse_eml(message("mx.provider.example", "mx.google.com; spf=pass; dkim=pass").as_bytes());
-    let said = facts(&typed);
-    assert!(said.iter().all(|(k, _)| *k != "auth"), "{said:?}");
-    assert!(
-        said.iter()
-            .any(|(k, t)| *k == "authfail" && t.contains("mx.google.com")),
-        "{said:?}"
+            .all(|f| f.text.contains("header author is unverified"))
     );
     assert!(
-        problems(&typed.tree)
+        doc.facts
             .iter()
-            .any(|p| p == "a check result no server it came through wrote")
+            .all(|f| !matches!(f.kind, "auth" | "authfail"))
     );
-    // Outlook names no server: its result stands as it is.
-    let outlook = parse_eml(
-        message(
-            "mx.outlook.example",
-            "spf=pass (sender IP is 203.0.113.7) smtp.mailfrom=bank.example",
-        )
-        .as_bytes(),
+    assert!(problems(&doc.tree).is_empty(), "{:?}", problems(&doc.tree));
+
+    for claim in claims {
+        let header = doc.tree.get(claim.node);
+        let line = &data.as_bytes()[header.range.start as usize..header.range.end() as usize];
+        assert!(line.starts_with(b"Authentication-Results:"), "{line:?}");
+    }
+}
+
+#[test]
+fn authentication_result_status_looking_comment_text_is_not_a_claim() {
+    let data = concat!(
+        "Authentication-Results: spf=fail (the literal text spf=pass is not a result)\r\n",
+        "From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
     );
-    assert!(facts(&outlook).iter().any(|(k, _)| *k == "auth"));
+    let doc = parse_eml(data.as_bytes());
+    let claims: Vec<_> = doc.facts.iter().filter(|f| f.kind == "authclaim").collect();
+    assert_eq!(claims.len(), 1, "{claims:?}");
+    assert!(claims[0].text.contains("SPF=fail"));
+    assert!(!claims[0].text.contains("SPF=pass"));
+}
+
+#[test]
+fn malformed_or_unrecognized_authentication_results_are_ignored() {
+    let data = concat!(
+        "Authentication-Results: spf=passage; dkim==pass; dmarc=unknown; other=pass\r\n",
+        "From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
+    );
+    let doc = parse_eml(data.as_bytes());
+    assert!(doc.facts.iter().all(|f| f.kind != "authclaim"));
+}
+
+#[test]
+fn a_pass_without_an_authserv_id_is_still_only_a_claim() {
+    let data = concat!(
+        "Received: from sender.example by mx.provider.example; Mon, 5 Oct 2026 09:00:00 +0000\r\n",
+        "Authentication-Results: spf=pass smtp.mailfrom=bank.example\r\n",
+        "From: Bank <alerts@bank.example>\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n"
+    );
+    let doc = parse_eml(data.as_bytes());
+    assert!(
+        doc.facts
+            .iter()
+            .any(|f| f.kind == "authclaim" && f.text.contains("SPF=pass"))
+    );
+    assert!(
+        doc.facts
+            .iter()
+            .all(|f| !matches!(f.kind, "auth" | "authfail"))
+    );
+    assert!(problems(&doc.tree).is_empty());
+}
+
+#[test]
+fn no_authentication_results_header_means_no_claim() {
+    let doc = parse_eml(
+        b"From: sender@example.com\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n",
+    );
+    assert!(doc.facts.iter().all(|f| f.kind != "authclaim"));
+}
+
+#[test]
+fn authentication_results_explanation_says_the_file_cannot_verify_its_author() {
+    let doc = parse_eml(
+        b"Authentication-Results: mx.example; spf=pass\r\nFrom: sender@example.com\r\nTo: you@example.com\r\nSubject: Hi\r\nDate: Mon, 5 Oct 2026 09:00:00 +0000\r\n\r\nHello\r\n",
+    );
+    let node = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.label == "Authentication-Results")
+        .expect("Authentication-Results header");
+    let explanation = docs::describe(&doc.tree, node, false).expect("header explanation");
+    #[cfg(feature = "explain")]
+    {
+        assert!(
+            explanation.text.contains("header reports"),
+            "{}",
+            explanation.text
+        );
+        assert!(
+            explanation.text.contains("cannot establish who added it"),
+            "{}",
+            explanation.text
+        );
+    }
+    #[cfg(not(feature = "explain"))]
+    assert_ne!(explanation.key, 0);
 }
