@@ -1099,7 +1099,8 @@ export class Drawer {
       const action = `Show ${title.toLowerCase()} bytes`;
       if (range) {
         const show = makeButton(action, range.len > 0 ? null : "No bytes are available for this range.", action, () => this.onSelectRange(range.start, range.len));
-        step.append(show, el("p", "archive-trace-range", `${hex(range.start)}–${hex(range.start + range.len)} · ${range.len.toLocaleString()} bytes`));
+        step.append(show, el("p", "archive-trace-range", `${hex(range.start)}–${hex(range.start + range.len)}`));
+        step.append(el("p", "archive-trace-byte-count", `${range.len.toLocaleString("en")} bytes`));
       } else {
         const show = makeButton(action, absent, action, () => {});
         step.append(show, el("p", "hint", absent));

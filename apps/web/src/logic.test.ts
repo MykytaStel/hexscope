@@ -331,6 +331,7 @@ group("an email's way", () => {
 group("Archive Trace ranges", () => {
   it("connects an entry to its actual central record, header, and compressed bytes", () => {
     const m = open("deflate-demo.zip");
+    expect(m.entryCount).toBe(1);
     const entry = m.entry(0);
     const trace = m.archiveTrace(0);
 

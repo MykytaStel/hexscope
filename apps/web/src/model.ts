@@ -288,6 +288,10 @@ export class FileModel {
   /** Where QR codes are in the picture, `[left, top, right, bottom]` as shares of its size: what to black out. */
   readonly codeBoxes: [number, number, number, number][] = [];
 
+  get entryCount(): number {
+    return Math.floor(this.file.entries.length / ENTRY_STRIDE);
+  }
+
   constructor(
     readonly file: ParsedFile,
     readonly bytes: Uint8Array,
@@ -372,7 +376,7 @@ export class FileModel {
     }
 
     this.indexSegments();
-    for (let i = 0; i * ENTRY_STRIDE < file.entries.length; i++) {
+    for (let i = 0; i < this.entryCount; i++) {
       this.entryByNode.set(file.entries[i * ENTRY_STRIDE], i);
     }
   }

@@ -235,6 +235,12 @@ struct Central {
     record_range: Option<ByteRange>,
 }
 
+#[derive(Clone, Copy)]
+struct EntryBoundary {
+    end: u64,
+    name: &'static str,
+}
+
 fn read_archive(
     tree: &mut ParseTree,
     root: NodeId,
@@ -387,13 +393,20 @@ fn read_archive(
             .get(placed.partition_point(|&(next, _)| next <= at))
             .map(|&(next, _)| next)
             .filter(|&next| next < cd_start);
-        let (limit, boundary) = next_local.map_or((cd_start, "the central directory"), |next| {
-            (next, "the next local entry")
-        });
+        let boundary = next_local.map_or(
+            EntryBoundary {
+                end: cd_start,
+                name: "the central directory",
+            },
+            |next| EntryBoundary {
+                end: next,
+                name: "the next local entry",
+            },
+        );
         if at > covered {
             unreferenced(tree, root, covered, at);
         }
-        let Some(entry) = add_entry(tree, root, data, c, at, limit, boundary, k < DETAIL) else {
+        let Some(entry) = add_entry(tree, root, data, c, at, boundary, k < DETAIL) else {
             continue;
         };
         let range = tree.get(entry.node).range;
@@ -667,20 +680,23 @@ fn add_entry(
     data: &[u8],
     c: &Central,
     at: u64,
-    limit: u64,
-    boundary_name: &'static str,
+    boundary: EntryBoundary,
     detail: bool,
 ) -> Option<ZipEntry> {
     let len = data.len() as u64;
     let mut peek = reader_at(data, at + 26);
     let (n, x) = (peek.u16_le().unwrap_or(0), peek.u16_le().unwrap_or(0));
     let header_len = LOCAL_LEN + n as u64 + x as u64;
-    if at + header_len > len || at + header_len > limit {
-        let header_end = at.saturating_add(header_len).min(len).min(limit).max(at);
-        let reason = if boundary_name == "the end of the file" {
+    if at + header_len > len || at + header_len > boundary.end {
+        let header_end = at
+            .saturating_add(header_len)
+            .min(len)
+            .min(boundary.end)
+            .max(at);
+        let reason = if boundary.name == "the end of the file" {
             "local header truncated".to_string()
         } else {
-            format!("local header runs into {boundary_name}")
+            format!("local header runs into {}", boundary.name)
         };
         let node = tree.add(
             Some(root),
@@ -695,7 +711,7 @@ fn add_entry(
 
     let data_start = at + header_len;
     let data_end = data_start.saturating_add(c.compressed);
-    let boundary_at = limit.min(len);
+    let boundary_at = boundary.end.min(len);
     let clipped = data_end.min(boundary_at);
     let descriptor = if c.flags & (1 << 3) != 0 && data_end <= boundary_at {
         let signed = u32_at(data, data_end) == Some(DESCRIPTOR_SIG);
@@ -807,10 +823,10 @@ fn add_entry(
         Some(Value::Text(summary(c))),
     );
     if data_end > boundary_at {
-        let reason = if boundary_name == "the end of the file" {
+        let reason = if boundary.name == "the end of the file" {
             "data runs past the end of the file".to_string()
         } else {
-            format!("compressed data runs into {boundary_name}")
+            format!("compressed data runs into {}", boundary.name)
         };
         tree.error(
             data_node,
@@ -915,8 +931,10 @@ fn scan_local_headers(
             data,
             &c,
             pos,
-            len,
-            "the end of the file",
+            EntryBoundary {
+                end: len,
+                name: "the end of the file",
+            },
             entries.len() < DETAIL,
         ) else {
             break;

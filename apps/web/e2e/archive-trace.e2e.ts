@@ -56,4 +56,5 @@ test("Archive Trace labels and byte controls are localized in Ukrainian", async 
   await expect(trace.getByRole("heading", { name: "Стиснені дані" })).toBeVisible();
   await expect(trace.getByRole("heading", { name: "Розпакований вміст" })).toBeVisible();
   await expect(trace.getByRole("button", { name: "Показати байти запису центрального каталогу" })).toBeVisible();
+  await expect(trace.locator(".archive-trace-byte-count").first()).toHaveText(/^\d[\d,]* байт(и|ів)?$/);
 });

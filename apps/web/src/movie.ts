@@ -110,17 +110,15 @@ export async function movieEntropy(file: Blob, movie: Movie, bins: number, entro
   for (let i = 0; i < movie.missing.length; i += 2) missing.push([movie.missing[i], movie.missing[i] + movie.missing[i + 1]]);
   const samples: { start: number; end: number; mediaAt: number | null }[] = [];
   let mediaIndex = 0;
-  let removed = 0;
   for (let i = 0; i < n; i++) {
     const start = i * window;
     const end = Math.min(file.size, start + window);
     while (mediaIndex < missing.length && missing[mediaIndex][1] <= start) {
-      removed += missing[mediaIndex][1] - missing[mediaIndex][0];
       mediaIndex++;
     }
     const next = missing[mediaIndex];
     const mediaAt = next && start < next[1] && end > next[0] ? Math.max(start, next[0]) : null;
-    samples.push({ start: mediaAt === null ? start - removed : mediaAt, end: mediaAt === null ? end - removed : Math.min(end, mediaAt + 4096), mediaAt });
+    samples.push({ start: mediaAt === null ? start : mediaAt, end: mediaAt === null ? end : Math.min(end, mediaAt + 4096), mediaAt });
   }
   const values = await Promise.all(samples.map(async ({ start, end, mediaAt }) => {
     const bytes = mediaAt === null ? movie.whole.subarray(start, end) : await bytesOf(file, start, end);

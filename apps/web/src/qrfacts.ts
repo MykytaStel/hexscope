@@ -43,7 +43,7 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
   if (f.format === "eml" || f.format === "msg") {
     f.attachments.forEach((name, index) => IMAGE_NAME.test(name) && inside.push({ index, name, node: 0 }));
   } else if (f.format === "zip") {
-    for (let i = 0; i * 7 < f.entries.length; i++) {
+    for (let i = 0; i < m.entryCount; i++) {
       const e = m.entry(i);
       const name = m.label(e.node);
       if (IMAGE_NAME.test(name) && e.openable) inside.push({ index: i, name, node: e.node });
