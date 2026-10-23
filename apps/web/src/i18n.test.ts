@@ -17,6 +17,12 @@ describe("the interface language", () => {
     expect(translateText("A JPEG picture", "uk")).toBe("Зображення JPEG");
   });
 
+  it("explains when ZIP contents disagree with the recorded size", () => {
+    expect(
+      translateText("the extracted size does not match what the archive records", "uk"),
+    ).toBe("Розмір розпакованих даних не збігається з тим, який записано в архіві.");
+  });
+
   it("names what a document's clean copy took out of each part", () => {
     expect(translateText("2 tracked changes, accepted", "uk")).toBe("2 виправлення прийнято");
     expect(translateText("5 tracked changes, accepted", "uk")).toBe("5 виправлень прийнято");
@@ -203,6 +209,26 @@ describe("the interface language", () => {
       ),
     ).toBe(
       "Вибрану ділянку зафарбовано, але текст у її пікселях не перевірено: hexscope не розпізнає текст на зображеннях. Перевірка недоступна.",
+    );
+  });
+
+  it("translates the optional clean-copy receipt action", () => {
+    expect(translateText("Save verification receipt", "uk")).toBe("Зберегти квитанцію перевірки");
+    expect(translateText("A receipt includes a stable SHA-256 fingerprint; it can be compared with a known copy.", "uk")).toBe(
+      "Квитанція містить сталий відбиток SHA-256; його можна зіставити з відомою копією.",
+    );
+    expect(translateText("Copies over 10 MiB have no fingerprint.", "uk")).toContain("10 МіБ");
+    expect(translateText("Try again", "uk")).toBe("Спробувати ще раз");
+    expect(translateText("Preparing receipt…", "uk")).toBe("Готуємо квитанцію…");
+    expect(translateText("Verification receipt saved", "uk")).toBe("Квитанцію перевірки збережено");
+    expect(translateText("Verification receipt saved without a fingerprint", "uk")).toBe("Квитанцію перевірки збережено без відбитка");
+    expect(translateText("Could not save verification receipt", "uk")).toBe("Не вдалося зберегти квитанцію перевірки");
+  });
+
+  it("explains the opt-in batch fingerprint behavior", () => {
+    expect(translateText("Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)", "uk")).toContain("SHA-256");
+    expect(translateText("Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.", "uk")).toBe(
+      "Пряме поширення з телефона надсилає лише копії; у ZIP будуть квитанція та відбитки.",
     );
   });
 

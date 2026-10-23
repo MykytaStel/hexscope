@@ -2,7 +2,7 @@
 // patterns for sentences with numbers and names in them, and the way back.
 // Loaded only when a page reads in Ukrainian (i18n.ts loadUkrainian), or
 // imported where a build or a test needs it; either way it installs itself.
-import { lazyReverse, lazyTranslations, useDictionary, type Locale } from "./i18n.ts";
+import { lazyReverse, lazyTranslations, useDictionary, type Locale } from "./i18n-registry.ts";
 
 // Keep the source copy as the key: the English UI remains the canonical copy,
 // and untranslated technical terms stay readable until they have a reviewed
@@ -34,6 +34,14 @@ const UK: Record<string, string> = {
   "thing it gave away": "факт було розкрито",
   "things it gave away": "фактів було розкрито",
   "Checking the copy…": "Перевіряємо копію…",
+  "Save verification receipt": "Зберегти квитанцію перевірки",
+  "A receipt includes a stable SHA-256 fingerprint; it can be compared with a known copy.": "Квитанція містить сталий відбиток SHA-256; його можна зіставити з відомою копією.",
+  "Copies over 10 MiB have no fingerprint.": "Для копій понад 10 МіБ відбитка немає.",
+  "Try again": "Спробувати ще раз",
+  "Preparing receipt…": "Готуємо квитанцію…",
+  "Verification receipt saved": "Квитанцію перевірки збережено",
+  "Could not save verification receipt": "Не вдалося зберегти квитанцію перевірки",
+  "Verification receipt saved without a fingerprint": "Квитанцію перевірки збережено без відбитка",
   "Copy not checked": "Копію не перевірено",
   "Confirmed removed": "прибрано й перевірено",
   "Findings remain in the copy": "У копії залишилися дані",
@@ -546,6 +554,8 @@ const UK: Record<string, string> = {
   "Makes the copies in this tab, to share or save: nothing is uploaded": "Копії робляться в цій вкладці — щоб поділитися чи зберегти; нічого не завантажується",
   "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded": "Копії робляться в цій вкладці й зберігаються одним ZIP; нічого не завантажується",
   "Keep the original names": "Зберегти початкові назви",
+  "Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)": "Додати сталі відбитки SHA-256 копій до квитанції ZIP (до 10 МіБ на копію)",
+  "Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.": "Пряме поширення з телефона надсилає лише копії; у ZIP будуть квитанція та відбитки.",
   "More tools": "Ще інструменти",
   "Show": "Показати",
   "Open this file": "Відкрити цей файл",

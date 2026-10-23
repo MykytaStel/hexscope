@@ -22,7 +22,6 @@ import { categories } from "./share";
 import { dismissTour, maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
 import { announce } from "./announce";
-import { compare, parseAside, showComparison } from "./compare";
 import { recentFiles, remember } from "./recent";
 import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, siteUrl, tooLarge } from "./files";
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
@@ -379,6 +378,7 @@ async function compareWith(other: File): Promise<void> {
   const a = workspace.model;
   if (!a) return;
   try {
+    const { compare, parseAside, showComparison } = await import("./compare");
     const b = await parseAside(other);
     showComparison(a, b, compare(a, b));
   } catch (e) {
@@ -700,14 +700,15 @@ workspace = new WorkspaceController({
 const batchView = new BatchView($("batch"), {
   canShareCopies: phoneCanShare,
   open: (i) => batchController.open(i),
-  saveClean: (keepNames) => void batchController.saveClean(keepNames),
+  saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
   mosaic: (items) => void import("./photo-mosaic").then((m) => m.showMosaic(items)).catch((e) => announce(String(e))),
   filmRoll: (items) => void import("./film-roll-ui").then((m) => m.showFilmRoll(items.map((i) => i.file))).catch((e) => announce(String(e))),
 });
 batchController = new BatchController(batchView, {
   analyze: analyzeBatchFile,
   openFile: (file) => void workspace.openFile(file),
-  saveClean: (...args) => import("./batchclean").then((m) => m.cleanCopies(...args)),
+  saveClean: (items, keepNames, includeCopyFingerprints, output, isCurrent) =>
+    import("./batchclean").then((m) => m.cleanCopies(items, keepNames, output, isCurrent, includeCopyFingerprints)),
   announce,
 });
 
@@ -742,6 +743,7 @@ async function analyzeBatchFile(file: File): Promise<BatchAnalysis> {
   await (await import("./qrfacts")).addCodeFacts(parsed);
   return {
     kind: kindOf(parsed),
+    format: parsed.file.format,
     lines: verdict(parsed),
     headline: headline(parsed),
     reveals: categories(parsed),

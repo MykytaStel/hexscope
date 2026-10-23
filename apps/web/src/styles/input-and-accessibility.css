@@ -185,6 +185,10 @@ details[open] > summary::before {
   color: var(--muted);
 }
 
+.batch-fingerprints {
+  max-width: 34rem;
+}
+
 .batch-keep[hidden] {
   display: none;
 }

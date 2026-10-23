@@ -4,6 +4,7 @@
 // file of its own, with a way back; all the clean copies save as one ZIP.
 import type { VerdictLine } from "./verdict";
 import { listed, type Headline } from "./headline";
+import { currentLocale, translateText } from "./i18n";
 
 export interface BatchItem {
   file: File;
@@ -17,6 +18,8 @@ export interface BatchItem {
   reveals: string[];
   /** The clean copy's name, for the ZIP. */
   cleanName: string;
+  /** Machine format code from the parser, used by portable receipts. */
+  format?: string;
   note: string;
   /** Left out of the clean copies, by choice. */
   skip: boolean;
@@ -32,7 +35,7 @@ export function cleanable(i: BatchItem): boolean {
 export interface BatchHooks {
   open(index: number): void;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
-  saveClean(keepNames: boolean): void;
+  saveClean(keepNames: boolean, includeCopyFingerprints: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
   canShareCopies(): boolean;
   mosaic?(items: BatchItem[]): void;
@@ -96,6 +99,7 @@ export class BatchView {
   private lastDrawn = 0;
   private pending = 0;
   private keepNames = false;
+  private includeCopyFingerprints = false;
 
   constructor(
     private host: HTMLElement,
@@ -174,7 +178,7 @@ export class BatchView {
     save.title = phone
       ? "Makes the copies in this tab, to share or save: nothing is uploaded"
       : "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded";
-    save.addEventListener("click", () => this.hooks.saveClean(this.keepNames));
+    save.addEventListener("click", () => this.hooks.saveClean(this.keepNames, this.includeCopyFingerprints));
     // "photo.jpg" rather than "photo-clean.jpg": in their own ZIP they need no mark.
     const keep = el("label", "batch-keep");
     const box = el("input");
@@ -182,9 +186,23 @@ export class BatchView {
     box.checked = this.keepNames;
     box.addEventListener("change", () => (this.keepNames = box.checked));
     keep.append(box, el("span", undefined, "Keep the original names"));
+    const fingerprint = el("label", "batch-keep batch-fingerprints");
+    const fingerprintBox = el("input");
+    fingerprintBox.type = "checkbox";
+    fingerprintBox.checked = this.includeCopyFingerprints;
+    fingerprintBox.addEventListener("change", () => (this.includeCopyFingerprints = fingerprintBox.checked));
+    fingerprint.title = translateText(
+      "Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.",
+      currentLocale(),
+    );
+    fingerprint.append(
+      fingerprintBox,
+      el("span", undefined, translateText("Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)", currentLocale())),
+    );
+    fingerprint.hidden = busy || chosen === 0;
     // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
     keep.hidden = busy || chosen === 0 || phone;
-    head.append(label, title, summary, save, keep, this.status);
+    head.append(label, title, summary, save, keep, fingerprint, this.status);
     // The tools for a whole roll of photos, out of the way of the one thing most come for.
     const tools: HTMLButtonElement[] = [];
     if (!busy && items.length <= 1000 && this.hooks.mosaic) {

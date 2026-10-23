@@ -27,6 +27,49 @@ function pageSelection(overrides: Partial<VerificationSelection> = {}): Verifica
 }
 
 describe("clean-copy verification findings", () => {
+  it("treats a changed same-kind value as present rather than removed", () => {
+    const report = verifyFindings(
+      [finding("camera", "Canon")],
+      [finding("camera", "Nikon")],
+      capabilitiesFor("jpeg", ["camera"]),
+      {},
+    );
+
+    expect(report.removed).toEqual([]);
+    expect(report.present).toEqual([
+      { kind: "camera", label: "Camera", reason: "A different value remains in the copy.", reasonCode: "value_changed_same_kind" },
+    ]);
+    expect(report.unchecked).toEqual([]);
+  });
+
+  it("reserves exact duplicate values before pairing a changed value", () => {
+    const report = verifyFindings(
+      [finding("camera", "Canon"), finding("camera", "Nikon")],
+      [finding("camera", "Nikon")],
+      capabilitiesFor("jpeg", ["camera"]),
+      {},
+    );
+
+    expect(report.removed).toEqual([{ kind: "camera", label: "Camera", reasonCode: "removed" }]);
+    expect(report.present).toEqual([
+      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy.", reasonCode: "still_present" },
+    ]);
+  });
+
+  it("keeps every unmatched same-kind source uncertain when the output has no stable value", () => {
+    const report = verifyFindings(
+      [finding("camera", "Canon"), finding("camera", "Nikon")],
+      [finding("camera", null)],
+      capabilitiesFor("jpeg", ["camera"]),
+      {},
+    );
+
+    expect(report.removed).toEqual([]);
+    expect(report.present).toEqual([]);
+    expect(report.unchecked).toHaveLength(2);
+    expect(report.unchecked.every((item) => item.reasonCode === "no_stable_value")).toBe(true);
+  });
+
   it("collects normalized file facts, duplicate occurrences, and a stable location", () => {
     const findings = fileFindings(
       "jpeg",
@@ -73,8 +116,8 @@ describe("clean-copy verification findings", () => {
     );
 
     expect(report).toEqual({
-      removed: [{ kind: "camera", label: "Camera" }],
-      present: [{ kind: "camera", label: "Camera", reason: "This finding is still present in the copy." }],
+      removed: [{ kind: "camera", label: "Camera", reasonCode: "removed" }],
+      present: [{ kind: "camera", label: "Camera", reason: "This finding is still present in the copy.", reasonCode: "still_present" }],
       unchecked: [],
     });
   });
@@ -88,8 +131,8 @@ describe("clean-copy verification findings", () => {
     );
 
     expect(report.present).toEqual([
-      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
-      { kind: "camera", label: "Camera", unexpected: true },
+      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy.", reasonCode: "still_present" },
+      { kind: "camera", label: "Camera", reasonCode: "unexpected_output", unexpected: true },
     ]);
   });
 
@@ -102,7 +145,7 @@ describe("clean-copy verification findings", () => {
     );
 
     expect(report.present).toEqual([
-      { kind: "owner", label: "Owner", reason: "This finding is still present in the copy." },
+      { kind: "owner", label: "Owner", reason: "This finding is still present in the copy.", reasonCode: "still_present" },
     ]);
   });
 
@@ -115,7 +158,7 @@ describe("clean-copy verification findings", () => {
     );
 
     expect(report.present).toEqual([
-      { kind: "camera", label: "Camera", reason: "Kept so the picture stays the right way up." },
+      { kind: "camera", label: "Camera", reason: "Kept so the picture stays the right way up.", reasonCode: "still_present" },
     ]);
     expect(report.removed).toEqual([]);
   });
@@ -128,8 +171,8 @@ describe("clean-copy verification findings", () => {
       { camera: "This reason applies only to a matching source finding." },
     );
 
-    expect(report.removed).toEqual([{ kind: "owner", label: "Owner" }]);
-    expect(report.present).toEqual([{ kind: "camera", label: "Camera", unexpected: true }]);
+    expect(report.removed).toEqual([{ kind: "owner", label: "Owner", reasonCode: "removed" }]);
+    expect(report.present).toEqual([{ kind: "camera", label: "Camera", reasonCode: "unexpected_output", unexpected: true }]);
   });
 
   it("does not infer removal for unsupported, incomplete, or valueless findings", () => {
@@ -145,9 +188,9 @@ describe("clean-copy verification findings", () => {
 
     expect(report.removed).toEqual([]);
     expect(report.unchecked).toEqual([
-      { kind: "ai", label: "Made with AI", reason: "No complete AI coverage." },
-      { kind: "owner", label: "Owner", reason: "The output parse was incomplete." },
-      { kind: "owner", label: "Owner", reason: expect.any(String) },
+      { kind: "ai", label: "Made with AI", reason: "No complete AI coverage.", reasonCode: "coverage_incomplete" },
+      { kind: "owner", label: "Owner", reason: "The output parse was incomplete.", reasonCode: "coverage_incomplete" },
+      { kind: "owner", label: "Owner", reason: expect.any(String), reasonCode: "no_stable_value" },
     ]);
   });
 
@@ -174,7 +217,7 @@ describe("PDF redaction verification", () => {
       { page: 1, text: "This page has different text.", complete: true },
       { page: 2, text: "Secret Name", complete: true },
     ])).toEqual({
-      removed: [{ kind: "pdf-text", label: "Selected PDF text" }],
+      removed: [{ kind: "pdf-text", label: "Selected PDF text", reasonCode: "removed" }],
       present: [],
       unchecked: [],
     });
@@ -187,7 +230,7 @@ describe("PDF redaction verification", () => {
     );
 
     expect(report.removed).toEqual([]);
-    expect(report.present).toEqual([{ kind: "pdf-text", label: "Selected PDF text" }]);
+    expect(report.present).toEqual([{ kind: "pdf-text", label: "Selected PDF text", reasonCode: "still_present" }]);
   });
 
   it.each([
@@ -268,9 +311,9 @@ describe("worker verification result mapping", () => {
     );
 
     expect(report).toEqual({
-      removed: [{ kind: "location", label: "Location" }],
-      present: [{ kind: "camera", label: "Camera", reason: "A different value remains in the copy." }],
-      unchecked: [{ kind: "lens", label: "Lens", reason: "hexscope cannot yet confirm whether this JPEG finding was removed." }],
+      removed: [{ kind: "location", label: "Location", reasonCode: "removed" }],
+      present: [{ kind: "camera", label: "Camera", reason: "A different value remains in the copy.", reasonCode: "value_changed_same_kind" }],
+      unchecked: [{ kind: "lens", label: "Lens", reason: "hexscope cannot yet confirm whether this JPEG finding was removed.", reasonCode: "coverage_incomplete" }],
     });
     expect(JSON.stringify(report)).not.toContain('"value":');
     expect(JSON.stringify(report)).not.toContain('"scope":');
@@ -306,6 +349,7 @@ describe("worker verification result mapping", () => {
         {
           kind: "location",
           label: "Location",
+          reasonCode: reason,
           ...(explanation ? { reason: explanation } : {}),
           ...(unexpected ? { unexpected: true } : {}),
         },
@@ -346,12 +390,12 @@ describe("worker verification result mapping", () => {
     );
 
     expect(report.removed).toEqual([
-      { kind: "owner", label: "Owner" },
-      { kind: "location", label: "Location" },
+      { kind: "owner", label: "Owner", reasonCode: "removed" },
+      { kind: "location", label: "Location", reasonCode: "removed" },
     ]);
     expect(report.present).toEqual([
-      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy." },
-      { kind: "camera", label: "Camera", unexpected: true },
+      { kind: "camera", label: "Camera", reason: "This finding is still present in the copy.", reasonCode: "still_present" },
+      { kind: "camera", label: "Camera", reasonCode: "unexpected_output", unexpected: true },
     ]);
     expect(JSON.stringify(report)).not.toContain("Private owner");
     expect(JSON.stringify(report)).not.toContain("48.8584");

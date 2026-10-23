@@ -39,6 +39,7 @@ function item(name: string, cleanName: string) {
     file: new File(["source"], name, { type: "image/jpeg" }),
     state: "done" as const,
     kind: "JPEG",
+    format: "jpeg",
     lines: [],
     headline: null,
     reveals: ["location"],
@@ -114,4 +115,78 @@ it("keeps completed copies and exports the receipt separately if it cannot fit i
   clickReceiptButton();
   const receipt = JSON.parse(await state.downloads.find(({ name }) => name === "hexscope-report.json")!.data.text());
   expect(receipt).toMatchObject({ total: 1, written: 1, failed: 0 });
+});
+
+it("opts into copy fingerprints while failed rows never receive a receipt", async () => {
+  state.failName = "failed-clean.jpg";
+  const view = { result: "", offer: () => {}, render: () => {} };
+  await cleanCopies(
+    [item("failed.jpg", "failed-clean.jpg"), item("private-name.jpg", "private-name-clean.jpg")],
+    false,
+    view,
+    () => true,
+    true,
+  );
+
+  const archive = state.downloads.find(({ name }) => name === "hexscope-clean-copies.zip")!;
+  const entries = JSON.parse(await archive.data.text()) as { name: string; contents: string }[];
+  const reportText = entries.find(({ name }) => name === "hexscope-report.json")!.contents;
+  const receipt = JSON.parse(reportText);
+  const expectedDigest = Array.from(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("clean"))),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+  expect(receipt.schema).toBe("hexscope.batch-clean-copy-receipt");
+  expect(receipt.files[0]).toEqual({ index: 1, operation_state: "not_created", receipt: null });
+  expect(receipt.files[1]).toMatchObject({
+    index: 2,
+    operation_state: "written",
+    receipt: {
+      schema: "hexscope.clean-copy-receipt",
+      copy: { sha256: expectedDigest },
+    },
+  });
+  expect(reportText).not.toContain("private-name.jpg");
+});
+
+it("records the original input indexes even when the same item object appears twice", async () => {
+  state.failName = null;
+  const duplicate = item("same.jpg", "same-clean.jpg");
+  const view = { result: "", offer: () => {}, render: () => {} };
+  await cleanCopies([duplicate, duplicate], false, view, () => true);
+
+  const archive = state.downloads.find(({ name }) => name === "hexscope-clean-copies.zip")!;
+  const entries = JSON.parse(await archive.data.text()) as { name: string; contents: string }[];
+  const receipt = JSON.parse(entries.find(({ name }) => name === "hexscope-report.json")!.contents);
+  expect(receipt.files.map((row: { index: number }) => row.index)).toEqual([1, 2]);
+  expect(entries.map(({ name }) => name)).toEqual(["same-clean.jpg", "2-same-clean.jpg", "hexscope-report.json"]);
+});
+
+it("omits only the fingerprint for a copy above the measured browser cap", async () => {
+  state.failName = null;
+  vi.mocked(call).mockResolvedValueOnce({
+    id: 1,
+    type: "cleaned",
+    copy: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)]),
+    removed: [],
+    orientation: 1,
+    error: "",
+    verification: JSON.stringify({
+      schema_version: 1,
+      removed: [],
+      present: [],
+      unchecked: [{ kind: "file", reason: "verification_skipped", unexpected: false }],
+    }),
+  });
+  const view = { result: "", offer: () => {}, render: () => {} };
+  await cleanCopies([item("large.jpg", "large-clean.jpg")], false, view, () => true, true);
+
+  const archive = state.downloads.find(({ name }) => name === "hexscope-clean-copies.zip")!;
+  const entries = JSON.parse(await archive.data.text()) as { name: string; contents: string }[];
+  const receipt = JSON.parse(entries.find(({ name }) => name === "hexscope-report.json")!.contents);
+  expect(receipt.files[0].receipt.copy.sha256).toBeNull();
+  expect(receipt.files[0].receipt.copy.fingerprint_reason).toBe("size_limit");
+  expect(receipt.files[0].receipt.verification.unchecked).toEqual([
+    { kind: "file", reason: "verification_skipped", unexpected: false },
+  ]);
 });

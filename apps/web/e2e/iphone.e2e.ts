@@ -65,7 +65,7 @@ test("on a phone, several photos are cleaned with one button and shared with the
   await expect(page.locator(".batch-title")).toHaveText("2 з 2 файлів варто переглянути");
   const make = page.locator(".batch-head .btn-clean");
   await expect(make).toHaveText("Зробити 2 чисті копії");
-  await expect(page.locator(".batch-keep")).toBeHidden();
+  await expect(page.locator(".batch-keep:not(.batch-fingerprints)")).toBeHidden();
   await make.click();
   const share = page.locator(".batch-actions .btn-primary");
   await expect(share).toHaveText("Поділитися 2 чистими копіями");

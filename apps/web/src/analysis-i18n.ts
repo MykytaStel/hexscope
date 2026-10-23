@@ -292,6 +292,7 @@ registerLazyTranslations({
   "Compressed with a method this tool does not decompress.": "Стиснено методом, який цей інструмент не розпаковує.",
   "Empty: there is nothing to decompress.": "Порожньо: розпаковувати нічого.",
   "Its data runs past the end of the file.": "Його дані виходять за кінець файла.",
+  "the extracted size does not match what the archive records": "Розмір розпакованих даних не збігається з тим, який записано в архіві.",
   "Encrypted: its bytes cannot be read without the password.": "Зашифровано: без пароля ці байти не прочитати.",
   "Empty: there is nothing to open.": "Порожньо: відкривати нічого.",
   // The details pane.
