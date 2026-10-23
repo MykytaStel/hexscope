@@ -10,7 +10,7 @@ import * as docsBuild from "./wasm-docs/hexscope_docs.js";
 import * as audioBuild from "./wasm-audio/hexscope_audio.js";
 import { familyOf } from "./family";
 import { describe } from "./describe";
-import { FileModel } from "./model";
+import { FileModel, Kind } from "./model";
 import { headline, listed } from "./headline";
 import { verdict, misfit } from "./verdict";
 import { advice } from "./advice";
@@ -51,8 +51,18 @@ group("incomplete PDF content checks", () => {
     expect(searchable([page])[0].complete).toBe(false);
 
     const bytes = new Uint8Array(readFileSync(here("../e2e/fixtures/incomplete-form.pdf")));
-    const lines = verdict(open("incomplete-form.pdf", bytes));
+    const model = open("incomplete-form.pdf", bytes);
+    const lines = verdict(model);
     expect(lines).toContainEqual(expect.objectContaining({ kind: "warning" }));
+    const partialWithoutDamage = describe(parse(bytes));
+    partialWithoutDamage.kinds = partialWithoutDamage.kinds.map((kind) =>
+      kind === Kind.Error ? Kind.Field : kind,
+    );
+    partialWithoutDamage.docConcerns.fill(0);
+    expect(headline(new FileModel(partialWithoutDamage, bytes, "incomplete-form.pdf"))).toEqual({
+      tone: "warning",
+      text: "PDF not fully checked",
+    });
     expect(
       translateText("Some PDF page or form content could not be fully checked. Search may miss text.", "uk"),
     ).toBe("Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.");
@@ -100,6 +110,10 @@ group("the headline", () => {
       tone: "warning",
       text: "Some metadata in this audio file could not be fully read",
     });
+    const partial = verdict(m).find((line) => line.kind === "warning");
+    expect(partial).toBeDefined();
+    expect(partial!.node).toBeGreaterThanOrEqual(0);
+    expect(m.label(partial!.node)).toContain("TXXX not inspected");
   });
 
   it("is said shorter in a list of files, where the row names the file", () => {

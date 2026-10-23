@@ -94,6 +94,8 @@ export function headline(m: FileModel): Headline {
   if (ACTIONS.some((k) => kinds.has(k))) return { tone: "danger", text: `This ${n} does more than show pages` };
   if (has("hidden")) return { tone: "danger", text: `Something is hidden in this ${n}` };
   if (has("misnamed")) return { tone: "warning", text: `This ${n} has the wrong name` };
-  if (has("warning")) return { tone: "warning", text: `Some metadata in this ${n} could not be fully read` };
+  if (m.file.format === "pdf" && m.file.facts.some((fact) => fact.kind === "form-incomplete")) {
+    return { tone: "warning", text: "PDF not fully checked" };
+  }
   return { tone: "ok", text: `Nothing personal found in this ${n}` };
 }

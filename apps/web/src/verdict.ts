@@ -302,11 +302,23 @@ export function verdict(m: FileModel): VerdictLine[] {
     });
   }
   if (["mp3", "flac", "ogg"].includes(f.format) && f.metadataComplete === false) {
-    const problem = m.problems.find((id) => m.kind(id) === Kind.Error);
+    const factNodes = new Set(f.facts.map((fact) => fact.node));
+    const error = m.problems.find((id) => m.kind(id) === Kind.Error);
+    const warning = m.problems.find((id) => m.kind(id) === Kind.Warning);
+    let partialField = -1;
+    if (error === undefined && warning === undefined) {
+      for (let id = 0; id < m.count; id++) {
+        if (m.kind(id) !== Kind.Field || factNodes.has(id)) continue;
+        const label = m.label(id);
+        if (label.startsWith("audio frames") || label.startsWith("remaining Ogg packets")) continue;
+        partialField = id;
+        break;
+      }
+    }
     lines.push({
       kind: "warning",
       text: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
-      node: problem ?? -1,
+      node: error ?? warning ?? (partialField >= 0 ? partialField : m.count > 0 ? 0 : -1),
     });
   }
 

@@ -95,5 +95,12 @@ test("an unsupported ID3 frame is shown as a partial metadata read", async ({ pa
   await expect(page.locator(".verdict-title")).toContainText("could not be fully read");
   await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
   await expect(page.getByText("Some audio metadata could not be fully read; the result is partial.")).toBeVisible();
+  const partialFinding = page.locator(".verdict-line.is-warning").filter({
+    hasText: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
+  });
+  const findInFile = partialFinding.getByRole("button", { name: "Find in file" });
+  await expect(findInFile).toBeVisible();
+  await findInFile.click();
+  await expect(page.locator("#statusbar-file")).toContainText("ID3 frame TXXX not inspected");
   await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
 });

@@ -162,7 +162,7 @@ fn parse_id3v2(
     // The legacy compression flag and tag-level unsynchronisation alter the
     // frame stream. Skip the whole tag rather than risk false frame offsets.
     let unsupported_transform =
-        (version == 2 && flags & 0x40 != 0) || (version >= 3 && flags & 0x80 != 0);
+        (version == 2 && flags & 0xc0 != 0) || (version >= 3 && flags & 0x80 != 0);
     if unsupported_transform {
         tree.add(
             Some(tag_node),

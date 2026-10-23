@@ -185,6 +185,20 @@ mod tests {
     }
 
     #[test]
+    fn id3v22_unsynchronisation_is_reported_as_incomplete() {
+        let mut bytes = tag(2, &[]);
+        bytes[5] = 0x80; // ID3v2.2 tag-level unsynchronisation
+
+        let doc = parse_mp3(&bytes);
+
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label
+                .contains("unsupported compression or unsynchronisation transform")
+        }));
+    }
+
+    #[test]
     fn reads_id3v23_text_and_comment_frames() {
         let mut body = frame(b"TIT2", b"\x03A v2.3 title", 3);
         body.extend_from_slice(&frame(b"COMM", b"\0eng\0Comment text", 3));
