@@ -1,5 +1,7 @@
 //! Recognising a file's format and parsing it with the right module.
 
+#[cfg(feature = "audio")]
+use crate::audio::{self, AudioDocument, AudioFormat};
 use crate::cfb::{self, CfbDocument, parse_cfb};
 use crate::docs::{Concern, Doc, Table};
 use crate::eml::{self, EmlDocument, parse_eml};
@@ -33,6 +35,9 @@ pub enum Format {
     Cfb,
     Rtf,
     Svg,
+    Mp3,
+    Flac,
+    Ogg,
     Unknown,
 }
 
@@ -54,6 +59,8 @@ pub enum Document {
     Cfb(CfbDocument),
     Rtf(RtfDocument),
     Svg(SvgDocument),
+    #[cfg(feature = "audio")]
+    Audio(AudioDocument),
     Unknown(UnknownDocument),
 }
 
@@ -62,7 +69,7 @@ pub enum Document {
 #[derive(Debug)]
 pub struct UnknownDocument {
     pub tree: ParseTree,
-    pub facts: Vec<crate::zip::DocumentFact>,
+    pub facts: Vec<crate::facts::DocumentFact>,
 }
 
 impl Document {
@@ -82,6 +89,8 @@ impl Document {
             Document::Cfb(d) => &d.tree,
             Document::Rtf(d) => &d.tree,
             Document::Svg(d) => &d.tree,
+            #[cfg(feature = "audio")]
+            Document::Audio(d) => &d.tree,
             Document::Unknown(d) => &d.tree,
         }
     }
@@ -102,6 +111,12 @@ impl Document {
             Document::Cfb(_) => Format::Cfb,
             Document::Rtf(_) => Format::Rtf,
             Document::Svg(_) => Format::Svg,
+            #[cfg(feature = "audio")]
+            Document::Audio(d) => match d.format {
+                AudioFormat::Mp3 => Format::Mp3,
+                AudioFormat::Flac => Format::Flac,
+                AudioFormat::Ogg | AudioFormat::OggVorbis | AudioFormat::OggOpus => Format::Ogg,
+            },
             Document::Unknown(_) => Format::Unknown,
         }
     }
@@ -129,6 +144,10 @@ pub fn parse(data: &[u8]) -> Document {
     }
     if tiff::is_tiff(data) {
         return Document::Tiff(parse_tiff_file(data));
+    }
+    #[cfg(feature = "audio")]
+    if let Some(doc) = audio::parse(data) {
+        return Document::Audio(doc);
     }
     if video::is_video(data) {
         return Document::Video(parse_video(data));
@@ -246,7 +265,7 @@ fn unknown(data: &[u8]) -> UnknownDocument {
                 NodeKind::Field,
                 None,
             );
-            facts.push(crate::zip::DocumentFact {
+            facts.push(crate::facts::DocumentFact {
                 kind: f.kind,
                 text: f.text,
                 node,
@@ -313,6 +332,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn metadata_facts_are_available_without_office_formats() {
+        let fact = crate::facts::DocumentFact {
+            kind: "audio-tag",
+            text: "artist: Sample Artist".into(),
+            node: 0,
+        };
+        assert_eq!(fact.kind, "audio-tag");
+        assert_eq!(fact.text, "artist: Sample Artist");
+    }
+
+    #[test]
     fn dispatches_by_signature() {
         let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
         assert_eq!(parse(&png).format(), Format::Png);
@@ -324,6 +354,14 @@ mod tests {
         assert_eq!(parse(b"\0\0\0\x10ftypheic\0\0\0\0").format(), Format::Heif);
         assert_eq!(parse(b"\0\0\0\x10ftypisom\0\0\0\0").format(), Format::Video);
         assert_eq!(parse(b"\0asm\x01\0\0\0").format(), Format::Wasm);
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn dispatches_mpeg_audio_by_frame_header() {
+        let doc = parse(&[0xff, 0xfb, 0x90, 0x64]);
+        assert_eq!(doc.format(), Format::Mp3);
+        assert_eq!(crate::summary::summary_of(&doc).format, "mp3");
     }
 
     #[test]

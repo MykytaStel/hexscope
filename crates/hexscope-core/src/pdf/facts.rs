@@ -4,8 +4,8 @@
 use super::crypt::Decryptor;
 use super::lexer::{Lexer, Obj};
 use super::{Ctx, ObjRec};
+use crate::facts::DocumentFact;
 use crate::model::{NodeId, ParseTree, Value};
-use crate::zip::DocumentFact;
 use crate::zip::office::{MAX_PHOTOS, element_text, photo_says};
 
 /// Streams decompressed to read facts are capped at this.

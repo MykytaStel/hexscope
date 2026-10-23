@@ -175,6 +175,18 @@ pub fn summary_of(doc: &Document) -> Summary {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             ("svg", true)
         }
+        #[cfg(feature = "audio")]
+        Document::Audio(d) => {
+            facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
+            let format = match d.format {
+                crate::audio::AudioFormat::Mp3 => "mp3",
+                crate::audio::AudioFormat::Flac => "flac",
+                crate::audio::AudioFormat::Ogg
+                | crate::audio::AudioFormat::OggVorbis
+                | crate::audio::AudioFormat::OggOpus => "ogg",
+            };
+            (format, d.metadata_complete)
+        }
         Document::Unknown(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
             ("unknown", true)

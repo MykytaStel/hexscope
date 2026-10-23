@@ -19,9 +19,9 @@
 pub(crate) mod docs;
 
 use crate::clean::{CleanError, Cleaned};
+use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::rtf::Edit;
-use crate::zip::DocumentFact;
 
 const INKSCAPE: &str = "http://www.inkscape.org/namespaces/inkscape";
 const SODIPODI: &str = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd";

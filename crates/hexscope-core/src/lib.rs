@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 pub use hexscope_inflate::bits;
+#[cfg(feature = "audio")]
+pub mod audio;
 mod bmff;
 pub mod cfb;
 pub mod clean;
@@ -12,6 +14,7 @@ pub mod docs;
 pub mod document;
 pub mod eml;
 pub mod exif;
+pub mod facts;
 pub mod film;
 mod fixed;
 pub mod gif;

@@ -68,6 +68,7 @@ pub struct Parsed {
     output: Vec<u8>,
     checkpoints: Vec<Checkpoint>,
     format: &'static str,
+    metadata_complete: bool,
     dimensions: Option<[u32; 2]>,
     /// Photo facts as (kind, text, node).
     facts: Vec<(&'static str, String, u32)>,
@@ -172,8 +173,9 @@ pub fn parse_movie(bytes: &[u8], gaps_at: &[f64]) -> Parsed {
 }
 
 fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
-    let verification =
-        hexscope_core::verification::snapshot(&hexscope_core::summary::summary_of(&doc));
+    let summary = hexscope_core::summary::summary_of(&doc);
+    let metadata_complete = summary.complete;
+    let verification = hexscope_core::verification::snapshot(&summary);
     let docs = DocTables::build(doc.tree(), doc.format());
     let slices: Vec<f64> = composition(doc.tree(), doc.format(), len)
         .iter()
@@ -312,6 +314,23 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
             }
             parsed
         }
+        #[cfg(feature = "audio")]
+        Document::Audio(doc) => {
+            let mut parsed = flatten(&doc.tree);
+            parsed.format = match doc.format {
+                hexscope_core::audio::AudioFormat::Mp3 => "mp3",
+                hexscope_core::audio::AudioFormat::Flac => "flac",
+                hexscope_core::audio::AudioFormat::Ogg
+                | hexscope_core::audio::AudioFormat::OggVorbis
+                | hexscope_core::audio::AudioFormat::OggOpus => "ogg",
+            };
+            for fact in &doc.facts {
+                parsed
+                    .facts
+                    .push((fact.kind, sanitise(&fact.text), fact.node));
+            }
+            parsed
+        }
         Document::Wasm(doc) if cfg!(feature = "module") => {
             let mut parsed = flatten(&doc.tree);
             parsed.format = "wasm";
@@ -333,6 +352,7 @@ fn parsed(doc: Document, bytes: &[u8], len: u64) -> Parsed {
     parsed.docs = docs;
     parsed.composition = slices;
     parsed.verification = Some(verification);
+    parsed.metadata_complete = metadata_complete;
     parsed
 }
 

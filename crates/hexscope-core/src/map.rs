@@ -203,6 +203,37 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         {
             Some(Role::Metadata)
         }
+        Format::Mp3 => {
+            if inside(tree, id, |ancestor| {
+                ancestor.starts_with("ID3v2") || ancestor == "ID3v1 tag"
+            }) {
+                Some(Role::Metadata)
+            } else if label.starts_with("audio frames") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
+        Format::Flac => {
+            if inside(tree, id, |ancestor| {
+                ancestor == "FLAC Vorbis comments block"
+            }) {
+                Some(Role::Metadata)
+            } else if label.starts_with("audio frames") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
+        Format::Ogg => {
+            if inside(tree, id, |ancestor| ancestor == "Ogg comment packet") {
+                Some(Role::Metadata)
+            } else if label.starts_with("remaining Ogg packets") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
         // A module's code and data run; custom sections describe it,
         // except those linkers need.
         Format::Wasm if depth == 1 => Some(match label {
@@ -300,6 +331,20 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         }
         _ => None,
     }
+}
+
+fn inside(tree: &ParseTree, id: NodeId, matches: impl Fn(&str) -> bool) -> bool {
+    let mut parent = tree.try_get(id).and_then(|node| node.parent);
+    while let Some(id) = parent {
+        let Some(node) = tree.try_get(id) else {
+            return false;
+        };
+        if matches(&node.label) {
+            return true;
+        }
+        parent = node.parent;
+    }
+    false
 }
 
 /// Windows shorter than this cannot reach 8 bits per byte, and a scale whose

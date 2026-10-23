@@ -6,7 +6,7 @@
 // or text that starts the way an email does.
 import { isPdf } from "./paint";
 
-export type Family = "media" | "pdf" | "docs";
+export type Family = "media" | "pdf" | "docs" | "audio";
 
 /** Whether the small build reads these bytes as a picture or movie: PNG, JPEG, WebP, GIF, TIFF, and the ISO boxes of HEIF and MP4. */
 export function isMedia(b: Uint8Array): boolean {
@@ -49,9 +49,42 @@ function isDocument(b: Uint8Array): boolean {
   return wasm || cfb || rtf || isZip(b) || mayBeMail(b);
 }
 
+/** Whether the audio-only build can inspect the bytes without decoding audio. */
+function isAudio(b: Uint8Array): boolean {
+  if (starts(b, [0x49, 0x44, 0x33]) || starts(b, [0x66, 0x4c, 0x61, 0x43])) return true;
+  if (isOggAudio(b)) return true;
+  if (b.length < 4 || b[0] !== 0xff || (b[1] & 0xe0) !== 0xe0) return false;
+  const version = (b[1] >> 3) & 0x03;
+  const layer = (b[1] >> 1) & 0x03;
+  const bitrate = (b[2] >> 4) & 0x0f;
+  const sampleRate = (b[2] >> 2) & 0x03;
+  // MPEG Layer I and II are valid audio, but this build's parser reads MP3
+  // (Layer III) tags only.
+  return version !== 0x01 && layer === 0x01 && bitrate !== 0 && bitrate !== 0x0f && sampleRate !== 0x03;
+}
+
+/** Avoid routing Ogg video (for example Theora) to the audio-only parser. */
+function isOggAudio(b: Uint8Array): boolean {
+  if (!starts(b, [0x4f, 0x67, 0x67, 0x53]) || b.length < 27) return false;
+  const tableEnd = 27 + b[26];
+  if (tableEnd > b.length) return false;
+  const bodyStart = tableEnd;
+  let packetPrefixLength = 0;
+  for (let i = 27; i < tableEnd; i++) {
+    packetPrefixLength += b[i];
+    if (b[i] < 255) break;
+  }
+  const prefixLength = Math.min(packetPrefixLength, 8, b.length - bodyStart);
+  const prefix = b.subarray(bodyStart, bodyStart + prefixLength);
+  const vorbis = starts(prefix, [0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73]);
+  const opus = starts(prefix, [0x4f, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64]);
+  return vorbis || opus;
+}
+
 /** The build that reads these bytes, asked in the order the core asks: pictures and movies, a WebAssembly module, a PDF, the documents' formats, then everything else. */
 export function familyOf(b: Uint8Array): Family {
   if (isMedia(b)) return "media";
+  if (isAudio(b)) return "audio";
   const wasm = starts(b, [0x00, 0x61, 0x73, 0x6d]);
   if (!wasm && isPdf(b)) return "pdf";
   if (isDocument(b)) return "docs";

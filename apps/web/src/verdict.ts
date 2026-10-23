@@ -30,6 +30,9 @@ export const EXTENSIONS: Record<string, string[]> = {
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
   rtf: ["rtf"],
   svg: ["svg"],
+  mp3: ["mp3"],
+  flac: ["flac"],
+  ogg: ["ogg", "oga", "opus"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -296,6 +299,14 @@ export function verdict(m: FileModel): VerdictLine[] {
       kind: "warning",
       text: "Some PDF page or form content could not be fully checked. Search may miss text.",
       node: incompleteForm.node,
+    });
+  }
+  if (["mp3", "flac", "ogg"].includes(f.format) && f.metadataComplete === false) {
+    const problem = m.problems.find((id) => m.kind(id) === Kind.Error);
+    lines.push({
+      kind: "warning",
+      text: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
+      node: problem ?? -1,
     });
   }
 

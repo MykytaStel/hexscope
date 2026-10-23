@@ -25,11 +25,13 @@ fn inspect(bytes: &[u8]) {
 An unrecognised or damaged input still produces a parse tree; damage is
 represented in the tree with byte ranges so callers can show where it is.
 The default `documents` feature adds PDF, ZIP-based documents, WebAssembly,
-email and CFB parsing. Disable default features for the smaller
+email and CFB parsing. The optional `audio` feature reads MP3, FLAC and Ogg
+metadata without decoding audio. Disable default features for the smaller
 images-and-video parser.
 
 Supported top-level formats include PNG, JPEG, HEIF, WebP, GIF, TIFF, SVG,
-video, PDF, ZIP, RTF, WebAssembly, EML and CFB. Coverage varies within each format;
+video, PDF, ZIP, RTF, WebAssembly, EML and CFB; MP3, FLAC and Ogg tags are
+available with the `audio` feature. Coverage varies within each format;
 see the [known issues](https://github.com/MykytaStel/hexscope/blob/main/docs/known-issues.md)
 for current limits.
 

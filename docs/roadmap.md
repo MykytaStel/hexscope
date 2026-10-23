@@ -21,7 +21,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.7.0 | SVG drawings, tools under the bytes, names in files no format reads, a smaller first download, the CLI's contract | shipped 2026-10-18 |
 | 0.7.1 | "Clean with hexscope" in Finder, Send to and GNOME Files; Homebrew | shipped 2026-10-19 |
 | 0.7.2 | `cargo install` with Rust 1.88 and later | shipped 2026-10-19 |
-| 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, and bounded large-file analysis | prepared 2026-10-23 |
+| 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | prepared 2026-10-23 |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.3.0 — shipped 2026-10-12
@@ -139,7 +139,6 @@ listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
   and the page words them in each language.
 - The stylesheets in one set of tokens, checked against screenshots of
   every page and state before and after.
-- Sound files: MP3, FLAC and Ogg tags, once a build has room for them.
 - Research to publish: what messengers and social networks take out of a
   file sent through them, and what still ties a cleaned file to its author.
 

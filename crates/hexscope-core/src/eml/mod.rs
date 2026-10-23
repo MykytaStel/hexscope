@@ -14,8 +14,8 @@ pub(crate) mod links;
 #[cfg(test)]
 mod tests;
 
+use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::zip::DocumentFact;
 
 /// Headers read per part, parts per message, and how deep parts nest.
 const MAX_HEADERS: usize = 500;

@@ -97,6 +97,17 @@ export const FACT_LABELS: Record<string, string> = {
   taken: "Taken",
   software: "Software",
   thumbnail: "Thumbnail",
+  artist: "Artist",
+  album: "Album",
+  "album-artist": "Album artist",
+  year: "Year",
+  track: "Track number",
+  disc: "Disc number",
+  genre: "Genre",
+  composer: "Composer",
+  encoder: "Encoder",
+  organization: "Organization",
+  "audio-tag": "Audio tag",
   place: "Place named",
   caption: "Caption",
   original: "Made from",
@@ -211,6 +222,8 @@ export function roleName(role: number, format: string): string {
             ? "Code and data"
           : format === "svg"
             ? "The drawing"
+          : format === "mp3" || format === "flac" || format === "ogg"
+            ? "Audio data"
             : "Picture";
     case Role.Metadata:
       return "Metadata";

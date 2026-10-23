@@ -12,8 +12,8 @@ mod rtf;
 mod tests;
 mod word;
 
+use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::zip::DocumentFact;
 
 pub const MAGIC: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 const MAX_REGULAR: u32 = 0xFFFF_FFFA;

@@ -29,6 +29,61 @@ fn run(args: &[&str]) -> (i32, String, String) {
     )
 }
 
+#[test]
+fn check_reads_audio_tags_and_reports_uninspected_id3_metadata() {
+    fn write_tag(path: &std::path::Path, id: &[u8; 4], payload: &[u8]) {
+        let mut body = Vec::new();
+        body.extend_from_slice(id);
+        body.extend_from_slice(&[0, 0, 0, payload.len() as u8, 0, 0]);
+        body.extend_from_slice(payload);
+        let size = body.len();
+        let mut tag = b"ID3\x04\0\0".to_vec();
+        tag.extend_from_slice(&[
+            ((size >> 21) & 0x7f) as u8,
+            ((size >> 14) & 0x7f) as u8,
+            ((size >> 7) & 0x7f) as u8,
+            (size & 0x7f) as u8,
+        ]);
+        tag.extend_from_slice(&body);
+        std::fs::write(path, tag).unwrap();
+    }
+
+    let dir = std::env::temp_dir().join(format!("hexscope-audio-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let complete = dir.join("complete.mp3");
+    let partial = dir.join("partial.mp3");
+    write_tag(&complete, b"TIT2", b"\x03song");
+    write_tag(&partial, b"TXXX", b"\x03custom\0value");
+
+    let complete_path = complete.to_str().unwrap();
+    let partial_path = partial.to_str().unwrap();
+    let (code, out, err) = run(&["check", partial_path]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.contains("metadata not fully inspected"), "{out}");
+
+    let (code, out, err) = run(&[
+        "check",
+        "--json",
+        "--fail-on",
+        "none",
+        complete_path,
+        partial_path,
+    ]);
+    assert_eq!(code, 0, "{err}");
+    let rows: Vec<serde_json::Value> = out
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 2, "{out}");
+    assert_eq!(rows[0]["format"], "mp3");
+    assert!(rows[0].get("complete").is_none());
+    assert!(rows[0]["reveals"].to_string().contains("song"));
+    assert_eq!(rows[1]["complete"], false);
+    assert!(rows[1]["reveals"].as_array().unwrap().is_empty());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 fn sha256_hex(bytes: &[u8]) -> String {
     hexscope_core::crypto::sha2::sha256(bytes)
         .iter()
@@ -223,7 +278,7 @@ fn files_it_does_not_read_are_counted_by_kind() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::copy(fixture("photo.jpg"), dir.join("photo.jpg")).unwrap();
-    std::fs::write(dir.join("memo.mp3"), b"ID3\x03\x00\x00\x00\x00\x00\x00").unwrap();
+    std::fs::write(dir.join("memo.psd"), b"8BPS").unwrap();
     std::fs::write(dir.join("a.HTML"), "<p>a</p>").unwrap();
     std::fs::write(dir.join("b.html"), "<p>b</p>").unwrap();
     let folder = dir.to_str().unwrap();
@@ -232,7 +287,7 @@ fn files_it_does_not_read_are_counted_by_kind() {
     assert_eq!(code, 0);
     assert!(err.contains("read 1 file;"), "{err}");
     assert!(
-        err.contains("3 not read") && err.contains("(2 .html, 1 .mp3)"),
+        err.contains("3 not read") && err.contains("(2 .html, 1 .psd)"),
         "{err}"
     );
 

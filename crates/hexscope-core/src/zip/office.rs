@@ -10,6 +10,7 @@
 
 use super::{ZipEntry, extract};
 use crate::exif::PhotoFacts;
+pub use crate::facts::DocumentFact;
 use crate::fixed::fixed;
 use crate::model::NodeId;
 
@@ -23,18 +24,6 @@ pub(crate) const MAX_PHOTOS: usize = 64;
 const MAX_TEXT: usize = 512;
 /// Authors named in a line, at most; the rest are counted.
 const MAX_NAMES: usize = 4;
-
-/// One thing a document reveals, and the entry that holds it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DocumentFact {
-    /// title, author, editor, created, modified, revisions, editing,
-    /// company, application, template, comments, tracked, deleted, or
-    /// photoplace and photo for a photo in it with and without a location,
-    /// embedded for a file kept inside it, folder for where it was saved.
-    pub kind: &'static str,
-    pub text: String,
-    pub node: NodeId,
-}
 
 pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
     let read = |name: &str| {

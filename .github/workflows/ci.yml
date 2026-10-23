@@ -102,11 +102,18 @@ jobs:
           workspaces: crates/hexscope-core/fuzz
       - name: Install cargo-fuzz
         run: cargo +nightly install cargo-fuzz --locked
+      - name: Seed format corpora
+        run: |
+          mkdir -p fuzz/corpus/parse fuzz/corpus/parse_audio
+          cp -R tests/corpus/. fuzz/corpus/parse/
+          cp -R fuzz/seeds/parse_audio/. fuzz/corpus/parse/
+          cp -R fuzz/seeds/parse_audio/. fuzz/corpus/parse_audio/
+        working-directory: crates/hexscope-core
       - name: Fuzz smoke run
-        # Every format through the dispatcher; emails past their detection;
-        # the clean, repaired and blacked-out copies.
+        # Real-format seeds exercise the dispatcher and focused parser targets.
         run: |
           cargo +nightly fuzz run parse -- -max_total_time=60
+          cargo +nightly fuzz run parse_audio -- -max_total_time=30
           cargo +nightly fuzz run parse_eml -- -max_total_time=30
           cargo +nightly fuzz run copies -- -max_total_time=30 -rss_limit_mb=4096
         working-directory: crates/hexscope-core
@@ -169,8 +176,7 @@ jobs:
       # Their sizes are budgets, raised on purpose or not at all. The parser
       # is built per family of files, so a file loads only what reads it, and
       # a new format grows only its own family: pictures and movies alone;
-      # with PDF; with Office, email and WebAssembly. Each family's budget
-      # leaves room for the formats planned next (TIFF; LibreOffice, RTF).
+      # with PDF; with Office, email and WebAssembly; or audio tags.
       # The optional roll/TIFF module is budgeted separately and is never an initial parser.
       # The documents' budget rose from 235000 for what Office on Windows leaves —
       # the folder, the template's path, the printer, SharePoint's properties,
@@ -187,11 +193,12 @@ jobs:
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
-          media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 140000), $pdf with PDF (budget 216000), $docs with Office, email and WebAssembly (budget 225000)."
+          media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs); audio=$(size hexscope_audio)
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 140000), $pdf with PDF (budget 216000), $docs with Office, email and WebAssembly (budget 225000), $audio with MP3, FLAC and Ogg tags (budget 155000)."
           test "$media" -le 140000
           test "$pdf" -le 216000
           test "$docs" -le 225000
+          test "$audio" -le 155000
           # What each part is, fetched after the answer: one file per build.
           for f in apps/web/dist/assets/explain-*.js; do
             n=$(gzip -9c "$f" | wc -c)

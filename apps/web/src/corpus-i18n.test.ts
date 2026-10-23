@@ -9,6 +9,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as mediaBuild from "./wasm-media/hexscope_media.js";
 import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
 import * as docsBuild from "./wasm-docs/hexscope_docs.js";
+import * as audioBuild from "./wasm-audio/hexscope_audio.js";
 import { familyOf } from "./family";
 import { describe as describeParsed, SEPARATOR } from "./describe";
 import { FileModel } from "./model";
@@ -27,8 +28,9 @@ beforeAll(async () => {
   mediaBuild.initSync({ module: readFileSync(here("./wasm-media/hexscope_media_bg.wasm")) });
   pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
   docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
+  audioBuild.initSync({ module: readFileSync(here("./wasm-audio/hexscope_audio_bg.wasm")) });
   // What each part is, as the page fetches it: one file per build.
-  await Promise.all((["png", "pdf", "zip"] as const).map(explain));
+  await Promise.all((["png", "pdf", "zip", "mp3"] as const).map(explain));
 });
 
 /** Every file the tests and the site have, by name. */
@@ -41,7 +43,56 @@ function corpus(): [string, Uint8Array][] {
       if (statSync(at).isFile()) out.push([name, new Uint8Array(readFileSync(at))]);
     }
   }
+  out.push(...audioExamples());
   return out;
+}
+
+/** Small metadata-only streams exercise the audio build and its explanations. */
+function audioExamples(): [string, Uint8Array][] {
+  const le32 = (value: number) => [value & 255, (value >>> 8) & 255, (value >>> 16) & 255, value >>> 24];
+  const text = new TextEncoder();
+  const field = text.encode("TITLE=Sample");
+  const comments = new Uint8Array([...le32(0), ...le32(1), ...le32(field.length), ...field]);
+
+  const mp3Frame = new Uint8Array([
+    ...text.encode("TIT2"), 0, 0, 0, 3, 0, 0, 3, 83, 111,
+  ]);
+  const mp3 = new Uint8Array([
+    ...text.encode("ID3"), 4, 0, 0, 0, 0, 0, mp3Frame.length, ...mp3Frame,
+  ]);
+
+  const flac = new Uint8Array([
+    ...text.encode("fLaC"), 0, 0, 0, 34, ...new Uint8Array(34),
+    0x84, 0, (comments.length >>> 8) & 255, comments.length & 255, ...comments,
+  ]);
+
+  const oggPage = (sequence: number, flags: number, packet: Uint8Array) => {
+    const page = new Uint8Array(28 + packet.length);
+    page.set(text.encode("OggS"));
+    page[5] = flags;
+    page.set([7, 0, 0, 0], 14);
+    page.set(le32(sequence), 18);
+    page[26] = 1;
+    page[27] = packet.length;
+    page.set(packet, 28);
+    return page;
+  };
+  const identification = new Uint8Array([
+    1, ...text.encode("vorbis"), ...le32(0), 2, ...le32(44_100),
+    ...new Uint8Array(12), 0x86, 1,
+  ]);
+  const oggComments = new Uint8Array([
+    ...text.encode("\x03vorbis"), ...comments, 1,
+  ]);
+  const pages = [oggPage(0, 2, identification), oggPage(1, 0, oggComments)];
+  const ogg = new Uint8Array(pages.reduce((size, page) => size + page.length, 0));
+  let cursor = 0;
+  for (const page of pages) {
+    ogg.set(page, cursor);
+    cursor += page.length;
+  }
+
+  return [["sample.mp3", mp3], ["sample.flac", flac], ["sample.ogg", ogg]];
 }
 
 /** English words left in a line, outside what it quotes from the file: a sentence half translated is not translated. */
@@ -79,7 +130,7 @@ describe("every sentence a reader meets about a real file", () => {
     const missing = new Map<string, string>();
     let explained = 0;
     for (const [name, bytes] of corpus()) {
-      const build = { media: mediaBuild, pdf: pdfBuild, docs: docsBuild }[familyOf(bytes)];
+      const build = { media: mediaBuild, pdf: pdfBuild, docs: docsBuild, audio: audioBuild }[familyOf(bytes)];
       let m: FileModel;
       try {
         m = new FileModel(describeParsed(build.parse(bytes)), bytes, name);

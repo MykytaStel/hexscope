@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "hexscope-core"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "hexscope-inflate",
 ]
@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "hexscope-inflate"
-version = "0.7.2"
+version = "0.8.0"
 
 [[package]]
 name = "jobserver"

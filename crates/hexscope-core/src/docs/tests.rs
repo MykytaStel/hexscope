@@ -213,6 +213,71 @@ fn every_explanation_given_is_listed_and_keys_name_one_sentence() {
     }
 }
 
+#[cfg(feature = "audio")]
+#[test]
+fn every_audio_node_is_explained_and_listed_for_the_audio_build() {
+    fn ogg_page(sequence: u32, flags: u8, packet: &[u8]) -> Vec<u8> {
+        let mut page = b"OggS".to_vec();
+        page.extend_from_slice(&[0, flags]);
+        page.extend_from_slice(&[0; 8]); // granule position
+        page.extend_from_slice(&7u32.to_le_bytes());
+        page.extend_from_slice(&sequence.to_le_bytes());
+        page.extend_from_slice(&[0; 4]); // CRC is outside metadata inspection
+        page.push(1);
+        page.push(packet.len() as u8);
+        page.extend_from_slice(packet);
+        page
+    }
+
+    let mut mp3 = b"ID3\x04\0\0\0\0\0\x0d".to_vec();
+    mp3.extend_from_slice(b"TIT2\0\0\0\x03\0\0\x03ok");
+
+    let mut flac = b"fLaC\0\0\0\x22".to_vec();
+    flac.extend_from_slice(&[0; 34]); // STREAMINFO
+    flac.extend_from_slice(&[0x84, 0, 0, 8]); // last block: Vorbis comments
+    flac.extend_from_slice(&[0; 8]); // empty vendor and zero comments
+
+    let mut identification = vec![1];
+    identification.extend_from_slice(b"vorbis");
+    identification.extend_from_slice(&0u32.to_le_bytes());
+    identification.push(2);
+    identification.extend_from_slice(&44_100u32.to_le_bytes());
+    identification.extend_from_slice(&[0; 12]);
+    identification.extend_from_slice(&[0x86, 1]);
+    let mut comments = b"\x03vorbis".to_vec();
+    comments.extend_from_slice(&[0; 8]); // empty vendor and zero comments
+    comments.push(1); // Vorbis framing bit
+    let mut ogg = ogg_page(0, 2, &identification);
+    ogg.extend(ogg_page(1, 0, &comments));
+
+    let samples = [("MP3", mp3), ("FLAC", flac), ("Ogg Vorbis", ogg)];
+    let listed: std::collections::BTreeSet<_> = every()
+        .into_iter()
+        .filter(|(family, _)| *family == "audio")
+        .map(|(_, doc)| doc.key)
+        .collect();
+    assert!(
+        !listed.is_empty(),
+        "the audio family is absent from every()"
+    );
+
+    for (name, bytes) in samples {
+        let parsed = parse(&bytes);
+        let tree = parsed.tree();
+        let format = parsed.format();
+        assert!(matches!(format, Format::Mp3 | Format::Flac | Format::Ogg));
+        for node in tree.nodes() {
+            let doc = specific(tree, node.id, format)
+                .unwrap_or_else(|| panic!("{name}: {:?} has no explanation", node.label));
+            assert!(
+                listed.contains(&doc.key),
+                "{name}: {:?} is missing from the audio explanation catalogue",
+                node.label
+            );
+        }
+    }
+}
+
 #[test]
 fn glob_matches_runs_of_anything() {
     assert!(glob("block * · stored*", "block 3 · stored (continued)"));

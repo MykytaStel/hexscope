@@ -38,6 +38,10 @@ export function noun(m: FileModel): string {
       return "picture";
     case "video":
       return / audio\b/.test(m.value(0)) ? "recording" : "video";
+    case "mp3":
+    case "flac":
+    case "ogg":
+      return "audio file";
     case "pdf":
       return "PDF";
     case "eml":
@@ -76,7 +80,13 @@ export function headline(m: FileModel): Headline {
   if (n === "email" && FORGED.some((k) => kinds.has(k))) {
     return { tone: "danger", text: "This email may not be from who it says" };
   }
+  if (["mp3", "flac", "ogg"].includes(m.file.format) && has("warning")) {
+    return { tone: "warning", text: "Some metadata in this audio file could not be fully read" };
+  }
   const count = categories(m).length;
+  if (["mp3", "flac", "ogg"].includes(m.file.format) && count === 0) {
+    return { tone: "ok", text: "No supported audio metadata tags were found." };
+  }
   const pressing = has("hidden") || PRESSING.some((k) => kinds.has(k));
   if (count > 0) {
     return { tone: pressing ? "danger" : "warning", text: `This ${n} gives away ${count} ${count === 1 ? "thing" : "things"}` };
@@ -84,5 +94,6 @@ export function headline(m: FileModel): Headline {
   if (ACTIONS.some((k) => kinds.has(k))) return { tone: "danger", text: `This ${n} does more than show pages` };
   if (has("hidden")) return { tone: "danger", text: `Something is hidden in this ${n}` };
   if (has("misnamed")) return { tone: "warning", text: `This ${n} has the wrong name` };
+  if (has("warning")) return { tone: "warning", text: `Some metadata in this ${n} could not be fully read` };
   return { tone: "ok", text: `Nothing personal found in this ${n}` };
 }

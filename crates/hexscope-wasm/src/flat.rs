@@ -185,5 +185,6 @@ pub fn flatten(tree: &ParseTree) -> Parsed {
         blocks: None,
         blocks_note: String::new(),
         orientation: 1,
+        metadata_complete: true,
     }
 }

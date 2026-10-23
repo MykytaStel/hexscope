@@ -21,8 +21,8 @@ pub(crate) mod redact;
 
 pub use redact::{Blackout, PageText};
 
+use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::zip::DocumentFact;
 use lexer::{Entry, Item, Lexer, Obj};
 
 /// Cross-reference entries past this many get no node of their own.

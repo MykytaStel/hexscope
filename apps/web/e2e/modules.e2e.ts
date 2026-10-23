@@ -1,6 +1,7 @@
 // The parser is built per family of files: a file loads the build that
 // reads it and none of the others.
 import { expect, test, type Page } from "@playwright/test";
+import { Buffer } from "node:buffer";
 
 async function wasmLoadedFor(page: Page, sample: string): Promise<string[]> {
   const loaded: string[] = [];
@@ -14,6 +15,19 @@ async function wasmLoadedFor(page: Page, sample: string): Promise<string[]> {
   return [...new Set(loaded)].sort();
 }
 
+function mp3(frameId: "TIT2" | "TXXX"): Buffer {
+  const payload = frameId === "TIT2" ? Buffer.from([3, ...Buffer.from("song")]) : Buffer.from([3, ...Buffer.from("custom\0value")]);
+  const body = Buffer.concat([
+    Buffer.from(frameId),
+    Buffer.from([0, 0, 0, payload.length, 0, 0]),
+    payload,
+  ]);
+  return Buffer.concat([
+    Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, body.length]),
+    body,
+  ]);
+}
+
 for (const [sample, build] of [
   ["photo.jpg", "hexscope_media"],
   ["drawing.svg", "hexscope_media"],
@@ -25,3 +39,61 @@ for (const [sample, build] of [
     expect(await wasmLoadedFor(page, sample)).toEqual([build]);
   });
 }
+
+test("an audio file loads its own parser and shows a read-only source-linked tag", async ({ page }) => {
+  const loaded: string[] = [];
+  page.on("request", (r) => {
+    const name = /\/(hexscope_[a-z]+)_bg-[^/]+\.wasm$/.exec(r.url())?.[1];
+    if (name) loaded.push(name);
+  });
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "song.mp3",
+    mimeType: "audio/mpeg",
+    buffer: mp3("TIT2"),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
+  await page.getByRole("button", { name: "Metadata", exact: true }).click();
+  await expect(page.getByRole("button", { name: "song" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
+  // A service worker may pre-cache the media build during this page visit;
+  // the audio parser itself must still be requested for the uploaded file.
+  expect(loaded).toContain("hexscope_audio");
+});
+
+test("an audio file without tags still explains the read-only inspection", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "untagged.mp3",
+    mimeType: "audio/mpeg",
+    buffer: Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0]),
+  });
+
+  await expect(page.locator(".verdict-title")).toContainText("No supported audio metadata tags were found.");
+  await expect(page.locator(".reveals").getByText("No supported audio metadata tags were found.")).toBeVisible();
+  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback and clean copies are not provided.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
+  await expect(page.locator("audio")).toHaveCount(0);
+});
+
+test("an unsupported ID3 frame is shown as a partial metadata read", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "partial.mp3",
+    mimeType: "audio/mpeg",
+    buffer: mp3("TXXX"),
+  });
+
+  await expect(page.locator(".verdict-title")).toContainText("could not be fully read");
+  await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
+  await expect(page.getByText("Some audio metadata could not be fully read; the result is partial.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
+});

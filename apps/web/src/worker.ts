@@ -7,6 +7,7 @@ import { describe, SEPARATOR } from "./describe";
 import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
 import { familyOf, isMedia, type Family } from "./family";
+import { PARSER_BUILDS } from "./parser-builds";
 import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
 import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
@@ -90,15 +91,10 @@ export interface PagePicture {
 /**
  * The parser's builds, one per family of files: pictures, movies and SVG
  * drawings alone (what most files need), and each with PDF, or with Office,
- * email and WebAssembly. A file loads only the one that reads it (family.ts).
+ * email and WebAssembly, or audio tags. A file loads only the one that reads it (family.ts).
  */
 type Module = typeof import("./wasm-pdf/hexscope_pdf.js");
 const loaded: Partial<Record<Family, Promise<Module>>> = {};
-const IMPORTS: Record<Family, () => Promise<unknown>> = {
-  media: () => import("./wasm-media/hexscope_media.js"),
-  pdf: () => import("./wasm-pdf/hexscope_pdf.js"),
-  docs: () => import("./wasm-docs/hexscope_docs.js"),
-};
 /**
  * Why a parser could not be had, in words. A failed load is not kept: the
  * next file tries again, so a dropped connection is not the end of the tab.
@@ -112,7 +108,7 @@ function unavailable(): Error {
   );
 }
 const load = (family: Family): Promise<Module> =>
-  (loaded[family] ??= IMPORTS[family]()
+  (loaded[family] ??= PARSER_BUILDS[family]()
     .then(async (imported) => {
       // The same interface in each, less what the other families need.
       const m = imported as Module;
@@ -141,7 +137,7 @@ function prefetchDocuments(): void {
   if (saveData || !navigator.onLine) return;
   setTimeout(() => {
     for (const family of ["pdf", "docs"] as const) {
-      if (!loaded[family]) void IMPORTS[family]().catch(() => {});
+      if (!loaded[family]) void PARSER_BUILDS[family]().catch(() => {});
     }
     void fetch(new URL("./wasm-pdf/hexscope_pdf_bg.wasm", import.meta.url)).catch(() => {});
     void fetch(new URL("./wasm-docs/hexscope_docs_bg.wasm", import.meta.url)).catch(() => {});

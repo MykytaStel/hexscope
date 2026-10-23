@@ -134,6 +134,15 @@ fn version_is_the_crates() {
 fn check_json_has_the_fields_formats_and_kinds_the_page_lists() {
     let formats = listed("formats");
     let kinds = listed("kinds");
+    for format in ["mp3", "flac", "ogg"] {
+        assert!(
+            formats.contains(format),
+            "docs/cli.md does not list {format}"
+        );
+    }
+    for kind in ["title", "artist", "album", "audio-tag"] {
+        assert!(kinds.contains(kind), "docs/cli.md does not list {kind}");
+    }
     let args = every_test_file(&["check", "--json", "--all", "--fail-on", "none"]);
     let (code, out, err) = hexscope(&args.iter().map(String::as_str).collect::<Vec<_>>(), false);
     assert_eq!(code, 0, "{err}");
@@ -142,6 +151,10 @@ fn check_json_has_the_fields_formats_and_kinds_the_page_lists() {
         let v: Value = serde_json::from_str(line).unwrap_or_else(|e| panic!("{e}: {line}"));
         let o = object(&v);
         let mut expected = set(&["file", "format", "problems", "reveals"]);
+        if o.contains_key("complete") {
+            expected.insert("complete");
+            assert_eq!(o["complete"], Value::Bool(false), "{line}");
+        }
         if o.contains_key("misnamed") {
             expected.insert("misnamed");
             misnamed += 1;

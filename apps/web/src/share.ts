@@ -16,6 +16,10 @@ function noun(m: FileModel): string {
       return "image";
     case "video":
       return "video";
+    case "mp3":
+    case "flac":
+    case "ogg":
+      return "audio file";
     case "eml":
     case "msg":
       return "email";

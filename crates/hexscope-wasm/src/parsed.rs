@@ -80,6 +80,12 @@ impl Parsed {
         self.format.to_string()
     }
 
+    /// Whether all metadata structures the parser supports were read whole.
+    #[wasm_bindgen(getter, js_name = metadataComplete)]
+    pub fn metadata_complete(&self) -> bool {
+        self.metadata_complete
+    }
+
     /// A photo's EXIF orientation, 1 to 8: how to turn the stored picture
     /// to show it the right way up. 1 when it says nothing.
     #[wasm_bindgen(getter)]

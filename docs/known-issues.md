@@ -53,6 +53,13 @@ pictures are not. A drawing whose root element carries a namespace prefix
 
 ## Limits by design
 
+**Audio metadata, not audio decoding.** MP3 text and comment frames (ID3v1
+and ID3v2.2–2.4), FLAC Vorbis comments, and the first Vorbis or Opus stream
+in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
+not understand make the result incomplete. Audio frames are not decoded or
+checked for integrity; Ogg page checksums are not verified. Hexscope does
+not play or clean these files.
+
 **Emails: the top-level header.** The address a message was sent from is
 read from the first server's `Received` line (IPv4 and bracketed IPv6) and
 `X-Originating-IP` (IPv4). Only the message's own header is checked for
