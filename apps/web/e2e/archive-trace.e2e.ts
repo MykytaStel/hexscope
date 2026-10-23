@@ -17,8 +17,36 @@ async function openTrace(page: import("@playwright/test").Page, language: "en" |
     const details = inspector.getByRole("button", { name: language === "uk" ? "Деталі" : "Details" });
     if (await details.isVisible()) await details.click();
   }
-  return page.getByRole("group", { name: language === "uk" ? "Шлях запису в архіві" : "Archive Trace" });
+  const trace = page.getByRole("group", { name: language === "uk" ? "Шлях запису в архіві" : "Archive Trace" });
+  await expect(trace.getByRole("button", { name: language === "uk" ? /запису центрального каталогу/ : "Show central-directory record bytes" })).toBeVisible();
+  return trace;
 }
+
+test("ZIP Trace loads only when a ZIP entry is selected", async ({ page }) => {
+  const traceChunks: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (/\/assets\/archive-trace-view-[^/]+\.js$/.test(url.pathname)) traceChunks.push(url.href);
+  });
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  expect(traceChunks).toHaveLength(0);
+
+  await page.goto("./?sample=report.docx");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await openView(page, "structure");
+  await page.getByRole("treeitem").nth(1).click();
+  const inspector = page.locator(".inspector-sheet");
+  if (await inspector.isVisible()) {
+    const details = inspector.getByRole("button", { name: "Details" });
+    if (await details.isVisible()) await details.click();
+  }
+  await expect(page.getByRole("group", { name: "Archive Trace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show central-directory record bytes" })).toBeVisible();
+  expect(traceChunks).toHaveLength(1);
+});
 
 test("Archive Trace selects each exact range and reuses the DEFLATE player", async ({ page }) => {
   const trace = await openTrace(page);
