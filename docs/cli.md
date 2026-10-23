@@ -211,8 +211,10 @@ hexscope receipt verify COPY RECEIPT.json
 ```
 
 Exit 0 means the copy bytes match; exit 1 means they do not; exit 2 means the
-receipt is malformed, unsupported, or has no fingerprint. A match does not
-verify who made the receipt or certify the file's safety.
+receipt is malformed, unsupported, too large, or has no fingerprint. Receipt
+files are limited to 16 MiB; generation stops before creating the receipt if
+the verification report would exceed that limit. A match does not verify who
+made the receipt or certify the file's safety.
 
 ## batch receipt
 

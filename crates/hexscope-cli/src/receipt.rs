@@ -14,7 +14,7 @@ use std::{
 };
 
 const HASH_BUFFER: usize = 64 * 1024;
-const MAX_RECEIPT_BYTES: usize = 64 * 1024;
+const MAX_RECEIPT_BYTES: usize = 16 * 1024 * 1024;
 
 pub fn write_copy_receipt(
     receipt_path: &Path,
@@ -24,6 +24,9 @@ pub fn write_copy_receipt(
 ) -> Result<(), String> {
     let json =
         copy_receipt_json(format, Some(copy_sha256), None, report).map_err(format_receipt_error)?;
+    if json.len().saturating_add(1) > MAX_RECEIPT_BYTES {
+        return Err("verification receipt exceeds the 16 MiB limit".into());
+    }
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -76,7 +79,7 @@ fn read_receipt(path: &Path) -> Result<Vec<u8>, String> {
         .read_to_end(&mut bytes)
         .map_err(|_| "could not read receipt".to_string())?;
     if bytes.len() > MAX_RECEIPT_BYTES {
-        return Err("malformed or unsupported receipt".into());
+        return Err("receipt exceeds the 16 MiB limit".into());
     }
     Ok(bytes)
 }
@@ -337,6 +340,93 @@ mod tests {
         file.write_all(bytes).unwrap();
 
         assert_eq!(hash_bytes(bytes), hash_file(file.path()).unwrap());
+    }
+
+    #[test]
+    fn large_generated_receipts_remain_readable_by_the_offline_verifier() {
+        let report = VerificationReport {
+            schema_version: 1,
+            removed: (0..800)
+                .map(|index| VerificationItem {
+                    kind: format!("metadata-kind-{index:04}-{}", "x".repeat(80)),
+                    reason: VerificationReason::Removed,
+                    unexpected: false,
+                })
+                .collect(),
+            present: Vec::new(),
+            unchecked: Vec::new(),
+        };
+        let receipt_file = tempfile::tempdir().unwrap();
+        let receipt_path = receipt_file.path().join("receipt.json");
+
+        write_copy_receipt(&receipt_path, &"a".repeat(64), "zip", &report).unwrap();
+
+        assert!(std::fs::metadata(&receipt_path).unwrap().len() > 64 * 1024);
+        let bytes = read_receipt(&receipt_path).unwrap();
+        let receipt: Receipt = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(receipt.validate().unwrap(), "a".repeat(64));
+    }
+
+    #[test]
+    fn generated_receipt_at_the_byte_limit_includes_its_newline() {
+        let mut report = VerificationReport {
+            schema_version: 1,
+            removed: vec![VerificationItem {
+                kind: String::new(),
+                reason: VerificationReason::Removed,
+                unexpected: false,
+            }],
+            present: Vec::new(),
+            unchecked: Vec::new(),
+        };
+        let empty_json = copy_receipt_json("zip", Some(&"a".repeat(64)), None, &report).unwrap();
+        report.removed[0].kind = "x".repeat(MAX_RECEIPT_BYTES - empty_json.len() - 1);
+        let receipt_file = tempfile::tempdir().unwrap();
+        let receipt_path = receipt_file.path().join("receipt.json");
+
+        write_copy_receipt(&receipt_path, &"a".repeat(64), "zip", &report).unwrap();
+
+        let bytes = read_receipt(&receipt_path).unwrap();
+        assert_eq!(bytes.len(), MAX_RECEIPT_BYTES);
+        assert_eq!(bytes.last(), Some(&b'\n'));
+    }
+
+    #[test]
+    fn receipt_reader_rejects_one_byte_over_the_limit() {
+        let receipt_file = tempfile::NamedTempFile::new().unwrap();
+        receipt_file
+            .as_file()
+            .set_len((MAX_RECEIPT_BYTES + 1) as u64)
+            .unwrap();
+
+        assert_eq!(
+            read_receipt(receipt_file.path()).unwrap_err(),
+            "receipt exceeds the 16 MiB limit"
+        );
+    }
+
+    #[test]
+    fn oversized_generated_receipts_fail_before_creating_the_destination() {
+        let report = VerificationReport {
+            schema_version: 1,
+            removed: vec![VerificationItem {
+                kind: "x".repeat(MAX_RECEIPT_BYTES),
+                reason: VerificationReason::Removed,
+                unexpected: false,
+            }],
+            present: Vec::new(),
+            unchecked: Vec::new(),
+        };
+        let receipt_file = tempfile::tempdir().unwrap();
+        let receipt_path = receipt_file.path().join("receipt.json");
+
+        let result = write_copy_receipt(&receipt_path, &"a".repeat(64), "zip", &report);
+
+        assert_eq!(
+            result.unwrap_err(),
+            "verification receipt exceeds the 16 MiB limit"
+        );
+        assert!(!receipt_path.exists());
     }
 
     #[test]
