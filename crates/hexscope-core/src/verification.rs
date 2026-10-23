@@ -247,6 +247,27 @@ pub struct VerificationReport {
     pub unchecked: Vec<VerificationItem>,
 }
 
+pub(crate) fn json_quote(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for c in value.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                use std::fmt::Write as _;
+                let _ = write!(out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 impl VerificationReport {
     /// A failed-to-run or deliberately bounded check. It is never a clear result.
     pub fn skipped() -> Self {
@@ -264,35 +285,14 @@ impl VerificationReport {
 
     /// JSON contains only stable kinds, reasons, statuses, and the schema version.
     pub fn to_json(&self) -> String {
-        fn quote(s: &str) -> String {
-            let mut out = String::with_capacity(s.len() + 2);
-            out.push('"');
-            for c in s.chars() {
-                match c {
-                    '"' => out.push_str("\\\""),
-                    '\\' => out.push_str("\\\\"),
-                    '\n' => out.push_str("\\n"),
-                    '\r' => out.push_str("\\r"),
-                    '\t' => out.push_str("\\t"),
-                    c if (c as u32) < 0x20 => {
-                        use std::fmt::Write as _;
-                        let _ = write!(out, "\\u{:04x}", c as u32);
-                    }
-                    c => out.push(c),
-                }
-            }
-            out.push('"');
-            out
-        }
-
         fn group(items: &[VerificationItem]) -> String {
             let items = items
                 .iter()
                 .map(|item| {
                     format!(
                         "{{\"kind\":{},\"reason\":{},\"unexpected\":{}}}",
-                        quote(&item.kind),
-                        quote(item.reason.code()),
+                        json_quote(&item.kind),
+                        json_quote(item.reason.code()),
                         item.unexpected
                     )
                 })

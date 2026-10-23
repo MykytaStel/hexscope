@@ -17,6 +17,11 @@ pub enum ExtractError {
         stored: u32,
         actual: u32,
     },
+    /// The decompressed bytes disagree with the central directory.
+    SizeMismatch {
+        expected: u64,
+        actual: u64,
+    },
     /// The output would exceed the caller's limit.
     TooLarge,
 }
@@ -42,6 +47,13 @@ pub fn extract(data: &[u8], entry: &ZipEntry, limit: u64) -> Result<Vec<u8>, Ext
         })?,
         m => return Err(ExtractError::Unsupported(m)),
     };
+    let actual_size = out.len() as u64;
+    if actual_size != entry.uncompressed {
+        return Err(ExtractError::SizeMismatch {
+            expected: entry.uncompressed,
+            actual: actual_size,
+        });
+    }
     let actual = crc32(&out);
     if actual != entry.crc32 {
         return Err(ExtractError::Crc {
@@ -131,5 +143,34 @@ mod tests {
         let doc = parse_zip(cut);
         let e = doc.entries.iter().find(|e| e.name == "b.txt").unwrap();
         assert_eq!(extract(cut, e, u64::MAX), Err(ExtractError::OutOfRange));
+    }
+
+    #[test]
+    fn rejects_output_with_a_false_declared_size() {
+        let payload = b"declared ZIP size must match extracted bytes";
+        for method in [0, 8] {
+            let archive = Archive {
+                entries: vec![Entry::new("payload.bin", payload, method)],
+                ..Default::default()
+            };
+            let mut bytes = build(&archive).bytes;
+            let central = bytes
+                .windows(4)
+                .position(|window| window == b"PK\x01\x02")
+                .expect("the archive has one central record");
+            let declared = (payload.len() as u32) - 1;
+            bytes[central + 24..central + 28].copy_from_slice(&declared.to_le_bytes());
+
+            let doc = parse_zip(&bytes);
+            let entry = doc.entries.first().expect("the local entry is preserved");
+            assert_eq!(
+                extract(&bytes, entry, u64::MAX),
+                Err(ExtractError::SizeMismatch {
+                    expected: u64::from(declared),
+                    actual: payload.len() as u64,
+                }),
+                "method {method} must reject output with a false declared size"
+            );
+        }
     }
 }
