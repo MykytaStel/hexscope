@@ -4,7 +4,8 @@
 //!
 //! ```text
 //! hexscope check [--fail-on WHAT] [--json] [--all] PATH...
-//! hexscope clean [--in-place | --out DIR] [--verify [--json]] PATH...
+//! hexscope clean [--in-place | --out DIR] [--verify [--json]] [--receipt FILE] PATH...
+//! hexscope receipt verify COPY RECEIPT.json
 //! hexscope repair [--out DIR] PATH...
 //! ```
 
@@ -15,6 +16,7 @@ mod film;
 mod menu;
 mod mosaic;
 mod movie;
+mod receipt;
 
 use hexscope_core::Document;
 use hexscope_core::clean::{CleanOptions, clean_video_gapped, clean_with};
@@ -38,9 +40,10 @@ const USAGE: &str = "hexscope — see what your files say about you
 Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
   hexscope clean [options] PATH...    save copies without what they give away
+  hexscope receipt verify COPY RECEIPT.json  check a receipt's copy fingerprint offline
   hexscope mosaic [--json] PATH...    local photo correlations; exported values stay private
   hexscope film --recipe JSON --out DIR [--format jpeg|tiff16] PATH...
-  hexscope batch --out DIR PATH...   verified folder copies and an index-only JSON receipt
+  hexscope batch [--include-copy-hashes] --out DIR PATH... verified folder copies and a receipt
   hexscope repair [options] PATH...   save copies of damaged files with what survived
   hexscope redact --text WORDS PATH... save PDFs with WORDS taken out of their pages
   hexscope menu [--remove]            \"Clean with hexscope\" in Finder, Send to or GNOME Files
@@ -66,6 +69,11 @@ clean:
   --verify         read each written copy back and explain what was removed, remains,
                    or could not be checked
   --json           with --verify, one value-free result per input, one object per line
+  --receipt FILE   with --verify and one input, save a value-free, copy-bound receipt
+
+receipt verify:
+  Confirms only that COPY has the bytes named in RECEIPT.json; it does not verify
+  who made the receipt or certify the file's safety
 
 redact (PDF):
   --text WORDS     black out every place WORDS appear; give it more than once for more
@@ -114,6 +122,7 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
         }
         "check" => check(rest),
         "clean" => copies(rest, Make::Clean),
+        "receipt" => receipt::run(rest),
         "batch" => batch_report::run(rest),
         "film" => film::run(rest),
         "mosaic" => mosaic::run(rest),
@@ -137,6 +146,7 @@ struct Options {
     /// What `redact` blacks out, each wherever it appears.
     texts: Vec<String>,
     out: Option<PathBuf>,
+    receipt: Option<PathBuf>,
     paths: Vec<PathBuf>,
 }
 
@@ -151,6 +161,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         sarif: false,
         texts: Vec::new(),
         out: None,
+        receipt: None,
         paths: Vec::new(),
     };
     let mut it = args.iter();
@@ -172,6 +183,11 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--in-place" => o.in_place = true,
             "--notes" => o.notes = true,
             "--verify" => o.verify = true,
+            "--receipt" => {
+                o.receipt = Some(PathBuf::from(
+                    it.next().ok_or("--receipt needs a file path")?,
+                ))
+            }
             "--text" => o.texts.push(
                 it.next()
                     .ok_or("--text needs the words to black out")?
@@ -902,16 +918,15 @@ enum Done {
 fn verify_written(
     source: &VerificationSnapshot,
     path: &Path,
-) -> Result<VerificationReport, String> {
+) -> Result<(String, VerificationReport), String> {
     let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
     let output = match movie::read(path).map_err(failed_to_read)? {
         Some(m) => summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
         None => summarize(&std::fs::read(path).map_err(failed_to_read)?),
     };
-    Ok(verification::compare(
-        source,
-        &verification::snapshot(&output),
-    ))
+    let format = output.format.to_string();
+    let report = verification::compare(source, &verification::snapshot(&output));
+    Ok((format, report))
 }
 
 fn verification_json(source: &Path, output: Option<&Path>, report: &VerificationReport) -> String {
@@ -1074,6 +1089,40 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     if o.verify && !matches!(kind, Make::Clean) {
         return Err("--verify is available only with clean".into());
     }
+    if o.receipt.is_some() {
+        if !matches!(kind, Make::Clean) {
+            return Err("--receipt is available only with clean".into());
+        }
+        if !o.verify {
+            return Err("--receipt requires --verify".into());
+        }
+    }
+    let receipt_inputs = if o.receipt.is_some() {
+        let inputs = files(&o.paths)?;
+        if inputs.len() != 1 {
+            return Err("--receipt accepts exactly one input file".into());
+        }
+        let input = &inputs[0];
+        let output = target(input, &o, "clean");
+        if !o.in_place && std::fs::symlink_metadata(&output).is_ok() {
+            return Err("clean-copy output already exists".into());
+        }
+        let receipt = o
+            .receipt
+            .as_deref()
+            .ok_or_else(|| "--receipt requires a receipt path".to_string())?;
+        if normalized_path(receipt)? == normalized_path(input)?
+            || normalized_path(receipt)? == normalized_path(&output)?
+        {
+            return Err("--receipt cannot overwrite an input or clean copy".into());
+        }
+        if std::fs::symlink_metadata(receipt).is_ok() {
+            return Err("receipt destination already exists".into());
+        }
+        Some(inputs)
+    } else {
+        None
+    };
     match (&o.out, out_file(&o)) {
         (Some(dir), None) => {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -1094,7 +1143,10 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
     }
     let (mut made, mut failed) = (0, 0);
     let mut verification_failed = false;
-    let inputs = files(&o.paths)?;
+    let inputs = match receipt_inputs {
+        Some(inputs) => inputs,
+        None => files(&o.paths)?,
+    };
     let mut destinations = std::collections::BTreeSet::new();
     for path in &inputs {
         let output = target(
@@ -1147,8 +1199,27 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                     .as_ref()
                     .expect("snapshot requested with --verify");
                 if matches!(done, Done::Made) {
-                    let report = verify_written(source, &output_path)?;
-                    show_verification(&path, Some(&output_path), &source.format, &report, o.json);
+                    let copy_snapshot = o
+                        .receipt
+                        .as_ref()
+                        .map(|_| receipt::snapshot_copy(&output_path))
+                        .transpose()?;
+                    let verify_path = copy_snapshot
+                        .as_ref()
+                        .map_or(output_path.as_path(), receipt::CopySnapshot::path);
+                    let (format, report) = verify_written(source, verify_path)?;
+                    show_verification(&path, Some(&output_path), &format, &report, o.json);
+                    if let Some(receipt_path) = &o.receipt {
+                        let copy_snapshot = copy_snapshot
+                            .as_ref()
+                            .ok_or_else(|| "could not create verification snapshot".to_string())?;
+                        receipt::write_copy_receipt(
+                            receipt_path,
+                            copy_snapshot.sha256(),
+                            &format,
+                            &report,
+                        )?;
+                    }
                     verification_failed |=
                         !report.present.is_empty() || !report.unchecked.is_empty();
                 } else {
@@ -1213,8 +1284,27 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
                 .as_ref()
                 .expect("snapshot requested with --verify");
             if matches!(done, Done::Made) {
-                let report = verify_written(source, &output_path)?;
-                show_verification(&path, Some(&output_path), &source.format, &report, o.json);
+                let copy_snapshot = o
+                    .receipt
+                    .as_ref()
+                    .map(|_| receipt::snapshot_copy(&output_path))
+                    .transpose()?;
+                let verify_path = copy_snapshot
+                    .as_ref()
+                    .map_or(output_path.as_path(), receipt::CopySnapshot::path);
+                let (format, report) = verify_written(source, verify_path)?;
+                show_verification(&path, Some(&output_path), &format, &report, o.json);
+                if let Some(receipt_path) = &o.receipt {
+                    let copy_snapshot = copy_snapshot
+                        .as_ref()
+                        .ok_or_else(|| "could not create verification snapshot".to_string())?;
+                    receipt::write_copy_receipt(
+                        receipt_path,
+                        copy_snapshot.sha256(),
+                        &format,
+                        &report,
+                    )?;
+                }
                 verification_failed |= !report.present.is_empty() || !report.unchecked.is_empty();
             } else {
                 let report = VerificationReport::skipped();
@@ -1234,6 +1324,35 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             ExitCode::SUCCESS
         },
     )
+}
+
+/// Resolve a path for collision checks even when its leaf or some parents do
+/// not exist yet. Existing ancestors are canonicalized so symlink aliases do
+/// not let the receipt replace an input or clean copy through another name.
+fn normalized_path(path: &Path) -> Result<PathBuf, String> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(path)
+    };
+    let mut cursor = absolute.as_path();
+    let mut missing = Vec::new();
+    while !cursor.exists() {
+        let name = cursor
+            .file_name()
+            .ok_or_else(|| "invalid destination path".to_string())?;
+        missing.push(name.to_os_string());
+        cursor = cursor
+            .parent()
+            .ok_or_else(|| "invalid destination path".to_string())?;
+    }
+    let mut normalized = std::fs::canonicalize(cursor).map_err(|e| e.to_string())?;
+    for component in missing.into_iter().rev() {
+        normalized.push(component);
+    }
+    Ok(normalized)
 }
 
 #[cfg(test)]

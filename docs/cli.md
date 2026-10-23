@@ -30,6 +30,7 @@ for people and get better as the wording does.
 | `hexscope check PATH...` | What each file gives away, and what is wrong with it | Nothing; it reports |
 | `hexscope PATH...` | The same as `check` | Nothing |
 | `hexscope clean PATH...` | Copies without what they give away | `NAME-clean.EXT` beside each file, or into `--out` |
+| `hexscope receipt verify COPY RECEIPT.json` | Checks whether a copy has the bytes named in its receipt | Nothing; it reports |
 | `hexscope repair PATH...` | Copies of damaged files with what survived | `NAME-repaired.EXT` |
 | `hexscope redact --text WORDS PATH...` | PDFs with `WORDS` blacked out of their pages | `NAME-redacted.EXT` |
 | `hexscope batch --out DIR PATH...` | Clean copies of a folder, each read back, and a receipt | `DIR/000001-clean.EXT`…, `DIR/hexscope-report.json` |
@@ -64,6 +65,8 @@ it was given unless `clean --in-place` says so.
 | `--in-place` | clean | Replace each file with its clean copy |
 | `--notes` | clean | Also empty Excel's and PowerPoint's comments and speaker notes |
 | `--verify` | clean | Read each written copy back and say what was removed, remains, or could not be checked |
+| `--receipt FILE` | clean with `--verify` | Save an optional value-free, SHA-256-bound receipt for one written copy |
+| `--include-copy-hashes` | batch | Opt in to a distinct receipt schema with a fingerprint for each written copy |
 | `--out DIR` | clean, repair, redact, batch, film | Where the copies go; for one file with `clean` or `repair`, it can name the copy itself |
 | `--text WORDS` | redact | What to black out, wherever it appears; give it more than once for more |
 | `--recipe JSON` | film | The [film recipe](#film-recipe) to apply |
@@ -192,6 +195,25 @@ item of kind `file` with the reason `verification_skipped`.
 | `verification_skipped` | The check did not run |
 <!-- reasons:end -->
 
+## Clean-copy receipt
+
+`hexscope clean --verify --receipt FILE [--out COPY] INPUT` writes one
+value-free `hexscope.clean-copy-receipt` v1 after reading the copy back.
+The receipt contains the output format, its SHA-256 fingerprint and the same
+verification groups as `clean --verify --json`; it contains no file name,
+path, finding value, or source fingerprint. The destination cannot replace
+the input, the clean copy, or an existing file.
+
+Check the binding later, without opening the file in hexscope:
+
+```sh
+hexscope receipt verify COPY RECEIPT.json
+```
+
+Exit 0 means the copy bytes match; exit 1 means they do not; exit 2 means the
+receipt is malformed, unsupported, or has no fingerprint. A match does not
+verify who made the receipt or certify the file's safety.
+
 ## batch receipt
 
 `DIR/hexscope-report.json`, without file names or values — a file is known
@@ -205,6 +227,14 @@ by its place in the sorted list of inputs, as is its copy
 
 `verification` is the same object as in
 [clean --verify --json](#clean---verify---json), without the paths.
+
+By default this v1 report is unchanged. `batch --include-copy-hashes` opts
+into `hexscope.batch-clean-copy-receipt` v1: each written row contains a
+single-copy receipt; a row with no written copy has `receipt: null`. This
+adds stable SHA-256 fingerprints, so the choice is explicit. Rows identify
+files only by their sorted index; neither receipt schema contains paths or
+file names. If a copy was written but its fingerprint could not be computed,
+the row has `receipt: null` and `fingerprint_reason: "unavailable"`.
 
 ## mosaic --json
 

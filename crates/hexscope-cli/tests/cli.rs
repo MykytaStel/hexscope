@@ -1,5 +1,6 @@
 //! The command line, run as a person would run it.
 
+use serde_json::json;
 use std::process::Command;
 
 const BIN: &str = env!("CARGO_BIN_EXE_hexscope");
@@ -26,6 +27,13 @@ fn run(args: &[&str]) -> (i32, String, String) {
         String::from_utf8_lossy(&out.stdout).into_owned(),
         String::from_utf8_lossy(&out.stderr).into_owned(),
     )
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    hexscope_core::crypto::sha2::sha256(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn pdf_with_unreadable_page_content() -> Vec<u8> {
@@ -916,4 +924,351 @@ fn menu_adds_clean_with_hexscope_and_removes_it() {
     assert_eq!(code, 0);
     assert!(said.contains("was not there"), "{said}");
     std::fs::remove_dir_all(home).unwrap();
+}
+
+#[test]
+fn clean_receipt_is_value_free_and_checks_exact_copy_bytes() {
+    let dir = std::env::temp_dir().join(format!("hexscope-clean-receipt-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let input = dir.join("secret-source-name.jpg");
+    let output = dir.join("clean-copy.jpg");
+    let receipt_path = dir.join("verification.json");
+    std::fs::copy(fixture("photo.jpg"), &input).unwrap();
+    let source_values = hexscope_core::summary::summarize(&std::fs::read(&input).unwrap()).facts;
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--receipt",
+        receipt_path.to_str().unwrap(),
+        "--out",
+        output.to_str().unwrap(),
+        input.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(output.is_file());
+    let receipt_text = std::fs::read_to_string(&receipt_path).unwrap();
+    let receipt: serde_json::Value = serde_json::from_str(&receipt_text).unwrap();
+    assert_eq!(receipt["schema"], "hexscope.clean-copy-receipt");
+    assert_eq!(receipt["version"], 1);
+    assert_eq!(receipt["hexscope_version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(receipt["copy"]["format"], "jpeg");
+    let copy_bytes = std::fs::read(&output).unwrap();
+    assert_eq!(receipt["copy"]["sha256"], sha256_hex(&copy_bytes));
+    assert_eq!(
+        receipt["verification"]["removed"].as_array().unwrap().len(),
+        8
+    );
+    assert!(
+        receipt["verification"]["present"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        receipt["verification"]["unchecked"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!receipt_text.contains(input.to_str().unwrap()));
+    assert!(!receipt_text.contains(output.to_str().unwrap()));
+    assert!(!receipt_text.contains("secret-source-name.jpg"));
+    for (_, value) in source_values {
+        assert!(!receipt_text.contains(&value), "receipt exposed {value}");
+    }
+
+    let (code, out, err) = run(&[
+        "receipt",
+        "verify",
+        output.to_str().unwrap(),
+        receipt_path.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("bytes match"), "{out}");
+    assert!(out.contains("does not verify who made it"), "{out}");
+    assert!(out.contains("does not certify safety"), "{out}");
+
+    let mut changed = copy_bytes.clone();
+    changed[0] ^= 1;
+    std::fs::write(&output, changed).unwrap();
+    let (code, out, err) = run(&[
+        "receipt",
+        "verify",
+        output.to_str().unwrap(),
+        receipt_path.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.contains("do not match"), "{out}");
+
+    let other = dir.join("different-copy.jpg");
+    std::fs::copy(fixture("photo.jpg"), &other).unwrap();
+    let (code, out, err) = run(&[
+        "receipt",
+        "verify",
+        other.to_str().unwrap(),
+        receipt_path.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn receipt_verify_rejects_malformed_unsupported_and_unfingerprinted_receipts() {
+    let dir = std::env::temp_dir().join(format!("hexscope-receipt-invalid-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let copy = dir.join("copy.jpg");
+    std::fs::copy(fixture("photo.jpg"), &copy).unwrap();
+    let valid = json!({
+        "schema": "hexscope.clean-copy-receipt",
+        "version": 1,
+        "hexscope_version": "0.8.0",
+        "copy": {"format":"jpeg", "sha256":sha256_hex(&std::fs::read(&copy).unwrap())},
+        "verification": {"schema_version":1,"removed":[],"present":[],"unchecked":[]}
+    });
+    let mut cases = Vec::new();
+    cases.push(("malformed", "{".to_string()));
+    let mut unknown = valid.clone();
+    unknown["schema"] = json!("hexscope.unknown-receipt");
+    cases.push(("unknown", unknown.to_string()));
+    let mut future = valid.clone();
+    future["version"] = json!(99);
+    cases.push(("future", future.to_string()));
+    let mut extra = valid.clone();
+    extra["extra"] = json!("must reject");
+    cases.push(("extra", extra.to_string()));
+    let mut missing = valid.clone();
+    missing["copy"]["sha256"] = serde_json::Value::Null;
+    missing["copy"]["fingerprint_reason"] = json!("size_limit");
+    cases.push(("missing-digest", missing.to_string()));
+    let mut wrong_group = serde_json::from_str::<serde_json::Value>(&valid.to_string()).unwrap();
+    wrong_group["verification"]["removed"] =
+        json!([{"kind":"location","reason":"still_present","unexpected":false}]);
+    cases.push(("wrong-reason-group", wrong_group.to_string()));
+    let mut wrong_flag = serde_json::from_str::<serde_json::Value>(&valid.to_string()).unwrap();
+    wrong_flag["verification"]["present"] =
+        json!([{"kind":"location","reason":"unexpected_output","unexpected":false}]);
+    cases.push(("unexpected-output-flag", wrong_flag.to_string()));
+    let mut unexpected_flag =
+        serde_json::from_str::<serde_json::Value>(&valid.to_string()).unwrap();
+    unexpected_flag["verification"]["present"] =
+        json!([{"kind":"location","reason":"still_present","unexpected":true}]);
+    cases.push(("unexpected-flag", unexpected_flag.to_string()));
+
+    for (name, contents) in cases {
+        let receipt = dir.join(format!("{name}.json"));
+        std::fs::write(&receipt, contents).unwrap();
+        let (code, out, err) = run(&[
+            "receipt",
+            "verify",
+            copy.to_str().unwrap(),
+            receipt.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 2, "{name}: {out}{err}");
+        let expected_error = if name == "missing-digest" {
+            "no copy fingerprint"
+        } else {
+            "malformed or unsupported receipt"
+        };
+        assert!(err.contains(expected_error), "{name}: {out}{err}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn clean_receipt_requires_verification_one_input_and_non_aliasing_destinations() {
+    let dir = std::env::temp_dir().join(format!("hexscope-receipt-options-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let first = dir.join("first.jpg");
+    let second = dir.join("second.jpg");
+    std::fs::copy(fixture("photo.jpg"), &first).unwrap();
+    std::fs::copy(fixture("photo.jpg"), &second).unwrap();
+    let original = std::fs::read(&first).unwrap();
+    let output = dir.join("copy.jpg");
+    let receipt = dir.join("receipt.json");
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--receipt",
+        receipt.to_str().unwrap(),
+        "--out",
+        output.to_str().unwrap(),
+        first.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(err.contains("--receipt requires --verify"), "{out}{err}");
+    assert!(!output.exists());
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--receipt",
+        receipt.to_str().unwrap(),
+        "--out",
+        output.to_str().unwrap(),
+        first.to_str().unwrap(),
+        second.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(
+        err.contains("--receipt accepts exactly one input file"),
+        "{out}{err}"
+    );
+    assert!(!output.exists());
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--receipt",
+        first.to_str().unwrap(),
+        "--out",
+        output.to_str().unwrap(),
+        first.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(
+        err.contains("--receipt cannot overwrite an input or clean copy"),
+        "{out}{err}"
+    );
+    assert_eq!(std::fs::read(&first).unwrap(), original);
+    assert!(!output.exists());
+
+    std::fs::write(&output, b"existing output must stay intact").unwrap();
+    let output_before = std::fs::read(&output).unwrap();
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--receipt",
+        output.to_str().unwrap(),
+        "--out",
+        output.to_str().unwrap(),
+        first.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(
+        err.contains("clean-copy output already exists"),
+        "{out}{err}"
+    );
+    assert_eq!(std::fs::read(&output).unwrap(), output_before);
+
+    std::fs::write(&receipt, b"existing receipt must stay intact").unwrap();
+    let receipt_before = std::fs::read(&receipt).unwrap();
+    let new_output = dir.join("new-copy.jpg");
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--receipt",
+        receipt.to_str().unwrap(),
+        "--out",
+        new_output.to_str().unwrap(),
+        first.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(
+        err.contains("receipt destination already exists"),
+        "{out}{err}"
+    );
+    assert_eq!(std::fs::read(&receipt).unwrap(), receipt_before);
+    assert!(!new_output.exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn batch_default_receipt_bytes_remain_v1_and_hashes_are_opt_in() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-batch-copy-receipts-{}",
+        std::process::id()
+    ));
+    let inputs = dir.join("inputs");
+    let output = dir.join("default");
+    std::fs::create_dir_all(&inputs).unwrap();
+    std::fs::copy(fixture("photo.jpg"), inputs.join("secret-name.jpg")).unwrap();
+
+    let (code, out, err) = run(&[
+        "batch",
+        "--out",
+        output.to_str().unwrap(),
+        inputs.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    let receipt_bytes = std::fs::read(output.join("hexscope-report.json")).unwrap();
+    let expected_default = json!({
+        "schema":"hexscope.batch-receipt",
+        "version":1,
+        "total":1,
+        "written":1,
+        "failed":0,
+        "removed":8,
+        "present":0,
+        "unchecked":0,
+        "files":[{
+            "index":1,
+            "operation_state":"written",
+            "verification":{
+                "schema_version":1,
+                "removed":[
+                    {"kind":"location","reason":"removed","unexpected":false},
+                    {"kind":"camera","reason":"removed","unexpected":false},
+                    {"kind":"lens","reason":"removed","unexpected":false},
+                    {"kind":"serial","reason":"removed","unexpected":false},
+                    {"kind":"owner","reason":"removed","unexpected":false},
+                    {"kind":"taken","reason":"removed","unexpected":false},
+                    {"kind":"software","reason":"removed","unexpected":false},
+                    {"kind":"thumbnail","reason":"removed","unexpected":false}
+                ],
+                "present":[],"unchecked":[]
+            }
+        }]
+    });
+    assert_eq!(
+        receipt_bytes,
+        serde_json::to_vec_pretty(&expected_default).unwrap()
+    );
+    let default_text = String::from_utf8_lossy(&receipt_bytes);
+    assert!(!default_text.contains("sha256"));
+    assert!(!default_text.contains("secret-name.jpg"));
+    assert!(!default_text.contains(dir.to_str().unwrap()));
+
+    let opt_inputs = dir.join("opt-in-inputs");
+    let opt_output = dir.join("opt-in-output");
+    std::fs::create_dir_all(&opt_inputs).unwrap();
+    std::fs::copy(fixture("photo.jpg"), opt_inputs.join("a-private-photo.jpg")).unwrap();
+    std::fs::write(
+        opt_inputs.join("z-unsupported-secret.txt"),
+        "PRIVATE_TEXT_SENTINEL",
+    )
+    .unwrap();
+    let (code, out, err) = run(&[
+        "batch",
+        "--include-copy-hashes",
+        "--out",
+        opt_output.to_str().unwrap(),
+        opt_inputs.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1, "{out}{err}");
+    let text = std::fs::read_to_string(opt_output.join("hexscope-report.json")).unwrap();
+    let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(report["schema"], "hexscope.batch-clean-copy-receipt");
+    assert_eq!(report["version"], 1);
+    let files = report["files"].as_array().unwrap();
+    assert_eq!(files.len(), 2);
+    let written = files
+        .iter()
+        .find(|row| row["operation_state"] == "written")
+        .unwrap();
+    let clean_copy = opt_output.join("000001-clean.jpg");
+    assert_eq!(
+        written["receipt"]["copy"]["sha256"],
+        sha256_hex(&std::fs::read(clean_copy).unwrap())
+    );
+    let failed = files
+        .iter()
+        .find(|row| row["operation_state"] == "not_created")
+        .unwrap();
+    assert!(failed["receipt"].is_null());
+    assert!(!text.contains("a-private-photo.jpg"));
+    assert!(!text.contains("z-unsupported-secret.txt"));
+    assert!(!text.contains(opt_inputs.to_str().unwrap()));
+    assert!(!text.contains("PRIVATE_TEXT_SENTINEL"));
+    std::fs::remove_dir_all(&dir).unwrap();
 }
