@@ -31,8 +31,21 @@ export interface VerificationItem {
   kind: string;
   label: string;
   reason?: string;
+  /** Stable core code kept beside localized presentation text for receipts. */
+  reasonCode?: VerificationReasonCode;
   unexpected?: boolean;
 }
+
+export type VerificationReasonCode =
+  | "removed"
+  | "still_present"
+  | "value_changed_same_kind"
+  | "no_stable_value"
+  | "coverage_incomplete"
+  | "parse_incomplete"
+  | "unexpected_output"
+  | "no_comparable_findings"
+  | "verification_skipped";
 
 export interface VerificationReport {
   removed: VerificationItem[];
@@ -135,11 +148,22 @@ function identity(finding: VerificationFinding): string | null {
   return JSON.stringify([finding.format, finding.kind, finding.scope, value]);
 }
 
-function item(finding: Pick<VerificationFinding, "kind" | "label">, reason?: string, unexpected?: boolean): VerificationItem {
+function fieldIdentity(finding: VerificationFinding): string | null {
+  if (!finding.scope) return null;
+  return JSON.stringify([finding.format, finding.kind, finding.scope]);
+}
+
+function item(
+  finding: Pick<VerificationFinding, "kind" | "label">,
+  reason?: string,
+  unexpected?: boolean,
+  reasonCode?: VerificationReasonCode,
+): VerificationItem {
   return {
     kind: finding.kind,
     label: finding.label,
     ...(reason ? { reason } : {}),
+    ...(reasonCode ? { reasonCode } : {}),
     ...(unexpected ? { unexpected: true } : {}),
   };
 }
@@ -152,45 +176,144 @@ export function verifyFindings(
   retainedReasons: Readonly<Record<string, string>>,
 ): VerificationReport {
   const report: VerificationReport = { removed: [], present: [], unchecked: [] };
-  const outputUsed = new Set<number>();
+  const outputUsed = new Array<boolean>(output.length).fill(false);
+  const sourceIdentities = source.map(identity);
+  const outputIdentities = output.map(identity);
+  const sourceFields = source.map(fieldIdentity);
+  const outputFields = output.map(fieldIdentity);
+  const exactOutputs = new Map<string, number[]>();
+  const outputsByField = new Map<string, number[]>();
+  const unknownOutputsByField = new Map<string, number[]>();
+  const sourcesByField = new Map<string, number[]>();
+  const coverageByField = new Map<string, VerificationCoverage>();
+  const sourceResults: ({ group: "present" | "unchecked"; item: VerificationItem } | undefined)[] =
+    new Array(source.length);
 
-  for (const original of source) {
-    const originalIdentity = identity(original);
-    const matchingIndex = originalIdentity === null
-      ? -1
-      : output.findIndex((candidate, index) => !outputUsed.has(index) && identity(candidate) === originalIdentity);
-
-    if (matchingIndex >= 0) {
-      outputUsed.add(matchingIndex);
-      const reason = retainedReasons[original.kind];
-      report.present.push(item(original, reason ?? stillPresent));
-      continue;
+  for (const capability of coverage) {
+    const key = JSON.stringify([capability.format, capability.kind, capability.scope]);
+    coverageByField.set(key, capability);
+  }
+  output.forEach((_, index) => {
+    const exact = outputIdentities[index];
+    if (exact) {
+      const group = exactOutputs.get(exact) ?? [];
+      group.push(index);
+      exactOutputs.set(exact, group);
     }
-
-    if (originalIdentity === null) {
-      report.unchecked.push(item(original, noStableValue));
-      continue;
+    const field = outputFields[index];
+    if (field) {
+      const group = outputsByField.get(field) ?? [];
+      group.push(index);
+      outputsByField.set(field, group);
+      if (!outputIdentities[index]) {
+        const unknown = unknownOutputsByField.get(field) ?? [];
+        unknown.push(index);
+        unknownOutputsByField.set(field, unknown);
+      }
     }
+  });
+  sourceFields.forEach((field, index) => {
+    if (!field) return;
+    const group = sourcesByField.get(field) ?? [];
+    group.push(index);
+    sourcesByField.set(field, group);
+  });
 
-    const capability = coverage.find(
-      (candidate) => candidate.format === original.format && candidate.kind === original.kind && candidate.scope === original.scope,
-    );
-    if (!capability?.complete) {
-      report.unchecked.push(item(original, capability?.reason ?? noCompleteCoverage(original.format)));
-      continue;
+  // Reserve every exact occurrence first. A changed value must not consume an
+  // output that exactly matches a later source finding.
+  const exactCursors = new Map<string, number>();
+  source.forEach((original, index) => {
+    const exact = sourceIdentities[index];
+    if (!exact) return;
+    const candidates = exactOutputs.get(exact);
+    if (!candidates) return;
+    let cursor = exactCursors.get(exact) ?? 0;
+    while (cursor < candidates.length && outputUsed[candidates[cursor]]) cursor++;
+    const matched = candidates[cursor];
+    if (matched === undefined) return;
+    outputUsed[matched] = true;
+    exactCursors.set(exact, cursor + 1);
+    sourceResults[index] = {
+      group: "present",
+      item: item(original, retainedReasons[original.kind] ?? stillPresent, false, "still_present"),
+    };
+  });
+
+  // Pair stable leftovers of the same format, kind, and scope as changed
+  // values. Each side advances through indexed queues instead of rescanning
+  // every finding for each source item.
+  const fieldCursors = new Map<string, number>();
+  source.forEach((original, index) => {
+    if (sourceResults[index] || !sourceIdentities[index]) return;
+    const field = sourceFields[index];
+    if (!field) return;
+    const candidates = outputsByField.get(field);
+    if (!candidates) return;
+    let cursor = fieldCursors.get(field) ?? 0;
+    while (
+      cursor < candidates.length
+      && (outputUsed[candidates[cursor]] || !outputIdentities[candidates[cursor]])
+    ) cursor++;
+    const matched = candidates[cursor];
+    if (matched === undefined) {
+      fieldCursors.set(field, cursor);
+      return;
     }
+    outputUsed[matched] = true;
+    fieldCursors.set(field, cursor + 1);
+    sourceResults[index] = {
+      group: "present",
+      item: item(original, "A different value remains in the copy.", false, "value_changed_same_kind"),
+    };
+  });
 
-    report.removed.push(item(original));
+  // A same-kind output with no stable value makes unmatched source findings
+  // uncertain; pair those occurrences instead of claiming they were removed.
+  for (const [field, candidates] of unknownOutputsByField) {
+    const unmatchedSources = sourcesByField.get(field) ?? [];
+    const unmatched = unmatchedSources.filter((sourceIndex) => !sourceResults[sourceIndex]);
+    for (const sourceIndex of unmatched) {
+      sourceResults[sourceIndex] = {
+        group: "unchecked",
+        item: item(source[sourceIndex], noStableValue, false, "no_stable_value"),
+      };
+    }
+    let remaining = unmatched.length;
+    for (const outputIndex of candidates) {
+      if (remaining === 0) break;
+      if (outputUsed[outputIndex]) continue;
+      outputUsed[outputIndex] = true;
+      remaining--;
+    }
   }
 
+  source.forEach((original, index) => {
+    const result = sourceResults[index];
+    if (result) {
+      report[result.group].push(result.item);
+      return;
+    }
+    if (!sourceIdentities[index]) {
+      report.unchecked.push(item(original, noStableValue, false, "no_stable_value"));
+      return;
+    }
+    const field = sourceFields[index];
+    const capability = field ? coverageByField.get(field) : undefined;
+    if (!capability?.complete) {
+      report.unchecked.push(item(original, capability?.reason ?? noCompleteCoverage(original.format), false, "coverage_incomplete"));
+      return;
+    }
+    report.removed.push(item(original, undefined, false, "removed"));
+  });
+
   output.forEach((finding, index) => {
-    if (outputUsed.has(index)) return;
-    if (identity(finding) === null) report.unchecked.push(item(finding, noStableValue));
-    else report.present.push(item(finding, undefined, true));
+    if (outputUsed[index]) return;
+    if (!outputIdentities[index]) report.unchecked.push(item(finding, noStableValue, false, "no_stable_value"));
+    else report.present.push(item(finding, undefined, true, "unexpected_output"));
   });
 
   if (report.removed.length + report.present.length + report.unchecked.length === 0) {
-    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check." });
+    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check.", reasonCode: "no_comparable_findings" });
   }
   return report;
 }
@@ -218,10 +341,14 @@ function normalizedPdfText(text: string): string {
   return text.normalize("NFC").toLowerCase().split(/\s+/u).filter(Boolean).join(" ");
 }
 
-function uncheckedSelection(selection: VerificationSelection, reason: string): VerificationItem {
+function uncheckedSelection(
+  selection: VerificationSelection,
+  reason: string,
+  reasonCode: VerificationReasonCode,
+): VerificationItem {
   return selection.areaOnly
-    ? item({ kind: PDF_AREA_KIND, label: PDF_AREA_LABEL }, reason)
-    : item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }, reason);
+    ? item({ kind: PDF_AREA_KIND, label: PDF_AREA_LABEL }, reason, false, reasonCode)
+    : item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }, reason, false, reasonCode);
 }
 
 /** Check each selected text occurrence only against the output page it came from. */
@@ -232,37 +359,37 @@ export function verifyPdfSelections(
   const report: VerificationReport = { removed: [], present: [], unchecked: [] };
   for (const selection of selections) {
     if (selection.areaOnly) {
-      report.unchecked.push(uncheckedSelection(selection, PDF_AREA_UNCHECKED_REASON));
+      report.unchecked.push(uncheckedSelection(selection, PDF_AREA_UNCHECKED_REASON, "coverage_incomplete"));
       continue;
     }
 
     const needle = normalizedPdfText(selection.text);
     if (!needle) {
-      report.unchecked.push(uncheckedSelection(selection, "No searchable text was available for this selection."));
+      report.unchecked.push(uncheckedSelection(selection, "No searchable text was available for this selection.", "no_stable_value"));
       continue;
     }
     if (!selection.sourceComplete) {
-      report.unchecked.push(uncheckedSelection(selection, "The source page was incomplete, so this selection could not be checked."));
+      report.unchecked.push(uncheckedSelection(selection, "The source page was incomplete, so this selection could not be checked.", "parse_incomplete"));
       continue;
     }
 
     const page = pages.find((candidate) => candidate.page === selection.page);
     if (!page) {
-      report.unchecked.push(uncheckedSelection(selection, "The corresponding output page could not be checked."));
+      report.unchecked.push(uncheckedSelection(selection, "The corresponding output page could not be checked.", "parse_incomplete"));
       continue;
     }
     if (!page.complete) {
-      report.unchecked.push(uncheckedSelection(selection, "The output page was incomplete, so this selection could not be checked."));
+      report.unchecked.push(uncheckedSelection(selection, "The output page was incomplete, so this selection could not be checked.", "parse_incomplete"));
       continue;
     }
 
     const haystack = normalizedPdfText(page.text);
-    if (haystack.includes(needle)) report.present.push(item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }));
-    else report.removed.push(item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }));
+    if (haystack.includes(needle)) report.present.push(item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }, undefined, false, "still_present"));
+    else report.removed.push(item({ kind: PDF_TEXT_KIND, label: PDF_TEXT_LABEL }, undefined, false, "removed"));
   }
 
   if (report.removed.length + report.present.length + report.unchecked.length === 0) {
-    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check." });
+    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check.", reasonCode: "no_comparable_findings" });
   }
   return report;
 }
@@ -273,13 +400,20 @@ export function uncheckedReport(
   selections: readonly VerificationSelection[],
   reason: string,
 ): VerificationReport {
+  const code: VerificationReasonCode = reason.startsWith("hexscope could not completely read")
+    ? "parse_incomplete"
+    : "verification_skipped";
   const unchecked = [
-    ...source.map((finding) => item(finding, reason)),
+    ...source.map((finding) => item(finding, reason, false, code)),
     ...selections.map((selection) =>
-      uncheckedSelection(selection, selection.areaOnly ? `${PDF_AREA_UNCHECKED_REASON} ${reason}` : reason),
+      uncheckedSelection(
+        selection,
+        selection.areaOnly ? `${PDF_AREA_UNCHECKED_REASON} ${reason}` : reason,
+        selection.areaOnly ? "coverage_incomplete" : code,
+      ),
     ),
   ];
-  if (unchecked.length === 0) unchecked.push({ kind: "verification", label: "Copy verification", reason });
+  if (unchecked.length === 0) unchecked.push({ kind: "verification", label: "Copy verification", reason, reasonCode: code });
   return { removed: [], present: [], unchecked };
 }
 
@@ -302,6 +436,7 @@ function compactReport(value: unknown): VerificationReport | null {
         kind: candidate.kind,
         label: candidate.label,
         ...(typeof candidate.reason === "string" ? { reason: candidate.reason } : {}),
+        ...(isVerificationReasonCode(candidate.reasonCode) ? { reasonCode: candidate.reasonCode } : {}),
         ...(candidate.unexpected === true ? { unexpected: true } : {}),
       });
     }
@@ -311,6 +446,14 @@ function compactReport(value: unknown): VerificationReport | null {
   const present = items(report.present);
   const unchecked = items(report.unchecked);
   return removed && present && unchecked ? { removed, present, unchecked } : null;
+}
+
+function isVerificationReasonCode(value: unknown): value is VerificationReasonCode {
+  return typeof value === "string" && [
+    "removed", "still_present", "value_changed_same_kind", "no_stable_value",
+    "coverage_incomplete", "parse_incomplete", "unexpected_output",
+    "no_comparable_findings", "verification_skipped",
+  ].includes(value);
 }
 
 /** Run a bounded worker check and map every skip, failure, or malformed reply to a private unchecked report. */

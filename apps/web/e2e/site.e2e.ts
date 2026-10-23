@@ -2,6 +2,7 @@
 // the answer, save a clean copy, check an email, go offline. Run on a
 // computer's screen and a phone's (playwright.config.ts).
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { openView } from "./views";
@@ -551,12 +552,17 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
 });
 
 test("comparison gives both files a clear summary and keeps raw bytes in a detail view", async ({ page }) => {
+  const comparisonModules: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/assets/compare-")) comparisonModules.push(request.url());
+  });
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
     localStorage.setItem("hexscope.tour", "done");
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
+  expect(comparisonModules).toHaveLength(0);
 
   const desktopCompare = page.locator("#app-nav [data-app-action='compare']");
   if (await desktopCompare.isVisible()) {
@@ -569,6 +575,7 @@ test("comparison gives both files a clear summary and keeps raw bytes in a detai
     await page.locator("#drawer .compare-pick").click();
     await (await chooserEvent).setFiles(sample("report.docx"));
   }
+  await expect.poll(() => comparisonModules.length).toBe(1);
 
   const dialog = page.locator("dialog.compare");
   await expect(dialog).toBeVisible();
@@ -1057,6 +1064,24 @@ function catchDownloads(page: Page): string[] {
     void d.cancel();
   });
   return names;
+}
+
+/** The app writes ZIP entries with method 0 (stored), so their local headers suffice. */
+function storedZipEntries(path: string): Map<string, Buffer> {
+  const bytes = readFileSync(path);
+  const entries = new Map<string, Buffer>();
+  let offset = 0;
+  while (offset + 30 <= bytes.length && bytes.readUInt32LE(offset) === 0x04034b50) {
+    const size = bytes.readUInt32LE(offset + 18);
+    const nameLength = bytes.readUInt16LE(offset + 26);
+    const extraLength = bytes.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + nameLength + extraLength;
+    const name = bytes.subarray(nameStart, nameStart + nameLength).toString("utf8");
+    entries.set(name, bytes.subarray(dataStart, dataStart + size));
+    offset = dataStart + size;
+  }
+  return entries;
 }
 
 test("shows local film-border patterns as clues, not proof of a film original", async ({ page }) => {
@@ -1991,6 +2016,7 @@ test("clean copy verification announces a controlled result while copy actions s
 
   const report = page.locator(".copy-verification");
   await expect(report).toContainText("Checking the copy in this tab");
+  await expect(report.getByRole("button", { name: "Save verification receipt" })).toHaveCount(0);
   const tone = await page.locator(".before-after .ba-side.is-after").evaluate((actual) => {
     const expected = document.createElement("div");
     expected.className = "ba-side is-after";
@@ -2008,8 +2034,45 @@ test("clean copy verification announces a controlled result while copy actions s
   await expect(report).toContainText("This finding is still present in the copy.");
   await expect(report.getByRole("heading", { name: "Not checked" })).toBeVisible();
   await expect(report).toContainText("This finding has no stable value to compare.");
+  await expect(report.getByRole("button", { name: "Save verification receipt" })).toBeVisible();
   await expect(report).not.toContainText("Private value");
   await expect(page.locator(".before-after .ba-side.is-after")).not.toHaveClass(/is-clear/);
+});
+
+test("saves a value-free single-copy receipt after the read-back result", async ({ page }) => {
+  const receiptChunks: string[] = [];
+  page.on("request", (request) => {
+    if (/clean-copy-receipt-.*\.js(?:\?|$)/.test(request.url())) receiptChunks.push(request.url());
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+  const report = page.locator(".copy-verification");
+  const button = report.getByRole("button", { name: "Save verification receipt" });
+  await expect(button).toBeVisible();
+  await expect(report.locator(".copy-receipt-note").first()).toContainText("stable SHA-256");
+  await expect(report.locator(".copy-receipt-note").last()).toContainText("Copies over 10 MiB");
+  expect(receiptChunks).toEqual([]);
+
+  const downloadPromise = page.waitForEvent("download", {
+    predicate: (download) => download.suggestedFilename() === "hexscope-clean-copy.json",
+  });
+  await button.click();
+  const download = await downloadPromise;
+  expect(receiptChunks.length).toBeGreaterThan(0);
+  const path = await download.path();
+  expect(path).not.toBeNull();
+  const text = readFileSync(path!, "utf8");
+  const receipt = JSON.parse(text);
+  expect(receipt).toMatchObject({
+    schema: "hexscope.clean-copy-receipt",
+    version: 1,
+    copy: { format: "jpeg" },
+    verification: { schema_version: 1 },
+  });
+  expect(receipt.copy.sha256).toMatch(/^[a-f0-9]{64}$/);
+  expect(text).not.toContain("photo.jpg");
+  expect(text).not.toContain("Private value");
 });
 
 test("clean copy verification keeps copy actions when the worker returns an error", async ({ page }) => {
@@ -2365,6 +2428,45 @@ test("several files: listed, then clean copies of those that give something away
     // A phone that cannot share files saves the archive too.
     await expect(list).toContainText(/clean cop/);
   }
+});
+
+test("batch copy fingerprints are opt-in and match the bytes stored in the ZIP", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the phone offers the ZIP from its share actions");
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles([sample("photo.jpg"), sample("report.docx")]);
+  const option = page.locator(".batch-fingerprints input");
+  await expect(option).toBeVisible();
+  await expect(option).not.toBeChecked();
+  await page.locator(".batch-fingerprints").hover();
+  await expect(page.locator(".batch-fingerprints")).toHaveAttribute(
+    "title",
+    "Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.",
+  );
+  await option.check();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.locator("#batch .btn-clean").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("hexscope-clean-copies.zip");
+  const archive = storedZipEntries(await download.path());
+  const outputBytes = [...archive.entries()].find(([name]) => name.endsWith(".jpg"))?.[1];
+  const reportBytes = archive.get("hexscope-report.json");
+  expect(outputBytes).toBeDefined();
+  expect(reportBytes).toBeDefined();
+  const reportText = reportBytes!.toString("utf8");
+  const report = JSON.parse(reportText);
+  expect(report.schema).toBe("hexscope.batch-clean-copy-receipt");
+  expect(report.files).toHaveLength(2);
+  expect(report.files[0]).toMatchObject({
+    index: 1,
+    operation_state: "written",
+    receipt: {
+      schema: "hexscope.clean-copy-receipt",
+      copy: { format: "jpeg", sha256: createHash("sha256").update(outputBytes!).digest("hex") },
+    },
+  });
+  expect(reportText).not.toContain("photo.jpg");
+  expect(reportText).not.toContain("hexscope-clean-copies.zip");
 });
 
 test("a broken picture: what is wrong, and a repaired copy", async ({ page }) => {

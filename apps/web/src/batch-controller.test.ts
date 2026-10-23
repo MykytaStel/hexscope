@@ -124,7 +124,7 @@ describe("BatchController", () => {
     const controller = new BatchController(view, {
       analyze: async (input) => report(input),
       openFile: () => {},
-      saveClean: async (_items, _keepNames, _output, current) => {
+      saveClean: async (_items, _keepNames, _includeCopyFingerprints, _output, current) => {
         isCurrent = current;
         await pending.promise;
         if (current()) view.result = "saved";

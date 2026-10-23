@@ -49,7 +49,6 @@ export function renderCopyVerification(
   onReport?: (report: VerificationReport | undefined) => void,
 ): void {
   const render = (report: VerificationReport, notify = true) => {
-    if (notify) onReport?.(report);
     const groups: [string, VerificationReport["removed"]][] = [
       ["Removed", report.removed],
       ["Still present", report.present],
@@ -73,14 +72,14 @@ export function renderCopyVerification(
         return group;
       }),
     );
+    if (notify) onReport?.(report);
   };
 
   void verification.then(render, () => {
-    onReport?.(undefined);
     render({
       removed: [],
       present: [],
-      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable." }],
-    }, false);
+      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable.", reasonCode: "verification_skipped" }],
+    });
   });
 }

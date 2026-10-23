@@ -2,13 +2,11 @@
 // and the translation of whatever the page shows. The Ukrainian words live
 // in i18n-uk.ts, loaded only when a page is to read in Ukrainian or was
 // written in it: an English reader never downloads them.
-export type Locale = "en" | "uk";
+import { lazyReverse, lazyTranslations, loadedDictionary, type Locale } from "./i18n-registry.ts";
+export { lazyReverse, lazyTranslations, useDictionary } from "./i18n-registry.ts";
+export type { Locale } from "./i18n-registry.ts";
 
 const LANGUAGE_KEY = "hexscope.language";
-/** Ukrainian copy that features and pages register for themselves, beside the dictionary's. */
-export const lazyTranslations: Record<string, string> = {};
-/** The same, from the Ukrainian back to the English. */
-export const lazyReverse = new Map<string, string>();
 
 /** Adds copy for an optional, dynamically loaded feature without bloating the first page bundle. */
 export function registerLazyTranslations(translations: Readonly<Record<string, string>>): void {
@@ -17,25 +15,14 @@ export function registerLazyTranslations(translations: Readonly<Record<string, s
   for (const [english, ukrainian] of Object.entries(translations)) lazyReverse.set(ukrainian, english);
 }
 
-/** What the Ukrainian dictionary does, once it has loaded. */
-interface Dictionary {
-  translate(value: string): string;
-  untranslate(value: string): string | undefined;
-}
-let dictionary: Dictionary | undefined;
-
-/** Called by i18n-uk.ts as it loads, however it was loaded. */
-export function useDictionary(loaded: Dictionary): void {
-  dictionary = loaded;
-}
-
 /** The English a Ukrainian text was translated from, keeping the spaces around it. */
 export function untranslate(value: string): string | undefined {
-  return dictionary?.untranslate(value);
+  return loadedDictionary()?.untranslate(value);
 }
 
 /** `value` in `locale`; English until the Ukrainian dictionary has loaded. */
 export function translateText(value: string, locale: Locale): string {
+  const dictionary = loadedDictionary();
   return locale === "en" || !dictionary ? value : dictionary.translate(value);
 }
 

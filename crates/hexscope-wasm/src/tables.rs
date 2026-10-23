@@ -76,6 +76,25 @@ pub(crate) fn extract_message(err: ExtractError) -> String {
         ExtractError::Crc { stored, actual } => {
             format!("its CRC-32 does not match: stored {stored:08X}, computed {actual:08X}")
         }
+        ExtractError::SizeMismatch { .. } => {
+            "the extracted size does not match what the archive records".into()
+        }
         ExtractError::TooLarge => "it would decompress to more than 512 MB".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extraction_size_mismatch_has_a_specific_message() {
+        assert_eq!(
+            extract_message(ExtractError::SizeMismatch {
+                expected: 10,
+                actual: 9,
+            }),
+            "the extracted size does not match what the archive records"
+        );
     }
 }

@@ -26,6 +26,7 @@ pub mod naming;
 pub mod pdf;
 pub mod png;
 pub mod reader;
+pub mod receipt;
 pub mod repair;
 pub mod rtf;
 pub mod strings;

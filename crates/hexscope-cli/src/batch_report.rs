@@ -76,11 +76,13 @@ pub fn bounded_read(path: &Path) -> Result<Vec<u8>, String> {
 
 pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let mut out = None;
+    let mut include_copy_hashes = false;
     let mut paths = Vec::new();
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--out" => out = Some(PathBuf::from(it.next().ok_or("--out needs a directory")?)),
+            "--include-copy-hashes" => include_copy_hashes = true,
             arg if arg.starts_with('-') => return Err(format!("unknown batch option: {arg}")),
             _ => paths.push(PathBuf::from(arg)),
         }
@@ -129,6 +131,7 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let mut present = 0;
     let mut unchecked = 0;
     for (index, (source, target)) in files.iter().zip(&targets).enumerate() {
+        let mut copy_created = false;
         let result = (|| -> Result<Value, String> {
             let data = bounded_read(source)?;
             let before = snapshot(&summarize(&data));
@@ -143,33 +146,65 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
                 let _ = fs::remove_file(target);
                 return Err(e.to_string());
             }
+            copy_created = true;
             written += 1;
             let actual = bounded_read(target)?;
-            let report = compare(&before, &snapshot(&summarize(&actual)));
+            let actual_summary = summarize(&actual);
+            let report = compare(&before, &snapshot(&actual_summary));
             removed += report.removed.len();
             present += report.present.len();
             unchecked += report.unchecked.len();
-            Ok(
-                json!({"index":index+1,"operation_state":"written","verification":serde_json::from_str::<Value>(&report.to_json()).map_err(|e|e.to_string())?}),
-            )
+            if include_copy_hashes {
+                let digest = crate::receipt::hash_bytes(&actual);
+                let receipt = hexscope_core::receipt::copy_receipt_json(
+                    actual_summary.format,
+                    Some(&digest),
+                    None,
+                    &report,
+                )
+                .map_err(|e| e.to_string())?;
+                Ok(json!({
+                    "index": index + 1,
+                    "operation_state": "written",
+                    "receipt": serde_json::from_str::<Value>(&receipt).map_err(|e| e.to_string())?
+                }))
+            } else {
+                Ok(
+                    json!({"index":index+1,"operation_state":"written","verification":serde_json::from_str::<Value>(&report.to_json()).map_err(|e|e.to_string())?}),
+                )
+            }
         })();
         match result {
             Ok(row) => rows.push(row),
             Err(error) => {
-                failed += 1;
                 eprintln!("{}: {error}", source.display());
-                rows.push(json!({"index":index+1,"operation_state":if targets[index].exists(){"written"}else{"not_created"},"verification":{"schema_version":1,"removed":[],"present":[],"unchecked":[{"kind":"file","reason":"verification_skipped","unexpected":false}]}}));
+                if !copy_created {
+                    failed += 1;
+                }
+                if include_copy_hashes {
+                    rows.push(if copy_created {
+                        json!({"index":index+1,"operation_state":"written","receipt":null,"fingerprint_reason":"unavailable"})
+                    } else {
+                        json!({"index":index+1,"operation_state":"not_created","receipt":null})
+                    });
+                } else {
+                    rows.push(json!({"index":index+1,"operation_state":if copy_created{"written"}else{"not_created"},"verification":{"schema_version":1,"removed":[],"present":[],"unchecked":[{"kind":"file","reason":"verification_skipped","unexpected":false}]}}));
+                }
                 unchecked += 1;
             }
         }
     }
-    let report = json!({"schema":"hexscope.batch-receipt","version":1,"total":files.len(),"written":written,"failed":failed,"removed":removed,"present":present,"unchecked":unchecked,"files":rows});
+    let report = if include_copy_hashes {
+        json!({"schema":"hexscope.batch-clean-copy-receipt","version":1,"total":files.len(),"written":written,"failed":failed,"removed":removed,"present":present,"unchecked":unchecked,"files":rows})
+    } else {
+        json!({"schema":"hexscope.batch-receipt","version":1,"total":files.len(),"written":written,"failed":failed,"removed":removed,"present":present,"unchecked":unchecked,"files":rows})
+    };
     receipt_file
         .write_all(&serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?)
         .and_then(|()| receipt_file.sync_all())
         .map_err(|e| e.to_string())?;
     eprintln!(
-        "{written} copies written; {failed} not completed; findings: {removed} removed, {present} present, {unchecked} unchecked. Receipt: hexscope-report.json"
+        "{written} copies written; {failed} not created; findings: {removed} removed, {present} present, {unchecked} unchecked. Receipt: hexscope-report.json"
     );
     Ok(if failed > 0 || present > 0 || unchecked > 0 {
         ExitCode::from(1)

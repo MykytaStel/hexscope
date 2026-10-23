@@ -1,5 +1,5 @@
 import type { ParsedFile } from "./model";
-import type { VerificationItem, VerificationReport } from "./verification";
+import type { VerificationItem, VerificationReasonCode, VerificationReport } from "./verification";
 
 const CORE_REASONS = [
   "removed",
@@ -11,7 +11,7 @@ const CORE_REASONS = [
   "unexpected_output",
   "no_comparable_findings",
   "verification_skipped",
-] as const;
+] as const satisfies readonly VerificationReasonCode[];
 
 type CoreReason = (typeof CORE_REASONS)[number];
 type Group = "removed" | "present" | "unchecked";
@@ -101,6 +101,7 @@ function decodeItem(
   return {
     kind,
     label,
+    reasonCode: reason,
     ...(explanation ? { reason: explanation } : {}),
     ...(unexpected ? { unexpected: true } : {}),
   };

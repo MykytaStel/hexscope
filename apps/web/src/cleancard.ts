@@ -13,6 +13,8 @@ import { loadCopyVerification } from "./copyverification-loader";
 import { currentLocale, translateText } from "./i18n";
 import { cleanCopySummary, cleanCopySummaryLabel } from "./clean-summary";
 
+const tr = (copy: string) => translateText(copy, currentLocale());
+
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
   copy: Blob;
@@ -61,7 +63,8 @@ export interface CleanActions {
 /** A compact report about the output Blob; the finding's value never reaches this view. */
 export function copyVerification(
   result: CleanResult,
-  onReport?: (report: VerificationReport | undefined) => void,
+  onReport: ((report: VerificationReport | undefined) => void) | undefined,
+  format: string,
 ): HTMLElement | null {
   if (!result.verification) {
     onReport?.(undefined);
@@ -74,14 +77,29 @@ export function copyVerification(
   region.setAttribute("aria-atomic", "false");
   region.append(el("p", "copy-verification-pending", "Checking the copy in this tab…"));
   const verification = result.verification;
+  const addReceiptAction = (report: VerificationReport) => {
+    void import("./receipt-button")
+      .then(({ appendCleanCopyReceiptAction }) =>
+        appendCleanCopyReceiptAction(region, format, result.copy, report))
+      .catch(() => announce(tr("Try again")));
+  };
+  const unavailable: VerificationReport = {
+    removed: [],
+    present: [],
+    unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable.", reasonCode: "verification_skipped" }],
+  };
   void loadCopyVerification()
-    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification, onReport))
+    .then(({ renderCopyVerification }) => renderCopyVerification(region, verification, (report) => {
+      onReport?.(report);
+      addReceiptAction(report ?? unavailable);
+    }))
     .catch(() => {
-      onReport?.(undefined);
+      onReport?.(unavailable);
       region.replaceChildren(
         el("p", "copy-verification-pending", "Not checked"),
         el("p", "verify-reason", "Check unavailable."),
       );
+      addReceiptAction(unavailable);
     });
   return region;
 }
@@ -118,7 +136,6 @@ const DATED = /(?:19|20)\d{2}[-_.]?(?:0[1-9]|1[0-2])[-_.]?(?:0[1-9]|[12]\d|3[01]
 export function beforeAfter(m: FileModel, r: CleanResult): HTMLElement {
   const before = categories(m).length;
   const card = el("div", "before-after");
-  const tr = (copy: string) => translateText(copy, currentLocale());
   const side = (tone: string, label: string, count: string, what: string, name: string, size: number) => {
     const s = el("div", `ba-side ${tone}`);
     const n = el("span", "ba-count", count);
@@ -143,7 +160,6 @@ export function beforeAfter(m: FileModel, r: CleanResult): HTMLElement {
 
 /** Update the visual summary only from the same readback report shown below it. */
 export function renderBeforeAfter(card: HTMLElement, report: VerificationReport | undefined): void {
-  const tr = (copy: string) => translateText(copy, currentLocale());
   const summary = cleanCopySummary(report);
   const after = card.querySelector<HTMLElement>(".ba-side.is-after");
   const count = after?.querySelector<HTMLElement>(".ba-count");

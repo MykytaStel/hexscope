@@ -141,7 +141,7 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
       for (const fact of revealList.querySelectorAll<HTMLElement>("dt[data-kind], dd[data-kind]")) {
         fact.classList.toggle("is-removed", report !== undefined && removedKinds.has(fact.dataset.kind ?? ""));
       }
-    });
+    }, format);
     if (verification) box.append(verification);
     const thanks = thanksLine();
     if (thanks) box.append(thanks);

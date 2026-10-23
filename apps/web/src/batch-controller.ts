@@ -1,7 +1,7 @@
 import type { BatchItem } from "./batch";
 import type { CleanCopiesView } from "./batchclean";
 
-export type BatchAnalysis = Pick<BatchItem, "kind" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal">;
+export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal">;
 
 /** The output that batch analysis and clean-copy work share with its view. */
 export interface BatchViewPort extends CleanCopiesView {
@@ -11,7 +11,7 @@ export interface BatchViewPort extends CleanCopiesView {
 export interface BatchControllerHooks {
   analyze(file: File): Promise<BatchAnalysis>;
   openFile(file: File): void;
-  saveClean(items: BatchItem[], keepNames: boolean, output: BatchViewPort, isCurrent: () => boolean): Promise<void>;
+  saveClean(items: BatchItem[], keepNames: boolean, includeCopyFingerprints: boolean, output: BatchViewPort, isCurrent: () => boolean): Promise<void>;
   announce(message: string): void;
 }
 
@@ -78,11 +78,11 @@ export class BatchController {
     this.hooks.openFile(item.file);
   }
 
-  async saveClean(keepNames: boolean): Promise<void> {
+  async saveClean(keepNames: boolean, includeCopyFingerprints = false): Promise<void> {
     const items = this.current;
     if (!items) return;
     const generation = this.generation;
-    await this.hooks.saveClean(items, keepNames, this.view, () => this.isCurrent(items, generation));
+    await this.hooks.saveClean(items, keepNames, includeCopyFingerprints, this.view, () => this.isCurrent(items, generation));
   }
 
   private isCurrent(items: BatchItem[], generation: number): boolean {

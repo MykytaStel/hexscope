@@ -977,7 +977,7 @@ export class Drawer {
       open.title = "Check it yourself: search it for what you blacked out";
       open.addEventListener("click", () => this.cleaning.open(r.copy));
       result.append(open);
-      const verification = copyVerification(r);
+      const verification = copyVerification(r, undefined, m.file.format);
       if (verification) result.append(verification);
     });
     return group;
