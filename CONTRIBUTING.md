@@ -108,8 +108,8 @@ As CI runs them:
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all
-pnpm --filter web exec tsc --noEmit
 pnpm build
+pnpm --filter web test
 ```
 
 Setting up is in the README, under *Developing*. Commits are small, say why in

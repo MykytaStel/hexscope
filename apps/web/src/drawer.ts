@@ -7,7 +7,7 @@ import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { openReport } from "./report";
 import { saveStructure } from "./export";
 import { categories, share } from "./share";
-import { Concern, FileModel, Kind, Role, type ArchiveTraceRange, type PageArea } from "./model";
+import { Concern, FileModel, Kind, Role, type PageArea } from "./model";
 import { verdict } from "./verdict";
 import { announce, done } from "./announce";
 import { recentFiles } from "./recent";
@@ -15,7 +15,7 @@ import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hex } from "./dom";
-import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink, openReason, playReason } from "./knowledge";
+import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
 import { copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
@@ -1067,7 +1067,6 @@ export class Drawer {
   /** The ZIP entry a node sits in: what it holds, and a way to watch it unpack. */
   private entry(m: FileModel, i: number): HTMLElement {
     const e = m.entry(i);
-    const trace = m.archiveTrace(i);
     const group = el("div", "group entry");
     group.append(el("h2", undefined, "Entry"));
     const grid = el("dl", "facts");
@@ -1078,60 +1077,22 @@ export class Drawer {
     }
     group.append(grid);
 
-    const makeButton = (text: string, reason: string | null, title: string, act: () => void) => {
-      const b = el("button", "btn", text);
-      b.disabled = reason !== null;
-      b.title = reason ?? title;
-      b.addEventListener("click", act);
-      return b;
-    };
-    const playWhy = playReason(e);
-    const openWhy = openReason(e, this.nested);
-
     const traceGroup = el("div", "group archive-trace");
     traceGroup.setAttribute("role", "group");
     traceGroup.setAttribute("aria-label", "Archive Trace");
-    traceGroup.append(el("h2", undefined, "Archive Trace"));
-    const steps = el("ol", "archive-trace-steps");
-    const rangeStep = (title: string, range: ArchiveTraceRange | null, absent: string) => {
-      const step = el("li", "archive-trace-step");
-      step.append(el("h3", undefined, title));
-      const action = `Show ${title.toLowerCase()} bytes`;
-      if (range) {
-        const show = makeButton(action, range.len > 0 ? null : "No bytes are available for this range.", action, () => this.onSelectRange(range.start, range.len));
-        step.append(show, el("p", "archive-trace-range", `${hex(range.start)}–${hex(range.start + range.len)}`));
-        step.append(el("p", "archive-trace-byte-count", `${range.len.toLocaleString("en")} bytes`));
-      } else {
-        const show = makeButton(action, absent, action, () => {});
-        step.append(show, el("p", "hint", absent));
-      }
-      return step;
-    };
-    steps.append(rangeStep("Central-directory record", trace.centralRecord, "No central-directory record is linked to this entry."));
-    const header = rangeStep("Local header", trace.localHeader, "The local-header range is unavailable.");
-    if (trace.localHeaderWarning) header.append(el("p", "hint", "The parser flagged bytes in this local header. Compare the highlighted range with the central record."));
-    steps.append(header);
-    const compressed = rangeStep("Compressed data", trace.compressedData, "The compressed-data range is unavailable.");
-    if (trace.compressedData) {
-      const sizes = el("dl", "facts archive-trace-sizes");
-      fact(sizes, "Available bytes", trace.compressedData.len.toLocaleString());
-      fact(sizes, "Declared bytes", e.compressed.toLocaleString());
-      compressed.append(sizes);
-      if (!trace.dataComplete) compressed.append(el("p", "hint", "Only part of the declared compressed data is present."));
-    }
-    steps.append(compressed);
-
-    const output = el("li", "archive-trace-step");
-    output.append(el("h3", undefined, "Unpacked output"));
-    const outputActions = el("div", "entry-actions");
-    if (e.playable) outputActions.append(makeButton("Watch it decompress", playWhy, "Step through this entry's DEFLATE data (P)", () => this.onPlay(i)));
-    if (e.openable) outputActions.append(makeButton("Open", openWhy, "Open this entry as a file of its own", () => this.onOpen(i)));
-    if (outputActions.childElementCount > 0) output.append(outputActions);
-    if (playWhy) output.append(el("p", "hint", playWhy));
-    if (openWhy) output.append(el("p", "hint", openWhy));
-    steps.append(output);
-    traceGroup.append(steps);
+    traceGroup.append(el("p", "hint", "Loading Archive Trace…"));
     group.append(traceGroup);
+    void import("./archive-trace-view").then(({ archiveTraceView }) => {
+      if (!this.node.contains(traceGroup)) return;
+      traceGroup.replaceWith(archiveTraceView(m, i, {
+        nested: this.nested,
+        onSelectRange: this.onSelectRange,
+        onPlay: this.onPlay,
+        onOpen: this.onOpen,
+      }));
+    }).catch(() => {
+      if (this.node.contains(traceGroup)) traceGroup.replaceChildren(el("p", "problem is-error", "Could not load Archive Trace."));
+    });
     return group;
   }
 }

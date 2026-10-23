@@ -3,7 +3,7 @@ members = ["crates/hexscope-inflate", "crates/hexscope-core", "crates/hexscope-w
 resolver = "3"
 
 [workspace.package]
-version = "0.7.2"
+version = "0.8.0"
 edition = "2024"
 # The oldest compiler the published crates build with, checked in CI: what
 # `cargo install` users need. The repository itself builds with the pinned

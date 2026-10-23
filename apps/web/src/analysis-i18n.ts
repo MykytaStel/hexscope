@@ -5,6 +5,8 @@ import { registerLazyTranslations } from "./i18n";
 
 registerLazyTranslations({
   "Archive Trace": "Шлях запису в архіві",
+  "Loading Archive Trace…": "Завантажуємо шлях запису в архіві…",
+  "Could not load Archive Trace.": "Не вдалося завантажити шлях запису в архіві.",
   "Central-directory record": "Запис центрального каталогу",
   "Local header": "Локальний заголовок",
   "Compressed data": "Стиснені дані",

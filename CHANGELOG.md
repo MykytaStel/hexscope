@@ -11,6 +11,22 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.8.0] — 2026-10-23
+
+### Added
+
+- **Follow a ZIP entry down to its bytes.** Trace it through the central-directory record, local header and compressed data; each step opens the actual range in Bytes, and the existing DEFLATE view opens the decoded content. Missing and truncated ranges are shown as such.
+
+### Changed
+
+- **Large movie analysis uses fewer temporary byte copies.** The parser keeps offsets tied to the original file while scanning metadata in bounded ranges.
+- **Email authentication results stay claims from the message.** Hexscope now shows SPF, DKIM and DMARC statuses recorded in `Authentication-Results` as unverified claims, including when the header is present but contains no recognized results.
+- **Shared files expire after 24 hours.** The PWA keeps a shared group together and accepts up to 50 files and 400 MiB per group.
+
+### Fixed
+
+- **Film Scan samples large rasters without repeating a fixed pixel stride.** Sampling is bounded and deterministic, including on 32-bit WebAssembly.
+
 ## [0.7.2] — 2026-10-19
 
 ### Fixed
@@ -528,7 +544,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/MykytaStel/hexscope/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/MykytaStel/hexscope/compare/v0.6.0...v0.7.0
