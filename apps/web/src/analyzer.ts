@@ -12,7 +12,7 @@ import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
-import { call, playerSource } from "./rpc";
+import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchView } from "./batch";
@@ -693,6 +693,13 @@ workspace = new WorkspaceController({
     },
     clearPlayer: closePlayer,
   },
+});
+
+onWorkerReset(() => {
+  const state = document.body.dataset.state;
+  if (state === "ready" || (state === "loading" && workspace.isOpeningFile)) {
+    void workspace.recoverAfterWorkerReset();
+  }
 });
 
 // --- many files ------------------------------------------------------------

@@ -5,6 +5,22 @@ import type { WorkerRequest, WorkerResponse } from "./worker";
 // One outstanding promise per request id; responses can arrive in any order.
 let nextId = 0;
 const waiting = new Map<number, (r: WorkerResponse) => void>();
+const workerResetListeners = new Set<() => void>();
+
+/** Runs after a timed-out verification stops the parser worker. */
+export function onWorkerReset(listener: () => void): () => void {
+  workerResetListeners.add(listener);
+  return () => workerResetListeners.delete(listener);
+}
+
+function notifyWorkerReset(): void {
+  for (const listener of workerResetListeners) listener();
+}
+
+function failWaiting(message: string): void {
+  for (const [id, answer] of waiting) answer({ id, type: "error", message });
+  waiting.clear();
+}
 
 /**
  * Starts the worker. If it dies — the browser ends it for memory, or its
@@ -18,12 +34,14 @@ function start(): Worker {
     waiting.delete(e.data.id);
   });
   const died = (e: Event) => {
+    // A terminated worker may still deliver a queued error after its
+    // replacement has already started. It must not fail the new worker's RPCs.
+    if (worker !== w) return;
     e.preventDefault();
     const message = navigator.onLine
       ? "the reader stopped, most likely for lack of memory. Close other tabs and try again, or use the command line tool"
       : "the reader could not start: you are offline, and it has not been saved for offline use yet";
-    for (const [id, answer] of waiting) answer({ id, type: "error", message });
-    waiting.clear();
+    failWaiting(message);
     w.terminate();
     if (worker === w) worker = null;
   };
@@ -49,15 +67,31 @@ export function call(req: Req, timeoutMs?: number): Promise<WorkerResponse> {
       resolve(response);
     };
     waiting.set(id, finish);
+    let target: Worker;
+    try {
+      target = worker ??= start();
+    } catch {
+      finish({ id, type: "error", message: "the worker could not start this request" });
+      return;
+    }
     if (timeoutMs !== undefined) {
       timer = setTimeout(
-        () => finish({ id, type: "error", message: "copy verification did not finish in time" }),
+        () => {
+          finish({ id, type: "error", message: "copy verification did not finish in time" });
+          if (worker !== target) return;
+          // WebAssembly work is synchronous, so a cancel message could sit
+          // behind the timed-out request. Terminating the worker is the only
+          // way to stop it before it blocks the reader any longer.
+          worker = null;
+          target.terminate();
+          failWaiting("the reader stopped after copy verification timed out; reopen the file to continue");
+          notifyWorkerReset();
+        },
         timeoutMs,
       );
     }
     try {
-      worker ??= start();
-      worker.postMessage({ ...req, id } as WorkerRequest);
+      target.postMessage({ ...req, id } as WorkerRequest);
     } catch {
       finish({ id, type: "error", message: "the worker could not start this request" });
     }

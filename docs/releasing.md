@@ -48,7 +48,17 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    ```
 
 7. Publishing to crates.io is a separate decision each time. From a clean
-   checkout of the tagged commit, `cargo publish --workspace --dry-run`,
-   then `cargo publish --workspace`: it publishes `hexscope-inflate`,
-   `hexscope-core`, `hexscope-raster` and `hexscope-cli` in that order, each
-   once the one before is in the index.
+   checkout of the tagged commit, run CI for the exact commit, then package
+   every publishable crate with:
+
+   ```sh
+   cargo publish --workspace --locked --dry-run
+   ```
+
+   This dry run packages and verifies all four crates without uploading them.
+   Keep `--no-verify` out of this check: the default verification passed for
+   the workspace's 0.8.0 packages. CI separately compiles and tests the
+   workspace sources.
+   After deciding to publish, run `cargo publish --workspace --locked`. Cargo
+   publishes `hexscope-inflate`, `hexscope-core`, `hexscope-raster` and
+   `hexscope-cli` in dependency order.
