@@ -696,13 +696,10 @@ workspace = new WorkspaceController({
 });
 
 onWorkerReset(() => {
-  const current = workspace.model;
-  if (!current || document.body.dataset.state !== "ready") return;
-  queueMicrotask(() => {
-    if (workspace.model === current && document.body.dataset.state === "ready") {
-      void workspace.reopenCurrent();
-    }
-  });
+  const state = document.body.dataset.state;
+  if (state === "ready" || (state === "loading" && workspace.isOpeningFile)) {
+    void workspace.recoverAfterWorkerReset();
+  }
 });
 
 // --- many files ------------------------------------------------------------

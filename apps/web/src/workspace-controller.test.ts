@@ -97,7 +97,7 @@ describe("WorkspaceController", () => {
 
     await controller.openFile(rootFile);
     await controller.openEntry(0, "inside.docx");
-    await controller.reopenCurrent();
+    await controller.recoverAfterWorkerReset();
 
     const restoredFile = parse.mock.calls[1][0];
     expect(restoredFile.name).toBe("inside.docx");
@@ -105,6 +105,86 @@ describe("WorkspaceController", () => {
     expect(controller.model).toBe(reopened);
     expect(controller.levels).toEqual([]);
     expect(view.show).toHaveBeenLastCalledWith(reopened, []);
+  });
+
+  it("retries the requested file when the worker resets during its open", async () => {
+    const firstAttempt = deferred<FileModel>();
+    const previous = model("previous.jpg");
+    const requested = model("requested.jpg");
+    let requestedAttempts = 0;
+    const parse = vi.fn(async (input: File) => {
+      if (input.name === "previous.jpg") return previous;
+      requestedAttempts++;
+      return requestedAttempts === 1 ? firstAttempt.promise : requested;
+    });
+    const { controller, view } = rig({ parse });
+
+    await controller.openFile(file("previous.jpg"));
+    expect(controller.isOpeningFile).toBe(false);
+    const opening = controller.openFile(file("requested.jpg"));
+    expect(controller.isOpeningFile).toBe(true);
+    await controller.recoverAfterWorkerReset();
+    firstAttempt.reject(new Error("the reader stopped after copy verification timed out"));
+    await opening;
+
+    expect(controller.isOpeningFile).toBe(false);
+    expect(requestedAttempts).toBe(2);
+    expect(controller.model).toBe(requested);
+    expect(view.failed).not.toHaveBeenCalled();
+    expect(view.show).toHaveBeenLastCalledWith(requested, []);
+  });
+
+  it("does not retry the same file more than once after worker resets", async () => {
+    const firstAttempt = deferred<FileModel>();
+    const retry = deferred<FileModel>();
+    let attempts = 0;
+    const { controller, view } = rig({
+      parse: () => ++attempts === 1 ? firstAttempt.promise : retry.promise,
+    });
+
+    const opening = controller.openFile(file("slow.jpg"));
+    await controller.recoverAfterWorkerReset();
+    firstAttempt.reject(new Error("first timeout"));
+    await Promise.resolve();
+    await controller.recoverAfterWorkerReset();
+    retry.reject(new Error("second timeout"));
+    await opening;
+
+    expect(attempts).toBe(2);
+    expect(view.failed).toHaveBeenCalledOnce();
+    expect(view.failed).toHaveBeenCalledWith("Could not read slow.jpg: second timeout");
+  });
+
+  it("restores the previous file if the one retry after reset fails", async () => {
+    const firstAttempt = deferred<FileModel>();
+    const previous = model("previous.jpg");
+    const restoredPrevious = model("previous.jpg");
+    let previousAttempts = 0;
+    let requestedAttempts = 0;
+    const parse = vi.fn(async (input: File) => {
+      if (input.name === "previous.jpg") {
+        return ++previousAttempts === 1 ? previous : restoredPrevious;
+      }
+      if (++requestedAttempts === 1) return firstAttempt.promise;
+      throw new Error("requested file is not readable");
+    });
+    const { controller, view } = rig({ parse });
+
+    await controller.openFile(file("previous.jpg"));
+    const opening = controller.openFile(file("requested.jpg"));
+    await controller.recoverAfterWorkerReset();
+    firstAttempt.reject(new Error("reader stopped after timeout"));
+    await opening;
+
+    expect(parse.mock.calls.map(([input]) => input.name)).toEqual([
+      "previous.jpg",
+      "requested.jpg",
+      "requested.jpg",
+      "previous.jpg",
+    ]);
+    expect(controller.model).toBe(restoredPrevious);
+    expect(view.failed).toHaveBeenCalledWith("Could not read requested.jpg: requested file is not readable");
+    expect(view.show).toHaveBeenLastCalledWith(restoredPrevious, []);
   });
 
   it("does not let a pending nested open replace a newer file", async () => {
