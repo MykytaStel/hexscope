@@ -123,6 +123,28 @@ test("when a phone share sheet rejects a file, its action changes to a save fall
   expect((await downloadPromise).suggestedFilename()).toBe("photo-clean.jpg");
 });
 
+test("when a phone share sheet is cancelled, the clean photo can still be shared or saved", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the share sheet is a phone action");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => { throw new DOMException("Share cancelled", "AbortError"); },
+    });
+  });
+  await page.goto("./?sample=photo.jpg");
+  await page.locator(".verdict-cta").click();
+  const share = page.locator(".clean-actions .btn-primary");
+  await share.click();
+  await expect(share).toHaveText("Share the clean copy");
+  await expect(page.locator(".clean-actions .share-fallback")).toHaveCount(0);
+  const download = page.waitForEvent("download");
+  await page.locator(".clean-actions [data-share-save-fallback]").click();
+  expect((await download).suggestedFilename()).toBe("photo-clean.jpg");
+});
+
 test("on a phone, an edited photo can be saved for sharing even without a file share sheet", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the fallback is for narrow screens");
   await page.setViewportSize({ width: 320, height: 568 });
@@ -236,5 +258,30 @@ test("when a phone share sheet rejects a batch, the ZIP save route stays availab
   await expect(save).toBeVisible();
   const download = page.waitForEvent("download");
   await save.click();
+  expect((await download).suggestedFilename()).toBe("hexscope-clean-copies.zip");
+});
+
+test("when a phone share sheet is cancelled for a batch, its share and ZIP actions stay available", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the share sheet is a phone action");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => { throw new DOMException("Share cancelled", "AbortError"); },
+    });
+  });
+  await page.goto("./");
+  const photo = new URL("../public/samples/photo.jpg", import.meta.url).pathname;
+  const iphone = new URL("./fixtures/iphone-hdr.jpg", import.meta.url).pathname;
+  await page.locator("#picker-empty").setInputFiles([photo, iphone]);
+  await page.locator(".batch-head .btn-clean").click();
+  const share = page.locator(".batch-actions .btn-primary");
+  await expect(share).toHaveText("Share 2 clean copies");
+  await share.click();
+  await expect(share).toBeVisible();
+  await expect(page.locator(".batch-result")).not.toContainText("Sharing did not open");
+  const download = page.waitForEvent("download");
+  await page.locator(".batch-result .btn").filter({ hasText: "Save as a ZIP" }).click();
   expect((await download).suggestedFilename()).toBe("hexscope-clean-copies.zip");
 });
