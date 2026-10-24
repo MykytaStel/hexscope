@@ -1,7 +1,7 @@
 import { done } from "./announce";
-import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, renderBeforeAfter, shareButton, type CleanActions } from "./cleancard";
+import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, renderBeforeAfter, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { confirmedRemovedKinds } from "./clean-summary";
-import { el, formatBytes } from "./dom";
+import { el, formatBytes, hasCoarsePointer } from "./dom";
 import { currentLocale, translateText } from "./i18n";
 import type { FileModel } from "./model";
 import { KEPT_NOTE } from "./knowledge";
@@ -118,10 +118,18 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     open.title = translateText("Check it yourself: the card should now be empty", currentLocale());
     open.addEventListener("click", () => cleaning.open(r.copy));
     // On a phone, straight on to the app it was going to: no hunting for it in Downloads.
-    const sharer = shareButton(r.name, r.copy);
-    if (sharer) actions.append(sharer);
-    if (!r.saved) {
+    const phone = hasCoarsePointer();
+    const sharer = shareButton(r.name, r.copy, r.saved);
+    const shareFallback = sharer?.classList.contains("share-fallback") ?? false;
+    if (sharer) {
+      actions.append(sharer);
+      if (shareFallback) actions.append(shareFallbackHint());
+    } else if (phone && r.saved) {
+      actions.append(shareFallbackHint(true));
+    }
+    if (!r.saved && !shareFallback) {
       const save = el("button", "btn", "Save it");
+      save.dataset.shareSaveFallback = "true";
       save.addEventListener("click", () => cleaning.save(r.name, r.copy));
       actions.append(save);
     }

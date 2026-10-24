@@ -3,7 +3,7 @@
 // the browser as a download or to a phone's share sheet.
 import type { FileModel } from "./model";
 import { misfit } from "./verdict";
-import { formatBytes } from "./dom";
+import { formatBytes, hasCoarsePointer } from "./dom";
 
 /** A file of the site — a sample, the service worker — by its path from the site's root,
  * whatever page asks: this module lives one folder down, in assets/ or src/. */
@@ -163,6 +163,17 @@ export function typeOf(name: string): string {
   return TYPES[name.slice(name.lastIndexOf(".") + 1).toLowerCase()] ?? "";
 }
 
+/** Whether this browser can try the supplied native share operation. */
+export function canShareData(data: ShareData): boolean {
+  if (typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return true;
+  try {
+    return navigator.canShare(data);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * A phone that can share a file of this name: its copy goes to the share
  * sheet rather than a download, which there is a dialog in the way of
@@ -170,8 +181,8 @@ export function typeOf(name: string): string {
  */
 export function phoneCanShare(name = "photo.jpg"): boolean {
   return (
-    matchMedia("(hover: none) and (pointer: coarse)").matches &&
-    (navigator.canShare?.({ files: [new File([], name, { type: typeOf(name) })] }) ?? false)
+    hasCoarsePointer() &&
+    canShareData({ files: [new File([], name, { type: typeOf(name) })] })
   );
 }
 

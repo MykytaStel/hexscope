@@ -185,6 +185,9 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
       done(`Made ${name}: ${boxes.length === 1 ? "1 box" : `${boxes.length} boxes`} in its pixels, and no camera data, place or thumbnail.`),
     );
     copy.deliver(name, new Uint8Array(await blob.arrayBuffer()), result);
+    // Copy actions appear below the canvas and can extend a phone-sized dialog.
+    // Bring the new action and its instructions into view as soon as the copy is ready.
+    if (dialog.scrollHeight > dialog.clientHeight) dialog.scrollTop = dialog.scrollHeight;
   });
 
   const hint = el(

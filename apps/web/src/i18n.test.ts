@@ -8,6 +8,11 @@ import { OTHERS, READS } from "./verdict";
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 describe("the interface language", () => {
+  it("preserves whitespace-only text nodes when translating", () => {
+    expect(translateText(" ", "uk")).toBe(" ");
+    expect(translateText("\n  \t", "uk")).toBe("\n  \t");
+  });
+
   it("names what was found inside a file, and how fast it was read, in Ukrainian", () => {
     expect(translateText("Hidden in it: 1 file", "uk")).toBe("Приховано у файлі: 1 файл");
     expect(translateText("Files inside: 3 files", "uk")).toBe("Файли всередині: 3 файли");

@@ -652,6 +652,13 @@ const UK: Record<string, string> = {
   "Save a clean copy": "Зберегти очищену копію",
   "Makes the copy in this tab: nothing is uploaded": "Створює копію в цій вкладці: файл нікуди не передається",
   "Share the clean copy": "Поділитися очищеною копією",
+  "Save a copy to share from Files": "Зберегти копію для поширення з «Файлів»",
+  "This browser cannot share files directly. Save the copy, then share it from Files or Downloads.": "Цей браузер не може передати файл напряму. Збережіть копію, а потім поширте її з «Файлів» або «Завантажень».",
+  "The copy is already in Downloads. Open Files or Downloads and choose Share.": "Копію вже збережено в «Завантаженнях». Відкрийте «Файли» або «Завантаження» й виберіть «Поширити».",
+  "The copy is saved. Share it from Files or Downloads.": "Копію збережено. Поширте її з «Файлів» або «Завантажень».",
+  "Sharing did not open. Save the copy, then share it from Files or Downloads.": "Меню поширення не відкрилося. Збережіть копію, а потім поширте її з «Файлів» або «Завантажень».",
+  "Share the ZIP from Files or Downloads.": "Поширте ZIP із «Файлів» або «Завантажень».",
+  "Sharing did not open. Use Save as a ZIP to send the copies from Files or Downloads.": "Меню поширення не відкрилося. Збережіть ZIP і надішліть копії з «Файлів» або «Завантажень».",
   "Save a repaired copy": "Зберегти відновлену копію",
   "Save the blacked-out copy": "Зберегти копію з прихованими даними",
   "Plain text: not a format hexscope takes apart. Its words read in the column beside the bytes.":
@@ -1081,6 +1088,8 @@ function translateText(value: string, locale: Locale): string {
   const leading = value.match(/^\s*/)?.[0] ?? "";
   const trailing = value.match(/\s*$/)?.[0] ?? "";
   const content = value.slice(leading.length, value.length - trailing.length);
+  // Preserve a space-only text node between independently translated fragments.
+  if (!content) return value;
   const normalized = content.replace(/\s+/g, " ");
   const exact = UK[normalized] ?? lazyTranslations[normalized];
   if (exact) {

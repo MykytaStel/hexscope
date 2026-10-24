@@ -14,10 +14,10 @@ import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { makeupGroup } from "./makeup";
-import { el, fact, formatBytes, hex } from "./dom";
+import { el, fact, formatBytes, hasCoarsePointer, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
-import { copyPictureButton, copyVerification, isAudio, shareButton, type CleanActions } from "./cleancard";
+import { copyPictureButton, copyVerification, isAudio, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
@@ -754,14 +754,19 @@ export class Drawer {
     b.addEventListener("click", () =>
       void openBlackPicture(m, {
         deliver: (name, bytes, into) => {
-          const phone = matchMedia("(hover: none) and (pointer: coarse)").matches;
+          const phone = hasCoarsePointer();
           const sharer = shareButton(name, bytes);
-          if (sharer) into.append(sharer);
-          if (phone && sharer) {
+          const shareFallback = sharer?.classList.contains("share-fallback") ?? false;
+          if (sharer) {
+            into.append(sharer);
+            if (shareFallback) into.append(shareFallbackHint());
+          }
+          if (phone && sharer && !shareFallback) {
             const save = el("button", "btn", "Save it");
+            save.dataset.shareSaveFallback = "true";
             save.addEventListener("click", () => this.cleaning.save(name, bytes));
             into.append(save);
-          } else {
+          } else if (!phone) {
             this.cleaning.save(name, bytes);
           }
           const open = el("button", "btn", "Open the copy");
@@ -983,10 +988,18 @@ export class Drawer {
         ul.append(li);
       }
       result.append(ul);
-      const sharer = shareButton(r.name, r.copy);
-      if (sharer) result.append(sharer);
-      if (!r.saved) {
+      const phone = hasCoarsePointer();
+      const sharer = shareButton(r.name, r.copy, r.saved);
+      const shareFallback = sharer?.classList.contains("share-fallback") ?? false;
+      if (sharer) {
+        result.append(sharer);
+        if (shareFallback) result.append(shareFallbackHint());
+      } else if (phone && r.saved) {
+        result.append(shareFallbackHint(true));
+      }
+      if (!r.saved && !shareFallback) {
         const again = el("button", "btn", "Save it");
+        again.dataset.shareSaveFallback = "true";
         again.addEventListener("click", () => this.cleaning.save(r.name, r.copy));
         result.append(again);
       }

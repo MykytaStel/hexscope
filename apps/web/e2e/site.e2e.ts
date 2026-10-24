@@ -2414,6 +2414,7 @@ test("guide articles have a translated desktop contents list without narrowing p
 
 test("several files: listed, then clean copies of those that give something away", async ({ page }, info) => {
   const saved = catchDownloads(page);
+  if (info.project.name === "phone") await page.setViewportSize({ width: 320, height: 844 });
   await home(page);
   await page.locator("#picker-empty").setInputFiles([sample("photo.jpg"), sample("report.docx"), sample("sample.png")]);
   const list = page.locator("#batch");
@@ -2430,6 +2431,14 @@ test("several files: listed, then clean copies of those that give something away
   } else {
     // A phone that cannot share files saves the archive too.
     await expect(list).toContainText(/clean cop/);
+    await expect(list.locator(".batch-result")).toContainText("Share the ZIP from Files or Downloads.");
+    const result = list.locator(".batch-result");
+    await page.locator(".topbar .language-button").click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+    await expect.poll(() => result.evaluate((element) => element.textContent ?? "")).toMatch(/\. У ZIP/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const actionsRight = await page.locator(".topbar .actions").evaluate((element) => element.getBoundingClientRect().right);
+    expect(actionsRight).toBeLessThanOrEqual(320);
   }
 });
 
