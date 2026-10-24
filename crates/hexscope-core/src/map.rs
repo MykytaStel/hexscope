@@ -203,6 +203,42 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         {
             Some(Role::Metadata)
         }
+        Format::Mp3 => {
+            if inside(tree, id, |ancestor| {
+                ancestor.starts_with("ID3v2") || ancestor == "ID3v1 tag"
+            }) {
+                Some(Role::Metadata)
+            } else if label.starts_with("audio frames") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
+        Format::Flac => {
+            if inside(tree, id, |ancestor| {
+                ancestor == "FLAC Vorbis comments block"
+            }) {
+                Some(Role::Metadata)
+            } else if label.starts_with("audio frames") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
+        Format::Ogg => {
+            if inside(tree, id, |ancestor| {
+                matches!(
+                    ancestor,
+                    "Ogg comment packet" | "Vorbis comment packet" | "Opus tags packet"
+                )
+            }) {
+                Some(Role::Metadata)
+            } else if label.starts_with("remaining Ogg packets") {
+                Some(Role::Content)
+            } else {
+                Some(Role::Structure)
+            }
+        }
         // A module's code and data run; custom sections describe it,
         // except those linkers need.
         Format::Wasm if depth == 1 => Some(match label {
@@ -300,6 +336,20 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         }
         _ => None,
     }
+}
+
+fn inside(tree: &ParseTree, id: NodeId, matches: impl Fn(&str) -> bool) -> bool {
+    let mut parent = tree.try_get(id).and_then(|node| node.parent);
+    while let Some(id) = parent {
+        let Some(node) = tree.try_get(id) else {
+            return false;
+        };
+        if matches(&node.label) {
+            return true;
+        }
+        parent = node.parent;
+    }
+    false
 }
 
 /// Windows shorter than this cannot reach 8 bits per byte, and a scale whose
@@ -408,6 +458,43 @@ mod tests {
         let unknown = slices_of(b"\x1F\x8B\x08 a gzip header, no more");
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].role, Role::Structure);
+    }
+
+    #[test]
+    fn vorbis_and_opus_tag_packet_bytes_are_metadata() {
+        for packet_label in ["Vorbis comment packet", "Opus tags packet"] {
+            let mut tree = ParseTree::new();
+            let root = tree.add(
+                None,
+                "Ogg stream",
+                crate::model::ByteRange::new(0, 8),
+                NodeKind::Container,
+                None,
+            );
+            let packet = tree.add(
+                Some(root),
+                packet_label,
+                crate::model::ByteRange::new(1, 6),
+                NodeKind::Container,
+                None,
+            );
+            tree.add(
+                Some(packet),
+                "TITLE",
+                crate::model::ByteRange::new(2, 4),
+                NodeKind::Field,
+                None,
+            );
+
+            let slices = composition(&tree, Format::Ogg, 8);
+
+            assert!(
+                slices.iter().any(|slice| {
+                    slice.start == 2 && slice.len == 4 && slice.role == Role::Metadata
+                }),
+                "{packet_label}: {slices:?}"
+            );
+        }
     }
 
     #[test]

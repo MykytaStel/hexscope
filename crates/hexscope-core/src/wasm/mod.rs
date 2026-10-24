@@ -14,9 +14,9 @@ pub(crate) mod docs;
 #[cfg(test)]
 mod tests;
 
+use crate::facts::DocumentFact;
 use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::zip::DocumentFact;
 
 pub const MAGIC: [u8; 4] = *b"\0asm";
 /// Entries listed at most per section; the rest are one node.

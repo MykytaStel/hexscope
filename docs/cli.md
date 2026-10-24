@@ -58,7 +58,7 @@ it was given unless `clean --in-place` says so.
 <!-- options:start -->
 | Option | Commands | Meaning |
 | --- | --- | --- |
-| `--fail-on WHAT` | check | Exit 1 when a file has any of `WHAT`, a comma-separated list of `reveals`, `hidden`, `damage`, `oddity`, `misnamed` and [kinds of finding](#kinds-of-finding). Default `reveals,hidden,damage`; `none` never fails |
+| `--fail-on WHAT` | check | Exit 1 when a file has any of `WHAT`, a comma-separated list of `reveals`, `hidden`, `damage`, `incomplete`, `oddity`, `misnamed` and [kinds of finding](#kinds-of-finding). Default `reveals,hidden,damage,incomplete`; `none` never fails |
 | `--json` | check, mosaic; clean with `--verify` | JSON instead of text |
 | `--sarif` | check | One SARIF 2.1.0 log for all files |
 | `--all` | check | Also list files hexscope does not read, and files with nothing to say |
@@ -108,11 +108,17 @@ One JSON object per file, one per line, in the order the files were read:
 | `format` | One of the [formats](#formats) |
 | `problems` | What is wrong with it: `label` (for people), `concern` (`damage`, `hidden` or `oddity`), and where — `offset` and `length` in bytes |
 | `reveals` | What it gives away: `kind` (one of the [kinds of finding](#kinds-of-finding)) and `text`, the value as the file holds it |
+| `complete` | Only when `false`: a supported metadata structure was malformed, too large, or not fully inspected; an omitted field means the read was complete |
 | `misnamed` | Only when its name says another format: `ext` (the name's extension, lower case, no dot), `is` (what the file is, in words) and `fits` (the extension that fits, with its dot) |
 
 `text` is what the file says — a name, a place, a serial number. JSON is
 for your own machine; the [annotations](#in-github-actions) leave values
 out.
+
+Audio files are read-only metadata inspections: hexscope reads supported
+tags but does not decode, play or edit the sound. Ogg page checksums are not
+verified. If a supported metadata structure could not be fully read, JSON
+adds `"complete":false`; the default `--fail-on` also fails on `incomplete`.
 
 ## check --sarif
 
@@ -288,7 +294,7 @@ not done, `index`, `operation_state` and `check`.
 (MP4, MOV, M4A), `pdf`, `zip` (ZIP archives, Word, Excel, PowerPoint,
 OpenDocument, EPUB, APK), `office97` (Word, Excel and PowerPoint 97–2003),
 `msg` (Outlook), `cfb` (other compound files), `rtf`, `svg`, `eml`,
-`wasm`, `unknown`.
+`wasm`, `mp3`, `flac`, `ogg`, `unknown`.
 <!-- formats:end -->
 
 ## Kinds of finding
@@ -307,9 +313,11 @@ more.
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `authclaim`, `riskyfile` |
+| Audio | `title`, `artist`, `album`, `album-artist`, `year`, `track`, `disc`, `genre`, `composer`, `encoder`, `organization`, `comment`, `location`, `audio-tag` |
 | Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->
 
 `--fail-on` also takes the groups `reveals` (any kind), `hidden`, `damage`,
-`oddity` and `misnamed`.
+`incomplete` (a supported structure was not fully read), `oddity` and
+`misnamed`.

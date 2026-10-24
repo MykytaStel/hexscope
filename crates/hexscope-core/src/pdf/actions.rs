@@ -7,8 +7,8 @@ use super::facts::{cap, decode, insert_update, text};
 use super::lexer::Obj;
 use super::{Ctx, ObjRec};
 use crate::eml::links::host;
+use crate::facts::DocumentFact;
 use crate::model::NodeId;
-use crate::zip::DocumentFact;
 
 /// Scripts quoted, at most; each quoted this long.
 const MAX_QUOTED: usize = 2;

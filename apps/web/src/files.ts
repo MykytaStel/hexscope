@@ -50,6 +50,12 @@ export function kindWord(m: FileModel): string {
       return "Picture";
     case "video":
       return / audio\b/.test(m.value(0)) ? "Recording" : "Video";
+    case "mp3":
+      return "MP3 audio";
+    case "flac":
+      return "FLAC audio";
+    case "ogg":
+      return "Ogg audio";
     case "pdf":
       return "PDF";
     case "eml":
@@ -131,6 +137,11 @@ const TYPES: Record<string, string> = {
   m4v: "video/mp4",
   mov: "video/quicktime",
   m4a: "audio/mp4",
+  mp3: "audio/mpeg",
+  flac: "audio/flac",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

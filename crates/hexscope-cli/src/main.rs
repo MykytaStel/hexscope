@@ -53,9 +53,9 @@ PATH is a file or a folder, read with everything inside it.
 
 check:
   --fail-on WHAT   exit 1 when a file has any of WHAT, a comma-separated list of
-                   reveals, hidden, damage, oddity, misnamed (a name that says
+                   reveals, hidden, damage, incomplete, oddity, misnamed (a name that says
                    another format than the bytes), or kinds of fact such as
-                   location, serial, author, covered (default: reveals,hidden,damage);
+                   location, serial, author, covered (default: reveals,hidden,damage,incomplete);
                    none never fails
   --json           one JSON object per file, one per line
   --sarif          one SARIF 2.1.0 log for all of them, for GitHub code scanning
@@ -152,7 +152,9 @@ struct Options {
 
 fn options(args: &[String]) -> Result<Options, String> {
     let mut o = Options {
-        fail_on: ["reveals", "hidden", "damage"].map(String::from).to_vec(),
+        fail_on: ["reveals", "hidden", "damage", "incomplete"]
+            .map(String::from)
+            .to_vec(),
         json: false,
         all: false,
         in_place: false,
@@ -276,6 +278,9 @@ fn tags<'a>(s: &'a Summary, mis: Option<&Misnamed>) -> Vec<&'a str> {
     if !s.facts.is_empty() {
         t.push("reveals");
     }
+    if !s.complete {
+        t.push("incomplete");
+    }
     t.extend(s.facts.iter().map(|(k, _)| *k));
     t
 }
@@ -319,7 +324,7 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             }
         };
         let mis = mis.as_ref();
-        let quiet = s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
+        let quiet = s.complete && s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
         // A file of no known format is passed over, and counted, unless its
         // text names someone.
         if s.format == "unknown" && s.facts.is_empty() && !o.all {
@@ -519,9 +524,12 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {kind}: {text}");
     }
+    if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg") {
+        out.push_str("  metadata not fully inspected; some tags may be unread\n");
+    }
     if s.format == "unknown" && s.facts.is_empty() {
         out.push_str("  not read: hexscope does not read this format\n");
-    } else if s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
+    } else if s.complete && s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
         out.push_str("  nothing found\n");
     }
     out
@@ -629,8 +637,13 @@ fn json(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
             json_str(m.fits)
         )
     });
+    let completeness = if s.complete {
+        String::new()
+    } else {
+        ",\"complete\":false".to_string()
+    };
     format!(
-        "{{\"file\":{},\"format\":\"{}\",\"problems\":[{}],\"reveals\":[{}]{misnamed}}}",
+        "{{\"file\":{},\"format\":\"{}\",\"problems\":[{}],\"reveals\":[{}]{misnamed}{completeness}}}",
         json_str(&path.display().to_string()),
         s.format,
         problems.join(","),

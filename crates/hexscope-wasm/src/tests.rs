@@ -9,6 +9,28 @@ fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
+#[cfg(feature = "audio")]
+#[test]
+fn audio_metadata_and_incomplete_status_cross_the_wasm_boundary() {
+    let mut mp3 = b"ID3\x04\0\0\0\0\0\x0f".to_vec();
+    mp3.extend_from_slice(b"TIT2\0\0\0\x05\0\0\x03song");
+    let parsed = parse(&mp3);
+    assert_eq!(parsed.format(), "mp3");
+    assert!(parsed.metadata_complete());
+    assert!(parsed.facts().contains("title\u{1f}song"));
+
+    let mut ogg = b"OggS\0\x02".to_vec();
+    ogg.extend_from_slice(&[0; 8]); // granule position
+    ogg.extend_from_slice(&7u32.to_le_bytes()); // stream serial
+    ogg.extend_from_slice(&0u32.to_le_bytes()); // page sequence
+    ogg.extend_from_slice(&[0; 4]); // checksum
+    ogg.extend_from_slice(&[1, 7]); // one lacing value, seven body bytes
+    ogg.extend_from_slice(b"\x80theora");
+    let parsed = parse(&ogg);
+    assert_eq!(parsed.format(), "ogg");
+    assert!(!parsed.metadata_complete());
+}
+
 #[test]
 fn every_array_describes_every_node() {
     let parsed = parse(&fixture("basn2c08.png"));

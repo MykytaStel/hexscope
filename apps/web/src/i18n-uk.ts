@@ -422,7 +422,9 @@ const UK: Record<string, string> = {
   "Older Word, Excel and PowerPoint formats, and LibreOffice's, included.": "Також підтримуються старі формати Word, Excel і PowerPoint і документи LibreOffice.",
   "Common file types inside ZIP archives are supported too.": "Також підтримуються поширені типи файлів усередині ZIP-архівів.",
   "Image formats": "Формати зображень",
-  "Video formats": "Відеоформати",
+  "Video and audio formats": "Формати відео й аудіо",
+  "Video & audio": "Відео й аудіо",
+  "MP3, FLAC and Ogg tags only; audio is not played.": "У MP3, FLAC та Ogg читаються лише теги; аудіо не відтворюється.",
   "Document formats": "Формати документів",
   "Email, archive and technical formats": "Формати електронної пошти, архівів і технічних файлів",
   "Guides and more sample files": "Посібники та інші приклади файлів",
@@ -726,6 +728,7 @@ const OTHER_UK: Record<string, string> = {
 };
 
 const NOUNS: Record<string, string> = {
+  "audio file": "Аудіофайл",
   photo: "Фото",
   picture: "Зображення",
   video: "Відео",
@@ -795,6 +798,17 @@ const REVEAL_WORDS: Record<string, string> = {
   "the sender's time zone": "часовий пояс відправника",
   "where its source is": "де лежить його вихідний код",
   "debug info from its source": "налагоджувальні дані з вихідного коду",
+  "who performed it": "виконавця",
+  "its album": "альбом",
+  "its album artist": "виконавця альбому",
+  "when it was released": "рік випуску",
+  "its track number": "номер композиції",
+  "its disc number": "номер диска",
+  "its genre": "жанр",
+  "its composer": "композитора",
+  "the audio encoder": "аудіокодер",
+  "the organization in its tags": "організацію з тегів",
+  "an audio tag": "аудіотег",
   "a Wi-Fi password, in a QR code": "пароль Wi-Fi у QR-коді",
   "a two-factor secret, in a QR code": "секрет двофакторної автентифікації у QR-коді",
   "a place, in a QR code": "місце в QR-коді",
@@ -1117,18 +1131,18 @@ function translateText(value: string, locale: Locale): string {
   if (tourCount) return `Крок ${tourCount[1]} із ${tourCount[2]}`;
   let match = /^(Photo|Picture|Drawing|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${translateText(match[2], locale)}`;
-  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module) gives away (\d+) things?$/.exec(value);
   if (match) {
     const count = Number(match[2]);
     return `${NOUNS[match[1]]} розкриває ${count} ${factWord(count)}`;
   }
-  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) is damaged$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module) is damaged$/.exec(value);
   if (match) return `${NOUNS[match[1]]} пошкоджен${["photo", "picture", "video"].includes(match[1]) ? "е" : "ий"}`;
-  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) does more than show pages$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module) does more than show pages$/.exec(value);
   if (match) return `${NOUNS[match[1]]} може виконувати дії, а не лише показувати сторінки`;
-  match = /^Something is hidden in this (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
+  match = /^Something is hidden in this (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module)$/.exec(value);
   if (match) return `У файлі щось приховано`;
-  match = /^Nothing personal found in this (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module)$/.exec(value);
+  match = /^Nothing personal found in this (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module)$/.exec(value);
   if (match) return `Особистих даних у файлі не знайдено`;
   // A list is one sentence: a line of several is said sentence by sentence below.
   match = /^Reveals ([^]+)\.$/.exec(value);
@@ -1148,7 +1162,7 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${{ document: "Документ", workbook: "Книга", presentation: "Презентація" }[match[2]]} ${match[1]} 97–2003`;
   match = /^Breaks (\d+) (rule|rules) of the format, usually harmlessly\.$/.exec(value);
   if (match) return `Порушує ${match[1]} ${ruleWord(Number(match[1]))} формату — зазвичай без наслідків.`;
-  match = /^This (photo|picture|drawing|video|recording|PDF|email|document|archive|file|module) has the wrong name$/.exec(value);
+  match = /^This (photo|picture|drawing|video|recording|audio file|PDF|email|document|archive|file|module) has the wrong name$/.exec(value);
   if (match) return `${NOUNS[match[1]]}: назва не відповідає вмісту`;
   // A file no build reads: what it looks like, and what hexscope does read.
   if (/^hexscope does not know this kind of file: it reads [^.]+\.$/.test(value)) return `hexscope не знає такого типу файлів: ${READS_UK}.`;

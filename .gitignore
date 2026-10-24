@@ -36,6 +36,7 @@ apps/web/src/wasm/
 apps/web/src/wasm-media/
 apps/web/src/wasm-pdf/
 apps/web/src/wasm-docs/
+apps/web/src/wasm-audio/
 
 apps/web/.local/
 

@@ -28,6 +28,7 @@ mail = ["hexscope-core/mail"]
 module = ["hexscope-core/module"]
 svg = ["hexscope-core/svg"]
 strings = ["hexscope-core/strings"]
+audio = ["hexscope-core/audio"]
 
 [dependencies]
 hexscope-core = { path = "../hexscope-core", default-features = false }

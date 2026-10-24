@@ -39,7 +39,9 @@ export interface ParsedFile {
   entropyWindow: number;
   /** A large movie's media, not read with the rest: `[start, len, …]`. */
   missing: Float64Array;
-  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
+  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "mp3" | "flac" | "ogg" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
+  /** False when supported metadata could not be completely read. */
+  metadataComplete?: boolean;
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */

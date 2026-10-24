@@ -195,6 +195,16 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Cfb if cfg!(feature = "office") => crate::cfb::docs::describe(tree, node, problem),
         Format::Rtf if cfg!(feature = "office") => crate::rtf::docs::describe(label, problem),
         Format::Svg if cfg!(feature = "svg") => crate::svg::docs::describe(label, problem),
+        Format::Mp3 | Format::Flac | Format::Ogg => {
+            #[cfg(feature = "audio")]
+            {
+                crate::audio::docs::describe(tree, node, problem)
+            }
+            #[cfg(not(feature = "audio"))]
+            {
+                None
+            }
+        }
         Format::Unknown => crate::document::docs(label),
         _ => None,
     }
@@ -226,7 +236,7 @@ fn generic(kind: NodeKind) -> Option<Doc> {
 /// or `docs` (Office, email, WebAssembly). The page's copy of the sentences
 /// is written from this.
 pub fn every() -> Vec<(&'static str, Doc)> {
-    let families: [(&str, &[Table]); 16] = [
+    let families: Vec<(&str, &[Table])> = vec![
         (
             "media",
             &[&[("", TIFF), ("", UNREADABLE), ("", RULE_BROKEN)]],
@@ -247,6 +257,12 @@ pub fn every() -> Vec<(&'static str, Doc)> {
         ("docs", crate::eml::docs::EVERY),
         ("docs", crate::wasm::docs::EVERY),
     ];
+    #[cfg(feature = "audio")]
+    let families = {
+        let mut families = families;
+        families.push(("audio", crate::audio::docs::EVERY));
+        families
+    };
     families
         .iter()
         .flat_map(|(family, tables)| {

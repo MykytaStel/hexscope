@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["file-formats", "parsing", "metadata", "privacy", "forensics"]
 categories = ["parser-implementations", "compression"]
 # The test corpus and fixtures are for this repository's checks, not for users of the crate.
-exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots"]
+exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots", "fuzz"]
 
 [features]
 default = ["documents", "explain"]
@@ -39,6 +39,9 @@ svg = []
 # Names in the text of files no format reads: home folders, email addresses.
 # In the browser, read by the small module, which such files load.
 strings = []
+# MP3, FLAC and Ogg metadata tags. Kept separate so small browser builds do
+# not pull in audio parsing unless the audio family is selected.
+audio = []
 
 [dependencies]
 hexscope-inflate = { path = "../hexscope-inflate", version = "0.8.0" }

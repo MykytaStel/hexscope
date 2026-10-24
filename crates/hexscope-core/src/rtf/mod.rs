@@ -11,8 +11,8 @@
 
 pub(crate) mod docs;
 
+use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
-use crate::zip::DocumentFact;
 
 /// What accepting tracked changes and deleting comments are called in a copy's list.
 const ACCEPTED: &str = "tracked changes, accepted";

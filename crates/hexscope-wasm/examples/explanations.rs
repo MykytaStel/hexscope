@@ -1,8 +1,8 @@
 //! The sentences and citations the browser's builds leave out, written for
 //! the page to fetch: one JSON file per build, `{ "key": "sentence" }` or
 //! `{ "key": ["sentence", "citation", "link"] }`, holding what that build
-//! can give — `explain-media.json`, and `explain-pdf.json` and
-//! `explain-docs.json` each with the media's too.
+//! can give — `explain-media.json`, `explain-audio.json`, and
+//! `explain-pdf.json` and `explain-docs.json` each with the media's too.
 //!
 //!   cargo run -p hexscope-wasm --example explanations -- apps/web/src/explanations
 
@@ -32,10 +32,10 @@ fn main() {
         every.iter().all(|(_, d)| !d.text.is_empty()),
         "built without the explain feature: no sentences to write"
     );
-    for build in ["media", "pdf", "docs"] {
+    for build in ["media", "pdf", "docs", "audio"] {
         let mut docs: Vec<_> = every
             .iter()
-            .filter(|(family, _)| *family == "media" || *family == build)
+            .filter(|(family, _)| *family == build || (build != "audio" && *family == "media"))
             .map(|(_, d)| (d.key, d.text, d.spec.map(|s| (s.cite, s.url))))
             .collect();
         docs.sort_unstable();

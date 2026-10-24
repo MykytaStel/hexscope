@@ -7,9 +7,10 @@ import { beforeAll, describe as group, expect, it } from "vitest";
 import * as mediaBuild from "./wasm-media/hexscope_media.js";
 import * as pdfBuild from "./wasm-pdf/hexscope_pdf.js";
 import * as docsBuild from "./wasm-docs/hexscope_docs.js";
+import * as audioBuild from "./wasm-audio/hexscope_audio.js";
 import { familyOf } from "./family";
 import { describe } from "./describe";
-import { FileModel } from "./model";
+import { FileModel, Kind } from "./model";
 import { headline, listed } from "./headline";
 import { verdict, misfit } from "./verdict";
 import { advice } from "./advice";
@@ -28,9 +29,10 @@ beforeAll(() => {
   mediaBuild.initSync({ module: readFileSync(here("./wasm-media/hexscope_media_bg.wasm")) });
   pdfBuild.initSync({ module: readFileSync(here("./wasm-pdf/hexscope_pdf_bg.wasm")) });
   docsBuild.initSync({ module: readFileSync(here("./wasm-docs/hexscope_docs_bg.wasm")) });
+  audioBuild.initSync({ module: readFileSync(here("./wasm-audio/hexscope_audio_bg.wasm")) });
 });
 
-const parse = (b: Uint8Array) => ({ media: mediaBuild, pdf: pdfBuild, docs: docsBuild })[familyOf(b)].parse(b);
+const parse = (b: Uint8Array) => ({ media: mediaBuild, pdf: pdfBuild, docs: docsBuild, audio: audioBuild })[familyOf(b)].parse(b);
 
 function open(name: string, bytes?: Uint8Array): FileModel {
   const b = bytes ?? new Uint8Array(readFileSync(here(`../public/samples/${name}`)));
@@ -49,8 +51,18 @@ group("incomplete PDF content checks", () => {
     expect(searchable([page])[0].complete).toBe(false);
 
     const bytes = new Uint8Array(readFileSync(here("../e2e/fixtures/incomplete-form.pdf")));
-    const lines = verdict(open("incomplete-form.pdf", bytes));
+    const model = open("incomplete-form.pdf", bytes);
+    const lines = verdict(model);
     expect(lines).toContainEqual(expect.objectContaining({ kind: "warning" }));
+    const partialWithoutDamage = describe(parse(bytes));
+    partialWithoutDamage.kinds = partialWithoutDamage.kinds.map((kind) =>
+      kind === Kind.Error ? Kind.Field : kind,
+    );
+    partialWithoutDamage.docConcerns.fill(0);
+    expect(headline(new FileModel(partialWithoutDamage, bytes, "incomplete-form.pdf"))).toEqual({
+      tone: "warning",
+      text: "PDF not fully checked",
+    });
     expect(
       translateText("Some PDF page or form content could not be fully checked. Search may miss text.", "uk"),
     ).toBe("Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.");
@@ -84,6 +96,26 @@ group("an Outlook message and an old Word file", () => {
 });
 
 group("the headline", () => {
+  it("puts an incomplete audio read before the empty or reassuring result", () => {
+    const payload = [3, ...new TextEncoder().encode("custom\0value")];
+    const body = [...new TextEncoder().encode("TXXX"), 0, 0, 0, payload.length, 0, 0, ...payload];
+    const bytes = Uint8Array.from([
+      0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, body.length,
+      ...body,
+    ]);
+    const m = open("partial.mp3", bytes);
+    expect(m.file.format).toBe("mp3");
+    expect(m.file.metadataComplete).toBe(false);
+    expect(headline(m)).toEqual({
+      tone: "warning",
+      text: "Some metadata in this audio file could not be fully read",
+    });
+    const partial = verdict(m).find((line) => line.kind === "warning");
+    expect(partial).toBeDefined();
+    expect(partial!.node).toBeGreaterThanOrEqual(0);
+    expect(m.label(partial!.node)).toContain("TXXX not inspected");
+  });
+
   it("is said shorter in a list of files, where the row names the file", () => {
     expect(listed(headline(open("photo.jpg")))).toMatch(/^Gives away \d+ things$/);
     expect(listed(headline(open("phishing.eml")))).toBe("May not be from who it says");

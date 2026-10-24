@@ -5,8 +5,8 @@
 use super::Ctx;
 use super::facts::{Found, cap, decrypt_strings, insert_update, resolve, text};
 use super::lexer::Obj;
+use crate::facts::DocumentFact;
 use crate::model::NodeId;
-use crate::zip::DocumentFact;
 
 /// Fields and attachments read, at most, and how deep a form's fields nest.
 const MAX_FIELDS: usize = 500;

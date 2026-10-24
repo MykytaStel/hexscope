@@ -30,6 +30,9 @@ export const EXTENSIONS: Record<string, string[]> = {
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
   rtf: ["rtf"],
   svg: ["svg"],
+  mp3: ["mp3"],
+  flac: ["flac"],
+  ogg: ["ogg", "oga", "opus"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -296,6 +299,26 @@ export function verdict(m: FileModel): VerdictLine[] {
       kind: "warning",
       text: "Some PDF page or form content could not be fully checked. Search may miss text.",
       node: incompleteForm.node,
+    });
+  }
+  if (["mp3", "flac", "ogg"].includes(f.format) && f.metadataComplete === false) {
+    const factNodes = new Set(f.facts.map((fact) => fact.node));
+    const error = m.problems.find((id) => m.kind(id) === Kind.Error);
+    const warning = m.problems.find((id) => m.kind(id) === Kind.Warning);
+    let partialField = -1;
+    if (error === undefined && warning === undefined) {
+      for (let id = 0; id < m.count; id++) {
+        if (m.kind(id) !== Kind.Field || factNodes.has(id)) continue;
+        const label = m.label(id);
+        if (label.startsWith("audio frames") || label.startsWith("remaining Ogg packets")) continue;
+        partialField = id;
+        break;
+      }
+    }
+    lines.push({
+      kind: "warning",
+      text: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
+      node: error ?? warning ?? (partialField >= 0 ? partialField : m.count > 0 ? 0 : -1),
     });
   }
 

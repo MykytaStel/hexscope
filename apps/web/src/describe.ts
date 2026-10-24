@@ -31,6 +31,7 @@ export function describe(parsed: Parsed): ParsedFile {
     entropyWindow: 0,
     missing: new Float64Array(0),
     format: parsed.format as ParsedFile["format"],
+    metadataComplete: parsed.metadataComplete,
     dimensions: null,
     orientation: parsed.orientation,
     facts: [],

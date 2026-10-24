@@ -1429,6 +1429,9 @@ test("supported file types stay grouped in the mobile catalog", async ({ page })
   await expect(formats).toBeVisible();
   await expect(formats.getByRole("heading", { name: "Supported formats" })).toBeVisible();
   await expect(formats.locator(".format-category")).toHaveCount(4);
+  await expect(formats.getByRole("heading", { name: "Video & audio" })).toBeVisible();
+  await expect(formats.locator(".format-tags").filter({ hasText: "MP3" })).toContainText("FLAC");
+  await expect(formats).toContainText("audio is not played");
   expect(await formats.locator(".format-catalog-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
 });
 

@@ -20,8 +20,8 @@ use super::fonts::{Fonts, page_fonts};
 use super::lexer::Obj;
 use super::page::{Area, Glyph, Hidden, StreamEdit, Walked, apply_edits, num, readable, walk};
 use super::{Ctx, ObjRec};
+use crate::facts::DocumentFact;
 use crate::model::{NodeId, ParseTree, Value};
-use crate::zip::DocumentFact;
 
 /// Pages walked, at most.
 const MAX_PAGES: usize = 2000;

@@ -12,20 +12,27 @@ export interface Explanation {
   url: string;
 }
 
-type Build = "media" | "pdf" | "docs";
+type Build = "media" | "pdf" | "docs" | "audio";
 type Written = Record<string, string | string[]>;
 
 const FILES: Record<Build, () => Promise<{ default: Written }>> = {
   media: () => import("./explanations/explain-media.json"),
   pdf: () => import("./explanations/explain-pdf.json"),
   docs: () => import("./explanations/explain-docs.json"),
+  audio: () => import("./explanations/explain-audio.json"),
 };
 
 /** The formats each build beyond the pictures' reads (worker.ts, family.ts). */
 const DOCS = new Set<ParsedFile["format"]>(["zip", "wasm", "eml", "msg", "office97", "cfb", "rtf"]);
 
 const buildOf = (format: ParsedFile["format"]): Build =>
-  format === "pdf" ? "pdf" : DOCS.has(format) ? "docs" : "media";
+  format === "pdf"
+    ? "pdf"
+    : format === "mp3" || format === "flac" || format === "ogg"
+      ? "audio"
+      : DOCS.has(format)
+        ? "docs"
+        : "media";
 
 /** Every sentence fetched so far: keys are the same in every build's file. */
 const known = new Map<number, Explanation>();

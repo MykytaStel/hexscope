@@ -413,11 +413,15 @@ export class Drawer {
       video: "What this video reveals",
       wasm: "What this module reveals",
       svg: "What this drawing reveals",
+      mp3: "What this audio file reveals",
+      flac: "What this audio file reveals",
+      ogg: "What this audio file reveals",
       unknown: "What this file reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };
-    const title = el("h2", undefined, isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
+    const audioFile = ["mp3", "flac", "ogg"].includes(f.format);
+    const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // An email's way from its sender to you, drawn, with what is wrong on it.
     if (f.format === "eml") {
@@ -473,7 +477,9 @@ export class Drawer {
       const notes = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "data after the end of the image"];
       const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
       const none =
-        f.format === "pdf"
+        audioFile
+          ? "No supported audio metadata tags were found."
+          : f.format === "pdf"
           ? "No document information or XMP: nothing about who wrote it, with what, or when."
           : removable
             ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
@@ -485,6 +491,12 @@ export class Drawer {
                 ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
               : "No EXIF metadata: nothing about the camera, the time or the place.";
       group.append(el("p", "hint", none));
+      if (audioFile && f.metadataComplete === false) {
+        group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
+      }
+      if (audioFile) {
+        group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
+      }
       if (removable) group.append(createCleaner(m, this.cleaning, group));
       if (canBlackOut(m)) group.append(this.blackOutButton(m));
       // A screenshot with no metadata still shows what was on the screen.
@@ -609,6 +621,9 @@ export class Drawer {
       groupElements.get("additional")!.body.setAttribute("open", "");
     }
     group.append(metadataGroups);
+    if (audioFile && f.metadataComplete === false) {
+      group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
+    }
     // The first pages with black boxes over text or pictures, drawn; with
     // their pictures when a box lies on one.
     const overPictures = f.labels.includes("a picture under a black box");
@@ -625,6 +640,8 @@ export class Drawer {
     } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
+    } else if (audioFile) {
+      group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));
     }

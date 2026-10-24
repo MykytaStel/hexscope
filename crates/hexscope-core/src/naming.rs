@@ -26,6 +26,9 @@ const EXTENSIONS: &[(&str, &[&str])] = &[
     ("gif", &["gif"]),
     ("tiff", &["tif", "tiff"]),
     ("video", &["mp4", "m4v", "mov", "qt", "3gp", "3g2", "m4a"]),
+    ("mp3", &["mp3"]),
+    ("flac", &["flac"]),
+    ("ogg", &["ogg", "oga", "opus"]),
     ("pdf", &["pdf"]),
     (
         "zip",
@@ -110,6 +113,14 @@ fn what_it_is(doc: &Document, data: &[u8]) -> Option<(&'static str, &'static str
         Document::Gif(_) => ("gif", "a GIF", ".gif"),
         Document::Tiff(_) => ("tiff", "a TIFF image", ".tif"),
         Document::Video(_) => ("video", "an MP4 or QuickTime movie", ".mp4"),
+        #[cfg(feature = "audio")]
+        Document::Audio(d) => match d.format {
+            crate::audio::AudioFormat::Mp3 => ("mp3", "an MP3 audio file", ".mp3"),
+            crate::audio::AudioFormat::Flac => ("flac", "a FLAC audio file", ".flac"),
+            crate::audio::AudioFormat::Ogg => ("ogg", "an Ogg media file", ".ogg"),
+            crate::audio::AudioFormat::OggVorbis => ("ogg", "an Ogg Vorbis audio file", ".ogg"),
+            crate::audio::AudioFormat::OggOpus => ("ogg", "an Ogg Opus audio file", ".opus"),
+        },
         Document::Pdf(_) => ("pdf", "a PDF", ".pdf"),
         Document::Wasm(_) => ("wasm", "a WebAssembly module", ".wasm"),
         Document::Eml(_) => ("eml", "an email", ".eml"),
