@@ -32,6 +32,104 @@ export function cleanable(i: BatchItem): boolean {
   return i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden"));
 }
 
+export type BatchShow = "all" | "reveals" | "problems";
+
+export interface BatchSummary {
+  settled: number;
+  busy: boolean;
+  revealing: number;
+  damaged: number;
+  hidden: number;
+  flagged: number;
+  dangerous: boolean;
+  chosen: number;
+  problemCount: number;
+  shownCount: number;
+  shown: { item: BatchItem; index: number }[];
+  anyPick: boolean;
+}
+
+interface BatchItemSummary {
+  settled: boolean;
+  reveals: boolean;
+  damaged: boolean;
+  hidden: boolean;
+  flagged: boolean;
+  dangerous: boolean;
+  problem: boolean;
+  canClean: boolean;
+}
+
+function summarizeBatchItem(item: BatchItem): BatchItemSummary {
+  const failed = item.state === "failed";
+  let hasUnknownOrDamage = false;
+  let hasDamage = false;
+  let hasHidden = false;
+  let hasMisnamed = false;
+  for (const line of item.lines) {
+    if (line.kind === "unknown") hasUnknownOrDamage = true;
+    if (line.kind === "damage") {
+      hasUnknownOrDamage = true;
+      hasDamage = true;
+    }
+    if (line.kind === "hidden") hasHidden = true;
+    if (line.kind === "misnamed") hasMisnamed = true;
+  }
+  const reveals = item.reveals.length > 0;
+  return {
+    settled: item.state === "done" || failed,
+    reveals,
+    damaged: failed || hasDamage,
+    hidden: hasHidden,
+    flagged: hasUnknownOrDamage || failed || item.headline?.tone === "danger" || item.headline?.tone === "warning",
+    dangerous: failed || item.headline?.tone === "danger",
+    problem: failed || hasDamage || hasHidden || hasMisnamed,
+    canClean: item.state === "done" && (reveals || hasHidden),
+  };
+}
+
+/** Summarizes a batch and applies its current filter in one pass. */
+export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit = Number.POSITIVE_INFINITY): BatchSummary {
+  const summary: BatchSummary = {
+    settled: 0,
+    busy: false,
+    revealing: 0,
+    damaged: 0,
+    hidden: 0,
+    flagged: 0,
+    dangerous: false,
+    chosen: 0,
+    problemCount: 0,
+    shownCount: 0,
+    shown: [],
+    anyPick: false,
+  };
+
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index]!;
+    const facts = summarizeBatchItem(item);
+    if (facts.settled) summary.settled++;
+    if (facts.reveals) summary.revealing++;
+    if (facts.damaged) summary.damaged++;
+    if (facts.hidden) summary.hidden++;
+    if (facts.flagged) {
+      summary.flagged++;
+      if (facts.dangerous) summary.dangerous = true;
+    }
+    if (facts.problem) summary.problemCount++;
+    if (facts.canClean && !item.skip) summary.chosen++;
+
+    const matches = show === "all" || (show === "reveals" ? facts.reveals : facts.problem);
+    if (matches) {
+      summary.shownCount++;
+      if (summary.shown.length < visibleLimit) summary.shown.push({ item, index });
+      if (facts.canClean) summary.anyPick = true;
+    }
+  }
+  summary.busy = summary.settled < items.length;
+  return summary;
+}
+
 export interface BatchHooks {
   open(index: number): void;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
@@ -76,9 +174,6 @@ function tags(item: BatchItem): HTMLElement[] {
   return out;
 }
 
-/** Which files the list shows. */
-type Show = "all" | "reveals" | "problems";
-
 /** Rows drawn at a time: a folder of thousands would make the page crawl. */
 const PAGE = 300;
 
@@ -93,7 +188,7 @@ function sentences(text: string): Node[] {
 
 export class BatchView {
   private status = el("p", "batch-result");
-  private show: Show = "all";
+  private show: BatchShow = "all";
   private limit = PAGE;
   private items: BatchItem[] = [];
   private lastDrawn = 0;
@@ -135,46 +230,41 @@ export class BatchView {
     this.pending = 0;
     this.lastDrawn = performance.now();
     const items = this.items;
-    const done = items.filter((i) => i.state === "done" || i.state === "failed");
-    const busy = done.length < items.length;
-    const revealing = items.filter((i) => i.reveals.length > 0).length;
-    const damaged = items.filter((i) => i.state === "failed" || i.lines.some((l) => l.kind === "damage")).length;
-    const hidden = items.filter((i) => i.lines.some((l) => l.kind === "hidden")).length;
+    const totals = summarizeBatch(items, this.show, this.limit);
 
     const card = el("div", "batch-card");
     const head = el("div", "batch-head");
     const label = el("p", "batch-label", plural(items.length, "file", "files"));
-    const flagged = items.filter((i) => i.lines.some((l) => l.kind === "unknown" || l.kind === "damage") || i.state === "failed" || i.headline?.tone === "danger" || i.headline?.tone === "warning");
-    const tone = busy ? "neutral" : flagged.some((i) => i.state === "failed" || i.headline?.tone === "danger") ? "danger" : flagged.length ? "warning" : "ok";
+    const tone = totals.busy ? "neutral" : totals.dangerous ? "danger" : totals.flagged ? "warning" : "ok";
     const title = el(
       "h2",
       `batch-title is-${tone}`,
-      busy
-        ? `Reading ${done.length + 1} of ${items.length}…`
-        : flagged.length
-          ? `${flagged.length} of ${plural(items.length, "file needs", "files need")} a look`
+      totals.busy
+        ? `Reading ${totals.settled + 1} of ${items.length}…`
+        : totals.flagged
+          ? `${totals.flagged} of ${plural(items.length, "file needs", "files need")} a look`
           : `Nothing personal found in ${items.length === 1 ? "this file" : `these ${items.length} files`}`,
     );
     const summary = el("p", "batch-summary");
-    if (busy) {
+    if (totals.busy) {
       summary.textContent = "Nothing leaves this tab.";
     } else {
       const parts = [
-        revealing ? `${revealing} ${revealing === 1 ? "reveals" : "reveal"} something about you` : "",
-        hidden ? `${hidden} ${hidden === 1 ? "hides" : "hide"} something` : "",
-        damaged ? `${damaged} damaged` : "",
+        totals.revealing ? `${totals.revealing} ${totals.revealing === 1 ? "reveals" : "reveal"} something about you` : "",
+        totals.hidden ? `${totals.hidden} ${totals.hidden === 1 ? "hides" : "hide"} something` : "",
+        totals.damaged ? `${totals.damaged} damaged` : "",
       ].filter(Boolean);
       // Each part its own text, so each is translated on its own.
       if (parts.length) summary.append(...parts.flatMap((part, i) => [...(i ? [" · "] : []), el("span", undefined, part)]), ".");
       else summary.textContent = "No personal metadata found by the available checks. Visible content has not been cleared.";
     }
     const phone = this.hooks.canShareCopies();
-    const chosen = items.filter((i) => cleanable(i) && !i.skip).length;
+    const chosen = totals.chosen;
     const copies = plural(chosen, "clean copy", "clean copies");
     // Once the copies wait to be shared, sharing is the one thing to do: making them again steps back.
     const offered = this.status.querySelector(".batch-actions") !== null;
-    const save = el("button", `btn ${offered ? "btn-again" : "btn-clean"}`, busy || chosen === 0 ? (phone ? "Make clean copies" : "Save clean copies (.zip)") : phone ? `Make ${copies}` : `Save ${copies} (.zip)`);
-    save.disabled = busy || chosen === 0;
+    const save = el("button", `btn ${offered ? "btn-again" : "btn-clean"}`, totals.busy || chosen === 0 ? (phone ? "Make clean copies" : "Save clean copies (.zip)") : phone ? `Make ${copies}` : `Save ${copies} (.zip)`);
+    save.disabled = totals.busy || chosen === 0;
     save.title = phone
       ? "Makes the copies in this tab, to share or save: nothing is uploaded"
       : "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded";
@@ -199,18 +289,18 @@ export class BatchView {
       fingerprintBox,
       el("span", undefined, translateText("Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)", currentLocale())),
     );
-    fingerprint.hidden = busy || chosen === 0;
+    fingerprint.hidden = totals.busy || chosen === 0;
     // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
-    keep.hidden = busy || chosen === 0 || phone;
+    keep.hidden = totals.busy || chosen === 0 || phone;
     head.append(label, title, summary, save, keep, fingerprint, this.status);
     // The tools for a whole roll of photos, out of the way of the one thing most come for.
     const tools: HTMLButtonElement[] = [];
-    if (!busy && items.length <= 1000 && this.hooks.mosaic) {
+    if (!totals.busy && items.length <= 1000 && this.hooks.mosaic) {
       const mosaic = el("button", "btn", "Photo privacy mosaic");
       mosaic.addEventListener("click", () => this.hooks.mosaic?.(items));
       tools.push(mosaic);
     }
-    if (!busy && this.hooks.filmRoll) {
+    if (!totals.busy && this.hooks.filmRoll) {
       const roll = el("button", "btn", "Process film scans");
       roll.addEventListener("click", () => this.hooks.filmRoll?.(items));
       tools.push(roll);
@@ -221,12 +311,10 @@ export class BatchView {
       head.append(more);
     }
 
-    const isProblem = (i: BatchItem) =>
-      i.state === "failed" || i.lines.some((l) => l.kind === "damage" || l.kind === "hidden" || l.kind === "misnamed");
-    const filters: [Show, string, number][] = [
+    const filters: [BatchShow, string, number][] = [
       ["all", "All", items.length],
-      ["reveals", "Give something away", revealing],
-      ["problems", "Damaged or hiding something", items.filter(isProblem).length],
+      ["reveals", "Give something away", totals.revealing],
+      ["problems", "Damaged or hiding something", totals.problemCount],
     ];
     const bar = el("div", "batch-filter");
     bar.setAttribute("role", "group");
@@ -241,14 +329,9 @@ export class BatchView {
       });
       bar.append(b);
     }
-    const shown = items
-      .map((item, i) => ({ item, i }))
-      .filter(({ item }) => this.show === "all" || (this.show === "reveals" ? item.reveals.length > 0 : isProblem(item)));
-
     const list = el("ul", "batch-list");
     // With any tick in the list, every row keeps its place for one.
-    const anyPick = shown.some(({ item }) => cleanable(item));
-    shown.slice(0, this.limit).forEach(({ item, i }) => {
+    for (const { item, index } of totals.shown) {
       const li = el("li");
       const row = el("button", "batch-row");
       row.disabled = item.state === "waiting" || item.state === "reading";
@@ -264,7 +347,7 @@ export class BatchView {
         box.append(...found);
         row.append(box);
       }
-      row.addEventListener("click", () => this.hooks.open(i));
+      row.addEventListener("click", () => this.hooks.open(index));
       // Whether this one goes into the clean copies.
       if (cleanable(item)) {
         const pick = el("input", "batch-pick");
@@ -278,16 +361,16 @@ export class BatchView {
         });
         li.classList.add("has-pick");
         li.append(pick);
-      } else if (anyPick) {
+      } else if (totals.anyPick) {
         li.classList.add("has-pick");
         li.append(el("span", "batch-pick"));
       }
       li.append(row);
       list.append(li);
-    });
+    }
     card.append(head, bar, list);
-    if (shown.length > this.limit) {
-      const more = el("button", "btn", `Show ${Math.min(PAGE, shown.length - this.limit)} more of ${shown.length - this.limit}`);
+    if (totals.shownCount > this.limit) {
+      const more = el("button", "btn", `Show ${Math.min(PAGE, totals.shownCount - this.limit)} more of ${totals.shownCount - this.limit}`);
       more.addEventListener("click", () => {
         this.limit += PAGE;
         this.draw();

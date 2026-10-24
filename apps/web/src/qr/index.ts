@@ -3,6 +3,7 @@
 
 import { readGrid, transposed } from "./grid";
 import { binarize, inverted, locate, type Bitmap, type Point } from "./locate";
+export { bitmapResizeOptions } from "./bitmap-size";
 
 export interface QrCode {
   text: string;

@@ -27,7 +27,7 @@ export async function placeFilmScanCard(target: ParentNode, model: FileModel): P
   if (entry) target.querySelector(".more-details")?.append(entry);
 }
 
-type Look = { picture: Blob; inspectFilmScan?: boolean } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };
+type Look = { picture: Blob; pictureDimensions?: [number, number]; inspectFilmScan?: boolean } | { pdf: Uint8Array } | { entries: { index: number; name: string; node: number }[] };
 
 /** What in the file is looked through for codes: the picture itself, a PDF's pictures, or pictures inside it. */
 function request(m: FileModel, inspectFilmScan: boolean): Look | null {
@@ -35,6 +35,7 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
   if (PICTURES.includes(f.format)) {
     return {
       picture: m.source ?? new Blob([m.bytes as BlobPart]),
+      ...(f.dimensions ? { pictureDimensions: f.dimensions } : {}),
       ...(["jpeg", "png", "webp"].includes(f.format) && inspectFilmScan ? { inspectFilmScan: true } : {}),
     };
   }
