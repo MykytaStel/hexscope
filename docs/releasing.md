@@ -52,14 +52,13 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    every publishable crate with:
 
    ```sh
-   cargo publish --workspace --locked --dry-run --no-verify
+   cargo publish --workspace --locked --dry-run
    ```
 
-   `--no-verify` is needed before publishing a new workspace version: Cargo's
-   default tarball verification resolves dependencies from crates.io, where
-   `hexscope-core` 0.8.0 is not available yet, so the CLI is checked against
-   the older published API and fails. CI compiles and tests the workspace
-   sources; this dry run checks that all four crates package successfully.
+   This dry run packages and verifies all four crates without uploading them.
+   Keep `--no-verify` out of this check: the default verification passed for
+   the workspace's 0.8.0 packages. CI separately compiles and tests the
+   workspace sources.
    After deciding to publish, run `cargo publish --workspace --locked`. Cargo
    publishes `hexscope-inflate`, `hexscope-core`, `hexscope-raster` and
    `hexscope-cli` in dependency order.

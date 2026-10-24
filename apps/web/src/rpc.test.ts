@@ -35,6 +35,14 @@ class FakeWorker {
       else listener.handleEvent(event);
     }
   }
+
+  emit(type: "error" | "messageerror"): void {
+    const event = { preventDefault: vi.fn() } as unknown as Event;
+    for (const listener of this.listeners.get(type) ?? []) {
+      if (typeof listener === "function") listener.call(this, event);
+      else listener.handleEvent(event);
+    }
+  }
 }
 
 describe("worker RPC timeouts", () => {
@@ -50,8 +58,51 @@ describe("worker RPC timeouts", () => {
     vi.unstubAllGlobals();
   });
 
+  it("resolves a verification timeout once, clears it, and ignores its late reply", async () => {
+    const rpc = await import("./rpc");
+    const worker = FakeWorker.instances[0];
+    const timed = rpc.call(
+      {
+        type: "verifyCopy",
+        copy: new Blob(["copy"]),
+        sourceFormat: "jpeg",
+        sourceFindings: [],
+        retainedReasons: {},
+      },
+      25,
+    );
+    const timedId = worker.sent[0].id;
+    let settlements = 0;
+    void timed.then(() => settlements++);
+
+    await vi.advanceTimersByTimeAsync(25);
+    await Promise.resolve();
+    expect(settlements).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(worker.terminated).toBe(true);
+
+    worker.respond({ id: timedId, type: "verification", report: { removed: [], present: [], unchecked: [] } });
+    await Promise.resolve();
+    expect(settlements).toBe(1);
+
+    let laterSettled = false;
+    const later = rpc.call({ type: "pageTexts", bytes: new Uint8Array() }).then((response) => {
+      laterSettled = true;
+      return response;
+    });
+    const replacement = FakeWorker.instances[1];
+    const laterId = replacement.sent[0].id;
+    await vi.advanceTimersByTimeAsync(100);
+    await Promise.resolve();
+    expect(laterSettled).toBe(false);
+    replacement.respond({ id: laterId, type: "pageTexts", pages: [] });
+    await expect(later).resolves.toMatchObject({ id: laterId, type: "pageTexts", pages: [] });
+  });
+
   it("terminates a busy reader after verification times out and starts a fresh worker", async () => {
     const rpc = await import("./rpc");
+    const reset = vi.fn();
+    rpc.onWorkerReset(reset);
     const worker = FakeWorker.instances[0];
     const pending = rpc.call({ type: "steps", from: 0, count: 1 });
     const pendingId = worker.sent[0].id;
@@ -72,6 +123,7 @@ describe("worker RPC timeouts", () => {
     await vi.advanceTimersByTimeAsync(25);
     await Promise.resolve();
     expect(settlements).toBe(1);
+    expect(reset).toHaveBeenCalledOnce();
     expect(worker.terminated).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
     await expect(timed).resolves.toMatchObject({
@@ -93,6 +145,7 @@ describe("worker RPC timeouts", () => {
     const replacement = FakeWorker.instances[1];
     const laterId = replacement.sent[0].id;
     worker.respond({ id: timedId, type: "verification", report: { removed: [], present: [], unchecked: [] } });
+    worker.emit("error");
     await Promise.resolve();
     expect(laterSettled).toBe(false);
     replacement.respond({ id: laterId, type: "pageTexts", pages: [] });

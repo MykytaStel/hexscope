@@ -567,6 +567,7 @@ registerLazyTranslations({
   "hexscope could not load its file viewer. Reload the page and try again.": "hexscope не зміг завантажити переглядач файлів. Перезавантажте сторінку й спробуйте ще раз.",
   "hexscope could not load its file viewer: you are offline, and it has not been saved for offline use yet.": "hexscope не зміг завантажити переглядач файлів: ви офлайн, а його ще не збережено для роботи без мережі.",
   "the reader stopped, most likely for lack of memory. Close other tabs and try again, or use the command line tool": "читання зупинилося, найімовірніше через брак пам’яті. Закрийте інші вкладки й спробуйте ще раз або скористайтеся інструментом командного рядка",
+  "the reader stopped after copy verification timed out; reopen the file to continue": "читання зупинилося після тайм-ауту перевірки копії; файл потрібно відкрити знову, щоб продовжити",
   "the reader could not start: you are offline, and it has not been saved for offline use yet": "читання не почалося: ви офлайн, а цю частину ще не збережено для роботи без мережі",
   "copy verification did not finish in time": "перевірка копії не завершилася вчасно",
   "the worker could not start this request": "не вдалося почати цей запит",

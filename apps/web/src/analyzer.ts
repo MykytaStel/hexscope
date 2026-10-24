@@ -12,7 +12,7 @@ import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { Player } from "./player";
 import { TreeView } from "./tree";
-import { call, playerSource } from "./rpc";
+import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchView } from "./batch";
@@ -693,6 +693,16 @@ workspace = new WorkspaceController({
     },
     clearPlayer: closePlayer,
   },
+});
+
+onWorkerReset(() => {
+  const current = workspace.model;
+  if (!current || document.body.dataset.state !== "ready") return;
+  queueMicrotask(() => {
+    if (workspace.model === current && document.body.dataset.state === "ready") {
+      void workspace.reopenCurrent();
+    }
+  });
 });
 
 // --- many files ------------------------------------------------------------

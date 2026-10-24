@@ -52,6 +52,15 @@ function rig(overrides: Partial<WorkspaceServices> = {}) {
 
 const file = (name: string) => new File([name], name);
 
+function fileModel(name: string, bytes: Uint8Array, source: Blob | null = null): FileModel {
+  const value = model(name);
+  Object.defineProperties(value, {
+    bytes: { value: bytes },
+    source: { value: source },
+  });
+  return value;
+}
+
 describe("WorkspaceController", () => {
   it("keeps the newest opened file when an earlier parse finishes later", async () => {
     const firstParse = deferred<FileModel>();
@@ -72,6 +81,30 @@ describe("WorkspaceController", () => {
     expect(view.show).toHaveBeenCalledWith(latest, []);
     expect(view.remember).toHaveBeenCalledWith(latestFile);
     expect(view.afterOpen).toHaveBeenCalledWith(latest);
+  });
+
+  it("restores the current file from local bytes after the worker is reset", async () => {
+    const rootFile = file("root.zip");
+    const nestedBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const root = fileModel("root.zip", new Uint8Array([1]), rootFile);
+    const nested = fileModel("inside.docx", nestedBytes);
+    const reopened = fileModel("inside.docx", nestedBytes);
+    const parse = vi.fn(async (input: File) => input.name === "root.zip" ? root : reopened);
+    const { controller, view } = rig({
+      parse,
+      openEntry: async () => nested,
+    });
+
+    await controller.openFile(rootFile);
+    await controller.openEntry(0, "inside.docx");
+    await controller.reopenCurrent();
+
+    const restoredFile = parse.mock.calls[1][0];
+    expect(restoredFile.name).toBe("inside.docx");
+    await expect(restoredFile.arrayBuffer()).resolves.toEqual(nestedBytes.buffer);
+    expect(controller.model).toBe(reopened);
+    expect(controller.levels).toEqual([]);
+    expect(view.show).toHaveBeenLastCalledWith(reopened, []);
   });
 
   it("does not let a pending nested open replace a newer file", async () => {

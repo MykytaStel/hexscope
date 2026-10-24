@@ -47,6 +47,14 @@ export class WorkspaceController {
     return this.history;
   }
 
+  /** Rebuilds the current parser state after its worker has been terminated. */
+  async reopenCurrent(): Promise<void> {
+    const current = this.current;
+    if (!current) return;
+    const file = new File([current.source ?? (current.bytes as BlobPart)], current.name);
+    await this.openFile(file);
+  }
+
   /** Clears the open workspace when the app changes to a different flow. */
   clear(): void {
     this.request++;

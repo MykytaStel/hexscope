@@ -5,6 +5,17 @@ import type { WorkerRequest, WorkerResponse } from "./worker";
 // One outstanding promise per request id; responses can arrive in any order.
 let nextId = 0;
 const waiting = new Map<number, (r: WorkerResponse) => void>();
+const workerResetListeners = new Set<() => void>();
+
+/** Runs after a timed-out verification stops the parser worker. */
+export function onWorkerReset(listener: () => void): () => void {
+  workerResetListeners.add(listener);
+  return () => workerResetListeners.delete(listener);
+}
+
+function notifyWorkerReset(): void {
+  for (const listener of workerResetListeners) listener();
+}
 
 function failWaiting(message: string): void {
   for (const [id, answer] of waiting) answer({ id, type: "error", message });
@@ -23,6 +34,9 @@ function start(): Worker {
     waiting.delete(e.data.id);
   });
   const died = (e: Event) => {
+    // A terminated worker may still deliver a queued error after its
+    // replacement has already started. It must not fail the new worker's RPCs.
+    if (worker !== w) return;
     e.preventDefault();
     const message = navigator.onLine
       ? "the reader stopped, most likely for lack of memory. Close other tabs and try again, or use the command line tool"
@@ -71,6 +85,7 @@ export function call(req: Req, timeoutMs?: number): Promise<WorkerResponse> {
           worker = null;
           target.terminate();
           failWaiting("the reader stopped after copy verification timed out; reopen the file to continue");
+          notifyWorkerReset();
         },
         timeoutMs,
       );
