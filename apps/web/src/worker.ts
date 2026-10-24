@@ -46,7 +46,7 @@ export type WorkerRequest =
   | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" }
-  | { id: number; type: "codes"; picture?: Blob; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
+  | { id: number; type: "codes"; picture?: Blob; pictureDimensions?: [number, number]; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
@@ -228,28 +228,42 @@ const CODE_SCAN = 2400;
 const PDF_PAGES = 30;
 
 /** A picture's brightness, one byte a pixel, scaled down if it is large; null when the browser cannot decode it. */
-async function brightness(image: Blob | ImageData): Promise<{ lum: Uint8Array; width: number; height: number } | null> {
-  const bitmap = await createImageBitmap(image).catch(() => null);
+async function brightness(
+  image: Blob | ImageData,
+  resize: ImageBitmapOptions | undefined,
+  luminance: (rgba: Uint8ClampedArray | Uint8Array, width: number, height: number) => Uint8Array,
+): Promise<{ lum: Uint8Array; width: number; height: number } | null> {
+  let bitmap: ImageBitmap | null = null;
+  if (resize) {
+    try {
+      bitmap = await createImageBitmap(image, resize);
+    } catch {
+      // Older browsers may decode this image but not support resize options.
+    }
+  }
+  bitmap ??= await createImageBitmap(image).catch(() => null);
   if (!bitmap) return null;
-  const scale = Math.min(1, CODE_SCAN / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
-  if (!g) return null;
-  g.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  const { luminance } = await import("./qr/index");
-  return { lum: luminance(g.getImageData(0, 0, width, height).data, width, height), width, height };
+  try {
+    const scale = Math.min(1, CODE_SCAN / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
+    if (!g) return null;
+    g.drawImage(bitmap, 0, 0, width, height);
+    return { lum: luminance(g.getImageData(0, 0, width, height).data, width, height), width, height };
+  } finally {
+    bitmap.close();
+  }
 }
 
 /** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
 async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
-  const { findCodes } = await import("./qr/index");
+  const { findCodes, luminance, bitmapResizeOptions } = await import("./qr/index");
   const current = stack[stack.length - 1];
   const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
   let filmScan: FilmScanReport | undefined;
-  const look = async (image: Blob | ImageData, where: string) => {
-    const p = await brightness(image);
+  const look = async (image: Blob | ImageData, where: string, dimensions?: readonly [number, number]) => {
+    const p = await brightness(image, bitmapResizeOptions(dimensions, CODE_SCAN), luminance);
     if (req.inspectFilmScan) {
       try {
         const { inspectFilmScan } = await import("./filmscan");
@@ -274,17 +288,17 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
       found.push({ text: c.text, where, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
     }
   };
-  if (req.picture) await look(req.picture, "");
+  if (req.picture) await look(req.picture, "", req.pictureDimensions);
   if (req.pdf) {
     const t = (await loadPdf()).pdfPictures(req.pdf, PDF_PAGES);
     for (let i = 0; i < t.count; i++) {
       const where = `the picture on page ${t.page(i)}`;
+      const [width, height] = t.size(i);
       const at = t.jpeg(i);
       if (at.length === 2) {
-        await look(new Blob([req.pdf.subarray(at[0], at[0] + at[1]) as BlobPart], { type: "image/jpeg" }), where);
+        await look(new Blob([req.pdf.subarray(at[0], at[0] + at[1]) as BlobPart], { type: "image/jpeg" }), where, [width, height]);
       } else {
-        const [width, height] = t.size(i);
-        if (width >= 21 && height >= 21) await look(new ImageData(new Uint8ClampedArray(t.rgba(i).buffer as ArrayBuffer), width, height), where);
+        if (width >= 21 && height >= 21) await look(new ImageData(new Uint8ClampedArray(t.rgba(i).buffer as ArrayBuffer), width, height), where, [width, height]);
       }
     }
     t.free();
@@ -362,7 +376,7 @@ async function handle(req: WorkerRequest): Promise<void> {
             qrCount: null,
           };
         } finally { parsed.free(); }
-        const inspected = await codes({ id: req.id, type: "codes", picture: result.copy, inspectFilmScan: true });
+        const inspected = await codes({ id: req.id, type: "codes", picture: result.copy, pictureDimensions: result.dimensions, inspectFilmScan: true });
         result.check.scan = inspected.filmScan;
         result.check.qrCount = inspected.codes.length > 0 || inspected.filmScan?.availability === "inspected" ? inspected.codes.length : null;
         result.check.sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((v) => v.toString(16).padStart(2, "0")).join("");
