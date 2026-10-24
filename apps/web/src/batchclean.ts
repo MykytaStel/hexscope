@@ -14,6 +14,7 @@ import {
 import { cleanable, type BatchItem } from "./batch";
 import { StoredZip } from "./zipwrite";
 import { phoneCanShare, saveAs } from "./files";
+import { hasCoarsePointer } from "./dom";
 import { currentLocale, translateText } from "./i18n";
 import { makeCleanCopyReceipt } from "./clean-copy-receipt";
 import type { CleanCopyReceipt } from "./clean-copy-receipt";
@@ -64,6 +65,7 @@ export async function cleanCopies(
   // Kept names keep a folder's own folders, in the ZIP.
   const copyName = (i: BatchItem) => (keepNames ? i.file.webkitRelativePath || i.file.name : i.cleanName);
   const bytesTotal = todo.reduce((n, row) => n + row.item.file.size, 0);
+  const phone = hasCoarsePointer();
   const share = phoneCanShare() && todo.length <= MAX_SHARED && bytesTotal <= MAX_SHARED_BYTES;
   // Each copy goes into the archive as soon as it is made, and out of memory.
   const zip = new StoredZip();
@@ -136,6 +138,7 @@ export async function cleanCopies(
   const said: string[] = [
     `Findings: ${receipt.removed} removed, ${receipt.present} present, ${receipt.unchecked} unchecked.`,
     ...(share ? [] : ["ZIP includes an index-only JSON receipt."]),
+    ...(phone && made > 0 && !share ? ["Share the ZIP from Files or Downloads."] : []),
     "Visible content is not cleared by these metadata checks.",
   ];
   const name = "hexscope-clean-copies.zip";
@@ -166,11 +169,6 @@ export async function cleanCopies(
     const shareBtn = document.createElement("button");
     shareBtn.className = "btn btn-primary";
     shareBtn.textContent = `Share ${n}`;
-    shareBtn.addEventListener("click", () => {
-      navigator.share({ files: shared }).catch(() => {
-        // Cancelled, or refused: the copies are still here to save.
-      });
-    });
     const saveBtn = document.createElement("button");
     saveBtn.className = "btn";
     saveBtn.textContent = "Save as a ZIP";
@@ -179,6 +177,19 @@ export async function cleanCopies(
       for (const f of shared) await z.add(f.name, f);
       await z.add("hexscope-report.json", reportBlob);
       saveZip(z);
+    });
+    shareBtn.addEventListener("click", async () => {
+      try {
+        await navigator.share({ files: shared });
+      } catch (error) {
+        // Cancelling is the user's choice; other failures leave an explicit ZIP route.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        shareBtn.remove();
+        view.offer(
+          `Sharing did not open. Use Save as a ZIP to send the copies from Files or Downloads. ${said.join(" ")}`.trim(),
+          saveBtn,
+        );
+      }
     });
     view.offer(`Made ${n}. ${said.join(" ")}`.trim() + " ", shareBtn, saveBtn);
     return;

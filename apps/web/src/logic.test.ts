@@ -18,6 +18,7 @@ import { FACT_LABELS } from "./knowledge";
 import { categories, categoryCount, CATEGORIES, sentence as shareSentence } from "./share";
 import { address, mailRoute, receivedBy } from "./emailpath";
 import { cleanName, kindOf, redactedName, repairedName, tooLarge, typeOf } from "./files";
+import { hasCoarsePointer } from "./dom";
 import { searchable } from "./redactor";
 import type { PageGlyphs } from "./worker";
 import { translateText } from "./i18n";
@@ -285,6 +286,18 @@ group("file names and kinds", () => {
     expect(typeOf("a.JPG")).toBe("image/jpeg");
     expect(typeOf("a.docx")).toMatch(/wordprocessingml/);
     expect(typeOf("noext")).toBe("");
+  });
+
+  it("treats a missing matchMedia API as a non-coarse-pointer environment", () => {
+    const hadMatchMedia = Object.prototype.hasOwnProperty.call(globalThis, "matchMedia");
+    const original = globalThis.matchMedia;
+    Object.defineProperty(globalThis, "matchMedia", { configurable: true, value: undefined });
+    try {
+      expect(hasCoarsePointer()).toBe(false);
+    } finally {
+      if (hadMatchMedia) Object.defineProperty(globalThis, "matchMedia", { configurable: true, value: original });
+      else Reflect.deleteProperty(globalThis, "matchMedia");
+    }
   });
 
   it("says what reads a file too large for a tab", () => {

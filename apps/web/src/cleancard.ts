@@ -4,9 +4,9 @@ import type { FileModel } from "./model";
 import type { PageGlyphs, PagePicture } from "./worker";
 import type { VerificationReport, VerificationSelection } from "./verification";
 import { categories } from "./share";
-import { el, formatBytes } from "./dom";
+import { el, formatBytes, hasCoarsePointer } from "./dom";
 import { LIMITS } from "./knowledge";
-import { typeOf } from "./files";
+import { canShareData, saveAs, typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
 import { loadCopyVerification } from "./copyverification-loader";
@@ -104,24 +104,58 @@ export function copyVerification(
   return region;
 }
 
-/**
- * A button that hands the copy to the device's share sheet — Messages,
- * Telegram, mail — or null where the browser cannot share such a file.
- * Its own button, because sharing must follow a tap of its own.
- */
-export function shareButton(name: string, data: Uint8Array | Blob): HTMLButtonElement | null {
+/** Shares a file from a direct tap, or saves it for the phone's Files app when direct sharing is unavailable. */
+export function shareButton(name: string, data: Uint8Array | Blob, alreadySaved = false): HTMLButtonElement | null {
   const file = new File([data as BlobPart], name, { type: typeOf(name) });
-  if (!navigator.canShare?.({ files: [file] })) return null;
-  const b = el("button", "btn btn-primary", "Share the clean copy");
-  b.title = "Send the copy on: to a chat, to mail, to another app";
+  const canUseNativeShare = canShareData({ files: [file] });
+  const phone = hasCoarsePointer();
+  if (!canUseNativeShare && (!phone || alreadySaved)) return null;
+
+  const b = el(
+    "button",
+    canUseNativeShare ? "btn btn-primary" : "btn share-fallback",
+    translateText(canUseNativeShare ? "Share the clean copy" : "Save a copy to share from Files", currentLocale()),
+  );
+  const fallbackTitle = translateText(
+    "This browser cannot share files directly. Save the copy, then share it from Files or Downloads.",
+    currentLocale(),
+  );
+  b.title = canUseNativeShare ? "Send the copy on: to a chat, to mail, to another app" : fallbackTitle;
   b.addEventListener("click", async () => {
+    if (b.classList.contains("share-fallback")) {
+      saveAs(name, data);
+      announce(translateText("The copy is saved. Share it from Files or Downloads.", currentLocale()));
+      return;
+    }
     try {
       await navigator.share({ files: [file] });
-    } catch {
-      // Cancelled, or refused: the copy is saved all the same.
+    } catch (error) {
+      // A cancelled sheet is the user's choice; other failures need a visible way forward.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      b.classList.remove("btn-primary");
+      b.classList.add("share-fallback");
+      b.textContent = translateText("Save a copy to share from Files", currentLocale());
+      b.title = fallbackTitle;
+      b.parentElement?.querySelector<HTMLButtonElement>("[data-share-save-fallback]")?.remove();
+      b.after(shareFallbackHint());
+      announce(translateText("Sharing did not open. Save the copy, then share it from Files or Downloads.", currentLocale()));
     }
   });
   return b;
+}
+
+/** A visible explanation beside the phone fallback action. */
+export function shareFallbackHint(alreadySaved = false): HTMLParagraphElement {
+  return el(
+    "p",
+    "hint clean-share-fallback",
+    translateText(
+      alreadySaved
+        ? "The copy is already in Downloads. Open Files or Downloads and choose Share."
+        : "This browser cannot share files directly. Save the copy, then share it from Files or Downloads.",
+      currentLocale(),
+    ),
+  );
 }
 
 /** A movie file with sound and no picture: a voice memo, a song. */

@@ -1,5 +1,10 @@
 // The few DOM helpers every panel uses.
 
+/** Whether this browser reports the coarse pointer used by touch layouts. */
+export function hasCoarsePointer(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

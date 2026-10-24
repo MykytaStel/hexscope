@@ -225,6 +225,36 @@ body[data-state="ready"] .viewswitch {
   }
 }
 
+/* A batch is a file workspace too: keep its count and actions inside the
+   phone header, with the landing navigation and theme picker left behind. */
+@media (max-width: 640px) {
+  body[data-state="batch"] .topbar {
+    flex-wrap: nowrap;
+    gap: clamp(6px, 1.8vw, 12px);
+    padding-inline: clamp(8px, 2.5vw, 16px);
+  }
+
+  body[data-state="batch"] .brand-name,
+  body[data-state="batch"] .theme-button,
+  body[data-state="batch"] .landing-nav,
+  body[data-state="batch"] .landing-menu,
+  body[data-state="batch"] .viewswitch {
+    display: none;
+  }
+
+  body[data-state="batch"] .fileinfo {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  body[data-state="batch"] .actions {
+    flex: none;
+    margin-left: 0;
+    gap: 6px;
+  }
+}
+
 @media (max-width: 560px) {
 
   .format-category,
