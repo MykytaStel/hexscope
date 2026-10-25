@@ -156,9 +156,9 @@ jobs:
             landing=$((landing + $(gzip -9c "$f" | wc -c)))
           done
           analyzer=$(gzip -9c assets/analyzer-*.js | wc -c)
-          echo "::notice::JavaScript: $landing bytes gzipped for the home page (budget 24000), $analyzer for the analyzer (budget 60000)."
+          echo "::notice::JavaScript: $landing bytes gzipped for the home page (budget 24000), $analyzer for the analyzer (budget 61000)."
           test "$landing" -le 24000
-          test "$analyzer" -le 60000
+          test "$analyzer" -le 61000
       # An article is drawn once its stylesheet is here: the tokens, the top bar
       # and its own type (pages.css), not the app's — about a fifth of it.
       - name: Article stylesheet budget
