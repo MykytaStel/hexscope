@@ -11,97 +11,19 @@ import {
   readMovie,
   wholeMovieBytes,
   type Movie,
-  type MovieProgress,
   type MovieReadOptions,
 } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
 import { familyOf, isMedia, type Family } from "./family";
 import { PARSER_BUILDS } from "./parser-builds";
-import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationFinding, type VerificationPage, type VerificationReport, type VerificationSelection } from "./verification";
+import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationPage, type VerificationReport } from "./verification";
 import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
-import type { FilmScanReport } from "./filmscan";
-import type { FilmSettings } from "./film-lab";
-import type { FilmRenderResult } from "./film-render";
-import { LatestFilmQueue } from "./film-queue";
-import { profileFromTree } from "./film-profile";
 import { scanCodes } from "./worker-qr-scan";
-
-export type WorkerRequest =
-  | { id: number; type: "parse"; file: File }
-  | { id: number; type: "cancel"; target: number }
-  | { id: number; type: "commitParse"; target: number }
-  | { id: number; type: "steps"; from: number; count: number }
-  | { id: number; type: "inflated" }
-  | { id: number; type: "explain"; index: number; knownBlock: number }
-  | { id: number; type: "selectEntry"; index: number }
-  | { id: number; type: "open"; index: number }
-  | { id: number; type: "openBytes"; bytes: Uint8Array }
-  | { id: number; type: "back"; depth: number }
-  | { id: number; type: "clean"; source: Blob; notes?: boolean; verify?: boolean }
-  | {
-      id: number;
-      type: "verifyCopy";
-      copy: Blob;
-      sourceFormat: ParsedFile["format"];
-      sourceFindings: VerificationFinding[];
-      retainedReasons: Record<string, string>;
-      sourceToken?: number;
-      selections?: VerificationSelection[];
-    }
-  | { id: number; type: "repair"; bytes: Uint8Array }
-  | { id: number; type: "filmRoll"; source: Blob; settings: FilmSettings; format: "jpeg" | "tiff16" }
-  | { id: number; type: "filmRender"; source: Blob; dimensions: [number, number]; orientation: number; settings: FilmSettings; purpose: "preview" | "export"; point?: [number, number] }
-  | { id: number; type: "pageTexts"; bytes: Uint8Array }
-  | { id: number; type: "pagePictures"; bytes: Uint8Array; page: number }
-  | { id: number; type: "redact"; bytes: Uint8Array; areas: Float64Array }
-  | { id: number; type: "locate"; by: 0 | 1; pos: number }
-  | { id: number; type: "blocks" }
-  | { id: number; type: "codes"; picture?: Blob; pictureDimensions?: [number, number]; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
-
-export type OperationRequest = Exclude<WorkerRequest, { type: "cancel" | "commitParse" }>;
-
-export type WorkerResponse =
-  | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
-  | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
-  | { id: number; type: "progress"; progress: MovieProgress }
-  | { id: number; type: "back" }
-  | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }
-  | { id: number; type: "verification"; report: VerificationReport }
-  | { id: number; type: "filmRollOutput"; result: import("./film-roll-worker").RollOutput }
-  | { id: number; type: "filmRendered"; result: FilmRenderResult }
-  | { id: number; type: "repaired"; bytes: Uint8Array; fixed: string[]; error: string }
-  | { id: number; type: "pageTexts"; pages: PageGlyphs[] }
-  | { id: number; type: "pagePictures"; pictures: PagePicture[] }
-  | { id: number; type: "steps"; steps: Float64Array }
-  | { id: number; type: "located"; step: Float64Array }
-  | { id: number; type: "blocks"; map: Float64Array; note: string }
-  | { id: number; type: "inflated"; bytes: Uint8Array }
-  | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
-  | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
-  | { id: number; type: "codes"; codes: { text: string; where: string; box: [number, number, number, number] }[]; filmScan?: FilmScanReport }
-  | { id: number; type: "error"; message: string };
-
-/** One page's visible glyphs: where each lands, four numbers each, and its text. */
-export interface PageGlyphs {
-  media: PageArea;
-  areas: Float64Array;
-  texts: string[];
-  /** Whether every supported Form XObject on this page was inspected. */
-  complete: boolean;
-  /** The page's own dark boxes and marks, four numbers each. */
-  boxes: Float64Array;
-}
-
-/** A picture a page draws: where its unit square goes, and a JPEG's bytes or its pixels. */
-export interface PagePicture {
-  matrix: number[];
-  jpeg?: Uint8Array;
-  width?: number;
-  height?: number;
-  rgba?: Uint8ClampedArray;
-}
+import { createFilmQueue, handleFilmOperation, type FilmWorkerServices } from "./worker-film";
+import type { OperationRequest, PageGlyphs, PagePicture, WorkerRequest, WorkerResponse } from "./worker-protocol";
+export type { OperationRequest, PageGlyphs, PagePicture, WorkerRequest, WorkerResponse } from "./worker-protocol";
 
 /**
  * The parser's builds, one per family of files: pictures, movies and SVG
@@ -346,59 +268,14 @@ function codes(req: Extract<OperationRequest, { type: "codes" }>, signal?: Abort
   return scanCodes(req, signal ?? new AbortController().signal, stack[stack.length - 1] ?? null, loadPdf);
 }
 
+const filmServices: FilmWorkerServices = { moduleFor, loadMedia, describe, codes, post };
+
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
 
 async function handle(req: OperationRequest): Promise<void> {
-  if (req.type === "filmRoll") {
-    if (req.source.size > 50 * 1024 * 1024) throw new Error("This scan exceeds the 50 MiB file limit.");
-    const head = new Uint8Array(await req.source.slice(0, 12).arrayBuffer());
-    let dimensions: [number, number] | undefined;
-    let orientation = 1;
-    let profilePresent: boolean | null = null;
-    if (isMedia(head)) {
-      const wasm = await moduleFor(head);
-      const parsed = wasm.parseOwned(new Uint8Array(await req.source.arrayBuffer()));
-      try {
-        if (parsed.dimensions.length === 2) dimensions = [parsed.dimensions[0], parsed.dimensions[1]];
-        orientation = parsed.orientation;
-        profilePresent = profileFromTree({ format: parsed.format as ParsedFile["format"], labels: parsed.labels.split(SEPARATOR), kinds: parsed.kinds });
-      } finally { parsed.free(); }
-    }
-    const { renderRoll } = await import("./film-roll-worker");
-    post({ id: req.id, type: "filmRollOutput", result: await renderRoll(req.source, req.settings, req.format, dimensions, orientation, profilePresent) });
-    return;
-  }
-  if (req.type === "filmRender") {
-    const { renderFilm } = await import("./film-render");
-    const result = await renderFilm(req.source, req.dimensions, req.orientation, req.settings, req.purpose, req.point);
-    if (req.purpose === "export") {
-      result.check = { status: "unavailable", metadata: [], qrCount: null };
-      try {
-        if (result.copy.size > MAX_VERIFY_BYTES) throw new Error("copy exceeds readback limit");
-        const wasm = await loadMedia();
-        // Canvas encodes fresh pixels, without copying source metadata segments.
-        // Read the actual result; the cleaner correctly refuses an already-clean file.
-        const bytes = new Uint8Array(await result.copy.arrayBuffer());
-        const parsed = wasm.parseOwned(bytes);
-        try {
-          const f = describe(parsed);
-          if (f.format !== "jpeg" || f.kinds.includes(3) || f.dimensions?.[0] !== result.dimensions[0] || f.dimensions?.[1] !== result.dimensions[1]) throw new Error("copy cannot be completely read");
-          result.check = {
-            status: "checked",
-            metadata: [...f.facts.map((fact) => FACT_LABELS[fact.kind] ?? fact.kind), ...(f.location ? ["Location"] : [])],
-            qrCount: null,
-          };
-        } finally { parsed.free(); }
-        const inspected = await codes({ id: req.id, type: "codes", picture: result.copy, pictureDimensions: result.dimensions, inspectFilmScan: true });
-        result.check.scan = inspected.filmScan;
-        result.check.qrCount = inspected.codes.length > 0 || inspected.filmScan?.availability === "inspected" ? inspected.codes.length : null;
-        result.check.sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((v) => v.toString(16).padStart(2, "0")).join("");
-      } catch {
-        // Preserve the produced copy; a failed readback never becomes a clean claim.
-      }
-    }
-    post({ id: req.id, type: "filmRendered", result });
+  if (req.type === "filmRoll" || req.type === "filmRender") {
+    await handleFilmOperation(req, filmServices);
     return;
   }
   if (req.type === "parse") {
@@ -691,7 +568,7 @@ function answer(req: OperationRequest): Promise<void> {
     });
   });
 }
-const filmQueue = new LatestFilmQueue<Extract<OperationRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
+const filmQueue = createFilmQueue((req) => answer(req), (req) => {
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
