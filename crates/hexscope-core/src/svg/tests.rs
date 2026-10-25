@@ -27,6 +27,117 @@ fn a_drawing_is_known_by_its_first_element() {
 }
 
 #[test]
+fn a_namespace_prefixed_root_is_detected_and_cleaned() {
+    let data = br#"<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:version="1"><s:rect/></s:svg>"#;
+    assert_eq!(
+        crate::document::parse(data).format(),
+        crate::document::Format::Svg
+    );
+
+    let copy = crate::clean::clean(data).unwrap();
+    let text = String::from_utf8(copy.bytes).unwrap();
+    assert!(text.contains("<s:svg"));
+    assert!(text.contains("<s:rect/>"));
+    assert!(!text.contains("inkscape:version"));
+}
+
+fn has_reportable_photo_fact(summary: &crate::summary::Summary) -> bool {
+    summary
+        .facts
+        .iter()
+        .any(|(kind, _)| matches!(*kind, "location" | "camera" | "serial" | "owner" | "taken"))
+}
+
+fn webp_with_exif(tiff: &[u8]) -> Vec<u8> {
+    let vp8x = [0x08, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let vp8l = [0x2F, 0, 0, 0, 0];
+    let mut body = b"WEBP".to_vec();
+    for (kind, payload) in [(b"VP8X", &vp8x[..]), (b"VP8L", &vp8l[..]), (b"EXIF", tiff)] {
+        body.extend_from_slice(kind);
+        body.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        body.extend_from_slice(payload);
+        if payload.len() % 2 != 0 {
+            body.push(0);
+        }
+    }
+    let mut file = b"RIFF".to_vec();
+    file.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    file.extend_from_slice(&body);
+    file
+}
+
+#[test]
+fn embedded_raster_formats_are_reported_and_cleaned() {
+    let tiff = fixture("photo.tif");
+    let images = [
+        ("photo.webp", "image/webp", webp_with_exif(&tiff)),
+        ("photo.tif", "image/tiff", tiff),
+        ("photo.heic", "image/heic", fixture("photo.heic")),
+        ("photo.avif", "image/avif", fixture("photo.avif")),
+    ];
+    for (name, mime, image) in images {
+        let before = crate::summary::summarize(&image);
+        assert!(
+            has_reportable_photo_fact(&before),
+            "{name} ({}): {:?}",
+            before.format,
+            before.facts
+        );
+
+        let mut encoded = Vec::new();
+        encode(&image, &mut encoded);
+        let encoded = String::from_utf8(encoded).unwrap();
+        let svg = format!("<svg><image href=\"data:{mime};base64,{encoded}\"/></svg>");
+        let doc = parse_svg(svg.as_bytes());
+        let reported = said(&doc, "photo");
+        let reported_at = said(&doc, "photoplace");
+        assert!(
+            !reported.is_empty() || !reported_at.is_empty(),
+            "{name}: {:?}",
+            doc.facts
+        );
+
+        let copy = crate::clean::clean(svg.as_bytes()).unwrap();
+        let text = String::from_utf8(copy.bytes).unwrap();
+        assert!(text.contains("<svg>"), "{name}");
+        assert!(text.contains("<image"), "{name}");
+        let body = text
+            .split_once(";base64,")
+            .unwrap()
+            .1
+            .split('"')
+            .next()
+            .unwrap();
+        let nested = crate::eml::base64(body.as_bytes());
+        let after = crate::summary::summarize(&nested);
+        assert_eq!(after.format, before.format, "{name}");
+        assert!(
+            !has_reportable_photo_fact(&after),
+            "{name}: {:?}",
+            after.facts
+        );
+    }
+}
+
+#[test]
+fn embedded_photo_dispatch_only_accepts_raster_signatures() {
+    let tiff = fixture("photo.tif");
+    assert_eq!(raster_kind(&crate::jpeg::MAGIC), Some(RasterKind::Jpeg));
+    assert_eq!(raster_kind(b"\x89PNG\r\n\x1A\n"), Some(RasterKind::Png));
+    assert_eq!(raster_kind(&webp_with_exif(&tiff)), Some(RasterKind::Webp));
+    assert_eq!(raster_kind(&tiff), Some(RasterKind::Tiff));
+    assert_eq!(raster_kind(&fixture("photo.heic")), Some(RasterKind::Heif));
+    assert_eq!(raster_kind(&fixture("photo.avif")), Some(RasterKind::Heif));
+    for unsupported in [
+        &b"<svg xmlns='http://www.w3.org/2000/svg'/>"[..],
+        b"%PDF-1.7",
+        b"PK\x03\x04",
+    ] {
+        assert_eq!(raster_kind(unsupported), None);
+    }
+}
+
+#[test]
 fn inkscape_leaves_names_paths_a_photo_and_its_metadata() {
     let doc = parse_svg(&fixture("inkscape.svg"));
     assert_eq!(said(&doc, "original"), "poster-client-final-v3.svg");

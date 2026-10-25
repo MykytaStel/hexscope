@@ -40,7 +40,8 @@ pub struct SvgDocument {
 }
 
 /// Whether the file is an SVG: after an optional byte-order mark, XML
-/// declaration, comments and DOCTYPE, its first element is `<svg`.
+/// declaration, comments and DOCTYPE, its first element's local name is
+/// `svg`.
 pub fn is_svg(data: &[u8]) -> bool {
     let mut i = if data.starts_with(b"\xEF\xBB\xBF") {
         3
@@ -59,10 +60,22 @@ pub fn is_svg(data: &[u8]) -> bool {
         } else if rest.starts_with(b"<!") {
             doctype_end(data, i)
         } else {
-            return rest.starts_with(b"<svg")
-                && rest
-                    .get(4)
-                    .is_some_and(|&c| c.is_ascii_whitespace() || c == b'>' || c == b'/');
+            if !rest.starts_with(b"<") || rest.starts_with(b"</") {
+                return false;
+            }
+            let Some(name_end) = rest[1..]
+                .iter()
+                .position(|&c| c.is_ascii_whitespace() || c == b'>' || c == b'/')
+            else {
+                return false;
+            };
+            let name = &rest[1..name_end + 1];
+            let Some(local_start) = name.iter().rposition(|&c| c == b':') else {
+                return name == b"svg";
+            };
+            return name.get(local_start + 1..) == Some(b"svg")
+                && local_start > 0
+                && !name[..local_start].contains(&b':');
         };
         match close {
             Some(next) => i = next,
@@ -618,11 +631,7 @@ fn picture(
     }
     *pictures += 1;
     let bytes = crate::eml::base64(body.as_bytes());
-    let facts = if bytes.starts_with(&[0xFF, 0xD8]) {
-        crate::jpeg::parse_jpeg(&bytes).facts
-    } else if bytes.starts_with(b"\x89PNG") {
-        crate::png::parse_png(&bytes).facts
-    } else {
+    let Some(facts) = photo_facts(&bytes) else {
         return;
     };
     let Some(says) = crate::zip::office::photo_says(&facts) else {
@@ -654,6 +663,46 @@ fn picture(
         with,
         what: "photos inside it, cleaned as photos of their own",
     });
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RasterKind {
+    Jpeg,
+    Png,
+    Webp,
+    Tiff,
+    Heif,
+}
+
+/// Identify supported raster bytes before parsing them. Do not route an
+/// embedded data URL through the general document dispatcher: it can recurse
+/// into SVGs or invoke unrelated parsers for mislabeled payloads.
+fn raster_kind(data: &[u8]) -> Option<RasterKind> {
+    if data.starts_with(&crate::jpeg::MAGIC) {
+        Some(RasterKind::Jpeg)
+    } else if data.starts_with(b"\x89PNG") {
+        Some(RasterKind::Png)
+    } else if crate::webp::is_webp(data) {
+        Some(RasterKind::Webp)
+    } else if crate::tiff::is_tiff(data) {
+        Some(RasterKind::Tiff)
+    } else if crate::heif::is_heif(data) {
+        Some(RasterKind::Heif)
+    } else {
+        None
+    }
+}
+
+/// Metadata from a still image the core can both read and clean. Nested SVGs
+/// are deliberately excluded: this path is for raster photos only.
+fn photo_facts(data: &[u8]) -> Option<crate::exif::PhotoFacts> {
+    match raster_kind(data)? {
+        RasterKind::Jpeg => Some(crate::jpeg::parse_jpeg(data).facts),
+        RasterKind::Png => Some(crate::png::parse_png(data).facts),
+        RasterKind::Webp => Some(crate::webp::parse_webp(data).facts),
+        RasterKind::Tiff => Some(crate::tiff::parse_tiff_file(data).facts),
+        RasterKind::Heif => Some(crate::heif::parse_heif(data).facts),
+    }
 }
 
 /// Base64, as a data URL carries it.

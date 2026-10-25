@@ -46,10 +46,10 @@ encrypted entries are marked but not read. Multi-disk archives are named and
 read no further.
 
 **Compressed and unusual SVG.** A drawing saved as `.svgz` is gzip: it is
-named as a gzip archive, not read. In a drawing, photos embedded as JPEG or
-PNG are read — up to 16 of them, of up to 32 MiB — and other embedded
-pictures are not. A drawing whose root element carries a namespace prefix
-(`<svg:svg>`) is not recognised as one.
+named as a gzip archive, not read. Base64-embedded JPEG, PNG, WebP, TIFF,
+HEIF and AVIF photos are read and cleaned — up to 16 of them, of up to
+32 MiB each; other embedded picture formats are not. A root element may
+carry a namespace prefix, such as `<svg:svg>`.
 
 ## Limits by design
 
