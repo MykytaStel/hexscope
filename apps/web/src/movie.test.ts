@@ -69,6 +69,84 @@ group("a movie read in parts", () => {
     expect(parts.location).toEqual(whole.location);
   });
 
+  it("keeps the compact parser bytes and sparse full-file view in one allocation", async () => {
+    const { file, bytes } = longVideo(2 << 20);
+    const movie = await readMovie(file, isMovie, 0);
+    expect(movie).not.toBeNull();
+
+    const sparseBytes = movie!.restoreWhole();
+    expect(sparseBytes).not.toBeNull();
+    expect(movie!.given.buffer === sparseBytes!.buffer).toBe(true);
+    const sparse = bytes.slice();
+    sparse.fill(0, 36, bytes.length - 1389);
+    expect(Buffer.compare(sparseBytes!, sparse)).toBe(0);
+  });
+
+  it("restores multiple media gaps without reading any of their bodies", async () => {
+    const box = (type: string, body: Uint8Array) => {
+      const bytes = new Uint8Array(8 + body.length);
+      new DataView(bytes.buffer).setUint32(0, bytes.length);
+      bytes.set(new TextEncoder().encode(type), 4);
+      bytes.set(body, 8);
+      return bytes;
+    };
+    const parts = [
+      box("ftyp", new Uint8Array(4)),
+      box("mdat", new Uint8Array(1 << 20).fill(0x51)),
+      box("free", new Uint8Array([1, 2, 3, 4])),
+      box("mdat", new Uint8Array(1 << 20).fill(0x72)),
+      box("free", new Uint8Array([5, 6, 7])),
+    ];
+    const bytes = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+      bytes.set(part, offset);
+      offset += part.length;
+    }
+    const ranges: [number, number][] = [];
+    offset = parts[0].length;
+    ranges.push([offset + 8, offset + parts[1].length]);
+    offset += parts[1].length + parts[2].length;
+    ranges.push([offset + 8, offset + parts[3].length]);
+    const blob = new Blob([bytes as BlobPart]);
+    const nativeSlice = blob.slice.bind(blob);
+    const file = Object.assign(blob, {
+      slice(start = 0, end = blob.size) {
+        if (ranges.some(([from, to]) => start < to && end > from)) {
+          throw new Error("read media body");
+        }
+        return nativeSlice(start, end);
+      },
+    });
+
+    const movie = await readMovie(file, () => true, 0);
+    expect(movie).not.toBeNull();
+    expect(movie!.joins.length).toBe(2);
+    const sparseBytes = movie!.restoreWhole();
+    expect(sparseBytes).not.toBeNull();
+    const sparse = bytes.slice();
+    for (const [from, to] of ranges) sparse.fill(0, from, to);
+    expect(Buffer.compare(sparseBytes!, sparse)).toBe(0);
+    expect(movie!.given.buffer === sparseBytes!.buffer).toBe(true);
+  });
+
+  it("reads only compact bytes when a movie is being cleaned", async () => {
+    const { file, bytes } = longVideo(2 << 20);
+    const movie = await readMovie(file, isMovie, 0, { includeWhole: false });
+    expect(movie).not.toBeNull();
+    expect(movie!.restoreWhole() === null).toBe(true);
+
+    const parts = describe(parseMovie(movie!.given, movie!.gaps));
+    const whole = describe(parse(bytes));
+    expect(parts.labels).toEqual(whole.labels);
+    expect(parts.values).toEqual(whole.values);
+    expect(Array.from(parts.starts)).toEqual(Array.from(whole.starts));
+
+    const c = cleanMovie(movie!.given, movie!.gaps);
+    const copy = new Uint8Array(await assemble(c.bytes, movie!, file).arrayBuffer());
+    expect(Buffer.compare(copy, cleanCopy(bytes, false).bytes)).toBe(0);
+  });
+
   it("does not read body bytes when a QuickTime movie starts with mdat", async () => {
     const bytes = new Uint8Array(8 + (2 << 20));
     new DataView(bytes.buffer).setUint32(0, bytes.length);
@@ -140,7 +218,7 @@ group("a movie read in parts", () => {
       given: bytes.slice(),
       gaps: new Float64Array(0),
       joins: [],
-      whole: bytes.slice(),
+      restoreWhole: () => bytes.slice(),
       missing: Float64Array.from([384, 256]),
     };
     const result = await movieEntropy(new Blob([bytes as BlobPart]), movie, 1, (sample) => sample[0]);
@@ -156,7 +234,7 @@ group("a movie read in parts", () => {
       given: bytes.slice(),
       gaps: new Float64Array(0),
       joins: [],
-      whole: bytes.slice(),
+      restoreWhole: () => bytes.slice(),
       missing: Float64Array.from([384, 256]),
     };
 
@@ -251,7 +329,7 @@ group("a movie read in parts", () => {
       given: bytes.slice(),
       gaps: new Float64Array(0),
       joins: [],
-      whole: bytes.slice(),
+      restoreWhole: () => bytes.slice(),
       missing: Float64Array.from([0, bytes.length]),
     };
     const progress: { stage: string; loaded: number; total: number }[] = [];
@@ -293,7 +371,7 @@ group("a movie read in parts", () => {
       given: bytes.slice(),
       gaps: new Float64Array(0),
       joins: [],
-      whole: bytes.slice(),
+      restoreWhole: () => bytes.slice(),
       missing: Float64Array.from([0, bytes.length]),
     };
 

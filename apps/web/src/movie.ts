@@ -27,6 +27,8 @@ export interface MovieReadOptions {
   onProgress?: (progress: MovieProgress) => void;
   /** A stricter cap for constrained callers; the parser's hard ceiling still applies. */
   maxTopLevelBoxes?: number;
+  /** Omit the full-offset byte view when the caller only needs to make a clean copy. */
+  includeWhole?: boolean;
 }
 
 export interface Movie {
@@ -36,10 +38,16 @@ export interface Movie {
   gaps: Float64Array;
   /** Per media box, where its body goes back: after its header in `given`, from `start` in the file. */
   joins: { at: number; start: number; len: number }[];
-  /** The file's length of bytes, the media not read. */
-  whole: Uint8Array;
+  /** Full-offset byte view; restored in place after the parser consumes `given`. */
+  restoreWhole(): Uint8Array | null;
   /** The media in the file, as `[start, len, …]`. */
   missing: Float64Array;
+}
+
+export function wholeMovieBytes(movie: Movie): Uint8Array {
+  const whole = movie.restoreWhole();
+  if (!whole) throw new Error("The full movie byte view was not requested.");
+  return whole;
 }
 
 interface Box {
@@ -126,6 +134,72 @@ async function topBoxes(file: Blob, options: MovieReadOptions, maxBoxes: number)
   return boxes;
 }
 
+/** Packs the non-media ranges at the start of the full-size backing buffer. */
+function compactMovieBytes(whole: Uint8Array, joins: Movie["joins"], length: number): Uint8Array {
+  let source = 0;
+  let target = 0;
+  for (const join of joins) {
+    whole.copyWithin(target, source, join.start);
+    target += join.start - source;
+    source = join.start + join.len;
+  }
+  whole.copyWithin(target, source);
+  target += whole.length - source;
+  if (target !== length) throw new Error("The movie's compact byte ranges did not align.");
+  return whole.subarray(0, target);
+}
+
+/** Expands compacted non-media ranges back to their original offsets in place. */
+function restoreMovieBytes(whole: Uint8Array, joins: Movie["joins"], compactLength: number): void {
+  let sourceEnd = compactLength;
+  for (let i = joins.length - 1; i >= 0; i--) {
+    const join = joins[i];
+    whole.copyWithin(join.start + join.len, join.at, sourceEnd);
+    whole.fill(0, join.start, join.start + join.len);
+    sourceEnd = join.at;
+  }
+}
+
+async function readMovieRanges(
+  file: Blob,
+  media: Box[],
+  options: MovieReadOptions,
+  whole: Uint8Array | null,
+  compact: Uint8Array | null,
+  compactLength: number,
+): Promise<{ givenAt: number; gaps: number[]; joins: Movie["joins"]; missing: number[] }> {
+  const gaps: number[] = [];
+  const joins: Movie["joins"] = [];
+  const missing: number[] = [];
+  let at = 0;
+  let givenAt = 0;
+  report(options, "ranges", 0, compactLength);
+  const take = async (end: number) => {
+    while (at < end) {
+      checkCancelled(options.signal);
+      const next = Math.min(end, at + RANGE_CHUNK);
+      const b = await bytesOf(file, at, next);
+      checkCancelled(options.signal);
+      (whole ?? compact!).set(b, whole ? at : givenAt);
+      at += b.length;
+      givenAt += b.length;
+      report(options, "ranges", givenAt, compactLength);
+    }
+  };
+  for (const box of media) {
+    const body = box.at + box.header;
+    const len = box.size - box.header;
+    await take(body);
+    gaps.push(givenAt - box.header, len);
+    joins.push({ at: givenAt, start: body, len });
+    missing.push(body, len);
+    at = box.at + box.size;
+  }
+  await take(file.size);
+  checkCancelled(options.signal);
+  return { givenAt, gaps, joins, missing };
+}
+
 /** The movie in parts, or null when `file` is not a large movie with media worth leaving out. */
 export async function readMovie(
   file: Blob,
@@ -147,40 +221,29 @@ export async function readMovie(
   if (media.length === 0) return null;
 
   const omitted = media.reduce((n, box) => n + box.size - box.header, 0);
-  const given = new Uint8Array(file.size - omitted);
-  const whole = new Uint8Array(file.size);
-  const gaps: number[] = [];
-  const joins: Movie["joins"] = [];
-  const missing: number[] = [];
-  let at = 0;
-  let givenAt = 0;
-  report(options, "ranges", 0, given.length);
-  const take = async (end: number) => {
-    while (at < end) {
-      checkCancelled(options.signal);
-      const next = Math.min(end, at + RANGE_CHUNK);
-      const b = await bytesOf(file, at, next);
-      checkCancelled(options.signal);
-      whole.set(b, at);
-      given.set(b, givenAt);
-      at += b.length;
-      givenAt += b.length;
-      report(options, "ranges", givenAt, given.length);
-    }
-  };
-  for (const box of media) {
-    const body = box.at + box.header;
-    const len = box.size - box.header;
-    await take(body);
-    gaps.push(givenAt - box.header, len);
-    joins.push({ at: givenAt, start: body, len });
-    missing.push(body, len);
-    at = box.at + box.size;
-  }
-  await take(file.size);
-  checkCancelled(options.signal);
+  const compactLength = file.size - omitted;
+  const whole = options.includeWhole === false ? null : new Uint8Array(file.size);
+  const compact = whole ? null : new Uint8Array(compactLength);
+  const { givenAt, gaps, joins, missing } = await readMovieRanges(
+    file, media, options, whole, compact, compactLength,
+  );
+  const given = whole ? compactMovieBytes(whole, joins, givenAt) : compact!;
 
-  return { given, gaps: Float64Array.from(gaps), joins, whole, missing: Float64Array.from(missing) };
+  let restored = false;
+
+  return {
+    given,
+    gaps: Float64Array.from(gaps),
+    joins,
+    restoreWhole() {
+      if (whole && !restored) {
+        restoreMovieBytes(whole, joins, givenAt);
+        restored = true;
+      }
+      return whole;
+    },
+    missing: Float64Array.from(missing),
+  };
 }
 
 /** The clean copy of a movie: `copy`, the parser's copy of `given`, with the media put back from the file. */
@@ -195,6 +258,48 @@ export function assemble(copy: Uint8Array, movie: Movie, file: Blob): Blob {
   return new Blob(parts);
 }
 
+interface EntropySample {
+  start: number;
+  end: number;
+  mediaAt: number | null;
+}
+
+function mediaForEntropySample(
+  missing: [number, number][],
+  index: number,
+  start: number,
+  end: number,
+): { index: number; at: number | null } {
+  while (index < missing.length && missing[index][1] <= start) index++;
+  const next = missing[index];
+  const at = next && start < next[1] && end > next[0] ? Math.max(start, next[0]) : null;
+  return { index, at };
+}
+
+function movieEntropySamples(
+  size: number,
+  movie: Movie,
+  bins: number,
+): { samples: EntropySample[]; window: number } {
+  const n = Math.max(1, Math.min(bins, Math.floor(size / 256)));
+  const window = Math.ceil(size / n);
+  const missing: [number, number][] = [];
+  for (let i = 0; i < movie.missing.length; i += 2) {
+    missing.push([movie.missing[i], movie.missing[i] + movie.missing[i + 1]]);
+  }
+  const samples: EntropySample[] = [];
+  let mediaIndex = 0;
+  for (let i = 0; i < n; i++) {
+    const start = i * window;
+    const end = Math.min(size, start + window);
+    const media = mediaForEntropySample(missing, mediaIndex, start, end);
+    mediaIndex = media.index;
+    const mediaAt = media.at;
+    samples.push({ start: mediaAt === null ? start : mediaAt, end: mediaAt === null ? end : Math.min(end, mediaAt + 4096), mediaAt });
+  }
+  return { samples, window };
+}
+
 /**
  * Entropy for the minimap, as for any file, except that each window in the
  * media is judged by a sample of it read from the file.
@@ -207,22 +312,9 @@ export async function movieEntropy(
   options: MovieReadOptions = {},
 ): Promise<{ values: Float32Array; window: number }> {
   checkCancelled(options.signal);
-  const n = Math.max(1, Math.min(bins, Math.floor(file.size / 256)));
-  const window = Math.ceil(file.size / n);
-  const missing: [number, number][] = [];
-  for (let i = 0; i < movie.missing.length; i += 2) missing.push([movie.missing[i], movie.missing[i] + movie.missing[i + 1]]);
-  const samples: { start: number; end: number; mediaAt: number | null }[] = [];
-  let mediaIndex = 0;
-  for (let i = 0; i < n; i++) {
-    const start = i * window;
-    const end = Math.min(file.size, start + window);
-    while (mediaIndex < missing.length && missing[mediaIndex][1] <= start) {
-      mediaIndex++;
-    }
-    const next = missing[mediaIndex];
-    const mediaAt = next && start < next[1] && end > next[0] ? Math.max(start, next[0]) : null;
-    samples.push({ start: mediaAt === null ? start : mediaAt, end: mediaAt === null ? end : Math.min(end, mediaAt + 4096), mediaAt });
-  }
+  const whole = wholeMovieBytes(movie);
+  const { samples, window } = movieEntropySamples(file.size, movie, bins);
+  const n = samples.length;
   const values = new Float32Array(n);
   let next = 0;
   let done = 0;
@@ -234,7 +326,7 @@ export async function movieEntropy(
       if (i >= n) return;
       const { start, end, mediaAt } = samples[i];
       try {
-        const bytes = mediaAt === null ? movie.whole.subarray(start, end) : await bytesOf(file, start, end);
+        const bytes = mediaAt === null ? whole.subarray(start, end) : await bytesOf(file, start, end);
         checkCancelled(options.signal);
         values[i] = entropy(bytes);
         done++;

@@ -4,7 +4,16 @@
 import type { CleanCopy, Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
-import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie, type MovieProgress, type MovieReadOptions } from "./movie";
+import {
+  assemble,
+  LARGE_MOVIE,
+  movieEntropy,
+  readMovie,
+  wholeMovieBytes,
+  type Movie,
+  type MovieProgress,
+  type MovieReadOptions,
+} from "./movie";
 import { isPdf, paintJpegs } from "./paint";
 import { familyOf, isMedia, type Family } from "./family";
 import { PARSER_BUILDS } from "./parser-builds";
@@ -288,7 +297,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
         result.entropyWindow = e.window;
         result.missing = movie.missing;
         controller.signal.throwIfAborted();
-        stageParsed(req.id, parsed, result, movie.whole);
+        stageParsed(req.id, parsed, result, wholeMovieBytes(movie));
         retained = true;
       } finally {
         if (!retained) parsed.free();
@@ -398,7 +407,7 @@ async function handle(req: OperationRequest): Promise<void> {
   }
 
   if (req.type === "clean") {
-    const movie = await largeMovie(req.source);
+    const movie = await largeMovie(req.source, { includeWhole: false });
     if (movie) {
       const source = req.source;
       postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source));

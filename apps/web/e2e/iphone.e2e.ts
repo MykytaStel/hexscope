@@ -138,6 +138,10 @@ test("on a phone, file sharing works when the browser has share but no canShare"
   const share = page.locator(".clean-actions .btn").filter({ hasText: "Share the clean copy" });
   await expect(share).toBeVisible();
   await share.click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window as typeof window & { __sharedFiles?: unknown[] };
+    return state.__sharedFiles?.length ?? 0;
+  })).toBe(1);
   const sent = await page.evaluate(() => {
     const state = window as typeof window & { __sharedFiles: { name: string; type: string; size: number; bytes: number[] }[] };
     return state.__sharedFiles[0];
