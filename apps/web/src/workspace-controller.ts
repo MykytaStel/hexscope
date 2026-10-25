@@ -109,8 +109,18 @@ export class WorkspaceController {
   /** Stops the active file read and returns to the previously open workspace. */
   cancelOpen(): void {
     if (!this.pendingOpen || this.pendingOpen.request !== this.request) return;
+    const pending = this.pendingOpen;
+    const previous = pending.workerReset || pending.retries > 0 ? this.current : null;
     this.request++;
     this.stopPendingOpen();
+    if (previous) {
+      const request = this.request;
+      const file = this.fileFor(previous);
+      const recovery = { request, file, controller: new AbortController(), workerReset: false, retries: 0 };
+      this.pendingOpen = recovery;
+      void this.openFileAttempt(recovery);
+      return;
+    }
     this.options.view.failed("Reading was cancelled.");
   }
 

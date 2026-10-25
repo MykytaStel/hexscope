@@ -233,6 +233,49 @@ group("a movie read in parts", () => {
     expect(progress.at(-1)).toMatchObject({ stage: "entropy", loaded: 64, total: 64 });
   });
 
+  it("stops scheduling entropy samples after a range read fails", async () => {
+    const bytes = new Uint8Array(4 << 20).fill(7);
+    const blob = new Blob([bytes as BlobPart]);
+    const nativeSlice = blob.slice.bind(blob);
+    let reads = 0;
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const file = Object.assign(blob, {
+      slice(start = 0, end = blob.size, contentType?: string) {
+        reads++;
+        const part = nativeSlice(start, end, contentType);
+        Object.defineProperty(part, "arrayBuffer", {
+          value: async () => {
+            if (reads === 1) {
+              setTimeout(release, 0);
+              throw new Error("range read failed");
+            }
+            await blocked;
+            return new ArrayBuffer(end - start);
+          },
+        });
+        return part;
+      },
+    });
+    const movie = {
+      given: bytes.slice(),
+      gaps: new Float64Array(0),
+      joins: [],
+      whole: bytes.slice(),
+      missing: Float64Array.from([0, bytes.length]),
+    };
+
+    try {
+      const reading = movieEntropy(file, movie, 64, () => 1);
+      await expect(reading).rejects.toThrow("range read failed");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(reads).toBeLessThanOrEqual(8);
+    } finally {
+      release();
+    }
+  });
+
   it("leaves small movies and other files whole", async () => {
     const { file } = longVideo(4 << 20);
     expect(await readMovie(file, isMovie)).toBeNull();

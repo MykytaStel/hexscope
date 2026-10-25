@@ -1,6 +1,6 @@
 // The page's line to the parsing worker. The worker keeps the parsed document,
 // so requests after the first (steps, explanations, entries) are cheap.
-import type { WorkerRequest, WorkerResponse } from "./worker";
+import type { OperationRequest, WorkerRequest, WorkerResponse } from "./worker";
 
 // One outstanding promise per request id; responses can arrive in any order.
 let nextId = 0;
@@ -45,6 +45,17 @@ function start(): Worker {
       pending.onProgress?.(e.data.progress);
       return;
     }
+    if (e.data.type === "parsed") {
+      try {
+        // The worker keeps its previous document until the page accepts this
+        // parse. Posting the commit before resolving preserves message order
+        // for the next operation against the newly visible file.
+        w.postMessage({ id: e.data.id, type: "commitParse", target: e.data.id } satisfies WorkerRequest);
+      } catch {
+        pending.finish({ id: e.data.id, type: "error", message: "the reader could not keep this file open; reopen it to continue" });
+        return;
+      }
+    }
     pending.finish(e.data);
   });
   const died = (e: Event) => {
@@ -66,7 +77,7 @@ function start(): Worker {
 
 let worker: Worker | null = start();
 
-export type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
+export type Req = OperationRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
 
 export function call(req: Req): Promise<WorkerResponse>;
 export function call(req: Extract<Req, { type: "verifyCopy" }>, timeoutMs: number): Promise<WorkerResponse>;

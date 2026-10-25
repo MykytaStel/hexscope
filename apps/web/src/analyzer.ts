@@ -719,7 +719,10 @@ function showMovieProgress(progress: MovieProgress): void {
   readProgress.textContent = translateText(label, currentLocale());
   cancelRead.textContent = translateText("Cancel", currentLocale());
   cancelRead.disabled = !progress.cancellable;
-  $("fileinfo").replaceChildren(readProgress, cancelRead);
+  const fileinfo = $("fileinfo");
+  if (readProgress.parentElement !== fileinfo || cancelRead.parentElement !== fileinfo) {
+    fileinfo.replaceChildren(readProgress, cancelRead);
+  }
 }
 
 onWorkerReset(() => {

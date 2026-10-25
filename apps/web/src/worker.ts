@@ -21,6 +21,7 @@ import { profileFromTree } from "./film-profile";
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
   | { id: number; type: "cancel"; target: number }
+  | { id: number; type: "commitParse"; target: number }
   | { id: number; type: "steps"; from: number; count: number }
   | { id: number; type: "inflated" }
   | { id: number; type: "explain"; index: number; knownBlock: number }
@@ -48,6 +49,8 @@ export type WorkerRequest =
   | { id: number; type: "locate"; by: 0 | 1; pos: number }
   | { id: number; type: "blocks" }
   | { id: number; type: "codes"; picture?: Blob; pictureDimensions?: [number, number]; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
+
+export type OperationRequest = Exclude<WorkerRequest, { type: "cancel" | "commitParse" }>;
 
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
@@ -149,6 +152,8 @@ function prefetchDocuments(): void {
 let stack: Parsed[] = [];
 /** Active asynchronous range reads for file parses. */
 const activeReads = new Map<number, AbortController>();
+/** Parsed files wait here until the page accepts the result and commits it. */
+const pendingParses = new Map<number, Parsed>();
 /** The open source parse used to compare the actual clean-copy bytes. */
 const verificationSources = new Map<number, Parsed>();
 const verificationTokens = new WeakMap<Parsed, number>();
@@ -174,6 +179,39 @@ function clearParsedStack(): void {
     parsed.free();
   }
   stack = [];
+}
+
+function discardPendingParse(id: number): void {
+  const parsed = pendingParses.get(id);
+  if (!parsed) return;
+  pendingParses.delete(id);
+  releaseParsedSource(parsed);
+  parsed.free();
+}
+
+function commitPendingParse(id: number): void {
+  const parsed = pendingParses.get(id);
+  if (!parsed) return;
+  pendingParses.delete(id);
+  clearParsedStack();
+  stack = [parsed];
+}
+
+function stageParsed(
+  id: number,
+  parsed: Parsed,
+  result: ParsedFile,
+  bytes: Uint8Array,
+): void {
+  rememberParsedSource(parsed, result, id);
+  pendingParses.set(id, parsed);
+  try {
+    post({ id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+  } catch (error) {
+    pendingParses.delete(id);
+    releaseParsedSource(parsed);
+    throw error;
+  }
 }
 
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
@@ -224,7 +262,7 @@ async function largeMovie(file: Blob, options?: MovieReadOptions): Promise<Movie
   return readMovie(file, (head, len) => wasm.isMovie(head, len), LARGE_MOVIE, options);
 }
 
-async function parseFile(req: Extract<WorkerRequest, { type: "parse" }>): Promise<void> {
+async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Promise<void> {
   const controller = new AbortController();
   activeReads.set(req.id, controller);
   const options: MovieReadOptions = {
@@ -248,11 +286,9 @@ async function parseFile(req: Extract<WorkerRequest, { type: "parse" }>): Promis
         result.entropy = e.values;
         result.entropyWindow = e.window;
         result.missing = movie.missing;
-        clearParsedStack();
-        rememberParsedSource(parsed, result, req.id);
-        stack = [parsed];
+        controller.signal.throwIfAborted();
+        stageParsed(req.id, parsed, result, movie.whole);
         retained = true;
-        post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
       } finally {
         if (!retained) parsed.free();
       }
@@ -266,16 +302,20 @@ async function parseFile(req: Extract<WorkerRequest, { type: "parse" }>): Promis
     // the number shown to the user is the whole cost, not the flattering part.
     const t0 = performance.now();
     const parsed = wasm.parseOwned(bytes);
-    const result = describe(parsed);
-    result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes, wasm);
-    clearParsedStack();
-    rememberParsedSource(parsed, result, req.id);
-    stack = [parsed];
-    if (isMedia(bytes)) prefetchDocuments();
-    // Source-dependent parsers keep this WASM allocation; the page receives
-    // the JavaScript buffer by transfer, without another page-side copy.
-    post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+    let retained = false;
+    try {
+      const result = describe(parsed);
+      result.parseMs = performance.now() - t0;
+      addEntropy(result, bytes, wasm);
+      controller.signal.throwIfAborted();
+      // Source-dependent parsers keep this WASM allocation; the page receives
+      // the JavaScript buffer by transfer, without another page-side copy.
+      stageParsed(req.id, parsed, result, bytes);
+      retained = true;
+      if (isMedia(bytes)) prefetchDocuments();
+    } finally {
+      if (!retained) parsed.free();
+    }
   } finally {
     activeReads.delete(req.id);
   }
@@ -326,7 +366,7 @@ async function brightness(
 }
 
 /** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
-async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
+async function codes(req: Extract<OperationRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
   const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
   const current = stack[stack.length - 1];
   const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
@@ -404,7 +444,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
 
-async function handle(req: WorkerRequest): Promise<void> {
+async function handle(req: OperationRequest): Promise<void> {
   if (req.type === "filmRoll") {
     if (req.source.size > 50 * 1024 * 1024) throw new Error("This scan exceeds the 50 MiB file limit.");
     const head = new Uint8Array(await req.source.slice(0, 12).arrayBuffer());
@@ -717,7 +757,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 }
 
-function answer(req: WorkerRequest): Promise<void> {
+function answer(req: OperationRequest): Promise<void> {
   return handle(req).catch((err: unknown) => {
     // Out of memory, the WebAssembly stops for good: start the next file
     // on a fresh one, and say what happened in words.
@@ -725,6 +765,10 @@ function answer(req: WorkerRequest): Promise<void> {
     const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
     if (crashed) {
       for (const family of Object.keys(loaded) as Family[]) delete loaded[family];
+      for (const controller of activeReads.values()) controller.abort();
+      activeReads.clear();
+      pendingParses.clear();
+      verificationSources.clear();
       stack = [];
     }
     post({
@@ -734,12 +778,17 @@ function answer(req: WorkerRequest): Promise<void> {
     });
   });
 }
-const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
+const filmQueue = new LatestFilmQueue<Extract<OperationRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   if (event.data.type === "cancel") {
     activeReads.get(event.data.target)?.abort();
+    discardPendingParse(event.data.target);
+    return;
+  }
+  if (event.data.type === "commitParse") {
+    commitPendingParse(event.data.target);
     return;
   }
   if (event.data.type === "filmRender" || event.data.type === "filmRoll") filmQueue.push(event.data);

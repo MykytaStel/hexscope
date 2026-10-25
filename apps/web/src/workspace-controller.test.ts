@@ -146,6 +146,42 @@ describe("WorkspaceController", () => {
     expect(view.failed).toHaveBeenCalledWith("Reading was cancelled.");
   });
 
+  it("restores the previous file when cancellation interrupts retry after a worker reset", async () => {
+    const firstAttempt = deferred<FileModel>();
+    const retry = deferred<FileModel>();
+    const previousFile = file("previous.jpg");
+    const previous = fileModel("previous.jpg", new Uint8Array([1]), previousFile);
+    const restoredPrevious = fileModel("previous.jpg", new Uint8Array([1]), previousFile);
+    let previousAttempts = 0;
+    let requestedAttempts = 0;
+    let retryStarted!: () => void;
+    const retryHasStarted = new Promise<void>((resolve) => { retryStarted = resolve; });
+    const { controller, view } = rig({
+      parse: (input) => {
+        if (input.name === "previous.jpg") return Promise.resolve(++previousAttempts === 1 ? previous : restoredPrevious);
+        requestedAttempts++;
+        if (requestedAttempts === 1) return firstAttempt.promise;
+        retryStarted();
+        return retry.promise;
+      },
+    });
+
+    await controller.openFile(previousFile);
+    const opening = controller.openFile(file("requested.jpg"));
+    await controller.recoverAfterWorkerReset();
+    firstAttempt.reject(new Error("the worker stopped after copy verification timed out"));
+    await retryHasStarted;
+
+    controller.cancelOpen();
+    retry.reject(new Error("Reading cancelled"));
+    await opening;
+    await vi.waitFor(() => expect(controller.model).toBe(restoredPrevious));
+
+    expect(previousAttempts).toBe(2);
+    expect(view.failed).not.toHaveBeenCalledWith("Reading was cancelled.");
+    expect(view.show).toHaveBeenLastCalledWith(restoredPrevious, []);
+  });
+
   it("restores the current file from local bytes after the worker is reset", async () => {
     const rootFile = file("root.zip");
     const nestedBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);

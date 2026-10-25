@@ -219,18 +219,29 @@ export async function movieEntropy(
   let done = 0;
   report(options, "entropy", 0, n);
   const sample = async () => {
-    while (true) {
+    while (!failed) {
       checkCancelled(options.signal);
       const i = next++;
       if (i >= n) return;
       const { start, end, mediaAt } = samples[i];
-      const bytes = mediaAt === null ? movie.whole.subarray(start, end) : await bytesOf(file, start, end);
-      checkCancelled(options.signal);
-      values[i] = entropy(bytes);
-      done++;
-      if (done % 16 === 0 || done === n) report(options, "entropy", done, n);
+      try {
+        const bytes = mediaAt === null ? movie.whole.subarray(start, end) : await bytesOf(file, start, end);
+        checkCancelled(options.signal);
+        values[i] = entropy(bytes);
+        done++;
+        if (done % 16 === 0 || done === n) report(options, "entropy", done, n);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+        return;
+      }
     }
   };
+  let failed = false;
+  let failure: unknown;
   await Promise.all(Array.from({ length: Math.min(ENTROPY_WORKERS, n) }, sample));
+  if (failed) throw failure;
   return { values: Float32Array.from(values), window };
 }
