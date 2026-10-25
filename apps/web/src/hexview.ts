@@ -153,6 +153,15 @@ export class HexView {
     this.ctx = ctx;
 
     new ResizeObserver(() => this.resize()).observe(this.scroller);
+    this.bindScrollerEvents();
+    this.bindCanvasEvents();
+    onThemeChange(() => {
+      this.palette = readPalette();
+      this.schedule();
+    });
+  }
+
+  private bindScrollerEvents(): void {
     this.scroller.addEventListener("scroll", () => this.schedule(), { passive: true });
     this.scroller.addEventListener("keydown", (e) => this.keydown(e));
     this.scroller.addEventListener("focus", () => this.schedule());
@@ -160,6 +169,9 @@ export class HexView {
       this.keyboardActive = false;
       this.schedule();
     });
+  }
+
+  private bindCanvasEvents(): void {
     this.canvas.addEventListener("mouseleave", () => {
       if (!this.lastTouchPeek) this.cb.onHover(-1, -1);
     });
@@ -195,10 +207,6 @@ export class HexView {
       if (touchClick) this.suppressTouchClick = false;
       this.lastTouchPeek = false;
       this.pointer(e, true);
-    });
-    onThemeChange(() => {
-      this.palette = readPalette();
-      this.schedule();
     });
   }
 
