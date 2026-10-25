@@ -5,6 +5,7 @@
 // actions the same size, and the location badge showing the place.
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { StoredZip } from "../src/zipwrite";
 
 test("on a phone, QR scanning still finds a code in a large photo", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the large-photo memory path is for a phone");
@@ -33,6 +34,38 @@ test("on a phone, QR scanning still finds a code in a large photo", async ({ pag
   }, Array.from(qr));
   await page.locator("#picker-empty").setInputFiles({ name: "large-qr.png", mimeType: "image/png", buffer: Buffer.from(pixels) });
   await expect(page.locator(".verdict-title")).toHaveText("This picture gives away 1 thing");
+  await expect(page.locator(".reveal-list")).toContainText("hexscope.pages.dev");
+});
+
+test("on a phone, QR scanning finds a code in a large picture inside a ZIP", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the large embedded-photo memory path is for a phone");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./");
+  const qr = readFileSync(new URL("../src/qr/fixtures/H-78.png", import.meta.url));
+  const pixels = await page.evaluate(async (sourceBytes) => {
+    const source = await createImageBitmap(new Blob([new Uint8Array(sourceBytes)], { type: "image/png" }));
+    const canvas = document.createElement("canvas");
+    canvas.width = 3200;
+    canvas.height = 2400;
+    const context = canvas.getContext("2d")!;
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / source.width, canvas.height / source.height);
+    const width = source.width * scale;
+    const height = source.height * scale;
+    context.drawImage(source, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    source.close();
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("PNG encoding failed")), "image/png"));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  }, Array.from(qr));
+  const zip = new StoredZip();
+  await zip.add("large-qr.png", new Blob([Buffer.from(pixels)], { type: "image/png" }));
+  const archive = zip.finish();
+  await page.locator("#picker-empty").setInputFiles({ name: "large-qr.zip", mimeType: "application/zip", buffer: Buffer.from(await archive.arrayBuffer()) });
   await expect(page.locator(".reveal-list")).toContainText("hexscope.pages.dev");
 });
 

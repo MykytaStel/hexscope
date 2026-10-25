@@ -258,7 +258,7 @@ async function brightness(
 
 /** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
 async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
-  const { findCodes, luminance, bitmapResizeOptions } = await import("./qr/index");
+  const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
   const current = stack[stack.length - 1];
   const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
   let filmScan: FilmScanReport | undefined;
@@ -327,7 +327,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
   }
   for (const e of req.entries ?? []) {
     const bytes = current?.extractEntry(e.index);
-    if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name);
+    if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name, imageDimensions(bytes));
   }
   return { codes: found, ...(filmScan ? { filmScan } : {}) };
 }
