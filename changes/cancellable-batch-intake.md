@@ -1,4 +1,4 @@
-## Improved
+### Fixed
 
-- Pausing a batch also stops QR scans and releases temporary PDF resources.
-- Clipboard image reading now opens files only after every copied image is readable; failures use the existing choose-or-paste guidance.
+- **Pausing a batch now stops QR scans and releases temporary PDF resources.**
+- **Clipboard image reading handles permission failures** before opening the batch and shows the existing choose-or-paste guidance.
