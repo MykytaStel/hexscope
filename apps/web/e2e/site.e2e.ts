@@ -30,6 +30,12 @@ async function home(page: Page): Promise<void> {
   await page.waitForFunction(() => document.body.dataset.state === "empty");
 }
 
+async function analyzerChunksLoaded(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    performance.getEntriesByType("resource").map(({ name }) => name).filter((name) => name.includes("/assets/analyzer-") && name.endsWith(".js")),
+  );
+}
+
 /** Use the shared workspace navigation on desktop and phone. */
 async function openBytes(page: Page): Promise<void> {
   await openView(page, "bytes");
@@ -1357,8 +1363,6 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
   expect(dark).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
-  // The structure's list is the analyzer's, which comes by itself once the page is idle.
-  await page.locator(".tree").waitFor({ state: "attached" });
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
@@ -1373,7 +1377,7 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
       ),
     ),
     bodyFont: getComputedStyle(document.body).fontFamily,
-    codeFont: getComputedStyle(document.querySelector(".tree")!).fontFamily,
+    codeFont: getComputedStyle(document.documentElement).getPropertyValue("--mono"),
   }));
   expect(type.title).toBeGreaterThanOrEqual(30);
   expect(type.introduction).toBeGreaterThanOrEqual(16);
@@ -1922,6 +1926,29 @@ test("the landing page does not download article copy before a guide opens", asy
   await home(page);
   await page.waitForLoadState("networkidle");
   expect((await Promise.all(guideCopyScripts)).filter(Boolean)).toEqual([]);
+});
+
+test("keeps the analyzer unloaded until someone opens a file picker", async ({ page }) => {
+  await home(page);
+  await page.waitForTimeout(4000);
+  expect(await analyzerChunksLoaded(page), "the idle landing should not import the file analyzer").toEqual([]);
+
+  const chooserEvent = page.waitForEvent("filechooser");
+  await page.locator('button[data-opens="picker-empty"]').first().click();
+  const chooser = await chooserEvent;
+  await expect.poll(async () => (await analyzerChunksLoaded(page)).length, { message: "opening the picker should warm the analyzer" }).toBeGreaterThan(0);
+  await chooser.setFiles(sample("photo.jpg"));
+  await expect(page.locator(".verdict-title")).toContainText("photo");
+});
+
+test("keyboard O opens the picker and warms the analyzer", async ({ page }) => {
+  await home(page);
+  const chooserEvent = page.waitForEvent("filechooser");
+  await page.keyboard.press("o");
+  const chooser = await chooserEvent;
+  await expect.poll(async () => (await analyzerChunksLoaded(page)).length, { message: "keyboard O should warm the analyzer" }).toBeGreaterThan(0);
+  await chooser.setFiles(sample("photo.jpg"));
+  await expect(page.locator(".verdict-title")).toContainText("photo");
 });
 
 test("file results show the summary before evidence and available actions", async ({ page }) => {
