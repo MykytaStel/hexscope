@@ -229,6 +229,28 @@ describe("the PWA shared-file inbox", () => {
     expect(await inbox.match(`${scope}shared-file`)).toBeUndefined();
   });
 
+  it("purges expired submissions when the app is opened normally", async () => {
+    const app = harness();
+    const inbox = await app.cacheStorage.open("hexscope-shared");
+    await inbox.put(
+      `${scope}shared/${ids[0]}/0`,
+      new Response("expired", {
+        headers: {
+          "x-submission-id": ids[0],
+          "x-file-index": "0",
+          "x-file-count": "1",
+          "x-received-at": String(app.now() - ttl - 1),
+        },
+      }),
+    );
+
+    await app.dispatch("fetch", {
+      request: { method: "GET", url: scope, mode: "navigate" },
+    });
+
+    expect(await inbox.match(`${scope}shared/${ids[0]}/0`)).toBeUndefined();
+  });
+
   it("expires old records before a new share and removes data behind a consume marker", async () => {
     const app = harness();
     const inbox = await app.cacheStorage.open("hexscope-shared");

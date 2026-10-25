@@ -24,6 +24,7 @@ pub use redact::{Blackout, PageText};
 use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use lexer::{Entry, Item, Lexer, Obj};
+use std::collections::HashSet;
 
 /// Cross-reference entries past this many get no node of their own.
 const MAX_XREF_NODES: usize = 4096;
@@ -150,13 +151,12 @@ pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
 /// is first on: to look through for what a picture holds, such as a QR code.
 pub fn pictures(data: &[u8], pages: u32) -> Vec<(u32, PagePicture)> {
     let (_, ctx) = parse_with(data);
-    let mut seen = Vec::new();
+    let mut seen = HashSet::new();
     let mut out = Vec::new();
     for (page, num, matrix) in redact::pictures_by_page(data, &ctx, 0, pages) {
-        if seen.contains(&num) {
+        if !seen.insert(num) {
             continue;
         }
-        seen.push(num);
         if let Some(p) = picture(data, &ctx, num, matrix) {
             out.push((page, p));
         }

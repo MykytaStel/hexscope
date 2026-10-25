@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type Plugin } from "vitest/config";
 import { guideList } from "./guides.ts";
 import { SITE, writeSeo } from "./seo.ts";
 
@@ -95,6 +95,8 @@ export default defineConfig({
   plugins: [version(), precache()],
   // The commit a report names, so a bug can be matched to the code it met.
   define: { __BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? "dev").slice(0, 7)), __VERSION__: JSON.stringify(VERSION) },
+  // Reuse worker environments across test files without dropping any assertions.
+  test: { isolate: false },
   build: {
     target: "es2022",
     rollupOptions: {

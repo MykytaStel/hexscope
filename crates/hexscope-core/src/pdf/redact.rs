@@ -22,6 +22,7 @@ use super::page::{Area, Glyph, Hidden, StreamEdit, Walked, apply_edits, num, rea
 use super::{Ctx, ObjRec};
 use crate::facts::DocumentFact;
 use crate::model::{NodeId, ParseTree, Value};
+use std::collections::HashSet;
 
 /// Pages walked, at most.
 const MAX_PAGES: usize = 2000;
@@ -94,7 +95,7 @@ pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> PageSet {
             };
         }
     };
-    let mut seen = Vec::new();
+    let mut seen = HashSet::new();
     let mut stack = vec![(catalog.get("Pages").cloned(), LETTER, None::<Obj>)];
     let mut complete = true;
     while let Some((next, inherited, resources)) = stack.pop() {
@@ -106,11 +107,10 @@ pub(super) fn pages(data: &[u8], ctx: &Ctx, budget: &mut u64) -> PageSet {
             complete = false;
             continue;
         };
-        if seen.contains(&n) {
+        if !seen.insert(n) {
             complete = false;
             continue;
         }
-        seen.push(n);
         let (dict, node) = match resolve(data, ctx, n, budget) {
             Some(Found::Top(rec)) => (rec.value.clone(), rec.node),
             Some(Found::Packed(obj, id)) => (obj, id),

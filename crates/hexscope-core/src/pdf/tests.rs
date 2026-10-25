@@ -1545,6 +1545,46 @@ fn content_behind_filters_other_than_flate_is_read() {
     );
 }
 
+#[test]
+fn a_repeated_page_reference_is_not_walked_twice_and_marks_the_tree_incomplete() {
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 3 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_vec(),
+        stream("", b"BT (visible page) Tj ET"),
+    ]);
+
+    let pages = super::page_texts(&data);
+    assert_eq!(pages.len(), 1);
+    assert!(!pages[0].complete);
+    assert!(!crate::summary::summarize(&data).complete);
+}
+
+#[test]
+fn pictures_shared_across_pages_are_returned_once_at_their_first_page() {
+    let image = photo();
+    let data = pdf_of(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 5 0 R /Resources << /XObject << /Im 7 0 R >> >> >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 6 0 R /Resources << /XObject << /Im 7 0 R >> >> >>".to_vec(),
+        stream("", b"q 8 0 0 8 0 0 cm /Im Do Q"),
+        stream("", b"q 8 0 0 8 0 0 cm /Im Do Q"),
+        stream(
+            "/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode",
+            &image,
+        ),
+    ]);
+
+    let pictures = crate::pdf::pictures(&data, 2);
+    assert_eq!(pictures.len(), 1);
+    assert_eq!(pictures[0].0, 1);
+    assert_eq!(
+        pictures[0].1.jpeg.map(|(_, len)| len),
+        Some(image.len() as u64)
+    );
+}
+
 /// One page of `content`, with `resources`.
 fn one_page(content: &[u8], resources: &str, more: &[Vec<u8>]) -> Vec<u8> {
     let mut objects = vec![
