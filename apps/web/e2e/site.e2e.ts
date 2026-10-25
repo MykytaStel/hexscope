@@ -1634,6 +1634,65 @@ test("the phone bytes view reserves room for reading the bytes", async ({ page }
   expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
 });
 
+test("a phone long-press peeks at a byte without pinning a selection", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "long-press is a touch interaction");
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await openView(page, "bytes");
+  const canvas = page.locator(".hex-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("The byte canvas is not visible");
+  const point = { x: box.x + 85, y: box.y + 24 };
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: point.x, y: point.y }],
+  });
+  await page.waitForTimeout(550);
+  await expect(page.locator("#status")).toContainText("0x00000000");
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+
+  await expect(page.getByRole("dialog", { name: "Вибрана частина" })).toHaveCount(0);
+  await expect(page.locator("#status")).toContainText("0x00000000");
+});
+
+test("a phone byte peek cancels after the touch moves", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "long-press is a touch interaction");
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await openView(page, "bytes");
+  const canvas = page.locator(".hex-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("The byte canvas is not visible");
+  const point = { x: box.x + 85, y: box.y + 24 };
+  const before = await page.locator("#status").textContent();
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: point.x, y: point.y }],
+  });
+  await page.waitForTimeout(50);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: point.x, y: point.y + 20 }],
+  });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await page.waitForTimeout(550);
+
+  await expect(page.locator("#status")).toHaveText(before ?? "");
+  await expect(page.getByRole("dialog", { name: "Вибрана частина" })).toHaveCount(0);
+});
+
 test("the phone can inspect a photo in Ukrainian and return to its clean-copy action", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the narrow inspection flow is phone-specific");
   await page.setViewportSize({ width: 320, height: 780 });
