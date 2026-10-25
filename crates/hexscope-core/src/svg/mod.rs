@@ -40,7 +40,8 @@ pub struct SvgDocument {
 }
 
 /// Whether the file is an SVG: after an optional byte-order mark, XML
-/// declaration, comments and DOCTYPE, its first element is `<svg`.
+/// declaration, comments and DOCTYPE, its first element's local name is
+/// `svg`.
 pub fn is_svg(data: &[u8]) -> bool {
     let mut i = if data.starts_with(b"\xEF\xBB\xBF") {
         3
@@ -59,10 +60,22 @@ pub fn is_svg(data: &[u8]) -> bool {
         } else if rest.starts_with(b"<!") {
             doctype_end(data, i)
         } else {
-            return rest.starts_with(b"<svg")
-                && rest
-                    .get(4)
-                    .is_some_and(|&c| c.is_ascii_whitespace() || c == b'>' || c == b'/');
+            if !rest.starts_with(b"<") || rest.starts_with(b"</") {
+                return false;
+            }
+            let Some(name_end) = rest[1..]
+                .iter()
+                .position(|&c| c.is_ascii_whitespace() || c == b'>' || c == b'/')
+            else {
+                return false;
+            };
+            let name = &rest[1..name_end + 1];
+            let Some(local_start) = name.iter().rposition(|&c| c == b':') else {
+                return name == b"svg";
+            };
+            return name.get(local_start + 1..) == Some(b"svg")
+                && local_start > 0
+                && !name[..local_start].contains(&b':');
         };
         match close {
             Some(next) => i = next,

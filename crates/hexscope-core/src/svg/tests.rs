@@ -27,6 +27,21 @@ fn a_drawing_is_known_by_its_first_element() {
 }
 
 #[test]
+fn a_namespace_prefixed_root_is_detected_and_cleaned() {
+    let data = br#"<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:version="1"><s:rect/></s:svg>"#;
+    assert_eq!(
+        crate::document::parse(data).format(),
+        crate::document::Format::Svg
+    );
+
+    let copy = crate::clean::clean(data).unwrap();
+    let text = String::from_utf8(copy.bytes).unwrap();
+    assert!(text.contains("<s:svg"));
+    assert!(text.contains("<s:rect/>"));
+    assert!(!text.contains("inkscape:version"));
+}
+
+#[test]
 fn inkscape_leaves_names_paths_a_photo_and_its_metadata() {
     let doc = parse_svg(&fixture("inkscape.svg"));
     assert_eq!(said(&doc, "original"), "poster-client-final-v3.svg");
