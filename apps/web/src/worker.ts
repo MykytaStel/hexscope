@@ -344,7 +344,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     let profilePresent: boolean | null = null;
     if (isMedia(head)) {
       const wasm = await moduleFor(head);
-      const parsed = wasm.parse(new Uint8Array(await req.source.arrayBuffer()));
+      const parsed = wasm.parseOwned(new Uint8Array(await req.source.arrayBuffer()));
       try {
         if (parsed.dimensions.length === 2) dimensions = [parsed.dimensions[0], parsed.dimensions[1]];
         orientation = parsed.orientation;
@@ -366,7 +366,7 @@ async function handle(req: WorkerRequest): Promise<void> {
         // Canvas encodes fresh pixels, without copying source metadata segments.
         // Read the actual result; the cleaner correctly refuses an already-clean file.
         const bytes = new Uint8Array(await result.copy.arrayBuffer());
-        const parsed = wasm.parse(bytes);
+        const parsed = wasm.parseOwned(bytes);
         try {
           const f = describe(parsed);
           if (f.format !== "jpeg" || f.kinds.includes(3) || f.dimensions?.[0] !== result.dimensions[0] || f.dimensions?.[1] !== result.dimensions[1]) throw new Error("copy cannot be completely read");
@@ -410,7 +410,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     // Timed from the call into WASM through reading every array back out, so
     // the number shown to the user is the whole cost, not the flattering part.
     const t0 = performance.now();
-    const parsed = wasm.parse(bytes);
+    const parsed = wasm.parseOwned(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
     addEntropy(result, bytes, wasm);
@@ -418,8 +418,8 @@ async function handle(req: WorkerRequest): Promise<void> {
     rememberParsedSource(parsed, result, req.id);
     stack = [parsed];
     if (isMedia(bytes)) prefetchDocuments();
-    // The parser keeps its own copy: these bytes go to the page, moved, not
-    // copied, so a large file is held twice at most rather than three times.
+    // Source-dependent parsers keep this WASM allocation; the page receives
+    // the JavaScript buffer by transfer, without another page-side copy.
     post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
     return;
   }
@@ -447,7 +447,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     c ??= wasm.cleanCopy(bytes, req.notes ?? false);
     let verification: string | undefined;
     if (req.verify && !c.error && bytes.length <= MAX_VERIFY_BYTES && c.bytes.length <= MAX_VERIFY_BYTES) {
-      const parsed = wasm.parse(bytes);
+      const parsed = wasm.parseOwned(bytes);
       try { verification = parsed.verifyCopy(c.bytes); } finally { parsed.free(); }
     }
     postCopy(req.id, c, (b) => new Blob([b as BlobPart]), verification);
@@ -634,7 +634,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     // Its own build: a ZIP behind a photo needs the one that reads archives.
     const wasm = await moduleFor(bytes);
     const t0 = performance.now();
-    const parsed = wasm.parse(bytes);
+    const parsed = wasm.parseOwned(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
     addEntropy(result, bytes, wasm);
