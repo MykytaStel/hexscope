@@ -5,7 +5,7 @@ import type { FileModel } from "./model";
 import type { Shown } from "./pdf-pictures";
 import { currentLocale, translateText } from "./i18n";
 
-/** The PDF editor is a separate chunk; non-PDF files never load its UI or search helpers. */
+/** The PDF editor UI is a separate chunk; non-PDF views do not import or parse it. */
 export function pdfRedactorPlaceholder(
   m: FileModel,
   cleaning: CleanActions,
