@@ -92,6 +92,46 @@ test("multiple shared files open together in the batch analyzer", async ({ page 
   await expect(page).not.toHaveURL(/shared=/);
 });
 
+test("a phone can pause and resume a shared batch without losing completed rows", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "batch pause is checked in the phone profile");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    const blocked = new Set(["message.eml", "photo.jpg"]);
+    (window as Window & { __releaseBatchParse?: (name: string) => void }).__releaseBatchParse = (name) => blocked.delete(name);
+    const NativeWorker = window.Worker;
+    window.Worker = class DelayedBatchWorker extends NativeWorker {
+      override postMessage(message: unknown, transfer?: Transferable[] | StructuredSerializeOptions): void {
+        const request = message as { type?: string; file?: File };
+        if (request.type === "parse" && request.file && blocked.has(request.file.name)) return;
+        super.postMessage(message, transfer as Transferable[]);
+      }
+    };
+  });
+  await controlledHome(page);
+  await submitShare(page, ["message.eml", "photo.jpg"]);
+
+  const batch = page.locator("#batch");
+  const messageRow = batch.locator(".batch-row", { hasText: "message.eml" });
+  const photoRow = batch.locator(".batch-row", { hasText: "photo.jpg" });
+  await expect(messageRow).toContainText("Reading…");
+  await page.getByRole("button", { name: "Pause reading" }).click();
+  await expect(batch.locator(".batch-title")).toHaveText("Reading paused");
+  await expect(messageRow).toContainText("Waiting");
+
+  await page.evaluate(() => (window as Window & { __releaseBatchParse?: (name: string) => void }).__releaseBatchParse?.("message.eml"));
+  await page.getByRole("button", { name: "Resume reading" }).click();
+  await expect(messageRow).toBeEnabled();
+  await expect(photoRow).toContainText("Reading…");
+  await page.getByRole("button", { name: "Pause reading" }).click();
+  await expect(batch.locator(".batch-title")).toHaveText("Reading paused");
+  await expect(photoRow).toContainText("Waiting");
+
+  await page.evaluate(() => (window as Window & { __releaseBatchParse?: (name: string) => void }).__releaseBatchParse?.("photo.jpg"));
+  await page.getByRole("button", { name: "Resume reading" }).click();
+  await expect(batch.locator(".batch-title")).toHaveText("2 of 2 files need a look");
+});
+
 test("a legacy shared-file entry is still opened once", async ({ page }) => {
   await controlledHome(page);
   await seedLegacy(page);

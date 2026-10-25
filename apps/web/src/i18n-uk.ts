@@ -549,6 +549,9 @@ const UK: Record<string, string> = {
   "Save it": "Зберегти",
   // Several files at once.
   "Nothing leaves this tab.": "Ніщо не залишає цієї вкладки.",
+  "Pause reading": "Призупинити читання",
+  "Resume reading": "Продовжити читання",
+  "Reading paused": "Читання призупинено",
   "No personal metadata found by the available checks. Visible content has not been cleared.": "Доступні перевірки не знайшли особистих метаданих. Видимий вміст не очищено.",
   "No personal metadata found by the available checks.": "Доступні перевірки не знайшли особистих метаданих.",
   "Make clean copies": "Зробити чисті копії",

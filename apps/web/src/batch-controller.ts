@@ -5,11 +5,11 @@ export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "lines" | "headl
 
 /** The output that batch analysis and clean-copy work share with its view. */
 export interface BatchViewPort extends CleanCopiesView {
-  render(items: BatchItem[]): void;
+  render(items: BatchItem[], paused?: boolean): void;
 }
 
 export interface BatchControllerHooks {
-  analyze(file: File): Promise<BatchAnalysis>;
+	analyze(file: File, signal: AbortSignal): Promise<BatchAnalysis>;
   openFile(file: File): void;
   saveClean(items: BatchItem[], keepNames: boolean, includeCopyFingerprints: boolean, output: BatchViewPort, isCurrent: () => boolean): Promise<void>;
   announce(message: string): void;
@@ -20,6 +20,7 @@ export class BatchController {
   private current: BatchItem[] | null = null;
   private paused = true;
   private running = false;
+  private active: AbortController | null = null;
   private generation = 0;
   private announced = -1;
 
@@ -34,6 +35,7 @@ export class BatchController {
 
   /** Starts a new list. The composition root decides when its batch view is shown. */
   start(files: File[]): void {
+    this.active?.abort();
     this.generation++;
     this.announced = -1;
     this.paused = true;
@@ -53,6 +55,7 @@ export class BatchController {
 
   /** Invalidates any analysis or clean-copy work still using the previous list. */
   clear(): void {
+    this.active?.abort();
     this.generation++;
     this.current = null;
     this.paused = true;
@@ -60,14 +63,22 @@ export class BatchController {
   }
 
   pause(): void {
+    if (this.paused) return;
     this.paused = true;
+    this.active?.abort();
+    if (this.current) this.view.render(this.current, this.paused);
+  }
+
+  toggleReading(): void {
+    if (this.paused) this.resume();
+    else this.pause();
   }
 
   resume(): void {
     const items = this.current;
     if (!items) return;
     this.paused = false;
-    this.view.render(items);
+    this.view.render(items, this.paused);
     void this.run(items, this.generation);
   }
 
@@ -96,18 +107,34 @@ export class BatchController {
       for (const item of items) {
         if (!this.isCurrent(items, generation) || this.paused) break;
         if (item.state !== "waiting") continue;
+        const controller = new AbortController();
+        this.active = controller;
         item.state = "reading";
-        this.view.render(items);
+        this.view.render(items, this.paused);
         try {
-          const analysis = await this.hooks.analyze(item.file);
-          if (!this.isCurrent(items, generation)) return;
-          Object.assign(item, analysis, { state: "done" as const });
+          const analysis = await this.hooks.analyze(item.file, controller.signal);
+          if (!this.isCurrent(items, generation)) break;
+          if (controller.signal.aborted) {
+            item.state = "waiting";
+            item.note = "";
+          } else {
+            Object.assign(item, analysis, { state: "done" as const });
+          }
         } catch (error) {
-          if (!this.isCurrent(items, generation)) return;
-          item.state = "failed";
-          item.note = error instanceof Error ? error.message : String(error);
+          if (!this.isCurrent(items, generation)) break;
+          if (controller.signal.aborted) {
+            item.state = "waiting";
+            item.note = "";
+          } else {
+            item.state = "failed";
+            item.note = error instanceof Error ? error.message : String(error);
+          }
+        } finally {
+          if (this.active === controller) this.active = null;
         }
-        if (this.isCurrent(items, generation)) this.view.render(items);
+        if (!this.isCurrent(items, generation)) break;
+        this.view.render(items, this.paused);
+        if (controller.signal.aborted || this.paused) break;
       }
     } finally {
       this.running = false;

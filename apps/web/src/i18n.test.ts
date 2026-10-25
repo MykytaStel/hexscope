@@ -247,6 +247,9 @@ describe("the interface language", () => {
     expect(translateText("Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.", "uk")).toBe(
       "Пряме поширення з телефона надсилає лише копії; у ZIP будуть квитанція та відбитки.",
     );
+    expect(translateText("Pause reading", "uk")).toBe("Призупинити читання");
+    expect(translateText("Resume reading", "uk")).toBe("Продовжити читання");
+    expect(translateText("Reading paused", "uk")).toBe("Читання призупинено");
   });
 
   it("translates the byte inspector, touch guidance, and copy feedback", () => {
