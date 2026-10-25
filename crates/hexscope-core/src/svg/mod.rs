@@ -631,11 +631,7 @@ fn picture(
     }
     *pictures += 1;
     let bytes = crate::eml::base64(body.as_bytes());
-    let facts = if bytes.starts_with(&[0xFF, 0xD8]) {
-        crate::jpeg::parse_jpeg(&bytes).facts
-    } else if bytes.starts_with(b"\x89PNG") {
-        crate::png::parse_png(&bytes).facts
-    } else {
+    let Some(facts) = photo_facts(&bytes) else {
         return;
     };
     let Some(says) = crate::zip::office::photo_says(&facts) else {
@@ -667,6 +663,21 @@ fn picture(
         with,
         what: "photos inside it, cleaned as photos of their own",
     });
+}
+
+/// Metadata from a still image the core can both read and clean. Nested SVGs
+/// are deliberately excluded: this path is for raster photos only.
+fn photo_facts(data: &[u8]) -> Option<crate::exif::PhotoFacts> {
+    use crate::document::Document;
+
+    match crate::document::parse(data) {
+        Document::Jpeg(doc) => Some(doc.facts),
+        Document::Png(doc) => Some(doc.facts),
+        Document::Webp(doc) => Some(doc.facts),
+        Document::Tiff(doc) => Some(doc.facts),
+        Document::Heif(doc) => Some(doc.facts),
+        _ => None,
+    }
 }
 
 /// Base64, as a data URL carries it.
