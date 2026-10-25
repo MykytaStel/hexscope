@@ -81,6 +81,38 @@ group("a movie read in parts", () => {
     expect(movie!.missing).toEqual(Float64Array.from([8, bytes.length - 8]));
   });
 
+  it("stops safely when the top-level box limit hides the media box", async () => {
+    const free = new Uint8Array(8);
+    new DataView(free.buffer).setUint32(0, free.length);
+    free.set([0x66, 0x72, 0x65, 0x65], 4);
+    const mdatAt = free.length;
+    const mdat = new Uint8Array(8 + (1 << 20));
+    new DataView(mdat.buffer).setUint32(0, mdat.length);
+    mdat.set([0x6d, 0x64, 0x61, 0x74], 4);
+    const blob = new Blob([free, mdat]);
+    const nativeSlice = blob.slice.bind(blob);
+    let readMediaBody = false;
+    const file = Object.assign(blob, {
+      slice(start = 0, end = blob.size) {
+        if (start < mdatAt + mdat.length && end > mdatAt + 8) readMediaBody = true;
+        return nativeSlice(start, end);
+      },
+    });
+
+    await expect(readMovie(file, () => true, 0, { maxTopLevelBoxes: 1 })).rejects.toThrow(
+      "too many top-level boxes",
+    );
+    expect(readMediaBody).toBe(false);
+  });
+
+  it("does not call a complete file a truncated box list", async () => {
+    const box = new Uint8Array(8);
+    new DataView(box.buffer).setUint32(0, box.length);
+    box.set([0x66, 0x72, 0x65, 0x65], 4);
+
+    await expect(readMovie(new Blob([box]), () => true, 0, { maxTopLevelBoxes: 1 })).resolves.toBeNull();
+  });
+
   it("makes the clean copy the whole movie makes", async () => {
     const { file, bytes } = longVideo(3 << 20);
     const movie = (await readMovie(file, isMovie, 0))!;
@@ -301,6 +333,25 @@ group("bytes not read yet", () => {
       [0, 100],
       [200_100, 300_000],
     ]);
+  });
+
+  it("looks up missing ranges correctly across a large sparse movie map", () => {
+    const count = 20_000;
+    const stride = 2 * 64 * 1024;
+    const ranges = new Float64Array(count * 2);
+    for (let i = 0; i < count; i++) {
+      ranges[i * 2] = i * stride + 17;
+      ranges[i * 2 + 1] = 11;
+    }
+    const missing = new Missing(ranges);
+    const start = (count - 1) * stride + 17;
+
+    expect(missing.has(start)).toBe(false);
+    expect(missing.has(start - 1)).toBe(true);
+    expect(missing.has(start + 11)).toBe(true);
+    expect(missing.wanted(start, start + 11)).toEqual([[start, start + 11]]);
+    missing.filled([[start, start + 11]]);
+    expect(missing.has(start)).toBe(true);
   });
 });
 

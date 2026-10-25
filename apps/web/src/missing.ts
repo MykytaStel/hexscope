@@ -21,7 +21,21 @@ export class Missing {
   }
 
   private inRange(offset: number): boolean {
-    return this.ranges.some(([a, b]) => offset >= a && offset < b);
+    const index = this.firstEndingAfter(offset);
+    const range = this.ranges[index];
+    return range !== undefined && offset >= range[0];
+  }
+
+  /** First range whose exclusive end is greater than `offset`. */
+  private firstEndingAfter(offset: number): number {
+    let low = 0;
+    let high = this.ranges.length;
+    while (low < high) {
+      const middle = low + Math.floor((high - low) / 2);
+      if (this.ranges[middle][1] <= offset) low = middle + 1;
+      else high = middle;
+    }
+    return low;
   }
 
   /** Whether the byte at `offset` is here. */
@@ -34,9 +48,13 @@ export class Missing {
     const out: [number, number][] = [];
     for (let c = Math.floor(start / CHUNK); c * CHUNK < end; c++) {
       if (this.loaded.has(c)) continue;
-      for (const [a, b] of this.ranges) {
+      const chunkStart = c * CHUNK;
+      const chunkEnd = chunkStart + CHUNK;
+      for (let i = this.firstEndingAfter(chunkStart); i < this.ranges.length; i++) {
+        const [a, b] = this.ranges[i];
+        if (a >= chunkEnd) break;
         const from = Math.max(a, c * CHUNK);
-        const to = Math.min(b, (c + 1) * CHUNK);
+        const to = Math.min(b, chunkEnd);
         if (from < to) out.push([from, to]);
       }
     }

@@ -58,8 +58,14 @@ document.addEventListener("click", (e) => {
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const readProgress = document.createElement("span");
 readProgress.className = "file-read-progress";
-readProgress.setAttribute("role", "status");
-readProgress.setAttribute("aria-live", "polite");
+readProgress.setAttribute("role", "progressbar");
+readProgress.setAttribute("aria-valuemin", "0");
+readProgress.setAttribute("aria-valuemax", "100");
+const readAnnouncement = document.createElement("span");
+readAnnouncement.className = "visually-hidden file-read-announcement";
+readAnnouncement.setAttribute("role", "status");
+readAnnouncement.setAttribute("aria-live", "polite");
+readAnnouncement.setAttribute("aria-atomic", "true");
 const cancelRead = document.createElement("button");
 cancelRead.type = "button";
 cancelRead.className = "btn fileinfo-cancel";
@@ -708,20 +714,34 @@ workspace = new WorkspaceController({
 });
 
 function showMovieProgress(progress: MovieProgress): void {
+  const locale = currentLocale();
   const phase = {
     scan: "structure",
     ranges: "metadata",
     entropy: "byte map",
   } as const;
+  const percentage = Math.min(100, Math.floor((progress.loaded / Math.max(1, progress.total)) * 100));
   const label = progress.stage === "parse"
     ? "Parsing video metadata…"
-    : `Reading video ${phase[progress.stage]}: ${Math.min(100, Math.floor((progress.loaded / Math.max(1, progress.total)) * 100))}%`;
-  readProgress.textContent = translateText(label, currentLocale());
-  cancelRead.textContent = translateText("Cancel", currentLocale());
+    : `Reading video ${phase[progress.stage]}: ${percentage}%`;
+  const localizedLabel = translateText(label, locale);
+  readProgress.textContent = localizedLabel;
+  readProgress.setAttribute("aria-label", translateText("Video read progress", locale));
+  readProgress.setAttribute("aria-valuetext", localizedLabel);
+  if (progress.stage === "parse") readProgress.removeAttribute("aria-valuenow");
+  else readProgress.setAttribute("aria-valuenow", String(percentage));
+  const announcementKey = progress.stage === "parse"
+    ? `${locale}:${progress.stage}`
+    : `${locale}:${progress.stage}:${Math.floor(percentage / 10) * 10}`;
+  if (readAnnouncement.dataset.key !== announcementKey) {
+    readAnnouncement.dataset.key = announcementKey;
+    readAnnouncement.textContent = localizedLabel;
+  }
+  cancelRead.textContent = translateText("Cancel", locale);
   cancelRead.disabled = !progress.cancellable;
   const fileinfo = $("fileinfo");
-  if (readProgress.parentElement !== fileinfo || cancelRead.parentElement !== fileinfo) {
-    fileinfo.replaceChildren(readProgress, cancelRead);
+  if (readProgress.parentElement !== fileinfo || readAnnouncement.parentElement !== fileinfo || cancelRead.parentElement !== fileinfo) {
+    fileinfo.replaceChildren(readProgress, readAnnouncement, cancelRead);
   }
 }
 
