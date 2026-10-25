@@ -41,6 +41,189 @@ async function openBytes(page: Page): Promise<void> {
   await openView(page, "bytes");
 }
 
+test.describe("DEFLATE player loading", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("loads the player only when playback is requested", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the script request check runs on the computer project");
+    const scripts: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "script") scripts.push(request.url());
+    });
+
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(scripts.some((url) => /\/player-[\w-]+\.js$/.test(url))).toBe(false);
+
+    await page.goto("./?sample=sample.png");
+    await expect(page.locator(".drawer-player")).toBeVisible();
+    expect(scripts.some((url) => /\/player-[\w-]+\.js$/.test(url))).toBe(true);
+  });
+
+  test("keeps the file open and allows retry when the player chunk fails", async ({ page }, info) => {
+    await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+    let failNext = true;
+    await page.route("**/player-*.js", (route) => {
+      if (failNext) {
+        failNext = false;
+        return route.abort();
+      }
+      return route.continue();
+    });
+
+    await page.goto("./?sample=sample.png");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    const error = page.locator("#player-load-error");
+    await expect(error).toBeVisible();
+    await expect(error).toContainText("Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.");
+    await expect(error.getByRole("button", { name: "Спробувати ще раз" })).toBeVisible();
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+    if (info.project.name === "phone") {
+      await page.setViewportSize({ width: 320, height: 700 });
+      await expect(error).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const messageLayout = await error.locator(".player-load-error-message").evaluate((message) => {
+        const text = message as HTMLElement;
+        const retry = document.querySelector<HTMLElement>("#player-load-error [data-retry-player]")!;
+        const messageRect = text.getBoundingClientRect();
+        const retryRect = retry.getBoundingClientRect();
+        return { scrollWidth: text.scrollWidth, clientWidth: text.clientWidth, messageBottom: messageRect.bottom, retryTop: retryRect.top };
+      });
+      expect(messageLayout.scrollWidth).toBeLessThanOrEqual(messageLayout.clientWidth);
+      expect(messageLayout.messageBottom).toBeLessThanOrEqual(messageLayout.retryTop);
+    }
+
+    await error.locator("[data-retry-player]").click();
+    await expect(error).toBeHidden();
+    await expect(page.locator(".drawer-player")).toBeVisible();
+    await page.locator(".player-close").click();
+    await expect(error).toBeHidden();
+    await expect(page.locator(".drawer-node .problem")).toHaveCount(0);
+  });
+
+  test("retry resumes the picture step that was requested", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("hexscope.language", "en");
+      localStorage.setItem("hexscope.tour", "done");
+    });
+    let requests = 0;
+    await page.route("**/player-*.js", async (route) => {
+      requests++;
+      if (requests === 1) await route.abort();
+      else await route.continue();
+    });
+
+    await page.goto("./");
+    await page.locator("#picker-empty").setInputFiles(new URL("../public/samples/sample.png", import.meta.url).pathname);
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".more-details > summary").click();
+    const picture = page.locator(".picture-frame");
+    await expect(picture).toBeVisible();
+    const bounds = await picture.boundingBox();
+    expect(bounds).not.toBeNull();
+    await picture.click({ position: { x: bounds!.width * 0.75, y: bounds!.height * 0.75 } });
+
+    const step = page.locator(".picture-caption").getByRole("button", { name: /^Step [\d,]+ in the player$/ });
+    await expect(step).toBeVisible();
+    const label = await step.innerText();
+    const requestedStep = Number(label.match(/Step ([\d,]+)/)?.[1].replaceAll(",", ""));
+    expect(requestedStep).toBeGreaterThan(1);
+    await step.click();
+    const error = page.locator("#player-load-error");
+    await expect(error).toBeVisible();
+    expect(requests).toBe(1);
+
+    await error.locator("[data-retry-player]").click();
+    await expect.poll(() => requests).toBe(2);
+    await expect(page.locator(".drawer-player")).toBeVisible();
+    await expect(page.locator(".player-counter")).toContainText(`Step ${requestedStep} of`);
+  });
+
+  test("does not reopen playback after its file is replaced during a chunk load", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending chunk replacement route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    let response: Promise<unknown> | null = null;
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.locator("#picker").setInputFiles(new URL("../public/samples/photo.jpg", import.meta.url).pathname);
+      await expect(page.locator(".filename")).toContainText("photo.jpg");
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
+    } finally {
+      release();
+    }
+
+    await response;
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+  });
+
+  test("Escape cancels a pending player import", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending player import route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    let response: Promise<unknown> | null = null;
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.keyboard.press("Escape");
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
+    } finally {
+      release();
+    }
+
+    await response;
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+  });
+
+  test("changing the workspace view cancels a pending player import", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending player import route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    let response: Promise<unknown> | null = null;
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.locator("#app-nav [data-app-view='metadata']").click();
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
+    } finally {
+      release();
+    }
+
+    await response;
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+    await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
+  });
+});
+
 test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();

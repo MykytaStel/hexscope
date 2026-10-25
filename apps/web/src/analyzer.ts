@@ -1,6 +1,6 @@
 // The analyzer: the views of an open file, the workspace that opens it, the
-// batch list and the player. main.ts loads it when a file is asked for, or
-// once the landing page is idle, so the first page waits for none of it.
+// batch list and the player. main.ts loads it when a file is asked for, so
+// the landing page does not load it before there is file intent.
 import { explain } from "./explanations";
 import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
@@ -10,7 +10,6 @@ import { Concern, FileModel, Kind } from "./model";
 import { ActionBar } from "./actionbar";
 import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
-import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
@@ -76,6 +75,7 @@ const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: ""
 let hover = -1;
 let selected = -1;
 let problemCursor = -1;
+let playerPending = false;
 
 const status = $("status");
 status.setAttribute("role", "status");
@@ -185,7 +185,7 @@ const picture = new PictureView({
   },
   onStep: (index) => {
     toBytes();
-    void openPlayer().then(() => player.jump(index));
+    void openPlayer(selectedEntry(), index);
   },
 });
 // On a phone the file opens on its summary; the tree and the bytes are a
@@ -256,7 +256,7 @@ function syncAppNavigation(): void {
       if (view === current) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     } else if (button.dataset.appAction === "compression") {
-      const playing = document.body.classList.contains("is-playing");
+      const playing = document.body.classList.contains("is-playing") || playerPending;
       button.disabled = !playing && !canPlay();
       button.setAttribute("aria-pressed", String(playing));
     }
@@ -300,6 +300,7 @@ appNavigation.addEventListener("click", (event) => {
   // A phone's More closes on whatever was chosen in it.
   if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appView) {
+    if (playerPending) closePlayer();
     tourDismissedByNavigation = true;
     dismissTour();
     setWorkspaceView(button.dataset.appView as WorkspaceView);
@@ -309,7 +310,7 @@ appNavigation.addEventListener("click", (event) => {
   dismissTour();
   button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appAction === "compression") {
-    if (document.body.classList.contains("is-playing")) closePlayer();
+    if (document.body.classList.contains("is-playing") || playerPending) closePlayer();
     else if (canPlay()) void openPlayer();
   } else if (button.dataset.appAction === "compare") {
     comparePicker.click();
@@ -400,13 +401,66 @@ async function compareWith(other: File): Promise<void> {
 }
 
 const playBtn = $<HTMLButtonElement>("play");
-const player = new Player($("drawer"), {
-  onHead: (start, end, follow) => {
-    hex.setHead(start, end);
-    if (follow) hex.revealOffset(start, false);
-  },
-  onClose: closePlayer,
-});
+const playerLoadError = $<HTMLElement>("player-load-error");
+type DeflatePlayer = import("./player").Player;
+let player: DeflatePlayer | null = null;
+let playerModule: Promise<typeof import("./player")> | null = null;
+let playerRequest = 0;
+
+function clearPlayerLoadError(): void {
+  playerLoadError.hidden = true;
+  playerLoadError.replaceChildren();
+}
+
+function showPlayerLoadError(message: string, retryLoad: () => void): void {
+  const text = document.createElement("p");
+  text.className = "player-load-error-message";
+  text.textContent = message;
+
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "btn";
+  retry.dataset.retryPlayer = "true";
+  retry.textContent = translateText("Try again", currentLocale());
+  retry.addEventListener("click", () => {
+    clearPlayerLoadError();
+    retryLoad();
+  });
+
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "btn btn-dismiss";
+  dismiss.setAttribute("aria-label", translateText("Close", currentLocale()));
+  dismiss.textContent = "×";
+  dismiss.addEventListener("click", clearPlayerLoadError);
+
+  const actions = document.createElement("div");
+  actions.className = "player-load-error-actions";
+  actions.append(retry, dismiss);
+
+  playerLoadError.replaceChildren(text, actions);
+  playerLoadError.hidden = false;
+}
+
+function loadPlayerModule(): Promise<typeof import("./player")> {
+  if (!playerModule) {
+    playerModule = import("./player").catch((error) => {
+      playerModule = null;
+      throw error;
+    });
+  }
+  return playerModule;
+}
+
+function createPlayer(PlayerClass: typeof import("./player").Player): DeflatePlayer {
+  return new PlayerClass($("drawer"), {
+    onHead: (start, end, follow) => {
+      hex.setHead(start, end);
+      if (follow) hex.revealOffset(start, false);
+    },
+    onClose: closePlayer,
+  });
+}
 
 /** The ZIP entry holding the selection, or -1. */
 function selectedEntry(): number {
@@ -422,25 +476,82 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
-async function openPlayer(entry = selectedEntry()): Promise<void> {
-  const model = workspace.model;
-  if (!model) return;
-  if (model.file.format === "zip") {
-    if (entry < 0 || !model.entry(entry).playable) return;
-    const m = model;
-    closePlayer();
-    const r = await call({ type: "selectEntry", index: entry });
-    if (m !== workspace.model || r.type !== "stream" || !r.playable) return;
-    m.setStream(r.segments, r.trace, r.idatBytes);
+function retryPlayerRequest(model: FileModel, entry: number, step: number | undefined): void {
+  if (model !== workspace.model) return;
+  void openPlayer(entry, step);
+}
+
+async function loadPlayerClass(
+  model: FileModel,
+  entry: number,
+  step: number | undefined,
+  request: number,
+): Promise<typeof import("./player").Player | null> {
+  try {
+    return (await loadPlayerModule()).Player;
+  } catch {
+    if (request !== playerRequest || model !== workspace.model) return null;
+    showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()), () =>
+      retryPlayerRequest(model, entry, step),
+    );
+    return null;
   }
-  if (!model.playable) return;
+}
+
+async function preparePlayerClass(
+  model: FileModel,
+  isZip: boolean,
+  entry: number,
+  step: number | undefined,
+  request: number,
+): Promise<typeof import("./player").Player | null> {
+  if (isZip) {
+    const r = await call({ type: "selectEntry", index: entry });
+    if (request !== playerRequest || model !== workspace.model || r.type !== "stream" || !r.playable) return null;
+    model.setStream(r.segments, r.trace, r.idatBytes);
+  }
+  if (!model.playable) return null;
+  return loadPlayerClass(model, entry, step, request);
+}
+
+function finishPlayerRequest(request: number): void {
+  if (request !== playerRequest || !playerPending) return;
+  playerPending = false;
+  syncAppNavigation();
+}
+
+async function openPlayer(entry = selectedEntry(), step?: number): Promise<DeflatePlayer | null> {
+  const model = workspace.model;
+  if (!model) return null;
+  const isZip = model.file.format === "zip";
+  if (isZip ? entry < 0 || !model.entry(entry).playable : !model.playable) return null;
+  clearPlayerLoadError();
+  if (isZip) closePlayer();
+  const request = ++playerRequest;
+  playerPending = true;
+  syncAppNavigation();
+
+  let PlayerClass: typeof import("./player").Player | null;
+  try {
+    PlayerClass = await preparePlayerClass(model, isZip, entry, step, request);
+  } catch (error) {
+    finishPlayerRequest(request);
+    throw error;
+  }
+  finishPlayerRequest(request);
+  if (!PlayerClass || request !== playerRequest || model !== workspace.model) return null;
+  player ??= createPlayer(PlayerClass);
   document.body.classList.add("is-playing");
   syncAppNavigation();
   await player.open(model, playerSource);
+  if (step !== undefined) player.jump(step);
+  return player;
 }
 
 function closePlayer(): void {
-  player.close();
+  playerRequest++;
+  playerPending = false;
+  player?.close();
   hex.setHead(-1, -1);
   document.body.classList.remove("is-playing");
   syncAppNavigation();
@@ -475,7 +586,7 @@ function select(id: number, offset?: number): void {
   if (model && id > 0) tools?.setPart(model.start(id), model.len(id), model.label(id));
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
-  playBtn.hidden = !canPlay() && !player.isOpen;
+  playBtn.hidden = !canPlay() && !player?.isOpen;
   syncAppNavigation();
   renderStatus();
 }
@@ -824,6 +935,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchA
 
 /** Puts a document on screen, with nothing selected. */
 function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
+  clearPlayerLoadError();
   hover = -1;
   selected = -1;
   problemCursor = -1;
@@ -1041,7 +1153,7 @@ locationBtn.addEventListener("click", () => {
   if (where) point(where.node);
 });
 playBtn.addEventListener("click", () => {
-  if (player.isOpen) return closePlayer();
+  if (player?.isOpen || playerPending) return closePlayer();
   toBytes();
   void openPlayer();
 });
@@ -1060,12 +1172,12 @@ window.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== "range") return;
   // A dialog open over the page takes the keys; Escape closes it by itself.
   if (document.querySelector("dialog[open]")) return;
-  if (player.handleKey(e)) {
+  if (player?.handleKey(e)) {
     e.preventDefault();
     return;
   }
   if (e.key === "Escape") {
-    if (player.isOpen) closePlayer();
+    if (player?.isOpen || playerPending) closePlayer();
     else select(-1);
   }
   // Letters only bare: Cmd-N and Ctrl-P belong to the browser. "?" and O are main.ts's.
@@ -1083,5 +1195,5 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     showBatch();
   }
-  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
+  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !playerPending && !player?.isOpen) void openPlayer();
 });
