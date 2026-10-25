@@ -120,6 +120,24 @@ fn embedded_raster_formats_are_reported_and_cleaned() {
 }
 
 #[test]
+fn embedded_photo_dispatch_only_accepts_raster_signatures() {
+    let tiff = fixture("photo.tif");
+    assert_eq!(raster_kind(&crate::jpeg::MAGIC), Some(RasterKind::Jpeg));
+    assert_eq!(raster_kind(b"\x89PNG\r\n\x1A\n"), Some(RasterKind::Png));
+    assert_eq!(raster_kind(&webp_with_exif(&tiff)), Some(RasterKind::Webp));
+    assert_eq!(raster_kind(&tiff), Some(RasterKind::Tiff));
+    assert_eq!(raster_kind(&fixture("photo.heic")), Some(RasterKind::Heif));
+    assert_eq!(raster_kind(&fixture("photo.avif")), Some(RasterKind::Heif));
+    for unsupported in [
+        &b"<svg xmlns='http://www.w3.org/2000/svg'/>"[..],
+        b"%PDF-1.7",
+        b"PK\x03\x04",
+    ] {
+        assert_eq!(raster_kind(unsupported), None);
+    }
+}
+
+#[test]
 fn inkscape_leaves_names_paths_a_photo_and_its_metadata() {
     let doc = parse_svg(&fixture("inkscape.svg"));
     assert_eq!(said(&doc, "original"), "poster-client-final-v3.svg");

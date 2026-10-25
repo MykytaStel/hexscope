@@ -665,18 +665,43 @@ fn picture(
     });
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RasterKind {
+    Jpeg,
+    Png,
+    Webp,
+    Tiff,
+    Heif,
+}
+
+/// Identify supported raster bytes before parsing them. Do not route an
+/// embedded data URL through the general document dispatcher: it can recurse
+/// into SVGs or invoke unrelated parsers for mislabeled payloads.
+fn raster_kind(data: &[u8]) -> Option<RasterKind> {
+    if data.starts_with(&crate::jpeg::MAGIC) {
+        Some(RasterKind::Jpeg)
+    } else if data.starts_with(b"\x89PNG") {
+        Some(RasterKind::Png)
+    } else if crate::webp::is_webp(data) {
+        Some(RasterKind::Webp)
+    } else if crate::tiff::is_tiff(data) {
+        Some(RasterKind::Tiff)
+    } else if crate::heif::is_heif(data) {
+        Some(RasterKind::Heif)
+    } else {
+        None
+    }
+}
+
 /// Metadata from a still image the core can both read and clean. Nested SVGs
 /// are deliberately excluded: this path is for raster photos only.
 fn photo_facts(data: &[u8]) -> Option<crate::exif::PhotoFacts> {
-    use crate::document::Document;
-
-    match crate::document::parse(data) {
-        Document::Jpeg(doc) => Some(doc.facts),
-        Document::Png(doc) => Some(doc.facts),
-        Document::Webp(doc) => Some(doc.facts),
-        Document::Tiff(doc) => Some(doc.facts),
-        Document::Heif(doc) => Some(doc.facts),
-        _ => None,
+    match raster_kind(data)? {
+        RasterKind::Jpeg => Some(crate::jpeg::parse_jpeg(data).facts),
+        RasterKind::Png => Some(crate::png::parse_png(data).facts),
+        RasterKind::Webp => Some(crate::webp::parse_webp(data).facts),
+        RasterKind::Tiff => Some(crate::tiff::parse_tiff_file(data).facts),
+        RasterKind::Heif => Some(crate::heif::parse_heif(data).facts),
     }
 }
 
