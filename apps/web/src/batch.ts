@@ -6,6 +6,9 @@ import type { VerdictLine } from "./verdict";
 import { listed, type Headline } from "./headline";
 import { currentLocale, translateText } from "./i18n";
 
+// The view and its queue controller form one public composition surface.
+export { BatchController, type BatchAnalysis, type BatchControllerHooks, type BatchViewPort } from "./batch-controller";
+
 export interface BatchItem {
   file: File;
   state: "waiting" | "reading" | "done" | "failed";
@@ -132,6 +135,7 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
 
 export interface BatchHooks {
   open(index: number): void;
+  toggleReading(): void;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
   saveClean(keepNames: boolean, includeCopyFingerprints: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
@@ -193,6 +197,7 @@ export class BatchView {
   private items: BatchItem[] = [];
   private lastDrawn = 0;
   private pending = 0;
+  private paused = false;
   private keepNames = false;
   private includeCopyFingerprints = false;
 
@@ -215,8 +220,9 @@ export class BatchView {
   }
 
   /** Draws the list, at most a few times a second while files are read. */
-  render(items: BatchItem[]): void {
+  render(items: BatchItem[], paused = false): void {
     this.items = items;
+    this.paused = paused;
     const wait = 150 - (performance.now() - this.lastDrawn);
     if (wait > 0 && items.some((i) => i.state === "waiting" || i.state === "reading")) {
       if (!this.pending) this.pending = window.setTimeout(() => this.draw(), wait);
@@ -240,7 +246,9 @@ export class BatchView {
       "h2",
       `batch-title is-${tone}`,
       totals.busy
-        ? `Reading ${totals.settled + 1} of ${items.length}…`
+        ? this.paused
+          ? translateText("Reading paused", currentLocale())
+          : `Reading ${totals.settled + 1} of ${items.length}…`
         : totals.flagged
           ? `${totals.flagged} of ${plural(items.length, "file needs", "files need")} a look`
           : `Nothing personal found in ${items.length === 1 ? "this file" : `these ${items.length} files`}`,
@@ -292,7 +300,17 @@ export class BatchView {
     fingerprint.hidden = totals.busy || chosen === 0;
     // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
     keep.hidden = totals.busy || chosen === 0 || phone;
-    head.append(label, title, summary, save, keep, fingerprint, this.status);
+    head.append(label, title, summary);
+    if (totals.busy) {
+      const toggle = el("button", "btn batch-toggle", translateText(this.paused ? "Resume reading" : "Pause reading", currentLocale()));
+      toggle.type = "button";
+      toggle.setAttribute("aria-pressed", String(this.paused));
+      toggle.addEventListener("click", () => this.hooks.toggleReading());
+      head.append(toggle);
+    } else {
+      head.append(save, keep, fingerprint);
+    }
+    head.append(this.status);
     // The tools for a whole roll of photos, out of the way of the one thing most come for.
     const tools: HTMLButtonElement[] = [];
     if (!totals.busy && items.length <= 1000 && this.hooks.mosaic) {

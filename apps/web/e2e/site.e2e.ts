@@ -2255,6 +2255,25 @@ test("a photo copied as a clean picture: pixels only, nothing else", async ({ pa
   expect(chunks.filter((c) => !["IHDR", "IDAT", "IEND", "sRGB", "gAMA", "cHRM", "pHYs", "iCCP"].includes(c))).toEqual([]);
 });
 
+test("a phone clipboard permission failure tells the person how to continue", async ({ page }) => {
+  await home(page);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { read: () => Promise.reject(new DOMException("permission denied", "NotAllowedError")) },
+    });
+    document.querySelector<HTMLButtonElement>("[data-paste]")!.hidden = false;
+  });
+  await page.locator(".hero-other-ways > summary").click();
+
+  const paste = page.locator("[data-paste]");
+  await expect(paste).toBeVisible();
+  await paste.click();
+  await expect(page.locator("#load-error")).toBeVisible();
+  await expect(page.locator("#load-error")).toContainText("choose the file");
+  await expect(page.locator("body")).toHaveAttribute("data-state", "empty");
+});
+
 test("the keyboard list closes every way people try: ×, Escape, a click outside, ? again", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "keys are for a computer");
   await home(page);

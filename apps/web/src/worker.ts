@@ -17,6 +17,7 @@ import type { FilmSettings } from "./film-lab";
 import type { FilmRenderResult } from "./film-render";
 import { LatestFilmQueue } from "./film-queue";
 import { profileFromTree } from "./film-profile";
+import { scanCodes } from "./worker-qr-scan";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
@@ -150,8 +151,8 @@ function prefetchDocuments(): void {
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
-/** Active asynchronous range reads for file parses. */
-const activeReads = new Map<number, AbortController>();
+/** Active asynchronous parser and QR operations, cancellable by request ID. */
+const activeOperations = new Map<number, AbortController>();
 /** Parsed files wait here until the page accepts the result and commits it. */
 const pendingParses = new Map<number, Parsed>();
 /** The open source parse used to compare the actual clean-copy bytes. */
@@ -264,7 +265,7 @@ async function largeMovie(file: Blob, options?: MovieReadOptions): Promise<Movie
 
 async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Promise<void> {
   const controller = new AbortController();
-  activeReads.set(req.id, controller);
+  activeOperations.set(req.id, controller);
   const options: MovieReadOptions = {
     signal: controller.signal,
     onProgress: (progress) => post({ id: req.id, type: "progress", progress }),
@@ -317,7 +318,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
       if (!retained) parsed.free();
     }
   } finally {
-    activeReads.delete(req.id);
+    activeOperations.delete(req.id);
   }
 }
 
@@ -331,114 +332,9 @@ function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, v
   c.free();
 }
 
-/** A picture's longer side, at most, when looking for QR codes in it: a code in a large photo is still many pixels a module. */
-const CODE_SCAN = 2400;
-/** Pages of a PDF whose pictures are looked through for codes. */
-const PDF_PAGES = 30;
-
-/** A picture's brightness, one byte a pixel, scaled down if it is large; null when the browser cannot decode it. */
-async function brightness(
-  image: Blob | ImageData,
-  resize: ImageBitmapOptions | undefined,
-  luminance: (rgba: Uint8ClampedArray | Uint8Array, width: number, height: number) => Uint8Array,
-): Promise<{ lum: Uint8Array; width: number; height: number } | null> {
-  let bitmap: ImageBitmap | null = null;
-  if (resize) {
-    try {
-      bitmap = await createImageBitmap(image, resize);
-    } catch {
-      // Older browsers may decode this image but not support resize options.
-    }
-  }
-  bitmap ??= await createImageBitmap(image).catch(() => null);
-  if (!bitmap) return null;
-  try {
-    const scale = Math.min(1, CODE_SCAN / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
-    if (!g) return null;
-    g.drawImage(bitmap, 0, 0, width, height);
-    return { lum: luminance(g.getImageData(0, 0, width, height).data, width, height), width, height };
-  } finally {
-    bitmap.close();
-  }
-}
-
-/** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
-async function codes(req: Extract<OperationRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
-  const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
-  const current = stack[stack.length - 1];
-  const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
-  let filmScan: FilmScanReport | undefined;
-  const look = async (image: Blob | ImageData, where: string, dimensions?: readonly [number, number]) => {
-    const p = await brightness(image, bitmapResizeOptions(dimensions, CODE_SCAN), luminance);
-    if (req.inspectFilmScan) {
-      try {
-        const { inspectFilmScan } = await import("./filmscan");
-        filmScan = p
-          ? inspectFilmScan(p.lum, p.width, p.height)
-          : inspectFilmScan(new Uint8Array(0), 0, 0);
-      } catch {
-        filmScan = {
-          availability: "unavailable",
-          perforationEdges: [],
-          perforationRepeats: 0,
-          frameEdges: [],
-          evidenceStrength: "none",
-        };
-      }
-    }
-    if (!p) return;
-    for (const c of findCodes(p.lum, p.width, p.height)) {
-      if (found.some((f) => f.text === c.text)) continue;
-      const xs = c.corners.map((q) => q.x / p.width);
-      const ys = c.corners.map((q) => q.y / p.height);
-      found.push({ text: c.text, where, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
-    }
-  };
-  if (req.picture) await look(req.picture, "", req.pictureDimensions);
-  if (req.pdf) {
-    const t = (await loadPdf()).pdfPictures(req.pdf, PDF_PAGES);
-    for (let i = 0; i < t.count; i++) {
-      const where = `the picture on page ${t.page(i)}`;
-      const [width, height] = t.size(i);
-      const at = t.jpeg(i);
-      if (at.length === 2) {
-        await look(new Blob([req.pdf.subarray(at[0], at[0] + at[1]) as BlobPart], { type: "image/jpeg" }), where, [width, height]);
-      } else {
-        if (width >= 21 && height >= 21) await look(new ImageData(new Uint8ClampedArray(t.rgba(i).buffer as ArrayBuffer), width, height), where, [width, height]);
-      }
-    }
-    t.free();
-    // A code a page draws in boxes, as label and invoice makers do: the boxes painted, then read.
-    const shapes = (await loadPdf()).pdfShapes(req.pdf, PDF_PAGES);
-    for (let i = 0; i < shapes.count; i++) {
-      const [left, bottom, right, top] = shapes.media(i);
-      const scale = Math.min(4, CODE_SCAN / Math.max(right - left, top - bottom));
-      const width = Math.ceil((right - left) * scale);
-      const height = Math.ceil((top - bottom) * scale);
-      const g = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
-      if (!g) continue;
-      g.fillStyle = "#fff";
-      g.fillRect(0, 0, width, height);
-      g.fillStyle = "#000";
-      const boxes = shapes.boxes(i);
-      for (let k = 0; k + 3 < boxes.length; k += 4) {
-        const x = (boxes[k] - left) * scale;
-        const y = (top - boxes[k + 3]) * scale;
-        g.fillRect(x, y, (boxes[k + 2] - boxes[k]) * scale, (boxes[k + 3] - boxes[k + 1]) * scale);
-      }
-      const image = g.getImageData(0, 0, width, height);
-      await look(image, `a code drawn on page ${shapes.page(i)}`);
-    }
-    shapes.free();
-  }
-  for (const e of req.entries ?? []) {
-    const bytes = current?.extractEntry(e.index);
-    if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name, imageDimensions(bytes));
-  }
-  return { codes: found, ...(filmScan ? { filmScan } : {}) };
+/** Keeps QR and embedded-image scanning outside the parser's central request router. */
+function codes(req: Extract<OperationRequest, { type: "codes" }>, signal?: AbortSignal): ReturnType<typeof scanCodes> {
+  return scanCodes(req, signal ?? new AbortController().signal, stack[stack.length - 1] ?? null, loadPdf);
 }
 
 /** Nested documents opened from archives are kept for the way back. */
@@ -697,7 +593,15 @@ async function handle(req: OperationRequest): Promise<void> {
   }
 
   if (req.type === "codes") {
-    post({ id: req.id, type: "codes", ...(await codes(req)) });
+    const controller = new AbortController();
+    activeOperations.set(req.id, controller);
+    try {
+      const result = await codes(req, controller.signal);
+      controller.signal.throwIfAborted();
+      post({ id: req.id, type: "codes", ...result });
+    } finally {
+      activeOperations.delete(req.id);
+    }
     return;
   }
 
@@ -765,8 +669,8 @@ function answer(req: OperationRequest): Promise<void> {
     const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
     if (crashed) {
       for (const family of Object.keys(loaded) as Family[]) delete loaded[family];
-      for (const controller of activeReads.values()) controller.abort();
-      activeReads.clear();
+      for (const controller of activeOperations.values()) controller.abort();
+      activeOperations.clear();
       pendingParses.clear();
       verificationSources.clear();
       stack = [];
@@ -783,7 +687,7 @@ const filmQueue = new LatestFilmQueue<Extract<OperationRequest, { type: "filmRen
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   if (event.data.type === "cancel") {
-    activeReads.get(event.data.target)?.abort();
+    activeOperations.get(event.data.target)?.abort();
     discardPendingParse(event.data.target);
     return;
   }

@@ -15,8 +15,7 @@ import { TreeView } from "./tree";
 import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
-import { BatchView } from "./batch";
-import { BatchController, type BatchAnalysis } from "./batch-controller";
+import { BatchController, BatchView, type BatchAnalysis } from "./batch";
 import { WorkspaceController, type MovieProgress, type WorkspaceLevel } from "./workspace-controller";
 import { categories } from "./share";
 import { dismissTour, maybeTour, resetTour } from "./tour";
@@ -757,6 +756,7 @@ onWorkerReset(() => {
 const batchView = new BatchView($("batch"), {
   canShareCopies: phoneCanShare,
   open: (i) => batchController.open(i),
+  toggleReading: () => batchController.toggleReading(),
   saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
   mosaic: (items) => void import("./photo-mosaic").then((m) => m.showMosaic(items)).catch((e) => announce(String(e))),
   filmRoll: (items) => void import("./film-roll-ui").then((m) => m.showFilmRoll(items.map((i) => i.file))).catch((e) => announce(String(e))),
@@ -792,12 +792,14 @@ function showBatch(): void {
 }
 
 /** Reads and summarizes one file for the batch list. */
-async function analyzeBatchFile(file: File): Promise<BatchAnalysis> {
+async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchAnalysis> {
   if (file.size > MAX_FILE) throw new Error(tooLarge(file));
-  const response = await call({ type: "parse", file });
+  const response = await call({ type: "parse", file }, undefined, { signal });
   if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
+  signal.throwIfAborted();
   const parsed = new FileModel(response.result, response.bytes, file.name, file);
-  await (await import("./qrfacts")).addCodeFacts(parsed);
+  await (await import("./qrfacts")).addCodeFacts(parsed, false, signal);
+  signal.throwIfAborted();
   return {
     kind: kindOf(parsed),
     format: parsed.file.format,

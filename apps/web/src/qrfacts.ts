@@ -59,12 +59,13 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
  */
 const looked = new WeakSet<FileModel>();
 type CodeFactUpdate = false | "film-scan" | "codes";
-export async function addCodeFacts(m: FileModel, inspectFilmScan = false): Promise<CodeFactUpdate> {
+export async function addCodeFacts(m: FileModel, inspectFilmScan = false, signal?: AbortSignal): Promise<CodeFactUpdate> {
   if (looked.has(m)) return false;
   looked.add(m);
   const what = request(m, inspectFilmScan);
   if (!what) return false;
-  const r = await call({ type: "codes", ...what });
+  const req = { type: "codes" as const, ...what };
+  const r = await (signal ? call(req, undefined, { signal }) : call(req));
   const filmScanRequested = "picture" in what && what.inspectFilmScan === true;
   if (r.type !== "codes") {
     if (filmScanRequested) {

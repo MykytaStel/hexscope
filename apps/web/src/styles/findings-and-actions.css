@@ -1080,6 +1080,15 @@ body[data-state="batch"] .layout {
   padding: 0 var(--space-4);
 }
 
+.batch-head .batch-toggle {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  min-height: var(--control-height);
+  height: auto;
+  justify-content: center;
+  padding: 0 var(--space-4);
+}
+
 /* The specialist tools, folded at the edge of the batch summary. */
 .batch-tools {
   grid-column: 2;
@@ -1250,7 +1259,8 @@ body[data-state="batch"] .layout {
 
   /* On a phone, the one thing to do takes the whole width, as it does for one file. */
   .batch-head .btn-clean,
-  .batch-head .btn-again {
+  .batch-head .btn-again,
+  .batch-head .batch-toggle {
     grid-column: 1;
     grid-row: auto;
     justify-self: stretch;

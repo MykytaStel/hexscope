@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BatchItem } from "./batch";
+import { BatchController as BatchControllerFromBatch } from "./batch";
 import { BatchController, type BatchAnalysis, type BatchViewPort } from "./batch-controller";
 
 class MemoryBatchView implements BatchViewPort {
   result = "";
   readonly snapshots: string[][] = [];
 
-  render(items: BatchItem[]): void {
+  render(items: BatchItem[], _paused = false): void {
     this.snapshots.push(items.map((item) => item.state));
   }
 
@@ -38,15 +39,25 @@ function report(file: File): BatchAnalysis {
 const file = (name: string) => new File([name], name);
 
 describe("BatchController", () => {
+  it("is exposed through the batch module alongside its view", () => {
+    expect(BatchControllerFromBatch).toBe(BatchController);
+  });
+
   it("waits while a file is open, then analyzes each waiting file once after resume", async () => {
     const view = new MemoryBatchView();
-    const second = deferred<BatchAnalysis>();
     const analyzed: string[] = [];
+    let secondSignal: AbortSignal | undefined;
+    let secondReads = 0;
     const openFile = vi.fn();
     const controller = new BatchController(view, {
-      analyze: (input) => {
+      analyze: (input, signal) => {
         analyzed.push(input.name);
-        return input.name === "two.jpg" ? second.promise : Promise.resolve(report(input));
+        if (input.name !== "two.jpg") return Promise.resolve(report(input));
+        secondSignal = signal;
+        if (secondReads++ > 0) return Promise.resolve(report(input));
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("Reading cancelled")), { once: true });
+        });
       },
       openFile,
       saveClean: async () => {},
@@ -60,13 +71,67 @@ describe("BatchController", () => {
 
     controller.open(0);
     expect(openFile).toHaveBeenCalledOnce();
-    second.resolve(report(file("two.jpg")));
-    await vi.waitFor(() => expect(controller.items?.[1].state).toBe("done"));
+    expect(secondSignal?.aborted).toBe(true);
+    await vi.waitFor(() => expect(controller.items?.[1].state).toBe("waiting"));
     expect(analyzed).toEqual(["one.jpg", "two.jpg"]);
 
     controller.resume();
     await vi.waitFor(() => expect(controller.items?.map((item) => item.state)).toEqual(["done", "done", "done"]));
-    expect(analyzed).toEqual(["one.jpg", "two.jpg", "three.jpg"]);
+    expect(analyzed).toEqual(["one.jpg", "two.jpg", "two.jpg", "three.jpg"]);
+  });
+
+  it("starts the replacement queue after aborting the previous read", async () => {
+    const view = new MemoryBatchView();
+    const analyzed: string[] = [];
+    let oldSignal: AbortSignal | undefined;
+    const controller = new BatchController(view, {
+      analyze: (input, signal) => {
+        analyzed.push(input.name);
+        if (input.name !== "old.jpg") return Promise.resolve(report(input));
+        oldSignal = signal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("Reading cancelled")), { once: true });
+        });
+      },
+      openFile: () => {},
+      saveClean: async () => {},
+      announce: () => {},
+    });
+
+    controller.start([file("old.jpg")]);
+    controller.resume();
+    await vi.waitFor(() => expect(controller.items?.[0].state).toBe("reading"));
+    controller.start([file("new.jpg")]);
+    controller.resume();
+
+    await vi.waitFor(() => expect(controller.items?.map((item) => item.state)).toEqual(["done"]));
+    expect(oldSignal?.aborted).toBe(true);
+    expect(controller.items?.[0].file.name).toBe("new.jpg");
+    expect(analyzed).toEqual(["old.jpg", "new.jpg"]);
+  });
+
+  it("aborts the active read when the batch is cleared", async () => {
+    const view = new MemoryBatchView();
+    let activeSignal: AbortSignal | undefined;
+    const controller = new BatchController(view, {
+      analyze: (_input, signal) => {
+        activeSignal = signal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("Reading cancelled")), { once: true });
+        });
+      },
+      openFile: () => {},
+      saveClean: async () => {},
+      announce: () => {},
+    });
+
+    controller.start([file("slow.jpg")]);
+    controller.resume();
+    await vi.waitFor(() => expect(controller.items?.[0].state).toBe("reading"));
+    controller.clear();
+
+    expect(activeSignal?.aborted).toBe(true);
+    expect(controller.items).toBeNull();
   });
 
   it("keeps a failed row and continues with the remaining files", async () => {
