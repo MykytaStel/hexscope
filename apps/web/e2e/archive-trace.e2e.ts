@@ -77,6 +77,31 @@ test("Archive Trace selects each exact range and reuses the DEFLATE player", asy
   await expect(page.locator(".drawer-player")).toBeVisible();
 });
 
+test.describe("player chunk retry", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("keeps the ZIP entry after Escape clears its selection", async ({ page }) => {
+    let requests = 0;
+    await page.route("**/player-*.js", async (route) => {
+      requests++;
+      if (requests === 1) await route.abort();
+      else await route.continue();
+    });
+
+    const trace = await openTrace(page);
+    await trace.getByRole("button", { name: "Watch it decompress", exact: true }).click();
+    await expect.poll(() => requests).toBe(1);
+    const error = page.locator("#player-load-error");
+    await expect(error).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await error.locator("[data-retry-player]").click();
+
+    await expect.poll(() => requests).toBe(2);
+    await expect(page.locator(".drawer-player")).toBeVisible();
+  });
+});
+
 test("Archive Trace labels and byte controls are localized in Ukrainian", async ({ page }) => {
   const trace = await openTrace(page, "uk");
   await expect(trace.getByRole("heading", { name: "Запис центрального каталогу" })).toBeVisible();

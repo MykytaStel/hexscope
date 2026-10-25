@@ -412,7 +412,7 @@ function clearPlayerLoadError(): void {
   playerLoadError.replaceChildren();
 }
 
-function showPlayerLoadError(message: string): void {
+function showPlayerLoadError(message: string, retryLoad: () => void): void {
   const text = document.createElement("p");
   text.className = "player-load-error-message";
   text.textContent = message;
@@ -424,7 +424,7 @@ function showPlayerLoadError(message: string): void {
   retry.textContent = translateText("Try again", currentLocale());
   retry.addEventListener("click", () => {
     clearPlayerLoadError();
-    void openPlayer();
+    retryLoad();
   });
 
   const dismiss = document.createElement("button");
@@ -434,7 +434,11 @@ function showPlayerLoadError(message: string): void {
   dismiss.textContent = "×";
   dismiss.addEventListener("click", clearPlayerLoadError);
 
-  playerLoadError.replaceChildren(text, retry, dismiss);
+  const actions = document.createElement("div");
+  actions.className = "player-load-error-actions";
+  actions.append(retry, dismiss);
+
+  playerLoadError.replaceChildren(text, actions);
   playerLoadError.hidden = false;
 }
 
@@ -472,12 +476,14 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
-async function loadPlayerClass(model: FileModel, request: number): Promise<typeof import("./player").Player | null> {
+async function loadPlayerClass(model: FileModel, entry: number, request: number): Promise<typeof import("./player").Player | null> {
   try {
     return (await loadPlayerModule()).Player;
   } catch {
     if (request === playerRequest && model === workspace.model) {
-      showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()));
+      showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()), () => {
+        if (model === workspace.model) void openPlayer(entry);
+      });
     }
     return null;
   }
@@ -495,7 +501,7 @@ async function preparePlayerClass(
     model.setStream(r.segments, r.trace, r.idatBytes);
   }
   if (!model.playable) return null;
-  return loadPlayerClass(model, request);
+  return loadPlayerClass(model, entry, request);
 }
 
 function finishPlayerRequest(request: number): void {

@@ -83,6 +83,15 @@ test.describe("DEFLATE player loading", () => {
       await page.setViewportSize({ width: 320, height: 700 });
       await expect(error).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const messageLayout = await error.locator(".player-load-error-message").evaluate((message) => {
+        const text = message as HTMLElement;
+        const retry = document.querySelector<HTMLElement>("#player-load-error [data-retry-player]")!;
+        const messageRect = text.getBoundingClientRect();
+        const retryRect = retry.getBoundingClientRect();
+        return { scrollWidth: text.scrollWidth, clientWidth: text.clientWidth, messageBottom: messageRect.bottom, retryTop: retryRect.top };
+      });
+      expect(messageLayout.scrollWidth).toBeLessThanOrEqual(messageLayout.clientWidth);
+      expect(messageLayout.messageBottom).toBeLessThanOrEqual(messageLayout.retryTop);
     }
 
     await error.locator("[data-retry-player]").click();
