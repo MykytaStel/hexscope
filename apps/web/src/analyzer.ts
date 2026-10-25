@@ -476,6 +476,11 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
+function retryPlayerRequest(model: FileModel, entry: number, step: number | undefined): void {
+  if (model !== workspace.model) return;
+  void openPlayer(entry, step);
+}
+
 async function loadPlayerClass(
   model: FileModel,
   entry: number,
@@ -485,11 +490,10 @@ async function loadPlayerClass(
   try {
     return (await loadPlayerModule()).Player;
   } catch {
-    if (request === playerRequest && model === workspace.model) {
-      showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()), () => {
-        if (model === workspace.model) void openPlayer(entry, step);
-      });
-    }
+    if (request !== playerRequest || model !== workspace.model) return null;
+    showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()), () =>
+      retryPlayerRequest(model, entry, step),
+    );
     return null;
   }
 }
