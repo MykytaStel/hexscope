@@ -2735,7 +2735,7 @@ test("after one visit, it works offline — a document too", async ({ page, cont
   await page.locator('#examples [data-example-panel="document"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
   await page.locator("#picker").setInputFiles(sample("report.pdf"));
-  await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
+  await expect(page.locator("#fileinfo .filename")).toHaveText("report.pdf");
   const redactor = page.locator(".redactor");
   await redactor.locator('input[type="search"]').fill("Salary");
   await redactor.getByRole("button", { name: "Find", exact: true }).click();
