@@ -27,6 +27,7 @@ export interface WorkspaceView {
   show(model: FileModel, levels: readonly WorkspaceLevel[]): void;
   select(id: number): void;
   failed(message: string): void;
+  cancelled(model: FileModel, levels: readonly WorkspaceLevel[]): void;
   note(message: string): void;
   remember(file: File): void;
   afterOpen(model: FileModel): void;
@@ -110,15 +111,20 @@ export class WorkspaceController {
   cancelOpen(): void {
     if (!this.pendingOpen || this.pendingOpen.request !== this.request) return;
     const pending = this.pendingOpen;
-    const previous = pending.workerReset || pending.retries > 0 ? this.current : null;
+    const previous = this.current;
+    const workerNeedsRestore = pending.workerReset || pending.retries > 0;
     this.request++;
     this.stopPendingOpen();
-    if (previous) {
+    if (previous && workerNeedsRestore) {
       const request = this.request;
       const file = this.fileFor(previous);
       const recovery = { request, file, controller: new AbortController(), workerReset: false, retries: 0 };
       this.pendingOpen = recovery;
       void this.openFileAttempt(recovery);
+      return;
+    }
+    if (previous) {
+      this.options.view.cancelled(previous, this.history);
       return;
     }
     this.options.view.failed("Reading was cancelled.");
