@@ -24,4 +24,22 @@ describe("QR scan requests", () => {
       pictureDimensions: [4032, 3024],
     }));
   });
+
+  it("forwards an abort signal to the QR worker request", async () => {
+    const model = {
+      file: { format: "jpeg", facts: [] },
+      source: new Blob([new Uint8Array([1])], { type: "image/jpeg" }),
+      bytes: new Uint8Array([1]),
+      codeBoxes: [],
+    } as unknown as FileModel;
+    const signal = new AbortController().signal;
+
+    await addCodeFacts(model, false, signal);
+
+    expect(call).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "codes" }),
+      undefined,
+      { signal },
+    );
+  });
 });

@@ -799,7 +799,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchA
   if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
   signal.throwIfAborted();
   const parsed = new FileModel(response.result, response.bytes, file.name, file);
-  await (await import("./qrfacts")).addCodeFacts(parsed);
+  await (await import("./qrfacts")).addCodeFacts(parsed, false, signal);
   signal.throwIfAborted();
   return {
     kind: kindOf(parsed),
