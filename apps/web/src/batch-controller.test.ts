@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BatchItem } from "./batch";
+import { BatchController as BatchControllerFromBatch } from "./batch";
 import { BatchController, type BatchAnalysis, type BatchViewPort } from "./batch-controller";
 
 class MemoryBatchView implements BatchViewPort {
@@ -38,6 +39,10 @@ function report(file: File): BatchAnalysis {
 const file = (name: string) => new File([name], name);
 
 describe("BatchController", () => {
+  it("is exposed through the batch module alongside its view", () => {
+    expect(BatchControllerFromBatch).toBe(BatchController);
+  });
+
   it("waits while a file is open, then analyzes each waiting file once after resume", async () => {
     const view = new MemoryBatchView();
     const analyzed: string[] = [];

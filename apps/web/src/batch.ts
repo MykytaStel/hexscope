@@ -6,6 +6,9 @@ import type { VerdictLine } from "./verdict";
 import { listed, type Headline } from "./headline";
 import { currentLocale, translateText } from "./i18n";
 
+// The view and its queue controller form one public composition surface.
+export { BatchController, type BatchAnalysis, type BatchControllerHooks, type BatchViewPort } from "./batch-controller";
+
 export interface BatchItem {
   file: File;
   state: "waiting" | "reading" | "done" | "failed";
