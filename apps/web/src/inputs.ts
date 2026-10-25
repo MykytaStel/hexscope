@@ -11,6 +11,18 @@ export interface Inputs {
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** Reads every copied image before returning any, so a failed item cannot open a partial batch. */
+export async function clipboardImages(items: readonly Pick<ClipboardItem, "types" | "getType">[]): Promise<File[]> {
+  const files: File[] = [];
+  for (const item of items) {
+    const type = item.types.find((t) => t.startsWith("image/"));
+    if (!type) continue;
+    const blob = await item.getType(type);
+    files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
+  }
+  return files;
+}
+
 /** Listens for files from every way in. */
 export function wireInputs({ open, fail }: Inputs): void {
   for (const id of ["picker", "picker-empty", "picker-folder"]) {
@@ -57,19 +69,12 @@ export function wireInputs({ open, fail }: Inputs): void {
   });
 
   async function pasteFromClipboard(): Promise<void> {
-    let items: ClipboardItems;
+    let files: File[];
     try {
-      items = await navigator.clipboard.read();
+      files = await clipboardImages(await navigator.clipboard.read());
     } catch {
       fail(`This browser did not let the page read what you copied. Press ${pasteKey} instead, or choose the file.`);
       return;
-    }
-    const files: File[] = [];
-    for (const item of items) {
-      const type = item.types.find((t) => t.startsWith("image/"));
-      if (!type) continue;
-      const blob = await item.getType(type);
-      files.push(new File([blob], `pasted-picture.${type.split("/")[1].replace("jpeg", "jpg")}`, { type }));
     }
     if (files.length === 0) {
       fail("There is no picture among what you copied: copy a screenshot or a photo first, then paste it here.");
