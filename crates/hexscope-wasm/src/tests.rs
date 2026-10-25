@@ -46,6 +46,17 @@ fn every_array_describes_every_node() {
 }
 
 #[test]
+fn retaining_owned_source_reuses_its_allocation() {
+    let source = vec![0xA5; 1024 * 1024];
+    let allocation = source.as_ptr();
+
+    let retained = SourceBytes::Owned(source).retain();
+
+    assert_eq!(retained.as_ptr(), allocation);
+    assert_eq!(retained.len(), 1024 * 1024);
+}
+
+#[test]
 fn carries_file_level_facts() {
     let parsed = parse(&fixture("basn2c08.png"));
     assert_eq!(parsed.ihdr(), vec![32, 32, 8, 2, 0]);
@@ -343,6 +354,20 @@ fn a_photo_says_where_its_blocks_are() {
 }
 
 #[test]
+fn owned_jpeg_parse_keeps_the_source_for_its_lazy_block_map() {
+    let photo = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/samples/photo.jpg"),
+    )
+    .unwrap();
+    let expected = parse(&photo).block_map();
+
+    let mut parsed = parse_owned(photo);
+
+    assert_eq!(parsed.block_map(), expected);
+    assert_eq!(parsed.blocks_note(), "");
+}
+
+#[test]
 fn an_interlaced_png_has_a_picture_and_every_pass_row_filter() {
     let png = std::fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -623,7 +648,7 @@ fn what_cannot_be_played_is_refused() {
 #[test]
 fn an_entry_opens_as_a_file_of_its_own() {
     let bytes = docx("../../apps/web/public/samples/report.docx");
-    let mut parsed = parse(&bytes);
+    let mut parsed = parse_owned(bytes);
     let entries = parsed.entries();
     let n = entries.len() / ENTRY_STRIDE;
     let photo = (0..n)
