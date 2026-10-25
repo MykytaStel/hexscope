@@ -22,6 +22,14 @@ describe("the interface language", () => {
     expect(translateText("A JPEG picture", "uk")).toBe("Зображення JPEG");
   });
 
+  it("translates large-video read progress and cancellation", () => {
+    expect(translateText("Reading video structure: 48%", "uk")).toBe("Читаємо структуру відео: 48%");
+    expect(translateText("Reading video metadata: 100%", "uk")).toBe("Читаємо метадані відео: 100%");
+    expect(translateText("Reading video byte map: 16%", "uk")).toBe("Читаємо карту байтів відео: 16%");
+    expect(translateText("Parsing video metadata…", "uk")).toBe("Розбираємо метадані відео…");
+    expect(translateText("Reading was cancelled.", "uk")).toBe("Читання скасовано.");
+  });
+
   it("explains when ZIP contents disagree with the recorded size", () => {
     expect(
       translateText("the extracted size does not match what the archive records", "uk"),

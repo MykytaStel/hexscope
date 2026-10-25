@@ -53,6 +53,48 @@ describe("worker RPC timeouts", () => {
     vi.useFakeTimers();
   });
 
+  it("delivers progress without settling the request", async () => {
+    const rpc = await import("./rpc");
+    const worker = FakeWorker.instances[0];
+    const onProgress = vi.fn();
+    let settled = false;
+    const pending = rpc.call(
+      { type: "parse", file: new File(["video"], "large.mov") },
+      undefined,
+      { onProgress },
+    ).then((response) => {
+      settled = true;
+      return response;
+    });
+    const id = worker.sent[0].id;
+
+    const progress = { stage: "ranges", loaded: 50, total: 100, cancellable: true };
+    worker.respond({ id, type: "progress", progress });
+    await Promise.resolve();
+
+    expect(onProgress).toHaveBeenCalledWith(progress);
+    expect(settled).toBe(false);
+    worker.respond({ id, type: "error", message: "Reading cancelled" });
+    await expect(pending).resolves.toMatchObject({ type: "error", message: "Reading cancelled" });
+  });
+
+  it("sends a cancel message and resolves an aborted request", async () => {
+    const rpc = await import("./rpc");
+    const worker = FakeWorker.instances[0];
+    const controller = new AbortController();
+    const pending = rpc.call(
+      { type: "parse", file: new File(["video"], "large.mov") },
+      undefined,
+      { signal: controller.signal },
+    );
+    const id = worker.sent[0].id;
+
+    controller.abort();
+
+    expect(worker.sent).toContainEqual(expect.objectContaining({ type: "cancel", target: id }));
+    await expect(pending).resolves.toMatchObject({ id, type: "error", message: "Reading cancelled" });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

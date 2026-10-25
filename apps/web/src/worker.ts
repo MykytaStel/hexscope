@@ -4,7 +4,7 @@
 import type { CleanCopy, Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
-import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
+import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie, type MovieProgress, type MovieReadOptions } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
 import { familyOf, isMedia, type Family } from "./family";
 import { PARSER_BUILDS } from "./parser-builds";
@@ -20,6 +20,7 @@ import { profileFromTree } from "./film-profile";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
+  | { id: number; type: "cancel"; target: number }
   | { id: number; type: "steps"; from: number; count: number }
   | { id: number; type: "inflated" }
   | { id: number; type: "explain"; index: number; knownBlock: number }
@@ -51,6 +52,7 @@ export type WorkerRequest =
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
+  | { id: number; type: "progress"; progress: MovieProgress }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }
   | { id: number; type: "verification"; report: VerificationReport }
@@ -145,6 +147,8 @@ function prefetchDocuments(): void {
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
+/** Active asynchronous range reads for file parses. */
+const activeReads = new Map<number, AbortController>();
 /** The open source parse used to compare the actual clean-copy bytes. */
 const verificationSources = new Map<number, Parsed>();
 const verificationTokens = new WeakMap<Parsed, number>();
@@ -205,11 +209,76 @@ function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
   result.entropyWindow = Math.ceil(bytes.length / bins);
 }
 
+function reportParseProgress(id: number): void {
+  post({
+    id,
+    type: "progress",
+    progress: { stage: "parse", loaded: 0, total: 1, cancellable: false },
+  });
+}
+
 /** A movie read in parts, when `file` is one large enough to need it. */
-async function largeMovie(file: Blob): Promise<Movie | null> {
+async function largeMovie(file: Blob, options?: MovieReadOptions): Promise<Movie | null> {
   if (file.size < LARGE_MOVIE) return null;
   const wasm = await loadMedia();
-  return readMovie(file, (head, len) => wasm.isMovie(head, len));
+  return readMovie(file, (head, len) => wasm.isMovie(head, len), LARGE_MOVIE, options);
+}
+
+async function parseFile(req: Extract<WorkerRequest, { type: "parse" }>): Promise<void> {
+  const controller = new AbortController();
+  activeReads.set(req.id, controller);
+  const options: MovieReadOptions = {
+    signal: controller.signal,
+    onProgress: (progress) => post({ id: req.id, type: "progress", progress }),
+  };
+  try {
+    const movie = await largeMovie(req.file, options);
+    controller.signal.throwIfAborted();
+    if (movie) {
+      const wasm = await loadMedia();
+      controller.signal.throwIfAborted();
+      reportParseProgress(req.id);
+      const t0 = performance.now();
+      const parsed = wasm.parseMovie(movie.given, movie.gaps);
+      let retained = false;
+      try {
+        const result = describe(parsed);
+        result.parseMs = performance.now() - t0;
+        const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0], options);
+        result.entropy = e.values;
+        result.entropyWindow = e.window;
+        result.missing = movie.missing;
+        clearParsedStack();
+        rememberParsedSource(parsed, result, req.id);
+        stack = [parsed];
+        retained = true;
+        post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
+      } finally {
+        if (!retained) parsed.free();
+      }
+      return;
+    }
+    const bytes = new Uint8Array(await req.file.arrayBuffer());
+    controller.signal.throwIfAborted();
+    const wasm = await moduleFor(bytes);
+    controller.signal.throwIfAborted();
+    // Timed from the call into WASM through reading every array back out, so
+    // the number shown to the user is the whole cost, not the flattering part.
+    const t0 = performance.now();
+    const parsed = wasm.parseOwned(bytes);
+    const result = describe(parsed);
+    result.parseMs = performance.now() - t0;
+    addEntropy(result, bytes, wasm);
+    clearParsedStack();
+    rememberParsedSource(parsed, result, req.id);
+    stack = [parsed];
+    if (isMedia(bytes)) prefetchDocuments();
+    // Source-dependent parsers keep this WASM allocation; the page receives
+    // the JavaScript buffer by transfer, without another page-side copy.
+    post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+  } finally {
+    activeReads.delete(req.id);
+  }
 }
 
 /** Answers with a copy the parser made, as a file made by `wrap`. */
@@ -388,39 +457,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     return;
   }
   if (req.type === "parse") {
-    const movie = await largeMovie(req.file);
-    if (movie) {
-      const wasm = await loadMedia();
-      const t0 = performance.now();
-      const parsed = wasm.parseMovie(movie.given, movie.gaps);
-      const result = describe(parsed);
-      result.parseMs = performance.now() - t0;
-      const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0]);
-      result.entropy = e.values;
-      result.entropyWindow = e.window;
-      result.missing = movie.missing;
-      clearParsedStack();
-      rememberParsedSource(parsed, result, req.id);
-      stack = [parsed];
-      post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
-      return;
-    }
-    const bytes = new Uint8Array(await req.file.arrayBuffer());
-    const wasm = await moduleFor(bytes);
-    // Timed from the call into WASM through reading every array back out, so
-    // the number shown to the user is the whole cost, not the flattering part.
-    const t0 = performance.now();
-    const parsed = wasm.parseOwned(bytes);
-    const result = describe(parsed);
-    result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes, wasm);
-    clearParsedStack();
-    rememberParsedSource(parsed, result, req.id);
-    stack = [parsed];
-    if (isMedia(bytes)) prefetchDocuments();
-    // Source-dependent parsers keep this WASM allocation; the page receives
-    // the JavaScript buffer by transfer, without another page-side copy.
-    post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+    await parseFile(req);
     return;
   }
 
@@ -701,6 +738,10 @@ const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  if (event.data.type === "cancel") {
+    activeReads.get(event.data.target)?.abort();
+    return;
+  }
   if (event.data.type === "filmRender" || event.data.type === "filmRoll") filmQueue.push(event.data);
   else void answer(event.data);
 };

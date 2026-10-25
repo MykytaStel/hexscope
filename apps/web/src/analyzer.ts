@@ -17,7 +17,7 @@ import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchView } from "./batch";
 import { BatchController, type BatchAnalysis } from "./batch-controller";
-import { WorkspaceController, type WorkspaceLevel } from "./workspace-controller";
+import { WorkspaceController, type MovieProgress, type WorkspaceLevel } from "./workspace-controller";
 import { categories } from "./share";
 import { dismissTour, maybeTour, resetTour } from "./tour";
 import { SearchBar } from "./search";
@@ -56,6 +56,14 @@ document.addEventListener("click", (e) => {
 });
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const readProgress = document.createElement("span");
+readProgress.className = "file-read-progress";
+readProgress.setAttribute("role", "status");
+readProgress.setAttribute("aria-live", "polite");
+const cancelRead = document.createElement("button");
+cancelRead.type = "button";
+cancelRead.className = "btn fileinfo-cancel";
+cancelRead.addEventListener("click", () => workspace?.cancelOpen());
 const appNavigation = $<HTMLElement>("app-nav");
 const comparePicker = $<HTMLInputElement>("compare-picker");
 const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
@@ -648,9 +656,12 @@ workspace = new WorkspaceController({
   maxFileBytes: MAX_FILE,
   getSelected: () => selected,
   services: {
-    async parse(file) {
+    async parse(file, options) {
       // A reader in Ukrainian gets the answer in Ukrainian: the dictionary, if not here yet, comes beside the parser.
-      const [response] = await Promise.all([call({ type: "parse", file }), currentLocale() === "uk" ? loadUkrainian().catch(() => undefined) : undefined]);
+      const [response] = await Promise.all([
+        call({ type: "parse", file }, undefined, { signal: options.signal, onProgress: options.onProgress }),
+        currentLocale() === "uk" ? loadUkrainian().catch(() => undefined) : undefined,
+      ]);
       if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
       return new FileModel(response.result, response.bytes, file.name, file);
     },
@@ -676,6 +687,7 @@ workspace = new WorkspaceController({
       $("fileinfo").textContent = `Parsing ${name}…`;
       $("load-error").hidden = true;
     },
+    progress: showMovieProgress,
     show: renderFile,
     select,
     failed: loadFailed,
@@ -694,6 +706,21 @@ workspace = new WorkspaceController({
     clearPlayer: closePlayer,
   },
 });
+
+function showMovieProgress(progress: MovieProgress): void {
+  const phase = {
+    scan: "structure",
+    ranges: "metadata",
+    entropy: "byte map",
+  } as const;
+  const label = progress.stage === "parse"
+    ? "Parsing video metadata…"
+    : `Reading video ${phase[progress.stage]}: ${Math.min(100, Math.floor((progress.loaded / Math.max(1, progress.total)) * 100))}%`;
+  readProgress.textContent = translateText(label, currentLocale());
+  cancelRead.textContent = translateText("Cancel", currentLocale());
+  cancelRead.disabled = !progress.cancellable;
+  $("fileinfo").replaceChildren(readProgress, cancelRead);
+}
 
 onWorkerReset(() => {
   const state = document.body.dataset.state;

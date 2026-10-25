@@ -1,5 +1,13 @@
 import { tooLarge } from "./files";
+import type { MovieProgress } from "./movie";
 import type { FileModel } from "./model";
+
+export type { MovieProgress } from "./movie";
+
+export interface ParseOptions {
+  signal: AbortSignal;
+  onProgress(progress: MovieProgress): void;
+}
 
 export interface WorkspaceLevel {
   model: FileModel;
@@ -7,7 +15,7 @@ export interface WorkspaceLevel {
 }
 
 export interface WorkspaceServices {
-  parse(file: File): Promise<FileModel>;
+  parse(file: File, options: ParseOptions): Promise<FileModel>;
   openEntry(index: number, name: string): Promise<FileModel>;
   openBytes(bytes: Uint8Array, name: string): Promise<FileModel>;
   back(depth: number): Promise<void>;
@@ -15,6 +23,7 @@ export interface WorkspaceServices {
 
 export interface WorkspaceView {
   loading(name: string): void;
+  progress(progress: MovieProgress): void;
   show(model: FileModel, levels: readonly WorkspaceLevel[]): void;
   select(id: number): void;
   failed(message: string): void;
@@ -34,6 +43,7 @@ export interface WorkspaceControllerOptions {
 interface PendingFileOpen {
   request: number;
   file: File;
+  controller: AbortController;
   workerReset: boolean;
   retries: number;
 }
@@ -82,17 +92,31 @@ export class WorkspaceController {
   /** Clears the open workspace when the app changes to a different flow. */
   clear(): void {
     this.request++;
-    this.pendingOpen = null;
+    this.stopPendingOpen();
     this.current = null;
     this.history = [];
     this.options.view.clearPlayer();
   }
 
   async openFile(file: File): Promise<void> {
+    this.stopPendingOpen();
     const request = ++this.request;
-    const pending = { request, file, workerReset: false, retries: 0 };
+    const pending = { request, file, controller: new AbortController(), workerReset: false, retries: 0 };
     this.pendingOpen = pending;
     await this.openFileAttempt(pending);
+  }
+
+  /** Stops the active file read and returns to the previously open workspace. */
+  cancelOpen(): void {
+    if (!this.pendingOpen || this.pendingOpen.request !== this.request) return;
+    this.request++;
+    this.stopPendingOpen();
+    this.options.view.failed("Reading was cancelled.");
+  }
+
+  private stopPendingOpen(): void {
+    this.pendingOpen?.controller.abort();
+    this.pendingOpen = null;
   }
 
   private async openFileAttempt(pending: PendingFileOpen): Promise<void> {
@@ -142,12 +166,12 @@ export class WorkspaceController {
   }
 
   private async parseWithRecovery(pending: PendingFileOpen): Promise<FileModel> {
-    const first = await this.tryParse(pending.file);
+    const first = await this.tryParse(pending.file, pending);
     if (first.ok) return first.model;
     if (!pending.workerReset || pending.retries > 0) throw first.error;
     pending.retries++;
     pending.workerReset = false;
-    const retry = await this.tryParse(pending.file);
+    const retry = await this.tryParse(pending.file, pending);
     if (retry.ok) return retry.model;
     throw retry.error;
   }
@@ -156,10 +180,10 @@ export class WorkspaceController {
     const previous = this.current;
     if (!previous) return null;
     const file = this.fileFor(previous);
-    let result = await this.tryParse(file);
+    let result = await this.tryParse(file, pending);
     if (!result.ok && pending.workerReset) {
       pending.workerReset = false;
-      result = await this.tryParse(file);
+      result = await this.tryParse(file, pending);
     }
     if (!result.ok) return result.error instanceof Error ? result.error.message : String(result.error);
     if (pending.request !== this.request) return null;
@@ -171,9 +195,17 @@ export class WorkspaceController {
     return null;
   }
 
-  private async tryParse(file: File): Promise<ParseResult> {
+  private async tryParse(file: File, pending: PendingFileOpen): Promise<ParseResult> {
     try {
-      return { ok: true, model: await this.options.services.parse(file) };
+      return {
+        ok: true,
+        model: await this.options.services.parse(file, {
+          signal: pending.controller.signal,
+          onProgress: (progress) => {
+            if (pending.request === this.request && this.pendingOpen === pending) this.options.view.progress(progress);
+          },
+        }),
+      };
     } catch (error) {
       return { ok: false, error };
     }
@@ -187,7 +219,7 @@ export class WorkspaceController {
     const parent = this.current;
     if (!parent) return;
     const request = ++this.request;
-    this.pendingOpen = null;
+    this.stopPendingOpen();
     const selected = this.options.getSelected();
     this.options.view.clearPlayer();
     try {
@@ -207,7 +239,7 @@ export class WorkspaceController {
     const parent = this.current;
     if (!parent) return;
     const request = ++this.request;
-    this.pendingOpen = null;
+    this.stopPendingOpen();
     const selected = this.options.getSelected();
     this.options.view.clearPlayer();
     try {
@@ -226,7 +258,7 @@ export class WorkspaceController {
   async back(depth: number): Promise<void> {
     if (depth >= this.history.length) return;
     const request = ++this.request;
-    this.pendingOpen = null;
+    this.stopPendingOpen();
     const target = this.history[depth];
     this.options.view.clearPlayer();
     try {

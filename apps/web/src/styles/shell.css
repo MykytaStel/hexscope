@@ -11,6 +11,25 @@
   overflow: hidden;
 }
 
+.file-read-progress {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileinfo-cancel {
+  flex: none;
+  padding-inline: 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 360px) {
+  .fileinfo-cancel {
+    padding-inline: 7px;
+  }
+}
+
 .crumb-back {
   padding: 0;
   border: 0;
