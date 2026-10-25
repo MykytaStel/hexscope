@@ -1657,7 +1657,7 @@ test("a phone long-press peeks at a byte without pinning a selection", async ({ 
     touchPoints: [],
   });
 
-  await expect(page.getByRole("dialog", { name: "Вибрана частина" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Selected part" })).toHaveCount(0);
   await expect(page.locator("#status")).toContainText("0x00000000");
 });
 
@@ -1690,7 +1690,59 @@ test("a phone byte peek cancels after the touch moves", async ({ page }, info) =
   await page.waitForTimeout(550);
 
   await expect(page.locator("#status")).toHaveText(before ?? "");
-  await expect(page.getByRole("dialog", { name: "Вибрана частина" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Selected part" })).toHaveCount(0);
+});
+
+test("a cancelled phone touch cannot select a replacement file later", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the touch replacement race is phone-specific");
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await openView(page, "bytes");
+  const canvas = page.locator(".hex-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("The byte canvas is not visible");
+  await canvas.evaluate((element, point) => {
+    for (const type of ["pointerdown", "pointercancel"] as const) {
+      element.dispatchEvent(new PointerEvent(type, {
+        bubbles: true,
+        pointerId: 42,
+        pointerType: "touch",
+        isPrimary: true,
+        button: 0,
+        buttons: type === "pointerdown" ? 1 : 0,
+        clientX: point.x,
+        clientY: point.y,
+      }));
+    }
+  }, { x: box.x + 85, y: box.y + 24 });
+
+  await page.locator("#picker").setInputFiles(new URL("../public/samples/sample.png", import.meta.url).pathname);
+  await expect(page.locator(".filename")).toContainText("sample.png");
+  const more = page.locator("#app-nav .app-nav-more > summary");
+  await more.focus();
+  await page.keyboard.press("Enter");
+  const bytes = page.locator("#app-nav [data-app-view='bytes']");
+  await bytes.focus();
+  await page.keyboard.press("Enter");
+  await expect(canvas).toBeVisible();
+  const currentBox = await canvas.boundingBox();
+  if (!currentBox) throw new Error("The replacement byte canvas is not visible");
+  await canvas.evaluate((element, point) => {
+    element.dispatchEvent(new PointerEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 42,
+      pointerType: "touch",
+      isPrimary: true,
+      button: 0,
+      buttons: 0,
+      detail: 1,
+      clientX: point.x,
+      clientY: point.y,
+    }));
+  }, { x: currentBox.x + 85, y: currentBox.y + 24 });
+  await expect(page.getByRole("dialog", { name: "Selected part" })).toHaveCount(0);
 });
 
 test("the phone can inspect a photo in Ukrainian and return to its clean-copy action", async ({ page }, info) => {

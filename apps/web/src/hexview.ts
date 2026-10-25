@@ -192,7 +192,7 @@ export class HexView {
         e.stopPropagation();
         return;
       }
-      this.suppressTouchClick = false;
+      if (touchClick) this.suppressTouchClick = false;
       this.lastTouchPeek = false;
       this.pointer(e, true);
     });
@@ -203,8 +203,9 @@ export class HexView {
   }
 
   setModel(model: FileModel | null): void {
+    const cancelledTouch = this.touchPeek !== null;
     this.clearTouchPeek();
-    this.suppressTouchClick = false;
+    this.suppressTouchClick ||= cancelledTouch;
     this.lastTouchPeek = false;
     this.model = model;
     this.hover = -1;
@@ -468,7 +469,7 @@ export class HexView {
         this.cb.onHover(-1, -1);
         this.lastTouchPeek = false;
       }
-      this.suppressTouchClick = false;
+      this.suppressTouchClick = true;
       return;
     }
     this.suppressTouchClick = gesture.peeked || gesture.moved;
