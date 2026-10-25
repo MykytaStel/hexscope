@@ -12,6 +12,23 @@ const CODE_SCAN = 2400;
 /** Pages of a PDF whose pictures are looked through for codes. */
 const PDF_PAGES = 30;
 
+/** Adds one decoded result with normalized bounds, deduplicating by payload in constant time. */
+export function rememberCode(
+  found: CodeResult["codes"],
+  seen: Set<string>,
+  code: { text: string; corners: { x: number; y: number }[] },
+  where: string,
+  width: number,
+  height: number,
+): boolean {
+  if (seen.has(code.text)) return false;
+  seen.add(code.text);
+  const xs = code.corners.map((q) => q.x / width);
+  const ys = code.corners.map((q) => q.y / height);
+  found.push({ text: code.text, where, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+  return true;
+}
+
 /** A picture's brightness, one byte a pixel, scaled down if it is large. */
 async function brightness(
   image: Blob | ImageData,
@@ -54,6 +71,7 @@ export async function scanCodes(
   const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
   signal.throwIfAborted();
   const found: CodeResult["codes"] = [];
+  const seen = new Set<string>();
   let filmScan: FilmScanReport | undefined;
   const look = async (image: Blob | ImageData, where: string, dimensions?: readonly [number, number]) => {
     signal.throwIfAborted();
@@ -80,10 +98,7 @@ export async function scanCodes(
     if (!p) return;
     for (const c of findCodes(p.lum, p.width, p.height)) {
       signal.throwIfAborted();
-      if (found.some((f) => f.text === c.text)) continue;
-      const xs = c.corners.map((q) => q.x / p.width);
-      const ys = c.corners.map((q) => q.y / p.height);
-      found.push({ text: c.text, where, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
+      rememberCode(found, seen, c, where, p.width, p.height);
     }
   };
   if (req.picture) await look(req.picture, "", req.pictureDimensions);
