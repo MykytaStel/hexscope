@@ -62,6 +62,7 @@ function metadataGroupFor(kind: string): MetadataGroupKey {
 /** Details for one node on the left, facts about the whole file on the right. */
 export class Drawer {
   private shown: [FileModel | null, number, boolean] | null = null;
+  private note: string | null = null;
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
   /** How many archives the document on screen sits inside. */
@@ -784,15 +785,19 @@ export class Drawer {
 
   /** A message in place of node details, such as why something did not open. */
   showNote(text: string): void {
+    this.note = text;
     this.node.replaceChildren(el("p", "problem is-error", text));
   }
 
   /** Draws the part shown again: its sentence has arrived (explanations.ts). */
   refreshNode(): void {
+    // A background explanation must not erase a message the person still needs.
+    if (this.note !== null) return;
     if (this.shown) this.showNode(...this.shown);
   }
 
   showNode(m: FileModel | null, id: number, pinned: boolean): void {
+    this.note = null;
     this.shown = [m, id, pinned];
     this.node.replaceChildren();
     if (!m) return;

@@ -75,6 +75,7 @@ const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: ""
 let hover = -1;
 let selected = -1;
 let problemCursor = -1;
+let playerPending = false;
 
 const status = $("status");
 status.setAttribute("role", "status");
@@ -255,7 +256,7 @@ function syncAppNavigation(): void {
       if (view === current) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     } else if (button.dataset.appAction === "compression") {
-      const playing = document.body.classList.contains("is-playing");
+      const playing = document.body.classList.contains("is-playing") || playerPending;
       button.disabled = !playing && !canPlay();
       button.setAttribute("aria-pressed", String(playing));
     }
@@ -308,7 +309,7 @@ appNavigation.addEventListener("click", (event) => {
   dismissTour();
   button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appAction === "compression") {
-    if (document.body.classList.contains("is-playing")) closePlayer();
+    if (document.body.classList.contains("is-playing") || playerPending) closePlayer();
     else if (canPlay()) void openPlayer();
   } else if (button.dataset.appAction === "compare") {
     comparePicker.click();
@@ -438,29 +439,57 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
-async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null> {
-  const model = workspace.model;
-  if (!model) return null;
-  if (model.file.format === "zip") {
-    if (entry < 0 || !model.entry(entry).playable) return null;
-    const m = model;
-    closePlayer();
-    const r = await call({ type: "selectEntry", index: entry });
-    if (m !== workspace.model || r.type !== "stream" || !r.playable) return null;
-    m.setStream(r.segments, r.trace, r.idatBytes);
-  }
-  if (!model.playable) return null;
-  const request = ++playerRequest;
-  let PlayerClass: typeof import("./player").Player;
+async function loadPlayerClass(model: FileModel, request: number): Promise<typeof import("./player").Player | null> {
   try {
-    ({ Player: PlayerClass } = await loadPlayerModule());
+    return (await loadPlayerModule()).Player;
   } catch {
     if (request === playerRequest && model === workspace.model) {
       drawer.showNote(translateText("Compression player could not be loaded. Try again.", currentLocale()));
     }
     return null;
   }
-  if (request !== playerRequest || model !== workspace.model) return null;
+}
+
+async function preparePlayerClass(
+  model: FileModel,
+  isZip: boolean,
+  entry: number,
+  request: number,
+): Promise<typeof import("./player").Player | null> {
+  if (isZip) {
+    const r = await call({ type: "selectEntry", index: entry });
+    if (request !== playerRequest || model !== workspace.model || r.type !== "stream" || !r.playable) return null;
+    model.setStream(r.segments, r.trace, r.idatBytes);
+  }
+  if (!model.playable) return null;
+  return loadPlayerClass(model, request);
+}
+
+function finishPlayerRequest(request: number): void {
+  if (request !== playerRequest || !playerPending) return;
+  playerPending = false;
+  syncAppNavigation();
+}
+
+async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null> {
+  const model = workspace.model;
+  if (!model) return null;
+  const isZip = model.file.format === "zip";
+  if (isZip ? entry < 0 || !model.entry(entry).playable : !model.playable) return null;
+  if (isZip) closePlayer();
+  const request = ++playerRequest;
+  playerPending = true;
+  syncAppNavigation();
+
+  let PlayerClass: typeof import("./player").Player | null;
+  try {
+    PlayerClass = await preparePlayerClass(model, isZip, entry, request);
+  } catch (error) {
+    finishPlayerRequest(request);
+    throw error;
+  }
+  finishPlayerRequest(request);
+  if (!PlayerClass || request !== playerRequest || model !== workspace.model) return null;
   player ??= createPlayer(PlayerClass);
   document.body.classList.add("is-playing");
   syncAppNavigation();
@@ -470,6 +499,7 @@ async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null
 
 function closePlayer(): void {
   playerRequest++;
+  playerPending = false;
   player?.close();
   hex.setHead(-1, -1);
   document.body.classList.remove("is-playing");
@@ -1071,7 +1101,7 @@ locationBtn.addEventListener("click", () => {
   if (where) point(where.node);
 });
 playBtn.addEventListener("click", () => {
-  if (player?.isOpen) return closePlayer();
+  if (player?.isOpen || playerPending) return closePlayer();
   toBytes();
   void openPlayer();
 });
@@ -1095,7 +1125,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape") {
-    if (player?.isOpen) closePlayer();
+    if (player?.isOpen || playerPending) closePlayer();
     else select(-1);
   }
   // Letters only bare: Cmd-N and Ctrl-P belong to the browser. "?" and O are main.ts's.

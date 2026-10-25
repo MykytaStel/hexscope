@@ -105,6 +105,29 @@ test.describe("DEFLATE player loading", () => {
     await expect(page.locator("body")).not.toHaveClass(/is-playing/);
     await expect(page.locator(".drawer-player")).toHaveCount(0);
   });
+
+  test("Escape cancels a pending player import", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending player import route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.keyboard.press("Escape");
+    } finally {
+      release();
+    }
+
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+  });
 });
 
 test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
