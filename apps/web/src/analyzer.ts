@@ -300,6 +300,7 @@ appNavigation.addEventListener("click", (event) => {
   // A phone's More closes on whatever was chosen in it.
   if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appView) {
+    if (playerPending) closePlayer();
     tourDismissedByNavigation = true;
     dismissTour();
     setWorkspaceView(button.dataset.appView as WorkspaceView);
@@ -400,10 +401,42 @@ async function compareWith(other: File): Promise<void> {
 }
 
 const playBtn = $<HTMLButtonElement>("play");
+const playerLoadError = $<HTMLElement>("player-load-error");
 type DeflatePlayer = import("./player").Player;
 let player: DeflatePlayer | null = null;
 let playerModule: Promise<typeof import("./player")> | null = null;
 let playerRequest = 0;
+
+function clearPlayerLoadError(): void {
+  playerLoadError.hidden = true;
+  playerLoadError.replaceChildren();
+}
+
+function showPlayerLoadError(message: string): void {
+  const text = document.createElement("p");
+  text.className = "player-load-error-message";
+  text.textContent = message;
+
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "btn";
+  retry.dataset.retryPlayer = "true";
+  retry.textContent = translateText("Try again", currentLocale());
+  retry.addEventListener("click", () => {
+    clearPlayerLoadError();
+    void openPlayer();
+  });
+
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "btn btn-dismiss";
+  dismiss.setAttribute("aria-label", translateText("Close", currentLocale()));
+  dismiss.textContent = "×";
+  dismiss.addEventListener("click", clearPlayerLoadError);
+
+  playerLoadError.replaceChildren(text, retry, dismiss);
+  playerLoadError.hidden = false;
+}
 
 function loadPlayerModule(): Promise<typeof import("./player")> {
   if (!playerModule) {
@@ -444,7 +477,7 @@ async function loadPlayerClass(model: FileModel, request: number): Promise<typeo
     return (await loadPlayerModule()).Player;
   } catch {
     if (request === playerRequest && model === workspace.model) {
-      drawer.showNote(translateText("Compression player could not be loaded. Try again.", currentLocale()));
+      showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()));
     }
     return null;
   }
@@ -476,6 +509,7 @@ async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null
   if (!model) return null;
   const isZip = model.file.format === "zip";
   if (isZip ? entry < 0 || !model.entry(entry).playable : !model.playable) return null;
+  clearPlayerLoadError();
   if (isZip) closePlayer();
   const request = ++playerRequest;
   playerPending = true;
@@ -884,6 +918,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchA
 
 /** Puts a document on screen, with nothing selected. */
 function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
+  clearPlayerLoadError();
   hover = -1;
   selected = -1;
   problemCursor = -1;
@@ -1143,5 +1178,5 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     showBatch();
   }
-  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !player?.isOpen) void openPlayer();
+  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !playerPending && !player?.isOpen) void openPlayer();
 });

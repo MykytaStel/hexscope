@@ -62,7 +62,6 @@ test.describe("DEFLATE player loading", () => {
   });
 
   test("keeps the file open and allows retry when the player chunk fails", async ({ page }, info) => {
-    test.skip(info.project.name !== "computer", "the chunk failure route runs on the computer project");
     await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
     let failNext = true;
     await page.route("**/player-*.js", (route) => {
@@ -75,11 +74,23 @@ test.describe("DEFLATE player loading", () => {
 
     await page.goto("./?sample=sample.png");
     await expect(page.locator(".verdict-title")).toBeVisible();
-    await expect(page.locator(".drawer-node")).toContainText("Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.");
+    const error = page.locator("#player-load-error");
+    await expect(error).toBeVisible();
+    await expect(error).toContainText("Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.");
+    await expect(error.getByRole("button", { name: "Спробувати ще раз" })).toBeVisible();
     await expect(page.locator(".drawer-player")).toHaveCount(0);
+    if (info.project.name === "phone") {
+      await page.setViewportSize({ width: 320, height: 700 });
+      await expect(error).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
 
-    await page.locator("#play").click();
+    await error.locator("[data-retry-player]").click();
+    await expect(error).toBeHidden();
     await expect(page.locator(".drawer-player")).toBeVisible();
+    await page.locator(".player-close").click();
+    await expect(error).toBeHidden();
+    await expect(page.locator(".drawer-node .problem")).toHaveCount(0);
   });
 
   test("does not reopen playback after its file is replaced during a chunk load", async ({ page }, info) => {
@@ -93,15 +104,19 @@ test.describe("DEFLATE player loading", () => {
       await route.continue();
     });
 
+    let response: Promise<unknown> | null = null;
     try {
       await page.goto("./?sample=sample.png");
       await expect.poll(() => intercepted).toBe(true);
       await page.locator("#picker").setInputFiles(new URL("../public/samples/photo.jpg", import.meta.url).pathname);
       await expect(page.locator(".filename")).toContainText("photo.jpg");
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
     } finally {
       release();
     }
 
+    await response;
+    await page.waitForLoadState("networkidle");
     await expect(page.locator("body")).not.toHaveClass(/is-playing/);
     await expect(page.locator(".drawer-player")).toHaveCount(0);
   });
@@ -117,16 +132,48 @@ test.describe("DEFLATE player loading", () => {
       await route.continue();
     });
 
+    let response: Promise<unknown> | null = null;
     try {
       await page.goto("./?sample=sample.png");
       await expect.poll(() => intercepted).toBe(true);
       await page.keyboard.press("Escape");
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
     } finally {
       release();
     }
 
+    await response;
+    await page.waitForLoadState("networkidle");
     await expect(page.locator("body")).not.toHaveClass(/is-playing/);
     await expect(page.locator(".drawer-player")).toHaveCount(0);
+  });
+
+  test("changing the workspace view cancels a pending player import", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending player import route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    let response: Promise<unknown> | null = null;
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.locator("#app-nav [data-app-view='metadata']").click();
+      response = page.waitForResponse((r) => /\/player-[\w-]+\.js$/.test(r.url()));
+    } finally {
+      release();
+    }
+
+    await response;
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+    await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
   });
 });
 
