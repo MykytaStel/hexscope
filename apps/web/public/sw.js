@@ -71,8 +71,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   // Ordinary app visits also retire abandoned share submissions after their
-  // 24-hour window, even when no new share or worker activation occurs.
-  if (req.method === "GET" && req.mode === "navigate") {
+  // 24-hour window. A share-target navigation leaves cleanup to its receiver.
+  if (req.method === "GET" && req.mode === "navigate" && !url.searchParams.has("shared")) {
     event.waitUntil(caches.open(SHARED).then(purgeSharedInbox).catch(() => undefined));
   }
   if (req.method === "POST" && url.pathname.endsWith("/share")) {
