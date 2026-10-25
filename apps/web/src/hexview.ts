@@ -1,6 +1,7 @@
 import { HEX, MONO, themeColors } from "./canvas";
 import { onThemeChange } from "./theme";
 import { FileModel, Kind, type Tint } from "./model";
+import { reportViewRange, type ViewRange } from "./view-range";
 
 export interface HexCallbacks {
   onHover(id: number, offset: number, keyboard?: boolean): void;
@@ -79,6 +80,7 @@ export class HexView {
   /** Exact byte the keyboard cursor is on; the selected part may span many. */
   private focusOffset = -1;
   private keyboardActive = false;
+  private reportedView: ViewRange | null = null;
   /** Bytes flashing to show where something just led, and when it began. */
   private flashing: { start: number; end: number; t0: number } | null = null;
   /** Bytes the DEFLATE player is reading right now, as [start, end). */
@@ -152,6 +154,7 @@ export class HexView {
     this.selected = -1;
     this.focusOffset = -1;
     this.keyboardActive = false;
+    this.reportedView = null;
     this.head = [-1, -1];
     this.offsetDigits = Math.max(6, (model?.bytes.length ?? 0).toString(16).length);
     this.scroller.scrollTop = 0;
@@ -427,7 +430,9 @@ export class HexView {
     ctx.fillRect(0, 0, this.viewW, this.viewH);
     const m = this.model;
     if (!m) return;
-    this.onView?.(...this.visibleRange());
+    if (this.onView) {
+      this.reportedView = reportViewRange(this.reportedView, this.visibleRange(), this.onView);
+    }
 
     ctx.font = `${this.fontPx}px ${MONO}`;
     ctx.textBaseline = "middle";
