@@ -102,6 +102,44 @@ test.describe("DEFLATE player loading", () => {
     await expect(page.locator(".drawer-node .problem")).toHaveCount(0);
   });
 
+  test("retry resumes the picture step that was requested", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("hexscope.language", "en");
+      localStorage.setItem("hexscope.tour", "done");
+    });
+    let requests = 0;
+    await page.route("**/player-*.js", async (route) => {
+      requests++;
+      if (requests === 1) await route.abort();
+      else await route.continue();
+    });
+
+    await page.goto("./");
+    await page.locator("#picker-empty").setInputFiles(new URL("../public/samples/sample.png", import.meta.url).pathname);
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.locator(".more-details > summary").click();
+    const picture = page.locator(".picture-frame");
+    await expect(picture).toBeVisible();
+    const bounds = await picture.boundingBox();
+    expect(bounds).not.toBeNull();
+    await picture.click({ position: { x: bounds!.width * 0.75, y: bounds!.height * 0.75 } });
+
+    const step = page.locator(".picture-caption").getByRole("button", { name: /^Step [\d,]+ in the player$/ });
+    await expect(step).toBeVisible();
+    const label = await step.innerText();
+    const requestedStep = Number(label.match(/Step ([\d,]+)/)?.[1].replaceAll(",", ""));
+    expect(requestedStep).toBeGreaterThan(1);
+    await step.click();
+    const error = page.locator("#player-load-error");
+    await expect(error).toBeVisible();
+    expect(requests).toBe(1);
+
+    await error.locator("[data-retry-player]").click();
+    await expect.poll(() => requests).toBe(2);
+    await expect(page.locator(".drawer-player")).toBeVisible();
+    await expect(page.locator(".player-counter")).toContainText(`Step ${requestedStep} of`);
+  });
+
   test("does not reopen playback after its file is replaced during a chunk load", async ({ page }, info) => {
     test.skip(info.project.name !== "computer", "the pending chunk replacement route runs on the computer project");
     let intercepted = false;

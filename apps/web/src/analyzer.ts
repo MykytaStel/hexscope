@@ -185,7 +185,7 @@ const picture = new PictureView({
   },
   onStep: (index) => {
     toBytes();
-    void openPlayer().then((opened) => opened?.jump(index));
+    void openPlayer(selectedEntry(), index);
   },
 });
 // On a phone the file opens on its summary; the tree and the bytes are a
@@ -476,13 +476,18 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
-async function loadPlayerClass(model: FileModel, entry: number, request: number): Promise<typeof import("./player").Player | null> {
+async function loadPlayerClass(
+  model: FileModel,
+  entry: number,
+  step: number | undefined,
+  request: number,
+): Promise<typeof import("./player").Player | null> {
   try {
     return (await loadPlayerModule()).Player;
   } catch {
     if (request === playerRequest && model === workspace.model) {
       showPlayerLoadError(translateText("Compression player could not be loaded. Try again.", currentLocale()), () => {
-        if (model === workspace.model) void openPlayer(entry);
+        if (model === workspace.model) void openPlayer(entry, step);
       });
     }
     return null;
@@ -493,6 +498,7 @@ async function preparePlayerClass(
   model: FileModel,
   isZip: boolean,
   entry: number,
+  step: number | undefined,
   request: number,
 ): Promise<typeof import("./player").Player | null> {
   if (isZip) {
@@ -501,7 +507,7 @@ async function preparePlayerClass(
     model.setStream(r.segments, r.trace, r.idatBytes);
   }
   if (!model.playable) return null;
-  return loadPlayerClass(model, entry, request);
+  return loadPlayerClass(model, entry, step, request);
 }
 
 function finishPlayerRequest(request: number): void {
@@ -510,7 +516,7 @@ function finishPlayerRequest(request: number): void {
   syncAppNavigation();
 }
 
-async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null> {
+async function openPlayer(entry = selectedEntry(), step?: number): Promise<DeflatePlayer | null> {
   const model = workspace.model;
   if (!model) return null;
   const isZip = model.file.format === "zip";
@@ -523,7 +529,7 @@ async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null
 
   let PlayerClass: typeof import("./player").Player | null;
   try {
-    PlayerClass = await preparePlayerClass(model, isZip, entry, request);
+    PlayerClass = await preparePlayerClass(model, isZip, entry, step, request);
   } catch (error) {
     finishPlayerRequest(request);
     throw error;
@@ -534,6 +540,7 @@ async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null
   document.body.classList.add("is-playing");
   syncAppNavigation();
   await player.open(model, playerSource);
+  if (step !== undefined) player.jump(step);
   return player;
 }
 
