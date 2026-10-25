@@ -1,7 +1,7 @@
 // The home page: the landing, its demo, and every way a file comes in. The
 // analyzer that shows an open file (analyzer.ts) is a module of its own,
-// loaded when a file or a sample is asked for, or once the page is idle —
-// the first page waits for none of it.
+// loaded when a file or a sample is asked for; browsing the landing does not
+// parse the file viewer before it is needed.
 import "./style.css";
 import { currentLocale, installLocale, languageButton, withUkrainian } from "./i18n";
 import { themeButton } from "./theme";
@@ -78,7 +78,10 @@ document.getElementById("film-roll-open")?.addEventListener("click", () => {
 document.addEventListener("click", (e) => {
   if ((e.target as Element).closest(".landing-menu a")) document.querySelector(".landing-menu")?.removeAttribute("open");
   const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
-  if (button) document.getElementById(button.dataset.opens ?? "")?.click();
+  if (button) {
+    if (button.dataset.opens?.startsWith("picker")) void app().catch(() => undefined);
+    document.getElementById(button.dataset.opens ?? "")?.click();
+  }
 });
 
 // The landing's own button, on screen or scrolled away: on a phone the header's Open shows only then.
@@ -110,6 +113,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "?" && !e.metaKey && !e.ctrlKey) openShortcuts();
   // Letters only bare: Cmd-O belongs to the browser.
   if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === "o" || e.key === "O")) {
+    void app().catch(() => undefined);
     document.getElementById(document.body.dataset.state === "empty" ? "picker-empty" : "picker")?.click();
   }
 });
@@ -132,8 +136,4 @@ if (linked && [...document.querySelectorAll<HTMLElement>("[data-sample]")].some(
 if (asked.has("shared") || asked.has("share-error")) withApp((a) => void a.openShared());
 // Only a page still empty shows the demo.
 setTimeout(() => void startDemo(document.getElementById("demo")!), 0);
-// The analyzer, ready before the first file: once the page has nothing else to do.
-const idle = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
-if (idle) idle(() => void app().catch(() => undefined), { timeout: 3000 });
-else setTimeout(() => void app().catch(() => undefined), 1500);
 countVisit();
