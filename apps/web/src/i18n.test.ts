@@ -247,6 +247,12 @@ describe("the interface language", () => {
     expect(translateText("PDF tools could not be loaded. Try again.", "uk")).toBe("Не вдалося завантажити інструменти PDF. Спробуйте ще раз.");
   });
 
+  it("translates the lazy compression player retry state", () => {
+    expect(translateText("Compression player could not be loaded. Try again.", "uk")).toBe(
+      "Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.",
+    );
+  });
+
   it("explains the opt-in batch fingerprint behavior", () => {
     expect(translateText("Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)", "uk")).toContain("SHA-256");
     expect(translateText("Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.", "uk")).toBe(

@@ -41,6 +41,72 @@ async function openBytes(page: Page): Promise<void> {
   await openView(page, "bytes");
 }
 
+test.describe("DEFLATE player loading", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("loads the player only when playback is requested", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the script request check runs on the computer project");
+    const scripts: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "script") scripts.push(request.url());
+    });
+
+    await page.goto("./?sample=photo.jpg");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(scripts.some((url) => /\/player-[\w-]+\.js$/.test(url))).toBe(false);
+
+    await page.goto("./?sample=sample.png");
+    await expect(page.locator(".drawer-player")).toBeVisible();
+    expect(scripts.some((url) => /\/player-[\w-]+\.js$/.test(url))).toBe(true);
+  });
+
+  test("keeps the file open and allows retry when the player chunk fails", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the chunk failure route runs on the computer project");
+    await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
+    let failNext = true;
+    await page.route("**/player-*.js", (route) => {
+      if (failNext) {
+        failNext = false;
+        return route.abort();
+      }
+      return route.continue();
+    });
+
+    await page.goto("./?sample=sample.png");
+    await expect(page.locator(".verdict-title")).toBeVisible();
+    await expect(page.locator(".drawer-node")).toContainText("Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.");
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+
+    await page.locator("#play").click();
+    await expect(page.locator(".drawer-player")).toBeVisible();
+  });
+
+  test("does not reopen playback after its file is replaced during a chunk load", async ({ page }, info) => {
+    test.skip(info.project.name !== "computer", "the pending chunk replacement route runs on the computer project");
+    let intercepted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/player-*.js", async (route) => {
+      intercepted = true;
+      await gate;
+      await route.continue();
+    });
+
+    try {
+      await page.goto("./?sample=sample.png");
+      await expect.poll(() => intercepted).toBe(true);
+      await page.locator("#picker").setInputFiles(new URL("../public/samples/photo.jpg", import.meta.url).pathname);
+      await expect(page.locator(".filename")).toContainText("photo.jpg");
+    } finally {
+      release();
+    }
+
+    await expect(page.locator("body")).not.toHaveClass(/is-playing/);
+    await expect(page.locator(".drawer-player")).toHaveCount(0);
+  });
+});
+
 test("starts with the graphite visual direction and landing navigation", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();

@@ -1,6 +1,6 @@
 // The analyzer: the views of an open file, the workspace that opens it, the
-// batch list and the player. main.ts loads it when a file is asked for, or
-// once the landing page is idle, so the first page waits for none of it.
+// batch list and the player. main.ts loads it when a file is asked for, so
+// the landing page does not load it before there is file intent.
 import { explain } from "./explanations";
 import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
@@ -10,7 +10,6 @@ import { Concern, FileModel, Kind } from "./model";
 import { ActionBar } from "./actionbar";
 import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
-import { Player } from "./player";
 import { TreeView } from "./tree";
 import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
@@ -185,7 +184,7 @@ const picture = new PictureView({
   },
   onStep: (index) => {
     toBytes();
-    void openPlayer().then(() => player.jump(index));
+    void openPlayer().then((opened) => opened?.jump(index));
   },
 });
 // On a phone the file opens on its summary; the tree and the bytes are a
@@ -400,13 +399,30 @@ async function compareWith(other: File): Promise<void> {
 }
 
 const playBtn = $<HTMLButtonElement>("play");
-const player = new Player($("drawer"), {
-  onHead: (start, end, follow) => {
-    hex.setHead(start, end);
-    if (follow) hex.revealOffset(start, false);
-  },
-  onClose: closePlayer,
-});
+type DeflatePlayer = import("./player").Player;
+let player: DeflatePlayer | null = null;
+let playerModule: Promise<typeof import("./player")> | null = null;
+let playerRequest = 0;
+
+function loadPlayerModule(): Promise<typeof import("./player")> {
+  if (!playerModule) {
+    playerModule = import("./player").catch((error) => {
+      playerModule = null;
+      throw error;
+    });
+  }
+  return playerModule;
+}
+
+function createPlayer(PlayerClass: typeof import("./player").Player): DeflatePlayer {
+  return new PlayerClass($("drawer"), {
+    onHead: (start, end, follow) => {
+      hex.setHead(start, end);
+      if (follow) hex.revealOffset(start, false);
+    },
+    onClose: closePlayer,
+  });
+}
 
 /** The ZIP entry holding the selection, or -1. */
 function selectedEntry(): number {
@@ -422,25 +438,39 @@ function canPlay(): boolean {
   return i >= 0 && model.entry(i).playable;
 }
 
-async function openPlayer(entry = selectedEntry()): Promise<void> {
+async function openPlayer(entry = selectedEntry()): Promise<DeflatePlayer | null> {
   const model = workspace.model;
-  if (!model) return;
+  if (!model) return null;
   if (model.file.format === "zip") {
-    if (entry < 0 || !model.entry(entry).playable) return;
+    if (entry < 0 || !model.entry(entry).playable) return null;
     const m = model;
     closePlayer();
     const r = await call({ type: "selectEntry", index: entry });
-    if (m !== workspace.model || r.type !== "stream" || !r.playable) return;
+    if (m !== workspace.model || r.type !== "stream" || !r.playable) return null;
     m.setStream(r.segments, r.trace, r.idatBytes);
   }
-  if (!model.playable) return;
+  if (!model.playable) return null;
+  const request = ++playerRequest;
+  let PlayerClass: typeof import("./player").Player;
+  try {
+    ({ Player: PlayerClass } = await loadPlayerModule());
+  } catch {
+    if (request === playerRequest && model === workspace.model) {
+      drawer.showNote(translateText("Compression player could not be loaded. Try again.", currentLocale()));
+    }
+    return null;
+  }
+  if (request !== playerRequest || model !== workspace.model) return null;
+  player ??= createPlayer(PlayerClass);
   document.body.classList.add("is-playing");
   syncAppNavigation();
   await player.open(model, playerSource);
+  return player;
 }
 
 function closePlayer(): void {
-  player.close();
+  playerRequest++;
+  player?.close();
   hex.setHead(-1, -1);
   document.body.classList.remove("is-playing");
   syncAppNavigation();
@@ -475,7 +505,7 @@ function select(id: number, offset?: number): void {
   if (model && id > 0) tools?.setPart(model.start(id), model.len(id), model.label(id));
   drawer.showNode(model, id, id >= 0);
   // While playing, the button is also how the player closes: keep it.
-  playBtn.hidden = !canPlay() && !player.isOpen;
+  playBtn.hidden = !canPlay() && !player?.isOpen;
   syncAppNavigation();
   renderStatus();
 }
@@ -1041,7 +1071,7 @@ locationBtn.addEventListener("click", () => {
   if (where) point(where.node);
 });
 playBtn.addEventListener("click", () => {
-  if (player.isOpen) return closePlayer();
+  if (player?.isOpen) return closePlayer();
   toBytes();
   void openPlayer();
 });
@@ -1060,12 +1090,12 @@ window.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== "range") return;
   // A dialog open over the page takes the keys; Escape closes it by itself.
   if (document.querySelector("dialog[open]")) return;
-  if (player.handleKey(e)) {
+  if (player?.handleKey(e)) {
     e.preventDefault();
     return;
   }
   if (e.key === "Escape") {
-    if (player.isOpen) closePlayer();
+    if (player?.isOpen) closePlayer();
     else select(-1);
   }
   // Letters only bare: Cmd-N and Ctrl-P belong to the browser. "?" and O are main.ts's.
@@ -1083,5 +1113,5 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     showBatch();
   }
-  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !player.isOpen) void openPlayer();
+  if (bare && (e.key === "p" || e.key === "P") && canPlay() && !player?.isOpen) void openPlayer();
 });
