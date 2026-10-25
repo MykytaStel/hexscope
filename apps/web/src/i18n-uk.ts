@@ -1302,6 +1302,10 @@ function translateText(value: string, locale: Locale): string {
   }
   // Opening, the views' captions and the sentence under "What it's made of".
   if (value === "Parsing video metadata…") return "Розбираємо метадані відео…";
+  if (value === "Video read progress") return "Прогрес читання відео";
+  if (value === "This movie has too many top-level boxes to inspect safely.") {
+    return "У відео забагато блоків верхнього рівня для безпечного читання.";
+  }
   match = /^Parsing (.+)…$/.exec(value);
   if (match) return `Читаємо ${match[1]}…`;
   match = /^Reading video (structure|metadata|byte map): (\d+)%$/.exec(value);

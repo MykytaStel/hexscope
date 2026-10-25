@@ -79,6 +79,12 @@ test("on a phone, a large video read shows progress and can be cancelled", async
     const cancel = page.getByRole("button", { name: "Cancel" });
     const progress = page.locator(".file-read-progress");
     await expect(progress).toContainText("Reading video", { timeout: 15_000 });
+    await expect(progress).toHaveRole("progressbar");
+    await expect(progress).toHaveAttribute("aria-label", "Video read progress");
+    await expect(progress).toHaveAttribute("aria-valuenow", /\d+/);
+    const announcement = page.locator(".file-read-announcement");
+    await expect(announcement).toHaveAttribute("aria-live", "polite");
+    await expect(announcement).toContainText("Reading video");
     await expect(cancel).toBeVisible();
     await expect(page.locator(".landing-menu")).toBeHidden();
     await cancel.focus();

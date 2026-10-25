@@ -25,6 +25,8 @@ export interface MovieProgress {
 export interface MovieReadOptions {
   signal?: AbortSignal;
   onProgress?: (progress: MovieProgress) => void;
+  /** A stricter cap for constrained callers; the parser's hard ceiling still applies. */
+  maxTopLevelBoxes?: number;
 }
 
 export interface Movie {
@@ -102,11 +104,11 @@ async function topBox(file: Blob, at: number, signal?: AbortSignal): Promise<Box
   return { at, header, size, type: String.fromCharCode(...headerBytes.subarray(4, 8)) };
 }
 
-async function topBoxes(file: Blob, options: MovieReadOptions): Promise<Box[]> {
+async function topBoxes(file: Blob, options: MovieReadOptions, maxBoxes: number): Promise<Box[]> {
   const boxes: Box[] = [];
   let at = 0;
   let reportedAt = 0;
-  while (at + 8 <= file.size && boxes.length < MAX_BOXES) {
+  while (at + 8 <= file.size && boxes.length < maxBoxes) {
     const box = await topBox(file, at, options.signal);
     if (!box) break;
     boxes.push(box);
@@ -115,6 +117,9 @@ async function topBoxes(file: Blob, options: MovieReadOptions): Promise<Box[]> {
       report(options, "scan", at, file.size);
       reportedAt = at;
     }
+  }
+  if (boxes.length === maxBoxes && at + 8 <= file.size) {
+    throw new Error("This movie has too many top-level boxes to inspect safely.");
   }
   checkCancelled(options.signal);
   report(options, "scan", at, file.size);
@@ -132,7 +137,11 @@ export async function readMovie(
   if (file.size < from || !isMovie(await movieHead(file), file.size)) return null;
   checkCancelled(options.signal);
   report(options, "scan", 0, file.size);
-  const boxes = await topBoxes(file, options);
+  const requestedLimit = options.maxTopLevelBoxes;
+  const maxBoxes = Number.isSafeInteger(requestedLimit) && requestedLimit! > 0
+    ? Math.min(MAX_BOXES, requestedLimit!)
+    : MAX_BOXES;
+  const boxes = await topBoxes(file, options, maxBoxes);
   checkCancelled(options.signal);
   const media = boxes.filter((b) => b.type === "mdat" && b.size - b.header >= MIN_GAP);
   if (media.length === 0) return null;

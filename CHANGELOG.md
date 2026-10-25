@@ -11,21 +11,42 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
-## [0.8.0] — 2026-10-23
+## [0.8.0] — 2026-10-25
 
 ### Added
 
 - **Follow a ZIP entry down to its bytes.** Trace it through the central-directory record, local header and compressed data; each step opens the actual range in Bytes, and the existing DEFLATE view opens the decoded content. Missing and truncated ranges are shown as such.
+- **Audio tag inspection:** see titles, artists, albums, dates, track details and other tags in MP3, FLAC, Ogg Vorbis and Opus files. The read-only parser keeps each finding linked to source bytes and says when metadata could not be fully inspected; it does not decode or play audio.
+- **A clean-copy receipt you can check offline.** After the copy has been read back, save an optional record of what its verification found. It contains no file name, path or metadata values; the CLI can check whether the copy's bytes still match its SHA-256 fingerprint. A match confirms the bytes only, not who made the receipt or whether the file is safe. Batch fingerprints are opt-in; the existing batch receipt stays unchanged by default.
 
 ### Changed
 
+- **Email authentication results stay claims from the message.** Hexscope shows SPF, DKIM and DMARC statuses recorded in `Authentication-Results` as unverified claims, including when the header is present but contains no recognized results.
+- **Large-video progress works with screen readers.** Spoken updates skip rapid byte-by-byte steps while the visible indicator stays current.
 - **Large movie analysis uses fewer temporary byte copies.** The parser keeps offsets tied to the original file while scanning metadata in bounded ranges.
-- **Email authentication results stay claims from the message.** Hexscope now shows SPF, DKIM and DMARC statuses recorded in `Authentication-Results` as unverified claims, including when the header is present but contains no recognized results.
 - **Shared files expire after 24 hours.** The PWA keeps a shared group together and accepts up to 50 files and 400 MiB per group.
+- **Large video files show reading progress.** You can cancel the read while Hexscope is loading file ranges; the final metadata-parsing step cannot be interrupted.
+- **Large files use less memory while they are inspected.** The parser now reuses its owned input buffer for JPEG block analysis, ZIP navigation, and attachment extraction instead of making another full-size copy inside WebAssembly.
+- **Large pictures inside ZIP archives and email attachments can be downsampled before QR scanning.** PNG, JPEG, GIF, WebP and BMP dimensions are read from their headers; an unsupported or malformed header keeps the existing browser decode fallback.
+- **Large batches do less repeated work while they update.** File counts, filters and visible rows are now prepared together, so large folders cost less CPU on phones as files finish reading.
+- **SHA-256 can be calculated with fixed memory.** The CLI hashes large copies in bounded chunks instead of holding a second copy of the file in memory. The browser creates a single-copy fingerprint only when a receipt is requested and the copy is within its existing 10 MiB verification limit.
+- **Optional comparisons load on demand.** The comparison tool is downloaded only when a second file is selected, reducing the analyzer's initial compressed bundle by about 2.5 KiB.
+- **Unavailable batch fingerprints are explicit.** If a clean copy was written but its requested fingerprint could not be computed, the receipt keeps the copy and records why the fingerprint is absent.
 
 ### Fixed
 
 - **Film Scan samples large rasters without repeating a fixed pixel stride.** Sampling is bounded and deterministic, including on 32-bit WebAssembly.
+- **Overly complex videos stop safely.** Hexscope explains why instead of falling back to reading the entire file.
+- **Byte views stay responsive on fragmented media.** Files with many separated media ranges load only the bytes being viewed.
+- **Large-photo QR scans use less temporary memory where the browser supports it.** Images with known dimensions are decoded at the scanner's size instead of first allocating a full-resolution bitmap; the browser keeps the photo's proportions, and the bitmap is released on every exit path.
+- **Share a cleaned or edited photo directly from a phone** when its browser supports it; otherwise save a copy with clear instructions for sharing from Files or Downloads.
+- **Keep batch sharing available when the share sheet fails or is unavailable**, with controls and results that remain readable on narrow screens.
+- **Keep edited-photo actions visible on small screens** and preserve sentence spacing in translated results.
+- **A timed-out copy check no longer leaves the reader blocked.** If copy verification exceeds its time limit, Hexscope stops the parser worker and reopens the current file from its local source so the reader can continue. Requests from the stopped worker cannot affect its replacement.
+- **Partial ID3 reads are explicit:** unsupported frames and reserved flags no longer make an MP3 look completely inspected, and later supported tags remain visible.
+- **ZIP extraction now checks the archive's declared output size.** An entry is rejected when its actual decompressed length disagrees with the central directory, even if its CRC happens to match.
+- **Web copy verification recognizes changed values of the same kind.** It no longer reports a replaced metadata value as both removed and unexpectedly present; exact matches are reserved before changed values are paired.
+- **Batch copies keep their original file indexes when items repeat.** Naming collisions and receipt rows no longer rely on repeatedly searching the input list.
 
 ## [0.7.2] — 2026-10-19
 

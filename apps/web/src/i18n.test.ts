@@ -27,6 +27,10 @@ describe("the interface language", () => {
     expect(translateText("Reading video metadata: 100%", "uk")).toBe("Читаємо метадані відео: 100%");
     expect(translateText("Reading video byte map: 16%", "uk")).toBe("Читаємо карту байтів відео: 16%");
     expect(translateText("Parsing video metadata…", "uk")).toBe("Розбираємо метадані відео…");
+    expect(translateText("Video read progress", "uk")).toBe("Прогрес читання відео");
+    expect(translateText("This movie has too many top-level boxes to inspect safely.", "uk")).toBe(
+      "У відео забагато блоків верхнього рівня для безпечного читання.",
+    );
     expect(translateText("Reading was cancelled.", "uk")).toBe("Читання скасовано.");
   });
 
