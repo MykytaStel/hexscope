@@ -94,8 +94,9 @@ test("on a phone, a large video read shows progress and can be cancelled", async
     await expect(cancel).toBeEnabled();
     await expect(cancel).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page.locator("#load-error")).toHaveText("Reading was cancelled.");
     await expect(cancel).toHaveCount(0);
+    await expect(page.locator(".fileinfo .filename")).toHaveText("photo.jpg");
+    await expect(page.locator(".fileinfo .file-read-announcement")).toHaveText("Reading was cancelled.");
     await expect(page.locator(".verdict-title")).toContainText("This photo");
     await page.locator(".verdict-cta").click();
     const after = page.locator(".ba-side.is-after");

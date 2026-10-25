@@ -40,6 +40,7 @@ function rig(overrides: Partial<WorkspaceServices> = {}) {
     remember: vi.fn(),
     afterOpen: vi.fn(),
     clearPlayer: vi.fn(),
+    cancelled: vi.fn<WorkspaceView["cancelled"]>(),
   };
   let selected = -1;
   const controller = new WorkspaceController({
@@ -144,6 +145,26 @@ describe("WorkspaceController", () => {
     expect(firstSignal?.aborted).toBe(true);
     expect(controller.isOpeningFile).toBe(false);
     expect(view.failed).toHaveBeenCalledWith("Reading was cancelled.");
+  });
+
+  it("restores the previous workspace when a new file read is cancelled", async () => {
+    const pendingParse = deferred<FileModel>();
+    const previousFile = file("previous.jpg");
+    const previous = model("previous.jpg");
+    const { controller, view } = rig({
+      parse: (input) => input.name === previousFile.name ? Promise.resolve(previous) : pendingParse.promise,
+    });
+
+    await controller.openFile(previousFile);
+    const opening = controller.openFile(file("slow.mov"));
+    controller.cancelOpen();
+    pendingParse.reject(new Error("Reading cancelled"));
+    await opening;
+
+    expect(controller.model).toBe(previous);
+    expect(view.cancelled).toHaveBeenCalledOnce();
+    expect(view.cancelled).toHaveBeenCalledWith(previous, []);
+    expect(view.failed).not.toHaveBeenCalledWith("Reading was cancelled.");
   });
 
   it("restores the previous file when cancellation interrupts retry after a worker reset", async () => {

@@ -696,6 +696,13 @@ workspace = new WorkspaceController({
     show: renderFile,
     select,
     failed: loadFailed,
+    cancelled(model, levels) {
+      document.body.dataset.state = "ready";
+      syncAppNavigation();
+      showFileInfo(model, levels);
+      readAnnouncement.textContent = translateText("Reading was cancelled.", currentLocale());
+      $("fileinfo").append(readAnnouncement);
+    },
     note: (message) => drawer.showNote(message),
     remember,
     afterOpen(model) {
