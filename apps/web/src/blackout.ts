@@ -5,7 +5,7 @@
 // core's estimate of where each string sits, so each text is stretched to
 // the width the core gave it.
 import type { Blackout, PageArea } from "./model";
-import type { Shown } from "./redactor";
+import type { Shown } from "./pdf-pictures";
 
 const SVG = "http://www.w3.org/2000/svg";
 /** Points of page kept around the boxes. */

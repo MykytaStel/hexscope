@@ -242,6 +242,11 @@ describe("the interface language", () => {
     expect(translateText("Could not save verification receipt", "uk")).toBe("Не вдалося зберегти квитанцію перевірки");
   });
 
+  it("translates the lazy PDF tool loading and retry states", () => {
+    expect(translateText("Loading PDF tools…", "uk")).toBe("Завантажуємо інструменти PDF…");
+    expect(translateText("PDF tools could not be loaded. Try again.", "uk")).toBe("Не вдалося завантажити інструменти PDF. Спробуйте ще раз.");
+  });
+
   it("explains the opt-in batch fingerprint behavior", () => {
     expect(translateText("Include stable SHA-256 copy fingerprints in ZIP receipt (up to 10 MiB per copy)", "uk")).toContain("SHA-256");
     expect(translateText("Direct phone sharing sends copies only; Save as a ZIP includes the receipt and fingerprints.", "uk")).toBe(

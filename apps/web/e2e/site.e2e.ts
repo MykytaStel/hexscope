@@ -1981,6 +1981,66 @@ test("file results show the summary before evidence and available actions", asyn
   }
 });
 
+test("loads PDF redaction code only for PDF files", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  const scripts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "script") scripts.push(request.url());
+  });
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(scripts.some((url) => url.includes("/pdf-redactor-view-"))).toBe(false);
+
+  await page.goto("./?sample=report.pdf");
+  await expect(page.locator(".redactor")).toBeVisible();
+  expect(scripts.some((url) => url.includes("/pdf-redactor-view-"))).toBe(true);
+});
+
+test("lets someone retry if the PDF tools fail to load", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  let attempts = 0;
+  await page.route("**/pdf-redactor-view-*.js", async (route) => {
+    attempts++;
+    if (attempts === 1) await route.abort();
+    else await route.continue();
+  });
+
+  await page.goto("./?sample=report.pdf");
+  await expect(page.getByText("PDF tools could not be loaded. Try again.")).toBeVisible();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(".redactor").getByRole("button", { name: "Find", exact: true })).toBeVisible();
+});
+
+test("loads the file report and JSON export modules when requested", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "The download assertion uses the desktop browser profile.");
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  const scripts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "script") scripts.push(request.url());
+  });
+  page.on("download", (download) => void download.cancel());
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(scripts.some((url) => url.includes("/report-"))).toBe(false);
+  expect(scripts.some((url) => url.includes("/export-"))).toBe(false);
+  await page.locator(".more-details > summary").click();
+
+  await page.getByRole("button", { name: "Report a problem with this file" }).click();
+  const report = page.locator("dialog.report");
+  await expect(report).toBeVisible();
+  expect(scripts.some((url) => url.includes("/report-"))).toBe(true);
+  await report.locator(".report-actions button").last().click();
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save the structure as JSON" }).click();
+  await (await download).cancel();
+  expect(scripts.some((url) => url.includes("/export-"))).toBe(true);
+});
+
 test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }, info) => {
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
