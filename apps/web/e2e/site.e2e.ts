@@ -1981,6 +1981,93 @@ test("file results show the summary before evidence and available actions", asyn
   }
 });
 
+test("imports PDF redaction code only for PDF files", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  // The service worker intentionally precaches the whole app for offline use;
+  // these are page-initiated module imports, not install-time cache requests.
+  const scripts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "script") scripts.push(request.url());
+  });
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(scripts.some((url) => url.includes("/pdf-redactor-view-"))).toBe(false);
+
+  await page.goto("./?sample=report.pdf");
+  await expect(page.locator(".redactor")).toBeVisible();
+  expect(scripts.some((url) => url.includes("/pdf-redactor-view-"))).toBe(true);
+});
+
+test("does not mount a PDF editor after switching files while its chunk loads", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  let release!: () => void;
+  let requested!: () => void;
+  const delayed = new Promise<void>((resolve) => { release = resolve; });
+  const chunkRequested = new Promise<void>((resolve) => { requested = resolve; });
+  await page.route("**/pdf-redactor-view-*.js", async (route) => {
+    requested();
+    await delayed;
+    await route.continue();
+  });
+
+  await page.goto("./?sample=report.pdf");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".redactor[aria-busy=true]")).toBeVisible();
+  await chunkRequested;
+  await page.locator("#picker").setInputFiles(sample("photo.jpg"));
+  await expect(page.locator(".verdict-title")).toContainText("photo");
+
+  const chunkFinished = page.waitForEvent("requestfinished", (request) => request.url().includes("/pdf-redactor-view-"));
+  release();
+  await chunkFinished;
+  await expect(page.locator(".redactor")).toHaveCount(0);
+});
+
+test("lets someone retry if the PDF tools fail to load", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  let attempts = 0;
+  await page.route("**/pdf-redactor-view-*.js", async (route) => {
+    attempts++;
+    if (attempts === 1) await route.abort();
+    else await route.continue();
+  });
+
+  await page.goto("./?sample=report.pdf");
+  await expect(page.getByText("PDF tools could not be loaded. Try again.")).toBeVisible();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(".redactor").getByRole("button", { name: "Find", exact: true })).toBeVisible();
+});
+
+test("loads the file report and JSON export modules when requested", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "The download assertion uses the desktop browser profile.");
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  const scripts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "script") scripts.push(request.url());
+  });
+  page.on("download", (download) => void download.cancel());
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(scripts.some((url) => url.includes("/report-"))).toBe(false);
+  expect(scripts.some((url) => url.includes("/export-"))).toBe(false);
+  await page.locator(".more-details > summary").click();
+
+  await page.getByRole("button", { name: "Report a problem with this file" }).click();
+  const report = page.locator("dialog.report");
+  await expect(report).toBeVisible();
+  expect(scripts.some((url) => url.includes("/report-"))).toBe(true);
+  await report.locator(".report-actions button").last().click();
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save the structure as JSON" }).click();
+  await (await download).cancel();
+  expect(scripts.some((url) => url.includes("/export-"))).toBe(true);
+});
+
 test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }, info) => {
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
@@ -2629,7 +2716,13 @@ test("after one visit, it works offline — a document too", async ({ page, cont
       const cache = keys.find((k) => k.startsWith("hexscope-") && k !== "hexscope-shared");
       if (cache) {
         const urls = (await (await caches.open(cache)).keys()).map((r) => r.url);
-        if (urls.filter((u) => u.endsWith(".wasm")).length >= 2 && urls.some((u) => u.endsWith("redacted.pdf"))) return;
+        if (
+          urls.filter((u) => u.endsWith(".wasm")).length >= 2 &&
+          urls.some((u) => u.endsWith("redacted.pdf")) &&
+          urls.some((u) => /pdf-redactor-view-[^/]+\.js$/.test(u)) &&
+          urls.some((u) => /report-[^/]+\.js$/.test(u)) &&
+          urls.some((u) => /export-[^/]+\.js$/.test(u))
+        ) return;
       }
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -2641,6 +2734,20 @@ test("after one visit, it works offline — a document too", async ({ page, cont
   await page.locator('label[for="example-document"]').click();
   await page.locator('#examples [data-example-panel="document"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away/);
+  await page.locator("#picker").setInputFiles(sample("report.pdf"));
+  await expect(page.locator("#fileinfo .filename")).toHaveText("report.pdf");
+  const redactor = page.locator(".redactor");
+  await redactor.locator('input[type="search"]').fill("Salary");
+  await redactor.getByRole("button", { name: "Find", exact: true }).click();
+  await expect(redactor.locator("mark.redact-hit")).toContainText("Salary");
+  await page.locator(".more-details > summary").click();
+  const report = page.locator("dialog.report");
+  await page.getByRole("button", { name: "Report a problem with this file" }).click();
+  await expect(report).toBeVisible();
+  await report.locator(".report-actions button").last().click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save the structure as JSON" }).click();
+  await (await download).cancel();
   await page.goto("./black-out-a-pdf.html");
   await expect(page).toHaveTitle(/black out a PDF/i);
 });

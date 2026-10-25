@@ -620,6 +620,8 @@ const UK: Record<string, string> = {
   "Could not open these shared files. Share them again from the app that has them.": "Не вдалося відкрити ці спільні файли. Надішліть їх ще раз із програми, де вони зберігаються.",
   "No copy was made": "Копію не створено",
   "Some PDF page or form content could not be fully checked. Search may miss text.": "Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.",
+  "Loading PDF tools…": "Завантажуємо інструменти PDF…",
+  "PDF tools could not be loaded. Try again.": "Не вдалося завантажити інструменти PDF. Спробуйте ще раз.",
   "PDF not fully checked": "PDF перевірено не повністю",
   "Some PDF page or form content may be missing.": "У PDF може бракувати частини вмісту сторінки або форми.",
   "no copy was made because PDF checks are incomplete": "Копію не створено: перевірку PDF не завершено",

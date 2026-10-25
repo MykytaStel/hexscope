@@ -6,7 +6,10 @@
 // drawn where each was. The search runs here, over each page's glyphs and
 // where they land; the core rewrites the pages.
 import type { PageArea } from "./model";
-import type { PageGlyphs, PagePicture } from "./worker";
+import type { PageGlyphs } from "./worker";
+import type { Shown } from "./pdf-pictures";
+export { forgetPictures, toShown } from "./pdf-pictures";
+export type { Shown } from "./pdf-pictures";
 
 /** One place to black out: which page, the boxes to draw, and the text around it. */
 export interface Match {
@@ -275,42 +278,6 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
  * black boxes over what will go. Dragging across it draws a box of one's
  * own, handed to `onBox` in the page's points.
  */
-/** A page's picture ready to draw: an image's address, and the matrix that places its unit square. */
-export interface Shown {
-  href: string;
-  matrix: number[];
-}
-
-// Addresses made for pictures, let go when the next file's are made.
-let addresses: string[] = [];
-
-/** A page's pictures as images to draw: a JPEG as it is, pixels as a PNG. */
-export async function toShown(pictures: PagePicture[]): Promise<Shown[]> {
-  const out: Shown[] = [];
-  for (const p of pictures) {
-    let blob: Blob | null = null;
-    if (p.jpeg) blob = new Blob([p.jpeg as BlobPart], { type: "image/jpeg" });
-    else if (p.rgba && p.width && p.height) {
-      const c = document.createElement("canvas");
-      c.width = p.width;
-      c.height = p.height;
-      c.getContext("2d")?.putImageData(new ImageData(p.rgba as Uint8ClampedArray<ArrayBuffer>, p.width, p.height), 0, 0);
-      blob = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, "image/png"));
-    }
-    if (!blob) continue;
-    const href = URL.createObjectURL(blob);
-    addresses.push(href);
-    out.push({ href, matrix: p.matrix });
-  }
-  return out;
-}
-
-/** Lets go of every picture's address: a new file is open. */
-export function forgetPictures(): void {
-  for (const a of addresses) URL.revokeObjectURL(a);
-  addresses = [];
-}
-
 export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area: PageArea) => void, pictures?: Promise<Shown[]>): HTMLElement {
   const figure = document.createElement("figure");
   figure.className = "redact-figure";
