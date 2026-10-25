@@ -32,6 +32,7 @@ function rig(overrides: Partial<WorkspaceServices> = {}) {
   };
   const view: WorkspaceView = {
     loading: vi.fn(),
+    progress: vi.fn(),
     show: vi.fn(),
     select: vi.fn(),
     failed: vi.fn(),
@@ -81,6 +82,104 @@ describe("WorkspaceController", () => {
     expect(view.show).toHaveBeenCalledWith(latest, []);
     expect(view.remember).toHaveBeenCalledWith(latestFile);
     expect(view.afterOpen).toHaveBeenCalledWith(latest);
+  });
+
+  it("aborts a stale parse when a newer file is opened", async () => {
+    const firstParse = deferred<FileModel>();
+    let firstSignal: AbortSignal | undefined;
+    const latest = model("latest.jpg");
+    const { controller } = rig({
+      parse: (input, options) => {
+        if (input.name === "slow.jpg") {
+          firstSignal = options?.signal;
+          return firstParse.promise;
+        }
+        return Promise.resolve(latest);
+      },
+    });
+
+    const slow = controller.openFile(file("slow.jpg"));
+    await controller.openFile(file("latest.jpg"));
+    firstParse.resolve(model("slow.jpg"));
+    await slow;
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(controller.model).toBe(latest);
+  });
+
+  it("shows progress only for the file that is still opening", async () => {
+    const pendingParse = deferred<FileModel>();
+    let report: ((progress: { stage: "ranges"; loaded: number; total: number; cancellable: boolean }) => void) | undefined;
+    const { controller, view } = rig({
+      parse: (_input, options) => {
+        report = options?.onProgress;
+        return pendingParse.promise;
+      },
+    });
+
+    const opening = controller.openFile(file("large.mov"));
+    const progress = { stage: "ranges" as const, loaded: 10, total: 100, cancellable: true };
+    report?.(progress);
+    pendingParse.resolve(model("large.mov"));
+    await opening;
+
+    expect(view.progress).toHaveBeenCalledWith(progress);
+  });
+
+  it("lets a person cancel the current file open", async () => {
+    const firstParse = deferred<FileModel>();
+    let firstSignal: AbortSignal | undefined;
+    const { controller, view } = rig({
+      parse: (_input, options) => {
+        firstSignal = options?.signal;
+        return firstParse.promise;
+      },
+    });
+
+    const opening = controller.openFile(file("slow.mov"));
+    controller.cancelOpen();
+    firstParse.reject(new Error("Reading cancelled"));
+    await opening;
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(controller.isOpeningFile).toBe(false);
+    expect(view.failed).toHaveBeenCalledWith("Reading was cancelled.");
+  });
+
+  it("restores the previous file when cancellation interrupts retry after a worker reset", async () => {
+    const firstAttempt = deferred<FileModel>();
+    const retry = deferred<FileModel>();
+    const previousFile = file("previous.jpg");
+    const previous = fileModel("previous.jpg", new Uint8Array([1]), previousFile);
+    const restoredPrevious = fileModel("previous.jpg", new Uint8Array([1]), previousFile);
+    let previousAttempts = 0;
+    let requestedAttempts = 0;
+    let retryStarted!: () => void;
+    const retryHasStarted = new Promise<void>((resolve) => { retryStarted = resolve; });
+    const { controller, view } = rig({
+      parse: (input) => {
+        if (input.name === "previous.jpg") return Promise.resolve(++previousAttempts === 1 ? previous : restoredPrevious);
+        requestedAttempts++;
+        if (requestedAttempts === 1) return firstAttempt.promise;
+        retryStarted();
+        return retry.promise;
+      },
+    });
+
+    await controller.openFile(previousFile);
+    const opening = controller.openFile(file("requested.jpg"));
+    await controller.recoverAfterWorkerReset();
+    firstAttempt.reject(new Error("the worker stopped after copy verification timed out"));
+    await retryHasStarted;
+
+    controller.cancelOpen();
+    retry.reject(new Error("Reading cancelled"));
+    await opening;
+    await vi.waitFor(() => expect(controller.model).toBe(restoredPrevious));
+
+    expect(previousAttempts).toBe(2);
+    expect(view.failed).not.toHaveBeenCalledWith("Reading was cancelled.");
+    expect(view.show).toHaveBeenLastCalledWith(restoredPrevious, []);
   });
 
   it("restores the current file from local bytes after the worker is reset", async () => {

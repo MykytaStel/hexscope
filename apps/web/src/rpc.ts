@@ -1,11 +1,20 @@
 // The page's line to the parsing worker. The worker keeps the parsed document,
 // so requests after the first (steps, explanations, entries) are cheap.
-import type { WorkerRequest, WorkerResponse } from "./worker";
+import type { OperationRequest, WorkerRequest, WorkerResponse } from "./worker";
 
 // One outstanding promise per request id; responses can arrive in any order.
 let nextId = 0;
-const waiting = new Map<number, (r: WorkerResponse) => void>();
+interface PendingRequest {
+  finish(response: WorkerResponse): void;
+  onProgress?: (progress: Extract<WorkerResponse, { type: "progress" }>["progress"]) => void;
+}
+const waiting = new Map<number, PendingRequest>();
 const workerResetListeners = new Set<() => void>();
+
+export interface CallOptions {
+  signal?: AbortSignal;
+  onProgress?: (progress: Extract<WorkerResponse, { type: "progress" }>["progress"]) => void;
+}
 
 /** Runs after a timed-out verification stops the parser worker. */
 export function onWorkerReset(listener: () => void): () => void {
@@ -18,7 +27,7 @@ function notifyWorkerReset(): void {
 }
 
 function failWaiting(message: string): void {
-  for (const [id, answer] of waiting) answer({ id, type: "error", message });
+  for (const [id, pending] of waiting) pending.finish({ id, type: "error", message });
   waiting.clear();
 }
 
@@ -30,8 +39,24 @@ function failWaiting(message: string): void {
 function start(): Worker {
   const w = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   w.addEventListener("message", (e: MessageEvent<WorkerResponse>) => {
-    waiting.get(e.data.id)?.(e.data);
-    waiting.delete(e.data.id);
+    const pending = waiting.get(e.data.id);
+    if (!pending) return;
+    if (e.data.type === "progress") {
+      pending.onProgress?.(e.data.progress);
+      return;
+    }
+    if (e.data.type === "parsed") {
+      try {
+        // The worker keeps its previous document until the page accepts this
+        // parse. Posting the commit before resolving preserves message order
+        // for the next operation against the newly visible file.
+        w.postMessage({ id: e.data.id, type: "commitParse", target: e.data.id } satisfies WorkerRequest);
+      } catch {
+        pending.finish({ id: e.data.id, type: "error", message: "the reader could not keep this file open; reopen it to continue" });
+        return;
+      }
+    }
+    pending.finish(e.data);
   });
   const died = (e: Event) => {
     // A terminated worker may still deliver a queued error after its
@@ -52,21 +77,24 @@ function start(): Worker {
 
 let worker: Worker | null = start();
 
-export type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
+export type Req = OperationRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
 
 export function call(req: Req): Promise<WorkerResponse>;
 export function call(req: Extract<Req, { type: "verifyCopy" }>, timeoutMs: number): Promise<WorkerResponse>;
-export function call(req: Req, timeoutMs?: number): Promise<WorkerResponse> {
+export function call(req: Req, timeoutMs: number | undefined, options: CallOptions): Promise<WorkerResponse>;
+export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promise<WorkerResponse> {
   const id = ++nextId;
   return new Promise((resolve) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let abort: (() => void) | undefined;
     const finish = (response: WorkerResponse) => {
       if (!waiting.has(id)) return;
       if (timer !== undefined) clearTimeout(timer);
+      if (abort) options?.signal?.removeEventListener("abort", abort);
       waiting.delete(id);
       resolve(response);
     };
-    waiting.set(id, finish);
+    waiting.set(id, { finish, onProgress: options?.onProgress });
     let target: Worker;
     try {
       target = worker ??= start();
@@ -89,6 +117,21 @@ export function call(req: Req, timeoutMs?: number): Promise<WorkerResponse> {
         },
         timeoutMs,
       );
+    }
+    if (options?.signal?.aborted) {
+      finish({ id, type: "error", message: "Reading cancelled" });
+      return;
+    }
+    if (options?.signal) {
+      abort = () => {
+        try {
+          target.postMessage({ id, type: "cancel", target: id } as WorkerRequest);
+        } catch {
+          // The request still resolves as canceled if the worker has died.
+        }
+        finish({ id, type: "error", message: "Reading cancelled" });
+      };
+      options.signal.addEventListener("abort", abort, { once: true });
     }
     try {
       target.postMessage({ ...req, id } as WorkerRequest);

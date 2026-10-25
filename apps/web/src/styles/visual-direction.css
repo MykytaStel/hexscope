@@ -59,7 +59,9 @@ body[data-state="empty"] .topbar .actions > .btn[data-opens="picker"] {
 }
 
 body[data-state="ready"] .landing-nav,
-body[data-state="ready"] .landing-menu {
+body[data-state="ready"] .landing-menu,
+body[data-state="loading"] .landing-nav,
+body[data-state="loading"] .landing-menu {
   display: none;
 }
 

@@ -4,7 +4,7 @@
 import type { CleanCopy, Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import { type PageArea, type ParsedFile } from "./model";
 import { describe, SEPARATOR } from "./describe";
-import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie } from "./movie";
+import { assemble, LARGE_MOVIE, movieEntropy, readMovie, type Movie, type MovieProgress, type MovieReadOptions } from "./movie";
 import { isPdf, paintJpegs } from "./paint";
 import { familyOf, isMedia, type Family } from "./family";
 import { PARSER_BUILDS } from "./parser-builds";
@@ -20,6 +20,8 @@ import { profileFromTree } from "./film-profile";
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
+  | { id: number; type: "cancel"; target: number }
+  | { id: number; type: "commitParse"; target: number }
   | { id: number; type: "steps"; from: number; count: number }
   | { id: number; type: "inflated" }
   | { id: number; type: "explain"; index: number; knownBlock: number }
@@ -48,9 +50,12 @@ export type WorkerRequest =
   | { id: number; type: "blocks" }
   | { id: number; type: "codes"; picture?: Blob; pictureDimensions?: [number, number]; pdf?: Uint8Array; entries?: { index: number; name: string }[]; inspectFilmScan?: boolean };
 
+export type OperationRequest = Exclude<WorkerRequest, { type: "cancel" | "commitParse" }>;
+
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
+  | { id: number; type: "progress"; progress: MovieProgress }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }
   | { id: number; type: "verification"; report: VerificationReport }
@@ -145,6 +150,10 @@ function prefetchDocuments(): void {
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
+/** Active asynchronous range reads for file parses. */
+const activeReads = new Map<number, AbortController>();
+/** Parsed files wait here until the page accepts the result and commits it. */
+const pendingParses = new Map<number, Parsed>();
 /** The open source parse used to compare the actual clean-copy bytes. */
 const verificationSources = new Map<number, Parsed>();
 const verificationTokens = new WeakMap<Parsed, number>();
@@ -170,6 +179,39 @@ function clearParsedStack(): void {
     parsed.free();
   }
   stack = [];
+}
+
+function discardPendingParse(id: number): void {
+  const parsed = pendingParses.get(id);
+  if (!parsed) return;
+  pendingParses.delete(id);
+  releaseParsedSource(parsed);
+  parsed.free();
+}
+
+function commitPendingParse(id: number): void {
+  const parsed = pendingParses.get(id);
+  if (!parsed) return;
+  pendingParses.delete(id);
+  clearParsedStack();
+  stack = [parsed];
+}
+
+function stageParsed(
+  id: number,
+  parsed: Parsed,
+  result: ParsedFile,
+  bytes: Uint8Array,
+): void {
+  rememberParsedSource(parsed, result, id);
+  pendingParses.set(id, parsed);
+  try {
+    post({ id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+  } catch (error) {
+    pendingParses.delete(id);
+    releaseParsedSource(parsed);
+    throw error;
+  }
 }
 
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
@@ -205,11 +247,78 @@ function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
   result.entropyWindow = Math.ceil(bytes.length / bins);
 }
 
+function reportParseProgress(id: number): void {
+  post({
+    id,
+    type: "progress",
+    progress: { stage: "parse", loaded: 0, total: 1, cancellable: false },
+  });
+}
+
 /** A movie read in parts, when `file` is one large enough to need it. */
-async function largeMovie(file: Blob): Promise<Movie | null> {
+async function largeMovie(file: Blob, options?: MovieReadOptions): Promise<Movie | null> {
   if (file.size < LARGE_MOVIE) return null;
   const wasm = await loadMedia();
-  return readMovie(file, (head, len) => wasm.isMovie(head, len));
+  return readMovie(file, (head, len) => wasm.isMovie(head, len), LARGE_MOVIE, options);
+}
+
+async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Promise<void> {
+  const controller = new AbortController();
+  activeReads.set(req.id, controller);
+  const options: MovieReadOptions = {
+    signal: controller.signal,
+    onProgress: (progress) => post({ id: req.id, type: "progress", progress }),
+  };
+  try {
+    const movie = await largeMovie(req.file, options);
+    controller.signal.throwIfAborted();
+    if (movie) {
+      const wasm = await loadMedia();
+      controller.signal.throwIfAborted();
+      reportParseProgress(req.id);
+      const t0 = performance.now();
+      const parsed = wasm.parseMovie(movie.given, movie.gaps);
+      let retained = false;
+      try {
+        const result = describe(parsed);
+        result.parseMs = performance.now() - t0;
+        const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0], options);
+        result.entropy = e.values;
+        result.entropyWindow = e.window;
+        result.missing = movie.missing;
+        controller.signal.throwIfAborted();
+        stageParsed(req.id, parsed, result, movie.whole);
+        retained = true;
+      } finally {
+        if (!retained) parsed.free();
+      }
+      return;
+    }
+    const bytes = new Uint8Array(await req.file.arrayBuffer());
+    controller.signal.throwIfAborted();
+    const wasm = await moduleFor(bytes);
+    controller.signal.throwIfAborted();
+    // Timed from the call into WASM through reading every array back out, so
+    // the number shown to the user is the whole cost, not the flattering part.
+    const t0 = performance.now();
+    const parsed = wasm.parseOwned(bytes);
+    let retained = false;
+    try {
+      const result = describe(parsed);
+      result.parseMs = performance.now() - t0;
+      addEntropy(result, bytes, wasm);
+      controller.signal.throwIfAborted();
+      // Source-dependent parsers keep this WASM allocation; the page receives
+      // the JavaScript buffer by transfer, without another page-side copy.
+      stageParsed(req.id, parsed, result, bytes);
+      retained = true;
+      if (isMedia(bytes)) prefetchDocuments();
+    } finally {
+      if (!retained) parsed.free();
+    }
+  } finally {
+    activeReads.delete(req.id);
+  }
 }
 
 /** Answers with a copy the parser made, as a file made by `wrap`. */
@@ -257,7 +366,7 @@ async function brightness(
 }
 
 /** The QR codes in a picture, a PDF's pictures, or the pictures inside the document on top. */
-async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
+async function codes(req: Extract<OperationRequest, { type: "codes" }>): Promise<Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">> {
   const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
   const current = stack[stack.length - 1];
   const found: Extract<WorkerResponse, { type: "codes" }>["codes"] = [];
@@ -335,7 +444,7 @@ async function codes(req: Extract<WorkerRequest, { type: "codes" }>): Promise<Pi
 /** Nested documents opened from archives are kept for the way back. */
 const MAX_DEPTH = 4;
 
-async function handle(req: WorkerRequest): Promise<void> {
+async function handle(req: OperationRequest): Promise<void> {
   if (req.type === "filmRoll") {
     if (req.source.size > 50 * 1024 * 1024) throw new Error("This scan exceeds the 50 MiB file limit.");
     const head = new Uint8Array(await req.source.slice(0, 12).arrayBuffer());
@@ -388,39 +497,7 @@ async function handle(req: WorkerRequest): Promise<void> {
     return;
   }
   if (req.type === "parse") {
-    const movie = await largeMovie(req.file);
-    if (movie) {
-      const wasm = await loadMedia();
-      const t0 = performance.now();
-      const parsed = wasm.parseMovie(movie.given, movie.gaps);
-      const result = describe(parsed);
-      result.parseMs = performance.now() - t0;
-      const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0]);
-      result.entropy = e.values;
-      result.entropyWindow = e.window;
-      result.missing = movie.missing;
-      clearParsedStack();
-      rememberParsedSource(parsed, result, req.id);
-      stack = [parsed];
-      post({ id: req.id, type: "parsed", result, bytes: movie.whole }, [...transfers(result), movie.whole.buffer]);
-      return;
-    }
-    const bytes = new Uint8Array(await req.file.arrayBuffer());
-    const wasm = await moduleFor(bytes);
-    // Timed from the call into WASM through reading every array back out, so
-    // the number shown to the user is the whole cost, not the flattering part.
-    const t0 = performance.now();
-    const parsed = wasm.parseOwned(bytes);
-    const result = describe(parsed);
-    result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes, wasm);
-    clearParsedStack();
-    rememberParsedSource(parsed, result, req.id);
-    stack = [parsed];
-    if (isMedia(bytes)) prefetchDocuments();
-    // Source-dependent parsers keep this WASM allocation; the page receives
-    // the JavaScript buffer by transfer, without another page-side copy.
-    post({ id: req.id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
+    await parseFile(req);
     return;
   }
 
@@ -680,7 +757,7 @@ async function handle(req: WorkerRequest): Promise<void> {
   }
 }
 
-function answer(req: WorkerRequest): Promise<void> {
+function answer(req: OperationRequest): Promise<void> {
   return handle(req).catch((err: unknown) => {
     // Out of memory, the WebAssembly stops for good: start the next file
     // on a fresh one, and say what happened in words.
@@ -688,6 +765,10 @@ function answer(req: WorkerRequest): Promise<void> {
     const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
     if (crashed) {
       for (const family of Object.keys(loaded) as Family[]) delete loaded[family];
+      for (const controller of activeReads.values()) controller.abort();
+      activeReads.clear();
+      pendingParses.clear();
+      verificationSources.clear();
       stack = [];
     }
     post({
@@ -697,10 +778,19 @@ function answer(req: WorkerRequest): Promise<void> {
     });
   });
 }
-const filmQueue = new LatestFilmQueue<Extract<WorkerRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
+const filmQueue = new LatestFilmQueue<Extract<OperationRequest, { type: "filmRender" | "filmRoll" }>>(answer, (req) => {
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  if (event.data.type === "cancel") {
+    activeReads.get(event.data.target)?.abort();
+    discardPendingParse(event.data.target);
+    return;
+  }
+  if (event.data.type === "commitParse") {
+    commitPendingParse(event.data.target);
+    return;
+  }
   if (event.data.type === "filmRender" || event.data.type === "filmRoll") filmQueue.push(event.data);
   else void answer(event.data);
 };

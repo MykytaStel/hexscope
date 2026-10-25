@@ -1301,8 +1301,15 @@ function translateText(value: string, locale: Locale): string {
     return `${mine} ${translateRevealList(match[2])}. Перевірено в браузері за допомогою hexscope, нічого не завантажувалося: ${match[3]}`;
   }
   // Opening, the views' captions and the sentence under "What it's made of".
+  if (value === "Parsing video metadata…") return "Розбираємо метадані відео…";
   match = /^Parsing (.+)…$/.exec(value);
   if (match) return `Читаємо ${match[1]}…`;
+  match = /^Reading video (structure|metadata|byte map): (\d+)%$/.exec(value);
+  if (match) {
+    const phase = { structure: "структуру", metadata: "метадані", "byte map": "карту байтів" }[match[1]];
+    return `Читаємо ${phase} відео: ${match[2]}%`;
+  }
+  if (value === "Reading was cancelled.") return "Читання скасовано.";
   match = /^(.+?) · (\d+(?:\.\d+)?) (B|KB|MB|GB)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${size(match[2], match[3])}`;
   match = /^Of its (\d+(?:\.\d+)?) (B|KB|MB|GB), (.+?)( — a second, small copy of the picture among it)?\.$/.exec(value);
