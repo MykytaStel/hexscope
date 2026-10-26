@@ -275,6 +275,20 @@ function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, v
   c.free();
 }
 
+/** Does not touch WASM-backed stream state after the selected file has been freed. */
+function postSelectedStream(id: number, current: Parsed, playable: boolean, isActive: boolean): void {
+  if (!isActive) {
+    const segments = new Float64Array();
+    post({ id, type: "stream", playable: false, trace: null, segments, idatBytes: 0 }, [segments.buffer]);
+    return;
+  }
+  const trace = Array.from(current.trace);
+  const segments = current.segments;
+  post({ id, type: "stream", playable, trace: trace.length ? trace : null, segments, idatBytes: current.idatBytes }, [
+    segments.buffer,
+  ]);
+}
+
 /** Keeps QR and embedded-image scanning outside the parser's central request router. */
 function codes(req: Extract<OperationRequest, { type: "codes" }>, signal?: AbortSignal): ReturnType<typeof scanCodes> {
   const current = stack[stack.length - 1] ?? null;
@@ -571,11 +585,7 @@ async function handle(req: OperationRequest): Promise<void> {
       req.index,
       () => stack[stack.length - 1] === current,
     );
-    const trace = Array.from(current.trace);
-    const segments = current.segments;
-    post({ id: req.id, type: "stream", playable, trace: trace.length ? trace : null, segments, idatBytes: current.idatBytes }, [
-      segments.buffer,
-    ]);
+    postSelectedStream(req.id, current, playable, stack[stack.length - 1] === current);
   } else if (req.type === "explain") {
     const parts = current.explain(req.index);
     // Tables change once per block: send them only when the page's are stale.
