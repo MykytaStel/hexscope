@@ -38,6 +38,24 @@ pub fn extract(data: &[u8], entry: &ZipEntry, limit: u64) -> Result<Vec<u8>, Ext
     let end = usize::try_from(entry.data.end()).map_err(|_| ExtractError::OutOfRange)?;
     let bytes = data.get(start..end).ok_or(ExtractError::OutOfRange)?;
 
+    extract_compressed(bytes, entry, limit)
+}
+
+/// Decompresses one entry from exactly its compressed bytes, read separately
+/// from the archive's original file. The central record supplies the expected
+/// compressed length, uncompressed length and CRC.
+pub fn extract_compressed(
+    bytes: &[u8],
+    entry: &ZipEntry,
+    limit: u64,
+) -> Result<Vec<u8>, ExtractError> {
+    if entry.is_encrypted() {
+        return Err(ExtractError::Encrypted);
+    }
+    if entry.data.len != entry.compressed || bytes.len() as u64 != entry.compressed {
+        return Err(ExtractError::OutOfRange);
+    }
+
     let out = match entry.method {
         0 if bytes.len() as u64 > limit => return Err(ExtractError::TooLarge),
         0 => bytes.to_vec(),
@@ -102,6 +120,41 @@ mod tests {
             );
         }
         assert!(doc.entries[4].is_dir());
+    }
+
+    #[test]
+    fn extracts_an_entry_from_only_its_compressed_range() {
+        let a = archive();
+        let b = build(&a);
+        let doc = parse_zip(&b.bytes);
+
+        for (entry, want) in doc.entries.iter().zip(&a.entries) {
+            let start = entry.data.start as usize;
+            let end = entry.data.end() as usize;
+            let compressed = &b.bytes[start..end];
+
+            assert_eq!(
+                extract_compressed(compressed, entry, u64::MAX),
+                Ok(want.data.clone()),
+                "{}",
+                entry.name
+            );
+        }
+    }
+
+    #[test]
+    fn refuses_a_truncated_compressed_range() {
+        let a = archive();
+        let b = build(&a);
+        let doc = parse_zip(&b.bytes);
+        let entry = &doc.entries[1];
+        let start = entry.data.start as usize;
+        let end = entry.data.end() as usize;
+
+        assert_eq!(
+            extract_compressed(&b.bytes[start..end - 1], entry, u64::MAX),
+            Err(ExtractError::OutOfRange)
+        );
     }
 
     #[test]

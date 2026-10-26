@@ -22,7 +22,7 @@ pub(crate) mod write;
 use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
-pub use extract::{ExtractError, extract};
+pub use extract::{ExtractError, extract, extract_compressed};
 use fields::{Fields, Zip64Need, display, method_name};
 pub use office::DocumentFact;
 

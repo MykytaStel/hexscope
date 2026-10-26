@@ -21,6 +21,7 @@ import { FACT_LABELS } from "./knowledge";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
 import { scanCodes } from "./worker-qr-scan";
+import { readEntry, selectEntry } from "./worker-entry-source";
 import { createFilmQueue, handleFilmOperation, type FilmWorkerServices } from "./worker-film";
 import type { OperationRequest, PageGlyphs, PagePicture, WorkerRequest, WorkerResponse } from "./worker-protocol";
 export type { OperationRequest, PageGlyphs, PagePicture, WorkerRequest, WorkerResponse } from "./worker-protocol";
@@ -82,10 +83,13 @@ function prefetchDocuments(): void {
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
 let stack: Parsed[] = [];
+/** Source Blobs parallel to `stack`; nested files keep their ZIP bytes in WASM. */
+let stackSources: (Blob | null)[] = [];
 /** Active asynchronous parser and QR operations, cancellable by request ID. */
 const activeOperations = new Map<number, AbortController>();
 /** Parsed files wait here until the page accepts the result and commits it. */
 const pendingParses = new Map<number, Parsed>();
+const pendingSources = new Map<number, Blob | null>();
 /** The open source parse used to compare the actual clean-copy bytes. */
 const verificationSources = new Map<number, Parsed>();
 const verificationTokens = new WeakMap<Parsed, number>();
@@ -111,10 +115,12 @@ function clearParsedStack(): void {
     parsed.free();
   }
   stack = [];
+  stackSources = [];
 }
 
 function discardPendingParse(id: number): void {
   const parsed = pendingParses.get(id);
+  pendingSources.delete(id);
   if (!parsed) return;
   pendingParses.delete(id);
   releaseParsedSource(parsed);
@@ -125,8 +131,11 @@ function commitPendingParse(id: number): void {
   const parsed = pendingParses.get(id);
   if (!parsed) return;
   pendingParses.delete(id);
+  const source = pendingSources.get(id) ?? null;
+  pendingSources.delete(id);
   clearParsedStack();
   stack = [parsed];
+  stackSources = [source];
 }
 
 function stageParsed(
@@ -134,13 +143,16 @@ function stageParsed(
   parsed: Parsed,
   result: ParsedFile,
   bytes: Uint8Array,
+  source: Blob | null,
 ): void {
   rememberParsedSource(parsed, result, id);
   pendingParses.set(id, parsed);
+  pendingSources.set(id, source);
   try {
     post({ id, type: "parsed", result, bytes }, [...transfers(result), bytes.buffer]);
   } catch (error) {
     pendingParses.delete(id);
+    pendingSources.delete(id);
     releaseParsedSource(parsed);
     throw error;
   }
@@ -219,7 +231,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
         result.entropyWindow = e.window;
         result.missing = movie.missing;
         controller.signal.throwIfAborted();
-        stageParsed(req.id, parsed, result, wholeMovieBytes(movie));
+        stageParsed(req.id, parsed, result, wholeMovieBytes(movie), null);
         retained = true;
       } finally {
         if (!retained) parsed.free();
@@ -233,7 +245,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
     // Timed from the call into WASM through reading every array back out, so
     // the number shown to the user is the whole cost, not the flattering part.
     const t0 = performance.now();
-    const parsed = wasm.parseOwned(bytes);
+    const parsed = wasm.parseOwnedExternal(bytes);
     let retained = false;
     try {
       const result = describe(parsed);
@@ -242,7 +254,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
       controller.signal.throwIfAborted();
       // Source-dependent parsers keep this WASM allocation; the page receives
       // the JavaScript buffer by transfer, without another page-side copy.
-      stageParsed(req.id, parsed, result, bytes);
+      stageParsed(req.id, parsed, result, bytes, parsed.format === "zip" ? req.file : null);
       retained = true;
       if (isMedia(bytes)) prefetchDocuments();
     } finally {
@@ -265,7 +277,15 @@ function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, v
 
 /** Keeps QR and embedded-image scanning outside the parser's central request router. */
 function codes(req: Extract<OperationRequest, { type: "codes" }>, signal?: AbortSignal): ReturnType<typeof scanCodes> {
-  return scanCodes(req, signal ?? new AbortController().signal, stack[stack.length - 1] ?? null, loadPdf);
+  const current = stack[stack.length - 1] ?? null;
+  return scanCodes(
+    req,
+    signal ?? new AbortController().signal,
+    current,
+    loadPdf,
+    stackSources[stackSources.length - 1] ?? null,
+    () => current === null || stack[stack.length - 1] === current,
+  );
 }
 
 const filmServices: FilmWorkerServices = { moduleFor, loadMedia, describe, codes, post };
@@ -496,10 +516,23 @@ async function handle(req: OperationRequest): Promise<void> {
   if (req.type === "open" || req.type === "openBytes") {
     if (stack.length > MAX_DEPTH) throw new Error(`files nest at most ${MAX_DEPTH} deep here`);
     // An archive's entry, or a file found inside the bytes.
-    const bytes = req.type === "open" ? current.extractEntry(req.index) : req.bytes;
+    const bytes = req.type === "open"
+      ? await readEntry(
+        current,
+        stackSources[stackSources.length - 1] ?? null,
+        req.index,
+        () => stack[stack.length - 1] === current,
+      )
+      : req.bytes;
+    if (req.type === "open" && stack[stack.length - 1] !== current) {
+      throw new Error("the file changed while its archive entry was being read");
+    }
     if (bytes.length === 0) throw new Error(`This entry cannot be opened: ${current.extractError}.`);
     // Its own build: a ZIP behind a photo needs the one that reads archives.
     const wasm = await moduleFor(bytes);
+    if (req.type === "open" && stack[stack.length - 1] !== current) {
+      throw new Error("the file changed while its archive entry was being read");
+    }
     const t0 = performance.now();
     const parsed = wasm.parseOwned(bytes);
     const result = describe(parsed);
@@ -507,6 +540,7 @@ async function handle(req: OperationRequest): Promise<void> {
     addEntropy(result, bytes, wasm);
     rememberParsedSource(parsed, result, req.id);
     stack.push(parsed);
+    stackSources.push(null);
     post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
     return;
   }
@@ -516,6 +550,7 @@ async function handle(req: OperationRequest): Promise<void> {
       const parsed = stack.pop()!;
       releaseParsedSource(parsed);
       parsed.free();
+      stackSources.pop();
     }
     post({ id: req.id, type: "back" });
     return;
@@ -530,7 +565,12 @@ async function handle(req: OperationRequest): Promise<void> {
     const steps = current.steps(req.from, req.count);
     post({ id: req.id, type: "steps", steps }, [steps.buffer]);
   } else if (req.type === "selectEntry") {
-    const playable = current.selectEntry(req.index);
+    const playable = await selectEntry(
+      current,
+      stackSources[stackSources.length - 1] ?? null,
+      req.index,
+      () => stack[stack.length - 1] === current,
+    );
     const trace = Array.from(current.trace);
     const segments = current.segments;
     post({ id: req.id, type: "stream", playable, trace: trace.length ? trace : null, segments, idatBytes: current.idatBytes }, [
@@ -558,8 +598,10 @@ function answer(req: OperationRequest): Promise<void> {
       for (const controller of activeOperations.values()) controller.abort();
       activeOperations.clear();
       pendingParses.clear();
+      pendingSources.clear();
       verificationSources.clear();
       stack = [];
+      stackSources = [];
     }
     post({
       id: req.id,

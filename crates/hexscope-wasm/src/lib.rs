@@ -18,7 +18,7 @@ use hexscope_core::model::{NodeKind, ParseTree, Value};
 use hexscope_core::png::{MAX_PIXEL_BYTES, PngDocument};
 use hexscope_core::verification::VerificationSnapshot;
 use hexscope_core::video::{Gap, parse_video_gapped};
-use hexscope_core::zip::{ExtractError, ZipEntry, extract};
+use hexscope_core::zip::{ExtractError, ZipEntry, extract, extract_compressed};
 use hexscope_core::{Document, Format, parse as parse_any};
 use wasm_bindgen::prelude::*;
 
@@ -138,6 +138,7 @@ pub fn parse(bytes: &[u8]) -> Parsed {
         parse_any(bytes),
         SourceBytes::Borrowed(bytes),
         bytes.len() as u64,
+        true,
     )
 }
 
@@ -147,7 +148,17 @@ pub fn parse(bytes: &[u8]) -> Parsed {
 pub fn parse_owned(bytes: Vec<u8>) -> Parsed {
     let len = bytes.len() as u64;
     let doc = parse_any(&bytes);
-    parsed(doc, SourceBytes::Owned(bytes), len)
+    parsed(doc, SourceBytes::Owned(bytes), len, true)
+}
+
+/// Parses a file without retaining a second full copy of a ZIP source. The
+/// caller can supply only an entry's compressed range when it is opened or
+/// played; other formats keep any source bytes their parser needs.
+#[wasm_bindgen(js_name = parseOwnedExternal)]
+pub fn parse_owned_external(bytes: Vec<u8>) -> Parsed {
+    let len = bytes.len() as u64;
+    let doc = parse_any(&bytes);
+    parsed(doc, SourceBytes::Owned(bytes), len, false)
 }
 
 enum SourceBytes<'a> {
@@ -203,10 +214,11 @@ pub fn parse_movie(bytes: &[u8], gaps_at: &[f64]) -> Parsed {
         Document::Video(parse_video_gapped(bytes, &gaps)),
         SourceBytes::Borrowed(bytes),
         len,
+        true,
     )
 }
 
-fn parsed(doc: Document, source: SourceBytes<'_>, len: u64) -> Parsed {
+fn parsed(doc: Document, source: SourceBytes<'_>, len: u64, retain_zip_source: bool) -> Parsed {
     let summary = hexscope_core::summary::summary_of(&doc);
     let metadata_complete = summary.complete;
     let verification = hexscope_core::verification::snapshot(&summary);
@@ -303,7 +315,7 @@ fn parsed(doc: Document, source: SourceBytes<'_>, len: u64) -> Parsed {
                 parsed.facts.push((f.kind, sanitise(&f.text), f.node));
             }
             parsed.zip = Some(ZipState {
-                source: source.retain(),
+                source: retain_zip_source.then(|| source.retain()),
                 entries: doc.entries,
             });
             parsed

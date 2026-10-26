@@ -2,6 +2,7 @@ import type { Parsed } from "./wasm-pdf/hexscope_pdf.js";
 import { withWorkerResource } from "./worker-resource";
 import type { OperationRequest, WorkerResponse } from "./worker";
 import type { FilmScanReport } from "./filmscan";
+import { readEntry } from "./worker-entry-source";
 
 type CodeRequest = Extract<OperationRequest, { type: "codes" }>;
 type CodeResult = Pick<Extract<WorkerResponse, { type: "codes" }>, "codes" | "filmScan">;
@@ -66,6 +67,8 @@ export async function scanCodes(
   signal: AbortSignal,
   current: Parsed | null,
   loadPdf: () => Promise<PdfModule>,
+  source: Blob | null = null,
+  isCurrent: () => boolean = () => true,
 ): Promise<CodeResult> {
   signal.throwIfAborted();
   const { findCodes, luminance, bitmapResizeOptions, imageDimensions } = await import("./qr/index");
@@ -144,7 +147,7 @@ export async function scanCodes(
   }
   for (const e of req.entries ?? []) {
     signal.throwIfAborted();
-    const bytes = current?.extractEntry(e.index);
+    const bytes = current ? await readEntry(current, source, e.index, isCurrent) : undefined;
     if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name, imageDimensions(bytes));
   }
   return { codes: found, ...(filmScan ? { filmScan } : {}) };

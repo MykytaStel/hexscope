@@ -47,6 +47,39 @@ describe("worker QR scan cancellation", () => {
     expect(loadPdf).not.toHaveBeenCalled();
   });
 
+  it("reads ZIP image entries from only their external compressed range", async () => {
+    const output = new Uint8Array([11, 12]);
+    const parsed = {
+      entryDataRange: () => new Float64Array([2, 3]),
+      extractEntry: vi.fn(() => new Uint8Array()),
+      extractEntryFrom: vi.fn(() => output),
+    } as unknown as Parsed;
+    const bitmap = { width: 4, height: 4, close: vi.fn() } as unknown as ImageBitmap;
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => bitmap));
+    vi.stubGlobal("OffscreenCanvas", class {
+      getContext() {
+        return {
+          drawImage: vi.fn(),
+          getImageData: () => ({ data: new Uint8ClampedArray(4 * 4 * 4) }),
+        };
+      }
+    });
+    qr.imageDimensions.mockClear();
+
+    await scanCodes(
+      { id: 3, type: "codes", entries: [{ index: 0, name: "photo.png" }] },
+      new AbortController().signal,
+      parsed,
+      vi.fn() as unknown as Parameters<typeof scanCodes>[3],
+      new Blob(["0123456789"]),
+    );
+
+    expect(parsed.extractEntryFrom).toHaveBeenCalledWith(0, new Uint8Array([50, 51, 52]));
+    expect(parsed.extractEntry).not.toHaveBeenCalled();
+    expect(qr.imageDimensions).toHaveBeenCalledWith(output);
+    expect(bitmap.close).toHaveBeenCalledOnce();
+  });
+
   it("frees PDF picture memory when cancellation interrupts image decoding", async () => {
     const controller = new AbortController();
     const reason = new DOMException("Reading cancelled", "AbortError");

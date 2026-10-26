@@ -46,7 +46,9 @@ impl DocTables {
 
 /// What playing or opening a ZIP entry needs after parsing is done.
 pub(crate) struct ZipState {
-    pub(crate) source: Vec<u8>,
+    /// Present for owned parses. A top-level browser file may instead keep
+    /// the source as a Blob and supply only the selected entry's byte range.
+    pub(crate) source: Option<Vec<u8>>,
     pub(crate) entries: Vec<ZipEntry>,
 }
 
