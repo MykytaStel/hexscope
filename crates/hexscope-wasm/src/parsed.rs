@@ -430,6 +430,22 @@ impl Parsed {
             .collect()
     }
 
+    /// `[start, length]` for one ZIP entry's compressed bytes, empty when
+    /// its data range is incomplete. The browser can read just this range
+    /// from the original Blob without retaining a second full archive copy.
+    #[wasm_bindgen(js_name = entryDataRange)]
+    pub fn entry_data_range(&self, index: u32) -> Vec<f64> {
+        let Some(entry) = self
+            .zip
+            .as_ref()
+            .and_then(|zip| zip.entries.get(index as usize))
+            .filter(|entry| entry.data.len == entry.compressed)
+        else {
+            return Vec::new();
+        };
+        vec![entry.data.start as f64, entry.data.len as f64]
+    }
+
     /// Bytes of wrapper before the DEFLATE data in the stream the segments
     /// describe: compressed bit `b` lives in stream byte `streamHeader + b / 8`.
     #[wasm_bindgen(getter, js_name = streamHeader)]
@@ -464,7 +480,39 @@ impl Parsed {
             Some(zip) => match zip.entries.get(index as usize) {
                 None => Err(format!("there is no entry {index}")),
                 Some(e) if !openable(e) => Err("this entry cannot be opened".to_string()),
-                Some(e) => extract(&zip.source, e, MAX_PIXEL_BYTES).map_err(extract_message),
+                Some(e) => zip.source.as_deref().map_or_else(
+                    || {
+                        Err(
+                            "the entry's compressed byte range must be read from the source file"
+                                .to_string(),
+                        )
+                    },
+                    |source| extract(source, e, MAX_PIXEL_BYTES).map_err(extract_message),
+                ),
+            },
+        };
+        result.unwrap_or_else(|reason| {
+            self.extract_error = reason;
+            Vec::new()
+        })
+    }
+
+    /// ZIP entry `index`, decompressed from its compressed bytes read by the
+    /// caller. Size and CRC are checked against the parsed central record.
+    #[wasm_bindgen(js_name = extractEntryFrom)]
+    pub fn extract_entry_from(&mut self, index: u32, compressed: Vec<u8>) -> Vec<u8> {
+        self.extract_error.clear();
+        let result = match &self.zip {
+            None => Err("this file is not an archive".to_string()),
+            Some(_) if !cfg!(feature = "office") => {
+                Err("this module opens no archives".to_string())
+            }
+            Some(zip) => match zip.entries.get(index as usize) {
+                None => Err(format!("there is no entry {index}")),
+                Some(e) if !openable(e) => Err("this entry cannot be opened".to_string()),
+                Some(e) => {
+                    extract_compressed(&compressed, e, MAX_PIXEL_BYTES).map_err(extract_message)
+                }
             },
         };
         result.unwrap_or_else(|reason| {
@@ -486,44 +534,52 @@ impl Parsed {
         if !cfg!(feature = "office") {
             return false;
         }
-        let Some(zip) = &self.zip else {
-            return false;
+        let (start, len, data) = {
+            let Some(zip) = &self.zip else {
+                return false;
+            };
+            let Some(source) = zip.source.as_deref() else {
+                return false;
+            };
+            let Some(e) = zip.entries.get(index as usize).filter(|e| playable(e)) else {
+                return false;
+            };
+            let (Ok(start), Ok(end)) =
+                (usize::try_from(e.data.start), usize::try_from(e.data.end()))
+            else {
+                return false;
+            };
+            let Some(data) = source.get(start..end) else {
+                return false;
+            };
+            (e.data.start, e.data.len, data.to_vec())
         };
-        let Some(e) = zip.entries.get(index as usize).filter(|e| playable(e)) else {
+        if len != data.len() as u64 {
             return false;
-        };
-        let (start, end) = (e.data.start as usize, e.data.end() as usize);
-        let Some(data) = zip.source.get(start..end) else {
-            return false;
-        };
-        let data = data.to_vec();
-        let segment = [e.data.start as f64, e.data.len as f64];
+        }
+        install_zip_stream(self, start, len, data)
+    }
 
-        let mut sink = CheckpointSink::new(CHECKPOINT_INTERVAL);
-        let result = inflate(&data, MAX_PIXEL_BYTES, &mut sink);
-        let summary = sink.finish();
-        self.output = match result {
-            Ok(out) => out,
-            // Replay to the failure so the player has real bytes to draw.
-            Err(_) => {
-                let mut d = Decoder::new(&data, MAX_PIXEL_BYTES);
-                while let Some(Ok(_)) = d.step() {}
-                d.into_output()
-            }
+    /// Makes ZIP entry `index` the stream the player steps through using its
+    /// separately read compressed bytes. Returns false without changing the
+    /// current stream when the index or range is invalid.
+    #[wasm_bindgen(js_name = selectEntryFrom)]
+    pub fn select_entry_from(&mut self, index: u32, data: Vec<u8>) -> bool {
+        if !cfg!(feature = "office") {
+            return false;
+        }
+        let Some(e) = self
+            .zip
+            .as_ref()
+            .and_then(|zip| zip.entries.get(index as usize))
+            .filter(|e| playable(e) && e.data.len == e.compressed)
+        else {
+            return false;
         };
-        self.trace = Some([
-            summary.total_events as f64,
-            summary.literals as f64,
-            summary.matches as f64,
-            summary.output_bytes as f64,
-        ]);
-        self.checkpoints = summary.checkpoints;
-        self.segments = segment.to_vec();
-        self.idat_bytes = segment[1];
-        self.stream = data;
-        self.header_len = 0;
-        self.trailer_len = 0;
-        true
+        if e.data.len != data.len() as u64 {
+            return false;
+        }
+        install_zip_stream(self, e.data.start, e.data.len, data)
     }
 
     /// What step `index` read, part by part. Layout: `[block_start, error,
@@ -586,4 +642,36 @@ impl Parsed {
         }
         out
     }
+}
+
+fn install_zip_stream(parsed: &mut Parsed, start: u64, len: u64, data: Vec<u8>) -> bool {
+    if len != data.len() as u64 {
+        return false;
+    }
+
+    let mut sink = CheckpointSink::new(CHECKPOINT_INTERVAL);
+    let result = inflate(&data, MAX_PIXEL_BYTES, &mut sink);
+    let summary = sink.finish();
+    parsed.output = match result {
+        Ok(output) => output,
+        // Replay to the failure so the player has real bytes to draw.
+        Err(_) => {
+            let mut decoder = Decoder::new(&data, MAX_PIXEL_BYTES);
+            while let Some(Ok(_)) = decoder.step() {}
+            decoder.into_output()
+        }
+    };
+    parsed.trace = Some([
+        summary.total_events as f64,
+        summary.literals as f64,
+        summary.matches as f64,
+        summary.output_bytes as f64,
+    ]);
+    parsed.checkpoints = summary.checkpoints;
+    parsed.segments = vec![start as f64, len as f64];
+    parsed.idat_bytes = len as f64;
+    parsed.stream = data;
+    parsed.header_len = 0;
+    parsed.trailer_len = 0;
+    true
 }
