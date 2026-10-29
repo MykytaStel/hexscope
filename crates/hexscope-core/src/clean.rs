@@ -1233,6 +1233,20 @@ mod tests {
     }
 
     #[test]
+    fn office_copy_accepts_zip64_and_data_descriptors() {
+        use crate::zip::testing::{Archive, Descriptor, Entry, build};
+        let mut properties = Entry::new("docProps/core.xml", b"<creator>private</creator>", 8);
+        properties.zip64 = true;
+        let mut document = Entry::new("word/document.xml", b"document", 8);
+        document.descriptor = Descriptor::WithSignature;
+        let built = build(&Archive {
+            entries: vec![properties, document],
+            ..Default::default()
+        });
+        assert!(clean(&built.bytes).is_ok());
+    }
+
+    #[test]
     fn a_photo_in_a_document_loses_what_it_reveals() {
         use crate::zip::testing::{Archive, Entry, build as zip};
         let photo = revealing(1);
