@@ -110,7 +110,13 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
     showPreview.setAttribute("aria-pressed", String(which === "preview"));
   };
   showOriginal.addEventListener("click", () => selectImage("original"));
-  showPreview.addEventListener("click", () => selectImage("preview"));
+  showPreview.addEventListener("click", () => {
+    if (sampling) {
+      stopSampling();
+      message.textContent = view.dataset.state === "ready" ? "Preview ready" : "Updating preview…";
+    }
+    selectImage("preview");
+  });
   selectImage("preview");
   imageChoice.append(showOriginal, showPreview);
   const original = el("img", "film-lab-source"); original.alt = "Original scan";

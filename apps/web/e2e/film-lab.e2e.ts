@@ -79,6 +79,8 @@ test("on a phone, compare one image at a time and keep adjustments when switchin
   await lab.getByRole("button", { name: "Pick unexposed film" }).click();
   await expect(original).toHaveAttribute("aria-pressed", "true");
   await expect(lab.locator(".film-lab-source")).toBeVisible();
+  await preview.click();
+  await expect(lab.getByRole("button", { name: "Pick unexposed film" })).toHaveAttribute("aria-pressed", "false");
 });
 
 test("film lab crops, converts, reads the actual output and downloads locally while offline", async ({ page, context }) => {
