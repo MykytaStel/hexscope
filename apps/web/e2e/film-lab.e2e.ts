@@ -51,7 +51,7 @@ test("film lab crops, converts, reads the actual output and downloads locally wh
   await expect(lab.locator(".film-lab-check")).toContainText("No metadata findings detected");
   await expect(lab.locator(".film-lab-check")).toContainText("No QR codes detected");
   const downloadPromise = page.waitForEvent("download");
-  await lab.getByRole("button", { name: "Download JPEG", exact: true }).click();
+  await lab.getByRole("button", { name: "Save JPEG", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("film-copy.jpg");
   const bytes = Array.from(await readFile((await download.path())!));
@@ -61,6 +61,115 @@ test("film lab crops, converts, reads the actual output and downloads locally wh
   }, bytes);
   expect(dimensions).toEqual([320, 192]);
   await expect(page.locator(".filename").first()).toContainText("private-roll.png");
+});
+
+type Sheet = "shares" | "cancels" | "fails" | "missing";
+
+/** A phone's share sheet that records what it was handed, is dismissed, refuses, or is not there at all. */
+async function shareSheet(page: Page, sheet: Sheet): Promise<void> {
+  await page.addInitScript((how) => {
+    const state = window as typeof window & { __shared: number[][] };
+    state.__shared = [];
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: how === "missing" ? () => false : () => true });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: how === "missing" ? undefined : async ({ files }: ShareData) => {
+        if (how === "cancels") throw new DOMException("Share cancelled", "AbortError");
+        if (how === "fails") throw new DOMException("File sharing is unavailable", "NotAllowedError");
+        const file = files![0];
+        if (file.name !== "film-copy.jpg" || file.type !== "image/jpeg") throw new Error(`unexpected ${file.name} ${file.type}`);
+        state.__shared.push(Array.from(new Uint8Array(await file.arrayBuffer())));
+      },
+    });
+  }, sheet);
+}
+
+const shared = (page: Page) => page.evaluate(() => (window as typeof window & { __shared: number[][] }).__shared);
+
+async function createCopy(page: Page): Promise<void> {
+  const lab = page.locator(".film-lab");
+  await lab.getByRole("button", { name: /^(Create JPEG copy|Створити JPEG-копію)$/ }).click();
+  await expect(lab.locator(".film-lab-check")).not.toBeEmpty();
+}
+
+test("on a phone, the film lab shares the JPEG it made, again on request, and a new copy after a change", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the share sheet is a phone action");
+  await shareSheet(page, "shares");
+  await openFilm(page);
+  const lab = page.locator(".film-lab");
+  const share = lab.getByRole("button", { name: "Share JPEG", exact: true });
+  const save = lab.getByRole("button", { name: "Save JPEG", exact: true });
+  await expect(share).toBeHidden();
+  await createCopy(page);
+  await expect(share).toHaveClass(/btn-primary/);
+  await expect(save).not.toHaveClass(/btn-primary/);
+  await expect(lab.locator(".film-lab-share-fallback")).toBeHidden();
+  await share.click();
+  await share.click();
+  await expect.poll(async () => (await shared(page)).length).toBe(2);
+  const [first, second] = await shared(page);
+  expect(second).toEqual(first);
+  const download = page.waitForEvent("download");
+  await save.click();
+  expect(Array.from(await readFile((await (await download).path())!))).toEqual(first);
+  await lab.getByLabel("Trim left (%)", { exact: true }).fill("10");
+  await expect(share).toBeHidden();
+  await expect(save).toBeHidden();
+  await expect(lab).toHaveAttribute("data-state", "ready");
+  await createCopy(page);
+  await share.click();
+  await expect.poll(async () => (await shared(page)).length).toBe(3);
+  expect((await shared(page))[2]).not.toEqual(first);
+});
+
+test("on a phone, a dismissed share sheet leaves the film copy ready to share or save", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the share sheet is a phone action");
+  await shareSheet(page, "cancels");
+  await openFilm(page);
+  const lab = page.locator(".film-lab");
+  await createCopy(page);
+  const share = lab.getByRole("button", { name: "Share JPEG", exact: true });
+  await share.click();
+  await expect(share).toBeVisible();
+  await expect(share).toHaveClass(/btn-primary/);
+  await expect(lab.locator(".film-lab-share-fallback")).toBeHidden();
+  const download = page.waitForEvent("download");
+  await lab.getByRole("button", { name: "Save JPEG", exact: true }).click();
+  expect((await download).suggestedFilename()).toBe("film-copy.jpg");
+});
+
+test("on a phone, a share sheet that does not open turns the film lab to saving the copy for Files", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the share sheet is a phone action");
+  await shareSheet(page, "fails");
+  await openFilm(page);
+  const lab = page.locator(".film-lab");
+  await createCopy(page);
+  await lab.getByRole("button", { name: "Share JPEG", exact: true }).click();
+  const save = lab.getByRole("button", { name: "Save JPEG", exact: true });
+  await expect(lab.getByRole("button", { name: "Share JPEG", exact: true })).toBeHidden();
+  await expect(save).toHaveClass(/btn-primary/);
+  await expect(save).toBeFocused();
+  await expect(lab.locator(".film-lab-share-fallback")).toHaveText("Sharing did not open. Save the copy, then share it from Files or Downloads.");
+  const download = page.waitForEvent("download");
+  await save.click();
+  expect((await download).suggestedFilename()).toBe("film-copy.jpg");
+});
+
+test("on a phone without file sharing, the film lab says how to share the saved copy, in Ukrainian too", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the fallback is for phones");
+  await shareSheet(page, "missing");
+  await openFilm(page);
+  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  const lab = page.locator(".film-lab");
+  await createCopy(page);
+  await expect(lab.getByRole("button", { name: "Поділитися JPEG", exact: true })).toHaveCount(0);
+  const save = lab.getByRole("button", { name: "Зберегти JPEG", exact: true });
+  await expect(save).toHaveClass(/btn-primary/);
+  await expect(lab.locator(".film-lab-share-fallback")).toContainText("Цей браузер не може передати файл напряму");
+  const download = page.waitForEvent("download");
+  await save.click();
+  expect((await download).suggestedFilename()).toBe("film-copy.jpg");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });
 
 test("recipes validate before applying and film controls work in Ukrainian with accessible labels", async ({ page }) => {

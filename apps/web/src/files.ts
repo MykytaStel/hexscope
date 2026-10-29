@@ -175,6 +175,20 @@ export function canShareData(data: ShareData): boolean {
 }
 
 /**
+ * Hands one file to the share sheet. Call it straight from a tap: browsers
+ * open the sheet only while the tap is fresh. A sheet the person dismissed
+ * is "cancelled" and needs nothing more; "failed" needs another way out.
+ */
+export async function shareFile(file: File): Promise<"shared" | "cancelled" | "failed"> {
+  try {
+    await navigator.share({ files: [file] });
+    return "shared";
+  } catch (error) {
+    return error instanceof DOMException && error.name === "AbortError" ? "cancelled" : "failed";
+  }
+}
+
+/**
  * A phone that can share a file of this name: its copy goes to the share
  * sheet rather than a download, which there is a dialog in the way of
  * sending it on.
