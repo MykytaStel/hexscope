@@ -1,4 +1,4 @@
-import { AlignLeft, Archive, Binary, Ellipsis, Eye, FileText, GitCompare, ListTree, createElement } from "lucide";
+import { AlignLeft, Archive, Binary, Ellipsis, Eye, FileText, FolderOpen, GitCompare, ListTree, createElement } from "lucide";
 import { dismissable } from "./dialogs";
 import { currentLocale, translateText } from "./i18n";
 
@@ -6,6 +6,7 @@ const icons = {
   overview: Eye,
   metadata: FileText,
   content: AlignLeft,
+  files: FolderOpen,
   structure: ListTree,
   bytes: Binary,
   compression: Archive,

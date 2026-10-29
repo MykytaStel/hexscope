@@ -142,6 +142,8 @@ const UK: Record<string, string> = {
   "Details": "Деталі",
   "Hide details": "Згорнути деталі",
   "Files": "Файли",
+  "Files in the archive": "Файли в архіві",
+  "Could not load the list of files.": "Не вдалося завантажити список файлів.",
   "Start": "Початок",
   "See what your file reveals about you": "Дізнайтеся, що файл розкриває про вас",
   "Check metadata, hidden content and file structure right in your browser.": "Перевірте метадані, прихований вміст і структуру файла прямо у браузері.",
@@ -1137,11 +1139,26 @@ function translateText(value: string, locale: Locale): string {
     const format = byteCount[2] === "a C array" ? "масиву C" : translateText(byteCount[2], locale);
     return `Скопійовано ${amount} у форматі ${format}.`;
   }
-  const entryCount = /^(\d+) entries?$/.exec(value);
+  const entryCount = /^(\d+) entr(?:y|ies)$/.exec(value);
   if (entryCount) {
     const count = Number(entryCount[1]);
     return `${count} ${ukrainianCountWord(count, "запис", "записи", "записів")}`;
   }
+  // An archive in the Files view: "3 entries in 1 folder · 1.0 KB packed, 4.0 KB unpacked".
+  const archive = /^(\d[\d,]*) entr(?:y|ies)(?: in (\d[\d,]*) folders?)? · (.+) packed, (.+) unpacked$/.exec(value);
+  if (archive) {
+    const entries = Number(archive[1].replaceAll(",", ""));
+    const folders = Number((archive[2] ?? "0").replaceAll(",", ""));
+    const inFolders = folders ? ` · ${folders.toLocaleString("uk")} ${ukrainianCountWord(folders, "тека", "теки", "тек")}` : "";
+    return `${entries.toLocaleString("uk")} ${ukrainianCountWord(entries, "запис", "записи", "записів")}${inFolders} · стиснуто ${translateText(archive[3], locale)}, розпаковано ${translateText(archive[4], locale)}`;
+  }
+  const found = /^(\d[\d,]*) (?:entry matches|entries match)$/.exec(value);
+  if (found) {
+    const count = Number(found[1].replaceAll(",", ""));
+    return `Знайдено ${count.toLocaleString("uk")} ${ukrainianCountWord(count, "запис", "записи", "записів")}`;
+  }
+  const upTo = /^Up to “(.+)”$/.exec(value);
+  if (upTo) return `Угору до «${upTo[1]}»`;
   const tourCount = /^(\d+) of (\d+)$/.exec(value);
   if (tourCount) return `Крок ${tourCount[1]} із ${tourCount[2]}`;
   let match = /^(Photo|Picture|Drawing|Video|Recording|PDF|Email|File|Archive|Word document|WebAssembly module) · (.+)$/.exec(value);

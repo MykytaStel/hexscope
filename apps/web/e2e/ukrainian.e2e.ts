@@ -70,9 +70,10 @@ async function readViews(page: import("@playwright/test").Page): Promise<string[
   await page.waitForFunction(() => document.documentElement.lang === "uk");
   await page.waitForTimeout(400);
   const seen = new Set<string>();
-  for (const view of ["overview", "metadata", "content", "structure", "bytes"] as const) {
+  for (const view of ["overview", "metadata", "content", "files", "structure", "bytes"] as const) {
     const button = page.locator(`#app-nav [data-app-view='${view}']`);
-    if (!(await button.count()) || (await button.isDisabled())) continue;
+    // Files is there for archives only; on a phone Structure and Bytes wait under More, hidden but there.
+    if (!(await button.count()) || (await button.isDisabled()) || (await button.evaluate((b) => (b as HTMLElement).hidden))) continue;
     await openView(page, view);
     await page.waitForTimeout(250);
     for (const line of await leftovers(page)) seen.add(line);

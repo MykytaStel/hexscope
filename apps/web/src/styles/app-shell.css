@@ -489,3 +489,73 @@ body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveal
 body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups) {
   display: none;
 }
+
+/* An archive's files: the list, and beside it what the chosen entry is —
+   on a phone the list takes the height and the entry opens in the sheet. */
+.pane-files {
+  display: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-files {
+  display: block;
+}
+
+/* The list's own code did not arrive: say so, and offer to fetch it again. */
+.files-load-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.files-load-error p {
+  margin: 0;
+}
+
+body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-tree,
+body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-hex,
+body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-drawer .drawer-file {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .layout {
+    grid-template-columns: clamp(128px, 13vw, 170px) minmax(0, 1fr) clamp(300px, 30vw, 440px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-files {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-drawer {
+    display: flex;
+    flex-direction: column;
+    grid-column: 3;
+    grid-row: 1;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-drawer .drawer-node {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+    overflow: auto;
+    border-top: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-drawer {
+    display: none;
+  }
+}

@@ -425,6 +425,26 @@ export class FileModel {
     return { text: said?.text ?? "", cite: said?.cite ?? "", url: said?.url ?? "", concern: f.docConcerns[d] };
   }
 
+  /** Every entry's name, in archive order, read straight from the entry table. */
+  entryNames(): string[] {
+    const e = this.file.entries;
+    const names = new Array<string>(this.entryCount);
+    for (let i = 0; i < names.length; i++) names[i] = this.file.labels[e[i * ENTRY_STRIDE]];
+    return names;
+  }
+
+  /** Bytes the entries take in the archive and once unpacked, as their records say. */
+  entryTotals(): { packed: number; unpacked: number } {
+    const e = this.file.entries;
+    let packed = 0;
+    let unpacked = 0;
+    for (let at = 0; at + ENTRY_STRIDE <= e.length; at += ENTRY_STRIDE) {
+      packed += e[at + 3];
+      unpacked += e[at + 4];
+    }
+    return { packed, unpacked };
+  }
+
   entry(i: number): ZipEntryInfo {
     const e = this.file.entries.subarray(i * ENTRY_STRIDE, (i + 1) * ENTRY_STRIDE);
     const centralStart = e[7];

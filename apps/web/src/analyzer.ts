@@ -198,7 +198,7 @@ const expertViews = ["structure", "bytes"].map((v) => appNavigation.querySelecto
 const moreViews = appNavigation.querySelector<HTMLElement>(".app-nav-more-actions")!;
 function placeExpertViews(): void {
   if (narrow.matches) moreViews.prepend(...expertViews);
-  else appNavigation.querySelector('[data-app-view="content"]')?.after(...expertViews);
+  else appNavigation.querySelector('[data-app-view="files"]')?.after(...expertViews);
 }
 placeExpertViews();
 narrow.addEventListener("change", placeExpertViews);
@@ -211,14 +211,71 @@ function wideView(): "summary" | "bytes" {
     return "summary";
   }
 }
-function setView(view: "summary" | "bytes"): void {
+function setView(view: "summary" | "bytes" | "files"): void {
   document.body.dataset.view = view;
   for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
     b.setAttribute("aria-pressed", String(b.dataset.view === view));
   }
 }
 
-type WorkspaceView = "overview" | "metadata" | "content" | "structure" | "bytes";
+type WorkspaceView = "overview" | "metadata" | "content" | "files" | "structure" | "bytes";
+
+/** A ZIP that is only an archive: Office documents, books and apps have their own views. */
+const archives = new WeakMap<FileModel, boolean>();
+function isArchive(m: FileModel | null | undefined): m is FileModel {
+  if (!m) return false;
+  // Asked on every navigation update; the answer reads every label of a large archive once.
+  let archive = archives.get(m);
+  if (archive === undefined) archives.set(m, (archive = m.file.format === "zip" && kindOf(m) === "ZIP"));
+  return archive;
+}
+/** The Files view of each archive open now: the one on screen and those it was opened from. */
+const filesViews = new Map<FileModel, import("./archive-explorer").FilesView>();
+let filesModule: Promise<typeof import("./archive-explorer")> | null = null;
+
+/** The Files code, fetched once; a failed fetch is forgotten so the next try fetches again. */
+function loadFilesModule(): Promise<typeof import("./archive-explorer")> {
+  filesModule ??= import("./archive-explorer").catch((error) => {
+    filesModule = null;
+    throw error;
+  });
+  return filesModule;
+}
+
+/** Puts the open archive's files on screen, building its view the first time. */
+async function showFiles(): Promise<void> {
+  const model = workspace.model;
+  if (!isArchive(model)) return;
+  let loaded: typeof import("./archive-explorer");
+  try {
+    loaded = await loadFilesModule();
+  } catch {
+    if (model !== workspace.model || document.body.dataset.appView !== "files") return;
+    const failed = document.createElement("div");
+    failed.className = "files-load-error";
+    const said = document.createElement("p");
+    said.textContent = "Could not load the list of files.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn";
+    retry.textContent = "Try again";
+    retry.addEventListener("click", () => void showFiles());
+    failed.append(said, retry);
+    $("files").replaceChildren(failed);
+    retry.focus();
+    return;
+  }
+  if (model !== workspace.model || document.body.dataset.appView !== "files") return;
+  const { filesView } = loaded;
+  let view = filesViews.get(model);
+  if (!view) {
+    view = filesView(model, { choose: (node) => selectInPlace(node) });
+    filesViews.set(model, view);
+  }
+  const pane = $("files");
+  if (view.element.parentElement !== pane) pane.replaceChildren(view.element);
+  view.show();
+}
 
 const contentTargetSelector = [
   ".reveals .reveal-hero",
@@ -253,6 +310,7 @@ function syncAppNavigation(): void {
     if (button.dataset.appView) {
       const view = button.dataset.appView as WorkspaceView;
       button.disabled = view === "metadata" ? !hasMetadata : view === "content" ? !hasContent : false;
+      if (view === "files") button.hidden = !isArchive(model);
       if (view === current) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     } else if (button.dataset.appAction === "compression") {
@@ -273,8 +331,10 @@ narrow.addEventListener("change", () => {
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
   document.body.dataset.appView = view;
-  setView(view === "structure" || view === "bytes" ? "bytes" : "summary");
+  setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
   syncAppNavigation();
+  if (view === "files") void showFiles();
+  else for (const files of filesViews.values()) files.hide();
 
   if (!scrollToSection) return;
   const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
@@ -943,6 +1003,13 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   setStatusOffset(-1);
   document.body.dataset.state = "ready";
   drawer.nested = levels.length;
+  // An archive's Files view lives as long as the archive is open, here or under the file on screen.
+  const open = new Set([m, ...levels.map((level) => level.model)]);
+  for (const [model, files] of filesViews) {
+    if (open.has(model)) continue;
+    files.dispose();
+    filesViews.delete(model);
+  }
 
   hex.setModel(m);
   tools?.setModel(m);
@@ -1071,7 +1138,7 @@ export async function openSample(btn: HTMLButtonElement): Promise<void> {
 // samples on this page can be opened this way; the name picks a button.
 /** Where a link asked the sample to open: a view, and a part by its name. */
 let linked: { view: WorkspaceView | null; part: string | null } | null = null;
-const LINKABLE_VIEWS: readonly WorkspaceView[] = ["overview", "metadata", "content", "structure", "bytes"];
+const LINKABLE_VIEWS: readonly WorkspaceView[] = ["overview", "metadata", "content", "files", "structure", "bytes"];
 
 /** Opens the linked view and part once the sample is shown; whether a link asked for one. */
 function followLink(model: FileModel): boolean {
@@ -1186,7 +1253,9 @@ window.addEventListener("keydown", (e) => {
   // The bytes are drawn, not text: the browser's own find cannot see them.
   if (document.body.dataset.state === "ready" && (e.key === "/" || ((e.metaKey || e.ctrlKey) && e.key === "f"))) {
     e.preventDefault();
-    search.open();
+    const files = document.body.dataset.appView === "files" && workspace.model ? filesViews.get(workspace.model) : undefined;
+    if (files) files.focusFilter();
+    else search.open();
   }
   if (e.key === "Backspace" && workspace.levels.length > 0) {
     e.preventDefault();

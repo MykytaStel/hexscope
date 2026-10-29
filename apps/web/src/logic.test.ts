@@ -373,6 +373,19 @@ group("an email's way", () => {
   });
 });
 
+group("An archive in the Files view", () => {
+  it("names its entries and sums their sizes in one pass", () => {
+    const m = open("deflate-demo.zip");
+    const entries = Array.from({ length: m.entryCount }, (_, i) => m.entry(i));
+    expect(m.entryNames()).toEqual(entries.map((e) => m.label(e.node)));
+    expect(m.entryTotals()).toEqual({
+      packed: entries.reduce((n, e) => n + e.compressed, 0),
+      unpacked: entries.reduce((n, e) => n + e.uncompressed, 0),
+    });
+    expect(m.entryNames()).toEqual(["rain.txt"]);
+  });
+});
+
 group("Archive Trace ranges", () => {
   it("connects an entry to its actual central record, header, and compressed bytes", () => {
     const m = open("deflate-demo.zip");
