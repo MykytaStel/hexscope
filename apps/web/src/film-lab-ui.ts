@@ -19,7 +19,8 @@ registerLazyTranslations({
   "Trim right (%)": "Обрізати справа (%)", "Trim bottom (%)": "Обрізати знизу (%)", "Use detected frame": "Використати знайдену рамку",
   "Review the suggested crop: image details and edge lettering inside the green rectangle will remain.": "Перевірте запропоноване кадрування: деталі зображення й написи всередині зеленої рамки залишаться.",
   "Original scan": "Оригінальний скан", "Sharing preview": "Перегляд копії для надсилання",
-  "Amber bands mark repeated edge patterns. The green rectangle is the retained crop.": "Помаранчеві смуги позначають повторювані ознаки краю. Зелена рамка показує частину, яка залишиться.",
+  "Original": "Оригінал", "Preview": "Перегляд", "Compare scan and copy": "Порівняти скан і копію",
+  "On the original, amber bands mark repeated edge patterns and the green rectangle shows the retained crop.": "На оригіналі помаранчеві смуги позначають ознаки краю, а зелена рамка показує частину, яка залишиться.",
   "Film base calibration": "Калібрування основи плівки", "Film base red": "Основа плівки: червоний", "Film base green": "Основа плівки: зелений",
   "Film base blue": "Основа плівки: синій", "Pick unexposed film": "Вибрати неекспоновану плівку", "Click a clear film border in the original scan.": "Натисніть чисту ділянку краю плівки на оригінальному скані.",
   "Sample by coordinates": "Вибрати зразок за координатами", "Sample x (%)": "Координата зразка x (%)", "Sample y (%)": "Координата зразка y (%)", "Sample film base": "Взяти зразок основи плівки",
@@ -96,6 +97,28 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   controls.append(cropFields, el("p", "hint", "Review the suggested crop: image details and edge lettering inside the green rectangle will remain."));
 
   const images = el("div", "film-lab-images");
+  images.dataset.show = "preview";
+  const imageChoice = el("div", "film-lab-image-choice");
+  imageChoice.setAttribute("role", "group");
+  imageChoice.setAttribute("aria-label", "Compare scan and copy");
+  const showOriginal = el("button", "film-lab-image-button", "Original");
+  const showPreview = el("button", "film-lab-image-button", "Preview");
+  showOriginal.type = showPreview.type = "button";
+  const selectImage = (which: "original" | "preview") => {
+    images.dataset.show = which;
+    showOriginal.setAttribute("aria-pressed", String(which === "original"));
+    showPreview.setAttribute("aria-pressed", String(which === "preview"));
+  };
+  showOriginal.addEventListener("click", () => selectImage("original"));
+  showPreview.addEventListener("click", () => {
+    if (sampling) {
+      stopSampling();
+      message.textContent = view.dataset.state === "ready" ? "Preview ready" : "Updating preview…";
+    }
+    selectImage("preview");
+  });
+  selectImage("preview");
+  imageChoice.append(showOriginal, showPreview);
   const original = el("img", "film-lab-source"); original.alt = "Original scan";
   const preview = el("img", "film-lab-preview"); preview.alt = "Sharing preview";
   const stage = el("div", "film-lab-original");
@@ -108,7 +131,7 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
     const figure = el("figure"); figure.append(content, el("figcaption", undefined, caption)); images.append(figure);
   }
   const size = el("output", "mono film-lab-size");
-  view.append(images, size, el("p", "hint", "Amber bands mark repeated edge patterns. The green rectangle is the retained crop."));
+  view.append(imageChoice, images, size, el("p", "hint", "On the original, amber bands mark repeated edge patterns and the green rectangle shows the retained crop."));
 
   const calibration = el("fieldset", "film-lab-base");
   calibration.append(el("legend", undefined, "Film base calibration"));
@@ -124,7 +147,14 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   const pick = el("button", "btn", "Pick unexposed film"); pick.type = "button"; pick.setAttribute("aria-pressed", "false");
   pick.addEventListener("click", () => {
     sampling = !sampling; pick.setAttribute("aria-pressed", String(sampling)); stage.classList.toggle("is-sampling", sampling);
-    if (sampling) message.textContent = "Click a clear film border in the original scan.";
+    if (sampling) {
+      message.textContent = "Click a clear film border in the original scan.";
+      if (matchMedia("(max-width: 600px)").matches) {
+        selectImage("original");
+        stage.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+        announce(tr("Click a clear film border in the original scan."));
+      }
+    }
   });
   original.addEventListener("click", (event) => {
     if (!sampling || exporting) return;
