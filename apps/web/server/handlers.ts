@@ -6,7 +6,7 @@
 // \`pnpm stats\` (scripts/stats.mjs) and \`pnpm feedback\` (scripts/feedback.mjs).
 
 import { answer, PERIODS, type Period, type Row } from "./count";
-import { check, DAILY, type Feedback } from "./feedback";
+import { check, checkHeaders, DAILY, MAX_BODY_BYTES, type Feedback } from "./feedback";
 
 export interface D1Statement {
   bind(...values: unknown[]): D1Statement;
@@ -80,21 +80,50 @@ const FEEDBACK_TABLE = `CREATE TABLE IF NOT EXISTS feedback (
   device TEXT NOT NULL DEFAULT '',
   done INTEGER NOT NULL DEFAULT 0
 )`;
-const KEEP = "INSERT INTO feedback (day, kind, message, contact, report, page, lang, version, device) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+// The limit and insert must share one SQLite statement: concurrent requests
+// must not all observe the same remaining slot.
+const KEEP = "INSERT INTO feedback (day, kind, message, contact, report, page, lang, version, device) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE (SELECT COUNT(*) FROM feedback WHERE day = ?1) < ?10";
 
 /** POST /api/feedback — keeps a message someone chose to send; says only whether it was kept. */
 export async function feedback({ request, env }: Context, now = new Date()): Promise<Response> {
   if (request.method !== "POST") return new Response("POST only", { status: 405, headers: { Allow: "POST" } });
+  // Reject invalid origins and media types before consuming an untrusted body.
+  const headers = { fetchSite: request.headers.get("Sec-Fetch-Site"), contentType: request.headers.get("Content-Type") };
+  const invalid = checkHeaders(headers.fetchSite, headers.contentType);
+  if (invalid) return new Response(invalid.reason, { status: invalid.status });
+  const declared = request.headers.get("Content-Length");
+  if (declared && /^\d+$/.test(declared) && Number(declared) > MAX_BODY_BYTES) return new Response("too large", { status: 413 });
+  const reader = request.body?.getReader();
+  const decoder = new TextDecoder();
+  let raw = "";
+  let length = 0;
+  if (reader) {
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > MAX_BODY_BYTES) {
+          void reader.cancel().catch(() => {});
+          return new Response("too large", { status: 413 });
+        }
+        raw += decoder.decode(value, { stream: true });
+      }
+      raw += decoder.decode();
+    } catch {
+      return new Response("invalid body", { status: 400 });
+    } finally {
+      reader.releaseLock();
+    }
+  }
   let body: unknown = null;
-  const raw = await request.text();
   try {
     body = JSON.parse(raw);
   } catch {
     // Checked below as nothing said.
   }
   const checked = check({
-    fetchSite: request.headers.get("Sec-Fetch-Site"),
-    contentType: request.headers.get("Content-Type"),
+    ...headers,
     length: raw.length,
     body,
   });
@@ -110,8 +139,6 @@ export async function feedback({ request, env }: Context, now = new Date()): Pro
 
 async function keep(db: D1Database, f: Feedback, day: string): Promise<boolean> {
   await db.prepare(FEEDBACK_TABLE).run();
-  const today = await db.prepare("SELECT COUNT(*) AS n FROM feedback WHERE day = ?1").bind(day).first<{ n: number }>();
-  if ((today?.n ?? 0) >= DAILY) return false;
-  await db.prepare(KEEP).bind(day, f.kind, f.message, f.contact, f.report, f.page, f.lang, f.version, f.device).run();
-  return true;
+  const result = await db.prepare(KEEP).bind(day, f.kind, f.message, f.contact, f.report, f.page, f.lang, f.version, f.device, DAILY).run();
+  return (result as { meta?: { changes?: number } }).meta?.changes === 1;
 }
