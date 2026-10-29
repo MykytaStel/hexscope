@@ -82,7 +82,7 @@ test("an iPhone photo's HDR gain map is not called hidden, and its clean copy is
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("8");
-  await expect(after.locator(".ba-what")).toHaveText("removed — nothing is left in the copy");
+  await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   await expect(after).toHaveClass(/is-clear/);
   await expect(page.locator(".clean-removed")).toContainText("A second picture for HDR screens or depth");
 });

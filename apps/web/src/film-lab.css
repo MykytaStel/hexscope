@@ -22,6 +22,9 @@
 .film-lab p { margin: 0; line-height: 1.55; }
 .film-lab .hint { font-size: var(--type-small); }
 
+.film-lab-shortcuts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.film-lab-shortcuts button { min-height: var(--control-height); text-align: left; }
+
 .film-lab-controls {
   display: grid;
   gap: var(--space-3);

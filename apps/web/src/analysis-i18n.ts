@@ -366,6 +366,7 @@ registerLazyTranslations({
   "Open the copy": "Відкрити копію",
   "Tap any byte or tree row to see what it is.": "Торкніться будь-якого байта чи рядка дерева, щоб побачити, що це.",
   "Hover any byte or tree row to see what it is. Click to pin it here.": "Наведіть на будь-який байт чи рядок дерева, щоб побачити, що це. Клацніть, щоб закріпити тут.",
+  "Select a file to see its details and actions.": "Виберіть файл, щоб побачити його деталі та доступні дії.",
   "These bytes break a rule of the format.": "Ці байти порушують правило формату.",
   "— no bytes to point at": "— немає байтів, на які можна вказати",
   "The specification that defines this, in a new tab": "Специфікація, яка це визначає, у новій вкладці",

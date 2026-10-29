@@ -20,7 +20,22 @@ export async function placeFilmScanCard(target: ParentNode, model: FileModel): P
   // Only a picture with clues of film says so — "no clues" under every photo
   // is noise; the film lab stays at hand among the details.
   if (file.filmScan.availability === "inspected" && file.filmScan.evidenceStrength !== "none") {
-    reveals.after(filmScanCard(file.filmScan, model));
+    const card = filmScanCard(file.filmScan, model);
+    reveals.after(card);
+    const entry = card.querySelector<HTMLDetailsElement>(".film-lab-entry");
+    const verdict = target.querySelector<HTMLElement>(".verdict");
+    if (entry && verdict && !verdict.querySelector(".film-lab-shortcut")) {
+      const shortcut = document.createElement("button");
+      shortcut.type = "button";
+      shortcut.className = "link film-lab-shortcut";
+      shortcut.textContent = "Open Film Lab";
+      shortcut.addEventListener("click", () => {
+        entry.open = true;
+        entry.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+        entry.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      });
+      (verdict.querySelector(".verdict-actions") ?? verdict).append(shortcut);
+    }
     return;
   }
   const entry = filmLabEntry(file.filmScan, model);

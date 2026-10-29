@@ -802,6 +802,10 @@ export class Drawer {
     this.node.replaceChildren();
     if (!m) return;
     if (id < 0) {
+      if (document.body.dataset.appView === "files") {
+        this.node.append(el("p", "hint", "Select a file to see its details and actions."));
+        return;
+      }
       this.node.append(
         el(
           "p",
@@ -813,6 +817,11 @@ export class Drawer {
       );
       return;
     }
+
+    // In Files the selected entry and its actions come before byte-level details.
+    const entry = m.entryOf(id);
+    const filesView = document.body.dataset.appView === "files";
+    if (filesView && entry >= 0) this.node.append(this.entry(m, entry));
 
     const crumbs = el("nav", "crumbs");
     this.node.append(el("p", "node-label", "Selected part"));
@@ -864,8 +873,7 @@ export class Drawer {
     const here = !m.missing || m.missing.wanted(start, start + len).length === 0;
     if (len > 0 && len <= MAX_COPIED && here) this.node.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
 
-    const entry = m.entryOf(id);
-    if (entry >= 0) this.node.append(this.entry(m, entry));
+    if (!filesView && entry >= 0) this.node.append(this.entry(m, entry));
   }
 
   /** The ZIP entry a node sits in: what it holds, and a way to watch it unpack. */

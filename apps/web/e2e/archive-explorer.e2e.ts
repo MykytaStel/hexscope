@@ -71,13 +71,17 @@ test("an archive opens its files, filters, shows an entry and comes back where i
   await start(page);
   await openZip(page, BUNDLE);
   await showFiles(page);
+  if (!phone) await expect(page.locator(".pane-drawer .drawer-node")).toContainText("Select a file to see its details and actions.");
   await expect(pane(page).locator(".archive-summary")).toContainText("9 entries in 7 folders");
   await expect(rows(page).locator(".archive-name")).toHaveText(["..", "/", "docs", "photos", "Structure", "odd.bin", "readme.txt", "secret.txt"]);
   await pane(page).getByLabel("Filter by name").fill("todo");
   await expect(pane(page).locator(".archive-status")).toHaveText("1 entry matches");
   await row(page, "docs/notes/todo.txt").click();
+  if (phone) await expect(page.locator("dialog.inspector-sheet[open]")).toHaveAttribute("data-expanded", "true");
   const where = await details(page, phone);
   await expect(where.locator(".group.entry")).toContainText("docs/notes/todo.txt");
+  const entryOpen = where.locator(".archive-trace .entry-actions").getByRole("button", { name: "Open", exact: true });
+  await expect(entryOpen).toBeInViewport();
   await where.getByRole("button", { name: "Show compressed data bytes" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   if (phone) await page.keyboard.press("Escape");
@@ -239,6 +243,9 @@ test("on a phone the list fits and keeps its place under the sheet", async ({ pa
   // A row in view: the window draws a few above the edge, and clicking one of those would scroll.
   await pane(page).locator("[role=option][aria-posinset='26']").click();
   await expect(page.locator("dialog.inspector-sheet[open]")).toBeVisible();
+  await page.locator("dialog.inspector-sheet[open] .dialog-x").click();
+  await expect(page.locator("dialog.inspector-sheet[open]")).toHaveCount(0);
+  await pane(page).locator("[role=option][aria-posinset='26']").click();
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog.inspector-sheet[open]")).toHaveCount(0);
   expect(await list.evaluate((box) => box.scrollTop)).toBe(1000);

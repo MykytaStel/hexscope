@@ -19,7 +19,7 @@ test("a workbook says the folder it was saved in, and its clean copy is confirme
   await expect(facts).toContainText("C:\\Users\\olena.koval\\Documents\\Salaries 2026\\");
   await expect(facts).toContainText("Canon iR-ADV C5535 Accounting");
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".ba-side.is-after .ba-what")).toHaveText("removed — nothing is left in the copy");
+  await expect(page.locator(".ba-side.is-after .ba-what")).toHaveText("confirmed removed from the copy");
   await page.locator(".clean-removed > summary").click();
   await expect(page.locator(".clean-list")).toContainText("the folder it was last saved in");
   await expect(page.locator(".clean-list")).toContainText("the printer's name");

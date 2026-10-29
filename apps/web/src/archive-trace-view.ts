@@ -84,7 +84,10 @@ export function archiveTraceView(m: FileModel, i: number, actions: ArchiveTraceA
     if (!trace.dataComplete) compressed.append(el("p", "hint", "Only part of the declared compressed data is present."));
   }
   steps.append(compressed);
-  steps.append(outputStep(entry, i, actions));
+  const output = outputStep(entry, i, actions);
+  const outputActions = output.querySelector<HTMLElement>(".entry-actions");
+  if (outputActions) group.prepend(outputActions);
+  steps.append(output);
 
   group.append(steps);
   return group;
