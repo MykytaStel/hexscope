@@ -116,9 +116,56 @@ async function measure(browser, profile, path) {
     return { ms, rows, scrollEndMs: Math.round(performance.now() - t), rowsAtEnd: document.querySelectorAll(".tree .row").length, scrollHeight: host.scrollHeight, longTaskMs: Math.round(m.longTaskMs) };
   });
 
-  // Finding the last entry by name: the page's search reads the bytes.
-  const entries = Number(/archive-(\d+)k/.exec(basename(path))?.[1] ?? 0) * 1000;
+  const entries = Number(/(\d+)k\.zip$/.exec(basename(path))?.[1] ?? 0) * 1000;
   const last = `file-${String(entries - 1).padStart(6, "0")}.txt`;
+
+  // The Files view: its first rows, a filter keystroke, the end of the list on screen,
+  // the heap it adds and the entry bytes it reads (none, until an entry is opened).
+  let files = null;
+  if (await nav.locator("[data-app-view='files']").isVisible()) {
+    const before = await slices();
+    await cdp.send("HeapProfiler.collectGarbage");
+    const heapBefore = await heap();
+    await page.evaluate(() => { window.__baseline.longTaskMs = 0; window.__baseline.t = performance.now(); });
+    await nav.locator("[data-app-view='files']").click();
+    await page.locator(".pane-files [role=option]").first().waitFor();
+    files = await page.evaluate(async (query) => {
+      const frames = () => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      await frames();
+      const firstRowsMs = Math.round(performance.now() - window.__baseline.t);
+      const elements = document.querySelectorAll(".pane-files *").length;
+      const field = document.querySelector(".pane-files input[type=search]");
+      field.value = query;
+      let t = performance.now();
+      field.dispatchEvent(new Event("input"));
+      await frames();
+      const filterMs = Math.round(performance.now() - t);
+      const found = document.querySelector(".archive-status")?.textContent ?? "";
+      field.value = "";
+      field.dispatchEvent(new Event("input"));
+      await frames();
+      const list = document.querySelector(".archive-list");
+      t = performance.now();
+      list.scrollTop = list.scrollHeight;
+      await frames();
+      return {
+        firstRowsMs,
+        elements,
+        filterMs,
+        found,
+        rows: Number(list.querySelector("[role=option]")?.getAttribute("aria-setsize") ?? 0),
+        scrollEndMs: Math.round(performance.now() - t),
+        elementsAtEnd: document.querySelectorAll(".pane-files *").length,
+        longTaskMs: Math.round(window.__baseline.longTaskMs),
+      };
+    }, last);
+    await cdp.send("HeapProfiler.collectGarbage");
+    files.heapAdded = (await heap()) - heapBefore;
+    files.workerSlices = (await slices()) - before;
+    files.pageElements = await page.evaluate(() => document.getElementsByTagName("*").length);
+  }
+
+  // Finding the last entry by name: the page's search reads the bytes.
   const before = await slices();
   await page.evaluate(() => { window.__baseline.requests = {}; window.__baseline.longTaskMs = 0; });
   await page.keyboard.press("/");
@@ -147,7 +194,7 @@ async function measure(browser, profile, path) {
   search.workerSlices = (await slices()) - before;
 
   await context.close();
-  return { profile: profile.name, archive: basename(path), entries, open, structure, search };
+  return { profile: profile.name, archive: basename(path), entries, open, structure, files, search };
 }
 
 const browser = await chromium.launch();
@@ -162,6 +209,13 @@ for (const profile of PROFILES) {
         `${r.open.domNodes} DOM nodes · structure ${r.structure.ms} ms, ${r.structure.rows} rows (${r.structure.rowsAtEnd} at end, ${r.structure.scrollEndMs} ms) · ` +
         `search ${r.search.syncMs} ms sync, ${r.search.toFrameMs} ms to frame, "${r.search.count}" · requests ${JSON.stringify(r.open.requests)} / ${JSON.stringify(r.search.requests)} · slices ${r.open.workerSlices}/${r.search.workerSlices}`,
     );
+    const f = r.files;
+    if (f) {
+      console.log(
+        `${"".padEnd(27)} files: first rows ${f.firstRowsMs} ms, ${f.elements} elements (${f.elementsAtEnd} at end, page ${f.pageElements}) · filter ${f.filterMs} ms "${f.found}" · ` +
+          `end of ${f.rows} rows ${f.scrollEndMs} ms · heap +${mb(f.heapAdded)} MB · long ${f.longTaskMs} ms · slices ${f.workerSlices}`,
+      );
+    }
   }
 }
 await browser.close();

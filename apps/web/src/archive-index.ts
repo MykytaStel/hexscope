@@ -22,7 +22,7 @@ export interface ArchiveIndex {
 
 /** A path a careless unpacker would write outside its folder: a ".." segment, a leading "/" or "\", a drive letter, a backslash. */
 export function leavesFolder(path: string): boolean {
-  return path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:/.test(path) || path.split("/").includes("..");
+  return path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:|(^|\/)\.\.(\/|$)/.test(path);
 }
 
 interface Folder {
@@ -37,6 +37,8 @@ const parentOf = (folder: string): string => folder.slice(0, folder.slice(0, -1)
 const nameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 const byName = (a: ArchiveRow, b: ArchiveRow) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : (a.kind === "entry" ? a.index : 0) - (b.kind === "entry" ? b.index : 0);
+/** Rows in name order; archivers mostly write them so, and checking costs less than sorting. */
+const inOrder = (rows: ArchiveRow[]): ArchiveRow[] => (rows.every((r, i) => i === 0 || byName(rows[i - 1], r) <= 0) ? rows : rows.sort(byName));
 
 export function archiveIndex(names: readonly string[]): ArchiveIndex {
   const folders = new Map<string, Folder>([["", { folders: new Set(), entries: [], total: 0 }]]);
@@ -59,9 +61,13 @@ export function archiveIndex(names: readonly string[]): ArchiveIndex {
     const at = name.slice(0, name.lastIndexOf("/") + 1);
     folderAt(at).entries.push(i);
     entries++;
-    for (let p = at; p; p = parentOf(p)) folders.get(p)!.total++;
-    folders.get("")!.total++;
   });
+  // Each folder's count, deepest first: a folder holds its own entries and its folders' counts.
+  for (const path of [...folders.keys()].sort((a, b) => b.length - a.length)) {
+    const folder = folders.get(path)!;
+    folder.total += folder.entries.length;
+    if (path) folders.get(parentOf(path))!.total += folder.total;
+  }
 
   const entryRow = (i: number): ArchiveRow => ({ kind: "entry", index: i, name: nameOf(names[i]), path: names[i], leaves: leavesFolder(names[i]) });
   let lower: string[] | null = null;
@@ -72,15 +78,19 @@ export function archiveIndex(names: readonly string[]): ArchiveIndex {
       const folder = folders.get(path);
       if (!folder) return [];
       folder.rows ??= [
-        ...[...folder.folders].map((p): ArchiveRow => ({ kind: "folder", path: p, name: nameOf(p.slice(0, -1)) || "/", entries: folders.get(p)!.total })).sort(byName),
-        ...folder.entries.map(entryRow).sort(byName),
+        ...inOrder([...folder.folders].map((p): ArchiveRow => ({ kind: "folder", path: p, name: nameOf(p.slice(0, -1)) || "/", entries: folders.get(p)!.total }))),
+        ...inOrder(folder.entries.map(entryRow)),
       ];
       return folder.rows;
     },
     filter(query) {
       const q = query.toLowerCase();
       if (!q) return [];
-      lower ??= names.map((n) => n.toLowerCase());
+      // A name already in lower case is kept, not copied: most are, and a copy of each costs megabytes.
+      lower ??= names.map((n) => {
+        const l = n.toLowerCase();
+        return l === n ? n : l;
+      });
       const out: ArchiveRow[] = [];
       lower.forEach((n, i) => {
         if (!names[i].endsWith("/") && n.includes(q)) out.push(entryRow(i));

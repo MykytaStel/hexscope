@@ -207,6 +207,13 @@ test("the list works by keyboard and passes axe in both themes", async ({ page }
   await expect(pane(page).locator(".archive-row.is-active .archive-name")).toHaveText("docs");
   await page.keyboard.press("/");
   await expect(pane(page).getByLabel("Filter by name")).toBeFocused();
+  // Up turns off at the top; the keyboard lands on the list, not on nothing.
+  await row(page, "docs").click();
+  const up = pane(page).locator(".archive-up");
+  await up.focus();
+  await page.keyboard.press("Enter");
+  await expect(up).toBeDisabled();
+  await expect(pane(page).locator(".archive-list")).toBeFocused();
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     const result = await new AxeBuilder({ page }).include(".pane-files").analyze();
@@ -235,4 +242,21 @@ test("on a phone the list fits and keeps its place under the sheet", async ({ pa
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog.inspector-sheet[open]")).toHaveCount(0);
   expect(await list.evaluate((box) => box.scrollTop)).toBe(1000);
+});
+
+test.describe("Files chunk retry", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("a list that could not load says so and loads on a second try", async ({ page }) => {
+    // Vite preloads the chunk and then imports it: both requests fail until the network is back.
+    let offline = true;
+    await page.route("**/archive-explorer-*.js", (route) => (offline ? route.abort() : route.continue()));
+    await start(page);
+    await openZip(page, BUNDLE);
+    await openView(page, "files");
+    await expect(pane(page)).toContainText("Could not load the list of files.");
+    offline = false;
+    await pane(page).getByRole("button", { name: "Try again" }).click();
+    await expect(rows(page).first()).toBeVisible();
+  });
 });

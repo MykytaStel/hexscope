@@ -221,17 +221,52 @@ function setView(view: "summary" | "bytes" | "files"): void {
 type WorkspaceView = "overview" | "metadata" | "content" | "files" | "structure" | "bytes";
 
 /** A ZIP that is only an archive: Office documents, books and apps have their own views. */
-const isArchive = (m: FileModel | null | undefined): m is FileModel => !!m && m.file.format === "zip" && kindOf(m) === "ZIP";
+const archives = new WeakMap<FileModel, boolean>();
+function isArchive(m: FileModel | null | undefined): m is FileModel {
+  if (!m) return false;
+  // Asked on every navigation update; the answer reads every label of a large archive once.
+  let archive = archives.get(m);
+  if (archive === undefined) archives.set(m, (archive = m.file.format === "zip" && kindOf(m) === "ZIP"));
+  return archive;
+}
 /** The Files view of each archive open now: the one on screen and those it was opened from. */
 const filesViews = new Map<FileModel, import("./archive-explorer").FilesView>();
 let filesModule: Promise<typeof import("./archive-explorer")> | null = null;
+
+/** The Files code, fetched once; a failed fetch is forgotten so the next try fetches again. */
+function loadFilesModule(): Promise<typeof import("./archive-explorer")> {
+  filesModule ??= import("./archive-explorer").catch((error) => {
+    filesModule = null;
+    throw error;
+  });
+  return filesModule;
+}
 
 /** Puts the open archive's files on screen, building its view the first time. */
 async function showFiles(): Promise<void> {
   const model = workspace.model;
   if (!isArchive(model)) return;
-  const { filesView } = await (filesModule ??= import("./archive-explorer"));
+  let loaded: typeof import("./archive-explorer");
+  try {
+    loaded = await loadFilesModule();
+  } catch {
+    if (model !== workspace.model || document.body.dataset.appView !== "files") return;
+    const failed = document.createElement("div");
+    failed.className = "files-load-error";
+    const said = document.createElement("p");
+    said.textContent = "Could not load the list of files.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn";
+    retry.textContent = "Try again";
+    retry.addEventListener("click", () => void showFiles());
+    failed.append(said, retry);
+    $("files").replaceChildren(failed);
+    retry.focus();
+    return;
+  }
   if (model !== workspace.model || document.body.dataset.appView !== "files") return;
+  const { filesView } = loaded;
   let view = filesViews.get(model);
   if (!view) {
     view = filesView(model, { choose: (node) => selectInPlace(node) });

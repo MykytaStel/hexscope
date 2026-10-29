@@ -503,6 +503,18 @@ body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-files {
   display: block;
 }
 
+/* The list's own code did not arrive: say so, and offer to fetch it again. */
+.files-load-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.files-load-error p {
+  margin: 0;
+}
+
 body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-tree,
 body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-hex,
 body[data-state="ready"][data-view="files"]:not(.is-playing) .pane-drawer .drawer-file {

@@ -151,6 +151,8 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     // Back in the folder above, on the folder just left.
     const active = Math.max(0, index.list(folder).findIndex((r) => r.kind === "folder" && r.path === from));
     render({ scrollTop: Math.max(0, active - 3) * (list?.rowHeight ?? 36), active });
+    // Up turns off at the top: the keyboard goes on to the list instead of nowhere.
+    if (up.disabled && document.activeElement === up) list?.focus();
   };
 
   /** Where the folder's list stood when a filter replaced it, to stand there again after. */
@@ -180,16 +182,8 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     element,
     show() {
       if (!index) {
-        const names: string[] = [];
-        let packed = 0;
-        let unpacked = 0;
-        for (let i = 0; i < m.entryCount; i++) {
-          const e = m.entry(i);
-          names.push(m.label(e.node));
-          packed += e.compressed;
-          unpacked += e.uncompressed;
-        }
-        index = archiveIndex(names);
+        index = archiveIndex(m.entryNames());
+        const { packed, unpacked } = m.entryTotals();
         summary.textContent = summaryLine(index.entries, index.folders, packed, unpacked);
         truncated.hidden = !m.problems.some((id) => m.label(id).startsWith("stopped after"));
         list = new ArchiveList(host, { label: "Files in the archive", draw, choose, up: goUp });
