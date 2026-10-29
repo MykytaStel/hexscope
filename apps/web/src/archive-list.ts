@@ -38,6 +38,9 @@ export class ArchiveList {
   private top = 0;
   private frame = 0;
 
+  private readonly resize = new ResizeObserver(() => this.schedule());
+  private readonly relayout = () => this.layout();
+
   constructor(host: HTMLElement, private readonly hooks: ArchiveListHooks) {
     this.box = document.createElement("div");
     this.box.className = "archive-list";
@@ -53,8 +56,8 @@ export class ArchiveList {
       this.top = this.box.scrollTop;
       this.schedule();
     }, { passive: true });
-    new ResizeObserver(() => this.schedule()).observe(this.box);
-    this.coarse.addEventListener("change", () => this.layout());
+    this.resize.observe(this.box);
+    this.coarse.addEventListener("change", this.relayout);
     this.box.addEventListener("click", (e) => {
       const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-row]");
       if (!el) return;
@@ -92,13 +95,21 @@ export class ArchiveList {
     this.box.focus();
   }
 
+  /** Lets go of the page: a media query keeps whatever listens to it. */
+  dispose(): void {
+    this.coarse.removeEventListener("change", this.relayout);
+    this.resize.disconnect();
+    if (this.frame) cancelAnimationFrame(this.frame);
+    this.box.remove();
+  }
+
   /** The entry shown in the details, marked as the list's selection. */
   markChosen(index: number | null): void {
     this.chosen = index;
     this.draw();
   }
 
-  private get rowHeight(): number {
+  get rowHeight(): number {
     return this.coarse.matches ? 44 : 36;
   }
 

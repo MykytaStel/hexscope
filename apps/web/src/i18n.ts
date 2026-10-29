@@ -78,7 +78,7 @@ export function currentLocale(): Locale {
 
 function localizeText(node: Text): void {
   const parent = node.parentElement;
-  if (!parent || parent.closest("script, style, textarea, [data-language-control]")) return;
+  if (!parent || parent.closest("script, style, textarea, [data-language-control], [translate=no]")) return;
   let state = sourceText.get(node);
   // Text never translated may be Ukrainian a dictionary loaded since can turn back.
   if (!state || node.data !== state.rendered || state.source === state.rendered) {
@@ -92,7 +92,7 @@ function localizeText(node: Text): void {
 }
 
 function localizeAttribute(element: Element, name: string): void {
-  if (element.closest("[data-language-control]")) return;
+  if (element.closest("[data-language-control], [translate=no]")) return;
   let values = sourceAttributes.get(element);
   if (!values) sourceAttributes.set(element, (values = new Map()));
   let state = values.get(name);
