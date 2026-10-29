@@ -154,6 +154,8 @@ describe("BatchController", () => {
     expect(controller.items?.[0].note).toBe("could not read it");
     expect(view.snapshots.at(-1)).toEqual(["failed", "done"]);
     expect(announce).toHaveBeenCalledOnce();
+    expect(announce.mock.calls[0][0]).toContain("Some files could not be fully checked.");
+    expect(announce.mock.calls[0][0]).not.toContain("No personal metadata found");
   });
 
   it("does not redraw or announce a list cleared during analysis", async () => {

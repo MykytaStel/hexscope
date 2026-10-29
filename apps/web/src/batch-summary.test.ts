@@ -38,7 +38,8 @@ describe("batch summary", () => {
       settled: 2,
       busy: true,
       revealing: 1,
-      damaged: 1,
+      damaged: 0,
+      incomplete: 1,
       hidden: 1,
       flagged: 2,
       dangerous: true,
@@ -47,6 +48,14 @@ describe("batch summary", () => {
       anyPick: true,
     });
     expect(result.shown.map(({ index }) => index)).toEqual([1, 2]);
+  });
+
+  it("includes unknown and partially inspected files in the attention filter", () => {
+    const unknown = item("unknown.bin", "done", { lines: [{ kind: "unknown", text: "Not read", node: 0 }] });
+    const partial = item("partial.mp3", "done", { lines: [{ kind: "warning", text: "Partial inspection", node: 0 }] });
+    const result = summarizeBatch([unknown, partial, item("ok.jpg", "done")], "problems");
+    expect(result).toMatchObject({ incomplete: 2, damaged: 0, problemCount: 2, flagged: 2 });
+    expect(result.shown.map(({ index }) => index)).toEqual([0, 1]);
   });
 
   it("counts only unskipped cleanable files as chosen", () => {

@@ -1,5 +1,6 @@
 import type { BatchItem } from "./batch";
 import type { CleanCopiesView } from "./batchclean";
+import { currentLocale, translateText } from "./i18n";
 
 export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal">;
 
@@ -153,9 +154,11 @@ export class BatchController {
     if (!this.paused && this.announced !== generation && items.every((item) => item.state === "done" || item.state === "failed")) {
       this.announced = generation;
       const revealing = items.filter((item) => item.reveals.length > 0).length;
-      this.hooks.announce(
-        `${items.length} files read. ${revealing === 0 ? "No personal metadata found by the available checks." : `${revealing} reveal something about you.`}`,
-      );
+      const incomplete = items.some((item) => item.state === "failed" || item.lines.some((line) => line.kind === "unknown" || line.kind === "warning"));
+      const tr = (text: string) => translateText(text, currentLocale());
+      const details = revealing ? tr(`${revealing} ${revealing === 1 ? "reveals" : "reveal"} something about you.`)
+        : incomplete ? "" : tr("No personal metadata found by the available checks.");
+      this.hooks.announce([tr("Batch reading finished."), incomplete ? tr("Some files could not be fully checked.") : "", details].filter(Boolean).join(" "));
     }
   }
 }

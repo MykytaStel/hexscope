@@ -11,6 +11,42 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.9.0] — 2026-10-29
+
+### Added
+
+- **Browse the files in an archive.** A ZIP gets a Files view: its folders, a filter by name, each entry's size and, beside the list (in a sheet on phones), its method, sizes and Archive Trace with Open and Watch it decompress. Entries are flagged when they are encrypted, compressed in a way hexscope does not unpack, shorter or longer than the directory says, or named to unpack outside their folder (`../`, `/`, `C:\`). Names are shown exactly as the archive writes them, and nothing is unpacked until you ask. A large archive costs the page a few dozen rows, not one per entry.
+- **Share the film lab's JPEG straight from a phone.** Once the copy is made and read back, Share JPEG opens the phone's share sheet with that exact file; Save JPEG stays beside it. A dismissed sheet keeps the copy ready, and where a browser cannot share files, or the sheet does not open, the page says to save the copy and share it from Files or Downloads.
+- **Pause and resume multi-file reading** on the batch screen; an interrupted file returns to the queue, while finished results stay available.
+
+### Changed
+
+- **Compare and adjust film scans more easily on a phone.** Switch between the full-width original and sharing preview, use a compact crop layout, and find the copy actions together. Picking a film base brings the original back into view; switching previews keeps the adjustments.
+- **Understand and act on an archive entry sooner.** Files now explains how to choose an entry, opens its details on phones, and puts Open and decompression actions before the byte trace.
+- **Open Film Lab from the overview** when a picture has film-scan clues, without hunting through the rest of the file details.
+- **Clean-copy summaries name what was confirmed removed** without implying that everything in the file was checked. The phone overview brings the visual evidence closer to the answer.
+- **The DEFLATE player loads when playback is opened.** It remains available offline through the app's existing cache. Closing while it loads cancels playback; if the player download fails, the file stays open and playback can be retried.
+- **The file analyzer loads when someone chooses a file.** Browsing the landing page no longer parses the analyzer on an idle timer. Opening a file picker starts loading it, while sample links and files shared to the app still open directly. The full offline cache remains unchanged; this reduces analyzer work before file intent, not total first-visit transfer.
+- **PDF and report tools are imported on demand.** Opening a non-PDF does not parse or run the PDF redaction UI, and report/export modules are imported only after the person asks for them. The offline service worker still caches the full app on the first visit so these tools remain available without a connection.
+- **Very large movie files use less memory while being inspected or cleaned**, with media bytes kept out of the initial read and clean copies preserved byte for byte.
+- On phones, hold a byte briefly to read its details without pinning a selection. A short tap still selects the byte, and moving the finger cancels the peek so scrolling remains natural.
+- **SVG privacy checks now cover more embedded photos:** WebP, TIFF, HEIF and AVIF metadata is reported and removed in clean copies, alongside JPEG and PNG.
+- **PDFs with repeated page and image references require less redundant work** while preserving reading order and incomplete-document warnings.
+- **Expired files shared to the installed app are cleaned up after a normal visit**, even when no new share or app update occurs.
+
+### Fixed
+
+- **Batch results keep partially inspected and unreadable files visible.** The attention filter includes unsupported and incomplete files, and the summary and spoken update say when checks could not finish instead of suggesting every file was read.
+- **Office files with conflicting ZIP entry headers no longer produce a misleading clean copy.** Hexscope refuses to rewrite an entry when its local and central records disagree on the name, flags or compression method.
+- **Feedback requests are bounded while they arrive.** Oversized bodies are stopped before they can be fully buffered, and simultaneous submissions cannot bypass the daily message limit.
+- **Archives with deeply nested paths can open their Files view** without overflowing the browser's call stack while building the folder list.
+- **The "What it's made of" bar shows the whole of a large file.** An archive with thousands of entries drew one piece per header and per entry, so the bar showed only the start of the file and the page held two elements per entry. Past 400 pieces, the bar is now drawn at a lower resolution: about 200 equal stretches, each with its colours in proportion, so every byte still counts. Opening an archive of 100,000 entries leaves about 200,000 fewer elements on the page.
+- **Byte Tools no longer redraws its entropy strip** when the byte canvas repaints without moving the visible range.
+- **Cancelling a large-file read restores the open workspace:** the previous filename and view remain in place, and assistive technology hears that the read was cancelled.
+- **SVG drawings with a namespace-prefixed root are recognized** and can be inspected and cleaned like other SVG files.
+- **Pausing a batch now stops QR scans and releases temporary PDF resources.**
+- **Clipboard image reading handles permission failures** before opening the batch and shows the existing choose-or-paste guidance.
+
 ## [0.8.0] — 2026-10-25
 
 ### Added
@@ -565,7 +601,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/MykytaStel/hexscope/compare/v0.7.0...v0.7.1

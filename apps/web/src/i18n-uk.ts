@@ -556,6 +556,8 @@ const UK: Record<string, string> = {
   "Reading paused": "Читання призупинено",
   "No personal metadata found by the available checks. Visible content has not been cleared.": "Доступні перевірки не знайшли особистих метаданих. Видимий вміст не очищено.",
   "No personal metadata found by the available checks.": "Доступні перевірки не знайшли особистих метаданих.",
+  "Batch reading finished.": "Читання групи файлів завершено.",
+  "Some files could not be fully checked.": "Деякі файли не вдалося повністю перевірити.",
   "Make clean copies": "Зробити чисті копії",
   "Save clean copies (.zip)": "Зберегти чисті копії (.zip)",
   "Makes the copies in this tab, to share or save: nothing is uploaded": "Копії робляться в цій вкладці — щоб поділитися чи зберегти; нічого не завантажується",
@@ -1255,8 +1257,10 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "файл щось приховує", "файли щось приховують", "файлів щось приховують")}`;
   match = /^(\d+) damaged$/.exec(value);
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "пошкоджений", "пошкоджені", "пошкоджених")}`;
-  match = /^(All|Give something away|Damaged or hiding something) · (\d+)$/.exec(value);
-  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Damaged or hiding something": "Пошкоджені або приховують" }[match[1]]} · ${match[2]}`;
+  match = /^(\d+) not fully checked$/.exec(value);
+  if (match) return `${match[1]} не повністю перевірено`;
+  match = /^(All|Give something away|Needs attention) · (\d+)$/.exec(value);
+  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги" }[match[1]]} · ${match[2]}`;
   match = /^\+(\d+) more$/.exec(value);
   if (match) return `ще ${match[1]}`;
   match = /^Make (\d+) clean cop(?:y|ies)$/.exec(value);
