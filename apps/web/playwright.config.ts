@@ -2,7 +2,9 @@
 // browser on a computer's screen and a phone's. `pnpm build` first.
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 4175;
+// Never silently test a different checkout's preview server on the same port.
+// Pick another port when a local server is already running.
+const PORT = Number(process.env.HEXSCOPE_TEST_PORT ?? 4175);
 
 export default defineConfig({
   testDir: "e2e",
@@ -25,6 +27,6 @@ export default defineConfig({
   webServer: {
     command: `pnpm preview --port ${PORT} --strictPort`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 });

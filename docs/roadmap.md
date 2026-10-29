@@ -25,6 +25,20 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | in progress |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
+### 0.9.0 — in progress
+
+The file-intent loading, Film Lab JPEG handoff and archive Files view are in
+the code, alongside large-file memory and mobile interaction improvements.
+The archive view has a recorded 100,000-entry browser benchmark; an emulated
+phone is not a measurement of a physical device's memory limit.
+
+Still to establish before calling the mobile work complete: exercise large
+files and the archive workflow on iOS Safari and Android Chrome, record where
+each device runs out of time or memory, and check the Film Lab share sheet
+and screen-reader navigation on devices. Fix problems those checks uncover.
+The release itself is a separate step; keep the version and unreleased change
+notes as they are until the release is explicitly requested.
+
 ### 0.3.0 — shipped 2026-10-12
 
 What was planned as 0.3.0 and 0.4.0, released together: confirmed removal

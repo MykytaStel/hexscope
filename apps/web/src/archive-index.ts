@@ -44,13 +44,18 @@ export function archiveIndex(names: readonly string[]): ArchiveIndex {
   const folders = new Map<string, Folder>([["", { folders: new Set(), entries: [], total: 0 }]]);
   /** The folder at `path`, made with every folder above it. */
   const folderAt = (path: string): Folder => {
-    let folder = folders.get(path);
-    if (!folder) {
-      folder = { folders: new Set(), entries: [], total: 0 };
-      folders.set(path, folder);
-      folderAt(parentOf(path)).folders.add(path);
+    const missing: string[] = [];
+    let at = path;
+    while (!folders.has(at)) {
+      missing.push(at);
+      at = parentOf(at);
     }
-    return folder;
+    for (let i = missing.length - 1; i >= 0; i--) {
+      const child = missing[i];
+      folders.set(child, { folders: new Set(), entries: [], total: 0 });
+      folders.get(parentOf(child))!.folders.add(child);
+    }
+    return folders.get(path)!;
   };
   let entries = 0;
   names.forEach((name, i) => {
