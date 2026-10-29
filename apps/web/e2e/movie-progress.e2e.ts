@@ -101,7 +101,7 @@ test("on a phone, a large video read shows progress and can be cancelled", async
     await page.locator(".verdict-cta").click();
     const after = page.locator(".ba-side.is-after");
     await expect(after.locator(".ba-count")).toHaveText("8");
-    await expect(after.locator(".ba-what")).toHaveText("removed — nothing is left in the copy");
+    await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

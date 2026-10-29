@@ -89,7 +89,7 @@ const UK: Record<string, string> = {
   "you can thank them": "можна віддячити",
   "Do not show this again": "Більше не показувати",
   "No findings found in the copy": "У копії нічого не знайдено",
-  "removed — nothing is left in the copy": "прибрано — у копії нічого не лишилося",
+  "confirmed removed from the copy": "підтверджено видалення з копії",
   "Compare with the original": "Порівняти з оригіналом",
   "File A": "Файл A",
   "File B": "Файл B",

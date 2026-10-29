@@ -12,6 +12,7 @@ import "./film-lab.css";
 registerLazyTranslations({
   "Film photo lab": "Лабораторія плівкового фото",
   "Prepare a new sharing copy locally. Preview the crop and color before downloading.": "Підготуйте нову копію для надсилання локально. Перегляньте кадрування й колір перед завантаженням.",
+  "Go to adjustments": "Перейти до налаштувань", "Go to copy actions": "Перейти до створення копії",
   "Scan type": "Тип скану", "Positive / already developed": "Позитив / уже проявлене зображення",
   "Color negative": "Кольоровий негатив", "Black and white negative": "Чорно-білий негатив",
   "Crop visible borders": "Обрізати видимі краї", "Trim left (%)": "Обрізати зліва (%)", "Trim top (%)": "Обрізати зверху (%)",
@@ -198,6 +199,23 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   view.append(clipping, message, actions, shareHint, check,
     el("p", "hint", "Reuse these settings on another scan. A recipe contains adjustments, not the photo or its filename."),
     el("p", "hint", "Preview: up to 1200 px. JPEG copy: up to 4096 px and 12 megapixels. Sources: up to 50 MiB and 120 megapixels. The master stays intact."));
+
+  // Long previews can push the controls several screens down on a phone.
+  const shortcuts = el("nav", "film-lab-shortcuts");
+  shortcuts.setAttribute("aria-label", "Film photo lab");
+  const go = (label: string, target: HTMLElement, focus: () => HTMLElement) => {
+    const button = el("button", "link", label);
+    button.type = "button";
+    button.addEventListener("click", () => {
+      target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      focus().focus({ preventScroll: true });
+    });
+    shortcuts.append(button);
+  };
+  go("Go to adjustments", controls, () => mode);
+  actions.tabIndex = -1;
+  go("Go to copy actions", actions, () => create.disabled ? actions : create);
+  view.firstElementChild?.after(shortcuts);
 
   /** One primary action at a time: Share where it can open, Save where it cannot, with why when that needs saying. */
   function handOver(sharable: boolean, why?: string): void {

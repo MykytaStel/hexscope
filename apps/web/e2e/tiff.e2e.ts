@@ -15,7 +15,7 @@ test("a TIFF says where, with what and by whom, and its clean copy says nothing"
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("7");
-  await expect(after.locator(".ba-what")).toHaveText("removed — nothing is left in the copy");
+  await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   await expect(after).toHaveClass(/is-clear/);
   await expect(after.locator(".ba-verification-item")).toHaveCount(0);
 });

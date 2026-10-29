@@ -20,6 +20,6 @@ test("an RTF document says who made and changed it, and its clean copy loses all
   await page.locator(".verdict-cta").click();
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("15");
-  await expect(after.locator(".ba-what")).toHaveText("removed — nothing is left in the copy");
+  await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   await expect(after).toHaveClass(/is-clear/);
 });

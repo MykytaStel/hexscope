@@ -132,7 +132,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
       const selected = dockNode();
       if (!dialog.open || !selected) return;
       updateInspectorSummary(selected, label, range);
-      setExpanded(false, selected);
+      setExpanded(document.body.dataset.appView === "files", selected);
     }).observe(node, { childList: true });
   }
 
@@ -145,7 +145,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     selected.id = "inspector-details";
     updateInspectorSummary(selected, label, range);
     dialog.append(selected);
-    setExpanded(false, selected);
+    setExpanded(document.body.dataset.appView === "files", selected);
     dialog.show();
   };
   const update = () => {

@@ -7,6 +7,7 @@ import { dismissTour } from "./tour";
 registerLazyTranslations({
   "Film-scan clues": "Ознаки сканування плівкового фото",
   "Prepare a film photo to share": "Підготувати плівкове фото для надсилання",
+  "Open Film Lab": "Відкрити лабораторію плівки",
   "The film lab could not load. Close and reopen it to try again.": "Лабораторія плівкового фото не завантажилася. Закрийте й відкрийте її знову.",
   "Could not inspect the image pixels in this browser.": "Цей браузер не зміг прочитати пікселі зображення.",
   "No clear repeated edge pattern was found. Cropping or low contrast can hide these clues.": "Не знайдено чітких повторюваних ознак біля краю. Обрізання або низький контраст могли їх приховати.",

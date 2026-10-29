@@ -331,6 +331,7 @@ narrow.addEventListener("change", () => {
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
   document.body.dataset.appView = view;
+  if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
   syncAppNavigation();
   if (view === "files") void showFiles();

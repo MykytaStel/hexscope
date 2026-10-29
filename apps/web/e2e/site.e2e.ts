@@ -2299,7 +2299,7 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   const after = page.locator(".ba-side.is-after");
   // Every fact the photo gave away is confirmed gone from the copy.
   await expect(after.locator(".ba-count")).toHaveText("8");
-  await expect(after.locator(".ba-what")).toHaveText("removed — nothing is left in the copy");
+  await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   await expect(after).toHaveClass(/is-clear/);
   await expect(after.locator(".ba-verification-item")).toHaveCount(0);
   // A computer saves it; a phone may offer to share it instead.
