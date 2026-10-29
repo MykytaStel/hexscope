@@ -40,3 +40,11 @@ it("filters by path across folders, ignoring case, in archive order", () => {
 it("lists duplicate names twice", () => {
   expect(indexes(archiveIndex(["x.txt", "x.txt"]).list(""))).toEqual([0, 1]);
 });
+
+it("indexes a deeply nested path without exhausting the call stack", () => {
+  const path = "a/".repeat(12_000);
+  const index = archiveIndex([`${path}file.txt`]);
+  expect(index.folders).toBe(12_000);
+  expect(index.list("")[0]).toMatchObject({ kind: "folder", entries: 1 });
+  expect(index.list(path)[0]).toMatchObject({ kind: "entry", name: "file.txt" });
+});
