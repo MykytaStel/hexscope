@@ -911,6 +911,13 @@ fn clean_zip(
 ) -> Result<Cleaned, CleanError> {
     use crate::zip::office::{MAX_EMBEDDED, MAX_PHOTOS, is_embedded};
     let tree = &doc.tree;
+    if doc
+        .entries
+        .iter()
+        .any(|e| !crate::zip::write::headers_agree(data, tree, e))
+    {
+        return Err(CleanError::Damaged);
+    }
     // Where the document keeps its photos: Office's media folders, an OpenDocument file's Pictures.
     let placed = |name: &str| {
         crate::zip::office::is_media(name) || (doc.odf && crate::zip::odf::is_picture(name))
@@ -1204,6 +1211,25 @@ mod tests {
             }
         }
         assert!(cleaned.removed[0].what.starts_with("docProps/core.xml"));
+    }
+
+    #[test]
+    fn refuses_office_copy_when_zip_entry_headers_disagree() {
+        use crate::zip::testing::{Archive, Entry, build};
+        let archive = Archive {
+            entries: vec![
+                Entry::new("docProps/core.xml", b"<creator>private</creator>", 0),
+                Entry::new("word/document.xml", b"document", 0),
+            ],
+            ..Default::default()
+        };
+        let built = build(&archive);
+        assert!(clean(&built.bytes).is_ok());
+        for offset in [30usize, 6, 8, 14, 18, 22] {
+            let mut bytes = built.bytes.clone();
+            bytes[built.local[0] as usize + offset] ^= 1;
+            assert_eq!(clean(&bytes), Err(CleanError::Damaged), "offset {offset}");
+        }
     }
 
     #[test]

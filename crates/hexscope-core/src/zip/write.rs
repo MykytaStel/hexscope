@@ -39,6 +39,53 @@ pub(crate) fn header_of(
     ))
 }
 
+/// Both records must identify and interpret the same entry before rewriting it.
+pub(crate) fn headers_agree(data: &[u8], tree: &ParseTree, e: &ZipEntry) -> bool {
+    let Some(at) = tree
+        .try_get(e.node)
+        .and_then(|n| usize::try_from(n.range.start).ok())
+    else {
+        return false;
+    };
+    let Some(local) = data.get(at..at.saturating_add(30)) else {
+        return false;
+    };
+    let Some(record) = e.central_record else {
+        return false;
+    };
+    let Ok(cd_at) = usize::try_from(record.start) else {
+        return false;
+    };
+    let Some(cd) = data.get(cd_at..cd_at.saturating_add(46)) else {
+        return false;
+    };
+    let local_len = u16::from_le_bytes([local[26], local[27]]) as usize;
+    let cd_len = u16::from_le_bytes([cd[28], cd[29]]) as usize;
+    let local_name =
+        data.get(at.saturating_add(30)..at.saturating_add(30).saturating_add(local_len));
+    let cd_name =
+        data.get(cd_at.saturating_add(46)..cd_at.saturating_add(46).saturating_add(cd_len));
+    if local_name.is_none() || local_name != cd_name || local[6..10] != cd[8..12] {
+        return false;
+    }
+    // With a data descriptor the local CRC and sizes are placeholders. For
+    // ZIP64, sentinel sizes are resolved from extra fields by the parser.
+    let flags = u16::from_le_bytes([local[6], local[7]]);
+    if flags & (1 << 3) == 0 {
+        if local[14..18] != cd[16..20] {
+            return false;
+        }
+        for (l, c) in [(18, 20), (22, 24)] {
+            let local_size = u32::from_le_bytes(local[l..l + 4].try_into().unwrap());
+            let central_size = u32::from_le_bytes(cd[c..c + 4].try_into().unwrap());
+            if local_size != u32::MAX && central_size != u32::MAX && local_size != central_size {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn le16(out: &mut Vec<u8>, v: u16) {
     out.extend_from_slice(&v.to_le_bytes());
 }

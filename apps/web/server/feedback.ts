@@ -11,6 +11,8 @@ export type Kind = (typeof KINDS)[number];
 export const LIMITS = { message: 4000, contact: 200, report: 40_000, device: 120 } as const;
 /** Messages taken a day, all senders together: enough for people, not for a flood. */
 export const DAILY = 300;
+/** Maximum encoded request size, enforced while reading the body. */
+export const MAX_BODY_BYTES = 64 * 1024;
 
 export interface Feedback {
   kind: Kind;
@@ -25,6 +27,12 @@ export interface Feedback {
 
 export type Checked = { ok: true; feedback: Feedback } | { ok: false; status: 400 | 403 | 413 | 415; reason: string };
 
+export function checkHeaders(fetchSite: string | null, contentType: string | null): Extract<Checked, { ok: false }> | null {
+  if (fetchSite !== null && fetchSite !== "same-origin") return { ok: false, status: 403, reason: "not from this site" };
+  if (!contentType?.startsWith("application/json")) return { ok: false, status: 415, reason: "JSON only" };
+  return null;
+}
+
 const text = (v: unknown, max: number) =>
   typeof v === "string" ? v.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, max) : "";
 
@@ -33,9 +41,9 @@ const text = (v: unknown, max: number) =>
  * small, with something said, and the empty field robots fill left empty.
  */
 export function check(input: { fetchSite: string | null; contentType: string | null; length: number; body: unknown }): Checked {
-  if (input.fetchSite !== null && input.fetchSite !== "same-origin") return { ok: false, status: 403, reason: "not from this site" };
-  if (!input.contentType?.startsWith("application/json")) return { ok: false, status: 415, reason: "JSON only" };
-  if (input.length > 64 * 1024) return { ok: false, status: 413, reason: "too large" };
+  const invalid = checkHeaders(input.fetchSite, input.contentType);
+  if (invalid) return invalid;
+  if (input.length > MAX_BODY_BYTES) return { ok: false, status: 413, reason: "too large" };
   const b = (input.body ?? {}) as Record<string, unknown>;
   // A field people never see: whatever fills it is not a person.
   if (typeof b.website === "string" && b.website !== "") return { ok: false, status: 400, reason: "not a person" };
