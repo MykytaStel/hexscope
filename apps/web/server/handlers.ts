@@ -124,7 +124,7 @@ export async function feedback({ request, env }: Context, now = new Date()): Pro
   }
   const checked = check({
     ...headers,
-    length,
+    length: raw.length,
     body,
   });
   if (!checked.ok) return new Response(checked.reason, { status: checked.status });

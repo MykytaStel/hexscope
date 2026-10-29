@@ -11,8 +11,9 @@ export type Kind = (typeof KINDS)[number];
 export const LIMITS = { message: 4000, contact: 200, report: 40_000, device: 120 } as const;
 /** Messages taken a day, all senders together: enough for people, not for a flood. */
 export const DAILY = 300;
-/** Maximum encoded request size, enforced while reading the body. */
-export const MAX_BODY_BYTES = 64 * 1024;
+/** Preserve the character limit while bounding UTF-8 input before decoding. */
+export const MAX_BODY_CHARS = 64 * 1024;
+export const MAX_BODY_BYTES = 4 * MAX_BODY_CHARS;
 
 export interface Feedback {
   kind: Kind;
@@ -43,7 +44,7 @@ const text = (v: unknown, max: number) =>
 export function check(input: { fetchSite: string | null; contentType: string | null; length: number; body: unknown }): Checked {
   const invalid = checkHeaders(input.fetchSite, input.contentType);
   if (invalid) return invalid;
-  if (input.length > MAX_BODY_BYTES) return { ok: false, status: 413, reason: "too large" };
+  if (input.length > MAX_BODY_CHARS) return { ok: false, status: 413, reason: "too large" };
   const b = (input.body ?? {}) as Record<string, unknown>;
   // A field people never see: whatever fills it is not a person.
   if (typeof b.website === "string" && b.website !== "") return { ok: false, status: 400, reason: "not a person" };

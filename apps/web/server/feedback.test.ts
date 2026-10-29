@@ -110,6 +110,13 @@ describe("the endpoint", () => {
     expect(db.rows).toEqual([]);
   });
 
+  it("accepts a valid report whose UTF-8 bytes exceed the character limit", async () => {
+    const db = memoryDb();
+    const ctx = post(db, { kind: "bug", message: "hello", report: "я".repeat(40_000) });
+    expect((await feedback(ctx, now)).status).toBe(204);
+    expect(db.rows[0][4]).toHaveLength(40_000);
+  });
+
   it("decodes a UTF-8 character split across stream chunks", async () => {
     const bytes = new TextEncoder().encode(JSON.stringify({ kind: "idea", message: "дякую" }));
     const split = bytes.indexOf(0xd0) + 1;
