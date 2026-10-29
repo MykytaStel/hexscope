@@ -37,7 +37,8 @@
 }
 
 .archive-up::before {
-  content: "↑ ";
+  content: "↑";
+  margin-right: 4px;
 }
 
 .archive-path {
@@ -47,6 +48,11 @@
   font-size: var(--type-small);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.archive-path.is-top {
+  color: var(--muted);
+  font-family: inherit;
 }
 
 .archive-filter {

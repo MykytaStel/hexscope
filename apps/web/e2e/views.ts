@@ -2,7 +2,7 @@
 // and the bytes are under More, so More opens first.
 import type { Page } from "@playwright/test";
 
-export async function openView(page: Page, view: "overview" | "metadata" | "content" | "structure" | "bytes"): Promise<void> {
+export async function openView(page: Page, view: "overview" | "metadata" | "content" | "files" | "structure" | "bytes"): Promise<void> {
   const button = page.locator(`#app-nav [data-app-view='${view}']`);
   await page.locator("#app-nav").waitFor();
   if (await page.locator(`#app-nav .app-nav-more-actions [data-app-view='${view}']`).count()) {

@@ -129,6 +129,7 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     up.setAttribute("aria-label", parent ? `Up to “${folderName(parent)}”` : "Up to the top level");
     // A path is the archive's own words; "All files" is the page's.
     where.translate = !!query || !folder;
+    where.classList.toggle("is-top", !query && !folder);
     where.textContent = query ? "" : folder || "All files";
   };
 
@@ -152,18 +153,23 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     render({ scrollTop: Math.max(0, active - 3) * (list?.rowHeight ?? 36), active });
   };
 
+  /** Where the folder's list stood when a filter replaced it, to stand there again after. */
+  let folderPlace: { scrollTop: number; active: number } | undefined;
+  const setQuery = (next: string) => {
+    if (next && !query && list) folderPlace = { scrollTop: list.scrollTop, active: list.active };
+    const back = !next && query ? folderPlace : undefined;
+    query = next;
+    render(back);
+  };
+
   up.addEventListener("click", goUp);
-  filter.addEventListener("input", () => {
-    query = filter.value.trim() ? filter.value : "";
-    render();
-  });
+  filter.addEventListener("input", () => setQuery(filter.value.trim() ? filter.value : ""));
   filter.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && filter.value) {
       e.preventDefault();
       e.stopPropagation();
       filter.value = "";
-      query = "";
-      render();
+      setQuery("");
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       list?.focus();

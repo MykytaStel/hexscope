@@ -142,6 +142,7 @@ const UK: Record<string, string> = {
   "Details": "Деталі",
   "Hide details": "Згорнути деталі",
   "Files": "Файли",
+  "Files in the archive": "Файли в архіві",
   "Start": "Початок",
   "See what your file reveals about you": "Дізнайтеся, що файл розкриває про вас",
   "Check metadata, hidden content and file structure right in your browser.": "Перевірте метадані, прихований вміст і структуру файла прямо у браузері.",
