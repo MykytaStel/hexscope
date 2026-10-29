@@ -1,7 +1,8 @@
-import { el } from "./dom";
-import { saveAs } from "./files";
+import { el, hasCoarsePointer } from "./dom";
+import { canShareData, saveAs, shareFile } from "./files";
+import { announce } from "./announce";
 import { call } from "./rpc";
-import { registerLazyTranslations } from "./i18n";
+import { currentLocale, registerLazyTranslations, translateText } from "./i18n";
 import { DEFAULT_FILM_SETTINGS, filmRecipe, readFilmRecipe, type FilmSettings, type RGB } from "./film-lab";
 import type { FilmScanReport } from "./filmscan";
 import type { FileModel } from "./model";
@@ -24,7 +25,7 @@ registerLazyTranslations({
   "Estimate base automatically": "Оцінити основу автоматично",
   "For color negatives, sample unexposed film or enter its RGB values. The automatic base is an estimate. Color from an 8-bit scan is approximate.": "Для кольорового негативу виберіть неекспоновану ділянку плівки або введіть її RGB. Автоматична основа — лише оцінка. Колір із 8-бітного скану приблизний.",
   "Exposure (EV)": "Експозиція (EV)", "Contrast": "Контраст", "Updating preview…": "Оновлення перегляду…", "Preview ready": "Перегляд готовий",
-  "Creating and checking JPEG…": "Створення та перевірка JPEG…", "Create JPEG copy": "Створити JPEG-копію", "Download JPEG": "Завантажити JPEG",
+  "Creating and checking JPEG…": "Створення та перевірка JPEG…", "Create JPEG copy": "Створити JPEG-копію", "Share JPEG": "Поділитися JPEG", "Save JPEG": "Зберегти JPEG",
   "Save recipe": "Зберегти рецепт", "Load recipe": "Завантажити рецепт", "Reset adjustments": "Скинути налаштування",
   "Reuse these settings on another scan. A recipe contains adjustments, not the photo or its filename.": "Застосуйте налаштування до іншого скану. Рецепт містить параметри, без фото чи назви файла.",
   "Could not load this recipe. Choose a hexscope film recipe, version 1, smaller than 16 KiB.": "Не вдалося прочитати рецепт. Виберіть рецепт плівкового фото hexscope версії 1, менший за 16 КіБ.",
@@ -40,6 +41,10 @@ registerLazyTranslations({
   "Clipped channel detail cannot be recovered by these adjustments.": "Ці налаштування не відновлюють деталі у відсічених каналах.",
   "Copy SHA-256": "SHA-256 копії", "Copy resized for the sharing limit.": "Копію зменшено відповідно до ліміту для надсилання.",
 });
+
+const COPY_NAME = "film-copy.jpg";
+const tr = (copy: string) => translateText(copy, currentLocale());
+const copyFile = (result: FilmRenderResult) => new File([result.copy], COPY_NAME, { type: "image/jpeg" });
 
 /** One mounted lab owns its URLs, coalesces previews and ignores stale responses. */
 export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLElement; dispose(): void } {
@@ -156,8 +161,22 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   const clipping = el("p", "hint film-lab-clipping");
   const check = el("section", "film-lab-check"); check.setAttribute("role", "status");
   const create = el("button", "btn btn-primary film-lab-create", "Create JPEG copy"); create.disabled = true;
-  const download = el("button", "btn btn-primary film-lab-download", "Download JPEG"); download.hidden = true;
-  download.addEventListener("click", () => { if (prepared) saveAs("film-copy.jpg", prepared.copy); });
+  // The made copy leaves through the share sheet where the browser has one, as a saved file always.
+  const share = el("button", "btn btn-primary film-lab-share", "Share JPEG"); share.hidden = true;
+  const download = el("button", "btn film-lab-download", "Save JPEG"); download.hidden = true;
+  const shareHint = el("p", "hint film-lab-share-fallback"); shareHint.hidden = true;
+  share.addEventListener("click", async () => {
+    const result = prepared; if (!result) return;
+    if ((await shareFile(copyFile(result))) !== "failed" || result !== prepared) return;
+    handOver(false, "Sharing did not open. Save the copy, then share it from Files or Downloads.");
+    download.focus();
+    announce(tr("Sharing did not open. Save the copy, then share it from Files or Downloads."));
+  });
+  download.addEventListener("click", () => {
+    if (!prepared) return;
+    saveAs(COPY_NAME, prepared.copy);
+    if (!shareHint.hidden) announce(tr("The copy is saved. Share it from Files or Downloads."));
+  });
   const save = el("button", "btn", "Save recipe"); save.disabled = true;
   save.addEventListener("click", () => saveAs("film-recipe.json", new Blob([filmRecipe(settings)], { type: "application/json" })));
   const recipeInput = el("input", "film-recipe-input"); recipeInput.type = "file"; recipeInput.accept = ".json,application/json"; recipeInput.hidden = true;
@@ -175,11 +194,20 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   });
   const reset = el("button", "btn", "Reset adjustments");
   reset.addEventListener("click", () => { calibrationRevision++; settings = { ...DEFAULT_FILM_SETTINGS, crop: [0, 0, 0, 0] }; pendingPoint = undefined; syncControls(); schedule(); });
-  const actions = el("div", "film-lab-actions"); actions.append(create, download, save, load, reset, recipeInput);
-  view.append(clipping, message, actions, check,
+  const actions = el("div", "film-lab-actions"); actions.append(create, share, download, save, load, reset, recipeInput);
+  view.append(clipping, message, actions, shareHint, check,
     el("p", "hint", "Reuse these settings on another scan. A recipe contains adjustments, not the photo or its filename."),
     el("p", "hint", "Preview: up to 1200 px. JPEG copy: up to 4096 px and 12 megapixels. Sources: up to 50 MiB and 120 megapixels. The master stays intact."));
 
+  /** One primary action at a time: Share where it can open, Save where it cannot, with why when that needs saying. */
+  function handOver(sharable: boolean, why?: string): void {
+    share.hidden = !sharable; download.hidden = false;
+    download.classList.toggle("btn-primary", !sharable); create.classList.remove("btn-primary");
+    shareHint.hidden = !why; shareHint.textContent = why ?? "";
+  }
+  function withdraw(): void {
+    share.hidden = download.hidden = shareHint.hidden = true; create.classList.add("btn-primary");
+  }
   function stopSampling(): void {
     sampling = false; pick.setAttribute("aria-pressed", "false"); stage.classList.remove("is-sampling");
   }
@@ -206,7 +234,7 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   }
   function schedule(): void {
     if (disposed || exporting) return;
-    revision++; dirty = true; prepared = null; download.hidden = true; check.replaceChildren(); create.disabled = save.disabled = true;
+    revision++; dirty = true; prepared = null; withdraw(); check.replaceChildren(); create.disabled = save.disabled = true;
     view.dataset.state = "loading"; message.textContent = "Updating preview…";
     cropBox.style.inset = `${settings.crop[1] * 100}% ${settings.crop[2] * 100}% ${settings.crop[3] * 100}% ${settings.crop[0] * 100}%`;
     if (timer) clearTimeout(timer);
@@ -230,13 +258,16 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
   create.addEventListener("click", async () => {
     if (busy || dirty || disposed || exporting) return;
     exporting = true; controls.inert = true; create.disabled = save.disabled = load.disabled = reset.disabled = true;
+    prepared = null; withdraw(); check.replaceChildren();
     view.dataset.state = "exporting"; message.textContent = "Creating and checking JPEG…";
     const version = revision;
     const reply = await call({ type: "filmRender", source, dimensions: model.file.dimensions!, orientation: model.file.orientation, settings, purpose: "export" });
     if (disposed || version !== revision) return;
     exporting = false; controls.inert = false; create.disabled = save.disabled = load.disabled = reset.disabled = false;
     if (reply.type !== "filmRendered") { view.dataset.state = "error"; message.textContent = "Could not process this scan. Try a smaller JPEG, PNG or WebP."; return; }
-    prepared = reply.result; showResult(prepared); view.dataset.state = "ready"; message.textContent = "Preview ready"; download.hidden = false;
+    prepared = reply.result; showResult(prepared); view.dataset.state = "ready"; message.textContent = "Preview ready";
+    const sharable = canShareData({ files: [copyFile(prepared)] });
+    handOver(sharable, sharable || !hasCoarsePointer() ? undefined : "This browser cannot share files directly. Save the copy, then share it from Files or Downloads.");
     check.replaceChildren(el("h3", undefined, "Output re-read"));
     const receipt = prepared.check;
     if (receipt?.status === "checked") {

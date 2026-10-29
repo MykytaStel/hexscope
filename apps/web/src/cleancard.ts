@@ -6,7 +6,7 @@ import type { VerificationReport, VerificationSelection } from "./verification";
 import { categories } from "./share";
 import { el, formatBytes, hasCoarsePointer } from "./dom";
 import { LIMITS } from "./knowledge";
-import { canShareData, saveAs, typeOf } from "./files";
+import { canShareData, saveAs, shareFile, typeOf } from "./files";
 import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
 import { loadCopyVerification } from "./copyverification-loader";
@@ -127,11 +127,8 @@ export function shareButton(name: string, data: Uint8Array | Blob, alreadySaved 
       announce(translateText("The copy is saved. Share it from Files or Downloads.", currentLocale()));
       return;
     }
-    try {
-      await navigator.share({ files: [file] });
-    } catch (error) {
-      // A cancelled sheet is the user's choice; other failures need a visible way forward.
-      if (error instanceof DOMException && error.name === "AbortError") return;
+    // A cancelled sheet is the user's choice; other failures need a visible way forward.
+    if ((await shareFile(file)) === "failed") {
       b.classList.remove("btn-primary");
       b.classList.add("share-fallback");
       b.textContent = translateText("Save a copy to share from Files", currentLocale());
