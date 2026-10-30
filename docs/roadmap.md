@@ -22,10 +22,11 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.7.1 | "Clean with hexscope" in Finder, Send to and GNOME Files; Homebrew | shipped 2026-10-19 |
 | 0.7.2 | `cargo install` with Rust 1.88 and later | shipped 2026-10-19 |
 | 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | shipped 2026-10-25 |
-| 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | in progress |
+| 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | site and crates published; GitHub Release and Homebrew pending |
+| 0.9.1 and later 0.9.x | Substantial collections of features, reliability fixes and usability improvements | in progress; ship when each collection is ready |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
-### 0.9.0 — in progress
+### 0.9.0 — publication in progress
 
 The file-intent loading, Film Lab JPEG handoff and archive Files view are in
 the code, alongside large-file memory and mobile interaction improvements.
@@ -36,8 +37,9 @@ Still to establish before calling the mobile work complete: exercise large
 files and the archive workflow on iOS Safari and Android Chrome, record where
 each device runs out of time or memory, and check the Film Lab share sheet
 and screen-reader navigation on devices. Fix problems those checks uncover.
-The release itself is a separate step; keep the version and unreleased change
-notes as they are until the release is explicitly requested.
+The site and all four crates are published at 0.9.0, and the tag is present.
+The GitHub Release, its binaries and the Homebrew update still need to be
+completed; the mobile-device checks above remain open.
 
 ### 0.3.0 — shipped 2026-10-12
 

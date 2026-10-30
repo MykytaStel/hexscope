@@ -53,13 +53,37 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
     } else {
         data.len()
     };
-    if can_mark_audio && audio_start < id3v1_start {
+    // APE tags can precede ID3v1 or end the file. Their contents are not
+    // inspected by this parser, so never call the metadata scan complete.
+    let mut audio_end = id3v1_start;
+    if let Some(footer_start) = id3v1_start.checked_sub(32)
+        && data.get(footer_start..footer_start + 8) == Some(b"APETAGEX")
+    {
+        let footer = &data[footer_start..id3v1_start];
+        let size = u32::from_le_bytes([footer[12], footer[13], footer[14], footer[15]]) as usize;
+        let tag_start = id3v1_start
+            .checked_sub(size)
+            .filter(|&start| size >= 32 && start >= audio_start);
+        if let Some(start) = tag_start {
+            audio_end = start;
+        }
+        tree.warning(
+            root,
+            "APE audio metadata is not inspected",
+            ByteRange::new(
+                tag_start.unwrap_or(footer_start) as u64,
+                (id3v1_start - tag_start.unwrap_or(footer_start)) as u64,
+            ),
+        );
+        complete = false;
+    }
+    if can_mark_audio && audio_start < audio_end {
         tree.add(
             Some(root),
             "audio frames (not decoded)",
-            ByteRange::new(audio_start as u64, (id3v1_start - audio_start) as u64),
+            ByteRange::new(audio_start as u64, (audio_end - audio_start) as u64),
             NodeKind::Field,
-            Some(Value::Bytes((id3v1_start - audio_start) as u64)),
+            Some(Value::Bytes((audio_end - audio_start) as u64)),
         );
     }
     if id3v1_start < data.len() {

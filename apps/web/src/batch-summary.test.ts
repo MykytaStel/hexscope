@@ -5,7 +5,7 @@ import { summarizeBatch } from "./batch";
 function item(
   name: string,
   state: BatchItem["state"],
-  options: Partial<Pick<BatchItem, "lines" | "reveals" | "headline" | "skip">> = {},
+  options: Partial<Pick<BatchItem, "lines" | "reveals" | "headline" | "skip" | "format">> = {},
 ): BatchItem {
   return {
     file: new File([name], name),
@@ -70,6 +70,14 @@ describe("batch summary", () => {
       problemCount: 0,
       anyPick: true,
     });
+  });
+
+  it("does not offer copies of read-only formats even when they reveal information", () => {
+    const files = ["mp3", "flac", "ogg", "eml", "msg", "unknown"].map((format) =>
+      item(`file.${format}`, "done", { format, reveals: ["author"] }),
+    );
+    const result = summarizeBatch(files, "reveals");
+    expect(result).toMatchObject({ revealing: 6, chosen: 0, anyPick: false });
   });
 
   it("keeps only the visible page of row descriptors while counting every match", () => {

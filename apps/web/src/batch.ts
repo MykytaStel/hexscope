@@ -32,6 +32,9 @@ export interface BatchItem {
 
 /** Whether a file has something a clean copy takes out. */
 export function cleanable(i: BatchItem): boolean {
+  // These formats can expose findings, but the core does not make a clean
+  // copy of the file itself. Attachments can be opened and cleaned separately.
+  if (i.format && ["unknown", "eml", "msg", "mp3", "flac", "ogg"].includes(i.format)) return false;
   return i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden"));
 }
 
@@ -94,7 +97,7 @@ function summarizeBatchItem(item: BatchItem): BatchItemSummary {
     flagged: hasUnknownOrDamage || failed || item.headline?.tone === "danger" || item.headline?.tone === "warning",
     dangerous: failed || item.headline?.tone === "danger",
     problem: failed || hasDamage || hasHidden || hasMisnamed || hasIncomplete,
-    canClean: item.state === "done" && (reveals || hasHidden),
+    canClean: cleanable(item),
   };
 }
 
