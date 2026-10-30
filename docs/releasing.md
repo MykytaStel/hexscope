@@ -15,8 +15,12 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
 
 ## Making a version
 
-1. Pick the number: until 1.0, a new feature or a change to the CLI's JSON
-   is a minor version (0.3.0), fixes only are a patch (0.2.1).
+1. Pick the number: the next releases before 1.0 are substantial 0.9.x
+   releases (0.9.1, 0.9.2, and so on), with features and fixes collected
+   together. Additions must preserve the documented CLI and receipt contracts;
+   review a breaking change and its version separately. Use normal SemVer
+   numbers: `0.9.01` is invalid because numeric components cannot have leading
+   zeroes.
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
    dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
    and the CLI's on `hexscope-core` and `hexscope-raster`.
