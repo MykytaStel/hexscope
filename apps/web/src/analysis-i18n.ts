@@ -330,7 +330,7 @@ registerLazyTranslations({
   "What this recording reveals": "Що розкриває цей запис",
   "What this audio file reveals": "Що розкриває цей аудіофайл",
   "No supported audio metadata tags were found.": "Підтримуваних аудіотегів не знайдено.",
-  "APE audio metadata is not inspected": "Аудіометадані APE не перевірено",
+  "APE audio metadata is partially inspected": "Аудіометадані APE перевірено частково",
   "Some audio metadata could not be fully read; the result is partial.": "Не вдалося повністю прочитати деякі аудіометадані: результат частковий.",
   "Some audio metadata could not be fully read; this is a partial, read-only inspection.": "Не вдалося повністю прочитати деякі аудіометадані: це часткова перевірка лише для читання.",
   "Some metadata in this audio file could not be fully read": "Не вдалося повністю прочитати деякі метадані цього аудіофайла",

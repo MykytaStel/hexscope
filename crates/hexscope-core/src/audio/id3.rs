@@ -53,8 +53,8 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
     } else {
         data.len()
     };
-    // APE tags can precede ID3v1 or end the file. Their contents are not
-    // inspected by this parser, so never call the metadata scan complete.
+    // APE tags can precede ID3v1 or end the file. Only bounded text items
+    // are inspected, so never call the metadata scan complete.
     let mut audio_end = id3v1_start;
     if let Some(footer_start) = id3v1_start.checked_sub(32)
         && data.get(footer_start..footer_start + 8) == Some(b"APETAGEX")
@@ -66,10 +66,11 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
             .filter(|&start| size >= 32 && start >= audio_start);
         if let Some(start) = tag_start {
             audio_end = start;
+            read_ape_text(data, start, footer_start, root, &mut tree, &mut facts);
         }
         tree.warning(
             root,
-            "APE audio metadata is not inspected",
+            "APE audio metadata is partially inspected",
             ByteRange::new(
                 tag_start.unwrap_or(footer_start) as u64,
                 (id3v1_start - tag_start.unwrap_or(footer_start)) as u64,
@@ -95,6 +96,82 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
         tree,
         facts,
         metadata_complete: complete,
+    }
+}
+
+// Read bounded text items while keeping the overall APE check incomplete:
+// binary items, external references and other tag locations are not inspected.
+fn read_ape_text(
+    data: &[u8],
+    start: usize,
+    footer_start: usize,
+    root: u32,
+    tree: &mut ParseTree,
+    facts: &mut Vec<DocumentFact>,
+) {
+    let footer = &data[footer_start..footer_start + 32];
+    let version = u32::from_le_bytes(footer[8..12].try_into().unwrap());
+    let count = u32::from_le_bytes(footer[16..20].try_into().unwrap()) as usize;
+    let flags = u32::from_le_bytes(footer[20..24].try_into().unwrap());
+    if !matches!(version, 1000 | 2000)
+        || footer_start - start > MAX_TAG_SIZE
+        || count > MAX_FACTS
+        || flags & 0x7fff_ffff != 0
+        || footer[24..32].iter().any(|&b| b != 0)
+    {
+        return;
+    }
+    let mut cursor = start;
+    for _ in 0..count {
+        let Some(header_end) = cursor.checked_add(8).filter(|&end| end <= footer_start) else {
+            break;
+        };
+        let length = u32::from_le_bytes(data[cursor..cursor + 4].try_into().unwrap()) as usize;
+        let item_flags = u32::from_le_bytes(data[cursor + 4..header_end].try_into().unwrap());
+        let key_start = header_end;
+        let Some(key_len) = data[key_start..footer_start].iter().position(|&b| b == 0) else {
+            break;
+        };
+        let key_end = key_start + key_len;
+        if !(2..=255).contains(&key_len)
+            || !data[key_start..key_end]
+                .iter()
+                .all(|b| (0x20..=0x7e).contains(b))
+        {
+            break;
+        }
+        let value_start = key_end + 1;
+        let Some(value_end) = value_start
+            .checked_add(length)
+            .filter(|&end| end <= footer_start)
+        else {
+            break;
+        };
+        cursor = value_end;
+        if item_flags & !1 != 0 {
+            continue;
+        }
+        let Ok(key) = std::str::from_utf8(&data[key_start..key_end]) else {
+            continue;
+        };
+        let Ok(value) = std::str::from_utf8(&data[value_start..value_end]) else {
+            continue;
+        };
+        for part in value.split('\0').filter(|part| !part.is_empty()) {
+            if facts.len() >= MAX_FACTS {
+                return;
+            }
+            let (kind, value) = super::comments::fact_value(key, part);
+            let (text, _) = super::comments::truncate(&value);
+            let node = tree.add(
+                Some(root),
+                format!("{kind}: {text}"),
+                ByteRange::new(value_start as u64, length as u64),
+                NodeKind::Field,
+                Some(Value::Text(text.clone())),
+            );
+            facts.push(DocumentFact { kind, text, node });
+        }
     }
 }
 

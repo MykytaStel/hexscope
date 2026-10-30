@@ -261,7 +261,7 @@ fn limit_node(tree: &mut ParseTree, parent: u32, offset: u64, span: Option<ByteR
     );
 }
 
-fn truncate(value: &str) -> (String, bool) {
+pub(super) fn truncate(value: &str) -> (String, bool) {
     if value.len() <= MAX_VALUE_BYTES {
         return (value.to_owned(), false);
     }
@@ -272,7 +272,7 @@ fn truncate(value: &str) -> (String, bool) {
     (value[..end].to_owned(), true)
 }
 
-fn fact_value(name: &str, value: &str) -> (&'static str, String) {
+pub(super) fn fact_value(name: &str, value: &str) -> (&'static str, String) {
     let kind = match name.to_ascii_uppercase().as_str() {
         "TITLE" => "title",
         "ARTIST" | "PERFORMER" => "artist",
