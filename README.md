@@ -92,7 +92,7 @@ The published Action checks paths and annotates selected findings on their files
 
 ```yaml
 - uses: actions/checkout@v7
-- uses: MykytaStel/hexscope@v0.8.0
+- uses: MykytaStel/hexscope@v0.9.0
   with:
     paths: photos docs
     fail-on: location,serial,covered,hiddentext
