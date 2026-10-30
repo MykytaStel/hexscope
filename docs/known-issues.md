@@ -57,7 +57,8 @@ carry a namespace prefix, such as `<svg:svg>`.
 and ID3v2.2–2.4), FLAC Vorbis comments, and the first Vorbis or Opus stream
 in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
 not understand make the result incomplete. APE tags at the end of an MP3,
-including before ID3v1, are detected but not read and make the result
+including before ID3v1, have bounded text items read; binary items, external
+references and other tag locations are not inspected, so the result remains
 incomplete. Audio frames are not decoded or
 checked for integrity; Ogg page checksums are not verified. Hexscope does
 not play or clean these files.
