@@ -15,5 +15,5 @@ export function hasCleanableAudioTags(
   return format === "flac"
     && metadataComplete
     && labels.includes("audio frames (not decoded)")
-    && labels.includes("FLAC Vorbis comments block");
+    && (labels.includes("FLAC Vorbis comments block") || labels.includes("FLAC picture block"));
 }

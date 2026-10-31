@@ -50,6 +50,7 @@ function corpus(): [string, Uint8Array][] {
 /** Small metadata-only streams exercise the audio build and its explanations. */
 function audioExamples(): [string, Uint8Array][] {
   const le32 = (value: number) => [value & 255, (value >>> 8) & 255, (value >>> 16) & 255, value >>> 24];
+  const be32 = (value: number) => [(value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255];
   const text = new TextEncoder();
   const field = text.encode("TITLE=Sample");
   const comments = new Uint8Array([...le32(0), ...le32(1), ...le32(field.length), ...field]);
@@ -61,9 +62,31 @@ function audioExamples(): [string, Uint8Array][] {
     ...text.encode("ID3"), 4, 0, 0, 0, 0, 0, mp3Frame.length, ...mp3Frame,
   ]);
 
+  const picture = new Uint8Array([
+    ...be32(3), ...be32(3), 80, 78, 71, ...be32(0),
+    ...be32(1), ...be32(1), ...be32(24), ...be32(0), ...be32(1), 0x42,
+  ]);
+  const block = (type: number, body: Uint8Array, last: boolean) => [
+    (last ? 0x80 : 0) | type,
+    (body.length >>> 16) & 255,
+    (body.length >>> 8) & 255,
+    body.length & 255,
+    ...body,
+  ];
+  const streamInfo = new Uint8Array([
+    ...text.encode("fLaC"), ...block(0, new Uint8Array(34), false),
+  ]);
+  const flacFrames = new Uint8Array([0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4]);
   const flac = new Uint8Array([
-    ...text.encode("fLaC"), 0, 0, 0, 34, ...new Uint8Array(34),
-    0x84, 0, (comments.length >>> 8) & 255, comments.length & 255, ...comments,
+    ...streamInfo,
+    ...block(4, comments, false),
+    ...block(6, picture, true),
+    ...flacFrames,
+  ]);
+  const flacPictureOnly = new Uint8Array([
+    ...streamInfo,
+    ...block(6, picture, true),
+    ...flacFrames,
   ]);
 
   const oggPage = (sequence: number, flags: number, packet: Uint8Array) => {
@@ -92,7 +115,7 @@ function audioExamples(): [string, Uint8Array][] {
     cursor += page.length;
   }
 
-  return [["sample.mp3", mp3], ["sample.flac", flac], ["sample.ogg", ogg]];
+  return [["sample.mp3", mp3], ["sample.flac", flac], ["cover-only.flac", flacPictureOnly], ["sample.ogg", ogg]];
 }
 
 /** English words left in a line, outside what it quotes from the file: a sentence half translated is not translated. */

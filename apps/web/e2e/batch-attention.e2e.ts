@@ -54,7 +54,8 @@ test("a FLAC with complete Vorbis comments can be selected for a batch clean cop
   const flac = Buffer.concat([
     Buffer.from("fLaC"),
     Buffer.from([0, 0, 0, 34]), Buffer.alloc(34),
-    Buffer.from([0x84, 0, 0, comments.length]), comments,
+    Buffer.from([0x04, 0, 0, comments.length]), comments,
+    Buffer.from([0x86, 0, 0, 4, 1, 2, 3, 4]),
     Buffer.from([0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4]),
   ]);
   await page.goto("./");

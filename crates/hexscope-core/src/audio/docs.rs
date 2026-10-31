@@ -99,12 +99,22 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "FLAC picture block",
+        flac("An embedded picture such as cover art; a clean copy removes the entire block."),
+    ),
+    (
+        "FLAC picture data removed with its block",
+        flac("The contents of the picture block; the clean copy removes the entire block."),
+    ),
+    (
         "FLAC * block",
         flac("A FLAC metadata block; this view does not inspect its contents."),
     ),
     (
         "FLAC metadata block content not inspected",
-        flac("This block can carry artwork or other metadata that this view does not inspect."),
+        flac(
+            "This block can carry application data, cue metadata or extensions that this view does not inspect.",
+        ),
     ),
     (
         "Ogg media stream",

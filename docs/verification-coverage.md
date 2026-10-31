@@ -84,11 +84,11 @@ Why each row can be trusted:
 - **MP3**: leading ID3v2 and trailing APE, ID3v1 Plus and ID3v1 tags are
   removed as whole blocks; compressed MPEG frames are copied byte for byte. Only listed
   metadata kinds can be confirmed, and only when both parses are complete.
-- **FLAC**: the Vorbis comment block is removed; STREAMINFO, padding, seek
-  tables and compressed audio frames stay byte for byte. A complete parse is
-  required, so uninspected application, cue sheet, picture or reserved blocks
-  prevent a clean copy. Only listed metadata kinds can be confirmed after a
-  complete read-back.
+- **FLAC**: Vorbis comments and whole picture blocks are removed; STREAMINFO,
+  padding, seek tables and compressed audio frames stay byte for byte. A
+  complete parse is required, so uninspected application, cue sheet or
+  reserved blocks prevent a clean copy. Only listed metadata kinds can be
+  confirmed after a complete read-back.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.
