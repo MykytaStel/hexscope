@@ -7,8 +7,9 @@ describe("hasCleanableAudioTags", () => {
     expect(hasCleanableAudioTags("mp3", ["ID3v2.4 metadata"])).toBe(false);
   });
 
-  it("offers only complete FLAC files with a Vorbis comment block", () => {
+  it("offers complete FLAC files with comments or cover art", () => {
     expect(hasCleanableAudioTags("flac", ["FLAC Vorbis comments block", "audio frames (not decoded)"], true)).toBe(true);
+    expect(hasCleanableAudioTags("flac", ["FLAC picture block", "audio frames (not decoded)"], true)).toBe(true);
     expect(hasCleanableAudioTags("flac", ["FLAC Vorbis comments block"], false)).toBe(false);
     expect(hasCleanableAudioTags("flac", ["FLAC Vorbis comments block"], true)).toBe(false);
     expect(hasCleanableAudioTags("flac", ["FLAC STREAMINFO block"], true)).toBe(false);

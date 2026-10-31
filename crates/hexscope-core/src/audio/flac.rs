@@ -160,9 +160,20 @@ pub(super) fn parse_flac(data: &[u8]) -> AudioDocument {
                 }
             }
             1 | 3 => {} // Padding and seek points do not contain user tag values.
-            2 | 5 | 6 | 7..=126 => {
+            6 => {
+                // Picture data is optional and can contain embedded image
+                // metadata. The cleaner removes the entire bounded block.
+                tree.add(
+                    Some(block_node),
+                    "FLAC picture data removed with its block",
+                    ByteRange::new(payload_start as u64, len as u64),
+                    NodeKind::Field,
+                    None,
+                );
+            }
+            2 | 5 | 7..=126 => {
                 // These blocks can contain application values, cue metadata,
-                // artwork, or extensions; their payloads are skipped safely.
+                // or extensions; their payloads are skipped safely.
                 tree.add(
                     Some(block_node),
                     "FLAC metadata block content not inspected",

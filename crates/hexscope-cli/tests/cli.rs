@@ -145,13 +145,21 @@ fn clean_flac_removes_vorbis_comments_and_verifies_the_retained_stream() {
     let mut flac = b"fLaC".to_vec();
     flac.extend_from_slice(&[0, 0, 0, 34]);
     flac.extend_from_slice(&[0; 34]);
-    flac.push(0x84);
+    flac.push(0x04);
     flac.extend_from_slice(&[
         ((comments.len() >> 16) & 0xff) as u8,
         ((comments.len() >> 8) & 0xff) as u8,
         (comments.len() & 0xff) as u8,
     ]);
     flac.extend_from_slice(&comments);
+    let picture = [0, 0, 0, 3, b'P', b'N', b'G', 0, 0, 0, 0, 1, 2, 3];
+    flac.push(0x86);
+    flac.extend_from_slice(&[
+        ((picture.len() >> 16) & 0xff) as u8,
+        ((picture.len() >> 8) & 0xff) as u8,
+        (picture.len() & 0xff) as u8,
+    ]);
+    flac.extend_from_slice(&picture);
     flac.extend_from_slice(&frames);
     std::fs::write(&source, flac).unwrap();
 
@@ -172,6 +180,14 @@ fn clean_flac_removes_vorbis_comments_and_verifies_the_retained_stream() {
     assert!(
         cleaned.ends_with(&frames),
         "compressed audio frames stay byte for byte"
+    );
+    let parsed = hexscope_core::audio::parse(&cleaned).unwrap();
+    assert!(
+        parsed
+            .tree
+            .nodes()
+            .iter()
+            .all(|node| node.label != "FLAC picture block")
     );
     std::fs::remove_dir_all(dir).unwrap();
 }

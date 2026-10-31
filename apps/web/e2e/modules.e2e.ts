@@ -29,7 +29,12 @@ function mp3(frameId: "TIT2" | "TXXX"): Buffer {
   ]);
 }
 
-function flac(withUninspectedBlock = false, withFrames = true): Buffer {
+function flac(
+  withUninspectedBlock = false,
+  withFrames = true,
+  withPicture = false,
+  withComments = true,
+): Buffer {
   const vendor = Buffer.from("test encoder");
   const title = Buffer.from("TITLE=song");
   const comments = Buffer.concat([
@@ -43,15 +48,25 @@ function flac(withUninspectedBlock = false, withFrames = true): Buffer {
   const unknown = withUninspectedBlock
     ? Buffer.from([2, 0, 0, 1, 0x41])
     : Buffer.alloc(0);
-  const commentBlock = Buffer.concat([
-    Buffer.from([0x84, (comments.length >> 16) & 0xff, (comments.length >> 8) & 0xff, comments.length & 0xff]),
-    comments,
-  ]);
+  const commentBlock = withComments
+    ? Buffer.concat([
+      Buffer.from([withPicture ? 0x04 : 0x84, (comments.length >> 16) & 0xff, (comments.length >> 8) & 0xff, comments.length & 0xff]),
+      comments,
+    ])
+    : Buffer.alloc(0);
+  const pictureBody = Buffer.from([0, 0, 0, 3, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 1, 2, 3]);
+  const pictureBlock = withPicture
+    ? Buffer.concat([
+      Buffer.from([0x86, (pictureBody.length >> 16) & 0xff, (pictureBody.length >> 8) & 0xff, pictureBody.length & 0xff]),
+      pictureBody,
+    ])
+    : Buffer.alloc(0);
   return Buffer.concat([
     Buffer.from("fLaC"),
     streamInfo,
     unknown,
     commentBlock,
+    pictureBlock,
     ...(withFrames ? [Buffer.from([0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4])] : []),
   ]);
 }
@@ -109,11 +124,28 @@ test("a FLAC keeps its audio frames and confirms removal of the comment block", 
   });
 
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await expect(page.locator(".cleaner .clean-copy-note")).toContainText("Removes the FLAC Vorbis comment block.");
+  await expect(page.locator(".cleaner .clean-copy-note")).toContainText("Removes FLAC Vorbis comments and embedded pictures such as cover art.");
   await page.locator(".verdict-cta").click();
   await expect(page.locator(".ba-side.is-after .ba-what")).toContainText("confirmed removed from the copy");
   await page.locator(".clean-removed > summary").click();
   await expect(page.locator(".clean-list")).toContainText("FLAC Vorbis comments");
+});
+
+test("a FLAC cover-art-only file can make a copy without its picture block", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "cover-art-only.flac",
+    mimeType: "audio/flac",
+    buffer: flac(false, true, true, false),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".verdict-cta")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+  await page.locator(".clean-removed > summary").click();
+  await expect(page.locator(".clean-list")).toContainText("FLAC pictures");
 });
 
 test("a FLAC with an uninspected metadata block does not offer a clean copy", async ({ page }) => {

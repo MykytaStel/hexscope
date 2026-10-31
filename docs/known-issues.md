@@ -72,11 +72,12 @@ incomplete. MP3 clean copies remove a leading ID3v2 tag and trailing APE,
 ID3v1 Plus and ID3v1 blocks while copying compressed audio frames unchanged.
 Stacked leading ID3v2 tags are refused until each can be inspected. Audio
 frames are not decoded or checked for integrity; Ogg page checksums are not
-verified. A FLAC clean copy removes its Vorbis comments block and preserves
-the remaining recognized blocks and compressed frames byte for byte. It is
-available only when every metadata block was inspected; application, cue
-sheet, picture and reserved blocks are not inspected, so a file containing
-one of them remains read-only. Hexscope does not play audio or clean Ogg files.
+verified. A FLAC clean copy removes Vorbis comments and complete picture
+blocks, including cover art, while preserving other supported metadata blocks
+and compressed frames byte for byte. It is available only when every retained
+metadata block was inspected; application, cue sheet and reserved blocks are
+not inspected, so a file containing one remains read-only. Hexscope does not
+play audio or clean Ogg files.
 
 **Emails: the top-level header.** The address a message was sent from is
 read from the first server's `Received` line (IPv4 and bracketed IPv6) and
