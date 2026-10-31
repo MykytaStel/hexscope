@@ -79,13 +79,14 @@ test("an iPhone photo's HDR gain map is not called hidden, and its clean copy is
   await expect(page.locator(".verdict-title")).toHaveText("This photo gives away 8 things");
   await expect(page.locator(".verdict")).not.toContainText("Hidden in it");
 
+  await expect(page.locator(".cleaner .clean-copy-note")).toContainText("Removes personal metadata from the main picture and its HDR gain map.");
   await page.locator(".verdict-cta").click();
-  await expect(page.locator(".cleaner")).toContainText("Removes personal metadata from the main picture and its HDR gain map.");
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("8");
   await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");
   await expect(after).toHaveClass(/is-clear/);
-  await expect(page.locator(".clean-removed")).toContainText("A second picture for HDR screens or depth");
+  await expect(page.locator(".cleaner .clean-copy-note")).toContainText("Keeps both pictures and the technical HDR settings");
+  await expect(page.locator(".clean-removed")).not.toContainText("A second picture for HDR screens or depth");
 });
 
 test("on a phone, the clean copy's actions stand one under another, the same size, sharing first", async ({ page }, info) => {

@@ -63,7 +63,7 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
       ? CLEAN_NOTES.archive
       : cleanCopyNote(m.file);
   const limits = cleanLimits(m);
-  box.append(button, el("p", "hint", note));
+  box.append(button, el("p", "hint clean-copy-note", note));
   // A workbook's or a deck's comments and notes are its content: gone only when asked.
   const word = m.file.labels.includes("word/document.xml");
   const extras = format === "zip" && !word && m.file.facts.some((x) => x.kind === "notes" || x.kind === "comments");
@@ -100,6 +100,11 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     box.append(comparison);
     const saved = r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy.";
     box.append(done(translateText(saved, currentLocale())));
+    // Keep the HDR preservation note beside the result; the indexed gain map
+    // stays in the copy, so it must not appear under "What was removed".
+    if (format === "jpeg" && note === CLEAN_NOTES.jpegHdr) {
+      box.append(el("p", "hint clean-copy-note", note));
+    }
     const removed = el("details", "clean-removed");
     removed.append(el("summary", undefined, `What was removed · ${formatBytes(r.removed.reduce((n, x) => n + x.bytes, 0))}`));
     const ul = el("ul", "clean-list");
