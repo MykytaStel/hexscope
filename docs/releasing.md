@@ -20,19 +20,22 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    together. Additions must preserve the documented CLI and receipt contracts;
    review a breaking change and its version separately. Use normal SemVer
    numbers: `0.9.01` is invalid because numeric components cannot have leading
-   zeroes.
+   zeroes. The examples below use `0.9.1`; choose the actual number only when
+   the release scope is ready.
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
    dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
    and the CLI's on `hexscope-core` and `hexscope-raster`.
-3. `node scripts/changelog.mjs 0.3.0` writes everything in `changes/` into
-   `CHANGELOG.md` as `[0.3.0] — today`, newest first, adds its compare link
-   at the bottom and removes the files. Read it through once.
+3. Set `VERSION` to the number chosen above. `node scripts/changelog.mjs
+   "$VERSION"` writes everything in `changes/` into `CHANGELOG.md` under that
+   version, newest first, adds its compare link at the bottom and removes the
+   files. Read it through once.
 4. Open a pull request; CI checks that the changelog has the new version.
 5. Once it is merged and deployed, tag it and publish the release notes:
 
    ```sh
-   git tag -a v0.3.0 -m "hexscope 0.3.0" && git push origin v0.3.0
-   gh release create v0.3.0 --title "hexscope 0.3.0" --notes-file <(sed -n '/^## \[0.3.0\]/,/^## \[/p' CHANGELOG.md | sed '$d')
+   VERSION=0.9.1
+   git tag -a "v$VERSION" -m "hexscope $VERSION" && git push origin "v$VERSION"
+   gh release create "v$VERSION" --title "hexscope $VERSION" --notes-file <(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '$d')
    ```
 
    Publishing the release builds the command for Linux (x86-64 and ARM,
@@ -43,12 +46,20 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
 
 6. Once the release lists its ten files, update the Homebrew tap
    ([MykytaStel/homebrew-hexscope](https://github.com/MykytaStel/homebrew-hexscope))
-   from the checksums they carry, and check it installs:
+   from the checksums they carry. Open and merge a tap pull request, then
+   install the formula and run its test:
 
    ```sh
-   node scripts/homebrew-formula.mjs 0.3.0 > ../homebrew-hexscope/Formula/hexscope.rb
-   (cd ../homebrew-hexscope && git commit -am "hexscope 0.3.0" && git push)
-   brew install mykytastel/hexscope/hexscope && brew test hexscope
+   BRANCH="release/hexscope-$VERSION"
+   (cd ../homebrew-hexscope && git switch -c "$BRANCH")
+   node scripts/homebrew-formula.mjs "$VERSION" > ../homebrew-hexscope/Formula/hexscope.rb
+   (cd ../homebrew-hexscope && git add Formula/hexscope.rb && git commit -m "hexscope $VERSION" && git push -u origin "$BRANCH")
+   gh pr create --repo MykytaStel/homebrew-hexscope --base main --head "$BRANCH" --title "hexscope $VERSION" --body "Update to the published v$VERSION checksums."
+   # After the tap pull request is merged:
+   brew update
+   brew install mykytastel/hexscope/hexscope # first install
+   brew upgrade mykytastel/hexscope/hexscope
+   brew test mykytastel/hexscope/hexscope
    ```
 
 7. Publishing to crates.io is a separate decision each time. From a clean
@@ -59,9 +70,11 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    cargo publish --workspace --locked --dry-run
    ```
 
-   This dry run packages and verifies all four crates without uploading them.
-   Keep `--no-verify` out of this check: the default verification passed for
-   the workspace's 0.8.0 packages. CI separately compiles and tests the
+   This dry run packages and verifies the four publishable crates without
+   uploading them. The workspace-only WebAssembly bridge has `publish =
+   false` and is not one of those four. Repeat the dry run on every release
+   tag: success on an older version is not evidence for a newer package.
+   Keep `--no-verify` out of this check; CI separately compiles and tests the
    workspace sources.
    After deciding to publish, run `cargo publish --workspace --locked`. Cargo
    publishes `hexscope-inflate`, `hexscope-core`, `hexscope-raster` and
