@@ -39,6 +39,34 @@ test("MP3 metadata is visible and can be selected for a batch clean copy", async
   await expect(batch.getByRole("checkbox", { name: /Make a clean copy of song.mp3/ })).toBeVisible();
 });
 
+test("a FLAC with complete Vorbis comments can be selected for a batch clean copy", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const vendor = Buffer.from("test encoder");
+  const field = Buffer.from("TITLE=song");
+  const comments = Buffer.concat([
+    Buffer.from([vendor.length, 0, 0, 0]), vendor,
+    Buffer.from([1, 0, 0, 0]),
+    Buffer.from([field.length, 0, 0, 0]), field,
+  ]);
+  const flac = Buffer.concat([
+    Buffer.from("fLaC"),
+    Buffer.from([0, 0, 0, 34]), Buffer.alloc(34),
+    Buffer.from([0x84, 0, 0, comments.length]), comments,
+    Buffer.from([0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4]),
+  ]);
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "song.flac", mimeType: "audio/flac", buffer: flac },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+  const batch = page.locator("#batch");
+  await expect(batch.locator(".batch-row", { hasText: "song.flac" })).toContainText("song");
+  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of song.flac/ })).toBeVisible();
+});
+
 test("a partial MP3 with no supported facts can still be selected for tag removal", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");

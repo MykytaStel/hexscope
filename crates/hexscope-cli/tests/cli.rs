@@ -125,6 +125,57 @@ fn clean_mp3_copies_audio_frames_and_verifies_the_removed_title() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
+#[test]
+fn clean_flac_removes_vorbis_comments_and_verifies_the_retained_stream() {
+    let dir = std::env::temp_dir().join(format!("hexscope-clean-flac-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("song.flac");
+    let output = dir.join("song-clean.flac");
+
+    let vendor = b"test encoder";
+    let field = b"TITLE=Song";
+    let mut comments = Vec::new();
+    comments.extend_from_slice(&(vendor.len() as u32).to_le_bytes());
+    comments.extend_from_slice(vendor);
+    comments.extend_from_slice(&1u32.to_le_bytes());
+    comments.extend_from_slice(&(field.len() as u32).to_le_bytes());
+    comments.extend_from_slice(field);
+    let frames = [0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4];
+    let mut flac = b"fLaC".to_vec();
+    flac.extend_from_slice(&[0, 0, 0, 34]);
+    flac.extend_from_slice(&[0; 34]);
+    flac.push(0x84);
+    flac.extend_from_slice(&[
+        ((comments.len() >> 16) & 0xff) as u8,
+        ((comments.len() >> 8) & 0xff) as u8,
+        (comments.len() & 0xff) as u8,
+    ]);
+    flac.extend_from_slice(&comments);
+    flac.extend_from_slice(&frames);
+    std::fs::write(&source, flac).unwrap();
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        source.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    let receipt: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(receipt["operation_state"], "written");
+    assert!(receipt["removed"].to_string().contains("title"));
+    assert_eq!(receipt["unchecked"].as_array().unwrap().len(), 0);
+    let cleaned = std::fs::read(output).unwrap();
+    assert!(
+        cleaned.ends_with(&frames),
+        "compressed audio frames stay byte for byte"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 fn sha256_hex(bytes: &[u8]) -> String {
     hexscope_core::crypto::sha2::sha256(bytes)
         .iter()

@@ -23,6 +23,7 @@ export const CLEAN_NOTES: Record<string, string> = {
   audio:
     "Blanks the location, the device, the software and the dates where they lie, so the file keeps its size. The sound is copied byte for byte.",
   mp3: "Removes the ID3v2, APE, ID3v1 Plus and ID3v1 tag blocks from the start or end of the file. The compressed audio frames are copied byte for byte; they are not decoded or re-encoded.",
+  flac: "Removes the FLAC Vorbis comment block. Keeps the other recognized metadata blocks and compressed audio frames byte for byte; the audio is not decoded or re-encoded. If a metadata block cannot be inspected, Hexscope does not make a copy.",
   wasm: "Leaves out the custom sections that say who built it and how: function names, tools, source map and debug info links, DWARF. The code and data are copied byte for byte; paths inside the data are part of the program, and stay.",
   svg: "Leaves out the metadata, Inkscape's names, paths and settings, a comment naming the program and Illustrator's own copy of the drawing; a linked picture keeps only its file name, and a photo inside is cleaned as a photo of its own. The shapes, text and scripts are copied as they are.",
   rtf: "Leaves out the document's information — title, author, who saved it last, company, dates, editing time — the program and template that made it, its custom properties and the numbers that tie its editing sessions together. Tracked changes are accepted and comments deleted, with their authors; the rest of the text is copied as it is.",
@@ -38,6 +39,7 @@ export const CLEAN_NOTES: Record<string, string> = {
 };
 
 export function cleanCopyNote(file: Pick<ParsedFile, "format" | "labels" | "values">): string {
+  if (file.format === "flac") return CLEAN_NOTES.flac;
   if (file.format === "jpeg") {
     const indexedPictures = file.labels
       .map((label, index) => (label === "picture listed in the MPF index" ? file.values[index] : undefined))
@@ -57,7 +59,9 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
   button.hidden = true;
   button.title = "Makes the copy in this tab: nothing is uploaded";
   const office = m.file.labels.includes("[Content_Types].xml");
-  const note = isAudio(m)
+  const note = format === "flac"
+    ? CLEAN_NOTES.flac
+    : isAudio(m)
     ? CLEAN_NOTES.audio
     : format === "zip" && !office
       ? CLEAN_NOTES.archive

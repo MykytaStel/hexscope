@@ -18,7 +18,7 @@ import { copyPictureButton, isAudio, shareButton, shareFallbackHint, type CleanA
 import { createCleaner } from "./cleaner";
 import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
 import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
-import { hasCleanableMp3Tags } from "./audio-clean";
+import { hasCleanableAudioTags } from "./audio-clean";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -424,7 +424,7 @@ export class Drawer {
       msg: "What this email reveals",
     };
     const audioFile = ["mp3", "flac", "ogg"].includes(f.format);
-    const mp3Tags = hasCleanableMp3Tags(f.format, f.labels);
+    const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete);
     const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // An email's way from its sender to you, drawn, with what is wrong on it.
@@ -498,10 +498,10 @@ export class Drawer {
       if (audioFile && f.metadataComplete === false) {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
       }
-      if (audioFile && !mp3Tags) {
+      if (audioFile && !cleanableAudioTags) {
         group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
       }
-      if (mp3Tags) group.append(createCleaner(m, this.cleaning, group));
+      if (cleanableAudioTags) group.append(createCleaner(m, this.cleaning, group));
       if (removable) group.append(createCleaner(m, this.cleaning, group));
       if (canBlackOut(m)) group.append(this.blackOutButton(m));
       // A screenshot with no metadata still shows what was on the screen.
@@ -645,7 +645,7 @@ export class Drawer {
     } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
-    } else if (audioFile && !mp3Tags) {
+    } else if (audioFile && !cleanableAudioTags) {
       group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));

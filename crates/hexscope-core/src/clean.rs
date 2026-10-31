@@ -119,6 +119,10 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Video(doc) => clean_video(data, &doc),
         #[cfg(feature = "audio")]
         Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Mp3 => clean_mp3(data),
+        #[cfg(feature = "audio")]
+        Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Flac => {
+            clean_flac(data, &doc)
+        }
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
@@ -159,6 +163,105 @@ fn clean_mp3(data: &[u8]) -> Result<Cleaned, CleanError> {
     Ok(Cleaned {
         bytes,
         removed,
+        orientation_kept: None,
+    })
+}
+
+/// Removes the inspected Vorbis comments from FLAC while leaving every
+/// retained metadata block and compressed audio frame byte for byte intact.
+#[cfg(feature = "audio")]
+fn clean_flac(data: &[u8], doc: &crate::audio::AudioDocument) -> Result<Cleaned, CleanError> {
+    use crate::audio::AudioFormat;
+
+    if doc.format != AudioFormat::Flac || !data.starts_with(b"fLaC") {
+        return Err(CleanError::Damaged);
+    }
+    if doc
+        .tree
+        .nodes()
+        .iter()
+        .any(|node| node.kind == NodeKind::Error)
+    {
+        return Err(CleanError::Damaged);
+    }
+    if !doc.metadata_complete {
+        return Err(CleanError::Unsupported);
+    }
+    let root = doc.tree.root().ok_or(CleanError::Damaged)?;
+    let children = &doc.tree.get(root).children;
+    let blocks = children
+        .iter()
+        .map(|&id| doc.tree.get(id))
+        .filter(|node| node.label.starts_with("FLAC ") && node.label.ends_with(" block"))
+        .collect::<Vec<_>>();
+    let comments = blocks
+        .iter()
+        .filter(|node| node.label == "FLAC Vorbis comments block")
+        .count();
+    if comments == 0 {
+        return Err(CleanError::NothingToRemove);
+    }
+    if comments != 1 {
+        return Err(CleanError::Damaged);
+    }
+
+    let frame = children
+        .iter()
+        .map(|&id| doc.tree.get(id))
+        .find(|node| node.label == "audio frames (not decoded)")
+        .ok_or(CleanError::Damaged)?;
+    if frame.range.len == 0 || frame.range.end() != data.len() as u64 {
+        return Err(CleanError::Damaged);
+    }
+
+    let mut cursor = 4u64;
+    for block in &blocks {
+        if block.range.start != cursor
+            || block.range.len < 4
+            || block.range.end() > frame.range.start
+        {
+            return Err(CleanError::Damaged);
+        }
+        cursor = block.range.end();
+    }
+    if cursor != frame.range.start {
+        return Err(CleanError::Damaged);
+    }
+
+    let retained = blocks
+        .iter()
+        .copied()
+        .filter(|node| node.label != "FLAC Vorbis comments block")
+        .collect::<Vec<_>>();
+    if retained.is_empty() || retained[0].label != "FLAC STREAMINFO block" {
+        return Err(CleanError::Damaged);
+    }
+    let mut out = Vec::with_capacity(data.len());
+    out.extend_from_slice(b"fLaC");
+    for (index, block) in retained.iter().enumerate() {
+        let start = usize::try_from(block.range.start).map_err(|_| CleanError::Damaged)?;
+        let end = usize::try_from(block.range.end()).map_err(|_| CleanError::Damaged)?;
+        let bytes = data.get(start..end).ok_or(CleanError::Damaged)?;
+        let mut copied = bytes.to_vec();
+        copied[0] = (copied[0] & 0x7f) | if index + 1 == retained.len() { 0x80 } else { 0 };
+        out.extend_from_slice(&copied);
+    }
+    out.extend_from_slice(
+        data.get(frame.range.start as usize..)
+            .ok_or(CleanError::Damaged)?,
+    );
+
+    Ok(Cleaned {
+        bytes: out,
+        removed: vec![Removed {
+            what: "FLAC Vorbis comments".into(),
+            bytes: blocks
+                .iter()
+                .find(|node| node.label == "FLAC Vorbis comments block")
+                .ok_or(CleanError::Damaged)?
+                .range
+                .len,
+        }],
         orientation_kept: None,
     })
 }
@@ -1508,6 +1611,34 @@ mod tests {
             .collect()
     }
 
+    #[cfg(feature = "audio")]
+    fn flac_with_comments(fields: &[&[u8]], extra: &[(u8, &[u8])], frames: &[u8]) -> Vec<u8> {
+        let mut comments = Vec::new();
+        comments.extend_from_slice(&12u32.to_le_bytes());
+        comments.extend_from_slice(b"test encoder");
+        comments.extend_from_slice(&(fields.len() as u32).to_le_bytes());
+        for field in fields {
+            comments.extend_from_slice(&(field.len() as u32).to_le_bytes());
+            comments.extend_from_slice(field);
+        }
+
+        let mut blocks = vec![(0u8, vec![0; 34]), (4u8, comments)];
+        blocks.extend(extra.iter().map(|(kind, body)| (*kind, body.to_vec())));
+        let mut out = b"fLaC".to_vec();
+        for (index, (kind, body)) in blocks.iter().enumerate() {
+            let last = if index + 1 == blocks.len() { 0x80 } else { 0 };
+            out.push(last | *kind);
+            out.extend_from_slice(&[
+                ((body.len() >> 16) & 0xff) as u8,
+                ((body.len() >> 8) & 0xff) as u8,
+                (body.len() & 0xff) as u8,
+            ]);
+            out.extend_from_slice(body);
+        }
+        out.extend_from_slice(frames);
+        out
+    }
+
     #[cfg(feature = "hdr")]
     fn add_iso_gain_map_segment(bytes: &mut Vec<u8>, metadata: &[u8]) {
         let doc = parse_jpeg(bytes);
@@ -1850,6 +1981,68 @@ mod tests {
         assert!(report.removed.iter().any(|item| item.kind == "owner"));
         assert!(report.removed.iter().any(|item| item.kind == "location"));
         assert!(report.unchecked.is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn flac_clean_copy_removes_comments_updates_last_flag_and_keeps_audio_bytes() {
+        let frames = [0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4];
+        let original = flac_with_comments(
+            &[b"TITLE=Song", b"LOCATION=Kyiv"],
+            &[(1, &[0, 0, 0])],
+            &frames,
+        );
+        let before = crate::summary::summarize(&original);
+        assert_eq!(before.format, "flac");
+        assert!(before.complete);
+
+        let cleaned = clean(&original).unwrap();
+        assert!(cleaned.bytes.len() < original.len());
+        assert!(
+            cleaned.bytes.ends_with(&frames),
+            "FLAC frames stay byte for byte"
+        );
+        assert_eq!(cleaned.removed[0].what, "FLAC Vorbis comments");
+
+        let after = crate::audio::parse(&cleaned.bytes).unwrap();
+        assert!(after.metadata_complete);
+        assert!(after.facts.is_empty());
+        let root = after.tree.root().unwrap();
+        let padding = after
+            .tree
+            .get(root)
+            .children
+            .iter()
+            .map(|&id| after.tree.get(id))
+            .find(|node| node.label == "FLAC padding block")
+            .unwrap();
+        assert_ne!(cleaned.bytes[padding.range.start as usize] & 0x80, 0);
+
+        let read_back = crate::summary::summarize(&cleaned.bytes);
+        let report = crate::verification::compare(
+            &crate::verification::snapshot(&before),
+            &crate::verification::snapshot(&read_back),
+        );
+        assert!(report.removed.iter().any(|item| item.kind == "title"));
+        assert!(report.removed.iter().any(|item| item.kind == "location"));
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn flac_clean_copy_refuses_uninspected_blocks_and_missing_audio_frames() {
+        let frames = [0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4];
+        let unknown = flac_with_comments(&[b"TITLE=Song"], &[(2, &[1, 2, 3])], &frames);
+        assert_eq!(clean(&unknown), Err(CleanError::Unsupported));
+
+        let no_frames = flac_with_comments(&[b"TITLE=Song"], &[], &[]);
+        assert_eq!(clean(&no_frames), Err(CleanError::Damaged));
+
+        let empty_comment = flac_with_comments(&[], &[(1, &[0, 0, 0])], &frames);
+        let parsed = crate::audio::parse(&empty_comment).unwrap();
+        assert!(parsed.metadata_complete);
+        // Even an empty comment block is an explicitly removable tag block.
+        assert!(clean(&empty_comment).is_ok());
     }
 
     #[cfg(feature = "hdr")]
