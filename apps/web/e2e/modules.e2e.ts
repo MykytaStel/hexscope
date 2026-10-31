@@ -148,6 +148,25 @@ test("a FLAC cover-art-only file can make a copy without its picture block", asy
   await expect(page.locator(".clean-list")).toContainText("FLAC pictures");
 });
 
+test("a FLAC picture removal is named in Ukrainian", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.tour", "done");
+    localStorage.setItem("hexscope.language", "uk");
+  });
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "cover-art-only.flac",
+    mimeType: "audio/flac",
+    buffer: flac(false, true, true, false),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+  await page.locator(".clean-removed > summary").click();
+  await expect(page.locator(".clean-list")).toContainText("Зображення, вбудовані у FLAC");
+});
+
 test("a FLAC with an uninspected metadata block does not offer a clean copy", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
   await page.goto("./");

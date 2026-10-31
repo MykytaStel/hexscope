@@ -125,7 +125,7 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
         // A sentence starts with a capital; a path such as "word/media/…" stays as named.
         const path = /^[^\s:]+\//.test(item.what);
         const what = path ? item.what : item.what.charAt(0).toUpperCase() + item.what.slice(1);
-        li.append(el("span", undefined, what), el("span", "clean-size", formatBytes(item.bytes)));
+        li.append(el("span", undefined, translateText(what, currentLocale())), el("span", "clean-size", formatBytes(item.bytes)));
       }
       ul.append(li);
     }

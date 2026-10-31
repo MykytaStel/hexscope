@@ -104,7 +104,7 @@ const TABLE: Table = &[
     ),
     (
         "FLAC picture data removed with its block",
-        flac("The image bytes and any metadata inside them; this clean copy removes them whole."),
+        flac("The contents of the picture block; the clean copy removes the entire block."),
     ),
     (
         "FLAC * block",
