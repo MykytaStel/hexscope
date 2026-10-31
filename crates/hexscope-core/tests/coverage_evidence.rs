@@ -54,6 +54,7 @@ fn confirmed(name: &str, format: &str) -> Vec<String> {
 }
 
 #[test]
+#[cfg(feature = "hdr")]
 fn photos_lose_every_covered_finding() {
     let all = [
         "location", "camera", "lens", "serial", "owner", "taken", "software",

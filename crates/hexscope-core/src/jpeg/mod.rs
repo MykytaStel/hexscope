@@ -9,6 +9,10 @@ pub(crate) mod docs;
 use crate::exif::{PhotoFacts, parse_tiff_at};
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
+#[cfg(feature = "hdr")]
+mod hdr;
+#[cfg(feature = "hdr")]
+pub(crate) use hdr::{HdrXmpInfo, inspect_hdr_xmp};
 
 /// SOI followed by the start of the next marker: how every JPEG begins.
 pub const MAGIC: [u8; 3] = [0xFF, 0xD8, 0xFF];
@@ -22,6 +26,8 @@ pub struct JpegDocument {
     /// From the first APP1 EXIF segment; empty when there is none.
     pub facts: PhotoFacts,
     pub has_exif: bool,
+    /// Whether metadata in any bounded MPF gain map was read completely.
+    pub metadata_complete: bool,
     /// The pictures after this one that its MPF index lists, where the file
     /// holds them: phones keep an HDR gain map or a depth map there.
     pub pictures: Vec<ByteRange>,
@@ -56,13 +62,14 @@ fn is_sof(m: u8) -> bool {
 
 /// What an APPn segment holds, from the identifier its payload starts with.
 fn app_kind(payload: &[u8]) -> Option<&'static str> {
-    const KNOWN: [(&[u8], &str); 9] = [
+    const KNOWN: [(&[u8], &str); 10] = [
         (b"Exif\0\0", "EXIF"),
         (b"http://ns.adobe.com/xap/1.0/\0", "XMP"),
         (b"JFIF\0", "JFIF"),
         (b"JFXX\0", "JFXX"),
         (b"ICC_PROFILE\0", "ICC"),
         (b"MPF\0", "MPF"),
+        (b"urn:iso:std:iso:ts:21496:-1\0", "ISO gain map"),
         (b"Photoshop 3.0\0", "Photoshop"),
         (b"Adobe", "Adobe"),
         // APP11's JPEG Universal Metadata boxes: Content Credentials.
@@ -108,6 +115,13 @@ pub fn parse_jpeg(data: &[u8]) -> JpegDocument {
 
 /// `depth` is how many files deep this JPEG is embedded; see `parse_tiff_at`.
 pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
+    parse_jpeg_inner(data, depth, true)
+}
+
+#[cfg(feature = "hdr")]
+const MAX_HDR_GAIN_MAP_BYTES: u64 = 64 * 1024 * 1024;
+
+fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDocument {
     let mut tree = ParseTree::new();
     let root = tree.add(
         None,
@@ -122,6 +136,7 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
         height: None,
         facts: PhotoFacts::default(),
         has_exif: false,
+        metadata_complete: true,
         pictures: Vec::new(),
     };
 
@@ -315,10 +330,79 @@ pub(crate) fn parse_jpeg_at(data: &[u8], depth: u8) -> JpegDocument {
         );
     } else if r.remaining() > 0 {
         after_the_end(&mut tree, root, data, r.pos(), &doc.pictures);
+        #[cfg(feature = "hdr")]
+        if _inspect_gain_maps {
+            graft_gain_map_metadata(
+                &mut tree,
+                data,
+                &doc.pictures,
+                &mut doc.facts,
+                &mut doc.metadata_complete,
+                depth,
+            );
+        }
+        #[cfg(not(feature = "hdr"))]
+        if !doc.pictures.is_empty() {
+            doc.metadata_complete = false;
+        }
     }
 
     doc.tree = tree;
     doc
+}
+
+/// A gain map is a JPEG of its own. Read its metadata too, below the indexed
+/// picture in the tree, so a clean copy sees facts that live only in that map.
+#[cfg(feature = "hdr")]
+fn graft_gain_map_metadata(
+    tree: &mut ParseTree,
+    data: &[u8],
+    pictures: &[ByteRange],
+    facts: &mut PhotoFacts,
+    metadata_complete: &mut bool,
+    depth: u8,
+) {
+    for &range in pictures {
+        let Some(bytes) = data.get(range.start as usize..range.end() as usize) else {
+            continue;
+        };
+        if picture_kind(bytes) != "HDR gain map" {
+            continue;
+        }
+        let Some(parent) = tree
+            .nodes()
+            .iter()
+            .find(|node| node.label == LISTED_PICTURE && node.range == range)
+            .map(|node| node.id)
+        else {
+            continue;
+        };
+        if range.len > MAX_HDR_GAIN_MAP_BYTES {
+            *metadata_complete = false;
+            tree.warning(
+                parent,
+                "HDR gain map is larger than the metadata inspection limit",
+                range,
+            );
+            continue;
+        }
+        let map = parse_jpeg_inner(bytes, depth.saturating_add(1), false);
+        if map
+            .tree
+            .nodes()
+            .iter()
+            .any(|node| matches!(node.kind, NodeKind::Error | NodeKind::Warning))
+        {
+            *metadata_complete = false;
+        }
+        let mapping = tree.graft_with_ids(parent, &map.tree, range.start);
+        let mut map_facts = map.facts;
+        // The gain map's orientation is defined by the primary image. A
+        // secondary EXIF orientation is ignored by the Ultra HDR format.
+        map_facts.orientation = None;
+        map_facts.remap_nodes(&mapping);
+        facts.fill_from(map_facts);
+    }
 }
 
 /// What follows the end of the picture. Phones keep more pictures there and
@@ -564,6 +648,25 @@ fn decode_segment(
                 Value::U64(doc.pictures.len() as u64),
             );
         }
+        0xE2 if app_kind(payload) == Some("ISO gain map") => {
+            const ID: usize = b"urn:iso:std:iso:ts:21496:-1\0".len();
+            field(
+                tree,
+                node,
+                "identifier",
+                at,
+                ID as u64,
+                Value::Text("ISO 21496-1 gain map metadata".into()),
+            );
+            field(
+                tree,
+                node,
+                "metadata",
+                at + ID as u64,
+                payload.len().saturating_sub(ID) as u64,
+                Value::Bytes(payload.len().saturating_sub(ID) as u64),
+            );
+        }
         0xEB if app_kind(payload) == Some("JUMBF") => {
             doc.facts
                 .fill_from(crate::exif::c2pa::from_manifest(payload, node));
@@ -798,6 +901,24 @@ mod tests {
                 .iter()
                 .any(|l| l == "data after the end of the image")
         );
+    }
+
+    #[cfg(feature = "hdr")]
+    #[test]
+    fn a_damaged_gain_map_makes_the_photo_incomplete() {
+        let mut bytes = include_bytes!("../../tests/fixtures/iphone-hdr.jpg").to_vec();
+        let range = parse_jpeg(&bytes).pictures[0];
+        let length_at = range.start as usize + 4;
+        bytes[length_at..length_at + 2].copy_from_slice(&1u16.to_be_bytes());
+
+        let doc = parse_jpeg(&bytes);
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.parent
+                .is_some_and(|parent| doc.tree.get(parent).label == LISTED_PICTURE)
+                && node.kind == NodeKind::Error
+        }));
+        assert!(!crate::summary::summarize(&bytes).complete);
     }
 
     #[test]

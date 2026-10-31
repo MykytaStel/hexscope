@@ -14,7 +14,10 @@ categories = ["parser-implementations", "compression"]
 exclude = ["tests/corpus", "tests/fixtures", "tests/snapshots", "fuzz"]
 
 [features]
-default = ["documents", "explain"]
+default = ["documents", "explain", "hdr"]
+# JPEG MPF gain maps and safe Ultra HDR clean copies. Browser builds enable
+# this only in the pictures-and-movies module to keep other format modules small.
+hdr = []
 # The sentence that says what each part of a file is (docs::Doc::text).
 # The browser's builds leave it out and fetch the sentences when they are
 # first shown: tens of kilobytes less in every visitor's first download.

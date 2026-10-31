@@ -389,6 +389,18 @@ fn clean_jpeg(data: &[u8], doc: &JpegDocument) -> Result<Cleaned, CleanError> {
     if top.first().map(|&c| tree.get(c).label.as_str()) != Some("SOI") {
         return Err(CleanError::Damaged);
     }
+    if top
+        .iter()
+        .any(|&id| tree.get(id).label == crate::jpeg::LISTED_PICTURE)
+    {
+        #[cfg(feature = "hdr")]
+        if top.iter().any(|&id| is_hdr_gain_map(tree, id)) {
+            return clean_hdr_jpeg(data, doc, root, top);
+        }
+        // A listed secondary image is part of the photo. Without recognized
+        // gain-map metadata, do not turn it into blank bytes or lose its role.
+        return Err(CleanError::Unsupported);
+    }
 
     let mut cut: Vec<ByteRange> = Vec::new();
     let mut removed = Vec::new();
@@ -444,6 +456,367 @@ fn clean_jpeg(data: &[u8], doc: &JpegDocument) -> Result<Cleaned, CleanError> {
         removed,
         orientation_kept: orientation,
     })
+}
+
+#[cfg(feature = "hdr")]
+const XMP_ID: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+#[cfg(feature = "hdr")]
+const ISO_GAIN_MAP_ID: &[u8] = b"urn:iso:std:iso:ts:21496:-1\0";
+
+#[cfg(feature = "hdr")]
+fn is_hdr_gain_map(tree: &crate::model::ParseTree, id: u32) -> bool {
+    let node = tree.get(id);
+    node.label == crate::jpeg::LISTED_PICTURE
+        && matches!(node.value, Some(crate::model::Value::Text(ref kind)) if kind == "HDR gain map")
+}
+
+#[cfg(feature = "hdr")]
+fn xmp_info(
+    data: &[u8],
+    range: ByteRange,
+    expected_map_len: Option<u64>,
+) -> crate::jpeg::HdrXmpInfo {
+    let Some(segment) = data.get(range.start as usize..range.end() as usize) else {
+        return crate::jpeg::HdrXmpInfo::default();
+    };
+    let Some(payload) = segment.get(4..) else {
+        return crate::jpeg::HdrXmpInfo::default();
+    };
+    let Some(packet) = payload.strip_prefix(XMP_ID) else {
+        return crate::jpeg::HdrXmpInfo::default();
+    };
+    crate::jpeg::inspect_hdr_xmp(packet, expected_map_len)
+}
+
+#[cfg(feature = "hdr")]
+fn has_container_directory(data: &[u8], range: ByteRange) -> bool {
+    let needle = b"Container:Directory";
+    data.get(range.start as usize..range.end() as usize)
+        .is_some_and(|segment| segment.windows(needle.len()).any(|w| w == needle))
+}
+
+#[cfg(feature = "hdr")]
+fn has_hdr_gain_map_fields(data: &[u8], range: ByteRange) -> bool {
+    let Some(segment) = data.get(range.start as usize..range.end() as usize) else {
+        return false;
+    };
+    [
+        b"HDRGainMap".as_slice(),
+        b"hdrgm:".as_slice(),
+        b"urn:iso:std:iso:ts:21496".as_slice(),
+    ]
+    .iter()
+    .any(|needle| {
+        segment
+            .windows(needle.len())
+            .any(|window| window == *needle)
+    })
+}
+
+/// ISO 21496-1's primary-image marker contains only the version fields; the
+/// gain-map JPEG carries those fields and the encoded gain-map parameters.
+#[cfg(feature = "hdr")]
+fn valid_iso_gain_map_segment(data: &[u8], range: ByteRange, require_values: bool) -> bool {
+    let Some(segment) = data.get(range.start as usize..range.end() as usize) else {
+        return false;
+    };
+    let Some(payload) = segment.get(4..) else {
+        return false;
+    };
+    let Some(metadata) = payload.strip_prefix(ISO_GAIN_MAP_ID) else {
+        return false;
+    };
+    valid_iso_gain_map_metadata(metadata, require_values)
+}
+
+/// ISO 21496-1 version 0 metadata has an exact layout. The primary image's
+/// marker contains only the two version fields; the gain-map image carries a
+/// flags byte followed by one or three channels of rational values.
+#[cfg(feature = "hdr")]
+fn valid_iso_gain_map_metadata(metadata: &[u8], require_values: bool) -> bool {
+    if metadata.len() == 4 {
+        return !require_values && metadata == [0, 0, 0, 0];
+    }
+    if !require_values || metadata.len() < 5 || metadata[..4] != [0, 0, 0, 0] {
+        return false;
+    }
+    let flags = metadata[4];
+    // Version 0 has four defined flag bits. The direction bit is defined but
+    // unsupported by the decoder; reserved bits and future versions fail closed.
+    if flags & 0xF0 != 0 || flags & 0x04 != 0 {
+        return false;
+    }
+    let channels = if flags & 0x01 != 0 { 3 } else { 1 };
+    let common_denominator = flags & 0x08 != 0;
+    let fields_start = if common_denominator { 17 } else { 21 };
+    let field_bytes = if common_denominator { 20 } else { 40 };
+    if metadata.len() != fields_start + channels * field_bytes {
+        return false;
+    }
+    if common_denominator {
+        return nonzero_be_u32(metadata, 5);
+    }
+    for channel in 0..channels {
+        let start = fields_start + channel * field_bytes;
+        for denominator in [start + 4, start + 12, start + 20, start + 28, start + 36] {
+            if !nonzero_be_u32(metadata, denominator) {
+                return false;
+            }
+        }
+    }
+    nonzero_be_u32(metadata, 9) && nonzero_be_u32(metadata, 17)
+}
+
+#[cfg(feature = "hdr")]
+fn nonzero_be_u32(bytes: &[u8], at: usize) -> bool {
+    bytes.get(at..at + 4).is_some_and(|raw| raw != [0, 0, 0, 0])
+}
+
+/// HDR JPEGs depend on offsets from their MPF marker to the appended gain map.
+/// Keep each segment's length fixed, blank personal metadata in place, and
+/// preserve only technical gain-map metadata that passed the strict XMP gate.
+#[cfg(feature = "hdr")]
+fn clean_hdr_jpeg(
+    data: &[u8],
+    doc: &JpegDocument,
+    _root: u32,
+    top: &[u32],
+) -> Result<Cleaned, CleanError> {
+    let tree = &doc.tree;
+    let maps: Vec<_> = top
+        .iter()
+        .map(|&id| tree.get(id))
+        .filter(|node| node.label == crate::jpeg::LISTED_PICTURE)
+        .collect();
+    let mpf_count = top
+        .iter()
+        .filter(|&&id| tree.get(id).label == "APP2 · MPF")
+        .count();
+    if maps.len() != 1 || mpf_count != 1 || doc.pictures.len() != 1 {
+        return Err(CleanError::Unsupported);
+    }
+    let map_node = maps[0];
+    let map_range = map_node.range;
+    if !is_hdr_gain_map(tree, map_node.id)
+        || doc.pictures[0] != map_range
+        || map_range.end() > data.len() as u64
+        || top
+            .iter()
+            .any(|&id| tree.get(id).label == "data after the end of the image")
+    {
+        return Err(CleanError::Unsupported);
+    }
+    let map_bytes = data
+        .get(map_range.start as usize..map_range.end() as usize)
+        .ok_or(CleanError::Damaged)?;
+    if map_bytes.len() as u64 > 64 * 1024 * 1024 {
+        return Err(CleanError::Unsupported);
+    }
+    let map_doc = crate::jpeg::parse_jpeg(map_bytes);
+    if map_doc.tree.nodes().iter().any(|node| {
+        node.kind == NodeKind::Error
+            || node.kind == NodeKind::Warning
+            || node.label == crate::jpeg::LISTED_PICTURE
+            || node.label == "data after the end of the image"
+    }) || !map_doc.pictures.is_empty()
+    {
+        return Err(CleanError::Damaged);
+    }
+    let map_root = map_doc.tree.root().ok_or(CleanError::Damaged)?;
+    let map_top = &map_doc.tree.get(map_root).children;
+    let has_map_iso = map_top.iter().any(|&id| {
+        let node = map_doc.tree.get(id);
+        node.label == "APP2 · ISO gain map"
+            && valid_iso_gain_map_segment(map_bytes, node.range, true)
+    });
+    let map_xmps: Vec<_> = map_top
+        .iter()
+        .map(|&id| map_doc.tree.get(id))
+        .filter(|node| node.label == "APP1 · XMP")
+        .collect();
+    let map_has_safe_xmp = map_xmps.iter().any(|node| {
+        let info = xmp_info(map_bytes, node.range, None);
+        info.safe && info.has_gain_map_metadata
+    });
+    if !has_map_iso && !map_has_safe_xmp {
+        return Err(CleanError::Unsupported);
+    }
+    for node in &map_xmps {
+        let info = xmp_info(map_bytes, node.range, None);
+        if !info.safe && has_container_directory(map_bytes, node.range) {
+            return Err(CleanError::Unsupported);
+        }
+        if !info.safe && !has_map_iso {
+            return Err(CleanError::Unsupported);
+        }
+    }
+
+    let primary_xmps: Vec<_> = top
+        .iter()
+        .map(|&id| tree.get(id))
+        .filter(|node| node.label == "APP1 · XMP")
+        .collect();
+    for node in &primary_xmps {
+        let info = xmp_info(data, node.range, Some(map_range.len));
+        if !info.safe
+            && (has_container_directory(data, node.range)
+                || has_hdr_gain_map_fields(data, node.range))
+        {
+            return Err(CleanError::Unsupported);
+        }
+    }
+
+    let orientation = doc.facts.orientation.filter(|&o| (2..=8).contains(&o));
+    let minimal_orientation = orientation.map(orientation_segment);
+    if let (Some(segment), Some(range)) = (
+        &minimal_orientation,
+        top.iter()
+            .find_map(|&id| (tree.get(id).label == "APP1 · EXIF").then_some(tree.get(id).range)),
+    ) && range.len < segment.len() as u64
+    {
+        return Err(CleanError::Unsupported);
+    }
+
+    let mut out = data.to_vec();
+    let mut removed = Vec::new();
+    for &id in top {
+        let node = tree.get(id);
+        if node.id == map_node.id {
+            let (sanitized, map_removed) = clean_hdr_gain_map(map_bytes, &map_doc, has_map_iso)?;
+            if sanitized.len() != map_bytes.len() {
+                return Err(CleanError::Damaged);
+            }
+            out.get_mut(map_range.start as usize..map_range.end() as usize)
+                .ok_or(CleanError::Damaged)?
+                .copy_from_slice(&sanitized);
+            removed.extend(map_removed);
+            continue;
+        }
+        if node.range.len == 0
+            || node.label == "SOI"
+            || node.label == "EOI"
+            || node.label == "APP2 · MPF"
+            || node.label == "APP2 · ISO gain map"
+            || jpeg_keeps(&node.label)
+        {
+            if node.label == "APP2 · ISO gain map"
+                && !valid_iso_gain_map_segment(data, node.range, false)
+            {
+                blank_jpeg_segment(&mut out, node.range)?;
+                removed.push(Removed {
+                    what: jpeg_what(&node.label),
+                    bytes: node.range.len,
+                });
+            }
+            continue;
+        }
+        if node.label == "data after the end of the image" {
+            return Err(CleanError::Unsupported);
+        }
+        if node.label == "APP1 · XMP" {
+            let info = xmp_info(data, node.range, Some(map_range.len));
+            if info.safe && (info.has_container_directory || info.has_gain_map_metadata) {
+                continue;
+            }
+        }
+        if node.label == "APP1 · EXIF" {
+            if let Some(segment) = &minimal_orientation {
+                write_orientation_in_segment(&mut out, data, node.range, segment)?;
+            } else {
+                blank_jpeg_segment(&mut out, node.range)?;
+            }
+        } else {
+            blank_jpeg_segment(&mut out, node.range)?;
+        }
+        removed.push(Removed {
+            what: jpeg_what(&node.label),
+            bytes: node.range.len,
+        });
+    }
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: orientation,
+    })
+}
+
+#[cfg(feature = "hdr")]
+fn clean_hdr_gain_map(
+    data: &[u8],
+    doc: &JpegDocument,
+    has_iso: bool,
+) -> Result<(Vec<u8>, Vec<Removed>), CleanError> {
+    let tree = &doc.tree;
+    let root = tree.root().ok_or(CleanError::Damaged)?;
+    let mut out = data.to_vec();
+    let mut removed = Vec::new();
+    for &id in &tree.get(root).children {
+        let node = tree.get(id);
+        if node.range.len == 0 || node.label == "SOI" || node.label == "EOI" {
+            continue;
+        }
+        if node.label == "APP2 · ISO gain map" {
+            if valid_iso_gain_map_segment(data, node.range, true) {
+                continue;
+            }
+        } else if node.label == "APP1 · XMP" {
+            let info = xmp_info(data, node.range, None);
+            if info.safe && info.has_gain_map_metadata {
+                continue;
+            }
+            if has_container_directory(data, node.range) || !has_iso {
+                return Err(CleanError::Unsupported);
+            }
+        } else if jpeg_keeps(&node.label) {
+            continue;
+        }
+        if node.label == "data after the end of the image"
+            || node.label == crate::jpeg::LISTED_PICTURE
+        {
+            return Err(CleanError::Unsupported);
+        }
+        blank_jpeg_segment(&mut out, node.range)?;
+        removed.push(Removed {
+            what: jpeg_what(&node.label),
+            bytes: node.range.len,
+        });
+    }
+    Ok((out, removed))
+}
+
+#[cfg(feature = "hdr")]
+fn blank_jpeg_segment(out: &mut [u8], range: ByteRange) -> Result<(), CleanError> {
+    let start = usize::try_from(range.start).map_err(|_| CleanError::Damaged)?;
+    let end = usize::try_from(range.end()).map_err(|_| CleanError::Damaged)?;
+    let payload = start.checked_add(4).ok_or(CleanError::Damaged)?;
+    out.get_mut(payload..end)
+        .ok_or(CleanError::Damaged)?
+        .fill(0);
+    Ok(())
+}
+
+#[cfg(feature = "hdr")]
+fn write_orientation_in_segment(
+    out: &mut [u8],
+    original: &[u8],
+    range: ByteRange,
+    orientation: &[u8],
+) -> Result<(), CleanError> {
+    let start = usize::try_from(range.start).map_err(|_| CleanError::Damaged)?;
+    let end = usize::try_from(range.end()).map_err(|_| CleanError::Damaged)?;
+    let room = out.get_mut(start..end).ok_or(CleanError::Damaged)?;
+    let source = original.get(start..start + 4).ok_or(CleanError::Damaged)?;
+    let length = [source[2], source[3]];
+    room.fill(0);
+    let minimal = room
+        .get_mut(..orientation.len())
+        .ok_or(CleanError::Damaged)?;
+    minimal.copy_from_slice(orientation);
+    minimal[2..4].copy_from_slice(&length);
+    Ok(())
 }
 
 /// Copies `data[from..to]`, writing the orientation block when the copy
@@ -1115,10 +1488,13 @@ mod tests {
 
     fn scan(bytes: &[u8]) -> Vec<u8> {
         let doc = parse_jpeg(bytes);
+        let root = doc.tree.root().unwrap();
         let n = doc
             .tree
-            .nodes()
+            .get(root)
+            .children
             .iter()
+            .map(|&id| doc.tree.get(id))
             .find(|n| n.label == "scan data")
             .unwrap();
         bytes[n.range.start as usize..n.range.end() as usize].to_vec()
@@ -1130,6 +1506,80 @@ mod tests {
             .filter(|n| matches!(n.kind, NodeKind::Warning | NodeKind::Error))
             .map(|n| n.label.clone())
             .collect()
+    }
+
+    #[cfg(feature = "hdr")]
+    fn add_iso_gain_map_segment(bytes: &mut Vec<u8>, metadata: &[u8]) {
+        let doc = parse_jpeg(bytes);
+        let range = doc.pictures[0];
+        let mpf = doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|node| node.label == "APP2 · MPF")
+            .unwrap()
+            .range;
+        let mut segment = vec![0xFF, 0xE2];
+        let payload_len = ISO_GAIN_MAP_ID.len() + metadata.len();
+        segment.extend_from_slice(&((payload_len + 2) as u16).to_be_bytes());
+        segment.extend_from_slice(ISO_GAIN_MAP_ID);
+        segment.extend_from_slice(metadata);
+
+        let old_size = (range.len as u32).to_be_bytes();
+        let mpf_bytes = &bytes[mpf.start as usize..mpf.end() as usize];
+        let matches: Vec<_> = mpf_bytes
+            .windows(old_size.len())
+            .enumerate()
+            .filter_map(|(at, window)| (window == old_size).then_some(at))
+            .collect();
+        assert_eq!(matches.len(), 1, "fixture has one MPF size entry");
+        let size_at = mpf.start as usize + matches[0];
+        let new_size = range.len as u32 + segment.len() as u32;
+        bytes[size_at..size_at + 4].copy_from_slice(&new_size.to_be_bytes());
+        bytes.splice(range.start as usize + 2..range.start as usize + 2, segment);
+    }
+
+    #[cfg(feature = "hdr")]
+    #[test]
+    fn iso_gain_map_metadata_requires_a_complete_known_layout() {
+        assert!(valid_iso_gain_map_metadata(&[0, 0, 0, 0], false));
+        assert!(!valid_iso_gain_map_metadata(&[0, 0, 0, 0, 0], false));
+        assert!(!valid_iso_gain_map_metadata(&[0, 0, 0, 1], false));
+
+        let mut single_channel = vec![0; 61];
+        for denominator in [9, 17, 25, 33, 41, 49, 57] {
+            single_channel[denominator] = 1;
+        }
+        assert!(valid_iso_gain_map_metadata(&single_channel, true));
+        assert!(!valid_iso_gain_map_metadata(&single_channel[..60], true));
+        single_channel.push(0);
+        assert!(!valid_iso_gain_map_metadata(&single_channel, true));
+
+        let mut multi_channel = vec![0; 141];
+        multi_channel[4] = 1; // Three channel pairs.
+        for channel in 0..3 {
+            let start = 21 + channel * 40;
+            for denominator in [start + 4, start + 12, start + 20, start + 28, start + 36] {
+                multi_channel[denominator] = 1;
+            }
+        }
+        multi_channel[9] = 1;
+        multi_channel[17] = 1;
+        assert!(valid_iso_gain_map_metadata(&multi_channel, true));
+
+        let mut common_denominator = vec![0; 37];
+        common_denominator[4] = 0x08;
+        common_denominator[8] = 1;
+        assert!(valid_iso_gain_map_metadata(&common_denominator, true));
+        common_denominator[8] = 0;
+        assert!(!valid_iso_gain_map_metadata(&common_denominator, true));
+
+        let mut unknown_direction = vec![0; 61];
+        unknown_direction[4] = 0x04;
+        assert!(!valid_iso_gain_map_metadata(&unknown_direction, true));
+        let mut reserved_flag = vec![0; 61];
+        reserved_flag[4] = 0x80;
+        assert!(!valid_iso_gain_map_metadata(&reserved_flag, true));
     }
 
     #[cfg(feature = "audio")]
@@ -1335,6 +1785,158 @@ mod tests {
             what.contains(&"data after the end of the picture"),
             "{what:?}"
         );
+    }
+
+    #[cfg(feature = "hdr")]
+    #[test]
+    fn an_hdr_photo_keeps_its_gain_map_and_cleans_primary_metadata() {
+        let original = include_bytes!("../tests/fixtures/iphone-hdr.jpg");
+        let before_doc = parse_jpeg(original);
+        assert_eq!(before_doc.pictures.len(), 1);
+        assert!(before_doc.facts.camera.is_some());
+        assert!(before_doc.facts.owner.is_some());
+        let map_before = before_doc.pictures[0];
+
+        let cleaned = clean(original).unwrap();
+        assert_eq!(
+            cleaned.bytes.len(),
+            original.len(),
+            "MPF offsets stay fixed"
+        );
+        assert_eq!(
+            scan(&cleaned.bytes),
+            scan(original),
+            "primary pixels stay fixed"
+        );
+        let after_doc = parse_jpeg(&cleaned.bytes);
+        assert_eq!(after_doc.pictures, [map_before]);
+        assert_eq!(
+            scan(&cleaned.bytes[map_before.start as usize..map_before.end() as usize]),
+            scan(&original[map_before.start as usize..map_before.end() as usize]),
+            "gain-map pixels stay fixed"
+        );
+        assert_eq!(after_doc.facts.camera, None);
+        assert_eq!(after_doc.facts.owner, None);
+        assert_eq!(after_doc.facts.serial, None);
+        assert_eq!(after_doc.facts.location, None);
+        assert!(after_doc.metadata_complete);
+
+        let picture = after_doc
+            .tree
+            .nodes()
+            .iter()
+            .find(|node| node.label == crate::jpeg::LISTED_PICTURE)
+            .unwrap();
+        assert_eq!(
+            picture.value,
+            Some(crate::model::Value::Text("HDR gain map".into()))
+        );
+        let map = &cleaned.bytes[map_before.start as usize..map_before.end() as usize];
+        assert!(
+            map.windows(b"HDRGainMapVersion".len())
+                .any(|w| w == b"HDRGainMapVersion")
+        );
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what.starts_with("EXIF"))
+        );
+
+        let before = crate::verification::snapshot(&crate::summary::summarize(original));
+        let after = crate::verification::snapshot(&crate::summary::summarize(&cleaned.bytes));
+        let report = crate::verification::compare(&before, &after);
+        assert!(report.removed.iter().any(|item| item.kind == "camera"));
+        assert!(report.removed.iter().any(|item| item.kind == "owner"));
+        assert!(report.removed.iter().any(|item| item.kind == "location"));
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[cfg(feature = "hdr")]
+    #[test]
+    fn an_hdr_copy_refuses_unknown_gain_map_xmp_without_iso_fallback() {
+        let mut bytes = include_bytes!("../tests/fixtures/iphone-hdr.jpg").to_vec();
+        let field = b"HDRGainMapVersion";
+        let replacement = b"PrivateMapField!!";
+        assert_eq!(field.len(), replacement.len());
+        let at = bytes
+            .windows(field.len())
+            .position(|window| window == field)
+            .unwrap();
+        bytes[at..at + field.len()].copy_from_slice(replacement);
+        assert_eq!(clean(&bytes), Err(CleanError::Unsupported));
+    }
+
+    #[test]
+    fn a_photo_with_an_unrecognized_secondary_picture_is_not_blanked() {
+        let mut bytes = include_bytes!("../tests/fixtures/iphone-hdr.jpg").to_vec();
+        let old = b"HDRGainMap";
+        let new = b"UnknownMap";
+        assert_eq!(old.len(), new.len());
+        let mut at = 0;
+        while let Some(relative) = bytes[at..]
+            .windows(old.len())
+            .position(|window| window == old)
+        {
+            let start = at + relative;
+            bytes[start..start + old.len()].copy_from_slice(new);
+            at = start + new.len();
+        }
+
+        let doc = parse_jpeg(&bytes);
+        assert_eq!(doc.pictures.len(), 1);
+        assert_eq!(
+            doc.tree
+                .nodes()
+                .iter()
+                .find(|node| node.label == crate::jpeg::LISTED_PICTURE)
+                .and_then(|node| node.value.as_ref()),
+            Some(&crate::model::Value::Text("picture".into()))
+        );
+        assert_eq!(clean(&bytes), Err(CleanError::Unsupported));
+    }
+
+    #[cfg(feature = "hdr")]
+    #[test]
+    fn a_valid_iso_gain_map_allows_unknown_map_xmp_to_be_removed() {
+        let mut bytes = include_bytes!("../tests/fixtures/iphone-hdr.jpg").to_vec();
+        let field = b"HDRGainMapVersion";
+        let replacement = b"PrivateMapField!!";
+        assert_eq!(field.len(), replacement.len());
+        let at = bytes
+            .windows(field.len())
+            .position(|window| window == field)
+            .unwrap();
+        bytes[at..at + field.len()].copy_from_slice(replacement);
+
+        let mut metadata = vec![0; 61];
+        for denominator in [9, 17, 25, 33, 41, 49, 57] {
+            metadata[denominator] = 1;
+        }
+        add_iso_gain_map_segment(&mut bytes, &metadata);
+        let before = crate::summary::summarize(&bytes);
+        assert!(before.complete);
+
+        let cleaned = clean(&bytes).unwrap();
+        let map = parse_jpeg(&cleaned.bytes).pictures[0];
+        let map_bytes = &cleaned.bytes[map.start as usize..map.end() as usize];
+        assert!(
+            map_bytes
+                .windows(ISO_GAIN_MAP_ID.len())
+                .any(|w| w == ISO_GAIN_MAP_ID)
+        );
+        assert!(
+            !map_bytes
+                .windows(replacement.len())
+                .any(|w| w == replacement)
+        );
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what.starts_with("XMP:"))
+        );
+        assert!(crate::summary::summarize(&cleaned.bytes).complete);
     }
 
     #[test]

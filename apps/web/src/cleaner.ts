@@ -3,7 +3,7 @@ import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio,
 import { confirmedRemovedKinds } from "./clean-summary";
 import { el, formatBytes, hasCoarsePointer } from "./dom";
 import { currentLocale, translateText } from "./i18n";
-import type { FileModel } from "./model";
+import type { FileModel, ParsedFile } from "./model";
 import { KEPT_NOTE } from "./knowledge";
 import { dismissTour } from "./tour";
 import { thanksLine } from "./support";
@@ -31,7 +31,22 @@ export const CLEAN_NOTES: Record<string, string> = {
   pdf: "Writes the document anew with only what its pages use: no author, programs or dates, no XMP, no earlier versions. Text under black boxes or hidden from view is taken out, and marks for redaction applied, with every other letter left where it was; a scanned page loses its pixels under a box; photos lose their camera data. Notes go, every other mark loses who made it, and attached files go — what was typed or signed on the page stays.",
   picture:
     "Removes the camera data, location, serial numbers, the maker's notes, thumbnail, comments and Content Credentials. The picture itself is copied unchanged.",
+  jpegHdr:
+    "Removes personal metadata from the main picture and its HDR gain map. Keeps both pictures and the technical HDR settings needed to display them; the photo may look less bright on HDR screens if the gain map is missing.",
+  jpegMpfUnsupported:
+    "This JPEG has an additional indexed picture that Hexscope cannot safely clean yet, so it will not make a clean copy.",
 };
+
+export function cleanCopyNote(file: Pick<ParsedFile, "format" | "labels" | "values">): string {
+  if (file.format === "jpeg") {
+    const indexedPictures = file.labels
+      .map((label, index) => (label === "picture listed in the MPF index" ? file.values[index] : undefined))
+      .filter((value): value is string => value !== undefined);
+    if (indexedPictures.length === 1 && indexedPictures[0] === "HDR gain map") return CLEAN_NOTES.jpegHdr;
+    if (indexedPictures.length > 0) return CLEAN_NOTES.jpegMpfUnsupported;
+  }
+  return CLEAN_NOTES[file.format] ?? CLEAN_NOTES.picture;
+}
 
 /** Builds the clean-copy panel and keeps its verified result beside its facts. */
 export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup: HTMLElement): HTMLElement {
@@ -44,9 +59,11 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
   const office = m.file.labels.includes("[Content_Types].xml");
   const note = isAudio(m)
     ? CLEAN_NOTES.audio
-    : (CLEAN_NOTES[format === "zip" && !office ? "archive" : format] ?? CLEAN_NOTES.picture);
+    : format === "zip" && !office
+      ? CLEAN_NOTES.archive
+      : cleanCopyNote(m.file);
   const limits = cleanLimits(m);
-  box.append(button, el("p", "hint", note));
+  box.append(button, el("p", "hint clean-copy-note", note));
   // A workbook's or a deck's comments and notes are its content: gone only when asked.
   const word = m.file.labels.includes("word/document.xml");
   const extras = format === "zip" && !word && m.file.facts.some((x) => x.kind === "notes" || x.kind === "comments");
@@ -83,6 +100,11 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     box.append(comparison);
     const saved = r.saved ? `Saved as “${r.name}” — look for it in your downloads.` : "Made a clean copy.";
     box.append(done(translateText(saved, currentLocale())));
+    // Keep the HDR preservation note beside the result; the indexed gain map
+    // stays in the copy, so it must not appear under "What was removed".
+    if (format === "jpeg" && note === CLEAN_NOTES.jpegHdr) {
+      box.append(el("p", "hint clean-copy-note", note));
+    }
     const removed = el("details", "clean-removed");
     removed.append(el("summary", undefined, `What was removed · ${formatBytes(r.removed.reduce((n, x) => n + x.bytes, 0))}`));
     const ul = el("ul", "clean-list");
