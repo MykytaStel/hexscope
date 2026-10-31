@@ -149,15 +149,30 @@ listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
 
 ### Next, after the launch
 
-- An HDR photo's copy keeps its gain map, cleaned of what it says — it
-  needs the gain map's own metadata kept (Ultra HDR, ISO 21496-1) and an
-  iPhone to check it on.
+- An HDR photo's clean copy now keeps its MPF gain map and supported
+  Ultra HDR/ISO 21496-1 settings, removes personal metadata from both JPEGs,
+  and verifies the copy against the source findings. The checked-in fixture
+  covers this path; opening and comparing the clean copy on a physical iPhone
+  remains unverified.
 - The core says what it finds as codes with values, not English sentences,
   and the page words them in each language.
 - The stylesheets in one set of tokens, checked against screenshots of
   every page and state before and after.
 - Research to publish: what messengers and social networks take out of a
   file sent through them, and what still ties a cleaned file to its author.
+
+### 0.9.1 — Ultra HDR clean copies (in progress)
+
+The Rust core now reads metadata in a bounded MPF gain map, includes its
+findings in the photo's evidence, and makes a fixed-length clean copy that
+keeps supported HDR settings and both JPEG pictures. Unknown or incomplete
+required map metadata fails closed. The Web explains the retained gain map
+before cleaning, in English and Ukrainian.
+
+The synthetic iPhone-format fixture, read-back verification and automated
+browser flow cover the code path. Before calling this slice device-verified,
+open and compare the clean copy on a physical iPhone. No version change or
+release is part of this in-progress work.
 
 ### 1.0.0 — Stable (when these hold)
 

@@ -96,6 +96,44 @@ impl PhotoFacts {
         self.prompt = self.prompt.take().or(other.prompt);
         self.orientation = self.orientation.take().or(other.orientation);
     }
+
+    /// Repoints evidence nodes after facts from an embedded JPEG are grafted
+    /// into its containing file's tree.
+    #[cfg(feature = "hdr")]
+    pub(crate) fn remap_nodes(&mut self, mapping: &[NodeId]) {
+        macro_rules! remap {
+            ($fact:expr) => {
+                if let Some(fact) = $fact.as_mut()
+                    && let Some(&node) = mapping.get(fact.node as usize)
+                {
+                    fact.node = node;
+                }
+            };
+        }
+        remap!(self.camera);
+        remap!(self.lens);
+        remap!(self.serial);
+        remap!(self.owner);
+        remap!(self.software);
+        remap!(self.taken);
+        remap!(self.thumbnail);
+        remap!(self.shutter);
+        remap!(self.uptime);
+        remap!(self.linked);
+        remap!(self.place);
+        remap!(self.caption);
+        remap!(self.original);
+        remap!(self.history);
+        remap!(self.screenshot);
+        remap!(self.ai);
+        remap!(self.credentials);
+        remap!(self.prompt);
+        if let Some(location) = self.location.as_mut()
+            && let Some(&node) = mapping.get(location.node as usize)
+        {
+            location.node = node;
+        }
+    }
 }
 
 /// A comment left in a picture — a GIF's comment, a JPEG's COM, a PNG's

@@ -80,6 +80,7 @@ test("an iPhone photo's HDR gain map is not called hidden, and its clean copy is
   await expect(page.locator(".verdict")).not.toContainText("Hidden in it");
 
   await page.locator(".verdict-cta").click();
+  await expect(page.locator(".cleaner")).toContainText("Removes personal metadata from the main picture and its HDR gain map.");
   const after = page.locator(".ba-side.is-after");
   await expect(after.locator(".ba-count")).toHaveText("8");
   await expect(after.locator(".ba-what")).toHaveText("confirmed removed from the copy");

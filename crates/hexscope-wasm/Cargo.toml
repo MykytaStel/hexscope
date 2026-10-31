@@ -28,6 +28,8 @@ mail = ["hexscope-core/mail"]
 module = ["hexscope-core/module"]
 svg = ["hexscope-core/svg"]
 strings = ["hexscope-core/strings"]
+# JPEG MPF gain maps; the Web enables this only for its media module.
+hdr = ["hexscope-core/hdr"]
 audio = ["hexscope-core/audio"]
 
 [dependencies]

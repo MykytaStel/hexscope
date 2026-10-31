@@ -190,12 +190,14 @@ jobs:
       # citation, left the parser for files of their own (explain-*.js),
       # fetched once a file is open: 148000 → 140000, 228000 → 216000,
       # 239000 → 225000, each with room for a format or two.
+      # The media budget is now 160000 for bounded Ultra HDR clean copies;
+      # HDR parsing stays out of the PDF, document and audio modules.
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
           media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs); audio=$(size hexscope_audio)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings (budget 140000), $pdf with PDF (budget 216000), $docs with Office, email and WebAssembly (budget 225000), $audio with MP3, FLAC and Ogg tags (budget 155000)."
-          test "$media" -le 140000
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings with Ultra HDR (budget 160000), $pdf with PDF (budget 216000), $docs with Office, email and WebAssembly (budget 225000), $audio with MP3, FLAC and Ogg tags (budget 155000)."
+          test "$media" -le 160000
           test "$pdf" -le 216000
           test "$docs" -le 225000
           test "$audio" -le 155000

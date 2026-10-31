@@ -166,7 +166,32 @@ impl ParseTree {
     /// by `offset`: a file embedded in this one, parsed on its own, placed
     /// where its bytes actually are.
     pub fn graft(&mut self, parent: NodeId, other: &ParseTree, offset: u64) {
-        let Some(root) = other.root() else { return };
+        self.graft_inner(parent, other, offset, false);
+    }
+
+    /// As [`ParseTree::graft`], and returns the new node ID for every node in
+    /// `other`. The embedded root has no corresponding node; its children map
+    /// to nodes below `parent`.
+    pub fn graft_with_ids(
+        &mut self,
+        parent: NodeId,
+        other: &ParseTree,
+        offset: u64,
+    ) -> Vec<NodeId> {
+        self.graft_inner(parent, other, offset, true)
+    }
+
+    fn graft_inner(
+        &mut self,
+        parent: NodeId,
+        other: &ParseTree,
+        offset: u64,
+        return_mapping: bool,
+    ) -> Vec<NodeId> {
+        let Some(root) = other.root() else {
+            return Vec::new();
+        };
+        let mut mapping = return_mapping.then(|| vec![0; other.nodes.len()]);
         let mut stack: Vec<(NodeId, NodeId)> = other
             .get(root)
             .children
@@ -183,8 +208,12 @@ impl ParseTree {
                 n.kind,
                 n.value.clone(),
             );
+            if let Some(mapping) = mapping.as_mut() {
+                mapping[id as usize] = copy;
+            }
             stack.extend(n.children.iter().rev().map(|&c| (c, copy)));
         }
+        mapping.unwrap_or_default()
     }
 
     /// Nodes in insertion order. Used by the WASM bridge to flatten the tree.

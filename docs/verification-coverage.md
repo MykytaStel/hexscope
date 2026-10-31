@@ -38,7 +38,11 @@ Why each row can be trusted:
 
 - **Photos** (JPEG, PNG, WebP, HEIC): the copy drops or blanks EXIF, XMP,
   IPTC, the maker's notes and comments as a whole, so no copy of these kinds
-  can stay in another block.
+  can stay in another block. One bounded JPEG MPF HDR gain map is parsed with
+  the main picture; its personal metadata is removed in place while recognized
+  Ultra HDR or ISO 21496-1 settings and both pictures stay. Unknown required
+  gain-map metadata makes cleaning refuse the copy. The fixture verifies the
+  bytes and read-back results; rendering on a physical iPhone is still open.
 - **Videos** (MP4, MOV, M4A): the copy blanks every metadata item where it
   lies and zeroes the creation and change times of every header.
 - **PDF**: the copy is written anew without the Info dictionary and XMP, and

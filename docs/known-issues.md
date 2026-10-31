@@ -53,6 +53,15 @@ carry a namespace prefix, such as `<svg:svg>`.
 
 ## Limits by design
 
+**Ultra HDR on a physical iPhone.** A clean copy of one bounded JPEG MPF
+gain map keeps its image bytes and supported technical XMP or ISO 21496-1
+metadata, while personal metadata is cleaned in place. The checked-in
+iPhone-format fixture proves parsing and read-back verification, but the
+result has not yet been opened and visually compared on a physical iPhone.
+Other MPF layouts, depth maps and gain maps with metadata Hexscope cannot
+safely inspect do not get a clean copy; an unrecognized indexed picture is
+never replaced with blank bytes.
+
 **Audio metadata, not audio decoding.** MP3 text and comment frames (ID3v1
 and ID3v2.2–2.4), FLAC Vorbis comments, and the first Vorbis or Opus stream
 in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
@@ -140,11 +149,13 @@ gigabyte or more can take more memory than a phone gives a tab. When the
 browser ends the reader for it, the page says so and the next file starts
 afresh; the command line tool has no such limit.
 
-**WebAssembly size.** Three builds, chosen by a file's first bytes: about
-133 KB gzipped for pictures, movies and drawings (CI budget 140,000 bytes),
-about 209 KB with PDF (budget 216,000) and about 217 KB with Office, email
-and WebAssembly (budget 225,000), each fetched only for a file it reads. Every
-sort goes through one `(key, index)` sort (`model::sorted_by`): a stable
+**WebAssembly size.** Four builds, chosen by a file's first bytes: about
+153 KB gzipped for pictures, movies and drawings, including bounded Ultra
+HDR clean-copy support (CI budget 160,000 bytes); about 207 KB with PDF
+(budget 216,000), 214 KB with Office, email and WebAssembly (budget 225,000),
+and 132 KB with audio tags (budget 155,000). Each is fetched only for a file
+it reads; the larger HDR parser is in the media build, not the other three.
+Every sort goes through one `(key, index)` sort (`model::sorted_by`): a stable
 sort of another item type costs two or three kilobytes. Until
 0.4 there was one build for every document, 295 KB; splitting it by family
 lets a new format grow only its own. The whole grew from 58 KB as ZIP, the explanations, the file map, the clean

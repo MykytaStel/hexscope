@@ -125,7 +125,7 @@ pub fn summary_of(doc: &Document) -> Summary {
         }
         Document::Jpeg(d) => {
             photo(&d.facts, &mut facts);
-            ("jpeg", true)
+            ("jpeg", d.metadata_complete)
         }
         Document::Heif(d) => {
             photo(&d.facts, &mut facts);
