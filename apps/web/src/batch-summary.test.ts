@@ -72,14 +72,14 @@ describe("batch summary", () => {
     });
   });
 
-  it("offers a clean copy for MP3 tags but not other read-only formats", () => {
+  it("offers clean copies for supported MP3 and FLAC tags but not other read-only formats", () => {
     const files = ["mp3", "flac", "ogg", "eml", "msg", "unknown"].map((format) => item(
       `file.${format}`,
       "done",
-      { format, reveals: ["author"], ...(format === "mp3" ? { hasRemovableMetadata: true } : {}) },
+      { format, reveals: ["author"], ...(["mp3", "flac"].includes(format) ? { hasRemovableMetadata: true } : {}) },
     ));
     const result = summarizeBatch(files, "reveals");
-    expect(result).toMatchObject({ revealing: 6, chosen: 1, anyPick: true });
+    expect(result).toMatchObject({ revealing: 6, chosen: 2, anyPick: true });
   });
 
   it("offers a tagged MP3 copy when every frame is outside the supported fact list", () => {
@@ -101,6 +101,16 @@ describe("batch summary", () => {
     });
 
     expect(summarizeBatch([unsafe], "reveals")).toMatchObject({ chosen: 0, anyPick: false });
+  });
+
+  it("does not offer a FLAC copy when the parser found an uninspected metadata block", () => {
+    const partial = item("partial.flac", "done", {
+      format: "flac",
+      reveals: ["title"],
+      hasRemovableMetadata: false,
+    });
+
+    expect(summarizeBatch([partial], "reveals")).toMatchObject({ chosen: 0, anyPick: false });
   });
 
   it("keeps only the visible page of row descriptors while counting every match", () => {

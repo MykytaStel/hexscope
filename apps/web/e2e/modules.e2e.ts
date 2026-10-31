@@ -29,6 +29,33 @@ function mp3(frameId: "TIT2" | "TXXX"): Buffer {
   ]);
 }
 
+function flac(withUninspectedBlock = false, withFrames = true): Buffer {
+  const vendor = Buffer.from("test encoder");
+  const title = Buffer.from("TITLE=song");
+  const comments = Buffer.concat([
+    Buffer.from([vendor.length, 0, 0, 0]),
+    vendor,
+    Buffer.from([1, 0, 0, 0]),
+    Buffer.from([title.length, 0, 0, 0]),
+    title,
+  ]);
+  const streamInfo = Buffer.concat([Buffer.from([0, 0, 0, 34]), Buffer.alloc(34)]);
+  const unknown = withUninspectedBlock
+    ? Buffer.from([2, 0, 0, 1, 0x41])
+    : Buffer.alloc(0);
+  const commentBlock = Buffer.concat([
+    Buffer.from([0x84, (comments.length >> 16) & 0xff, (comments.length >> 8) & 0xff, comments.length & 0xff]),
+    comments,
+  ]);
+  return Buffer.concat([
+    Buffer.from("fLaC"),
+    streamInfo,
+    unknown,
+    commentBlock,
+    ...(withFrames ? [Buffer.from([0xff, 0xf8, 0x69, 0x08, 1, 2, 3, 4])] : []),
+  ]);
+}
+
 for (const [sample, build] of [
   ["photo.jpg", "hexscope_media"],
   ["drawing.svg", "hexscope_media"],
@@ -69,6 +96,53 @@ test("an MP3 file loads its parser, links the tag to its bytes, and confirms the
   // A service worker may pre-cache the media build during this page visit;
   // the audio parser itself must still be requested for the uploaded file.
   expect(loaded).toContain("hexscope_audio");
+});
+
+test("a FLAC keeps its audio frames and confirms removal of the comment block", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "song.flac",
+    mimeType: "audio/flac",
+    buffer: flac(),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".cleaner .clean-copy-note")).toContainText("Removes the FLAC Vorbis comment block.");
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-what")).toContainText("confirmed removed from the copy");
+  await page.locator(".clean-removed > summary").click();
+  await expect(page.locator(".clean-list")).toContainText("FLAC Vorbis comments");
+});
+
+test("a FLAC with an uninspected metadata block does not offer a clean copy", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "partial.flac",
+    mimeType: "audio/flac",
+    buffer: flac(true),
+  });
+
+  await expect(page.getByText("Some audio metadata could not be fully read; the result is partial.")).toBeVisible();
+  await expect(page.locator(".verdict-cta")).toHaveCount(0);
+  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback and clean copies are not provided.")).toBeVisible();
+});
+
+test("a tagged FLAC without audio frames does not offer a clean copy", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "missing-frames.flac",
+    mimeType: "audio/flac",
+    buffer: flac(false, false),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".verdict-cta")).toHaveCount(0);
 });
 
 test("an MP3 tag without an audio frame does not offer a clean copy", async ({ page }) => {

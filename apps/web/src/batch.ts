@@ -34,13 +34,14 @@ export interface BatchItem {
 
 /** Whether a file has something a clean copy takes out. */
 export function cleanable(i: BatchItem): boolean {
-  // MP3s are only offered when a recognized edge tag and audio frame passed
-  // the same checks used by the cleaner. A finding in an uncleanable MP3 is
-  // not enough to promise that a copy can be made.
-  if (i.format === "mp3") return i.state === "done" && i.hasRemovableMetadata === true;
+  // Audio copies are offered only when a supported metadata block passed the
+  // same boundary checks used by its cleaner.
+  if (i.format === "mp3" || i.format === "flac") {
+    return i.state === "done" && i.hasRemovableMetadata === true;
+  }
   // These formats can expose findings, but the core does not make a clean
   // copy of the file itself. Attachments can be opened and cleaned separately.
-  if (i.format && ["unknown", "eml", "msg", "flac", "ogg"].includes(i.format)) return false;
+  if (i.format && ["unknown", "eml", "msg", "ogg"].includes(i.format)) return false;
   return i.state === "done" && (
     i.reveals.length > 0
     || i.lines.some((l) => l.kind === "hidden")

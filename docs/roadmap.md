@@ -164,7 +164,7 @@ listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
 - Research to publish: what messengers and social networks take out of a
   file sent through them, and what still ties a cleaned file to its author.
 
-### 0.9.1 — release parity and browser reliability (in progress)
+### 0.9.1 — release parity, safer audio copies and browser reliability (in progress)
 
 The Rust core now reads metadata in a bounded MPF gain map, includes its
 findings in the photo's evidence, and makes a fixed-length clean copy that
@@ -175,9 +175,12 @@ before cleaning, in English and Ukrainian.
 The synthetic iPhone-format fixture, read-back verification and automated
 browser flow cover the HDR code path. CI also runs a focused analyzer and
 keyboard smoke in Firefox and WebKit, alongside the full Desktop Chrome and
-Pixel 7 Chromium suites. Before calling HDR device-verified, open and compare
-the clean copy on a physical iPhone. No version change or release is part of
-this in-progress work.
+Pixel 7 Chromium suites. FLAC clean copies now remove a fully inspected Vorbis
+comments block while retaining recognized metadata and audio frame bytes;
+unknown or incomplete metadata keeps the file read-only. Ogg remains
+read-only. Before calling HDR device-verified, open and compare the clean copy
+on a physical iPhone. No version change or release is part of this in-progress
+work.
 
 ### 1.0.0 — Stable (when these hold)
 
