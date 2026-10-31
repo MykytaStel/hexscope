@@ -241,7 +241,10 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter web exec playwright install --with-deps chromium
       - name: End-to-end tests, part ${{ matrix.shard }} of 4
-        run: pnpm --filter web exec playwright test --shard=${{ matrix.shard }}/4
+        run: >-
+          pnpm --filter web exec playwright test
+          --project=computer --project=phone
+          --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
