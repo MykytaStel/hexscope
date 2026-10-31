@@ -84,6 +84,47 @@ fn check_reads_audio_tags_and_reports_uninspected_id3_metadata() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
+#[test]
+fn clean_mp3_copies_audio_frames_and_verifies_the_removed_title() {
+    let dir = std::env::temp_dir().join(format!("hexscope-clean-mp3-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("song.mp3");
+    let output = dir.join("song-clean.mp3");
+    let mut body = b"TIT2".to_vec();
+    body.extend_from_slice(&5u32.to_be_bytes());
+    body.extend_from_slice(&[0, 0, 0]);
+    body.extend_from_slice(b"song");
+    let size = body.len();
+    let mut mp3 = b"ID3\x03\0\0".to_vec();
+    mp3.extend_from_slice(&[
+        ((size >> 21) & 0x7f) as u8,
+        ((size >> 14) & 0x7f) as u8,
+        ((size >> 7) & 0x7f) as u8,
+        (size & 0x7f) as u8,
+    ]);
+    mp3.extend_from_slice(&body);
+    let audio = [0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
+    mp3.extend_from_slice(&audio);
+    std::fs::write(&source, mp3).unwrap();
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        source.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    let receipt: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(receipt["operation_state"], "written");
+    assert!(receipt["removed"].to_string().contains("title"));
+    assert_eq!(receipt["unchecked"].as_array().unwrap().len(), 0);
+    assert_eq!(std::fs::read(output).unwrap(), audio);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 fn sha256_hex(bytes: &[u8]) -> String {
     hexscope_core::crypto::sha2::sha256(bytes)
         .iter()

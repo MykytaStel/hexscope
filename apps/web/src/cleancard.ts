@@ -227,7 +227,7 @@ export function renderBeforeAfter(card: HTMLElement, report: VerificationReport 
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 export function cleanLimits(m: FileModel): HTMLElement {
   const format = m.file.format;
-  const kind = ["jpeg", "heif", "png", "webp", "gif", "tiff"].includes(format) ? "photo" : isAudio(m) ? "audio" : format;
+  const kind = ["jpeg", "heif", "png", "webp", "gif", "tiff"].includes(format) ? "photo" : isAudio(m) || ["mp3", "flac", "ogg"].includes(format) ? "audio" : format;
   const items = [...(LIMITS[kind] ?? [])];
   const base = m.name.split("/").pop() ?? m.name;
   if (DATED.test(base)) {

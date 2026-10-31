@@ -31,6 +31,7 @@ file, such as a photo in a document, is not covered.
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 | `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
 | `svg` | original, links, software, author, company, title, created, description, keywords, embedded, photoplace |
+| `mp3` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 <!-- coverage:end -->
 
 Why each row can be trusted:
@@ -75,6 +76,9 @@ Why each row can be trusted:
   computer keeps only its file name, and a photo embedded as base64 is
   cleaned as a photo of its own. Scripts are the drawing's and stay; they
   are named, not removed.
+- **MP3**: leading ID3v2 and trailing APE, ID3v1 Plus and ID3v1 tags are
+  removed as whole blocks; compressed MPEG frames are copied byte for byte. Only listed
+  metadata kinds can be confirmed, and only when both parses are complete.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.

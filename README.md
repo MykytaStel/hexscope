@@ -44,7 +44,7 @@ archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, LibreOffice's
 `.odt`, `.ods`, `.odp`, `.apk`, `.jar`, `.epub`), RTF, legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
 and WebAssembly modules. What it can inspect or change varies by format. For
 known limits — including password-protected PDFs and legacy Office document
-text, and audio's read-only metadata scope — see [known issues](docs/known-issues.md).
+text, and audio's metadata limits — see [known issues](docs/known-issues.md).
 
 hexscope is a file-structure inspector, **not a virus scanner**. It does not
 open links or follow redirects. A finding is an explanation of what the parser

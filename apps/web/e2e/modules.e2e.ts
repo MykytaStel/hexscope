@@ -25,6 +25,7 @@ function mp3(frameId: "TIT2" | "TXXX"): Buffer {
   return Buffer.concat([
     Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, body.length]),
     body,
+    Buffer.from([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]),
   ]);
 }
 
@@ -40,7 +41,7 @@ for (const [sample, build] of [
   });
 }
 
-test("an audio file loads its own parser and shows a read-only source-linked tag", async ({ page }) => {
+test("an MP3 file loads its parser, links the tag to its bytes, and confirms the clean copy", async ({ page }) => {
   const loaded: string[] = [];
   page.on("request", (r) => {
     const name = /\/(hexscope_[a-z]+)_bg-[^/]+\.wasm$/.exec(r.url())?.[1];
@@ -59,13 +60,18 @@ test("an audio file loads its own parser and shows a read-only source-linked tag
   await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
   await page.getByRole("button", { name: "Metadata", exact: true }).click();
   await expect(page.getByRole("button", { name: "song" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await expect(page.locator(".verdict-cta")).toBeVisible();
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-what")).toHaveText("confirmed removed from the copy");
+  await page.locator(".clean-removed > summary").click();
+  await expect(page.locator(".clean-list")).toContainText("ID3v2 metadata tags");
   // A service worker may pre-cache the media build during this page visit;
   // the audio parser itself must still be requested for the uploaded file.
   expect(loaded).toContain("hexscope_audio");
 });
 
-test("an audio file without tags still explains the read-only inspection", async ({ page }) => {
+test("an MP3 tag without an audio frame does not offer a clean copy", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
   await page.goto("./");
   await page.waitForFunction(() => document.body.dataset.state === "empty");
@@ -82,7 +88,7 @@ test("an audio file without tags still explains the read-only inspection", async
   await expect(page.locator("audio")).toHaveCount(0);
 });
 
-test("an unsupported ID3 frame is shown as a partial metadata read", async ({ page }) => {
+test("an unsupported ID3 frame can be removed but its findings stay unchecked", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
   await page.goto("./");
   await page.waitForFunction(() => document.body.dataset.state === "empty");
@@ -96,11 +102,13 @@ test("an unsupported ID3 frame is shown as a partial metadata read", async ({ pa
   await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
   await expect(page.getByText("Some audio metadata could not be fully read; the result is partial.")).toBeVisible();
   const partialFinding = page.locator(".verdict-line.is-warning").filter({
-    hasText: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
+    hasText: "Some audio metadata could not be fully read; this is a partial inspection.",
   });
   const findInFile = partialFinding.getByRole("button", { name: "Find in file" });
   await expect(findInFile).toBeVisible();
   await findInFile.click();
   await expect(page.locator("#statusbar-file")).toContainText("ID3 frame TXXX not inspected");
-  await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-what")).toHaveText("Copy not fully checked");
 });

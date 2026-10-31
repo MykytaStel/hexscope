@@ -23,6 +23,8 @@ export interface BatchItem {
   cleanName: string;
   /** Machine format code from the parser, used by portable receipts. */
   format?: string;
+  /** The file has a supported metadata block that can be removed even if it has no recognized facts. */
+  hasRemovableMetadata?: boolean;
   note: string;
   /** Left out of the clean copies, by choice. */
   skip: boolean;
@@ -32,10 +34,17 @@ export interface BatchItem {
 
 /** Whether a file has something a clean copy takes out. */
 export function cleanable(i: BatchItem): boolean {
+  // MP3s are only offered when a recognized edge tag and audio frame passed
+  // the same checks used by the cleaner. A finding in an uncleanable MP3 is
+  // not enough to promise that a copy can be made.
+  if (i.format === "mp3") return i.state === "done" && i.hasRemovableMetadata === true;
   // These formats can expose findings, but the core does not make a clean
   // copy of the file itself. Attachments can be opened and cleaned separately.
-  if (i.format && ["unknown", "eml", "msg", "mp3", "flac", "ogg"].includes(i.format)) return false;
-  return i.state === "done" && (i.reveals.length > 0 || i.lines.some((l) => l.kind === "hidden"));
+  if (i.format && ["unknown", "eml", "msg", "flac", "ogg"].includes(i.format)) return false;
+  return i.state === "done" && (
+    i.reveals.length > 0
+    || i.lines.some((l) => l.kind === "hidden")
+  );
 }
 
 export type BatchShow = "all" | "reveals" | "problems";
