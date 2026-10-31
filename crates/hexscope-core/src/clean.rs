@@ -78,7 +78,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP3 tags, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
             }
             CleanError::PictureUnderBox => {
                 "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
@@ -117,6 +117,8 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Zip(doc) if cfg!(feature = "office") => clean_zip(data, &doc, options, false),
         Document::Pdf(_) if cfg!(feature = "pdf") => crate::pdf::clean::clean_pdf(data),
         Document::Video(doc) => clean_video(data, &doc),
+        #[cfg(feature = "audio")]
+        Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Mp3 => clean_mp3(data),
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
@@ -125,6 +127,40 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
     }?;
     cleaned.removed = merged(cleaned.removed);
     Ok(cleaned)
+}
+
+/// Removes only the bounded ID3v2, APE and ID3v1 tags at an MP3's edges.
+/// MPEG frames are copied byte for byte and never decoded or re-encoded.
+#[cfg(feature = "audio")]
+fn clean_mp3(data: &[u8]) -> Result<Cleaned, CleanError> {
+    let ranges = crate::audio::removable_tag_ranges(data).ok_or(CleanError::Damaged)?;
+    if ranges.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    let mut bytes = Vec::with_capacity(data.len());
+    let mut removed = Vec::with_capacity(ranges.len());
+    let mut at = 0u64;
+    for (range, what) in ranges {
+        let end = range.end();
+        if range.start < at || end > data.len() as u64 {
+            return Err(CleanError::Damaged);
+        }
+        bytes.extend_from_slice(
+            data.get(at as usize..range.start as usize)
+                .ok_or(CleanError::Damaged)?,
+        );
+        removed.push(Removed {
+            what: what.into(),
+            bytes: range.len,
+        });
+        at = end;
+    }
+    bytes.extend_from_slice(data.get(at as usize..).ok_or(CleanError::Damaged)?);
+    Ok(Cleaned {
+        bytes,
+        removed,
+        orientation_kept: None,
+    })
 }
 
 /// Two blocks of the same kind, such as a second EXIF segment, are one line.
@@ -1096,6 +1132,61 @@ mod tests {
             .collect()
     }
 
+    #[cfg(feature = "audio")]
+    fn mp3_title_tag(title: &[u8]) -> Vec<u8> {
+        let mut body = b"TIT2".to_vec();
+        body.extend_from_slice(&((title.len() + 1) as u32).to_be_bytes());
+        body.extend_from_slice(&[0, 0, 0]);
+        body.extend_from_slice(title);
+        let mut tag = b"ID3\x03\0\0".to_vec();
+        let size = body.len();
+        tag.extend_from_slice(&[
+            ((size >> 21) & 0x7f) as u8,
+            ((size >> 14) & 0x7f) as u8,
+            ((size >> 7) & 0x7f) as u8,
+            (size & 0x7f) as u8,
+        ]);
+        tag.extend_from_slice(&body);
+        tag
+    }
+
+    #[cfg(feature = "audio")]
+    fn ape_text_item(key: &[u8], value: &[u8]) -> Vec<u8> {
+        let mut item = Vec::new();
+        item.extend_from_slice(&(value.len() as u32).to_le_bytes());
+        item.extend_from_slice(&0u32.to_le_bytes());
+        item.extend_from_slice(key);
+        item.push(0);
+        item.extend_from_slice(value);
+        item
+    }
+
+    #[cfg(feature = "audio")]
+    fn ape_footer(size: usize, count: u32) -> Vec<u8> {
+        let mut footer = vec![0; 32];
+        footer[..8].copy_from_slice(b"APETAGEX");
+        footer[8..12].copy_from_slice(&2000u32.to_le_bytes());
+        footer[12..16].copy_from_slice(&(size as u32).to_le_bytes());
+        footer[16..20].copy_from_slice(&count.to_le_bytes());
+        footer
+    }
+
+    #[cfg(feature = "audio")]
+    fn ape_header(size: usize, count: u32) -> Vec<u8> {
+        let mut header = ape_footer(size, count);
+        header[20..24].copy_from_slice(&0xa000_0000u32.to_le_bytes());
+        header
+    }
+
+    #[cfg(feature = "audio")]
+    fn id3v1(title: &[u8]) -> Vec<u8> {
+        let mut tag = vec![0; 128];
+        tag[..3].copy_from_slice(b"TAG");
+        let len = title.len().min(30);
+        tag[3..3 + len].copy_from_slice(&title[..len]);
+        tag
+    }
+
     fn revealing(orientation: u16) -> Vec<u8> {
         let mut s = Spec::new(ByteOrder::Little);
         s.ifd0 = vec![
@@ -1113,6 +1204,116 @@ mod tests {
         let mut jpeg = jpeg_with_exif(Some(&build(s)));
         jpeg.extend_from_slice(b"a second picture hidden after the end");
         jpeg
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_removes_id3v2_and_confirms_its_title_without_changing_audio() {
+        let audio = [0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
+        let mut original = mp3_title_tag(b"Sample song");
+        original.extend_from_slice(&audio);
+
+        let cleaned = clean(&original).unwrap();
+        assert_eq!(cleaned.bytes, audio);
+        assert_eq!(cleaned.removed[0].what, "ID3v2 metadata tags");
+
+        let before = crate::verification::snapshot(&crate::summary::summarize(&original));
+        let after = crate::verification::snapshot(&crate::summary::summarize(&cleaned.bytes));
+        let report = crate::verification::compare(&before, &after);
+        assert!(report.removed.iter().any(|item| item.kind == "title"));
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_removes_ape_id3v1_plus_and_id3v1_but_keeps_partial_findings_unconfirmed() {
+        let audio = [0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
+        let item = ape_text_item(b"Artist", b"Alice");
+        let mut original = audio.to_vec();
+        original.extend_from_slice(&item);
+        original.extend_from_slice(&ape_footer(item.len() + 32, 1));
+        let mut plus = vec![0; 227];
+        plus[..4].copy_from_slice(b"TAG+");
+        original.extend_from_slice(&plus);
+        original.extend_from_slice(&id3v1(b"Old title"));
+
+        let cleaned = clean(&original).unwrap();
+        assert_eq!(cleaned.bytes, audio);
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what == "APE metadata tags")
+        );
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what == "ID3v1 Plus extension")
+        );
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what == "ID3v1 metadata tag")
+        );
+
+        let before = crate::verification::snapshot(&crate::summary::summarize(&original));
+        let after = crate::verification::snapshot(&crate::summary::summarize(&cleaned.bytes));
+        let report = crate::verification::compare(&before, &after);
+        assert!(report.removed.is_empty());
+        assert!(report.unchecked.iter().any(|item| item.kind == "artist"));
+        assert!(report.unchecked.iter().any(|item| item.kind == "title"));
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_refuses_an_ape_footer_with_inconsistent_items() {
+        let mut original = vec![0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
+        original.extend_from_slice(&ape_footer(32, 1));
+        assert_eq!(clean(&original), Err(CleanError::Damaged));
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_removes_a_consistent_ape_header_and_footer() {
+        let audio = [0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
+        let item = ape_text_item(b"Artist", b"Alice");
+        let mut original = audio.to_vec();
+        original.extend_from_slice(&ape_header(item.len() + 32, 1));
+        original.extend_from_slice(&item);
+        original.extend_from_slice(&{
+            let mut footer = ape_footer(item.len() + 32, 1);
+            footer[20..24].copy_from_slice(&0x8000_0000u32.to_le_bytes());
+            footer
+        });
+
+        let cleaned = clean(&original).unwrap();
+        assert_eq!(cleaned.bytes, audio);
+        assert!(
+            cleaned
+                .removed
+                .iter()
+                .any(|item| item.what == "APE metadata tags")
+        );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_refuses_stacked_id3v2_until_both_tags_are_inspected() {
+        let mut original = mp3_title_tag(b"First title");
+        original.extend_from_slice(&mp3_title_tag(b"Second title"));
+        original.extend_from_slice(&[0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]);
+
+        assert_eq!(clean(&original), Err(CleanError::Damaged));
+        let doc = crate::audio::parse_mp3(&original);
+        assert!(!doc.metadata_complete);
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .any(|node| { node.label == "stacked ID3v2 tag is not inspected" })
+        );
     }
 
     #[test]

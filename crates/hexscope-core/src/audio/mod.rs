@@ -4,6 +4,7 @@ mod flac;
 mod id3;
 mod ogg;
 
+pub(crate) use id3::removable_tag_ranges;
 pub use id3::{is_mp3, parse_mp3};
 
 use crate::facts::DocumentFact;

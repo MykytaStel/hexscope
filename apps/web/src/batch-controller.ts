@@ -2,7 +2,7 @@ import type { BatchItem } from "./batch";
 import type { CleanCopiesView } from "./batchclean";
 import { currentLocale, translateText } from "./i18n";
 
-export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal">;
+export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal" | "hasRemovableMetadata">;
 
 /** The output that batch analysis and clean-copy work share with its view. */
 export interface BatchViewPort extends CleanCopiesView {

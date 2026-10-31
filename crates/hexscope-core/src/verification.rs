@@ -170,6 +170,25 @@ const SVG: &[&str] = &[
     "embedded",
     "photoplace",
 ];
+/// MP3 clean copies remove bounded leading and trailing ID3v2, APE, and
+/// ID3v1 tags whole. Only facts the source and output readers both recognize
+/// can be confirmed; unsupported metadata still keeps the parse incomplete.
+const MP3: &[&str] = &[
+    "title",
+    "artist",
+    "album",
+    "album-artist",
+    "year",
+    "track",
+    "disc",
+    "genre",
+    "composer",
+    "encoder",
+    "organization",
+    "location",
+    "comment",
+    "audio-tag",
+];
 
 /// Canonical clean-copy removal contract shared by the core, Web, and CLI:
 /// each format and the file-scoped findings it covers. Reports outside these
@@ -186,6 +205,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("office97", OFFICE97),
     ("rtf", RTF),
     ("svg", SVG),
+    ("mp3", MP3),
 ];
 
 /// Every covered combination, one by one.
@@ -609,7 +629,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             tuples.len(),
-            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14
         );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));

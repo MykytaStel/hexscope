@@ -59,9 +59,12 @@ in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
 not understand make the result incomplete. APE tags at the end of an MP3,
 including before ID3v1, have bounded text items read; binary items, external
 references and other tag locations are not inspected, so the result remains
-incomplete. Audio frames are not decoded or
-checked for integrity; Ogg page checksums are not verified. Hexscope does
-not play or clean these files.
+incomplete. MP3 clean copies remove a leading ID3v2 tag and trailing APE,
+ID3v1 Plus and ID3v1 blocks while copying compressed audio frames unchanged.
+Stacked leading ID3v2 tags are refused until each can be inspected. Audio
+frames are not decoded or checked for integrity; Ogg page checksums are not
+verified.
+Hexscope does not play audio or clean FLAC and Ogg files.
 
 **Emails: the top-level header.** The address a message was sent from is
 read from the first server's `Received` line (IPv4 and bracketed IPv6) and

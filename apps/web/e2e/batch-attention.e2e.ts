@@ -17,7 +17,7 @@ test("a file that cannot be inspected stays visible in the attention filter", as
   await expect(batch.locator(".batch-row", { hasText: "unknown.bin" })).toBeVisible();
 });
 
-test("audio metadata is visible without offering an unsupported batch clean copy", async ({ page }) => {
+test("MP3 metadata is visible and can be selected for a batch clean copy", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");
     localStorage.setItem("hexscope.tour", "done");
@@ -36,7 +36,34 @@ test("audio metadata is visible without offering an unsupported batch clean copy
   ]);
   const batch = page.locator("#batch");
   await expect(batch.locator(".batch-row", { hasText: "song.mp3" })).toContainText("Who performed it");
-  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of song.mp3/ })).toHaveCount(0);
+  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of song.mp3/ })).toBeVisible();
+});
+
+test("a partial MP3 with no supported facts can still be selected for tag removal", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const payload = Buffer.from([3, ...Buffer.from("custom\0value")]);
+  const frame = Buffer.concat([
+    Buffer.from("TXXX"),
+    Buffer.from([0, 0, 0, payload.length, 0, 0]),
+    payload,
+  ]);
+  const mp3 = Buffer.concat([
+    Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, frame.length]),
+    frame,
+    Buffer.from([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]),
+  ]);
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "partial.mp3", mimeType: "audio/mpeg", buffer: mp3 },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+  const batch = page.locator("#batch");
+  const row = batch.locator(".batch-row", { hasText: "partial.mp3" });
+  await expect(row).toContainText("Partial check");
+  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of partial.mp3/ })).toBeVisible();
 });
 
 test("APE text is shown while its audio metadata check remains partial", async ({ page }) => {
@@ -60,5 +87,5 @@ test("APE text is shown while its audio metadata check remains partial", async (
   const row = batch.locator(".batch-row", { hasText: "ape.mp3" });
   await expect(row).toContainText("Who performed it");
   await expect(row).toContainText("Partial check");
-  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of ape.mp3/ })).toHaveCount(0);
+  await expect(batch.getByRole("checkbox", { name: /Make a clean copy of ape.mp3/ })).toBeVisible();
 });

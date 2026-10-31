@@ -115,10 +115,12 @@ One JSON object per file, one per line, in the order the files were read:
 for your own machine; the [annotations](#in-github-actions) leave values
 out.
 
-Audio files are read-only metadata inspections: hexscope reads supported
-tags but does not decode, play or edit the sound. Ogg page checksums are not
-verified. If a supported metadata structure could not be fully read, JSON
-adds `"complete":false`; the default `--fail-on` also fails on `incomplete`.
+Audio checks read supported tags; hexscope does not decode or play the sound.
+`hexscope clean` removes leading ID3v2 and trailing APE, ID3v1 Plus and ID3v1
+blocks from MP3 files while copying MPEG audio frames unchanged. FLAC and Ogg
+remain read-only, and Ogg page checksums are not verified. If a supported
+metadata structure could not be fully read, JSON adds `"complete":false`; the
+default `--fail-on` also fails on `incomplete`.
 
 ## check --sarif
 

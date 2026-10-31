@@ -317,7 +317,7 @@ export function verdict(m: FileModel): VerdictLine[] {
     }
     lines.push({
       kind: "warning",
-      text: "Some audio metadata could not be fully read; this is a partial, read-only inspection.",
+      text: "Some audio metadata could not be fully read; this is a partial inspection.",
       node: error ?? warning ?? (partialField >= 0 ? partialField : m.count > 0 ? 0 : -1),
     });
   }

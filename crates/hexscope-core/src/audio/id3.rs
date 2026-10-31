@@ -11,7 +11,7 @@ pub fn is_mp3(data: &[u8]) -> bool {
     data.starts_with(b"ID3") || data.get(..4).is_some_and(valid_mpeg_frame_header)
 }
 
-fn valid_mpeg_frame_header(header: &[u8]) -> bool {
+pub(crate) fn valid_mpeg_frame_header(header: &[u8]) -> bool {
     if header.len() < 4 {
         return false;
     }
@@ -24,6 +24,135 @@ fn valid_mpeg_frame_header(header: &[u8]) -> bool {
     // Layer bits `01` identify Layer III; Layer I and II are MPEG audio too,
     // but are outside this MP3 tag parser's format contract.
     sync && version != 0b01 && layer == 0b01 && !matches!(bitrate, 0 | 15) && sample_rate != 0b11
+}
+
+/// Byte ranges containing leading ID3v2 and trailing APE/ID3v1 tags that can
+/// be removed without decoding or rewriting any audio frame. `None` means a
+/// recognized tag has an unsafe or inconsistent boundary.
+pub(crate) fn removable_tag_ranges(data: &[u8]) -> Option<Vec<(ByteRange, &'static str)>> {
+    let mut ranges = Vec::new();
+    let mut audio_start = 0usize;
+    if data.starts_with(b"ID3") {
+        let end = id3v2_end(data)?;
+        ranges.push((ByteRange::new(0, end as u64), "ID3v2 metadata tags"));
+        audio_start = end;
+        // The reader currently inspects one leading ID3 tag. Refuse stacked
+        // tags until every one can be read and represented in the report.
+        if data.get(audio_start..audio_start.checked_add(3)?) == Some(b"ID3") {
+            return None;
+        }
+    }
+
+    let id3v1_start = if data.len() >= 128 && data[data.len() - 128..].starts_with(b"TAG") {
+        data.len() - 128
+    } else {
+        data.len()
+    };
+    let id3v1_plus_start = id3v1_start
+        .checked_sub(227)
+        .filter(|&start| data.get(start..start + 4) == Some(b"TAG+"));
+    let trailer_start = id3v1_plus_start.unwrap_or(id3v1_start);
+    let mut audio_end = trailer_start;
+    if let Some(footer_start) = trailer_start.checked_sub(32)
+        && data.get(footer_start..footer_start + 8) == Some(b"APETAGEX")
+    {
+        let footer = data.get(footer_start..trailer_start)?;
+        let version = u32::from_le_bytes(footer.get(8..12)?.try_into().ok()?);
+        let size = u32::from_le_bytes(footer.get(12..16)?.try_into().ok()?) as usize;
+        let count = u32::from_le_bytes(footer.get(16..20)?.try_into().ok()?);
+        let flags = u32::from_le_bytes(footer.get(20..24)?.try_into().ok()?);
+        if !matches!(version, 1000 | 2000)
+            || !(32..=MAX_TAG_SIZE).contains(&size)
+            || flags & 0x7fff_ffff != 0
+            || footer.get(24..32)?.iter().any(|&byte| byte != 0)
+        {
+            return None;
+        }
+        let item_start = trailer_start.checked_sub(size)?;
+        if item_start < audio_start {
+            return None;
+        }
+        let has_header = flags & 0x8000_0000 != 0;
+        let tag_start = if has_header {
+            let header_start = item_start.checked_sub(32)?;
+            let header = data.get(header_start..item_start)?;
+            if header_start < audio_start
+                || header.get(..8)? != b"APETAGEX"
+                || u32::from_le_bytes(header.get(8..12)?.try_into().ok()?) != version
+                || u32::from_le_bytes(header.get(12..16)?.try_into().ok()?) as usize != size
+                || u32::from_le_bytes(header.get(16..20)?.try_into().ok()?) != count
+                || u32::from_le_bytes(header.get(20..24)?.try_into().ok()?) != (flags | 0x2000_0000)
+                || header.get(24..32)?.iter().any(|&byte| byte != 0)
+            {
+                return None;
+            }
+            header_start
+        } else {
+            item_start
+        };
+        validate_ape_items(data, item_start, footer_start, count as usize)?;
+        ranges.push((
+            ByteRange::new(tag_start as u64, (trailer_start - tag_start) as u64),
+            "APE metadata tags",
+        ));
+        audio_end = tag_start;
+    }
+    if let Some(start) = id3v1_plus_start {
+        ranges.push((ByteRange::new(start as u64, 227), "ID3v1 Plus extension"));
+    }
+    if id3v1_start < data.len() {
+        ranges.push((
+            ByteRange::new(id3v1_start as u64, 128),
+            "ID3v1 metadata tag",
+        ));
+    }
+
+    // A leading ID3 signature alone is not enough to call arbitrary bytes an
+    // audio file. Require a recognizable MPEG Layer III frame before making a
+    // copy, while leaving the sound stream itself untouched.
+    if !ranges.is_empty() {
+        let start = audio_start;
+        let header = data.get(start..start.checked_add(4)?)?;
+        if start >= audio_end || !valid_mpeg_frame_header(header) {
+            return None;
+        }
+    }
+    Some(ranges)
+}
+
+/// Checks the APE item table and its declared count before treating its
+/// footer as a tag boundary. Values remain opaque and are never rewritten.
+fn validate_ape_items(data: &[u8], mut cursor: usize, end: usize, count: usize) -> Option<()> {
+    if count > MAX_FRAMES {
+        return None;
+    }
+    for _ in 0..count {
+        let header_end = cursor.checked_add(8).filter(|&next| next <= end)?;
+        let length = u32::from_le_bytes(data.get(cursor..cursor + 4)?.try_into().ok()?) as usize;
+        let flags = u32::from_le_bytes(data.get(cursor + 4..header_end)?.try_into().ok()?);
+        let key_start = header_end;
+        let key_len = data
+            .get(key_start..end)?
+            .iter()
+            .position(|&byte| byte == 0)?;
+        if !(2..=255).contains(&key_len) {
+            return None;
+        }
+        let key_end = key_start.checked_add(key_len)?;
+        if !data
+            .get(key_start..key_end)?
+            .iter()
+            .all(|byte| (0x20..=0x7e).contains(byte))
+            || flags & !7 != 0
+        {
+            return None;
+        }
+        let value_start = key_end.checked_add(1)?;
+        cursor = value_start
+            .checked_add(length)
+            .filter(|&next| next <= end)?;
+    }
+    (cursor == end).then_some(())
 }
 
 pub fn parse_mp3(data: &[u8]) -> AudioDocument {
@@ -44,6 +173,15 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
         complete &= parse_id3v2(data, root, &mut tree, &mut facts);
         if let Some(end) = id3v2_end(data) {
             audio_start = end;
+            if data.get(end..end.saturating_add(3)) == Some(b"ID3") {
+                tree.warning(
+                    root,
+                    "stacked ID3v2 tag is not inspected",
+                    ByteRange::new(end as u64, 3),
+                );
+                complete = false;
+                can_mark_audio = false;
+            }
         } else {
             can_mark_audio = false;
         }
@@ -53,15 +191,27 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
     } else {
         data.len()
     };
+    let id3v1_plus_start = id3v1_start
+        .checked_sub(227)
+        .filter(|&start| data.get(start..start + 4) == Some(b"TAG+"));
+    let trailer_start = id3v1_plus_start.unwrap_or(id3v1_start);
+    if let Some(start) = id3v1_plus_start {
+        tree.warning(
+            root,
+            "ID3v1 Plus extension is not inspected",
+            ByteRange::new(start as u64, 227),
+        );
+        complete = false;
+    }
     // APE tags can precede ID3v1 or end the file. Only bounded text items
     // are inspected, so never call the metadata scan complete.
-    let mut audio_end = id3v1_start;
-    if let Some(footer_start) = id3v1_start.checked_sub(32)
+    let mut audio_end = trailer_start;
+    if let Some(footer_start) = trailer_start.checked_sub(32)
         && data.get(footer_start..footer_start + 8) == Some(b"APETAGEX")
     {
-        let footer = &data[footer_start..id3v1_start];
-        let size = u32::from_le_bytes([footer[12], footer[13], footer[14], footer[15]]) as usize;
-        let tag_start = id3v1_start
+        let footer = &data[footer_start..footer_start + 32];
+        let size = u32::from_le_bytes(footer[12..16].try_into().unwrap()) as usize;
+        let tag_start = trailer_start
             .checked_sub(size)
             .filter(|&start| size >= 32 && start >= audio_start);
         if let Some(start) = tag_start {
@@ -73,12 +223,17 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
             "APE audio metadata is partially inspected",
             ByteRange::new(
                 tag_start.unwrap_or(footer_start) as u64,
-                (id3v1_start - tag_start.unwrap_or(footer_start)) as u64,
+                (trailer_start - tag_start.unwrap_or(footer_start)) as u64,
             ),
         );
         complete = false;
     }
-    if can_mark_audio && audio_start < audio_end {
+    if can_mark_audio
+        && audio_start < audio_end
+        && data
+            .get(audio_start..audio_start.saturating_add(4))
+            .is_some_and(valid_mpeg_frame_header)
+    {
         tree.add(
             Some(root),
             "audio frames (not decoded)",
