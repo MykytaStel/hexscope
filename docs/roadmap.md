@@ -22,24 +22,27 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.7.1 | "Clean with hexscope" in Finder, Send to and GNOME Files; Homebrew | shipped 2026-10-19 |
 | 0.7.2 | `cargo install` with Rust 1.88 and later | shipped 2026-10-19 |
 | 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | shipped 2026-10-25 |
-| 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | site and crates published; GitHub Release and Homebrew pending |
-| 0.9.1 and later 0.9.x | Substantial collections of features, reliability fixes and usability improvements | in progress; ship when each collection is ready |
+| 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
+| 0.9.1 and later 0.9.x | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
-### 0.9.0 — publication in progress
+### 0.9.0 — shipped 2026-10-30
 
 The file-intent loading, Film Lab JPEG handoff and archive Files view are in
 the code, alongside large-file memory and mobile interaction improvements.
 The archive view has a recorded 100,000-entry browser benchmark; an emulated
 phone is not a measurement of a physical device's memory limit.
 
-Still to establish before calling the mobile work complete: exercise large
-files and the archive workflow on iOS Safari and Android Chrome, record where
-each device runs out of time or memory, and check the Film Lab share sheet
-and screen-reader navigation on devices. Fix problems those checks uncover.
-The site and all four crates are published at 0.9.0, and the tag is present.
-The GitHub Release, its binaries and the Homebrew update still need to be
-completed; the mobile-device checks above remain open.
+The GitHub Release is published with all ten platform archives and checksums;
+the site, crates and `v0.9.0` tag were published together. The Homebrew formula
+now points at `0.9.0`; upgrading from `0.8.0` verified the archive checksum and
+the formula's installed-version test passed.
+
+The large-file and archive workflows still need physical iOS Safari and
+Android Chrome checks, including time and memory behavior, the Film Lab share
+sheet, and screen-reader navigation. Code merged after the `v0.9.0` tag,
+including HDR clean copies, belongs to the next `0.9.x` collection; keep the
+published tag immutable.
 
 ### 0.3.0 — shipped 2026-10-12
 
@@ -161,7 +164,7 @@ listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
 - Research to publish: what messengers and social networks take out of a
   file sent through them, and what still ties a cleaned file to its author.
 
-### 0.9.1 — Ultra HDR clean copies (in progress)
+### 0.9.1 — release parity and browser reliability (in progress)
 
 The Rust core now reads metadata in a bounded MPF gain map, includes its
 findings in the photo's evidence, and makes a fixed-length clean copy that
@@ -170,9 +173,11 @@ required map metadata fails closed. The Web explains the retained gain map
 before cleaning, in English and Ukrainian.
 
 The synthetic iPhone-format fixture, read-back verification and automated
-browser flow cover the code path. Before calling this slice device-verified,
-open and compare the clean copy on a physical iPhone. No version change or
-release is part of this in-progress work.
+browser flow cover the HDR code path. CI also runs a focused analyzer and
+keyboard smoke in Firefox and WebKit, alongside the full Desktop Chrome and
+Pixel 7 Chromium suites. Before calling HDR device-verified, open and compare
+the clean copy on a physical iPhone. No version change or release is part of
+this in-progress work.
 
 ### 1.0.0 — Stable (when these hold)
 
@@ -181,7 +186,7 @@ release is part of this in-progress work.
   `crates/hexscope-cli/tests/contract.rs`.
 - Every format with a clean copy has confirmed removal.
 - Four weeks with no reported false alarm left unfixed.
-- Tested on iOS Safari, Android Chrome and desktop browsers.
+- Tested on iOS Safari, Android Chrome, desktop Chrome, Firefox and WebKit.
 - crates.io carries the same version as the site.
 
 ## Product direction
