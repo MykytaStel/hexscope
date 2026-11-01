@@ -263,6 +263,10 @@ export class BatchView {
     clearTimeout(this.pending);
     this.pending = 0;
     this.lastDrawn = performance.now();
+    const active = document.activeElement;
+    const focusedControl = active instanceof HTMLElement && this.host.contains(active)
+      ? active.dataset.batchFocus
+      : undefined;
     const items = this.items;
     const totals = summarizeBatch(items, this.show, this.limit);
 
@@ -333,6 +337,7 @@ export class BatchView {
     if (totals.busy) {
       const toggle = el("button", "btn batch-toggle", translateText(this.paused ? "Resume reading" : "Pause reading", currentLocale()));
       toggle.type = "button";
+      toggle.dataset.batchFocus = "reading-toggle";
       toggle.setAttribute("aria-pressed", String(this.paused));
       toggle.addEventListener("click", () => this.hooks.toggleReading());
       head.append(toggle);
@@ -368,6 +373,7 @@ export class BatchView {
     bar.setAttribute("aria-label", "Show");
     for (const [key, label, n] of filters) {
       const b = el("button", undefined, `${label} · ${n}`);
+      b.dataset.batchFocus = `filter:${key}`;
       b.setAttribute("aria-pressed", String(this.show === key));
       b.addEventListener("click", () => {
         this.show = key;
@@ -390,6 +396,7 @@ export class BatchView {
         ),
       );
       bulk.type = "button";
+      bulk.dataset.batchFocus = "bulk-selection";
       bulk.title = translateText(
         allSelected
           ? "Remove every cleanable file in this batch from the copy selection"
@@ -428,6 +435,7 @@ export class BatchView {
       if (cleanable(item)) {
         const pick = el("input", "batch-pick");
         pick.type = "checkbox";
+        pick.dataset.batchFocus = `pick:${index}`;
         pick.checked = !item.skip;
         pick.setAttribute("aria-label", `Make a clean copy of ${item.file.name}`);
         pick.title = "Make a clean copy of this one";
@@ -456,5 +464,10 @@ export class BatchView {
       card.append(more);
     }
     this.host.replaceChildren(card);
+    if (focusedControl) {
+      const target = Array.from(this.host.querySelectorAll<HTMLElement>("[data-batch-focus]"))
+        .find((control) => control.dataset.batchFocus === focusedControl);
+      target?.focus({ preventScroll: true });
+    }
   }
 }
