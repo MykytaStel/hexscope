@@ -37,7 +37,8 @@ pub struct AudioDocument {
     pub format: AudioFormat,
     pub tree: ParseTree,
     pub facts: Vec<DocumentFact>,
-    /// False when a tag was malformed, truncated, too large, or only partly read.
+    /// False when metadata was malformed, truncated, too large, or only partly
+    /// read, or when an Ogg stream chain/page could not be fully inspected.
     pub metadata_complete: bool,
 }
 
@@ -133,7 +134,29 @@ mod tests {
         out
     }
 
+    fn ogg_page_end(bytes: &[u8], start: usize) -> usize {
+        let segment_count = bytes[start + 26] as usize;
+        let body_start = start + 27 + segment_count;
+        let body_len: usize = bytes[start + 27..body_start]
+            .iter()
+            .map(|&lace| lace as usize)
+            .sum();
+        body_start + body_len
+    }
+
+    fn set_ogg_page_flags(bytes: &mut [u8], start: usize, flags: u8) -> usize {
+        let end = ogg_page_end(bytes, start);
+        bytes[start + 5] = flags;
+        bytes[start + 22..start + 26].fill(0);
+        crate::ogg_crc::write_checksum(&mut bytes[start..end]);
+        end
+    }
+
     fn ogg_packet_fixture(codec: &str, comments: &[u8]) -> Vec<u8> {
+        ogg_packet_fixture_for_serial(codec, comments, 7)
+    }
+
+    fn ogg_packet_fixture_for_serial(codec: &str, comments: &[u8], serial: u32) -> Vec<u8> {
         let identification = if codec == "vorbis" {
             let mut packet = vec![1];
             packet.extend_from_slice(b"vorbis");
@@ -149,15 +172,15 @@ mod tests {
             packet.extend_from_slice(&[1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
             packet
         };
-        let mut out = ogg_page(7, 0, 2, &[identification.len() as u8], &identification);
+        let mut out = ogg_page(serial, 0, 2, &[identification.len() as u8], &identification);
         if comments.len() <= 255 {
-            out.extend(ogg_page(7, 1, 0, &[comments.len() as u8], comments));
+            out.extend(ogg_page(serial, 1, 4, &[comments.len() as u8], comments));
         } else {
-            out.extend(ogg_page(7, 1, 0, &[255], &comments[..255]));
+            out.extend(ogg_page(serial, 1, 0, &[255], &comments[..255]));
             out.extend(ogg_page(
-                7,
+                serial,
                 2,
-                1,
+                5,
                 &[(comments.len() - 255) as u8],
                 &comments[255..],
             ));
@@ -552,6 +575,114 @@ mod tests {
         let broken = parse(&ogg_packet_fixture("vorbis", &invalid)).unwrap();
         assert!(!broken.metadata_complete);
         assert!(broken.facts.is_empty());
+    }
+
+    #[test]
+    fn reads_tags_from_every_supported_stream_in_a_chained_ogg_file() {
+        let vorbis_tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder one", &[b"TITLE=First track"], true),
+        ]
+        .concat();
+        let opus_tags = [
+            b"OpusTags".as_slice(),
+            &vorbis_comments(b"encoder two", &[b"TITLE=Second track"], false),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture_for_serial("vorbis", &vorbis_tags, 7);
+        bytes.extend(ogg_packet_fixture_for_serial("opus", &opus_tags, 8));
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert_eq!(doc.format, super::AudioFormat::Ogg);
+        assert_eq!(values(&doc, "title"), ["First track", "Second track"]);
+        assert_eq!(values(&doc, "encoder"), ["encoder one", "encoder two"]);
+        assert!(doc.metadata_complete);
+    }
+
+    #[test]
+    fn rejects_a_chained_ogg_stream_that_does_not_start_with_bos() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=First track"], true),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture("vorbis", &tags);
+        bytes.extend(ogg_page(8, 0, 0, &[1], b"x"));
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "Ogg logical stream does not begin with a beginning-of-stream page"
+                && node.kind == crate::model::NodeKind::Error
+        }));
+    }
+
+    #[test]
+    fn bounds_the_number_of_chained_ogg_streams() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let mut bytes = Vec::new();
+        for serial in 1..=65 {
+            bytes.extend(ogg_packet_fixture_for_serial("vorbis", &tags, serial));
+        }
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(
+            doc.tree.nodes().iter().any(|node| {
+                node.label == "Ogg logical stream count exceeds the inspection limit"
+            })
+        );
+    }
+
+    #[test]
+    fn validates_ogg_page_checksums_after_the_comment_packet() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture("vorbis", &tags);
+        let comment_start = ogg_page_end(&bytes, 0);
+        let audio_start = set_ogg_page_flags(&mut bytes, comment_start, 0);
+        bytes.extend(ogg_page(7, 2, 4, &[5], b"audio"));
+
+        let valid = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(valid.metadata_complete);
+        assert_eq!(values(&valid, "title"), ["Sample"]);
+
+        let audio_body = audio_start + 28;
+        bytes[audio_body] ^= 1;
+        let damaged = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!damaged.metadata_complete);
+        assert_eq!(values(&damaged, "title"), ["Sample"]);
+        assert!(damaged.tree.nodes().iter().any(|node| {
+            node.label == "invalid Ogg page checksum" && node.kind == crate::model::NodeKind::Error
+        }));
+    }
+
+    #[test]
+    fn a_missing_ogg_end_page_makes_metadata_incomplete() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture("vorbis", &tags);
+        let comment_start = ogg_page_end(&bytes, 0);
+        set_ogg_page_flags(&mut bytes, comment_start, 0);
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .any(|node| { node.label == "Ogg stream has no end-of-stream page" })
+        );
     }
 
     #[test]

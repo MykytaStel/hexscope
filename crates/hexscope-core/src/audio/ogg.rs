@@ -5,11 +5,40 @@ use crate::model::{ByteRange, NodeKind, ParseTree};
 
 const MAX_PACKET_SIZE: usize = 16 * 1024 * 1024;
 const MAX_PAGES: usize = 4096;
+const MAX_LOGICAL_STREAMS: usize = 64;
 
 #[derive(Clone, Copy)]
 enum Codec {
     Vorbis,
     Opus,
+}
+
+struct LogicalStream {
+    serial: u32,
+    previous_sequence: Option<u32>,
+    pending: bool,
+    packet: Vec<u8>,
+    packet_start: Option<usize>,
+    packet_count: u8,
+    codec: Option<Codec>,
+    comments_read: bool,
+    eos: bool,
+}
+
+impl LogicalStream {
+    fn new(serial: u32) -> Self {
+        Self {
+            serial,
+            previous_sequence: None,
+            pending: false,
+            packet: Vec::new(),
+            packet_start: None,
+            packet_count: 0,
+            codec: None,
+            comments_read: false,
+            eos: false,
+        }
+    }
 }
 
 pub(super) fn is_ogg(data: &[u8]) -> bool {
@@ -28,19 +57,16 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
     let mut facts = Vec::new();
     let mut cursor = 0usize;
     let mut page_count = 0usize;
-    let mut serial = None;
-    let mut previous_sequence = None;
-    let mut pending = false;
-    let mut packet = Vec::new();
-    let mut packet_start = None;
-    let mut codec = None;
-    let mut packet_count = 0usize;
+    let mut stream: Option<LogicalStream> = None;
+    let mut stream_count = 0usize;
+    let mut formats = Vec::new();
+    let mut metadata_complete = true;
 
     while cursor < data.len() {
         if page_count == MAX_PAGES {
             tree.add(
                 Some(root),
-                "Ogg header pages exceed the inspection limit",
+                "Ogg page count exceeds the inspection limit",
                 ByteRange::new(cursor as u64, (data.len() - cursor) as u64),
                 NodeKind::Field,
                 None,
@@ -77,8 +103,11 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
         }
         let stream_serial = u32::from_le_bytes(data[cursor + 14..cursor + 18].try_into().unwrap());
         let sequence = u32::from_le_bytes(data[cursor + 18..cursor + 22].try_into().unwrap());
-        if let Some(expected_serial) = serial {
-            if expected_serial != stream_serial {
+        let starts_stream = flags & 0x02 != 0;
+        let starts_new_stream = match stream.as_ref() {
+            None => true,
+            Some(current) if current.eos => true,
+            Some(current) if current.serial != stream_serial => {
                 tree.add(
                     Some(root),
                     "multiplexed Ogg streams are not inspected",
@@ -88,25 +117,52 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
                 );
                 return audio(tree, facts, false);
             }
-            if previous_sequence.is_some_and(|prev: u32| sequence != prev.wrapping_add(1)) {
+            Some(_) => false,
+        };
+        if starts_new_stream {
+            if stream.as_ref().is_some_and(|current| !current.eos) || !starts_stream {
                 tree.error(
                     root,
-                    "Ogg page sequence is not consecutive",
-                    ByteRange::new((cursor + 18) as u64, 4),
+                    "Ogg logical stream does not begin with a beginning-of-stream page",
+                    ByteRange::new((cursor + 5) as u64, 1),
                 );
                 return audio(tree, facts, false);
             }
-        } else if flags & 0x02 == 0 {
+            if stream_count == MAX_LOGICAL_STREAMS {
+                tree.add(
+                    Some(root),
+                    "Ogg logical stream count exceeds the inspection limit",
+                    ByteRange::new(cursor as u64, (data.len() - cursor) as u64),
+                    NodeKind::Field,
+                    None,
+                );
+                return audio(tree, facts, false);
+            }
+            stream_count += 1;
+            stream = Some(LogicalStream::new(stream_serial));
+        } else if starts_stream {
             tree.error(
                 root,
-                "first Ogg page is not marked as beginning of stream",
+                "Ogg page repeats the beginning-of-stream flag",
                 ByteRange::new((cursor + 5) as u64, 1),
             );
             return audio(tree, facts, false);
         }
-        serial = Some(stream_serial);
-        previous_sequence = Some(sequence);
-        if (flags & 0x01 != 0) != pending {
+        let current = stream.as_mut().expect("a stream is initialized above");
+        if sequence
+            != current
+                .previous_sequence
+                .map_or(0, |prev| prev.wrapping_add(1))
+        {
+            tree.error(
+                root,
+                "Ogg page sequence is not consecutive",
+                ByteRange::new((cursor + 18) as u64, 4),
+            );
+            return audio(tree, facts, false);
+        }
+        current.previous_sequence = Some(sequence);
+        if (flags & 0x01 != 0) != current.pending {
             tree.error(
                 root,
                 "Ogg continued-packet flag does not match previous page",
@@ -181,125 +237,204 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
         );
 
         let mut body_cursor = body_start;
+        let mut media_start = None;
         for &lace in laces {
-            if packet_start.is_none() {
-                packet_start = Some(body_cursor);
+            let current = stream.as_mut().expect("a stream is active");
+            if current.packet_count >= 2 {
+                media_start.get_or_insert(body_cursor);
             }
-            let new_len = match packet.len().checked_add(lace as usize) {
-                Some(len) => len,
-                None => {
-                    tree.error(
-                        page_node,
-                        "invalid Ogg packet length",
-                        ByteRange::new(body_cursor as u64, lace as u64),
+            if current.packet_start.is_none() {
+                current.packet_start = Some(body_cursor);
+            }
+            if current.packet_count < 2 {
+                let new_len = match current.packet.len().checked_add(lace as usize) {
+                    Some(len) => len,
+                    None => {
+                        tree.error(
+                            page_node,
+                            "invalid Ogg packet length",
+                            ByteRange::new(body_cursor as u64, lace as u64),
+                        );
+                        return audio(tree, facts, false);
+                    }
+                };
+                if new_len > MAX_PACKET_SIZE {
+                    tree.add(
+                        Some(page_node),
+                        "Ogg metadata packet exceeds the 16 MiB inspection limit",
+                        ByteRange::new(
+                            current.packet_start.unwrap_or(body_cursor) as u64,
+                            new_len as u64,
+                        ),
+                        NodeKind::Field,
+                        None,
                     );
                     return audio(tree, facts, false);
                 }
-            };
-            if new_len > MAX_PACKET_SIZE {
-                tree.add(
-                    Some(page_node),
-                    "Ogg metadata packet exceeds the 16 MiB inspection limit",
-                    ByteRange::new(packet_start.unwrap_or(body_cursor) as u64, new_len as u64),
-                    NodeKind::Field,
-                    None,
+                current
+                    .packet
+                    .extend_from_slice(&data[body_cursor..body_cursor + lace as usize]);
+            }
+            body_cursor += lace as usize;
+            if lace < 255 {
+                let current = stream.as_mut().expect("a stream is active");
+                let start = current.packet_start.take().unwrap_or(body_cursor);
+                let span = ByteRange::new(start as u64, body_cursor.saturating_sub(start) as u64);
+                match current.packet_count {
+                    0 => {
+                        let packet_node = tree.add(
+                            Some(page_node),
+                            "Ogg identification packet",
+                            span,
+                            NodeKind::Container,
+                            None,
+                        );
+                        current.codec = identify_codec(&current.packet);
+                        let stream_format = match current.codec {
+                            Some(Codec::Vorbis) => AudioFormat::OggVorbis,
+                            Some(Codec::Opus) => AudioFormat::OggOpus,
+                            None => AudioFormat::Ogg,
+                        };
+                        formats.push(stream_format);
+                        if current.codec.is_none() {
+                            tree.add(
+                                Some(packet_node),
+                                "unsupported Ogg codec; metadata tags are not inspected",
+                                span,
+                                NodeKind::Field,
+                                None,
+                            );
+                            metadata_complete = false;
+                        }
+                    }
+                    1 => {
+                        if let Some(codec) = current.codec {
+                            let (packet_label, signature, framing, allow_trailing) = match codec {
+                                Codec::Vorbis => (
+                                    "Vorbis comment packet",
+                                    b"\x03vorbis".as_slice(),
+                                    true,
+                                    false,
+                                ),
+                                Codec::Opus => {
+                                    ("Opus tags packet", b"OpusTags".as_slice(), false, true)
+                                }
+                            };
+                            let packet_node = tree.add(
+                                Some(page_node),
+                                packet_label,
+                                span,
+                                NodeKind::Container,
+                                None,
+                            );
+                            if !current.packet.starts_with(signature) {
+                                tree.error(
+                                    packet_node,
+                                    "invalid Ogg comment packet signature",
+                                    span,
+                                );
+                                return audio(tree, facts, false);
+                            }
+                            let comments_offset = signature.len();
+                            let complete = parse_comment_block(
+                                &current.packet[comments_offset..],
+                                CommentContext {
+                                    source_offset: start.saturating_add(comments_offset) as u64,
+                                    source_span: Some(span),
+                                    parent: packet_node,
+                                    framing_bit: framing,
+                                    allow_trailing,
+                                },
+                                &mut tree,
+                                &mut facts,
+                            );
+                            metadata_complete &= complete;
+                            current.comments_read = true;
+                        }
+                    }
+                    _ => {}
+                }
+                current.packet_count = current.packet_count.saturating_add(1);
+                current.packet.clear();
+            }
+        }
+        if let Some(media_start) = media_start
+            && media_start < page_end
+        {
+            tree.add(
+                Some(page_node),
+                "remaining Ogg packets (not decoded)",
+                ByteRange::new(media_start as u64, (page_end - media_start) as u64),
+                NodeKind::Field,
+                Some(crate::model::Value::Bytes((page_end - media_start) as u64)),
+            );
+        }
+        if let Some(&last_lace) = laces.last() {
+            stream.as_mut().expect("a stream is active").pending = last_lace == 255;
+        }
+        if flags & 0x04 != 0 {
+            let current = stream.as_mut().expect("a stream is active");
+            if current.pending {
+                tree.error(
+                    page_node,
+                    "Ogg stream ends with an incomplete packet",
+                    ByteRange::new(page_start as u64, (page_end - page_start) as u64),
                 );
                 return audio(tree, facts, false);
             }
-            packet.extend_from_slice(&data[body_cursor..body_cursor + lace as usize]);
-            body_cursor += lace as usize;
-            if lace < 255 {
-                let start = packet_start.take().unwrap_or(body_cursor);
-                let span = ByteRange::new(start as u64, body_cursor.saturating_sub(start) as u64);
-                let packet_label = if packet_count == 0 {
-                    "Ogg identification packet"
-                } else {
-                    match codec.unwrap() {
-                        Codec::Vorbis => "Vorbis comment packet",
-                        Codec::Opus => "Opus tags packet",
-                    }
-                };
-                let packet_node =
-                    tree.add(Some(root), packet_label, span, NodeKind::Container, None);
-                if packet_count == 0 {
-                    codec = identify_codec(&packet);
-                    if codec.is_none() {
-                        tree.add(
-                            Some(packet_node),
-                            "unsupported Ogg codec; metadata tags are not inspected",
-                            span,
-                            NodeKind::Field,
-                            None,
-                        );
-                        return audio(tree, facts, false);
-                    }
-                    packet_count = 1;
-                } else {
-                    let (signature, framing, allow_trailing, format) = match codec.unwrap() {
-                        Codec::Vorbis => (
-                            b"\x03vorbis".as_slice(),
-                            true,
-                            false,
-                            AudioFormat::OggVorbis,
-                        ),
-                        Codec::Opus => (b"OpusTags".as_slice(), false, true, AudioFormat::OggOpus),
-                    };
-                    if !packet.starts_with(signature) {
-                        tree.error(packet_node, "invalid Ogg comment packet signature", span);
-                        return audio(tree, facts, false);
-                    }
-                    let comments_offset = signature.len();
-                    let comment_bytes = &packet[comments_offset..];
-                    let complete = parse_comment_block(
-                        comment_bytes,
-                        CommentContext {
-                            source_offset: start.saturating_add(comments_offset) as u64,
-                            source_span: Some(span),
-                            parent: packet_node,
-                            framing_bit: framing,
-                            allow_trailing,
-                        },
-                        &mut tree,
-                        &mut facts,
-                    );
-                    if body_cursor < data.len() {
-                        tree.add(
-                            Some(root),
-                            "remaining Ogg packets (not decoded)",
-                            ByteRange::new(body_cursor as u64, (data.len() - body_cursor) as u64),
-                            NodeKind::Field,
-                            Some(crate::model::Value::Bytes(
-                                (data.len() - body_cursor) as u64,
-                            )),
-                        );
-                    }
-                    return audio_with_format(tree, facts, complete, format);
-                }
-                packet.clear();
+            if current.codec.is_some() && !current.comments_read {
+                tree.error(
+                    page_node,
+                    "Ogg stream has no complete comment packet",
+                    ByteRange::new(page_start as u64, (page_end - page_start) as u64),
+                );
+                return audio(tree, facts, false);
             }
-        }
-        if let Some(&last_lace) = laces.last() {
-            pending = last_lace == 255;
+            current.eos = true;
         }
         cursor = page_end;
     }
 
-    let label = if packet_count == 0 {
-        "Ogg stream has no complete identification packet"
-    } else if pending {
-        "truncated Ogg packet continues past end of input"
-    } else {
-        "Ogg stream has no complete comment packet"
+    let Some(last_stream) = stream else {
+        tree.error(
+            root,
+            "Ogg stream has no pages",
+            ByteRange::new(0, data.len() as u64),
+        );
+        return audio(tree, facts, false);
     };
-    tree.error(
-        root,
-        label,
-        ByteRange::new(
-            packet_start.unwrap_or(cursor) as u64,
-            data.len().saturating_sub(packet_start.unwrap_or(cursor)) as u64,
-        ),
-    );
-    audio(tree, facts, false)
+    if last_stream.pending {
+        tree.error(
+            root,
+            "truncated Ogg packet continues past end of input",
+            ByteRange::new(
+                last_stream.packet_start.unwrap_or(cursor) as u64,
+                data.len()
+                    .saturating_sub(last_stream.packet_start.unwrap_or(cursor))
+                    as u64,
+            ),
+        );
+        return audio(tree, facts, false);
+    }
+    if !last_stream.eos {
+        tree.add(
+            Some(root),
+            "Ogg stream has no end-of-stream page",
+            ByteRange::new(cursor as u64, 0),
+            NodeKind::Field,
+            None,
+        );
+        metadata_complete = false;
+    }
+    if formats.is_empty() {
+        metadata_complete = false;
+    }
+    let format = formats
+        .first()
+        .copied()
+        .filter(|first| formats.iter().all(|format| format == first))
+        .unwrap_or(AudioFormat::Ogg);
+    audio_with_format(tree, facts, metadata_complete, format)
 }
 
 fn identify_codec(packet: &[u8]) -> Option<Codec> {

@@ -121,8 +121,10 @@ ID3v1 blocks from MP3 files while copying MPEG audio frames unchanged. For
 FLAC it removes Vorbis comments and embedded picture blocks, including cover
 art, and copies other supported metadata blocks and compressed frames unchanged;
 uninspected metadata blocks keep the file read-only. Ogg remains read-only.
-Checksums are validated on pages read for its metadata; later audio pages are
-not read or verified.
+Ogg page boundaries, order and checksums are validated through the end of
+supported streams, up to 4,096 pages; chained Vorbis and Opus streams are read
+together. Interleaved streams and unsupported codecs remain incomplete. Audio
+packets are not decoded.
 If a supported metadata structure could not be fully read, JSON adds
 `"complete":false`; the default `--fail-on` also fails on `incomplete`.
 

@@ -15,12 +15,13 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
 
 ## Making a version
 
-1. Pick the number: the next releases before 1.0 are substantial 0.9.x
-   releases (0.9.1, 0.9.2, and so on), with features and fixes collected
-   together. Additions must preserve the documented CLI and receipt contracts;
+1. Pick the number: the next releases before 1.0 are substantial minor
+   releases (0.10.0, 0.11.0, and so on), with features and fixes collected
+   together. Use a patch number only for a follow-up within that release line.
+   Additions must preserve the documented CLI and receipt contracts;
    review a breaking change and its version separately. Use normal SemVer
    numbers: `0.9.01` is invalid because numeric components cannot have leading
-   zeroes. The examples below use `0.9.1`; choose the actual number only when
+   zeroes. The examples below use `0.10.0`; choose the actual number only when
    the release scope is ready.
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
    dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
@@ -33,7 +34,7 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
 5. Once it is merged and deployed, tag it and publish the release notes:
 
    ```sh
-   VERSION=0.9.1
+   VERSION=0.10.0
    git tag -a "v$VERSION" -m "hexscope $VERSION" && git push origin "v$VERSION"
    gh release create "v$VERSION" --title "hexscope $VERSION" --notes-file <(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '$d')
    ```

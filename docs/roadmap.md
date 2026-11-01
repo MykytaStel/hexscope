@@ -23,7 +23,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.7.2 | `cargo install` with Rust 1.88 and later | shipped 2026-10-19 |
 | 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | shipped 2026-10-25 |
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
-| 0.9.1 and later 0.9.x | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
+| 0.10.0, 0.11.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -41,7 +41,7 @@ the formula's installed-version test passed.
 The large-file and archive workflows still need physical iOS Safari and
 Android Chrome checks, including time and memory behavior, the Film Lab share
 sheet, and screen-reader navigation. Code merged after the `v0.9.0` tag,
-including HDR clean copies, belongs to the next `0.9.x` collection; keep the
+including HDR clean copies, belongs to the next release collection; keep the
 published tag immutable.
 
 ### 0.3.0 — shipped 2026-10-12
@@ -164,7 +164,7 @@ listed on GitHub Marketplace. What was planned as 0.7.0 is now 0.8.0.
 - Research to publish: what messengers and social networks take out of a
   file sent through them, and what still ties a cleaned file to its author.
 
-### 0.9.1 — release parity, safer audio copies and browser reliability (in progress)
+### 0.10.0 — safer media metadata, release parity and browser reliability (in progress)
 
 The Rust core now reads metadata in a bounded MPF gain map, includes its
 findings in the photo's evidence, and makes a fixed-length clean copy that
@@ -179,11 +179,12 @@ Pixel 7 Chromium suites. FLAC clean copies remove Vorbis comments and entire
 embedded picture blocks while retaining other supported metadata and audio
 frame bytes; unknown or incomplete metadata keeps the file read-only. MP3
 clean copies remove up to 16 consecutive leading ID3v2 tags and
-preserve the compressed audio frames byte for byte. Ogg
-remains read-only, and checksums are validated on pages read for metadata;
-later audio pages are not decoded or verified. Before calling HDR
-device-verified, open and compare the clean copy on a physical iPhone. No
-version change or release is part of this in-progress work.
+preserve the compressed audio frames byte for byte. Ogg remains read-only.
+Vorbis and Opus tags are collected across sequential chained streams. Ogg page
+sequence and checksums are validated through the end of supported streams,
+while interleaved streams remain incomplete and audio packets are not decoded.
+Before calling HDR device-verified, open and compare the clean copy on a
+physical iPhone.
 
 Batch results now include a one-step control to select or clear every file
 that can make a clean copy, even when a filter hides some eligible files.

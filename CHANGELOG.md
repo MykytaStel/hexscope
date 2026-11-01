@@ -11,6 +11,47 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.10.0] — 2026-11-01
+
+### Added
+
+- **Ogg track chains are read together.** Hexscope now finds Vorbis and Opus tags in each sequential audio stream in a chained file.
+- **Select every file that can be cleaned in one step.** Batch results can
+  select or clear all eligible clean copies at once, including files hidden by
+  the current filter. The control is available in English and Ukrainian.
+- **Read and safely clean stacked MP3 ID3v2 tags.** The core inspects each
+  consecutive leading tag, keeps byte ranges tied to the correct tag, and
+  removes all inspected tags while copying compressed audio unchanged.
+  Inspection is capped at 16 tags and 65,536 frames across the chain; files
+  beyond the tag limit stay read-only, and frame-limited reads remain incomplete.
+- **Make a safe FLAC copy without Vorbis comments or embedded cover art.** Entire picture blocks are removed; other supported metadata blocks and compressed frames stay byte for byte. Files with metadata Hexscope cannot inspect remain read-only. The CLI can verify the copy after writing it; the Web confirms findings on copies within its read-back limit.
+- **Clean FLAC files with supported metadata blocks in a batch.** Ogg and FLAC files with uninspected blocks remain read-only.
+- **Firefox and WebKit browser checks** cover the analyzer's privacy findings and keyboard-operated clean-copy verification alongside the existing Chrome suites.
+- **Ultra HDR clean copies** keep one bounded MPF-listed gain map. The core
+  reads the map's photo metadata into the parent file's evidence, preserves
+  MPF offsets and both pictures, and removes personal metadata from both JPEGs
+  while retaining supported Ultra HDR or ISO 21496-1 settings. The Web explains
+  this behavior in English and Ukrainian before the copy is made.
+- **Make an MP3 copy without its edge metadata tags.** Leading ID3v2 and trailing APE, ID3v1 Plus and ID3v1 blocks are removed; compressed MPEG audio bytes stay unchanged. The copy is read back, and findings are confirmed removed only when both metadata reads are complete.
+- **Clean tagged MP3 files in a batch.** Only formats with a safe clean-copy path are selectable.
+- **See text from APE audio tags in MP3 files.** Titles, artists and other bounded text values are shown with their source bytes. Binary items and other tag locations are not inspected, so the result remains partial.
+
+### Fixed
+
+- **Validate Ogg pages beyond the tags.** Supported sequential streams are checked for page boundaries, order and checksums through the final page. Damage after metadata, missing end pages and incomplete chains keep metadata marked incomplete; interleaved streams are left explicitly incomplete.
+- **Keep keyboard focus in batch controls.** Changing a filter or clean-copy
+  selection no longer drops focus when the results list redraws, so keyboard
+  users can keep moving through the batch.
+- **Homebrew installs the published 0.9.0 release** with checksums from its four platform archives; the tap no longer stays on 0.8.0.
+- **Release instructions and roadmap match the published state** and require a fresh package dry run for each release tag.
+- **Unknown or incomplete gain-map metadata** now makes cleaning refuse the
+  copy; an unrecognized MPF-listed picture is never replaced with blank bytes.
+  Core tests verify safe metadata retention and read-back. The synthetic
+  iPhone-format fixture does not establish visual behavior on a physical
+  iPhone.
+- **Batch clean copies no longer include read-only formats.** Audio files, emails and unknown files can still show their findings, but the batch does not offer a copy it cannot make; email attachments can be opened separately.
+- **MP3 files with APE tags are marked as partially inspected.** The tag footer is detected even when ID3v1 follows it; unsupported APE content remains unchecked.
+
 ## [0.9.0] — 2026-10-29
 
 ### Added
@@ -601,7 +642,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/MykytaStel/hexscope/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/MykytaStel/hexscope/compare/v0.7.1...v0.7.2
