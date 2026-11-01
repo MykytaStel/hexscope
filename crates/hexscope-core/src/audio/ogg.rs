@@ -162,6 +162,16 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
             );
             return audio(tree, facts, false);
         }
+        let page_bytes = &data[page_start..page_end];
+        let expected_crc = u32::from_le_bytes(data[cursor + 22..cursor + 26].try_into().unwrap());
+        if crate::ogg_crc::checksum(page_bytes) != Some(expected_crc) {
+            tree.error(
+                root,
+                "invalid Ogg page checksum",
+                ByteRange::new((cursor + 22) as u64, 4),
+            );
+            return audio(tree, facts, false);
+        }
         let page_node = tree.add(
             Some(root),
             format!("Ogg page {sequence}"),

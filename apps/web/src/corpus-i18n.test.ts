@@ -98,6 +98,14 @@ function audioExamples(): [string, Uint8Array][] {
     page[26] = 1;
     page[27] = packet.length;
     page.set(packet, 28);
+    let crc = 0;
+    for (let i = 0; i < page.length; i++) {
+      crc ^= (i >= 22 && i < 26 ? 0 : page[i]) << 24;
+      for (let bit = 0; bit < 8; bit++) {
+        crc = ((crc << 1) ^ (crc & 0x80000000 ? 0x04c11db7 : 0)) >>> 0;
+      }
+    }
+    page.set([crc & 255, (crc >>> 8) & 255, (crc >>> 16) & 255, crc >>> 24], 22);
     return page;
   };
   const identification = new Uint8Array([
@@ -114,8 +122,16 @@ function audioExamples(): [string, Uint8Array][] {
     ogg.set(page, cursor);
     cursor += page.length;
   }
+  const oggBadChecksum = ogg.slice();
+  oggBadChecksum[oggBadChecksum.length - 1] ^= 1;
 
-  return [["sample.mp3", mp3], ["sample.flac", flac], ["cover-only.flac", flacPictureOnly], ["sample.ogg", ogg]];
+  return [
+    ["sample.mp3", mp3],
+    ["sample.flac", flac],
+    ["cover-only.flac", flacPictureOnly],
+    ["sample.ogg", ogg],
+    ["bad-checksum.ogg", oggBadChecksum],
+  ];
 }
 
 /** English words left in a line, outside what it quotes from the file: a sentence half translated is not translated. */

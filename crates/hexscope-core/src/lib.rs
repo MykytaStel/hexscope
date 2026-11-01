@@ -19,6 +19,8 @@ pub mod film;
 mod fixed;
 pub mod gif;
 pub mod heif;
+#[cfg(feature = "audio")]
+mod ogg_crc;
 /// DEFLATE and zlib, from their own crate: see `hexscope-inflate`.
 pub use hexscope_inflate as inflate;
 pub mod jpeg;

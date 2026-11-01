@@ -21,6 +21,7 @@ const entries: [string, string][] = [
   ["This block can carry application data, cue metadata or extensions that this view does not inspect.", "Цей блок може містити дані програми, cue-метадані або розширення, які цей перегляд не аналізує."],
   ["Ogg is a container for audio, video or other streams; this view reads supported audio tags only.", "Ogg — контейнер для аудіо-, відео- та інших потоків; тут читаються лише теги підтримуваного аудіо."],
   ["An Ogg page carries part of a logical stream, including packet boundaries and timing.", "Сторінка Ogg містить частину логічного потоку, зокрема межі пакетів і часові дані."],
+  ["The Ogg page checksum does not match its contents; metadata from this page is not trusted.", "Контрольна сума сторінки Ogg не збігається з її вмістом, тому її метаданим довіряти не можна."],
   ["The first packet identifies which codec's compressed audio follows.", "Перший пакет вказує кодек стисненого аудіо, що йде далі."],
   ["The Vorbis comment packet carries text tags such as title, artist and encoder.", "Пакет коментарів Vorbis містить текстові теги: назву, виконавця, програму кодування."],
   ["The Opus tags packet carries text tags such as title, artist and encoder.", "Пакет тегів Opus містить текстові теги: назву, виконавця, програму кодування."],

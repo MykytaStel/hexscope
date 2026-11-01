@@ -71,8 +71,9 @@ references and other tag locations are not inspected, so the result remains
 incomplete. MP3 clean copies remove a leading ID3v2 tag and trailing APE,
 ID3v1 Plus and ID3v1 blocks while copying compressed audio frames unchanged.
 Stacked leading ID3v2 tags are refused until each can be inspected. Audio
-frames are not decoded or checked for integrity; Ogg page checksums are not
-verified. A FLAC clean copy removes Vorbis comments and complete picture
+frames are not decoded or checked for integrity; Ogg checksums are validated
+only on pages read for metadata, and later audio pages are not verified. A
+FLAC clean copy removes Vorbis comments and complete picture
 blocks, including cover art, while preserving other supported metadata blocks
 and compressed frames byte for byte. It is available only when every retained
 metadata block was inspected; application, cue sheet and reserved blocks are

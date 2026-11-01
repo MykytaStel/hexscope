@@ -178,9 +178,10 @@ keyboard smoke in Firefox and WebKit, alongside the full Desktop Chrome and
 Pixel 7 Chromium suites. FLAC clean copies remove Vorbis comments and entire
 embedded picture blocks while retaining other supported metadata and audio
 frame bytes; unknown or incomplete metadata keeps the file read-only. Ogg
-remains read-only. Before calling HDR device-verified, open and compare the
-clean copy on a physical iPhone. No version change or release is part of this
-in-progress work.
+remains read-only, and checksums are validated on pages read for metadata;
+later audio pages are not decoded or verified. Before calling HDR
+device-verified, open and compare the clean copy on a physical iPhone. No
+version change or release is part of this in-progress work.
 
 ### 1.0.0 — Stable (when these hold)
 

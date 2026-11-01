@@ -120,8 +120,9 @@ Audio checks read supported tags; hexscope does not decode or play the sound.
 blocks from MP3 files while copying MPEG audio frames unchanged. For FLAC it
 removes Vorbis comments and embedded picture blocks, including cover art, and
 copies other supported metadata blocks and compressed frames unchanged;
-uninspected metadata blocks keep the file read-only. Ogg remains read-only,
-and Ogg page checksums are not verified.
+uninspected metadata blocks keep the file read-only. Ogg remains read-only.
+Checksums are validated on pages read for its metadata; later audio pages are
+not read or verified.
 If a supported metadata structure could not be fully read, JSON adds
 `"complete":false`; the default `--fail-on` also fails on `incomplete`.
 

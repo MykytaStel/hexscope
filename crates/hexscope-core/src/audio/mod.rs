@@ -125,10 +125,11 @@ mod tests {
         out.extend_from_slice(&[0; 8]); // granule position
         out.extend_from_slice(&serial.to_le_bytes());
         out.extend_from_slice(&sequence.to_le_bytes());
-        out.extend_from_slice(&[0; 4]); // checksum is outside metadata inspection
+        out.extend_from_slice(&[0; 4]); // filled with the Ogg CRC below
         out.push(laces.len() as u8);
         out.extend_from_slice(laces);
         out.extend_from_slice(body);
+        crate::ogg_crc::write_checksum(&mut out);
         out
     }
 
@@ -500,6 +501,40 @@ mod tests {
         let broken = parse(&ogg_packet_fixture("vorbis", &invalid)).unwrap();
         assert!(!broken.metadata_complete);
         assert!(broken.facts.is_empty());
+    }
+
+    #[test]
+    fn rejects_a_bad_ogg_page_checksum_before_trusting_its_tags() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture("vorbis", &tags);
+        let title = bytes
+            .windows(b"TITLE=Sample".len())
+            .position(|window| window == b"TITLE=Sample")
+            .unwrap();
+        bytes[title] ^= 1;
+
+        let doc = parse(&bytes).unwrap();
+        assert!(!doc.metadata_complete);
+        assert!(doc.facts.is_empty());
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "invalid Ogg page checksum" && node.kind == crate::model::NodeKind::Error
+        }));
+    }
+
+    #[test]
+    fn checked_in_ogg_fuzz_seeds_have_valid_page_checksums() {
+        for name in ["ogg-opus.ogg", "ogg-vorbis.ogg"] {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("fuzz/seeds/parse_audio")
+                .join(name);
+            let bytes = std::fs::read(&path).unwrap_or_else(|error| panic!("{path:?}: {error}"));
+            let doc = parse(&bytes).expect("Ogg signature is recognized");
+            assert!(doc.metadata_complete, "{name} should have complete tags");
+        }
     }
 
     #[test]

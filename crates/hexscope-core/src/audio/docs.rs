@@ -129,6 +129,12 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "invalid Ogg page checksum",
+        ogg(
+            "The Ogg page checksum does not match its contents; metadata from this page is not trusted.",
+        ),
+    ),
+    (
         "Ogg identification packet",
         ogg("The first packet identifies which codec's compressed audio follows."),
     ),
