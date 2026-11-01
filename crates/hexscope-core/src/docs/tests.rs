@@ -222,10 +222,11 @@ fn every_audio_node_is_explained_and_listed_for_the_audio_build() {
         page.extend_from_slice(&[0; 8]); // granule position
         page.extend_from_slice(&7u32.to_le_bytes());
         page.extend_from_slice(&sequence.to_le_bytes());
-        page.extend_from_slice(&[0; 4]); // CRC is outside metadata inspection
+        page.extend_from_slice(&[0; 4]);
         page.push(1);
         page.push(packet.len() as u8);
         page.extend_from_slice(packet);
+        crate::ogg_crc::write_checksum(&mut page);
         page
     }
 
