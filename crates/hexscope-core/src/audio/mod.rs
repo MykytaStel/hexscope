@@ -227,6 +227,57 @@ mod tests {
     }
 
     #[test]
+    fn reads_stacked_id3v2_tags_with_absolute_source_ranges() {
+        let first = tag(3, &frame(b"TIT2", b"\x03First title", 3));
+        let second = tag(4, &frame(b"TIT2", b"\x03Second title", 4));
+        let second_start = first.len();
+        let mut bytes = first;
+        bytes.extend_from_slice(&second);
+        bytes.extend_from_slice(&[0xff, 0xfb, 0x90, 0x64]);
+
+        let doc = parse_mp3(&bytes);
+
+        assert!(doc.metadata_complete);
+        assert_eq!(values(&doc, "title"), ["First title", "Second title"]);
+        assert_eq!(doc.tree.get(doc.facts[0].node).range.start, 20);
+        assert_eq!(
+            doc.tree.get(doc.facts[1].node).range.start,
+            (second_start + 20) as u64
+        );
+        assert_eq!(
+            doc.tree
+                .nodes()
+                .iter()
+                .filter(|node| node.label.starts_with("ID3v2.") && node.label.ends_with(" tag"))
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn stacked_id3v2_tags_stop_at_the_bounded_tag_count() {
+        let mut bytes = Vec::new();
+        for index in 0..17 {
+            bytes.extend_from_slice(&tag(
+                4,
+                &frame(b"TIT2", format!("\x03Title {index}").as_bytes(), 4),
+            ));
+        }
+        bytes.extend_from_slice(&[0xff, 0xfb, 0x90, 0x64]);
+
+        let doc = parse_mp3(&bytes);
+
+        assert!(!doc.metadata_complete);
+        assert_eq!(doc.facts.len(), 16);
+        assert!(!doc.tree.nodes().iter().any(|node| {
+            node.label == "audio frames (not decoded)" || node.label.contains("Title 16")
+        }));
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "leading ID3v2 tag count exceeds the 16-tag inspection limit"
+        }));
+    }
+
+    #[test]
     fn unsupported_id3_metadata_frames_are_not_reported_complete() {
         // User-defined text can carry arbitrary metadata, so silently
         // skipping it must not make the file look fully inspected.

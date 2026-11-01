@@ -51,6 +51,12 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "leading ID3v2 tag count exceeds the 16-tag inspection limit",
+        id3(
+            "This file has more leading ID3v2 tags than this view can inspect; later tags and the audio boundary are left unchecked.",
+        ),
+    ),
+    (
         "ID3 frame * not inspected",
         id3(
             "This ID3 frame can hold metadata this view does not read, so the tag is only partly inspected.",

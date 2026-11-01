@@ -81,9 +81,10 @@ Why each row can be trusted:
   computer keeps only its file name, and a photo embedded as base64 is
   cleaned as a photo of its own. Scripts are the drawing's and stay; they
   are named, not removed.
-- **MP3**: leading ID3v2 and trailing APE, ID3v1 Plus and ID3v1 tags are
-  removed as whole blocks; compressed MPEG frames are copied byte for byte. Only listed
-  metadata kinds can be confirmed, and only when both parses are complete.
+- **MP3**: leading ID3v2 tags and trailing APE, ID3v1 Plus and ID3v1 tags are
+  removed as whole blocks; compressed MPEG frames are copied byte for byte.
+  Only listed metadata kinds can be confirmed, and only when both parses are
+  complete.
 - **FLAC**: Vorbis comments and whole picture blocks are removed; STREAMINFO,
   padding, seek tables and compressed audio frames stay byte for byte. A
   complete parse is required, so uninspected application, cue sheet or
