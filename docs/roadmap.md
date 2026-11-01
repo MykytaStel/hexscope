@@ -187,7 +187,9 @@ version change or release is part of this in-progress work.
 
 Batch results now include a one-step control to select or clear every file
 that can make a clean copy, even when a filter hides some eligible files.
-The bulk selection control is available in English and Ukrainian.
+The bulk selection control is available in English and Ukrainian. Batch
+filters, bulk selection, and individual copy checkboxes retain keyboard focus
+when the list redraws.
 
 ### 1.0.0 — Stable (when these hold)
 
