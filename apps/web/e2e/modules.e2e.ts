@@ -29,6 +29,26 @@ function mp3(frameId: "TIT2" | "TXXX"): Buffer {
   ]);
 }
 
+function stackedMp3(): Buffer {
+  const tag = (title: string) => {
+    const payload = Buffer.from([3, ...Buffer.from(title)]);
+    const frame = Buffer.concat([
+      Buffer.from("TIT2"),
+      Buffer.from([0, 0, 0, payload.length, 0, 0]),
+      payload,
+    ]);
+    return Buffer.concat([
+      Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, frame.length]),
+      frame,
+    ]);
+  };
+  return Buffer.concat([
+    tag("first title"),
+    tag("second title"),
+    Buffer.from([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]),
+  ]);
+}
+
 function flac(
   withUninspectedBlock = false,
   withFrames = true,
@@ -111,6 +131,27 @@ test("an MP3 file loads its parser, links the tag to its bytes, and confirms the
   // A service worker may pre-cache the media build during this page visit;
   // the audio parser itself must still be requested for the uploaded file.
   expect(loaded).toContain("hexscope_audio");
+});
+
+test("stacked MP3 tags are both read and the clean copy removes both", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "stacked-song.mp3",
+    mimeType: "audio/mpeg",
+    buffer: stackedMp3(),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.getByRole("button", { name: "Metadata", exact: true }).click();
+  await expect(page.getByRole("button", { name: "first title" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "second title" })).toBeVisible();
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".ba-side.is-after .ba-what")).toHaveText("confirmed removed from the copy");
+  await page.locator(".clean-removed > summary").click();
+  await expect(page.locator(".clean-list")).toContainText("ID3v2 metadata tags");
 });
 
 test("a FLAC keeps its audio frames and confirms removal of the comment block", async ({ page }) => {

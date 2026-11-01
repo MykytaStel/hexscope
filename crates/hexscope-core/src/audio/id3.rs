@@ -3,9 +3,15 @@ use crate::facts::DocumentFact;
 use crate::model::{ByteRange, NodeKind, ParseTree, Value};
 
 const MAX_TAG_SIZE: usize = 16 * 1024 * 1024;
+const MAX_ID3_TAGS: usize = 16;
 const MAX_FACTS: usize = 256;
 const MAX_VALUE_BYTES: usize = 512;
 const MAX_FRAMES: usize = 65_536;
+
+struct FrameContext {
+    version: u8,
+    tag_node: u32,
+}
 
 pub fn is_mp3(data: &[u8]) -> bool {
     data.starts_with(b"ID3") || data.get(..4).is_some_and(valid_mpeg_frame_header)
@@ -33,14 +39,15 @@ pub(crate) fn removable_tag_ranges(data: &[u8]) -> Option<Vec<(ByteRange, &'stat
     let mut ranges = Vec::new();
     let mut audio_start = 0usize;
     if data.starts_with(b"ID3") {
-        let end = id3v2_end(data)?;
-        ranges.push((ByteRange::new(0, end as u64), "ID3v2 metadata tags"));
-        audio_start = end;
-        // The reader currently inspects one leading ID3 tag. Refuse stacked
-        // tags until every one can be read and represented in the report.
-        if data.get(audio_start..audio_start.checked_add(3)?) == Some(b"ID3") {
-            return None;
+        let mut count = 0;
+        while data.get(audio_start..audio_start.checked_add(3)?) == Some(b"ID3") {
+            if count == MAX_ID3_TAGS {
+                return None;
+            }
+            audio_start = id3v2_end(data, audio_start)?;
+            count += 1;
         }
+        ranges.push((ByteRange::new(0, audio_start as u64), "ID3v2 metadata tags"));
     }
 
     let id3v1_start = if data.len() >= 128 && data[data.len() - 128..].starts_with(b"TAG") {
@@ -169,22 +176,35 @@ pub fn parse_mp3(data: &[u8]) -> AudioDocument {
     let mut audio_start = 0usize;
     let mut can_mark_audio = true;
 
-    if data.starts_with(b"ID3") {
-        complete &= parse_id3v2(data, root, &mut tree, &mut facts);
-        if let Some(end) = id3v2_end(data) {
-            audio_start = end;
-            if data.get(end..end.saturating_add(3)) == Some(b"ID3") {
-                tree.warning(
-                    root,
-                    "stacked ID3v2 tag is not inspected",
-                    ByteRange::new(end as u64, 3),
-                );
-                complete = false;
-                can_mark_audio = false;
-            }
-        } else {
+    let mut id3_tag_count = 0;
+    let mut id3_frame_count = 0;
+    while data.get(audio_start..audio_start.saturating_add(3)) == Some(b"ID3") {
+        if id3_tag_count == MAX_ID3_TAGS {
+            tree.add(
+                Some(root),
+                format!("leading ID3v2 tag count exceeds the {MAX_ID3_TAGS}-tag inspection limit"),
+                ByteRange::new(audio_start as u64, 3),
+                NodeKind::Field,
+                None,
+            );
+            complete = false;
             can_mark_audio = false;
+            break;
         }
+        complete &= parse_id3v2(
+            data,
+            audio_start,
+            root,
+            &mut tree,
+            &mut facts,
+            &mut id3_frame_count,
+        );
+        let Some(end) = id3v2_end(data, audio_start) else {
+            can_mark_audio = false;
+            break;
+        };
+        audio_start = end;
+        id3_tag_count += 1;
     }
     let id3v1_start = if data.len() >= 128 && data[data.len() - 128..].starts_with(b"TAG") {
         data.len() - 128
@@ -330,64 +350,95 @@ fn read_ape_text(
     }
 }
 
-fn id3v2_end(data: &[u8]) -> Option<usize> {
-    if data.len() < 10 || &data[..3] != b"ID3" || !(2..=4).contains(&data[3]) {
+fn id3v2_end(data: &[u8], start: usize) -> Option<usize> {
+    let header_end = start.checked_add(10)?;
+    if data.get(start..start.checked_add(3)?) != Some(b"ID3")
+        || !data
+            .get(start + 3)
+            .is_some_and(|version| (2..=4).contains(version))
+    {
         return None;
     }
-    let size = synchsafe(&data[6..10])?;
+    let size = synchsafe(data.get(start.checked_add(6)?..header_end)?)?;
     if size > MAX_TAG_SIZE {
         return None;
     }
-    let end = 10usize.checked_add(size)?;
+    let end = header_end.checked_add(size)?;
     (end <= data.len()).then_some(end)
 }
 
 fn parse_id3v2(
     data: &[u8],
+    start: usize,
     root: u32,
     tree: &mut ParseTree,
     facts: &mut Vec<DocumentFact>,
+    frame_count: &mut usize,
 ) -> bool {
-    if data.len() < 10 {
+    let Some(header_end) = start.checked_add(10) else {
+        tree.error(
+            root,
+            "invalid ID3 tag length",
+            ByteRange::new(start as u64, 0),
+        );
+        return false;
+    };
+    if data.len() < header_end {
         tree.error(
             root,
             "truncated ID3 header",
-            ByteRange::new(0, data.len() as u64),
+            ByteRange::new(start as u64, data.len().saturating_sub(start) as u64),
         );
         return false;
     }
-    let version = data[3];
+    let version = data[start + 3];
     if !(2..=4).contains(&version) {
-        tree.warning(root, "unsupported ID3 version", ByteRange::new(0, 10));
+        tree.warning(
+            root,
+            "unsupported ID3 version",
+            ByteRange::new(start as u64, 10),
+        );
         return false;
     }
-    if data[4] == 0xff {
-        tree.warning(root, "reserved ID3 revision", ByteRange::new(3, 2));
+    if data[start + 4] == 0xff {
+        tree.warning(
+            root,
+            "reserved ID3 revision",
+            ByteRange::new((start + 3) as u64, 2),
+        );
         return false;
     }
-    let Some(size) = synchsafe(data.get(6..10).unwrap_or_default()) else {
-        tree.error(root, "invalid ID3 synchsafe size", ByteRange::new(6, 4));
+    let Some(size) = synchsafe(data.get(start + 6..header_end).unwrap_or_default()) else {
+        tree.error(
+            root,
+            "invalid ID3 synchsafe size",
+            ByteRange::new((start + 6) as u64, 4),
+        );
         return false;
     };
     if size > MAX_TAG_SIZE {
         tree.add(
             Some(root),
             "ID3 tag exceeds the 16 MiB inspection limit",
-            ByteRange::new(0, 10),
+            ByteRange::new(start as u64, 10),
             NodeKind::Field,
             None,
         );
         return false;
     }
-    let Some(tag_end) = 10usize.checked_add(size) else {
-        tree.error(root, "invalid ID3 tag length", ByteRange::new(6, 4));
+    let Some(tag_end) = header_end.checked_add(size) else {
+        tree.error(
+            root,
+            "invalid ID3 tag length",
+            ByteRange::new((start + 6) as u64, 4),
+        );
         return false;
     };
     let available_end = tag_end.min(data.len());
     let tag_node = tree.add(
         Some(root),
         format!("ID3v2.{version} tag"),
-        ByteRange::new(0, available_end as u64),
+        ByteRange::new(start as u64, available_end.saturating_sub(start) as u64),
         NodeKind::Container,
         None,
     );
@@ -395,12 +446,15 @@ fn parse_id3v2(
         tree.error(
             tag_node,
             "truncated ID3 tag body",
-            ByteRange::new(10, data.len().saturating_sub(10) as u64),
+            ByteRange::new(
+                header_end as u64,
+                data.len().saturating_sub(header_end) as u64,
+            ),
         );
         return false;
     }
 
-    let flags = data[5];
+    let flags = data[start + 5];
     let legal_flags = match version {
         2 => 0xc0,
         3 => 0xe0,
@@ -411,7 +465,7 @@ fn parse_id3v2(
         tree.error(
             tag_node,
             "reserved ID3 header flags are set",
-            ByteRange::new(5, 1),
+            ByteRange::new((start + 5) as u64, 1),
         );
         return false;
     }
@@ -423,14 +477,14 @@ fn parse_id3v2(
         tree.add(
             Some(tag_node),
             "ID3 tag uses an unsupported compression or unsynchronisation transform",
-            ByteRange::new(5, 1),
+            ByteRange::new((start + 5) as u64, 1),
             NodeKind::Field,
             None,
         );
         return false;
     }
 
-    let mut frames_start = 10usize;
+    let mut frames_start = header_end;
     let mut frames_end = tag_end;
     if version == 4 && flags & 0x10 != 0 {
         if frames_end < frames_start + 10
@@ -439,10 +493,7 @@ fn parse_id3v2(
             tree.error(
                 tag_node,
                 "invalid ID3v2.4 footer",
-                ByteRange::new(
-                    frames_end.saturating_sub(10) as u64,
-                    frames_end.min(10) as u64,
-                ),
+                ByteRange::new(frames_end.saturating_sub(10) as u64, 10),
             );
             return false;
         }
@@ -467,12 +518,12 @@ fn parse_id3v2(
 
     parse_frames(
         data,
-        version,
         frames_start,
         frames_end,
-        tag_node,
+        FrameContext { version, tag_node },
         tree,
         facts,
+        frame_count,
     )
 }
 
@@ -498,14 +549,14 @@ fn skip_extended_header(data: &[u8], version: u8, start: usize, end: usize) -> O
 
 fn parse_frames(
     data: &[u8],
-    version: u8,
     mut cursor: usize,
     end: usize,
-    tag_node: u32,
+    context: FrameContext,
     tree: &mut ParseTree,
     facts: &mut Vec<DocumentFact>,
+    frame_count: &mut usize,
 ) -> bool {
-    let mut count = 0usize;
+    let FrameContext { version, tag_node } = context;
     let mut complete = true;
     while cursor < end {
         if data[cursor] == 0 {
@@ -519,7 +570,7 @@ fn parse_frames(
             }
             return complete;
         }
-        if count == MAX_FRAMES {
+        if *frame_count == MAX_FRAMES {
             tree.add(
                 Some(tag_node),
                 "ID3 frame count exceeds the inspection limit",
@@ -529,7 +580,7 @@ fn parse_frames(
             );
             return false;
         }
-        count += 1;
+        *frame_count += 1;
         let frame_header_len = if version == 2 { 6 } else { 10 };
         if end - cursor < frame_header_len {
             tree.error(

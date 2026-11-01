@@ -68,13 +68,13 @@ in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
 not understand make the result incomplete. APE tags at the end of an MP3,
 including before ID3v1, have bounded text items read; binary items, external
 references and other tag locations are not inspected, so the result remains
-incomplete. MP3 clean copies remove a leading ID3v2 tag and trailing APE,
-ID3v1 Plus and ID3v1 blocks while copying compressed audio frames unchanged.
-Stacked leading ID3v2 tags are refused until each can be inspected. Audio
-frames are not decoded or checked for integrity; Ogg checksums are validated
-only on pages read for metadata, and later audio pages are not verified. A
-FLAC clean copy removes Vorbis comments and complete picture
-blocks, including cover art, while preserving other supported metadata blocks
+incomplete. MP3 clean copies remove up to 16 leading ID3v2 tags and trailing
+APE, ID3v1 Plus and ID3v1 blocks while copying compressed audio frames
+unchanged; beyond that tag limit the metadata is incomplete and the file stays
+read-only. Audio frames are not decoded or checked for integrity; Ogg
+checksums are validated only on pages read for metadata, and later audio pages
+are not verified. A FLAC clean copy removes Vorbis comments and complete
+picture blocks, including cover art, while preserving other supported metadata blocks
 and compressed frames byte for byte. It is available only when every retained
 metadata block was inspected; application, cue sheet and reserved blocks are
 not inspected, so a file containing one remains read-only. Hexscope does not

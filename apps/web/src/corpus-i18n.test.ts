@@ -61,6 +61,9 @@ function audioExamples(): [string, Uint8Array][] {
   const mp3 = new Uint8Array([
     ...text.encode("ID3"), 4, 0, 0, 0, 0, 0, mp3Frame.length, ...mp3Frame,
   ]);
+  const tooManyMp3Tags = new Uint8Array(mp3.length * 17 + 4);
+  for (let index = 0; index < 17; index++) tooManyMp3Tags.set(mp3, index * mp3.length);
+  tooManyMp3Tags.set([0xff, 0xfb, 0x90, 0x64], mp3.length * 17);
 
   const picture = new Uint8Array([
     ...be32(3), ...be32(3), 80, 78, 71, ...be32(0),
@@ -127,6 +130,7 @@ function audioExamples(): [string, Uint8Array][] {
 
   return [
     ["sample.mp3", mp3],
+    ["too-many-tags.mp3", tooManyMp3Tags],
     ["sample.flac", flac],
     ["cover-only.flac", flacPictureOnly],
     ["sample.ogg", ogg],

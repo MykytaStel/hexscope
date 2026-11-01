@@ -1908,20 +1908,56 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn mp3_copy_refuses_stacked_id3v2_until_both_tags_are_inspected() {
+    fn mp3_copy_removes_stacked_id3v2_and_confirms_each_title_without_changing_audio() {
+        let audio = [0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4];
         let mut original = mp3_title_tag(b"First title");
         original.extend_from_slice(&mp3_title_tag(b"Second title"));
-        original.extend_from_slice(&[0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]);
+        original.extend_from_slice(&audio);
 
-        assert_eq!(clean(&original), Err(CleanError::Damaged));
+        let cleaned = clean(&original).unwrap();
+        assert_eq!(cleaned.bytes, audio);
+        assert_eq!(cleaned.removed.len(), 1);
+        assert_eq!(cleaned.removed[0].what, "ID3v2 metadata tags");
+        assert_eq!(
+            cleaned.removed[0].bytes,
+            (original.len() - audio.len()) as u64
+        );
+
+        let before = crate::verification::snapshot(&crate::summary::summarize(&original));
+        let after = crate::verification::snapshot(&crate::summary::summarize(&cleaned.bytes));
+        let report = crate::verification::compare(&before, &after);
+        assert_eq!(
+            report
+                .removed
+                .iter()
+                .filter(|item| item.kind == "title")
+                .count(),
+            2
+        );
+        assert!(report.unchecked.is_empty());
+
         let doc = crate::audio::parse_mp3(&original);
-        assert!(!doc.metadata_complete);
-        assert!(
+        assert!(doc.metadata_complete);
+        assert_eq!(
             doc.tree
                 .nodes()
                 .iter()
-                .any(|node| { node.label == "stacked ID3v2 tag is not inspected" })
+                .filter(|node| node.label.starts_with("ID3v2.") && node.label.ends_with(" tag"))
+                .count(),
+            2
         );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mp3_copy_refuses_more_than_sixteen_leading_id3v2_tags() {
+        let mut original = Vec::new();
+        for index in 0..17 {
+            original.extend_from_slice(&mp3_title_tag(format!("Title {index}").as_bytes()));
+        }
+        original.extend_from_slice(&[0xff, 0xfb, 0x90, 0x64]);
+
+        assert_eq!(clean(&original), Err(CleanError::Damaged));
     }
 
     #[test]

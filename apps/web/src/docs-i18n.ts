@@ -6,6 +6,7 @@ import { registerLazyTranslations } from "./i18n";
 const entries: [string, string][] = [
   ["An MP3 stream: ID3 tags beside compressed audio frames, which this view does not decode.", "Потік MP3: теги ID3 поруч зі стисненими аудіокадрами, які цей перегляд не декодує."],
   ["An ID3 tag: a versioned set of named frames for the title, people, dates and other details.", "Тег ID3: набір іменованих кадрів певної версії з назвою, виконавцями, датами та іншими відомостями."],
+  ["This file has more leading ID3v2 tags than this view can inspect; later tags and the audio boundary are left unchecked.", "У файлі більше початкових тегів ID3v2, ніж може перевірити цей перегляд; наступні теги та межу аудіо залишено неперевіреними."],
   ["This ID3 frame can hold metadata this view does not read, so the tag is only partly inspected.", "Цей кадр ID3 може містити метадані, які перегляд не читає, тому тег перевірено лише частково."],
   ["An ID3 frame: a named piece of text or other metadata inside the tag.", "Кадр ID3: іменований фрагмент тексту або інших метаданих усередині тегу."],
   ["The older fixed-size ID3 tag at the end of an MP3, with title, artist, album and year.", "Старий тег ID3 фіксованого розміру наприкінці MP3: назва, виконавець, альбом і рік."],
