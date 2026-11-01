@@ -1168,6 +1168,28 @@ body[data-state="batch"] .layout {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+.batch-selection {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px;
+}
+
+.batch-select-all {
+  min-height: var(--control-height);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.batch-select-all:hover {
+  border-color: var(--accent);
+}
+
 .hero-folder,
 .hero-paste {
   cursor: pointer;
@@ -1276,6 +1298,14 @@ body[data-state="batch"] .layout {
     grid-column: 1;
     justify-self: start;
     margin-top: var(--space-2);
+  }
+
+  .batch-selection {
+    margin-bottom: 12px;
+  }
+
+  .batch-select-all {
+    width: 100%;
   }
 
   .batch-actions {

@@ -560,6 +560,10 @@ const UK: Record<string, string> = {
   "Some files could not be fully checked.": "Деякі файли не вдалося повністю перевірити.",
   "Make clean copies": "Зробити чисті копії",
   "Save clean copies (.zip)": "Зберегти чисті копії (.zip)",
+  "Clean-copy selection": "Вибір чистих копій",
+  "Clear clean-copy selection": "Скасувати вибір чистих копій",
+  "Remove every cleanable file in this batch from the copy selection": "Прибрати з вибору всі файли цієї групи, для яких можна створити чисту копію",
+  "Select every cleanable file in this batch, including files hidden by the current filter": "Вибрати всі файли цієї групи, для яких можна створити чисту копію, зокрема приховані поточним фільтром",
   "Makes the copies in this tab, to share or save: nothing is uploaded": "Копії робляться в цій вкладці — щоб поділитися чи зберегти; нічого не завантажується",
   "Makes the copies in this tab and saves them as one ZIP: nothing is uploaded": "Копії робляться в цій вкладці й зберігаються одним ZIP; нічого не завантажується",
   "Keep the original names": "Зберегти початкові назви",
@@ -1261,6 +1265,8 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} не повністю перевірено`;
   match = /^(All|Give something away|Needs attention) · (\d+)$/.exec(value);
   if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги" }[match[1]]} · ${match[2]}`;
+  match = /^Select all (\d+) cleanable files?$/.exec(value);
+  if (match) return `Вибрати всі ${match[1]} ${ukrainianCountWord(Number(match[1]), "файл, придатний для очищення", "файли, придатні для очищення", "файлів, придатних для очищення")}`;
   match = /^\+(\d+) more$/.exec(value);
   if (match) return `ще ${match[1]}`;
   match = /^Make (\d+) clean cop(?:y|ies)$/.exec(value);

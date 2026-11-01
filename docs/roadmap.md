@@ -185,6 +185,10 @@ later audio pages are not decoded or verified. Before calling HDR
 device-verified, open and compare the clean copy on a physical iPhone. No
 version change or release is part of this in-progress work.
 
+Batch results now include a one-step control to select or clear every file
+that can make a clean copy, even when a filter hides some eligible files.
+The bulk selection control is available in English and Ukrainian.
+
 ### 1.0.0 — Stable (when these hold)
 
 - The CLI's flags, exit codes, JSON and SARIF are documented and kept.
