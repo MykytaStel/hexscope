@@ -38,7 +38,7 @@ change; `node scripts/changelog.mjs` shows it as it will read here.
 
 ### Fixed
 
-- **Malformed video timestamps no longer panic the core.** Unsigned MP4 version 1 dates are converted without integer wraparound; values outside the calendar range are omitted from findings but are still scrubbed from clean copies.
+- **Malformed video timestamps no longer panic the core.** Unsigned MP4 version 1 dates are converted without integer wraparound, and unexpected characters in a recorded time zone are handled at UTF-8 boundaries. Values outside the calendar range are omitted from findings but are still scrubbed from clean copies.
 - **Validate Ogg pages beyond the tags.** Supported sequential streams are checked for page boundaries, order and checksums through the final page. Damage after metadata, missing end pages and incomplete chains keep metadata marked incomplete; interleaved streams are left explicitly incomplete.
 - **Keep keyboard focus in batch controls.** Changing a filter or clean-copy
   selection no longer drops focus when the results list redraws, so keyboard

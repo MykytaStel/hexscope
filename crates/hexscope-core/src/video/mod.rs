@@ -165,7 +165,10 @@ fn date(raw: &str) -> String {
     }
     let zone = match zone {
         "Z" => " UTC".to_string(),
-        z if z.len() == 5 && z.starts_with(['+', '-']) => format!(" {}:{}", &z[..3], &z[3..]),
+        z if z.len() == 5 && z.starts_with(['+', '-']) => match (z.get(..3), z.get(3..)) {
+            (Some(hours), Some(minutes)) => format!(" {hours}:{minutes}"),
+            _ => String::new(),
+        },
         z if z.len() == 6 && z.starts_with(['+', '-']) => format!(" {z}"),
         _ => String::new(),
     };
