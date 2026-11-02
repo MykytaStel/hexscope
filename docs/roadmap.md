@@ -23,7 +23,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.7.2 | `cargo install` with Rust 1.88 and later | shipped 2026-10-19 |
 | 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | shipped 2026-10-25 |
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
-| 0.10.0, 0.11.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
+| 0.10.0 | Chained Ogg metadata, safer audio clean copies, Ultra HDR clean copies, batch usability and core reliability | shipped 2026-11-02 |
+| 0.11.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -38,11 +39,24 @@ the site, crates and `v0.9.0` tag were published together. The Homebrew formula
 now points at `0.9.0`; upgrading from `0.8.0` verified the archive checksum and
 the formula's installed-version test passed.
 
-The large-file and archive workflows still need physical iOS Safari and
-Android Chrome checks, including time and memory behavior, the Film Lab share
-sheet, and screen-reader navigation. Code merged after the `v0.9.0` tag,
-including HDR clean copies, belongs to the next release collection; keep the
-published tag immutable.
+The physical iOS Safari and Android Chrome checks recorded for this release
+remain open, including large-file time and memory behavior, the Film Lab share
+sheet, and screen-reader navigation. The HDR and audio work merged after this
+tag shipped in `0.10.0`; published tags remain immutable.
+
+### 0.10.0 — shipped 2026-11-02
+
+The work merged after `v0.9.0` shipped together: the core reads chained
+Vorbis and Opus metadata and checks Ogg page order and checksums; MP3 and FLAC
+clean copies remove supported metadata and are read back for verification;
+Ultra HDR copies preserve the bounded gain map while removing personal photo
+metadata; batch selection is easier to operate by keyboard and across filters;
+and the video parser safely handles malformed dates. The site, five-platform
+CLI release, four crates and Homebrew formula are published as `0.10.0`.
+
+Physical iPhone Safari checks remain open for the Film Lab share sheet and
+large-file time and memory behavior. Browser emulation and synthetic fixtures
+do not establish those device behaviors.
 
 ### 0.3.0 — shipped 2026-10-12
 
