@@ -635,6 +635,7 @@ const UK: Record<string, string> = {
   "Some PDF page or form content may be missing.": "У PDF може бракувати частини вмісту сторінки або форми.",
   "no copy was made because PDF checks are incomplete": "Копію не створено: перевірку PDF не завершено",
   "no copy was made because PDF checks are incomplete.": "Копію не створено: перевірку PDF не завершено.",
+  "No copy was made: the copy would open as a different kind of file, so hexscope does not make it.": "Копію не створено: вона відкривалася б як файл іншого типу, тому hexscope її не робить.",
   "Making the copy…": "Створюємо копію…",
   "Choose": "Вибрати",
   "Save": "Зберегти",

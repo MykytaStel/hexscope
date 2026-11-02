@@ -74,6 +74,9 @@ group("incomplete PDF content checks", () => {
     expect(
       translateText("no copy was made because PDF checks are incomplete", "uk"),
     ).toBe("Копію не створено: перевірку PDF не завершено");
+    expect(
+      translateText("No copy was made: the copy would open as a different kind of file, so hexscope does not make it.", "uk"),
+    ).toBe("Копію не створено: вона відкривалася б як файл іншого типу, тому hexscope її не робить.");
   });
 });
 
