@@ -24,7 +24,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.8.0 | Archive Trace, safer sharing, evidence-bound email claims, bounded large-file analysis, and read-only MP3/FLAC/Ogg tags | shipped 2026-10-25 |
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
 | 0.10.0 | Chained Ogg metadata, safer audio clean copies, Ultra HDR clean copies, batch usability and core reliability | shipped 2026-11-02 |
-| 0.11.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
+| 0.11.0 | Ready for launch: hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | when its list is done |
+| 0.12.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -43,6 +44,32 @@ The physical iOS Safari and Android Chrome checks recorded for this release
 remain open, including large-file time and memory behavior, the Film Lab share
 sheet, and screen-reader navigation. The HDR and audio work merged after this
 tag shipped in `0.10.0`; published tags remain immutable.
+
+### 0.11.0 — ready for launch (in progress)
+
+Mostly holding what 0.8–0.10 added, so that 1.0 has little left, and one
+new kind of clean copy. In order:
+
+1. **Clean copies hold under damage.** A fuzz target makes a clean copy of
+   any input and requires it to read back as the same format, clean again
+   and compare against its source; property tests damage a cleanable HDR
+   photo, MP3 and FLAC. Begun 2026-11-02.
+2. **One wording for every interface.** The core reports what it finds as
+   codes with values, not English sentences; the page, CLI, JSON and SARIF
+   word them from the same codes, so they cannot drift apart.
+3. **One set of styles.** The stylesheets in one set of tokens, checked
+   against screenshots of every page and state before and after, so links
+   that run together or a note on the wrong line are caught by a test.
+4. **Keyboard and screen reader on the main paths**: open a file, read the
+   answer, make a clean copy, a batch.
+5. **Ogg clean copies.** Vorbis and Opus comments removed and the copy read
+   back, as MP3 and FLAC are; interleaved or incomplete streams stay
+   read-only.
+6. **Small debts**: a flat archive folder of 100,000 entries keeps about
+   5 MB of rows.
+
+Done when: every item above is merged and the author's iPhone checks from
+0.9.0 and 0.10.0 are recorded. The batch privacy mosaic is 0.12's lead.
 
 ### 0.10.0 — shipped 2026-11-02
 
