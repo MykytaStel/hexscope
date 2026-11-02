@@ -49,3 +49,9 @@ name = "copies"
 path = "fuzz_targets/copies.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "clean_roundtrip"
+path = "fuzz_targets/clean_roundtrip.rs"
+test = false
+doc = false

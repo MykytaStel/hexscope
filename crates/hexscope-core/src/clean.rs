@@ -60,6 +60,9 @@ pub enum CleanError {
     /// Legacy name retained for API compatibility: a PDF page, its content, or
     /// its page tree could not be inspected completely.
     FormContentIncomplete,
+    /// The copy would open as a different kind of file: taking bytes out
+    /// brought another format's signature to where readers look for it.
+    ChangesFormat,
 }
 
 impl CleanError {
@@ -89,6 +92,9 @@ impl CleanError {
             CleanError::FormContentIncomplete => {
                 "no copy was made because PDF checks are incomplete"
             }
+            CleanError::ChangesFormat => {
+                "the copy would open as a different kind of file, so hexscope does not make it"
+            }
         }
     }
 }
@@ -107,7 +113,9 @@ pub fn clean(data: &[u8]) -> Result<Cleaned, CleanError> {
 }
 
 pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanError> {
-    let mut cleaned = match parse(data) {
+    let doc = parse(data);
+    let format = doc.format();
+    let mut cleaned = match doc {
         Document::Png(doc) => clean_png(data, &doc),
         Document::Jpeg(doc) => clean_jpeg(data, &doc),
         Document::Heif(doc) => clean_heif(data, &doc),
@@ -129,6 +137,11 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Svg(doc) if cfg!(feature = "svg") => crate::svg::clean_svg(data, &doc),
         _ => Err(CleanError::Unsupported),
     }?;
+    // A copy is shared as the same kind of file: one that another program
+    // would open as something else is not a clean copy of this one.
+    if parse(&cleaned.bytes).format() != format {
+        return Err(CleanError::ChangesFormat);
+    }
     cleaned.removed = merged(cleaned.removed);
     Ok(cleaned)
 }
@@ -1608,6 +1621,19 @@ mod tests {
 
     fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
         hay.windows(needle.len()).position(|w| w == needle)
+    }
+
+    #[cfg(feature = "office")]
+    #[test]
+    fn a_copy_that_would_open_as_another_format_is_refused() {
+        // Found by fuzzing: "%PDF-" past an RTF's first kilobyte is text, but
+        // removing the information group brings it into the window where PDF
+        // readers look for their header, and the copy opens as a PDF.
+        let mut rtf = b"{\\rtf1{\\info{\\author ".to_vec();
+        rtf.extend(std::iter::repeat_n(b'a', 1000));
+        rtf.extend_from_slice(b"}}hello %PDF-1.4 x}");
+        assert_eq!(parse(&rtf).format(), crate::document::Format::Rtf);
+        assert_eq!(clean(&rtf), Err(CleanError::ChangesFormat));
     }
 
     fn scan(bytes: &[u8]) -> Vec<u8> {

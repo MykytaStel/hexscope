@@ -108,6 +108,9 @@ jobs:
           cp -R tests/corpus/. fuzz/corpus/parse/
           cp -R fuzz/seeds/parse_audio/. fuzz/corpus/parse/
           cp -R fuzz/seeds/parse_audio/. fuzz/corpus/parse_audio/
+          mkdir -p fuzz/corpus/clean_roundtrip
+          cp -R tests/corpus/. fuzz/seeds/parse_audio/. fuzz/seeds/clean_roundtrip/. fuzz/corpus/clean_roundtrip/
+          cp tests/fixtures/iphone-hdr.jpg fuzz/corpus/clean_roundtrip/
         working-directory: crates/hexscope-core
       - name: Fuzz smoke run
         # Real-format seeds exercise the dispatcher and focused parser targets.
@@ -116,6 +119,7 @@ jobs:
           cargo +nightly fuzz run parse_audio -- -max_total_time=30
           cargo +nightly fuzz run parse_eml -- -max_total_time=30
           cargo +nightly fuzz run copies -- -max_total_time=30 -rss_limit_mb=4096
+          cargo +nightly fuzz run clean_roundtrip -- -max_total_time=45 -rss_limit_mb=4096
         working-directory: crates/hexscope-core
 
   # Builds the static site. The output runs on any static host; deploying is

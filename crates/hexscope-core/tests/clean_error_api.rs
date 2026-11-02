@@ -13,6 +13,7 @@ fn clean_error_keeps_its_public_variants_exhaustive() {
         CleanError::PictureUnderBox,
         CleanError::JpegUnderBox,
         CleanError::FormContentIncomplete,
+        CleanError::ChangesFormat,
     ];
 
     for error in errors {
@@ -26,7 +27,8 @@ fn clean_error_keeps_its_public_variants_exhaustive() {
             | CleanError::Unsupported
             | CleanError::PictureUnderBox
             | CleanError::JpegUnderBox
-            | CleanError::FormContentIncomplete => error.reason(),
+            | CleanError::FormContentIncomplete
+            | CleanError::ChangesFormat => error.reason(),
         };
         assert!(!reason.is_empty());
     }
