@@ -91,13 +91,39 @@ fn places_are_read_the_way_iso_6709_writes_them() {
 
 #[test]
 fn movie_time_counts_from_1904() {
-    assert_eq!(movie_time(0), "1904-01-01 00:00:00 UTC");
+    assert_eq!(movie_time(0).as_deref(), Some("1904-01-01 00:00:00 UTC"));
     // 1970-01-01 is 2,082,844,800 seconds later.
-    assert_eq!(movie_time(2_082_844_800), "1970-01-01 00:00:00 UTC");
     assert_eq!(
-        movie_time(2_082_844_800 + 1_781_454_727),
-        "2026-06-14 16:32:07 UTC"
+        movie_time(2_082_844_800).as_deref(),
+        Some("1970-01-01 00:00:00 UTC")
     );
+    assert_eq!(
+        movie_time(2_082_844_800 + 1_781_454_727).as_deref(),
+        Some("2026-06-14 16:32:07 UTC")
+    );
+    // MP4 version 1 stores unsigned 64-bit seconds; this used to wrap at i64.
+    assert!(movie_time(0x8000_0000_0000_0019).is_some());
+    assert_eq!(movie_time(u64::MAX), None);
+}
+
+#[test]
+fn an_unrepresentable_movie_time_is_skipped_but_still_scrubbed() {
+    let mut mvhd = vec![1, 0, 0, 0];
+    let after_civil_range = (i64::MAX as u64) + 2_082_844_801;
+    mvhd.extend_from_slice(&after_civil_range.to_be_bytes());
+    mvhd.extend_from_slice(&0_u64.to_be_bytes());
+    mvhd.extend_from_slice(&1_u32.to_be_bytes());
+    mvhd.extend_from_slice(&0_u64.to_be_bytes());
+    let file = [
+        bx(b"ftyp", b"isom\0\0\0\0isom"),
+        bx(b"moov", &bx(b"mvhd", &mvhd)),
+    ]
+    .concat();
+
+    let doc = parse_video(&file);
+    assert!(doc.facts.taken.is_none(), "{:?}", doc.facts.taken);
+    assert!(doc.scrub.iter().any(|s| matches!(s, Scrub::Zero { .. })));
+    assert!(crate::clean::clean(&file).is_ok());
 }
 
 #[test]
