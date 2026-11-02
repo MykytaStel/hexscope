@@ -245,6 +245,8 @@
 /* A bug report's structure, to read before sharing. */
 .report-link {
   margin-top: 10px;
+  /* The file's links stand side by side: each keeps its own space. */
+  margin-inline-end: var(--space-4);
 }
 
 .report.compare > .btn:last-child,

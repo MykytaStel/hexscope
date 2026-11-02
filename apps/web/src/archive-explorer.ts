@@ -48,14 +48,15 @@ export function matchLine(found: number): string {
 }
 
 export interface FilesHooks {
-  /** Shows the entry's node in the details, without leaving the list. */
-  choose(node: number): void;
+  /** Shows the entry's node in the details, without leaving the list; `inspect` false keeps a phone's inspector shut. */
+  choose(node: number, inspect: boolean): void;
 }
 
 export interface FilesView {
   readonly element: HTMLElement;
-  /** The first call reads the names; later calls put the folder, filter, scroll and choice back. */
-  show(): void;
+  /** The first call reads the names; later calls put the folder, filter, scroll and choice back.
+   * `entry`, the entry chosen elsewhere, is brought into view and marked. */
+  show(entry?: number): void;
   hide(): void;
   focusFilter(): void;
   dispose(): void;
@@ -86,6 +87,9 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
   element.append(summary, truncated, bar, filter, status, host);
 
   let index: ArchiveIndex | null = null;
+  let names: string[] = [];
+  /** A folder's own entry, where the archive lists one, by its path. */
+  const folderEntries = new Map<string, number>();
   let list: ArchiveList | null = null;
   let folder = "";
   let query = "";
@@ -137,11 +141,14 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     if (row.kind === "folder") {
       folder = row.path;
       render();
+      // A folder the archive lists has an entry of its own: its details stand beside its contents.
+      const own = folderEntries.get(folder);
+      if (own !== undefined) hooks.choose(m.entry(own).node, false);
       return;
     }
     chosen = row.index;
     list?.markChosen(chosen);
-    hooks.choose(m.entry(row.index).node);
+    hooks.choose(m.entry(row.index).node, true);
   };
 
   const goUp = () => {
@@ -153,6 +160,29 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     render({ scrollTop: Math.max(0, active - 3) * (list?.rowHeight ?? 36), active });
     // Up turns off at the top: the keyboard goes on to the list instead of nowhere.
     if (up.disabled && document.activeElement === up) list?.focus();
+  };
+
+  /** Brings an entry chosen elsewhere into view: in the filter's results if it is there, else in its folder. */
+  const reveal = (entry: number) => {
+    if (!index || !list) return;
+    const name = names[entry];
+    if (name === undefined) return;
+    const at = (rows: ArchiveRow[]) => rows.findIndex((r) => r.kind === "entry" && r.index === entry);
+    if (name.endsWith("/")) {
+      query = filter.value = "";
+      folder = name;
+      chosen = null;
+      render();
+      return;
+    }
+    let row = query ? at(index.filter(query)) : -1;
+    if (row < 0) {
+      query = filter.value = "";
+      folder = name.slice(0, name.lastIndexOf("/") + 1);
+      row = at(index.list(folder));
+    }
+    chosen = entry;
+    render({ scrollTop: Math.max(0, row - 3) * list.rowHeight, active: row });
   };
 
   /** Where the folder's list stood when a filter replaced it, to stand there again after. */
@@ -180,17 +210,23 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
 
   return {
     element,
-    show() {
+    show(entry) {
       if (!index) {
-        index = archiveIndex(m.entryNames());
+        names = m.entryNames();
+        names.forEach((name, i) => {
+          if (name.endsWith("/")) folderEntries.set(name, i);
+        });
+        index = archiveIndex(names);
         const { packed, unpacked } = m.entryTotals();
         summary.textContent = summaryLine(index.entries, index.folders, packed, unpacked);
         truncated.hidden = !m.problems.some((id) => m.label(id).startsWith("stopped after"));
         list = new ArchiveList(host, { label: "Files in the archive", draw, choose, up: goUp });
         render();
+        if (entry !== undefined && entry >= 0) reveal(entry);
         return;
       }
-      if (list) render({ scrollTop: list.scrollTop, active: list.active });
+      if (entry !== undefined && entry >= 0 && entry !== chosen) reveal(entry);
+      else if (list) render({ scrollTop: list.scrollTop, active: list.active });
     },
     hide() {
       // The list keeps its own scroll and active row; nothing to put away.
@@ -203,6 +239,8 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
       list?.dispose();
       list = null;
       index = null;
+      names = [];
+      folderEntries.clear();
       element.remove();
     },
   };

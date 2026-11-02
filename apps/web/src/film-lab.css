@@ -116,8 +116,7 @@
 .film-edge-marker.edge-left { left: 3.5%; width: 20.5%; top: 0; bottom: 0; }
 .film-edge-marker.edge-right { right: 3.5%; width: 20.5%; top: 0; bottom: 0; }
 
-.film-lab-clipping > span:last-child:not(:first-child) { display: inline; }
-.film-lab-clipping > span:last-child:nth-child(5) { display: block; margin-top: var(--space-2); }
+.film-lab-clipping-note { display: block; margin-top: var(--space-2); }
 .film-lab-size { color: var(--muted); font-size: var(--type-small); }
 .film-lab-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .film-lab .btn { min-height: var(--control-height); height: auto; white-space: normal; text-align: center; }
