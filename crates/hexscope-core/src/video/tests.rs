@@ -44,6 +44,7 @@ fn an_iphone_video_says_where_and_with_what() {
     assert_eq!(doc.facts.taken.unwrap().text, "2026-06-14 18:32:07 +02:00");
     assert_eq!(date("2026-06-14T18:32:07Z"), "2026-06-14 18:32:07 UTC");
     assert_eq!(date("2026"), "2026");
+    assert_eq!(date("2026-06-14T18:32:07+0ѯ0"), "2026-06-14 18:32:07");
     assert_eq!(date("2026-06-14T18:32:0é+0200"), "2026-06-14T18:32:0é+0200");
 }
 
