@@ -6,7 +6,7 @@
 
 use hexscope_core::verification::VerificationReason;
 use serde_json::{Map, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -174,9 +174,11 @@ fn check_json_has_the_fields_formats_and_kinds_the_page_lists() {
             let p = object(p);
             assert_eq!(
                 keys(p),
-                set(&["label", "concern", "offset", "length"]),
+                set(&["code", "message", "label", "concern", "offset", "length"]),
                 "{line}"
             );
+            assert!(p["code"].is_u64(), "{line}");
+            assert!(p["message"].is_string(), "{line}");
             assert!(p["label"].is_string(), "{line}");
             let concern = p["concern"].as_str().unwrap();
             assert!(["damage", "hidden", "oddity"].contains(&concern), "{line}");
@@ -202,7 +204,7 @@ fn check_json_has_the_fields_formats_and_kinds_the_page_lists() {
 }
 
 #[test]
-fn sarif_has_the_rules_and_levels_the_page_lists() {
+fn sarif_problem_rules_use_the_shared_wording() {
     let kinds = listed("kinds");
     let args = every_test_file(&["check", "--sarif", "--fail-on", "none"]);
     let (code, out, err) = hexscope(&args.iter().map(String::as_str).collect::<Vec<_>>(), false);
@@ -222,14 +224,18 @@ fn sarif_has_the_rules_and_levels_the_page_lists() {
     assert_eq!(driver["name"], "hexscope");
     assert_eq!(driver["version"], env!("CARGO_PKG_VERSION"));
     let mut rules = BTreeSet::new();
+    let mut rule_texts = BTreeMap::new();
     for rule in driver["rules"].as_array().unwrap() {
         let rule = object(rule);
         assert_eq!(keys(rule), set(&["id", "shortDescription"]));
         assert!(rule["shortDescription"]["text"].is_string());
-        assert!(
-            rules.insert(rule["id"].as_str().unwrap().to_string()),
-            "a rule twice"
-        );
+        let id = rule["id"].as_str().unwrap().to_string();
+        let text = rule["shortDescription"]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(rules.insert(id.clone()), "a rule twice");
+        rule_texts.insert(id, text);
     }
     let results = runs[0]["results"].as_array().unwrap();
     assert!(results.len() > 100);
@@ -243,9 +249,14 @@ fn sarif_has_the_rules_and_levels_the_page_lists() {
         let id = o["ruleId"].as_str().unwrap();
         assert!(rules.contains(id), "{id} is not among the rules");
         let (level, region) = match id {
-            "damage" => ("error", true),
-            "hidden" => ("warning", true),
-            "oddity" => ("note", true),
+            id if id.starts_with("problem/") => {
+                let _: u32 = id.strip_prefix("problem/").unwrap().parse().unwrap();
+                let level = match r["level"].as_str().unwrap() {
+                    "error" | "warning" | "note" => r["level"].as_str().unwrap(),
+                    other => panic!("unexpected problem level {other}"),
+                };
+                (level, true)
+            }
             "misnamed" => ("note", false),
             _ => {
                 let kind = id
@@ -260,6 +271,13 @@ fn sarif_has_the_rules_and_levels_the_page_lists() {
         };
         assert_eq!(o["level"], level, "{r}");
         assert!(o["message"]["text"].is_string(), "{r}");
+        if id.starts_with("problem/") {
+            assert_eq!(
+                o["message"]["text"].as_str().unwrap(),
+                rule_texts[id],
+                "problem result and rule must use the same explanation"
+            );
+        }
         let locations = o["locations"].as_array().unwrap();
         assert_eq!(locations.len(), 1, "{r}");
         let at = object(&locations[0]["physicalLocation"]);
@@ -294,7 +312,7 @@ fn in_github_actions_a_report_on_standard_output_stays_whole() {
     let (code, out, _) = hexscope(&["check", &photo], true);
     assert_eq!(code, 1);
     assert!(out.lines().all(|l| l.starts_with("::")), "{out}");
-    assert!(out.contains("title=hexscope: reveals location"), "{out}");
+    assert!(out.contains("title=hexscope: reveals Location"), "{out}");
 }
 
 /// A verification object: the groups, each item a kind and a listed reason.

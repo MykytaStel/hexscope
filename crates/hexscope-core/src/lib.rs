@@ -16,6 +16,7 @@ pub mod eml;
 pub mod exif;
 pub mod facts;
 pub mod film;
+pub mod finding_kinds;
 mod fixed;
 pub mod gif;
 pub mod heif;

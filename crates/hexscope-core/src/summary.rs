@@ -12,6 +12,9 @@ use crate::model::NodeKind;
 /// One problem: what it is, how much it matters, where.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Problem {
+    /// Stable explanation code shared with the browser's `Doc.key`.
+    pub code: u32,
+    /// Structural detail from the parser, retained for machine consumers.
     pub label: String,
     pub concern: Concern,
     pub offset: u64,
@@ -24,8 +27,8 @@ pub struct Summary {
     /// `png`, `jpeg`, `heif`, `video`, `pdf`, `zip`, `wasm` or `unknown`.
     pub format: &'static str,
     pub problems: Vec<Problem>,
-    /// What it gives away: a kind such as `location` or `author`, and its
-    /// text.
+    /// What it gives away as stable code and file value pairs. Display words
+    /// for those codes live in `finding_kinds`.
     pub facts: Vec<(&'static str, String)>,
     /// False when part of the file was not read: damage, bytes nothing in
     /// the file accounts for, or metadata the reader could not finish. A
@@ -104,17 +107,22 @@ pub fn summary_of(doc: &Document) -> Summary {
         .nodes()
         .iter()
         .filter(|n| matches!(n.kind, NodeKind::Error | NodeKind::Warning))
-        .map(|n| Problem {
-            label: n.label.clone(),
-            concern: if n.kind == NodeKind::Error {
-                Concern::Damage
-            } else {
-                describe(tree, n.id, doc.format())
-                    .and_then(|d| d.concern)
-                    .unwrap_or(Concern::Oddity)
-            },
-            offset: n.range.start,
-            len: n.range.len,
+        .map(|n| {
+            // Every problem has a description, with a generic fallback. Keep
+            // its key so every output can use the same wording as the page.
+            let description =
+                describe(tree, n.id, doc.format()).expect("every problem has a description");
+            Problem {
+                code: description.key,
+                label: n.label.clone(),
+                concern: if n.kind == NodeKind::Error {
+                    Concern::Damage
+                } else {
+                    description.concern.unwrap_or(Concern::Oddity)
+                },
+                offset: n.range.start,
+                len: n.range.len,
+            }
         })
         .collect();
     let mut facts = Vec::new();
@@ -240,6 +248,18 @@ mod tests {
         let s = summarize(&png);
         assert_eq!(s.format, "png");
         assert_eq!(s.count(Concern::Damage), 1);
+        let problem = &s.problems[0];
+        let parsed = parse(&png);
+        let node = parsed
+            .tree()
+            .nodes()
+            .iter()
+            .find(|n| matches!(n.kind, NodeKind::Error | NodeKind::Warning))
+            .unwrap();
+        let explanation = describe(parsed.tree(), node.id, parsed.format()).unwrap();
+        assert_eq!(problem.code, explanation.key);
+        #[cfg(feature = "explain")]
+        assert_eq!(crate::docs::wording(problem.code), Some(explanation.text));
         assert_eq!(summarize(b"hello").format, "unknown");
     }
 }

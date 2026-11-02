@@ -251,6 +251,36 @@ impl VerificationReason {
     }
 }
 
+/// The shared words and report group for one verification reason code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VerificationReasonWords {
+    pub code: &'static str,
+    pub group: &'static str,
+    /// Empty for a result that needs no explanatory sentence.
+    pub message: &'static str,
+}
+
+/// The shared words for a machine-readable reason code.
+pub fn reason_words(code: &str) -> Option<VerificationReasonWords> {
+    include_str!("verification-reasons.tsv")
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .find_map(|line| {
+            let mut columns = line.split('\t');
+            let row_code = columns.next()?;
+            if row_code != code {
+                return None;
+            }
+            let group = columns.next()?;
+            let message = columns.next().unwrap_or("");
+            Some(VerificationReasonWords {
+                code: row_code,
+                group,
+                message,
+            })
+        })
+}
+
 /// A value-free report item, grouped by its status in the report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationItem {

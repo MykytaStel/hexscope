@@ -1,0 +1,106 @@
+# code<TAB>detail label<TAB>category phrase<TAB>verdict phrase<TAB>category order
+covered	Hidden, not removed	text that was blacked out but not removed		0
+hiddentext	Hidden text	text hidden from view	text hidden from view	1
+location	Location	where it was taken	where it was taken	2
+qrwifi	Wi-Fi in a QR code	a Wi-Fi password in a QR code	a Wi-Fi password, in a QR code	3
+qrsecret	2FA secret in a QR code	a two-factor secret in a QR code	a two-factor secret, in a QR code	4
+qrtrick	QR code	a QR code that hides where it goes	a QR code that hides where it goes	5
+qrplace	Place in a QR code	a place in a QR code	a place, in a QR code	6
+authclaim	Unverified email-header results	an authentication result reported in the email header, which Hexscope cannot verify		7
+replyto	Replies go to	where replies really go		8
+linkmismatch	Link goes elsewhere	a link that says one site and goes to another		9
+linkidn	Lookalike address	an address in lookalike letters		10
+riskyfile	Risky attachment	an attachment that runs or opens a site		11
+sentfrom	Sent from	the address it was sent from	the address it was sent from	12
+computer	Computer's name	the sender's computer's name	the sender's computer's name	13
+downloaded	Downloaded from	where its files were downloaded from	where its files were downloaded from	14
+folder	Saved in	the folder it was saved in	the folder it was saved in	15
+updates	Edited	earlier versions of itself	earlier versions of itself	16
+deleted	Deleted text	text that was deleted	text that was deleted	17
+earlier	Taken off the page	text an edit took off the page	text an edit took off the page	18
+form	Form answers	what was filled into its form	what was filled into its form	19
+attachments	Attached files	files attached to it	files attached to it	20
+weblinks	Links	where its links go		21
+qrcontact	Contact in a QR code	contact details in a QR code	contact details, in a QR code	22
+qrlink	QR code	where a QR code in it leads	where a QR code leads	23
+qrtext	QR code	what a QR code in it says		24
+returnpath	Bounces	where bounces go		25
+mailer	Mail app	the mail app	the mail app	26
+timezone	Time zone	the sender's time zone	the sender's time zone	27
+embedded	File inside	whole files kept inside it	whole files kept inside it	28
+hiddensheets	Hidden sheets	sheets hidden from view	sheets hidden from view	29
+hiddencells	Hidden rows and columns	hidden rows and columns	hidden rows and columns	30
+notes	Speaker notes	the speaker's notes	the speaker's notes	31
+hiddenslides	Hidden slides	hidden slides	hidden slides	32
+links	Links to files	paths on the author's computer	paths on the author's computer	33
+photoplace	Photo inside	where its photos were taken	where its photos were taken	34
+serial	Serial number	the camera's serial number	the camera's serial number	35
+owner	Owner	the owner's name	the owner's name	36
+author	Author	who wrote it	who wrote it	37
+editor	Last saved by	who saved it last	who saved it last	38
+manager	Manager	its manager's name	its manager's name	39
+company	Company	the company	the company	40
+label	Sensitivity label	the organisation it belongs to	the organisation it belongs to	41
+comments	Comments	who commented	who commented	42
+tracked	Tracked changes	who changed what	who changed what	43
+photo	Photo inside	the camera behind its photos	the camera behind its photos	44
+camera	Camera	the camera	the camera	45
+shutter	Shutter count	how many photos the camera has taken	how many photos the camera has taken	46
+linked	Linked shots	IDs that link it to other shots	IDs that link it to other shots	47
+uptime	Phone on for	how long the phone had been on	how long the phone had been on	48
+place	Place named	the place it names	the place it names	49
+original	Made from	the file it was made from	the file it was made from	50
+caption	Caption	its caption		51
+lens	Lens	the lens		52
+taken	Taken	when it was taken	when it was taken	53
+created	Created	when it was written	when it was written	54
+modified	Modified	when it was last changed		55
+editing	Editing time	how long it was worked on	how long it was worked on	56
+revisions	Revisions	how many times it was saved		57
+history	Editing history	its editing history	how it was edited	58
+prompt	Prompt	the prompt it was made from	the prompt it was made from	59
+ai	Made with AI	that AI made it	that AI made it	60
+credentials	Content Credentials	who or what made it	who or what made it	61
+software	Software	the software used		62
+application	Application	the program it was written in		63
+producer	PDF made by	the program that made the PDF		64
+template	Template	the template it came from		65
+custom	Custom properties	its custom properties	its custom properties	66
+printer	Printer	the printer it was printed on	the printer's name	67
+printed	Printed	who printed it and when	who printed it	68
+title	Title	its title		69
+artist	Artist	who performed it		70
+album	Album	its album		71
+album-artist	Album artist	its album artist		72
+year	Year	when it was released		73
+track	Track number	its track number		74
+disc	Disc number	its disc number		75
+genre	Genre	its genre		76
+composer	Composer	its composer		77
+encoder	Encoder	the audio encoder		78
+organization	Organization	the organization in its tags		79
+audio-tag	Audio tag	an audio tag		80
+subject	Subject	its subject		81
+keywords	Keywords	its keywords		82
+description	Description	its description		83
+tags	Finder tags	its Finder tags		84
+thumbnail	Thumbnail	a hidden preview of the picture		85
+paths	Built by user	the user name of the computer that built it	the user name of the computer that built it	86
+account	Account on the computer	the account name on its author's computer	the account name on its author's computer	87
+emails	Email addresses	email addresses	email addresses	88
+names	Function names	its functions' names	its functions' names	89
+toolchain	Built with	the compiler that built it	the compiler that built it	90
+language	Language	the language it was written in		91
+imports	Asks its host to	what it asks its host to do		92
+sourcemap	Source map	where its source map is	where its source is	93
+debug	Debug info	debug info from its source	debug info from its source	94
+category	Category
+status	Status
+encryption	Encryption
+screenshot	Screenshot		that it is a screenshot
+opens	When opened
+scripts	Scripts
+launch	Opens a program
+submits	Form goes to
+sdk	SDK
+debuginfo	Debug info at

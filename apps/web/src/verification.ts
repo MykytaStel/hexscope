@@ -1,4 +1,8 @@
 import type { ParsedFile, PhotoFact, PhotoLocation } from "./model";
+import {
+  isVerificationReasonCode,
+  verificationReasonMessage,
+} from "./verification-reasons";
 
 export { decodeCoreVerification } from "./core-verification";
 
@@ -86,9 +90,11 @@ const JPEG_COMPLETE_FILE_KINDS = new Set([
   "location",
 ]);
 
-const noStableValue = "This finding has no stable value to compare.";
-const stillPresent = "This finding is still present in the copy.";
-const noCompleteCoverage = (format: string) => `hexscope does not have complete ${format.toUpperCase()} coverage for this finding yet.`;
+const noStableValue = verificationReasonMessage("no_stable_value", "")!;
+const stillPresent = verificationReasonMessage("still_present", "")!;
+const valueChanged = verificationReasonMessage("value_changed_same_kind", "")!;
+const noComparableFindings = verificationReasonMessage("no_comparable_findings", "")!;
+const noCompleteCoverage = (format: string) => verificationReasonMessage("coverage_incomplete", format)!;
 
 function stableValue(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
@@ -263,7 +269,7 @@ export function verifyFindings(
     fieldCursors.set(field, cursor + 1);
     sourceResults[index] = {
       group: "present",
-      item: item(original, "A different value remains in the copy.", false, "value_changed_same_kind"),
+      item: item(original, valueChanged, false, "value_changed_same_kind"),
     };
   });
 
@@ -313,7 +319,7 @@ export function verifyFindings(
   });
 
   if (report.removed.length + report.present.length + report.unchecked.length === 0) {
-    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check.", reasonCode: "no_comparable_findings" });
+    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: noComparableFindings, reasonCode: "no_comparable_findings" });
   }
   return report;
 }
@@ -389,7 +395,7 @@ export function verifyPdfSelections(
   }
 
   if (report.removed.length + report.present.length + report.unchecked.length === 0) {
-    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: "No comparable findings were available to check.", reasonCode: "no_comparable_findings" });
+    report.unchecked.push({ kind: "verification", label: "Copy verification", reason: noComparableFindings, reasonCode: "no_comparable_findings" });
   }
   return report;
 }
@@ -448,14 +454,6 @@ function compactReport(value: unknown): VerificationReport | null {
   return removed && present && unchecked ? { removed, present, unchecked } : null;
 }
 
-function isVerificationReasonCode(value: unknown): value is VerificationReasonCode {
-  return typeof value === "string" && [
-    "removed", "still_present", "value_changed_same_kind", "no_stable_value",
-    "coverage_incomplete", "parse_incomplete", "unexpected_output",
-    "no_comparable_findings", "verification_skipped",
-  ].includes(value);
-}
-
 /** Run a bounded worker check and map every skip, failure, or malformed reply to a private unchecked report. */
 export async function checkCopySafely(
   sizeBytes: number,
@@ -473,7 +471,7 @@ export async function checkCopySafely(
   } catch {
     // Worker errors can contain file-derived text. Keep only a general reason.
   }
-  return uncheckedReport(source, selections, "Check unavailable.");
+  return uncheckedReport(source, selections, verificationReasonMessage("verification_skipped", "")!);
 }
 
 /** Whether the output can be reparsed within the measured browser budget. */

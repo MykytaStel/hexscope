@@ -240,7 +240,7 @@ fn check_names_what_a_photo_gives_away_and_fails_on_it() {
     let (code, out, err) = run(&["check", &fixture("photo.jpg")]);
     assert_eq!(code, 1, "{err}");
     assert!(out.contains("jpeg"), "{out}");
-    assert!(out.contains("reveals  location:"), "{out}");
+    assert!(out.contains("reveals  Location:"), "{out}");
     assert!(
         err.contains("read 1 file; 1 with something to fail on"),
         "{err}"
@@ -425,7 +425,7 @@ fn files_it_does_not_read_are_counted_by_kind() {
 }
 
 /// In GitHub Actions the run's page gets a table: a row per file with
-/// findings, kinds and not values, the files not read counted.
+/// findings, categories and not values, the files not read counted.
 #[test]
 fn github_step_summary_lists_every_file_with_findings_without_values() {
     let dir = std::env::temp_dir().join(format!("hexscope-summary-{}", std::process::id()));
@@ -456,7 +456,7 @@ fn github_step_summary_lists_every_file_with_findings_without_values() {
     );
     let row = text.lines().find(|l| l.contains("photo.jpg")).unwrap();
     assert!(
-        row.contains("| jpeg | location, camera,") && row.ends_with("| yes |"),
+        row.contains("| jpeg | where it was taken, the camera,") && row.ends_with("| yes |"),
         "{row}"
     );
     assert!(
@@ -481,7 +481,7 @@ fn github_annotations_and_usage_errors() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("::warning file="), "{text}");
     assert!(
-        text.contains("title=hexscope: reveals location::"),
+        text.contains("title=hexscope: reveals Location::"),
         "{text}"
     );
     let (code, _, err) = run(&["check", "--nope"]);
@@ -758,7 +758,7 @@ fn clean_verify_human_output_names_kinds_without_values() {
     assert_eq!(code, 0, "{out}{err}");
     assert!(out.contains("Removed:\n    Location"), "{out}");
     assert!(out.contains("    Camera\n"), "{out}");
-    assert!(out.contains("    Camera serial\n"), "{out}");
+    assert!(out.contains("    Serial number\n"), "{out}");
     assert!(out.contains("    Owner\n"), "{out}");
     assert!(out.contains("    Lens\n"), "{out}");
     assert!(out.contains("Not checked:\n    (none)"), "{out}");
@@ -989,7 +989,7 @@ fn a_long_video_is_checked_and_cleaned_without_its_media_in_memory() {
 
     let (code, out, _) = run(&["check", video.to_str().unwrap()]);
     assert_eq!(code, 1);
-    assert!(out.contains("reveals  location:"), "{out}");
+    assert!(out.contains("reveals  Location:"), "{out}");
 
     let (code, out, err) = run(&["clean", video.to_str().unwrap()]);
     assert_eq!(code, 0, "{out}{err}");

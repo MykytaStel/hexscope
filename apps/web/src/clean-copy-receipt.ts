@@ -1,5 +1,6 @@
 import type { VerificationItem, VerificationReasonCode, VerificationReport } from "./verification";
 import { MAX_VERIFY_BYTES } from "./verification";
+import { REASONS_BY_GROUP, type VerificationGroup } from "./verification-reasons";
 
 declare const __VERSION__: string;
 
@@ -28,27 +29,19 @@ export interface CleanCopyReceipt {
   };
 }
 
-const GROUP_REASONS = {
-  removed: new Set<VerificationReasonCode>(["removed"]),
-  present: new Set<VerificationReasonCode>(["still_present", "value_changed_same_kind", "unexpected_output"]),
-  unchecked: new Set<VerificationReasonCode>([
-    "no_stable_value", "coverage_incomplete", "parse_incomplete", "no_comparable_findings", "verification_skipped",
-  ]),
-} as const;
-
-function codeFor(item: VerificationItem, group: keyof typeof GROUP_REASONS): VerificationReasonCode {
-  const fallback: Record<keyof typeof GROUP_REASONS, VerificationReasonCode> = {
+function codeFor(item: VerificationItem, group: VerificationGroup): VerificationReasonCode {
+  const fallback: Record<VerificationGroup, VerificationReasonCode> = {
     removed: "removed",
     present: item.unexpected ? "unexpected_output" : "still_present",
     unchecked: "verification_skipped",
   };
   const code = item.reasonCode ?? fallback[group];
-  if (!GROUP_REASONS[group].has(code)) throw new Error("The verification report is unsupported.");
+  if (!REASONS_BY_GROUP[group].has(code)) throw new Error("The verification report is unsupported.");
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(item.kind)) throw new Error("The verification report is unsupported.");
   return code;
 }
 
-function receiptItems(items: VerificationItem[], group: keyof typeof GROUP_REASONS): CleanCopyReceiptItem[] {
+function receiptItems(items: VerificationItem[], group: VerificationGroup): CleanCopyReceiptItem[] {
   return items.map((item) => {
     const reason = codeFor(item, group);
     return { kind: item.kind, reason, unexpected: reason === "unexpected_output" };

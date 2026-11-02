@@ -11,9 +11,11 @@ import { decodePicture, drawn } from "./thumbnail";
 import { announce } from "./announce";
 import { loadCopyVerification } from "./copyverification-loader";
 import { currentLocale, translateText } from "./i18n";
+import { verificationReasonMessage } from "./verification-reasons";
 import { cleanCopySummary, cleanCopySummaryLabel } from "./clean-summary";
 
 const tr = (copy: string) => translateText(copy, currentLocale());
+const verificationUnavailable = verificationReasonMessage("verification_skipped", "")!;
 
 /** What cleaning produced, as the page needs it. */
 export interface CleanResult {
@@ -86,7 +88,12 @@ export function copyVerification(
   const unavailable: VerificationReport = {
     removed: [],
     present: [],
-    unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable.", reasonCode: "verification_skipped" }],
+    unchecked: [{
+      kind: "verification",
+      label: "Copy verification",
+      reason: verificationUnavailable,
+      reasonCode: "verification_skipped",
+    }],
   };
   void loadCopyVerification()
     .then(({ renderCopyVerification }) => renderCopyVerification(region, verification, (report) => {
@@ -97,7 +104,7 @@ export function copyVerification(
       onReport?.(unavailable);
       region.replaceChildren(
         el("p", "copy-verification-pending", "Not checked"),
-        el("p", "verify-reason", "Check unavailable."),
+        el("p", "verify-reason", verificationUnavailable),
       );
       addReceiptAction(unavailable);
     });

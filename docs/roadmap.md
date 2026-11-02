@@ -53,10 +53,16 @@ new kind of clean copy. In order:
 1. **Clean copies hold under damage.** A fuzz target makes a clean copy of
    any input and requires it to read back as the same format, clean again
    and compare against its source; property tests damage a cleanable HDR
-   photo, MP3 and FLAC. Begun 2026-11-02.
+   photo, MP3 and FLAC. Done 2026-11-02; fuzzing also found and fixed a
+   copy that would open as another format.
 2. **One wording for every interface.** The core reports what it finds as
    codes with values, not English sentences; the page, CLI, JSON and SARIF
    word them from the same codes, so they cannot drift apart.
+   Done 2026-11-03: file-level fact wording comes from the core catalogue in
+   the page and CLI; structured JSON keeps the code and value.
+   Verification reason groups and default messages also come from one core
+   table. Parser problems now carry the page's stable explanation code, and
+   CLI, JSON, GitHub annotations and SARIF use its wording.
 3. **One set of styles.** The stylesheets in one set of tokens, checked
    against screenshots of every page and state before and after, so links
    that run together or a note on the wrong line are caught by a test.

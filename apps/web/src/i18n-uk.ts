@@ -216,7 +216,6 @@ const UK: Record<string, string> = {
   "Android app": "Застосунок Android",
   "Outlook message": "Лист Outlook",
   "Where": "Місце",
-  "Camera serial": "Серійний номер фотоапарата",
   "BEFORE YOU SEND": "ПЕРЕД НАДСИЛАННЯМ",
   "Before you send": "Перед надсиланням",
   "Specialist tools": "Спеціальні інструменти",
