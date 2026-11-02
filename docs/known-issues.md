@@ -63,19 +63,21 @@ safely inspect do not get a clean copy; an unrecognized indexed picture is
 never replaced with blank bytes.
 
 **Audio metadata, not audio decoding.** MP3 text and comment frames (ID3v1
-and ID3v2.2–2.4), FLAC Vorbis comments, and the first Vorbis or Opus stream
-in an Ogg file are read. Unsupported ID3 frames and metadata the parser does
-not understand make the result incomplete. APE tags at the end of an MP3,
+and ID3v2.2–2.4), FLAC Vorbis comments, and Vorbis or Opus tags in sequential
+chained Ogg streams are read. Interleaved Ogg streams and unsupported codecs
+remain incomplete. Supported Ogg pages are checked for valid sequence,
+boundaries and checksums through the end of each stream, up to 4,096 pages;
+audio packets are not decoded. Unsupported ID3 frames and metadata the parser
+does not understand make the result incomplete. APE tags at the end of an MP3,
 including before ID3v1, have bounded text items read; binary items, external
 references and other tag locations are not inspected, so the result remains
 incomplete. MP3 clean copies remove up to 16 leading ID3v2 tags and trailing
 APE, ID3v1 Plus and ID3v1 blocks while copying compressed audio frames
 unchanged; beyond that tag limit the metadata is incomplete and the file stays
-read-only. Audio frames are not decoded or checked for integrity; Ogg
-checksums are validated only on pages read for metadata, and later audio pages
-are not verified. A FLAC clean copy removes Vorbis comments and complete
-picture blocks, including cover art, while preserving other supported metadata blocks
-and compressed frames byte for byte. It is available only when every retained
+read-only. MP3 and FLAC audio frames are not decoded or checked for integrity.
+A FLAC clean copy removes Vorbis comments and complete picture blocks,
+including cover art, while preserving other supported metadata blocks and
+compressed frames byte for byte. It is available only when every retained
 metadata block was inspected; application, cue sheet and reserved blocks are
 not inspected, so a file containing one remains read-only. Hexscope does not
 play audio or clean Ogg files.

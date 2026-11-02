@@ -145,9 +145,10 @@ pub fn parse_video(data: &[u8]) -> VideoDocument {
 }
 
 /// Seconds since 1904-01-01 UTC, the movie epoch, as a date.
-fn movie_time(secs: u64) -> String {
-    let [y, m, d, hh, mm, ss] = crate::clock::civil(secs as i64 - 2_082_844_800);
-    format!("{y:04}-{m:02}-{d:02} {hh:02}:{mm:02}:{ss:02} UTC")
+fn movie_time(secs: u64) -> Option<String> {
+    let unix = i64::try_from(i128::from(secs) - 2_082_844_800).ok()?;
+    let [y, m, d, hh, mm, ss] = crate::clock::civil(unix);
+    Some(format!("{y:04}-{m:02}-{d:02} {hh:02}:{mm:02}:{ss:02} UTC"))
 }
 
 /// `2026-06-14T18:32:07+0200` as `2026-06-14 18:32:07 +02:00`; anything
@@ -303,15 +304,16 @@ impl Ctx {
             if secs > 0
                 && let Some(node) = node
             {
-                let when = movie_time(secs);
-                f.tree.set_value(node, Some(Value::Text(when.clone())));
+                if let Some(when) = movie_time(secs) {
+                    f.tree.set_value(node, Some(Value::Text(when.clone())));
+                    if is_movie && label == "creationTime" && self.created.is_none() {
+                        self.created = Some(Fact { text: when, node });
+                    }
+                }
                 self.scrub.push(Scrub::Zero {
                     range: ByteRange::new(at, n as u64),
                     what: "the times it was made and changed",
                 });
-                if is_movie && label == "creationTime" && self.created.is_none() {
-                    self.created = Some(Fact { text: when, node });
-                }
             }
         }
         Some(())

@@ -125,7 +125,7 @@ const TABLE: Table = &[
     (
         "Ogg media stream",
         ogg(
-            "Ogg is a container for audio, video or other streams; this view reads supported audio tags only.",
+            "Ogg is a container for audio, video or other streams; this view reads tags from supported audio streams and checks each page checksum.",
         ),
     ),
     (
@@ -242,12 +242,32 @@ const TABLE: Table = &[
         id3("There are more metadata parts than this view inspects."),
     ),
     (
-        "Ogg header pages exceed the inspection limit",
+        "Ogg page count exceeds the inspection limit",
         ogg("There are more Ogg pages than this view inspects."),
     ),
     (
         "multiplexed Ogg streams are not inspected",
         ogg("This page belongs to another logical stream, which this view does not inspect."),
+    ),
+    (
+        "Ogg logical stream does not begin with a beginning-of-stream page",
+        ogg("Each chained Ogg stream must begin with its own start page."),
+    ),
+    (
+        "Ogg page repeats the beginning-of-stream flag",
+        ogg("Only the first page of an Ogg logical stream can be its start page."),
+    ),
+    (
+        "Ogg stream has no end-of-stream page",
+        ogg("The Ogg logical stream has no final page, so its end was not confirmed."),
+    ),
+    (
+        "Ogg stream has no complete comment packet",
+        ogg("The supported audio stream ended before its complete tag packet was read."),
+    ),
+    (
+        "Ogg stream ends with an incomplete packet",
+        ogg("The final Ogg page stops in the middle of a packet."),
     ),
     (
         "* value truncated at the 512-byte display limit",
