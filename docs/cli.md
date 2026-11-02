@@ -106,7 +106,7 @@ One JSON object per file, one per line, in the order the files were read:
 | --- | --- |
 | `file` | The path, as given or as found in a folder |
 | `format` | One of the [formats](#formats) |
-| `problems` | What is wrong with it: `label` (for people), `concern` (`damage`, `hidden` or `oddity`), and where — `offset` and `length` in bytes |
+| `problems` | What is wrong with it: `code` (the stable explanation code), `message` (the same wording as the page), `label` (the parser's structural detail), `concern` (`damage`, `hidden` or `oddity`), and where — `offset` and `length` in bytes |
 | `reveals` | What it gives away: `kind` (one of the [kinds of finding](#kinds-of-finding)) and `text`, the value as the file holds it |
 | `complete` | Only when `false`: a supported metadata structure was malformed, too large, or not fully inspected; an omitted field means the read was complete |
 | `misnamed` | Only when its name says another format: `ext` (the name's extension, lower case, no dot), `is` (what the file is, in words) and `fits` (the extension that fits, with its dot) |
@@ -137,20 +137,19 @@ results use.
 
 | Rule | Level | Location |
 | --- | --- | --- |
-| `damage` | `error` | The file and the damaged bytes (`byteOffset`, `byteLength`) |
-| `hidden` | `warning` | The file and the bytes |
-| `oddity` | `note` | The file and the bytes |
+| `problem/CODE` | `error` for damage, `warning` for hidden, `note` for oddity | The file and the bytes (`byteOffset`, `byteLength`); `CODE` is the stable explanation code |
 | `misnamed` | `note` | The file |
 | `reveals/KIND` | `warning` | The file; `KIND` is one of the [kinds of finding](#kinds-of-finding) |
 
-A result's message is for people and, for `reveals/KIND`, holds the value.
+A problem's message and rule description use the same wording as the page.
+A `reveals/KIND` message is for people and holds the value.
 
 ## In GitHub Actions
 
 When `GITHUB_ACTIONS` is `true`, `check` also writes a workflow command for
 each file that fails: `::error` for damage and what is hidden, `::warning`
 for what it gives away, `::notice` for an oddity or a misleading name. Each
-names the file and the kind (`title=hexscope: reveals location`) and never
+names the file and the finding (`title=hexscope: reveals Location`) and never
 the value, so values stay out of the runner's log. The text output is left
 out for the same reason. Files of a format hexscope does not read get one
 `::notice` with `title=hexscope: not read`, saying how many and of which

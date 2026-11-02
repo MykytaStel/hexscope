@@ -105,7 +105,10 @@ async function readFilmExport(result: FilmRenderResult, services: FilmWorkerServ
     }
     result.check = {
       status: "checked",
-      metadata: [...file.facts.map((fact) => FACT_LABELS[fact.kind] ?? fact.kind), ...(file.location ? ["Location"] : [])],
+      metadata: [
+        ...file.facts.map((fact) => FACT_LABELS[fact.kind] ?? fact.kind),
+        ...(file.location ? [FACT_LABELS.location] : []),
+      ],
       qrCount: null,
     };
   } finally {

@@ -1,33 +1,14 @@
 import type { ParsedFile } from "./model";
 import type { VerificationItem, VerificationReasonCode, VerificationReport } from "./verification";
+import {
+  isVerificationReasonCode,
+  REASONS_BY_GROUP,
+  type VerificationGroup,
+  verificationReasonMessage,
+} from "./verification-reasons";
 
-const CORE_REASONS = [
-  "removed",
-  "still_present",
-  "value_changed_same_kind",
-  "no_stable_value",
-  "coverage_incomplete",
-  "parse_incomplete",
-  "unexpected_output",
-  "no_comparable_findings",
-  "verification_skipped",
-] as const satisfies readonly VerificationReasonCode[];
-
-type CoreReason = (typeof CORE_REASONS)[number];
-type Group = "removed" | "present" | "unchecked";
-
-const presentReasons = new Set<CoreReason>([
-  "still_present",
-  "value_changed_same_kind",
-  "unexpected_output",
-]);
-const uncheckedReasons = new Set<CoreReason>([
-  "no_stable_value",
-  "coverage_incomplete",
-  "parse_incomplete",
-  "no_comparable_findings",
-  "verification_skipped",
-]);
+type CoreReason = VerificationReasonCode;
+type Group = VerificationGroup;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -39,13 +20,11 @@ function hasExactKeys(record: Record<string, unknown>, keys: readonly string[]):
 }
 
 function isCoreReason(value: unknown): value is CoreReason {
-  return typeof value === "string" && CORE_REASONS.includes(value as CoreReason);
+  return isVerificationReasonCode(value);
 }
 
 function belongsInGroup(group: Group, reason: CoreReason): boolean {
-  if (group === "removed") return reason === "removed";
-  if (group === "present") return presentReasons.has(reason);
-  return uncheckedReasons.has(reason);
+  return REASONS_BY_GROUP[group].has(reason);
 }
 
 function reasonText(
@@ -54,28 +33,10 @@ function reasonText(
   format: ParsedFile["format"],
   retainedReasons: Readonly<Record<string, string>>,
 ): string | undefined {
-  switch (reason) {
-    case "removed":
-      return undefined;
-    case "still_present":
-      return Object.hasOwn(retainedReasons, kind)
-        ? retainedReasons[kind]
-        : "This finding is still present in the copy.";
-    case "value_changed_same_kind":
-      return "A different value remains in the copy.";
-    case "no_stable_value":
-      return "This finding has no stable value to compare.";
-    case "coverage_incomplete":
-      return `hexscope cannot yet confirm whether this ${format.toUpperCase()} finding was removed.`;
-    case "parse_incomplete":
-      return "hexscope could not completely read the copy, so its findings were not checked.";
-    case "unexpected_output":
-      return "This finding appeared in the copy but was not found in the source file.";
-    case "no_comparable_findings":
-      return "No comparable findings were available to check.";
-    case "verification_skipped":
-      return "Check unavailable.";
+  if (reason === "still_present" && Object.hasOwn(retainedReasons, kind)) {
+    return retainedReasons[kind];
   }
+  return verificationReasonMessage(reason, format);
 }
 
 function decodeItem(

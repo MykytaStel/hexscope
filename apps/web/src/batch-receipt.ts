@@ -1,36 +1,32 @@
 import type { CleanCopyReceipt } from "./clean-copy-receipt";
+import type { VerificationReasonCode } from "./verification";
+import { REASONS_BY_GROUP, type VerificationGroup } from "./verification-reasons";
 
-export interface ReceiptItem { kind: string; reason: string; unexpected: boolean }
+export interface ReceiptItem { kind: string; reason: VerificationReasonCode; unexpected: boolean }
 export interface ReceiptRow {
   index: number;
   operation_state: "written" | "not_created";
   verification: { schema_version: 1; removed: ReceiptItem[]; present: ReceiptItem[]; unchecked: ReceiptItem[] };
 }
 
-const REASONS = {
-  removed: new Set(["removed"]),
-  present: new Set(["still_present", "value_changed_same_kind", "unexpected_output"]),
-  unchecked: new Set(["no_stable_value", "coverage_incomplete", "parse_incomplete", "no_comparable_findings", "verification_skipped"]),
-} as const;
-
 export function receiptRow(index: number, state: ReceiptRow["operation_state"], core?: string): ReceiptRow {
-  const skipped = { schema_version: 1 as const, removed: [], present: [], unchecked: [{ kind: "file", reason: "verification_skipped", unexpected: false }] };
+  const skipped = { schema_version: 1 as const, removed: [], present: [], unchecked: [{ kind: "file", reason: "verification_skipped" as const, unexpected: false }] };
   let verification: ReceiptRow["verification"] = skipped;
   try {
     const r = JSON.parse(core ?? "null");
     if (r?.schema_version !== 1) throw new Error("report unavailable");
-    const group = (items: unknown, name: keyof typeof REASONS): ReceiptItem[] => {
+    const group = (items: unknown, name: VerificationGroup): ReceiptItem[] => {
       if (!Array.isArray(items)) throw new Error("invalid report");
       return items.map((i) => {
         if (
           typeof i?.kind !== "string"
           || !/^[a-z][a-z0-9_-]{0,63}$/.test(i.kind)
           || typeof i?.reason !== "string"
-          || !REASONS[name].has(i.reason)
+          || !REASONS_BY_GROUP[name].has(i.reason as VerificationReasonCode)
           || typeof i?.unexpected !== "boolean"
           || i.unexpected !== (i.reason === "unexpected_output")
         ) throw new Error("invalid item");
-        return { kind: i.kind, reason: i.reason, unexpected: i.unexpected };
+        return { kind: i.kind, reason: i.reason as VerificationReasonCode, unexpected: i.unexpected };
       });
     };
     verification = {

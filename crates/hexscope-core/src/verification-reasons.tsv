@@ -1,0 +1,10 @@
+# code<TAB>report group<TAB>English message template
+removed	removed
+still_present	present	This finding is still present in the copy.
+value_changed_same_kind	present	A different value remains in the copy.
+unexpected_output	present	This finding appeared in the copy but was not found in the source file.
+no_stable_value	unchecked	This finding has no stable value to compare.
+coverage_incomplete	unchecked	hexscope cannot yet confirm whether this {format} finding was removed.
+parse_incomplete	unchecked	hexscope could not completely read the copy, so its findings were not checked.
+no_comparable_findings	unchecked	No comparable findings were available to check.
+verification_skipped	unchecked	Check unavailable.

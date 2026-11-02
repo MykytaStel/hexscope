@@ -260,7 +260,7 @@ group("a share card", () => {
       const source = readFileSync(here(`./${name}.ts`), "utf8");
       return [...source.matchAll(/from [\"']\.\/([^\"']+)[\"']/g)].map((match) => match[1]);
     };
-    expect(imports("fact-categories")).toEqual(["model"]);
+    expect(imports("fact-categories")).toEqual(["model", "finding-kinds"]);
     expect(imports("list-format")).toEqual([]);
     expect(imports("share")).not.toContain("verdict");
     expect(imports("verdict")).not.toContain("share");

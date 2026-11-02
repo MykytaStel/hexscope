@@ -432,8 +432,20 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
 /// Rows of the summary table, at most; past them, a count.
 const SUMMARY_ROWS: usize = 500;
 
+fn finding_label(kind: &str) -> &str {
+    hexscope_core::finding_kinds::by_code(kind)
+        .and_then(|wording| wording.label)
+        .unwrap_or(kind)
+}
+
+fn finding_category(kind: &str) -> &str {
+    hexscope_core::finding_kinds::by_code(kind)
+        .and_then(|wording| wording.category)
+        .unwrap_or(kind)
+}
+
 /// A file with findings as a row of the step summary: its path, format, the
-/// kinds of what it gives away and its problems by concern — never a value,
+/// categories of what it gives away and its problems by concern — never a value,
 /// as with the annotations.
 fn summary_row(path: &Path, s: &Summary, mis: Option<&Misnamed>, fails: bool) -> String {
     let cell = |t: &str| t.replace('|', "\\|").replace(['\n', '\r'], " ");
@@ -445,8 +457,9 @@ fn summary_row(path: &Path, s: &Summary, mis: Option<&Misnamed>, fails: bool) ->
     };
     let mut gives: Vec<&str> = Vec::new();
     for (kind, _) in &s.facts {
-        if !gives.contains(kind) {
-            gives.push(kind);
+        let category = finding_category(kind);
+        if !gives.contains(&category) {
+            gives.push(category);
         }
     }
     if mis.is_some() {
@@ -514,15 +527,16 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for p in &s.problems {
         let _ = writeln!(
             out,
-            "  {:<8} {} (at {}, {} bytes)",
+            "  {:<8} {} (at {}, {} bytes): {}",
             concern_name(p.concern),
             p.label,
             p.offset,
-            p.len
+            p.len,
+            problem_text(p.code)
         );
     }
     for (kind, text) in &s.facts {
-        let _ = writeln!(out, "  reveals  {kind}: {text}");
+        let _ = writeln!(out, "  reveals  {}: {text}", finding_label(kind));
     }
     if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg") {
         out.push_str("  metadata not fully inspected; some tags may be unread\n");
@@ -555,21 +569,24 @@ fn annotations(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> Vec<String> 
         out.push(format!(
             "::{level} file={file},title=hexscope: {}::{}",
             concern_name(p.concern),
-            escape_workflow_message(&format!(
-                "Review this file locally for a {} finding.",
-                concern_name(p.concern)
-            ))
+            escape_workflow_message(problem_text(p.code))
         ));
     }
     for (kind, _) in &s.facts {
+        let label = finding_label(kind);
+        let category = finding_category(kind);
         out.push(format!(
-            "::warning file={file},title=hexscope: reveals {kind}::{}",
+            "::warning file={file},title=hexscope: reveals {label}::{}",
             escape_workflow_message(&format!(
-                "This file contains {kind} metadata. Inspect it locally."
+                "This file may reveal {category}. Inspect it locally."
             ))
         ));
     }
     out
+}
+
+fn problem_text(code: u32) -> &'static str {
+    hexscope_core::docs::wording(code).unwrap_or("A problem was found in this file.")
 }
 
 /// Escape GitHub Actions command properties, including separators and line ends.
@@ -616,7 +633,9 @@ fn json(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
         .iter()
         .map(|p| {
             format!(
-                "{{\"label\":{},\"concern\":\"{}\",\"offset\":{},\"length\":{}}}",
+                "{{\"code\":{},\"message\":{},\"label\":{},\"concern\":\"{}\",\"offset\":{},\"length\":{}}}",
+                p.code,
+                json_str(problem_text(p.code)),
                 json_str(&p.label),
                 concern_name(p.concern),
                 p.offset,
@@ -663,14 +682,16 @@ fn sarif_results(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> Vec<(Strin
         )));
     }
     for p in &s.problems {
-        let (rule, level) = match p.concern {
-            Concern::Damage => ("damage", "error"),
-            Concern::Hidden => ("hidden", "warning"),
-            Concern::Oddity => ("oddity", "note"),
+        let level = match p.concern {
+            Concern::Damage => "error",
+            Concern::Hidden => "warning",
+            Concern::Oddity => "note",
         };
-        out.push((rule.to_string(), format!(
-            "{{\"ruleId\":\"{rule}\",\"level\":\"{level}\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}},\"region\":{{\"byteOffset\":{},\"byteLength\":{}}}}}}}]}}",
-            json_str(&p.label),
+        let rule = format!("problem/{}", p.code);
+        out.push((rule.clone(), format!(
+            "{{\"ruleId\":{},\"level\":\"{level}\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}},\"region\":{{\"byteOffset\":{},\"byteLength\":{}}}}}}}]}}",
+            json_str(&rule),
+            json_str(problem_text(p.code)),
             p.offset,
             p.len
         )));
@@ -678,7 +699,7 @@ fn sarif_results(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> Vec<(Strin
     for (kind, text) in &s.facts {
         out.push((format!("reveals/{kind}"), format!(
             "{{\"ruleId\":\"reveals/{kind}\",\"level\":\"warning\",\"message\":{{\"text\":{}}},\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":{uri}}}}}}}]}}",
-            json_str(&format!("reveals {kind}: {text}"))
+            json_str(&format!("reveals {}: {text}", finding_label(kind)))
         )));
     }
     out
@@ -694,11 +715,17 @@ fn sarif(results: &[(String, String)]) -> String {
         .iter()
         .map(|id| {
             let text = match *id {
-                "damage" => "Part of the file is damaged".to_string(),
-                "hidden" => "Something is hidden or disguised".to_string(),
-                "oddity" => "A rule of the format is broken".to_string(),
                 "misnamed" => "The name says another format than the file is".to_string(),
-                other => format!("The file reveals {}", other.trim_start_matches("reveals/")),
+                other if other.starts_with("problem/") => other
+                    .strip_prefix("problem/")
+                    .and_then(|code| code.parse().ok())
+                    .and_then(hexscope_core::docs::wording)
+                    .unwrap_or("A problem was found in this file.")
+                    .to_string(),
+                other => {
+                    let kind = other.trim_start_matches("reveals/");
+                    format!("The file reveals {}", finding_label(kind))
+                }
             };
             format!(
                 "{{\"id\":\"{id}\",\"shortDescription\":{{\"text\":{}}}}}",
@@ -994,8 +1021,8 @@ fn show_verification(
 }
 
 fn verification_label(kind: &str) -> String {
-    if kind == "serial" {
-        return "Camera serial".into();
+    if let Some(label) = hexscope_core::finding_kinds::by_code(kind).and_then(|words| words.label) {
+        return label.to_string();
     }
     kind.split('_')
         .filter(|part| !part.is_empty())
@@ -1011,32 +1038,8 @@ fn verification_label(kind: &str) -> String {
 }
 
 fn verification_reason_text(reason: VerificationReason, format: &str) -> Option<String> {
-    match reason {
-        VerificationReason::Removed => None,
-        VerificationReason::StillPresent => {
-            Some("This finding is still present in the copy.".into())
-        }
-        VerificationReason::ValueChangedSameKind => {
-            Some("A different value remains in the copy.".into())
-        }
-        VerificationReason::NoStableValue => {
-            Some("This finding has no stable value to compare.".into())
-        }
-        VerificationReason::CoverageIncomplete => Some(format!(
-            "hexscope cannot yet confirm whether this {} finding was removed.",
-            format.to_uppercase()
-        )),
-        VerificationReason::ParseIncomplete => Some(
-            "hexscope could not completely read the copy, so its findings were not checked.".into(),
-        ),
-        VerificationReason::UnexpectedOutput => {
-            Some("This finding appeared in the copy but was not found in the source file.".into())
-        }
-        VerificationReason::NoComparableFindings => {
-            Some("No comparable findings were available to check.".into())
-        }
-        VerificationReason::VerificationSkipped => Some("Check unavailable.".into()),
-    }
+    let message = hexscope_core::verification::reason_words(reason.code())?.message;
+    (!message.is_empty()).then(|| message.replace("{format}", &format.to_uppercase()))
 }
 
 /// Writes a copy that was made, or says why none was.

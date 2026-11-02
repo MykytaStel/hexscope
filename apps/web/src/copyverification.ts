@@ -11,9 +11,9 @@ import {
   type VerificationReport,
   type VerificationSelection,
 } from "./verification";
+import { verificationReasonMessage } from "./verification-reasons";
 
 const VERIFY_TIMEOUT_MS = 10_000;
-const FACT_LABELS_WITH_LOCATION = { ...FACT_LABELS, location: "Location" };
 
 registerLazyTranslations({ "A different value remains in the copy.": "У копії залишилося інше значення." });
 
@@ -22,7 +22,7 @@ export function verifyCopyInWorker(
   copy: Blob,
   selections: VerificationSelection[],
 ): Promise<VerificationReport> {
-  const sourceFindings = fileFindings(model.file.format, model.file.facts, model.file.location, FACT_LABELS_WITH_LOCATION);
+  const sourceFindings = fileFindings(model.file.format, model.file.facts, model.file.location, FACT_LABELS);
   const kept = KEPT[model.file.format] ?? [];
   const retainedReasons = Object.fromEntries(
     kept.map((kind) => [kind, KEPT_NOTE[model.file.format] ?? "This finding is part of the file's content and stays in the clean copy."]),
@@ -79,7 +79,12 @@ export function renderCopyVerification(
     render({
       removed: [],
       present: [],
-      unchecked: [{ kind: "verification", label: "Copy verification", reason: "Check unavailable.", reasonCode: "verification_skipped" }],
+      unchecked: [{
+        kind: "verification",
+        label: "Copy verification",
+        reason: verificationReasonMessage("verification_skipped", "")!,
+        reasonCode: "verification_skipped",
+      }],
     });
   });
 }

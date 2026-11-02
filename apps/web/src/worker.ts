@@ -18,6 +18,7 @@ import { familyOf, isMedia, type Family } from "./family";
 import { PARSER_BUILDS } from "./parser-builds";
 import { MAX_VERIFY_BYTES, decodeCoreVerification, uncheckedReport, verifyFileOutput, verifyPdfSelections, type VerificationPage, type VerificationReport } from "./verification";
 import { FACT_LABELS } from "./knowledge";
+import { verificationReasonMessage } from "./verification-reasons";
 import { searchable } from "./redactor";
 import { meaning } from "./qr/meaning";
 import { scanCodes } from "./worker-qr-scan";
@@ -391,12 +392,14 @@ async function handle(req: OperationRequest): Promise<void> {
 
       const parserFindings = req.sourceFindings.filter((finding) => !finding.kind.startsWith("qr"));
       const parserReport = coreJson
-        ? decodeCoreVerification(coreJson, req.sourceFormat, { ...FACT_LABELS, location: "Location" }, req.retainedReasons)
+        ? decodeCoreVerification(coreJson, req.sourceFormat, FACT_LABELS, req.retainedReasons)
         : null;
       const safeParserReport = parserReport ?? uncheckedReport(
         parserFindings,
         [],
-        sourceParsed ? "hexscope could not completely read the copy, so its findings were not checked." : "Check unavailable.",
+        sourceParsed
+          ? verificationReasonMessage("parse_incomplete", "")!
+          : verificationReasonMessage("verification_skipped", "")!,
       );
 
       const qrFindings = req.sourceFindings.filter((finding) => finding.kind.startsWith("qr"));
@@ -404,7 +407,7 @@ async function handle(req: OperationRequest): Promise<void> {
         ? verifyFileOutput(
           qrFindings,
           { format: req.sourceFormat, facts: [], location: null },
-          { ...FACT_LABELS, location: "Location" },
+          FACT_LABELS,
           req.retainedReasons,
           extraOutputFacts,
         )

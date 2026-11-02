@@ -3,15 +3,12 @@
 // in the collapsed "Look inside" section below.
 import { call } from "./rpc";
 import { siteUrl } from "./files";
+import { FACT_LABELS } from "./finding-kinds";
 
 const DWELL_MS = 2400;
 const PHOTO = "samples/photo.jpg";
-const TOLD: [string, string][] = [
-  ["location", "Location"],
-  ["owner", "Owner"],
-  ["serial", "Camera serial"],
-  ["taken", "Taken"],
-];
+const TOLD: [string, string][] = (["location", "owner", "serial", "taken"] as const)
+  .map((kind): [string, string] => [kind, FACT_LABELS[kind]]);
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);

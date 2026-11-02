@@ -69,10 +69,10 @@ apps/web/
 
 **A new finding** (something a file gives away): read it in the format's
 module and push a `DocumentFact { kind, text, node }` — or a photo fact for
-EXIF and XMP. Give its kind a label in `FACT_LABELS` (`apps/web/src/drawer.ts`),
-a line in the verdict if it matters (`verdict.ts`), advice if there is
-something to do (`advice.ts`), and make the clean copy remove it — or list it
-in `KEPT` with the reason it stays.
+EXIF and XMP. Add its code and the words for its detail, category and verdict
+to `crates/hexscope-core/src/finding-kinds.tsv`; the page and CLI read that
+catalogue. Add advice if there is something to do (`advice.ts`), and make the
+clean copy remove it — or list it in `KEPT` with the reason it stays.
 
 **A new part of a format**: name it in the parser, and add its explanation to
 that format's `docs.rs` table. The coverage test tells you if you forgot.

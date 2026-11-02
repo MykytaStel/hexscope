@@ -1,5 +1,7 @@
 import { Concern, FileModel, Kind } from "./model";
 import { categories } from "./fact-categories";
+import { REVEALS } from "./finding-kinds";
+export { REVEALS } from "./finding-kinds";
 import { list } from "./list-format";
 export { list } from "./list-format";
 
@@ -121,70 +123,6 @@ function misnamed(m: FileModel): VerdictLine | null {
 
 /** Kinds named ahead of the rest in the "Reveals" line. */
 const URGENT = ["hiddentext", "location", "earlier", "updates", "deleted", "photoplace"];
-
-/** What each kind of fact gives away, in words, for the "Reveals" line. */
-export const REVEALS: Record<string, string> = {
-  location: "where it was taken",
-  serial: "the camera's serial number",
-  owner: "the owner's name",
-  camera: "the camera",
-  taken: "when it was taken",
-  place: "the place it names",
-  original: "the file it was made from",
-  history: "how it was edited",
-  author: "who wrote it",
-  editor: "who saved it last",
-  manager: "its manager's name",
-  printer: "the printer's name",
-  custom: "its custom properties",
-  printed: "who printed it",
-  company: "the company",
-  label: "the organisation it belongs to",
-  downloaded: "where its files were downloaded from",
-  folder: "the folder it was saved in",
-  created: "when it was written",
-  editing: "how long it was worked on",
-  updates: "earlier versions of itself",
-  hiddentext: "text hidden from view",
-  deleted: "text that was deleted",
-  form: "what was filled into its form",
-  attachments: "files attached to it",
-  embedded: "whole files kept inside it",
-  hiddensheets: "sheets hidden from view",
-  hiddencells: "hidden rows and columns",
-  links: "paths on the author's computer",
-  notes: "the speaker's notes",
-  hiddenslides: "hidden slides",
-  earlier: "text an edit took off the page",
-  photoplace: "where its photos were taken",
-  photo: "the camera behind its photos",
-  comments: "who commented",
-  tracked: "who changed what",
-  shutter: "how many photos the camera has taken",
-  linked: "IDs that link it to other shots",
-  uptime: "how long the phone had been on",
-  paths: "the user name of the computer that built it",
-  account: "the account name on its author's computer",
-  emails: "email addresses",
-  names: "its functions' names",
-  toolchain: "the compiler that built it",
-  screenshot: "that it is a screenshot",
-  prompt: "the prompt it was made from",
-  ai: "that AI made it",
-  credentials: "who or what made it",
-  sentfrom: "the address it was sent from",
-  computer: "the sender's computer's name",
-  mailer: "the mail app",
-  timezone: "the sender's time zone",
-  sourcemap: "where its source is",
-  debug: "debug info from its source",
-  qrwifi: "a Wi-Fi password, in a QR code",
-  qrsecret: "a two-factor secret, in a QR code",
-  qrplace: "a place, in a QR code",
-  qrcontact: "contact details, in a QR code",
-  qrtrick: "a QR code that hides where it goes",
-  qrlink: "where a QR code leads",
-};
 
 /**
  * What hexscope found, in the order that matters to someone who is not a

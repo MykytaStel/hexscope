@@ -15,6 +15,10 @@
 
 use crate::document::Format;
 use crate::model::{NodeId, NodeKind, ParseTree};
+#[cfg(feature = "explain")]
+use std::collections::HashMap;
+#[cfg(feature = "explain")]
+use std::sync::OnceLock;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -272,4 +276,20 @@ pub fn every() -> Vec<(&'static str, Doc)> {
                 .map(move |(_, doc)| (*family, *doc))
         })
         .collect()
+}
+
+/// The sentence for a stable explanation key. The CLI and structured output
+/// use the same words as the browser's explanation files.
+#[cfg(feature = "explain")]
+pub fn wording(key: u32) -> Option<&'static str> {
+    static WORDING: OnceLock<HashMap<u32, &'static str>> = OnceLock::new();
+    WORDING
+        .get_or_init(|| {
+            every()
+                .into_iter()
+                .map(|(_, doc)| (doc.key, doc.text))
+                .collect()
+        })
+        .get(&key)
+        .copied()
 }
