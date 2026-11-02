@@ -278,7 +278,7 @@ export function filmLab(model: FileModel, report: FilmScanReport): { view: HTMLE
     settings.baseColor = result.baseColor;
     baseInputs.forEach((input, i) => { input.value = String(result.baseColor[i]); });
     clipping.replaceChildren(el("span", undefined, "Source pixels with clipped dark channels"), document.createTextNode(`: ${result.clipping.shadows}% · `), el("span", undefined, "Source pixels with clipped bright channels"), document.createTextNode(`: ${result.clipping.highlights}%`));
-    if (result.clipping.shadows || result.clipping.highlights) clipping.append(el("span", undefined, "Clipped channel detail cannot be recovered by these adjustments."));
+    if (result.clipping.shadows || result.clipping.highlights) clipping.append(el("span", "film-lab-clipping-note", "Clipped channel detail cannot be recovered by these adjustments."));
   }
   function schedule(): void {
     if (disposed || exporting) return;

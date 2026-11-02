@@ -270,12 +270,13 @@ async function showFiles(): Promise<void> {
   const { filesView } = loaded;
   let view = filesViews.get(model);
   if (!view) {
-    view = filesView(model, { choose: (node) => selectInPlace(node) });
+    view = filesView(model, { choose: (node, inspect) => selectInPlace(node, inspect) });
     filesViews.set(model, view);
   }
   const pane = $("files");
   if (view.element.parentElement !== pane) pane.replaceChildren(view.element);
-  view.show();
+  // What Structure or Bytes chose last is the row Files stands on.
+  view.show(model.entryOf(selected));
 }
 
 const contentTargetSelector = [
@@ -653,8 +654,9 @@ function select(id: number, offset?: number): void {
   renderStatus();
 }
 
-/** Selects a node without scrolling to it: the view is already where it should be. */
-function selectInPlace(id: number): void {
+/** Selects a node without scrolling to it: the view is already where it should be.
+ * `inspect` false leaves a phone's inspector shut: the node is only noted beside the view. */
+function selectInPlace(id: number, inspect = true): void {
   const model = workspace.model;
   selected = id;
   if (model && id > 0) tools?.setPart(model.start(id), model.len(id), model.label(id));
@@ -662,7 +664,7 @@ function selectInPlace(id: number): void {
   minimap.setSelected(id);
   tree.setSelected(id);
   drawer.showNode(model, id, id >= 0);
-  appNavigation.dataset.inspectorRequested = "true";
+  if (inspect) appNavigation.dataset.inspectorRequested = "true";
 }
 
 // Find in the file: each match marked in the bytes, its part selected.

@@ -90,6 +90,25 @@ test("an archive opens its files, filters, shows an entry and comes back where i
   await expect(row(page, "docs/notes/todo.txt")).toHaveAttribute("aria-selected", "true");
 });
 
+test("an entry chosen in Structure is the row Files stands on; a listed folder shows its own entry", async ({ page }, info) => {
+  const phone = info.project.name === "phone";
+  await start(page);
+  await openZip(page, BUNDLE);
+  await openView(page, "structure");
+  await page.locator("[role=treeitem]", { hasText: "docs/notes/todo.txt" }).first().click();
+  if (phone) await page.keyboard.press("Escape");
+  await showFiles(page);
+  await expect(pane(page).locator(".archive-path")).toHaveText("docs/notes/");
+  await expect(row(page, "todo.txt")).toHaveAttribute("aria-selected", "true");
+  // Up to docs, then into it again: docs is listed by the archive, so its entry is described.
+  await pane(page).getByRole("button", { name: /^Up/ }).click();
+  await pane(page).getByRole("button", { name: /^Up/ }).click();
+  await row(page, "docs").click();
+  await expect(pane(page).locator(".archive-path")).toHaveText("docs/");
+  if (phone) await expect(page.locator("dialog.inspector-sheet[open]")).toHaveCount(0);
+  else await expect(page.locator(".pane-drawer .group.entry")).toContainText("docs/");
+});
+
 test("photos and Office documents have no Files view", async ({ page }) => {
   await start(page);
   for (const sample of ["photo.jpg", "report.docx", "lease.odt"]) {
