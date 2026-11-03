@@ -11,6 +11,21 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.12.0] — 2026-11-03
+
+### Changed
+
+- **Follow photo relationships back to the batch.** Mosaic groups now link to
+  their files, and the Web and CLI summaries report checked files, unique
+  related files and relationship groups. The CLI prints group indexes as
+  readable sequences; the value-free JSON report keeps its existing version
+  and shape. In a browser batch, selecting a relationship group selects only
+  its cleanable photos for verified copies; the rest remain excluded until
+  selected in the batch list. Core exposes the evidence type for each group,
+  and the CLI names and numbers groups consistently. `mosaic --clean-related`
+  can make verified copies of unique group members and records a value-free
+  map from original input indexes to the batch receipt.
+
 ## [0.11.0] — 2026-11-03
 
 ### Added
@@ -690,7 +705,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/MykytaStel/hexscope/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/MykytaStel/hexscope/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/MykytaStel/hexscope/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...v0.9.0

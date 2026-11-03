@@ -25,8 +25,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
 | 0.10.0 | Chained Ogg metadata, safer audio clean copies, Ultra HDR clean copies, batch usability and core reliability | shipped 2026-11-02 |
 | 0.11.0 | Hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | shipped 2026-11-03 |
-| 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | in progress |
-| 0.13.0 and later | Substantial collections of features, reliability fixes and usability improvements | collect merged post-tag work; ship each collection when ready |
+| 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | release candidate; tag and publication pending |
+| 0.13.0 | Trustworthy format coverage scorecard, backed by a local corpus and CI gates | planned; no physical-phone gate |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -93,7 +93,7 @@ and passes `brew test`. At the author's request, physical iPhone and Android
 checks from 0.9.0 and 0.10.0 remain explicitly deferred and unverified. The
 batch privacy mosaic is 0.12's lead.
 
-### 0.12.0 — in progress
+### 0.12.0 — release candidate
 
 The core already finds repeated stored serials, nearby GPS points, and date
 orders; the CLI already exports the bounded, value-free report. This release
@@ -115,6 +115,26 @@ makes those relationships actionable in the browser batch:
 - Matching remains evidence-only and local. The report exports no file names,
   coordinates, dates or serial values; files that could not be checked remain
   explicit. Physical-device checks stay deferred.
+
+The implementation is merged and the post-merge CI and site deploy pass. The
+0.12.0 tag and package publication are pending; physical iPhone and Android
+checks remain explicitly deferred.
+
+### 0.13.0 — planned
+
+Expand the existing clean-copy verification matrix into a corpus-backed format
+coverage scorecard:
+
+- Build a deterministic corpus from synthetic fixtures and redistributable
+  samples. Do not add private user files.
+- Track parser completeness, positive and negative findings, clean-copy
+  readback, explicit unchecked cases, runtime and artifact size per format.
+- Add a stable core contract and a value-free CLI report so people and CI can
+  see the same supported claims and their limits.
+- Gate regressions that would turn an unchecked or incomplete result into
+  false reassurance. Keep performance and bundle budgets visible per format.
+- Do not present the scorecard as a safety certification or a single accuracy
+  percentage. Physical-device testing is not a release gate for this scope.
 
 ### 0.10.0 — shipped 2026-11-02
 
