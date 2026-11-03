@@ -243,6 +243,25 @@ test("starts with the graphite visual direction and landing navigation", async (
   await expect(navigation.getByRole("link", { name: "Guides" })).toHaveAttribute("href", "#guides");
 });
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`automatic theme follows the system's ${scheme} preference`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.addInitScript(() => localStorage.setItem("hexscope.theme", "auto"));
+    await page.goto("./");
+    await page.waitForFunction(() => document.body.dataset.state === "empty");
+
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+    const actual = await page.evaluate(() => ({
+      background: getComputedStyle(document.body).backgroundColor,
+      hexSelectionAlpha: getComputedStyle(document.documentElement).getPropertyValue("--alpha-base").trim(),
+    }));
+    expect(actual).toEqual({
+      background: scheme === "light" ? "rgb(246, 246, 244)" : "rgb(9, 11, 13)",
+      hexSelectionAlpha: scheme === "light" ? ".1" : ".14",
+    });
+  });
+}
+
 test("the phone landing menu anchors its panel to the trigger", async ({ page }) => {
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });

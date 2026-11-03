@@ -63,9 +63,13 @@ new kind of clean copy. In order:
    Verification reason groups and default messages also come from one core
    table. Parser problems now carry the page's stable explanation code, and
    CLI, JSON, GitHub annotations and SARIF use its wording.
-3. **One set of styles.** The stylesheets in one set of tokens, checked
-   against screenshots of every page and state before and after, so links
-   that run together or a note on the wrong line are caught by a test.
+3. **One set of styles.** Done 2026-11-03: light and dark palette values
+   are defined once in the foundation tokens, and shared chrome, dialogs,
+   the story player and photo tools use those tokens. The style diff now
+   checks rendered pixels as well as computed styles. Its full matrix
+   compared 1,014 states and 996 screenshots with no pixel differences;
+   `sample.png` computed styles also match across its views, screen sizes
+   and themes.
 4. **Keyboard and screen reader on the main paths**: open a file, read the
    answer, make a clean copy, a batch.
 5. **Ogg clean copies.** Vorbis and Opus comments removed and the copy read
@@ -153,8 +157,8 @@ begun and 3 waits for the author's phone. What is left moves to 0.6.0.
    overrides fighting each other. Begun 2026-10-15: what every page shares
    (the top bar, buttons, links, focus, dialogs) is one file of its own, and
    an article loads it with its own type — 3.8 KB gzipped instead of 21 KB.
-   `apps/web/scripts/style-diff.mjs` compares the computed style of every
-   element in two builds, so the rest can be merged one file at a time.
+   `apps/web/scripts/style-diff.mjs` compares computed styles and rendered
+   pixels between two builds, so the rest can be merged one file at a time.
 3. Large files on phones within a time and memory budget. Waits for the
    author's phone: where a tab gives out decides the budget.
 4. An accessibility pass over the new design: screen readers, keyboard,

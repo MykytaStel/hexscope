@@ -4,23 +4,23 @@
   box-sizing: border-box;
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--border, #b3b3b3);
-  border-radius: var(--surface-radius, 12px);
-  background: var(--panel, #fff);
-  color: var(--text, #181818);
-  padding: var(--space-5, 24px);
+  border: 1px solid var(--border);
+  border-radius: var(--surface-radius);
+  background: var(--panel);
+  color: var(--text);
+  padding: var(--space-5);
   line-height: 1.55;
 }
 
 .photo-tool::backdrop {
-  background: rgb(0 0 0 / 0.55);
+  background: var(--photo-tool-backdrop);
 }
 
 .photo-tool:not(.film-roll)[open] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-content: start;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
 }
 
 .photo-tool:not(.film-roll) > button:first-child {
@@ -30,7 +30,7 @@
   grid-column: 2;
   grid-row: 1;
   justify-self: end;
-  min-height: var(--control-height, 44px);
+  min-height: var(--control-height);
   height: auto;
   margin: 0;
   float: none;
@@ -52,23 +52,23 @@
 .photo-tool input,
 .photo-tool select,
 .photo-tool textarea { max-width: 100%; box-sizing: border-box; font: inherit; }
-.photo-tool textarea { width: 100%; min-height: 180px; font-family: var(--mono, monospace); font-size: 13px; }
-.photo-tool-results { display: grid; gap: var(--space-2, 8px); margin: 0; padding-left: 24px; overflow-wrap: anywhere; }
+.photo-tool textarea { width: 100%; min-height: 180px; font-family: var(--mono); font-size: 13px; }
+.photo-tool-results { display: grid; gap: var(--space-2); margin: 0; padding-left: 24px; overflow-wrap: anywhere; }
 .photo-tool img { max-width: 100%; max-height: 360px; object-fit: contain; }
 .photo-tool [role="status"] { font-weight: 600; }
-.photo-tool .btn { min-height: var(--control-height, 44px); height: auto; border-radius: var(--control-radius, 10px); }
+.photo-tool .btn { min-height: var(--control-height); height: auto; border-radius: var(--control-radius); }
 .photo-tool button:focus-visible,
 .photo-tool input:focus-visible,
 .photo-tool select:focus-visible,
 .photo-tool textarea:focus-visible {
-  outline: var(--focus-ring-width, 3px) solid var(--accent);
-  outline-offset: var(--focus-ring-offset, 2px);
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
 }
 
 @media (max-width: 600px) {
-  .photo-tool { padding: var(--space-4, 16px); }
+  .photo-tool { padding: var(--space-4); }
   .photo-tool input { width: 100%; }
-  .photo-tool:not(.film-roll)[open] { gap: var(--space-3, 12px); }
+  .photo-tool:not(.film-roll)[open] { gap: var(--space-3); }
 }
 
 .film-roll {
@@ -76,12 +76,12 @@
   max-height: min(840px, calc(100dvh - 28px));
   overflow: hidden;
   padding: 0;
-  border-radius: var(--surface-radius, 16px);
-  box-shadow: 0 24px 80px rgb(0 0 0 / 0.35);
+  border-radius: var(--surface-radius);
+  box-shadow: var(--shadow-photo-tool);
 }
 
 .film-roll::backdrop {
-  background: rgb(0 0 0 / 0.62);
+  background: var(--film-roll-backdrop);
   backdrop-filter: blur(3px);
 }
 
@@ -91,7 +91,7 @@
 }
 
 .film-roll-header,
-.film-roll-footer { min-width: 0; padding-inline: var(--space-5, 24px); }
+.film-roll-footer { min-width: 0; padding-inline: var(--space-5); }
 
 .film-roll-header {
   display: flex;

@@ -11,7 +11,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  box-shadow: var(--shadow-dialog-inset);
   color: var(--text);
   line-height: 1.55;
 }
@@ -49,7 +49,7 @@
 }
 
 .report::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--dialog-backdrop);
 }
 
 /* The × in every dialog's corner: the way out, where people look for it. */
