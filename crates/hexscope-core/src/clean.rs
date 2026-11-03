@@ -1,12 +1,12 @@
 //! A copy of a file without what it reveals about the people behind it.
 //!
 //! Nothing is re-encoded. A JPEG loses whole segments and keeps its image
-//! data byte for byte. An Office document gets empty property files, and
-//! every other entry is copied as it was stored. Cutting at the positions the
-//! parser found means the copy differs from the original only where it must.
+//! data byte for byte. Ogg pages are rebuilt around empty comment packets,
+//! while compressed audio packets stay byte for byte. An Office document gets
+//! empty property files; most other formats keep their content as stored.
 
 use crate::crc32::crc32;
-use crate::document::{Document, parse};
+use crate::document::{Document, Format, parse};
 use crate::heif::HeifDocument;
 use crate::jpeg::JpegDocument;
 use crate::model::{ByteRange, NodeKind};
@@ -81,7 +81,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP3 tags, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP3 and FLAC tags, complete Vorbis and Opus tags in Ogg, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
             }
             CleanError::PictureUnderBox => {
                 "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
@@ -131,6 +131,17 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Flac => {
             clean_flac(data, &doc)
         }
+        #[cfg(feature = "audio")]
+        Document::Audio(doc)
+            if matches!(
+                doc.format,
+                crate::audio::AudioFormat::Ogg
+                    | crate::audio::AudioFormat::OggVorbis
+                    | crate::audio::AudioFormat::OggOpus
+            ) =>
+        {
+            crate::audio::clean_ogg(data, &doc)
+        }
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
@@ -139,7 +150,10 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
     }?;
     // A copy is shared as the same kind of file: one that another program
     // would open as something else is not a clean copy of this one.
-    if parse(&cleaned.bytes).format() != format {
+    // Ogg's writer already reads the result back and checks the exact audio
+    // codec, stream count, metadata completeness and removed tags. Avoid a
+    // second full page scan here.
+    if format != Format::Ogg && parse(&cleaned.bytes).format() != format {
         return Err(CleanError::ChangesFormat);
     }
     cleaned.removed = merged(cleaned.removed);

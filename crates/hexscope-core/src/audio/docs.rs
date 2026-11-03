@@ -125,7 +125,7 @@ const TABLE: Table = &[
     (
         "Ogg media stream",
         ogg(
-            "Ogg is a container for audio, video or other streams; this view reads tags from supported audio streams and checks each page checksum.",
+            "Ogg holds audio and other streams; this view reads supported audio tags and checks page checksums, and clean copies replace checked Vorbis or Opus comments while keeping audio packets byte for byte.",
         ),
     ),
     (
@@ -145,8 +145,30 @@ const TABLE: Table = &[
         ogg("The first packet identifies which codec's compressed audio follows."),
     ),
     (
+        "Ogg identification packet is not complete and alone on its start page",
+        ogg("A supported Ogg identification packet must be complete and alone on its first page."),
+    ),
+    (
+        "Ogg comment packet does not begin on the second page",
+        ogg("A supported Ogg comment packet must begin on the page after the start page."),
+    ),
+    (
+        "Ogg audio begins on the final header page",
+        ogg("The final Ogg header must finish its page before audio packets begin."),
+    ),
+    (
+        "Ogg header page has an invalid granule position",
+        ogg("An Ogg header page must have a zero granule position."),
+    ),
+    (
         "Vorbis comment packet",
         vorbis("The Vorbis comment packet carries text tags such as title, artist and encoder."),
+    ),
+    (
+        "Vorbis setup packet (not decoded)",
+        vorbis(
+            "The Vorbis setup header lists the codebooks and settings for later packets. This view checks its signature, but does not decode it.",
+        ),
     ),
     (
         "Opus tags packet",

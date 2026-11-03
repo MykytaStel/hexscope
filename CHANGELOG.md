@@ -11,6 +11,53 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.11.0] — 2026-11-03
+
+### Added
+
+- **Ogg Vorbis and Opus tags can be removed from complete streams.** Hexscope
+  rebuilds affected pages and checksums while keeping compressed audio packets
+  byte for byte. Incomplete, multiplexed, unsupported or malformed streams
+  remain read-only.
+- **Clean copies are tested against damaged files**: a fuzz target and
+  property tests make copies of broken HDR photos, MP3 and FLAC files and
+  require every copy to read back as the same kind of file, or no copy at all.
+
+### Changed
+
+- **The command line can verify Ogg clean copies.** `clean --verify` reads the
+  saved copy back and reports whether supported tags were removed.
+- **Batch results announce what finished.** The file summary and clean-copy
+  result are available to screen readers, and the main file-to-copy path can
+  be completed from the keyboard.
+- **Large flat archive folders retain fewer row objects.** The virtual list
+  creates rows only when they are visible.
+- **File metadata finding words come from one core catalogue**: the page's
+  detail labels, category summaries and verdicts, plus the CLI's human
+  output, annotations and SARIF descriptions, all use the same stable
+  finding codes. JSON keeps the code and value for tools.
+- **Verification reason codes define their report groups and default words**
+  in a shared table used by both the page and CLI. JSON and saved receipts
+  keep the codes without user-facing sentences.
+- **Parser problems keep their stable explanation code across interfaces.**
+  CLI, JSON, GitHub annotations and SARIF use the same sentence as the page;
+  JSON also retains the parser's structural label and byte range.
+- **Files stands where you were**: an entry chosen in Structure or Bytes is
+  the row Files opens on, in its folder and marked. A folder the archive
+  lists as an entry of its own shows that entry's details when you open it.
+
+### Fixed
+
+- **A clean copy that would open as another kind of file is refused.**
+  Removing an RTF's information group could bring a "%PDF-" written in its
+  text into the place PDF readers look, so the copy opened as a PDF; now no
+  copy is made, with the reason, in English and Ukrainian.
+- **The file's links no longer run together**: "Report a problem", "Save the
+  structure as JSON", "Find files inside" and "Compare with another file"
+  have space between them.
+- **Film Lab's clipping warning** starts on its own line instead of running
+  on from the last percentage.
+
 ## [0.10.0] — 2026-11-01
 
 ### Added
@@ -643,7 +690,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/MykytaStel/hexscope/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/MykytaStel/hexscope/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/hexscope/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/hexscope/compare/v0.7.2...v0.8.0

@@ -3,7 +3,7 @@
 One version number covers the website, the CLI and the crates. It lives in
 one place: `version` under `[workspace.package]` in the root `Cargo.toml`.
 The site reads it at build time and shows it in its footer and in structure
-reports; `hexscope --version` prints it.
+reports; `hexscope --version` prints it. There is no separate `VERSION` file.
 
 ## While working
 
@@ -26,8 +26,8 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
 2. In `Cargo.toml`, set the version; set the same in `hexscope-core`'s
    dependency on `hexscope-inflate`, `hexscope-raster`'s on `hexscope-core`,
    and the CLI's on `hexscope-core` and `hexscope-raster`.
-3. Set `VERSION` to the number chosen above. `node scripts/changelog.mjs
-   "$VERSION"` writes everything in `changes/` into `CHANGELOG.md` under that
+3. Pass the number chosen above to `node scripts/changelog.mjs
+   0.11.0`. It writes everything in `changes/` into `CHANGELOG.md` under that
    version, newest first, adds its compare link at the bottom and removes the
    files. Read it through once.
 4. Open a pull request; CI checks that the changelog has the new version.

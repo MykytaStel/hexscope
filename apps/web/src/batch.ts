@@ -36,12 +36,12 @@ export interface BatchItem {
 export function cleanable(i: BatchItem): boolean {
   // Audio copies are offered only when a supported metadata block passed the
   // same boundary checks used by its cleaner.
-  if (i.format === "mp3" || i.format === "flac") {
+  if (i.format === "mp3" || i.format === "flac" || i.format === "ogg") {
     return i.state === "done" && i.hasRemovableMetadata === true;
   }
   // These formats can expose findings, but the core does not make a clean
   // copy of the file itself. Attachments can be opened and cleaned separately.
-  if (i.format && ["unknown", "eml", "msg", "ogg"].includes(i.format)) return false;
+  if (i.format && ["unknown", "eml", "msg"].includes(i.format)) return false;
   return i.state === "done" && (
     i.reveals.length > 0
     || i.lines.some((l) => l.kind === "hidden")
@@ -232,7 +232,11 @@ export class BatchView {
   constructor(
     private host: HTMLElement,
     private hooks: BatchHooks,
-  ) {}
+  ) {
+    this.status.setAttribute("role", "status");
+    this.status.setAttribute("aria-live", "polite");
+    this.status.setAttribute("aria-atomic", "true");
+  }
 
   /** Says how saving the clean copies went, under the button. */
   set result(text: string) {
@@ -286,6 +290,9 @@ export class BatchView {
           : `Nothing personal found in ${items.length === 1 ? "this file" : `these ${items.length} files`}`,
     );
     const summary = el("p", "batch-summary");
+    summary.setAttribute("role", "status");
+    summary.setAttribute("aria-live", totals.busy ? "off" : "polite");
+    summary.setAttribute("aria-atomic", "true");
     if (totals.busy) {
       summary.textContent = "Nothing leaves this tab.";
     } else {

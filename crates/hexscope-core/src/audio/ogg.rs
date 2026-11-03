@@ -1,13 +1,15 @@
 use super::AudioDocument;
 use super::AudioFormat;
 use super::comments::{CommentContext, parse_comment_block};
+use crate::clean::{CleanError, Cleaned, Removed};
 use crate::model::{ByteRange, NodeKind, ParseTree};
+use std::collections::HashMap;
 
 const MAX_PACKET_SIZE: usize = 16 * 1024 * 1024;
 const MAX_PAGES: usize = 4096;
 const MAX_LOGICAL_STREAMS: usize = 64;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Codec {
     Vorbis,
     Opus,
@@ -19,6 +21,7 @@ struct LogicalStream {
     pending: bool,
     packet: Vec<u8>,
     packet_start: Option<usize>,
+    packet_size: usize,
     packet_count: u8,
     codec: Option<Codec>,
     comments_read: bool,
@@ -33,6 +36,7 @@ impl LogicalStream {
             pending: false,
             packet: Vec::new(),
             packet_start: None,
+            packet_size: 0,
             packet_count: 0,
             codec: None,
             comments_read: false,
@@ -103,6 +107,8 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
         }
         let stream_serial = u32::from_le_bytes(data[cursor + 14..cursor + 18].try_into().unwrap());
         let sequence = u32::from_le_bytes(data[cursor + 18..cursor + 22].try_into().unwrap());
+        let granule_position =
+            u64::from_le_bytes(data[cursor + 6..cursor + 14].try_into().unwrap());
         let starts_stream = flags & 0x02 != 0;
         let starts_new_stream = match stream.as_ref() {
             None => true,
@@ -238,15 +244,48 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
 
         let mut body_cursor = body_start;
         let mut media_start = None;
+        let mut comment_completed_this_page = false;
+        let mut setup_completed_this_page = false;
         for &lace in laces {
             let current = stream.as_mut().expect("a stream is active");
-            if current.packet_count >= 2 {
+            if current.packet_count == 1
+                && current.packet_start.is_none()
+                && current.codec.is_some()
+                && sequence != 1
+            {
+                tree.error(
+                    page_node,
+                    "Ogg comment packet does not begin on the second page",
+                    ByteRange::new(body_cursor as u64, lace as u64),
+                );
+                return audio(tree, facts, false);
+            }
+            let first_media_packet = if current.codec == Some(Codec::Vorbis) {
+                3
+            } else {
+                2
+            };
+            if current.packet_count >= first_media_packet {
                 media_start.get_or_insert(body_cursor);
             }
             if current.packet_start.is_none() {
                 current.packet_start = Some(body_cursor);
+                current.packet_size = 0;
             }
-            if current.packet_count < 2 {
+            current.packet_size = match current.packet_size.checked_add(lace as usize) {
+                Some(size) => size,
+                None => {
+                    tree.error(
+                        page_node,
+                        "invalid Ogg packet length",
+                        ByteRange::new(body_cursor as u64, lace as u64),
+                    );
+                    return audio(tree, facts, false);
+                }
+            };
+            let is_metadata = current.packet_count < 2;
+            let is_vorbis_setup = current.packet_count == 2 && current.codec == Some(Codec::Vorbis);
+            if is_metadata || is_vorbis_setup {
                 let new_len = match current.packet.len().checked_add(lace as usize) {
                     Some(len) => len,
                     None => {
@@ -258,7 +297,7 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
                         return audio(tree, facts, false);
                     }
                 };
-                if new_len > MAX_PACKET_SIZE {
+                if is_metadata && new_len > MAX_PACKET_SIZE {
                     tree.add(
                         Some(page_node),
                         "Ogg metadata packet exceeds the 16 MiB inspection limit",
@@ -271,9 +310,14 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
                     );
                     return audio(tree, facts, false);
                 }
+                let take = if is_vorbis_setup {
+                    (7usize.saturating_sub(current.packet.len())).min(lace as usize)
+                } else {
+                    lace as usize
+                };
                 current
                     .packet
-                    .extend_from_slice(&data[body_cursor..body_cursor + lace as usize]);
+                    .extend_from_slice(&data[body_cursor..body_cursor + take]);
             }
             body_cursor += lace as usize;
             if lace < 255 {
@@ -350,13 +394,50 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
                             );
                             metadata_complete &= complete;
                             current.comments_read = true;
+                            comment_completed_this_page = true;
                         }
+                    }
+                    2 if current.codec == Some(Codec::Vorbis) => {
+                        let setup_node = tree.add(
+                            Some(page_node),
+                            "Vorbis setup packet (not decoded)",
+                            span,
+                            NodeKind::Container,
+                            None,
+                        );
+                        if current.packet_size < 8 || !current.packet.starts_with(b"\x05vorbis") {
+                            tree.error(setup_node, "invalid Vorbis setup packet signature", span);
+                            return audio(tree, facts, false);
+                        }
+                        setup_completed_this_page = true;
                     }
                     _ => {}
                 }
                 current.packet_count = current.packet_count.saturating_add(1);
                 current.packet.clear();
+                current.packet_size = 0;
             }
+        }
+        let final_header_page = comment_completed_this_page
+            && stream
+                .as_ref()
+                .is_some_and(|s| s.codec == Some(Codec::Opus))
+            || setup_completed_this_page;
+        if (starts_stream || final_header_page) && granule_position != 0 {
+            tree.error(
+                page_node,
+                "Ogg header page has an invalid granule position",
+                ByteRange::new((page_start + 6) as u64, 8),
+            );
+            return audio(tree, facts, false);
+        }
+        if let Some(start) = media_start.filter(|_| final_header_page) {
+            tree.error(
+                page_node,
+                "Ogg audio begins on the final header page",
+                ByteRange::new(start as u64, (page_end - start) as u64),
+            );
+            return audio(tree, facts, false);
         }
         if let Some(media_start) = media_start
             && media_start < page_end
@@ -371,6 +452,17 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
         }
         if let Some(&last_lace) = laces.last() {
             stream.as_mut().expect("a stream is active").pending = last_lace == 255;
+        }
+        if starts_stream {
+            let current = stream.as_ref().expect("a stream is active");
+            if current.packet_count != 1 || current.pending {
+                tree.error(
+                    page_node,
+                    "Ogg identification packet is not complete and alone on its start page",
+                    ByteRange::new(page_start as u64, (page_end - page_start) as u64),
+                );
+                return audio(tree, facts, false);
+            }
         }
         if flags & 0x04 != 0 {
             let current = stream.as_mut().expect("a stream is active");
@@ -435,6 +527,336 @@ pub(super) fn parse_ogg(data: &[u8]) -> AudioDocument {
         .filter(|first| formats.iter().all(|format| format == first))
         .unwrap_or(AudioFormat::Ogg);
     audio_with_format(tree, facts, metadata_complete, format)
+}
+
+#[derive(Clone, Copy)]
+enum CommentCodec {
+    Vorbis,
+    Opus,
+}
+
+struct CommentPacket {
+    codec: CommentCodec,
+}
+
+struct RewriteStream {
+    serial: u32,
+    packet: u8,
+    replacing_comment: bool,
+    comment_bytes: usize,
+    comment_codec: Option<CommentCodec>,
+    output_pending: bool,
+}
+
+/// Replaces each fully inspected Vorbis/Opus comment packet with an empty one.
+/// The audio packets remain byte-for-byte intact; pages and checksums are rebuilt.
+/// The result is parsed again before it is returned.
+pub(crate) fn clean_ogg(data: &[u8], doc: &AudioDocument) -> Result<Cleaned, CleanError> {
+    if doc
+        .tree
+        .nodes()
+        .iter()
+        .any(|node| node.kind == NodeKind::Error)
+    {
+        return Err(CleanError::Damaged);
+    }
+    if !doc.metadata_complete {
+        return Err(CleanError::Unsupported);
+    }
+
+    let mut comments = HashMap::new();
+    let mut vorbis_comment_packets = 0usize;
+    let mut vorbis_setup_packets = 0usize;
+    for node in doc.tree.nodes() {
+        let codec = match node.label.as_str() {
+            "Vorbis comment packet" => {
+                vorbis_comment_packets += 1;
+                CommentCodec::Vorbis
+            }
+            "Opus tags packet" => CommentCodec::Opus,
+            "Vorbis setup packet (not decoded)" => {
+                vorbis_setup_packets += 1;
+                continue;
+            }
+            _ => continue,
+        };
+        let start = usize::try_from(node.range.start).map_err(|_| CleanError::Damaged)?;
+        let end = usize::try_from(node.range.end()).map_err(|_| CleanError::Damaged)?;
+        if end > data.len()
+            || start >= end
+            || comments.insert(start, CommentPacket { codec }).is_some()
+        {
+            return Err(CleanError::Damaged);
+        }
+    }
+    if comments.is_empty() {
+        return Err(CleanError::Unsupported);
+    }
+    if vorbis_comment_packets != vorbis_setup_packets {
+        return Err(CleanError::Unsupported);
+    }
+
+    let mut removed_vorbis = 0u64;
+    let mut removed_opus = 0u64;
+    let mut output = Vec::with_capacity(data.len());
+    let mut cursor = 0usize;
+    let mut stream: Option<RewriteStream> = None;
+    let mut next_sequence = HashMap::<u32, u32>::new();
+
+    while cursor < data.len() {
+        let page_start = cursor;
+        if data.len().saturating_sub(cursor) < 27 || data.get(cursor..cursor + 4) != Some(b"OggS") {
+            return Err(CleanError::Damaged);
+        }
+        let flags = data[cursor + 5];
+        let input_sequence = u32::from_le_bytes(
+            data[cursor + 18..cursor + 22]
+                .try_into()
+                .map_err(|_| CleanError::Damaged)?,
+        );
+        let serial = u32::from_le_bytes(
+            data[cursor + 14..cursor + 18]
+                .try_into()
+                .map_err(|_| CleanError::Damaged)?,
+        );
+        let starts_stream = flags & 0x02 != 0;
+        if starts_stream {
+            if stream.is_some() {
+                return Err(CleanError::Damaged);
+            }
+            stream = Some(RewriteStream {
+                serial,
+                packet: 0,
+                replacing_comment: false,
+                comment_bytes: 0,
+                comment_codec: None,
+                output_pending: false,
+            });
+        }
+        let current = stream.as_mut().ok_or(CleanError::Damaged)?;
+        if current.serial != serial {
+            return Err(CleanError::Unsupported);
+        }
+        let continued_from_previous = current.output_pending;
+
+        let segment_count = data[cursor + 26] as usize;
+        let lacing_start = cursor.checked_add(27).ok_or(CleanError::Damaged)?;
+        let body_start = lacing_start
+            .checked_add(segment_count)
+            .filter(|&end| end <= data.len())
+            .ok_or(CleanError::Damaged)?;
+        let laces = data
+            .get(lacing_start..body_start)
+            .ok_or(CleanError::Damaged)?;
+        let body_len = laces
+            .iter()
+            .try_fold(0usize, |sum, &lace| sum.checked_add(lace as usize))
+            .ok_or(CleanError::Damaged)?;
+        let page_end = body_start
+            .checked_add(body_len)
+            .ok_or(CleanError::Damaged)?;
+        if page_end > data.len() {
+            return Err(CleanError::Damaged);
+        }
+
+        let mut body_cursor = body_start;
+        let mut out_laces = Vec::with_capacity(segment_count);
+        let mut out_body = Vec::with_capacity(body_len);
+        let mut comment_touched = false;
+        let mut inserted_comment = false;
+        let mut setup_completed_this_page = false;
+        for &lace in laces {
+            let segment_end = body_cursor
+                .checked_add(lace as usize)
+                .ok_or(CleanError::Damaged)?;
+            let segment = data
+                .get(body_cursor..segment_end)
+                .ok_or(CleanError::Damaged)?;
+            if current.packet == 1 {
+                comment_touched = true;
+                if !current.replacing_comment {
+                    if input_sequence != 1 {
+                        return Err(CleanError::Unsupported);
+                    }
+                    let packet = comments.get(&body_cursor).ok_or(CleanError::Damaged)?;
+                    let empty = match packet.codec {
+                        CommentCodec::Vorbis => b"\x03vorbis\0\0\0\0\0\0\0\0\x01".as_slice(),
+                        CommentCodec::Opus => b"OpusTags\0\0\0\0\0\0\0\0".as_slice(),
+                    };
+                    out_laces.push(empty.len() as u8);
+                    out_body.extend_from_slice(empty);
+                    current.replacing_comment = true;
+                    current.comment_bytes = 0;
+                    current.comment_codec = Some(packet.codec);
+                    inserted_comment = true;
+                }
+                current.comment_bytes = current
+                    .comment_bytes
+                    .checked_add(lace as usize)
+                    .ok_or(CleanError::Damaged)?;
+            } else {
+                let is_audio = match current.comment_codec {
+                    Some(CommentCodec::Vorbis) => current.packet >= 3,
+                    Some(CommentCodec::Opus) => current.packet >= 2,
+                    None => false,
+                };
+                if (comment_touched && is_audio) || (setup_completed_this_page && is_audio) {
+                    return Err(CleanError::Unsupported);
+                }
+                out_laces.push(lace);
+                out_body.extend_from_slice(segment);
+            }
+            body_cursor = segment_end;
+            if lace < 255 {
+                if current.packet == 1 {
+                    if !current.replacing_comment {
+                        return Err(CleanError::Damaged);
+                    }
+                    let removed = current.comment_bytes.saturating_sub(16) as u64;
+                    match current.comment_codec.ok_or(CleanError::Damaged)? {
+                        CommentCodec::Vorbis => removed_vorbis += removed,
+                        CommentCodec::Opus => removed_opus += removed,
+                    }
+                    current.packet = 2;
+                    current.replacing_comment = false;
+                    current.comment_bytes = 0;
+                } else {
+                    if current
+                        .comment_codec
+                        .is_some_and(|codec| matches!(codec, CommentCodec::Vorbis))
+                        && current.packet == 2
+                    {
+                        setup_completed_this_page = true;
+                    }
+                    current.packet = current.packet.saturating_add(1);
+                }
+            }
+        }
+
+        // Both supported codecs require the identification packet alone on
+        // the BOS page; comments begin on the following page.
+        if starts_stream && (current.packet != 1 || comment_touched) {
+            return Err(CleanError::Unsupported);
+        }
+
+        let end_of_stream = flags & 0x04 != 0;
+        if end_of_stream {
+            match current.comment_codec.ok_or(CleanError::Unsupported)? {
+                CommentCodec::Vorbis if current.packet < 3 => {
+                    return Err(CleanError::Unsupported);
+                }
+                CommentCodec::Opus if current.packet < 2 => {
+                    return Err(CleanError::Unsupported);
+                }
+                _ => {}
+            }
+        }
+        let drop_page =
+            out_laces.is_empty() && segment_count > 0 && !starts_stream && !end_of_stream;
+        let continues_after_page = out_laces
+            .last()
+            .map_or(continued_from_previous, |&lace| lace == 255);
+        if !drop_page {
+            let mut page = Vec::with_capacity(27 + out_laces.len() + out_body.len());
+            page.extend_from_slice(
+                data.get(page_start..page_start + 27)
+                    .ok_or(CleanError::Damaged)?,
+            );
+            page[5] = (flags & !0x01) | if continued_from_previous { 0x01 } else { 0 };
+            page[26] = u8::try_from(out_laces.len()).map_err(|_| CleanError::Damaged)?;
+            if inserted_comment {
+                if u64::from_le_bytes(page[6..14].try_into().map_err(|_| CleanError::Damaged)?) != 0
+                    && u64::from_le_bytes(page[6..14].try_into().map_err(|_| CleanError::Damaged)?)
+                        != u64::MAX
+                {
+                    return Err(CleanError::Unsupported);
+                }
+                page[6..14].fill(0);
+            }
+            page.extend_from_slice(&out_laces);
+            page.extend_from_slice(&out_body);
+            let sequence = if starts_stream {
+                0
+            } else {
+                *next_sequence.get(&serial).ok_or(CleanError::Damaged)?
+            };
+            page[18..22].copy_from_slice(&sequence.to_le_bytes());
+            next_sequence.insert(serial, sequence.wrapping_add(1));
+            page[22..26].fill(0);
+            crate::ogg_crc::write_checksum(&mut page);
+            output.extend_from_slice(&page);
+            current.output_pending = continues_after_page;
+        } else {
+            // The only packet fragments removed from the output are the
+            // replaced comment packet; they cannot leave an output packet open.
+            current.output_pending = false;
+        }
+
+        cursor = page_end;
+        if end_of_stream {
+            stream = None;
+        }
+    }
+
+    if stream.is_some() {
+        return Err(CleanError::Damaged);
+    }
+
+    let read_back = parse_ogg(&output);
+    let expected_vorbis_comments = comments
+        .values()
+        .filter(|packet| matches!(packet.codec, CommentCodec::Vorbis))
+        .count();
+    let expected_opus_comments = comments
+        .values()
+        .filter(|packet| matches!(packet.codec, CommentCodec::Opus))
+        .count();
+    let (read_back_vorbis_comments, read_back_opus_comments, read_back_vorbis_setups) = read_back
+        .tree
+        .nodes()
+        .iter()
+        .fold((0, 0, 0), |(vorbis, opus, setups), node| {
+            match node.label.as_str() {
+                "Vorbis comment packet" => (vorbis + 1, opus, setups),
+                "Opus tags packet" => (vorbis, opus + 1, setups),
+                "Vorbis setup packet (not decoded)" => (vorbis, opus, setups + 1),
+                _ => (vorbis, opus, setups),
+            }
+        });
+    if read_back.format != doc.format
+        || !read_back.metadata_complete
+        || !read_back.facts.is_empty()
+        || read_back_vorbis_comments != expected_vorbis_comments
+        || read_back_opus_comments != expected_opus_comments
+        || read_back_vorbis_setups != expected_vorbis_comments
+        || read_back
+            .tree
+            .nodes()
+            .iter()
+            .any(|node| node.kind == NodeKind::Error)
+    {
+        return Err(CleanError::Damaged);
+    }
+
+    let removed = [
+        ("Ogg Vorbis comments", removed_vorbis),
+        ("Ogg Opus tags", removed_opus),
+    ]
+    .into_iter()
+    .filter(|(_, bytes)| *bytes > 0)
+    .map(|(what, bytes)| Removed {
+        what: what.into(),
+        bytes,
+    })
+    .collect::<Vec<_>>();
+    if removed.is_empty() {
+        return Err(CleanError::NothingToRemove);
+    }
+    Ok(Cleaned {
+        bytes: output,
+        removed,
+        orientation_kept: None,
+    })
 }
 
 fn identify_codec(packet: &[u8]) -> Option<Codec> {

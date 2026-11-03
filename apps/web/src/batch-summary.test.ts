@@ -72,14 +72,14 @@ describe("batch summary", () => {
     });
   });
 
-  it("offers clean copies for supported MP3 and FLAC tags but not other read-only formats", () => {
+  it("offers clean copies for supported MP3, FLAC and Ogg tags but not read-only formats", () => {
     const files = ["mp3", "flac", "ogg", "eml", "msg", "unknown"].map((format) => item(
       `file.${format}`,
       "done",
-      { format, reveals: ["author"], ...(["mp3", "flac"].includes(format) ? { hasRemovableMetadata: true } : {}) },
+      { format, reveals: ["author"], ...(["mp3", "flac", "ogg"].includes(format) ? { hasRemovableMetadata: true } : {}) },
     ));
     const result = summarizeBatch(files, "reveals");
-    expect(result).toMatchObject({ revealing: 6, chosen: 2, anyPick: true });
+    expect(result).toMatchObject({ revealing: 6, chosen: 3, anyPick: true });
   });
 
   it("offers a tagged MP3 copy when every frame is outside the supported fact list", () => {

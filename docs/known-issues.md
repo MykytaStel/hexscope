@@ -80,7 +80,10 @@ including cover art, while preserving other supported metadata blocks and
 compressed frames byte for byte. It is available only when every retained
 metadata block was inspected; application, cue sheet and reserved blocks are
 not inspected, so a file containing one remains read-only. Hexscope does not
-play audio or clean Ogg files.
+play audio. Ogg clean copies replace complete Vorbis and Opus comment packets
+with empty headers and recompute page checksums; unsupported codecs,
+interleaved streams, incomplete files and Vorbis streams without a recognized
+setup header remain read-only.
 
 **Emails: the top-level header.** The address a message was sent from is
 read from the first server's `Received` line (IPv4 and bracketed IPv6) and

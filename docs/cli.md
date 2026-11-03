@@ -120,11 +120,16 @@ Audio checks read supported tags; hexscope does not decode or play the sound.
 ID3v1 blocks from MP3 files while copying MPEG audio frames unchanged. For
 FLAC it removes Vorbis comments and embedded picture blocks, including cover
 art, and copies other supported metadata blocks and compressed frames unchanged;
-uninspected metadata blocks keep the file read-only. Ogg remains read-only.
-Ogg page boundaries, order and checksums are validated through the end of
-supported streams, up to 4,096 pages; chained Vorbis and Opus streams are read
-together. Interleaved streams and unsupported codecs remain incomplete. Audio
-packets are not decoded.
+uninspected metadata blocks keep the file read-only. For Ogg, it replaces the
+Vorbis comment or Opus tags packet in complete sequential streams with an empty
+header, rebuilds the affected pages and checksums, and preserves compressed
+audio packets byte for byte. The core reads each copy back and requires a
+complete stream of the same codec with no recognized tags left;
+`clean --verify` also compares the copy's findings with the source. Ogg page
+boundaries and order are validated through the end of supported streams, up
+to 4,096 pages; chained Vorbis and Opus streams are read and cleaned together.
+Interleaved streams, unsupported codecs, incomplete files and Vorbis streams
+without a checked setup header remain read-only. Audio packets are not decoded.
 If a supported metadata structure could not be fully read, JSON adds
 `"complete":false`; the default `--fail-on` also fails on `incomplete`.
 

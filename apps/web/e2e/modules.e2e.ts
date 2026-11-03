@@ -220,7 +220,7 @@ test("a FLAC with an uninspected metadata block does not offer a clean copy", as
 
   await expect(page.getByText("Some audio metadata could not be fully read; the result is partial.")).toBeVisible();
   await expect(page.locator(".verdict-cta")).toHaveCount(0);
-  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback and clean copies are not provided.")).toBeVisible();
+  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked.")).toBeVisible();
 });
 
 test("a tagged FLAC without audio frames does not offer a clean copy", async ({ page }) => {
@@ -249,7 +249,7 @@ test("an MP3 tag without an audio frame does not offer a clean copy", async ({ p
 
   await expect(page.locator(".verdict-title")).toContainText("No supported audio metadata tags were found.");
   await expect(page.locator(".reveals").getByText("No supported audio metadata tags were found.")).toBeVisible();
-  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback and clean copies are not provided.")).toBeVisible();
+  await expect(page.locator(".reveals").getByText("Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked.")).toBeVisible();
   await expect(page.getByRole("button", { name: /clean copy/i })).toHaveCount(0);
   await expect(page.locator("audio")).toHaveCount(0);
 });

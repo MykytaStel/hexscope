@@ -170,9 +170,9 @@ const SVG: &[&str] = &[
     "embedded",
     "photoplace",
 ];
-/// MP3 and FLAC clean copies remove recognized metadata blocks whole. Only
-/// facts both readers recognize can be confirmed; unknown metadata stays
-/// unchecked and blocks a FLAC copy.
+/// MP3, FLAC and Ogg clean copies remove supported metadata packets or blocks
+/// whole. Only facts both reads recognize can be confirmed; unknown metadata
+/// stays unchecked and blocks a copy when the format requires a complete read.
 const AUDIO: &[&str] = &[
     "title",
     "artist",
@@ -207,6 +207,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("svg", SVG),
     ("mp3", AUDIO),
     ("flac", AUDIO),
+    ("ogg", AUDIO),
 ];
 
 /// Every covered combination, one by one.
@@ -660,7 +661,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             tuples.len(),
-            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14 + 14
         );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));

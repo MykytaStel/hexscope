@@ -3,6 +3,7 @@ export function hasCleanableAudioTags(
   format: string,
   labels: readonly string[],
   metadataComplete = false,
+  facts: readonly { kind: string }[] = [],
 ): boolean {
   if (format === "mp3") {
     return labels.includes("audio frames (not decoded)")
@@ -12,8 +13,16 @@ export function hasCleanableAudioTags(
         || label.startsWith("APE audio metadata"),
       );
   }
-  return format === "flac"
+  if (format === "flac") {
+    return metadataComplete
+      && labels.includes("audio frames (not decoded)")
+      && (labels.includes("FLAC Vorbis comments block") || labels.includes("FLAC picture block"));
+  }
+  const vorbisComments = labels.filter((label) => label === "Vorbis comment packet").length;
+  const vorbisSetups = labels.filter((label) => label === "Vorbis setup packet (not decoded)").length;
+  return format === "ogg"
     && metadataComplete
-    && labels.includes("audio frames (not decoded)")
-    && (labels.includes("FLAC Vorbis comments block") || labels.includes("FLAC picture block"));
+    && facts.length > 0
+    && vorbisComments === vorbisSetups
+    && (vorbisComments > 0 || labels.includes("Opus tags packet"));
 }

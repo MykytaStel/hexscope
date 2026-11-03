@@ -3,6 +3,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 async function check(page: Page, where: string): Promise<void> {
   const r = await new AxeBuilder({ page }).analyze();
@@ -250,6 +251,68 @@ for (const scheme of ["dark", "light"] as const) {
       await expect(open).toBeFocused();
       await page.keyboard.press("Enter");
       await expect(page.locator(".verdict-title")).toHaveText("Nothing personal found in this photo");
+    });
+
+    test("keyboard and screen-reader flow covers opening a file, its answer, a copy and a batch", async ({ page }, info) => {
+      test.skip(info.project.name !== "computer", "this path checks keyboard operation");
+      page.on("download", (download) => void download.cancel());
+      await page.addInitScript(() => {
+        localStorage.setItem("hexscope.language", "en");
+        localStorage.setItem("hexscope.tour", "done");
+      });
+
+      await page.goto("./");
+      await page.waitForFunction(() => document.body.dataset.state === "empty");
+      const choose = page.getByRole("button", { name: "Choose a file" });
+      await choose.focus();
+      await expect(choose).toBeFocused();
+      const singleChooser = page.waitForEvent("filechooser");
+      await page.keyboard.press("Enter");
+      const photo = fileURLToPath(new URL("../public/samples/photo.jpg", import.meta.url));
+      await (await singleChooser).setFiles(photo);
+
+      await expect(page.locator(".verdict-title")).toBeVisible();
+      const answer = page.locator(".visually-hidden[role='status'][aria-live='polite']");
+      await expect(answer).toHaveRole("status");
+      await expect(answer).toContainText("photo.jpg is open.");
+      await check(page, "file answer");
+
+      const clean = page.locator(".verdict-cta");
+      await clean.focus();
+      await page.keyboard.press("Enter");
+      const report = page.locator(".copy-verification");
+      await expect(report).toHaveRole("status");
+      await expect(report).toHaveAttribute("aria-live", "polite");
+      await expect(report.getByRole("heading", { name: "Removed" })).toBeVisible();
+      await check(page, "keyboard clean copy");
+
+      await page.goto("./");
+      await page.waitForFunction(() => document.body.dataset.state === "empty");
+      const chooseBatch = page.getByRole("button", { name: "Choose a file" });
+      await chooseBatch.focus();
+      await expect(chooseBatch).toBeFocused();
+      const batchChooser = page.waitForEvent("filechooser");
+      await page.keyboard.press("Enter");
+      await (await batchChooser).setFiles([
+        photo,
+        fileURLToPath(new URL("../public/samples/sample.png", import.meta.url)),
+      ]);
+
+      const summary = page.locator(".batch-summary");
+      await expect(summary).toHaveRole("status");
+      await expect(summary).toHaveAttribute("aria-live", "polite");
+      await expect(summary).toContainText("reveals something about you");
+      await expect(page.getByRole("button", { name: /photo\.jpg/ })).toBeVisible();
+      await check(page, "batch answer");
+
+      const save = page.locator("#batch .btn-clean");
+      await save.focus();
+      await page.keyboard.press("Enter");
+      const result = page.locator(".batch-result");
+      await expect(result).toHaveRole("status");
+      await expect(result).toHaveAttribute("aria-live", "polite");
+      await expect(result).toContainText(/Saved \d+ clean cop/);
+      await check(page, "batch clean copies");
     });
 
     test("the privacy page", async ({ page }) => {
