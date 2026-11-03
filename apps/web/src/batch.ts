@@ -263,6 +263,28 @@ export class BatchView {
     this.draw();
   }
 
+  /** Selects the cleanable members of one-based mosaic indexes and excludes other cleanable files. */
+  selectMosaicGroup(indexes: readonly number[]): void {
+    const selectedIndexes = new Set(
+      indexes
+        .filter((index) => Number.isInteger(index) && index > 0 && index <= this.items.length)
+        .map((index) => index - 1),
+    );
+    if (!selectedIndexes.size) return;
+    let selected = 0;
+    for (let index = 0; index < this.items.length; index++) {
+      const item = this.items[index]!;
+      if (!cleanable(item)) continue;
+      item.skip = !selectedIndexes.has(index);
+      if (!item.skip) selected++;
+    }
+    const groupSize = selectedIndexes.size;
+    this.result = currentLocale() === "uk"
+      ? `Вибрано ${selected} з ${groupSize} фото групи для чистих копій. Решта файлів групи не мають доступної тут чистої копії. Інші файли виключено. Перевірте прапорці перед збереженням.`
+      : `Selected ${selected} of ${groupSize} files in this group for clean copies. The remaining group files have no clean copy available here. Other files are excluded. Review the checkboxes before saving.`;
+    this.draw();
+  }
+
   /** Returns to a file from a mosaic group and gives its batch row focus. */
   focusItem(index: number): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.items.length) return;

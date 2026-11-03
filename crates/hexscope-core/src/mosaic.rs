@@ -21,6 +21,35 @@ pub struct Report {
     pub local_date_order: Vec<usize>,
     pub utc_date_order: Vec<usize>,
 }
+
+/// The evidence type that connects more than one photo in a mosaic group.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RelationshipKind {
+    RepeatedSerial,
+    NearbyLocation,
+    LocalDateOrder,
+    UtcDateOrder,
+}
+
+impl RelationshipKind {
+    /// Stable English label for human-readable CLI output.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::RepeatedSerial => "repeated stored serial values",
+            Self::NearbyLocation => "GPS points within 100m of the first file",
+            Self::LocalDateOrder => "dates without a time zone",
+            Self::UtcDateOrder => "dates normalized to UTC",
+        }
+    }
+}
+
+/// A typed view of one relationship; indexes are one-based input positions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RelationshipGroup<'a> {
+    pub kind: RelationshipKind,
+    pub indexes: &'a [usize],
+}
+
 impl Report {
     /// Stable, value-free `hexscope.photo-mosaic` version 1 JSON.
     pub fn to_json(&self) -> String {
@@ -35,25 +64,56 @@ impl Report {
         )
     }
 
-    fn relationship_groups(&self) -> impl Iterator<Item = &[usize]> {
-        self.serial_groups
-            .iter()
-            .map(Vec::as_slice)
-            .chain(self.location_groups.iter().map(Vec::as_slice))
-            .chain((self.local_date_order.len() > 1).then_some(self.local_date_order.as_slice()))
-            .chain((self.utc_date_order.len() > 1).then_some(self.utc_date_order.as_slice()))
+    /// Groups in stable evidence order: serial, location, local dates, UTC dates.
+    /// The report's JSON v1 remains the separately versioned export contract.
+    pub fn relationship_groups(&self) -> Vec<RelationshipGroup<'_>> {
+        let mut groups =
+            Vec::with_capacity(self.serial_groups.len() + self.location_groups.len() + 2);
+        groups.extend(self.serial_groups.iter().map(|indexes| RelationshipGroup {
+            kind: RelationshipKind::RepeatedSerial,
+            indexes,
+        }));
+        groups.extend(
+            self.location_groups
+                .iter()
+                .map(|indexes| RelationshipGroup {
+                    kind: RelationshipKind::NearbyLocation,
+                    indexes,
+                }),
+        );
+        if self.local_date_order.len() > 1 {
+            groups.push(RelationshipGroup {
+                kind: RelationshipKind::LocalDateOrder,
+                indexes: &self.local_date_order,
+            });
+        }
+        if self.utc_date_order.len() > 1 {
+            groups.push(RelationshipGroup {
+                kind: RelationshipKind::UtcDateOrder,
+                indexes: &self.utc_date_order,
+            });
+        }
+        groups
     }
 
     /// Number of groups that connect more than one input photo.
     pub fn relationship_group_count(&self) -> usize {
-        self.relationship_groups().count()
+        self.serial_groups.len()
+            + self.location_groups.len()
+            + usize::from(self.local_date_order.len() > 1)
+            + usize::from(self.utc_date_order.len() > 1)
     }
 
     /// Number of distinct input photos present in any relationship group.
     pub fn related_file_count(&self) -> usize {
         let mut indexes = BTreeSet::new();
-        for group in self.relationship_groups() {
-            indexes.extend(group.iter().copied());
+        indexes.extend(self.serial_groups.iter().flatten().copied());
+        indexes.extend(self.location_groups.iter().flatten().copied());
+        if self.local_date_order.len() > 1 {
+            indexes.extend(self.local_date_order.iter().copied());
+        }
+        if self.utc_date_order.len() > 1 {
+            indexes.extend(self.utc_date_order.iter().copied());
         }
         indexes.len()
     }

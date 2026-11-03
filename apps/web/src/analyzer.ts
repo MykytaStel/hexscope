@@ -941,7 +941,11 @@ const batchView = new BatchView($("batch"), {
   toggleReading: () => batchController.toggleReading(),
   saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
   mosaic: (items) => void import("./photo-mosaic")
-    .then((m) => m.showMosaic(items, (index) => batchView.focusItem(index)))
+    .then((m) => m.showMosaic(
+      items,
+      (index) => batchView.focusItem(index),
+      (indexes) => batchView.selectMosaicGroup(indexes),
+    ))
     .catch((e) => announce(String(e))),
   filmRoll: (items) => void import("./film-roll-ui").then((m) => m.showFilmRoll(items.map((i) => i.file))).catch((e) => announce(String(e))),
 });
