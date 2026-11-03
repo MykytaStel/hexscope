@@ -85,6 +85,12 @@ Local displays map indexes to input names. Export omits names, serial values,
 coordinates and raw dates. Matching stored facts are observations; they do not
 prove identity, a home, a route, scanner provenance or authentic film origin.
 
+In a browser batch, each relationship group can select its cleanable photos
+for the existing verified-copy action. That replaces the current clean-copy
+selection; other cleanable files are excluded until selected again. Review or
+change the file checkboxes before saving. Files without an available clean-copy
+operation stay out of the selection, and the original files remain unchanged.
+
 ## Research evidence
 
 [Real-scan evaluation](film-evaluation.md) includes provenance, hashes,

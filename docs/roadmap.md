@@ -104,8 +104,11 @@ makes those relationships actionable in the browser batch:
   scrolls to the selected file and gives it keyboard focus.
 - The summary reports checked and unchecked files, the distinct files that
   appear in relationships, and the number of relationship groups.
-- The CLI text view prints relationship indexes as readable sequences; its
-  summary includes the same relationship counts, and the existing
+- Selecting a relationship group in the browser chooses only its cleanable
+  photos for the existing verified-copy flow. Other cleanable files are
+  excluded, and each selection can still be changed in the batch list.
+- Core exposes typed relationship groups; the CLI text view names and numbers
+  each evidence group. Its counts match the browser, and the existing
   `hexscope.photo-mosaic` JSON version 1 stays unchanged.
 - Matching remains evidence-only and local. The report exports no file names,
   coordinates, dates or serial values; files that could not be checked remain

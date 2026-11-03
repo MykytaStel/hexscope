@@ -2,23 +2,6 @@ use crate::batch_report::{bounded_read, collect};
 use hexscope_core::{mosaic, summary::summary_of};
 use std::{path::PathBuf, process::ExitCode};
 
-fn format_groups(groups: &[Vec<usize>]) -> String {
-    if groups.is_empty() {
-        return "none".into();
-    }
-    groups
-        .iter()
-        .map(|group| {
-            group
-                .iter()
-                .map(usize::to_string)
-                .collect::<Vec<_>>()
-                .join(" → ")
-        })
-        .collect::<Vec<_>>()
-        .join("; ")
-}
-
 fn format_order(indexes: &[usize]) -> String {
     if indexes.is_empty() {
         "none".into()
@@ -89,24 +72,21 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
             report.related_file_count(),
             report.relationship_group_count(),
         );
+        println!("Relationships:");
+        let groups = report.relationship_groups();
+        if groups.is_empty() {
+            println!("  none");
+        }
+        for (index, group) in groups.iter().enumerate() {
+            println!(
+                "  group {} · {}: {}",
+                index + 1,
+                group.kind.label(),
+                format_order(group.indexes),
+            );
+        }
         println!(
-            "Repeated stored serial values: {}",
-            format_groups(&report.serial_groups)
-        );
-        println!(
-            "Stored GPS points within 100m of first file: {}",
-            format_groups(&report.location_groups)
-        );
-        println!(
-            "Recorded dates without a time zone: {}",
-            format_order(&report.local_date_order)
-        );
-        println!(
-            "Recorded dates with normalized time zones: {}",
-            format_order(&report.utc_date_order)
-        );
-        println!(
-            "Indexes identify input files. Matching facts are not proof of identity, home or a route. JSON omits raw metadata and filenames."
+            "Group indexes identify input files. Matching facts are not proof of identity, home or a route. JSON omits raw metadata and filenames."
         );
     }
     Ok(if failed == 0 {
