@@ -106,6 +106,11 @@ impl Report {
 
     /// Number of distinct input photos present in any relationship group.
     pub fn related_file_count(&self) -> usize {
+        self.related_file_indexes().len()
+    }
+
+    /// Sorted, unique one-based indexes that occur in any relationship group.
+    pub fn related_file_indexes(&self) -> Vec<usize> {
         let mut indexes = BTreeSet::new();
         indexes.extend(self.serial_groups.iter().flatten().copied());
         indexes.extend(self.location_groups.iter().flatten().copied());
@@ -115,7 +120,7 @@ impl Report {
         if self.utc_date_order.len() > 1 {
             indexes.extend(self.utc_date_order.iter().copied());
         }
-        indexes.len()
+        indexes.into_iter().collect()
     }
 }
 fn sphere([lat, lon]: [f64; 2]) -> Option<[f64; 3]> {

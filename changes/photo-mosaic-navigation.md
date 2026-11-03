@@ -7,4 +7,6 @@
   and shape. In a browser batch, selecting a relationship group selects only
   its cleanable photos for verified copies; the rest remain excluded until
   selected in the batch list. Core exposes the evidence type for each group,
-  and the CLI names and numbers groups consistently.
+  and the CLI names and numbers groups consistently. `mosaic --clean-related`
+  can make verified copies of unique group members and records a value-free
+  map from original input indexes to the batch receipt.

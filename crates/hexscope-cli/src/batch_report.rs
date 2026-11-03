@@ -94,6 +94,17 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
     fs::create_dir_all(&out).map_err(|e| e.to_string())?;
     let out = fs::canonicalize(out).map_err(|e| e.to_string())?;
     let files = collect(&paths, Some(&out))?;
+    run_files(&files, &out, include_copy_hashes)
+}
+
+/// Cleans a stable, unique input list gathered by `collect` and writes its
+/// verified copies and receipt into an existing output folder.
+pub fn run_files(
+    files: &[PathBuf],
+    out: &Path,
+    include_copy_hashes: bool,
+) -> Result<ExitCode, String> {
+    let out = fs::canonicalize(out).map_err(|e| e.to_string())?;
     if files.is_empty() {
         return Err("no input files outside the output folder".into());
     }

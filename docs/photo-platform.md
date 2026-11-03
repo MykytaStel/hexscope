@@ -72,6 +72,7 @@ output. There is no upload or saved private recipe history.
 ```sh
 hexscope mosaic ./photos
 hexscope mosaic --json ./photos > photo-mosaic.json
+hexscope mosaic --clean-related --out related-copies ./photos
 ```
 
 The browser's batch **Photo privacy mosaic** uses the same bounded Rust logic.
@@ -84,6 +85,11 @@ date line and poles. A chain of nearby points cannot grow one group indefinitely
 Local displays map indexes to input names. Export omits names, serial values,
 coordinates and raw dates. Matching stored facts are observations; they do not
 prove identity, a home, a route, scanner provenance or authentic film origin.
+
+The CLI's explicit `--clean-related` mode makes verified copies of each unique
+photo in a relationship group. It writes the standard batch verification
+receipt plus `hexscope-mosaic-selection.json`, which maps the mosaic's input
+indexes to rows in that receipt without storing names or metadata values.
 
 In a browser batch, each relationship group can select its cleanable photos
 for the existing verified-copy action. That replaces the current clean-copy

@@ -35,6 +35,7 @@ for people and get better as the wording does.
 | `hexscope redact --text WORDS PATH...` | PDFs with `WORDS` blacked out of their pages | `NAME-redacted.EXT` |
 | `hexscope batch --out DIR PATH...` | Clean copies of a folder, each read back, and a receipt | `DIR/000001-clean.EXT`…, `DIR/hexscope-report.json` |
 | `hexscope mosaic PATH...` | What a set of photos has in common: a serial, a place, an order of dates | Nothing |
+| `hexscope mosaic --clean-related --out DIR PATH...` | Verified copies of photos that appear in a relationship group | `DIR/000001-clean.EXT`…, `DIR/hexscope-report.json`, `DIR/hexscope-mosaic-selection.json` |
 | `hexscope film --recipe JSON --out DIR PATH...` | One film recipe applied to a roll of scans | `DIR/000001-film.jpg`…, `DIR/hexscope-film-report.json` |
 | `hexscope menu` | "Clean with hexscope" where files are picked: a Quick Action in Finder, an entry in Send to on Windows, a script in GNOME Files. It runs `clean --verify` on what is chosen and shows what it said | The entry, in `~/Library/Services`, `%APPDATA%\Microsoft\Windows\SendTo` or `~/.local/share/nautilus/scripts` |
 | `hexscope menu --remove` | Takes that entry away again | — |
@@ -67,7 +68,8 @@ it was given unless `clean --in-place` says so.
 | `--verify` | clean | Read each written copy back and say what was removed, remains, or could not be checked |
 | `--receipt FILE` | clean with `--verify` | Save an optional value-free, SHA-256-bound receipt for one written copy |
 | `--include-copy-hashes` | batch | Opt in to a distinct receipt schema with a fingerprint for each written copy |
-| `--out DIR` | clean, repair, redact, batch, film | Where the copies go; for one file with `clean` or `repair`, it can name the copy itself |
+| `--clean-related` | mosaic | Make verified copies of unique photos in relationship groups; requires `--out DIR` |
+| `--out DIR` | clean, repair, redact, batch, film, mosaic | Where the copies go; for one file with `clean` or `repair`, it can name the copy itself |
 | `--text WORDS` | redact | What to black out, wherever it appears; give it more than once for more |
 | `--recipe JSON` | film | The [film recipe](#film-recipe) to apply |
 | `--format jpeg\|tiff16` | film | 8-bit JPEG (the default) or 16-bit TIFF |
@@ -279,6 +281,20 @@ prints its evidence type and related indexes, for example
 numbers or coordinates. Its summary reports checked and unchecked files,
 distinct files in relationships, and relationship-group count. Files that
 could not be checked are named and reported separately.
+
+To make verified copies only for photos that appear in at least one group:
+
+```sh
+hexscope mosaic --clean-related --out related-copies ./photos
+```
+
+This explicit action uses the same bounded cleaner and readback as `batch`.
+The output folder must be fresh. `hexscope-mosaic-selection.json` maps each
+selected input index to its row in `hexscope-report.json`; neither receipt
+contains paths or raw metadata. Files that could not be checked stay listed in
+the selection receipt. Unsupported or unchanged files are reported by the
+batch receipt and cause exit status 1. Add `--json` to write the value-free
+mosaic report to stdout while the copies and receipts go into `DIR`.
 
 ## film
 
