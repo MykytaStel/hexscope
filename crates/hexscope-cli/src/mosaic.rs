@@ -83,7 +83,12 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
         for (i, path) in files.iter().enumerate() {
             println!("{}: {}", i + 1, path.display());
         }
-        println!("{} complete photos; {failed} not checked", report.total);
+        println!(
+            "{} complete photos; {failed} not checked; {} files in {} relationship groups",
+            report.total,
+            report.related_file_count(),
+            report.relationship_group_count(),
+        );
         println!(
             "Repeated stored serial values: {}",
             format_groups(&report.serial_groups)

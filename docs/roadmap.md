@@ -102,8 +102,11 @@ makes those relationships actionable in the browser batch:
 - Each file in a mosaic group links back to its row in the batch list. The
   list returns to the all-files view, reveals rows beyond the first page,
   scrolls to the selected file and gives it keyboard focus.
-- The CLI text view prints relationship indexes as readable sequences; the
-  existing `hexscope.photo-mosaic` JSON version 1 stays unchanged.
+- The summary reports checked and unchecked files, the distinct files that
+  appear in relationships, and the number of relationship groups.
+- The CLI text view prints relationship indexes as readable sequences; its
+  summary includes the same relationship counts, and the existing
+  `hexscope.photo-mosaic` JSON version 1 stays unchanged.
 - Matching remains evidence-only and local. The report exports no file names,
   coordinates, dates or serial values; files that could not be checked remain
   explicit. Physical-device checks stay deferred.

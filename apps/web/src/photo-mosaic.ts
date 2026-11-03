@@ -30,8 +30,12 @@ export async function showMosaic(
     const m = await rasterModule();
     if (!dialog.open) return;
     const report = JSON.parse(m.photoMosaic(JSON.stringify(signals))) as MosaicReport;
-    status.textContent = currentLocale() === "uk" ? `Перевірено ${report.total} / ${items.length} файлів · ${items.length - report.total} не перевірено · ${report.located_files} записаних GPS-точок` : `${report.total} / ${items.length} files checked for photo metadata · ${items.length - report.total} not checked · ${report.located_files} stored GPS points`;
     const blocks: [string, number[][]][] = [["Repeated stored serial values", report.serial_groups], ["Stored GPS points within 100m of first file", report.location_groups], ["Recorded dates without time zones", report.local_date_order.length > 1 ? [report.local_date_order] : []], ["Recorded dates with normalized time zones", report.utc_date_order.length > 1 ? [report.utc_date_order] : []]];
+    const relationshipGroups = blocks.flatMap(([, groups]) => groups);
+    const relatedFiles = new Set(relationshipGroups.flat()).size;
+    status.textContent = currentLocale() === "uk"
+      ? `Перевірено ${report.total} / ${items.length} файлів · пов’язано файлів: ${relatedFiles} · груп зв’язків: ${relationshipGroups.length} · не перевірено: ${items.length - report.total} · GPS-точок: ${report.located_files}`
+      : `${report.total} / ${items.length} files checked · ${relatedFiles} files in ${relationshipGroups.length} relationship groups · ${items.length - report.total} not checked · ${report.located_files} stored GPS points`;
     for (const [label, groups] of blocks) {
       dialog.append(el("h3", label));
       if (!groups.length) { dialog.append(el("p", "No comparable group found.")); continue; }
