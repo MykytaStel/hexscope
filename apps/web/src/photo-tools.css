@@ -54,6 +54,18 @@
 .photo-tool textarea { max-width: 100%; box-sizing: border-box; font: inherit; }
 .photo-tool textarea { width: 100%; min-height: 180px; font-family: var(--mono); font-size: 13px; }
 .photo-tool-results { display: grid; gap: var(--space-2); margin: 0; padding-left: 24px; overflow-wrap: anywhere; }
+.photo-mosaic-file {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  cursor: pointer;
+}
+.photo-mosaic-file:hover { color: var(--accent); }
 .photo-tool img { max-width: 100%; max-height: 360px; object-fit: contain; }
 .photo-tool [role="status"] { font-weight: 600; }
 .photo-tool .btn { min-height: var(--control-height); height: auto; border-radius: var(--control-radius); }

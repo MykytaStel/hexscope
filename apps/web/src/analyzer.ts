@@ -940,7 +940,9 @@ const batchView = new BatchView($("batch"), {
   open: (i) => batchController.open(i),
   toggleReading: () => batchController.toggleReading(),
   saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
-  mosaic: (items) => void import("./photo-mosaic").then((m) => m.showMosaic(items)).catch((e) => announce(String(e))),
+  mosaic: (items) => void import("./photo-mosaic")
+    .then((m) => m.showMosaic(items, (index) => batchView.focusItem(index)))
+    .catch((e) => announce(String(e))),
   filmRoll: (items) => void import("./film-roll-ui").then((m) => m.showFilmRoll(items.map((i) => i.file))).catch((e) => announce(String(e))),
 });
 batchController = new BatchController(batchView, {
