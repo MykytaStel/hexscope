@@ -1,19 +1,23 @@
 import type { BatchItem } from "./batch";
 import { rasterModule } from "./film-core";
 import { saveAs } from "./files";
-import { registerLazyTranslations, currentLocale } from "./i18n";
+import { registerLazyTranslations, currentLocale, translateText } from "./i18n";
 import "./photo-tools.css";
 export interface PhotoSignal { serial: string | null; location: [number, number] | null; taken: string | null }
 interface MosaicReport { schema: string; version: number; total: number; serial_groups: number[][]; location_groups: number[][]; located_files: number; local_date_order: number[]; utc_date_order: number[] }
 registerLazyTranslations({
   "Photo privacy mosaic": "Мозаїка приватності фото", "Close photo mosaic": "Закрити мозаїку фото", "Save mosaic report": "Зберегти звіт мозаїки",
+  "Show this file in the batch list": "Показати цей файл у списку",
   "This local view compares metadata already stored in the files. Matching facts do not prove identity, home, a route or film origin.": "Цей локальний перегляд порівнює метадані, уже записані у файлах. Збіги не доводять особу, місце проживання, маршрут або плівкове походження.",
   "Repeated stored serial values": "Повторювані записані серійні номери", "Stored GPS points within 100m of first file": "Записані GPS-точки до 100 м від першого файла",
   "Recorded dates without time zones": "Записані дати без часового поясу", "Recorded dates with normalized time zones": "Записані дати з нормалізованим часовим поясом",
   "Every group refers to file indexes. The saved JSON contains no filenames, coordinates, dates or serial values.": "Групи посилаються на номери файлів. JSON-звіт не містить назв файлів, координат, дат або серійних номерів.",
 });
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) { const e = document.createElement(tag); if (text) e.textContent = text; return e; }
-export async function showMosaic(items: BatchItem[]): Promise<void> {
+export async function showMosaic(
+  items: BatchItem[],
+  showFileInBatch: (index: number) => void,
+): Promise<void> {
   const dialog = el("dialog"); dialog.className = "photo-tool photo-mosaic"; dialog.setAttribute("aria-labelledby", "photo-mosaic-title");
   const title = el("h2", "Photo privacy mosaic"); title.id = "photo-mosaic-title";
   const close = el("button", "Close"); close.className = "btn"; close.setAttribute("aria-label", "Close photo mosaic"); close.onclick = () => dialog.close();
@@ -32,7 +36,31 @@ export async function showMosaic(items: BatchItem[]): Promise<void> {
       dialog.append(el("h3", label));
       if (!groups.length) { dialog.append(el("p", "No comparable group found.")); continue; }
       const list = el("ul"); list.className = "photo-tool-results";
-      for (const group of groups) { const row = el("li"); row.textContent = group.map((index) => `${index}: ${items[index - 1]?.file.name ?? "file"}`).join(" → "); list.append(row); }
+      for (const group of groups) {
+        const row = el("li");
+        group.forEach((index, position) => {
+          if (position) row.append(document.createTextNode(" → "));
+          const item = items[index - 1];
+          if (!item) {
+            row.append(document.createTextNode(String(index)));
+            return;
+          }
+          const filename = item.file.webkitRelativePath || item.file.name;
+          const target = el("button", `${index}: ${filename}`);
+          target.type = "button";
+          target.className = "photo-mosaic-file";
+          const action = translateText("Show this file in the batch list", currentLocale());
+          const accessibleName = `${action}: ${index}: ${filename}`;
+          target.setAttribute("aria-label", accessibleName);
+          target.title = accessibleName;
+          target.addEventListener("click", () => {
+            dialog.addEventListener("close", () => showFileInBatch(index - 1), { once: true });
+            dialog.close();
+          });
+          row.append(target);
+        });
+        list.append(row);
+      }
       dialog.append(list);
     }
     const save = el("button", "Save mosaic report"); save.className = "btn btn-primary";

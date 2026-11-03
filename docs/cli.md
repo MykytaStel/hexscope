@@ -273,6 +273,10 @@ files whose dates do, in UTC.
 `inferences` is always `false`: what files share is not proof of who took
 them or where they live.
 
+The text output lists each input by index, then prints related indexes as
+`1 → 2` (separate groups use `;`). It does not print serial numbers or
+coordinates. Files that could not be checked are named and reported separately.
+
 ## film
 
 ### Film recipe

@@ -1222,6 +1222,11 @@ body[data-state="batch"] .layout {
   border-color: var(--accent);
 }
 
+.batch-row.is-mosaic-target {
+  border-color: var(--accent);
+  background: var(--row-hover);
+}
+
 .batch-row:disabled {
   cursor: default;
   opacity: 0.75;

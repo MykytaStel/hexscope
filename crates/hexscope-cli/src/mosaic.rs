@@ -1,6 +1,36 @@
 use crate::batch_report::{bounded_read, collect};
 use hexscope_core::{mosaic, summary::summary_of};
 use std::{path::PathBuf, process::ExitCode};
+
+fn format_groups(groups: &[Vec<usize>]) -> String {
+    if groups.is_empty() {
+        return "none".into();
+    }
+    groups
+        .iter()
+        .map(|group| {
+            group
+                .iter()
+                .map(usize::to_string)
+                .collect::<Vec<_>>()
+                .join(" → ")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn format_order(indexes: &[usize]) -> String {
+    if indexes.is_empty() {
+        "none".into()
+    } else {
+        indexes
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(" → ")
+    }
+}
+
 pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let mut paths = Vec::new();
     let mut json = false;
@@ -54,18 +84,21 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
             println!("{}: {}", i + 1, path.display());
         }
         println!("{} complete photos; {failed} not checked", report.total);
-        println!("Repeated stored serial values: {:?}", report.serial_groups);
         println!(
-            "Stored GPS points within 100m of first file: {:?}",
-            report.location_groups
+            "Repeated stored serial values: {}",
+            format_groups(&report.serial_groups)
         );
         println!(
-            "Recorded dates without a time zone: {:?}",
-            report.local_date_order
+            "Stored GPS points within 100m of first file: {}",
+            format_groups(&report.location_groups)
         );
         println!(
-            "Recorded dates with normalized time zones: {:?}",
-            report.utc_date_order
+            "Recorded dates without a time zone: {}",
+            format_order(&report.local_date_order)
+        );
+        println!(
+            "Recorded dates with normalized time zones: {}",
+            format_order(&report.utc_date_order)
         );
         println!(
             "Indexes identify input files. Matching facts are not proof of identity, home or a route. JSON omits raw metadata and filenames."

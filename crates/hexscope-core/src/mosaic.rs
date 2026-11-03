@@ -2,12 +2,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Debug)]
 pub struct Signal {
+    /// One-based position in the caller's input list.
     pub index: usize,
+    /// Stored serial text; comparisons trim surrounding whitespace and ignore empty or common placeholders.
     pub serial: Option<String>,
+    /// Decimal latitude and longitude. Invalid or out-of-range coordinates are ignored.
     pub location: Option<[f64; 2]>,
+    /// Full EXIF or ISO timestamp. Unknown-zone wall clocks remain separate from UTC.
     pub taken: Option<String>,
 }
 #[derive(Debug)]
+/// Cross-file relationships, expressed only as indexes and counts.
 pub struct Report {
     pub total: usize,
     pub serial_groups: Vec<Vec<usize>>,
@@ -17,6 +22,7 @@ pub struct Report {
     pub utc_date_order: Vec<usize>,
 }
 impl Report {
+    /// Stable, value-free `hexscope.photo-mosaic` version 1 JSON.
     pub fn to_json(&self) -> String {
         format!(
             "{{\"schema\":\"hexscope.photo-mosaic\",\"version\":1,\"total\":{},\"serial_groups\":{:?},\"location_groups\":{:?},\"located_files\":{},\"local_date_order\":{:?},\"utc_date_order\":{:?},\"location_radius_metres\":100,\"inferences\":false}}",
@@ -134,6 +140,13 @@ fn date(text: &str) -> Option<(i64, bool)> {
     };
     Some((timestamp, known))
 }
+/// Groups repeated serials after trimming surrounding whitespace, representative
+/// GPS clusters within 100 m, and valid dates ordered separately by known and
+/// unknown time zone.
+///
+/// Indexes must be positive and unique. Invalid serial placeholders,
+/// coordinates, and timestamps are ignored. More than 1,000 signals is an
+/// error; no raw metadata values are copied into the report.
 pub fn analyze(signals: &[Signal]) -> Result<Report, &'static str> {
     if signals.len() > 1000 {
         return Err("photo mosaic is limited to 1000 files");

@@ -263,6 +263,25 @@ export class BatchView {
     this.draw();
   }
 
+  /** Returns to a file from a mosaic group and gives its batch row focus. */
+  focusItem(index: number): void {
+    if (!Number.isInteger(index) || index < 0 || index >= this.items.length) return;
+    this.show = "all";
+    this.limit = Math.min(
+      this.items.length,
+      Math.max(this.limit, Math.ceil((index + 1) / PAGE) * PAGE),
+    );
+    this.draw();
+
+    const row = this.host.querySelector<HTMLButtonElement>(`[data-batch-index="${index}"]`);
+    if (!row || row.disabled) return;
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    row.scrollIntoView({ behavior, block: "center" });
+    row.focus({ preventScroll: true });
+    row.classList.add("is-mosaic-target");
+    window.setTimeout(() => row.classList.remove("is-mosaic-target"), 1800);
+  }
+
   private draw(): void {
     clearTimeout(this.pending);
     this.pending = 0;
@@ -424,6 +443,7 @@ export class BatchView {
     for (const { item, index } of totals.shown) {
       const li = el("li");
       const row = el("button", "batch-row");
+      row.dataset.batchIndex = String(index);
       row.disabled = item.state === "waiting" || item.state === "reading";
       row.title = row.disabled ? "Still reading" : "Open this file";
       // In a folder, where it is in the folder.
