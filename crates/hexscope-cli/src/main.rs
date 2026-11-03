@@ -70,6 +70,8 @@ clean:
                    or could not be checked
   --json           with --verify, one value-free result per input, one object per line
   --receipt FILE   with --verify and one input, save a value-free, copy-bound receipt
+  audio            cleans supported MP3/FLAC tags and complete sequential
+                   Vorbis/Opus tags in Ogg; audio is not decoded or re-encoded
 
 receipt verify:
   Confirms only that COPY has the bytes named in RECEIPT.json; it does not verify

@@ -33,6 +33,7 @@ file, such as a photo in a document, is not covered.
 | `svg` | original, links, software, author, company, title, created, description, keywords, embedded, photoplace |
 | `mp3` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 | `flac` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
+| `ogg` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 <!-- coverage:end -->
 
 Why each row can be trusted:
@@ -90,10 +91,12 @@ Why each row can be trusted:
   complete parse is required, so uninspected application, cue sheet or
   reserved blocks prevent a clean copy. Only listed metadata kinds can be
   confirmed after a complete read-back.
-- **Ogg**: read-only. Tags from supported sequential chained audio streams are
-  read; page order and checksums are checked through each final page, up to
-  4,096 pages. Interleaved streams remain incomplete; audio packets are not
-  decoded.
+- **Ogg**: Vorbis comments and Opus tags in complete sequential streams are
+  replaced with empty codec headers. Every copied page gets a new checksum;
+  retained audio packets stay byte for byte. Page order and checksums are
+  checked through each final page, up to 4,096 pages. Interleaved streams,
+  unsupported codecs and incomplete files remain read-only; audio packets are
+  not decoded.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.

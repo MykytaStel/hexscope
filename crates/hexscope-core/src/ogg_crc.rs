@@ -36,7 +36,6 @@ pub(crate) fn checksum(page: &[u8]) -> Option<u32> {
     Some(update(update(update(0, &page[..22]), &[0; 4]), &page[26..]))
 }
 
-#[cfg(test)]
 pub(crate) fn write_checksum(page: &mut [u8]) {
     let crc = checksum(page).expect("an Ogg page has a 27-byte header");
     page[22..26].copy_from_slice(&crc.to_le_bytes());

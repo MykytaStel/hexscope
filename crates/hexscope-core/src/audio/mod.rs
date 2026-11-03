@@ -6,6 +6,7 @@ mod ogg;
 
 pub(crate) use id3::removable_tag_ranges;
 pub use id3::{is_mp3, parse_mp3};
+pub(crate) use ogg::clean_ogg;
 
 use crate::facts::DocumentFact;
 use crate::model::ParseTree;
@@ -185,6 +186,36 @@ mod tests {
                 &comments[255..],
             ));
         }
+        out
+    }
+
+    /// A complete stream with an audio packet large enough to continue on
+    /// another page. `comments` includes the codec's packet signature.
+    fn ogg_clean_fixture(codec: &str, comments: &[u8], audio: &[u8]) -> Vec<u8> {
+        assert!(comments.len() <= 255);
+        let serial = 7;
+        let mut out = ogg_packet_fixture_for_serial(codec, comments, serial);
+        let comment_page = ogg_page_end(&out, 0);
+        let mut sequence = 2;
+        set_ogg_page_flags(&mut out, comment_page, 0);
+
+        if codec == "vorbis" {
+            let setup = b"\x05vorbis\0";
+            out.extend(ogg_page(serial, sequence, 0, &[setup.len() as u8], setup));
+            sequence += 1;
+        }
+
+        let mut rest = audio;
+        let mut continued = false;
+        while rest.len() >= 255 {
+            let flags = u8::from(continued);
+            out.extend(ogg_page(serial, sequence, flags, &[255], &rest[..255]));
+            rest = &rest[255..];
+            sequence += 1;
+            continued = true;
+        }
+        let flags = 0x04 | u8::from(continued);
+        out.extend(ogg_page(serial, sequence, flags, &[rest.len() as u8], rest));
         out
     }
 
@@ -600,6 +631,181 @@ mod tests {
     }
 
     #[test]
+    fn clean_ogg_rebuilds_pages_and_keeps_a_split_vorbis_audio_packet() {
+        let comments = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let audio = vec![0x42; 300];
+        let original = ogg_clean_fixture("vorbis", &comments, &audio);
+        let source = parse(&original).expect("Ogg signature is recognized");
+        assert_eq!(source.format, super::AudioFormat::OggVorbis);
+        assert!(source.metadata_complete);
+        assert_eq!(values(&source, "title"), ["Sample"]);
+
+        let copy = crate::clean::clean(&original).expect("complete Vorbis tags can be cleaned");
+        let cleaned = parse(&copy.bytes).expect("clean copy is still Ogg");
+        assert_eq!(cleaned.format, super::AudioFormat::OggVorbis);
+        assert!(cleaned.metadata_complete);
+        assert!(cleaned.facts.is_empty());
+        assert!(audio.chunks(255).all(|chunk| {
+            copy.bytes
+                .windows(chunk.len())
+                .any(|window| window == chunk)
+        }));
+        assert!(
+            copy.removed
+                .iter()
+                .any(|removed| removed.what == "Ogg Vorbis comments")
+        );
+        let report = crate::verification::compare(
+            &crate::verification::snapshot(&crate::summary::summarize(&original)),
+            &crate::verification::snapshot(&crate::summary::summarize(&copy.bytes)),
+        );
+        assert!(!report.removed.is_empty());
+        assert!(report.present.is_empty());
+        assert!(report.unchecked.is_empty());
+    }
+
+    #[test]
+    fn clean_ogg_chains_vorbis_and_opus_and_keeps_both_audio_packets() {
+        let vorbis_tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder one", &[b"TITLE=First"], true),
+        ]
+        .concat();
+        let opus_tags = [
+            b"OpusTags".as_slice(),
+            &vorbis_comments(b"encoder two", &[b"TITLE=Second"], false),
+        ]
+        .concat();
+        let vorbis_audio = vec![0x31; 300];
+        let opus_audio = vec![0x72; 300];
+        let mut original = ogg_clean_fixture("vorbis", &vorbis_tags, &vorbis_audio);
+        original.extend(ogg_clean_fixture("opus", &opus_tags, &opus_audio));
+
+        let copy = crate::clean::clean(&original).expect("complete chained tags can be cleaned");
+        let cleaned = parse(&copy.bytes).expect("clean copy is still Ogg");
+        assert_eq!(cleaned.format, super::AudioFormat::Ogg);
+        assert!(cleaned.metadata_complete);
+        assert!(cleaned.facts.is_empty());
+        assert_eq!(
+            cleaned
+                .tree
+                .nodes()
+                .iter()
+                .filter(|node| node.label == "Vorbis comment packet")
+                .count(),
+            1
+        );
+        assert_eq!(
+            cleaned
+                .tree
+                .nodes()
+                .iter()
+                .filter(|node| node.label == "Opus tags packet")
+                .count(),
+            1
+        );
+        assert!(
+            vorbis_audio
+                .chunks(255)
+                .chain(opus_audio.chunks(255))
+                .all(|chunk| copy
+                    .bytes
+                    .windows(chunk.len())
+                    .any(|window| window == chunk))
+        );
+        assert_eq!(copy.removed.len(), 2);
+    }
+
+    #[test]
+    fn ogg_vorbis_without_a_checked_setup_packet_stays_read_only() {
+        let comments = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let original = ogg_packet_fixture("vorbis", &comments);
+        assert!(matches!(
+            crate::clean::clean(&original),
+            Err(crate::clean::CleanError::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn rejects_opus_audio_after_comments_on_the_same_page() {
+        let tags = [
+            b"OpusTags".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], false),
+        ]
+        .concat();
+        let with_headers = ogg_packet_fixture_for_serial("opus", &tags, 7);
+        let id_page_end = ogg_page_end(&with_headers, 0);
+        let mut bytes = with_headers[..id_page_end].to_vec();
+        let mut body = tags.clone();
+        body.extend_from_slice(b"audio");
+        bytes.extend(ogg_page(7, 1, 4, &[tags.len() as u8, 5], &body));
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "Ogg audio begins on the final header page"
+                && node.kind == crate::model::NodeKind::Error
+        }));
+    }
+
+    #[test]
+    fn rejects_a_nonzero_granule_position_on_the_opus_comment_page() {
+        let tags = [
+            b"OpusTags".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], false),
+        ]
+        .concat();
+        let mut bytes = ogg_clean_fixture("opus", &tags, b"audio");
+        let comment_page = ogg_page_end(&bytes, 0);
+        let comment_page_end = ogg_page_end(&bytes, comment_page);
+        bytes[comment_page + 6..comment_page + 14].copy_from_slice(&1u64.to_le_bytes());
+        bytes[comment_page + 22..comment_page + 26].fill(0);
+        crate::ogg_crc::write_checksum(&mut bytes[comment_page..comment_page_end]);
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "Ogg header page has an invalid granule position"
+                && node.kind == crate::model::NodeKind::Error
+        }));
+        assert!(matches!(
+            crate::clean::clean(&bytes),
+            Err(crate::clean::CleanError::Damaged)
+        ));
+    }
+
+    #[test]
+    fn rejects_vorbis_audio_on_the_setup_header_page() {
+        let tags = [
+            b"\x03vorbis".as_slice(),
+            &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
+        ]
+        .concat();
+        let mut bytes = ogg_packet_fixture_for_serial("vorbis", &tags, 7);
+        let comment_page = ogg_page_end(&bytes, 0);
+        set_ogg_page_flags(&mut bytes, comment_page, 0);
+        let setup = b"\x05vorbis\0";
+        let mut body = setup.to_vec();
+        body.extend_from_slice(b"audio");
+        bytes.extend(ogg_page(7, 2, 4, &[setup.len() as u8, 5], &body));
+
+        let doc = parse(&bytes).expect("Ogg signature is recognized");
+        assert!(!doc.metadata_complete);
+        assert!(doc.tree.nodes().iter().any(|node| {
+            node.label == "Ogg audio begins on the final header page"
+                && node.kind == crate::model::NodeKind::Error
+        }));
+    }
+
+    #[test]
     fn rejects_a_chained_ogg_stream_that_does_not_start_with_bos() {
         let tags = [
             b"\x03vorbis".as_slice(),
@@ -645,10 +851,10 @@ mod tests {
             &vorbis_comments(b"encoder", &[b"TITLE=Sample"], true),
         ]
         .concat();
-        let mut bytes = ogg_packet_fixture("vorbis", &tags);
+        let mut bytes = ogg_clean_fixture("vorbis", &tags, b"audio");
         let comment_start = ogg_page_end(&bytes, 0);
-        let audio_start = set_ogg_page_flags(&mut bytes, comment_start, 0);
-        bytes.extend(ogg_page(7, 2, 4, &[5], b"audio"));
+        let setup_start = ogg_page_end(&bytes, comment_start);
+        let audio_start = ogg_page_end(&bytes, setup_start);
 
         let valid = parse(&bytes).expect("Ogg signature is recognized");
         assert!(valid.metadata_complete);

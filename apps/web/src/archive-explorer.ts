@@ -6,7 +6,7 @@ import { el, formatBytes } from "./dom";
 import { registerLazyTranslations } from "./i18n";
 import { openReason } from "./knowledge";
 import type { FileModel } from "./model";
-import { archiveIndex, type ArchiveIndex, type ArchiveRow } from "./archive-index";
+import { archiveIndex, type ArchiveIndex, type ArchiveRow, type ArchiveRows } from "./archive-index";
 import { ArchiveList } from "./archive-list";
 import "./styles/archive-explorer.css";
 
@@ -156,7 +156,7 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     const from = folder;
     folder = index.parent(folder) ?? "";
     // Back in the folder above, on the folder just left.
-    const active = Math.max(0, index.list(folder).findIndex((r) => r.kind === "folder" && r.path === from));
+    const active = Math.max(0, index.list(folder).findFolder(from));
     render({ scrollTop: Math.max(0, active - 3) * (list?.rowHeight ?? 36), active });
     // Up turns off at the top: the keyboard goes on to the list instead of nowhere.
     if (up.disabled && document.activeElement === up) list?.focus();
@@ -167,7 +167,7 @@ export function filesView(m: FileModel, hooks: FilesHooks): FilesView {
     if (!index || !list) return;
     const name = names[entry];
     if (name === undefined) return;
-    const at = (rows: ArchiveRow[]) => rows.findIndex((r) => r.kind === "entry" && r.index === entry);
+    const at = (rows: ArchiveRows) => rows.findEntry(entry);
     if (name.endsWith("/")) {
       query = filter.value = "";
       folder = name;

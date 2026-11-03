@@ -424,7 +424,7 @@ export class Drawer {
       msg: "What this email reveals",
     };
     const audioFile = ["mp3", "flac", "ogg"].includes(f.format);
-    const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete);
+    const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete, f.facts);
     const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
     // An email's way from its sender to you, drawn, with what is wrong on it.
@@ -499,7 +499,7 @@ export class Drawer {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
       }
       if (audioFile && !cleanableAudioTags) {
-        group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
+        group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
       }
       if (cleanableAudioTags) group.append(createCleaner(m, this.cleaning, group));
       if (removable) group.append(createCleaner(m, this.cleaning, group));
@@ -646,7 +646,7 @@ export class Drawer {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else if (audioFile && !cleanableAudioTags) {
-      group.append(el("p", "hint", "Read-only metadata inspection. Audio playback and clean copies are not provided."));
+      group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));
     }

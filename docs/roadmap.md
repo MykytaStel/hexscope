@@ -70,16 +70,25 @@ new kind of clean copy. In order:
    compared 1,014 states and 996 screenshots with no pixel differences;
    `sample.png` computed styles also match across its views, screen sizes
    and themes.
-4. **Keyboard and screen reader on the main paths**: open a file, read the
-   answer, make a clean copy, a batch.
-5. **Ogg clean copies.** Vorbis and Opus comments removed and the copy read
-   back, as MP3 and FLAC are; interleaved or incomplete streams stay
+4. **Keyboard and screen reader on the main paths**: done 2026-11-03. An
+   automated browser flow opens a file from the keyboard, checks the live
+   answer, makes and verifies a copy, then reads and saves a batch. Axe passes
+   on the answer, copy report and batch. Physical screen-reader checks remain
+   open.
+5. **Ogg clean copies**: done 2026-11-03. Core replaces complete Vorbis and
+   Opus comments, rebuilds page checksums, reads the copy back and keeps audio
+   packets byte for byte. CLI `clean --verify`, Web and batch support it;
+   multiplexed, incomplete, unsupported and invalid header layouts stay
    read-only.
-6. **Small debts**: a flat archive folder of 100,000 entries keeps about
-   5 MB of rows.
+6. **Small debts**: done 2026-11-03. A heap probe of a flat archive with
+   100,000 filenames retained about 0.94 MB for the index and 8.6 KB for 50
+   visible row objects in local Node 26.11; this synthetic local measurement
+   is not a browser or phone measurement.
 
-Done when: every item above is merged and the author's iPhone checks from
-0.9.0 and 0.10.0 are recorded. The batch privacy mosaic is 0.12's lead.
+Done when: every item above is merged and the automated gates pass. At the
+author's request, physical iPhone and Android checks from 0.9.0 and 0.10.0
+remain explicitly deferred and unverified. The batch privacy mosaic is 0.12's
+lead.
 
 ### 0.10.0 — shipped 2026-11-02
 

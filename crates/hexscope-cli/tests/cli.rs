@@ -192,6 +192,40 @@ fn clean_flac_removes_vorbis_comments_and_verifies_the_retained_stream() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
+#[test]
+fn clean_ogg_opus_verifies_the_written_copy() {
+    let dir = std::env::temp_dir().join(format!("hexscope-clean-ogg-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("song.opus");
+    let output = dir.join("song-clean.opus");
+    let seed = format!(
+        "{}/../hexscope-core/fuzz/seeds/parse_audio/ogg-opus.ogg",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    std::fs::copy(seed, &source).unwrap();
+
+    let (code, out, err) = run(&[
+        "clean",
+        "--verify",
+        "--json",
+        "--out",
+        output.to_str().unwrap(),
+        source.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}{err}");
+    let report: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(report["operation_state"], "written");
+    assert!(report["removed"].to_string().contains("artist"));
+    assert!(report["present"].as_array().unwrap().is_empty());
+    assert!(report["unchecked"].as_array().unwrap().is_empty());
+    let copy = std::fs::read(output).unwrap();
+    let parsed = hexscope_core::audio::parse(&copy).unwrap();
+    assert!(parsed.metadata_complete);
+    assert!(parsed.facts.is_empty());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 fn sha256_hex(bytes: &[u8]) -> String {
     hexscope_core::crypto::sha2::sha256(bytes)
         .iter()

@@ -13,6 +13,9 @@ describe("hasCleanableAudioTags", () => {
     expect(hasCleanableAudioTags("flac", ["FLAC Vorbis comments block"], false)).toBe(false);
     expect(hasCleanableAudioTags("flac", ["FLAC Vorbis comments block"], true)).toBe(false);
     expect(hasCleanableAudioTags("flac", ["FLAC STREAMINFO block"], true)).toBe(false);
-    expect(hasCleanableAudioTags("ogg", ["Vorbis comment packet"], true)).toBe(false);
+    expect(hasCleanableAudioTags("ogg", ["Vorbis comment packet", "Vorbis setup packet (not decoded)"], true, [{ kind: "title" }])).toBe(true);
+    expect(hasCleanableAudioTags("ogg", ["Opus tags packet"], true, [{ kind: "encoder" }])).toBe(true);
+    expect(hasCleanableAudioTags("ogg", ["Opus tags packet"], false, [{ kind: "encoder" }])).toBe(false);
+    expect(hasCleanableAudioTags("ogg", ["Opus tags packet"], true)).toBe(false);
   });
 });

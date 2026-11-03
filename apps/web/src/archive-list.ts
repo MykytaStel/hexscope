@@ -1,6 +1,6 @@
 // A list of archive rows where only the rows in view exist in the DOM: a
 // folder of a hundred thousand files costs the page the same as one of ten.
-import type { ArchiveRow } from "./archive-index";
+import type { ArchiveRow, ArchiveRows } from "./archive-index";
 
 /** Rows drawn beyond the visible window, so fast scrolling shows no gaps. */
 export const OVERSCAN = 8;
@@ -31,7 +31,13 @@ export class ArchiveList {
   private readonly prefix = `archive-row-${++lists}-`;
   /** Fingers need more room than a pointer. */
   private readonly coarse = matchMedia("(pointer: coarse)");
-  private rows: ArchiveRow[] = [];
+  private rows: ArchiveRows = {
+    length: 0,
+    at: () => undefined,
+    findEntry: () => -1,
+    findFolder: () => -1,
+    *[Symbol.iterator](): Iterator<ArchiveRow> {},
+  };
   private activeRow = -1;
   private chosen: number | null = null;
   /** Kept from the last scroll: a hidden list reads 0. */
@@ -62,7 +68,8 @@ export class ArchiveList {
       const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-row]");
       if (!el) return;
       this.activeRow = Number(el.dataset.row);
-      this.hooks.choose(this.rows[this.activeRow]);
+      const row = this.rows.at(this.activeRow);
+      if (row) this.hooks.choose(row);
       this.draw();
     });
     this.box.addEventListener("keydown", (e) => {
@@ -83,7 +90,7 @@ export class ArchiveList {
   }
 
   /** The rows to list; `keep` puts the scroll and the active row back where they were. */
-  setRows(rows: ArchiveRow[], keep?: { scrollTop: number; active: number }): void {
+  setRows(rows: ArchiveRows, keep?: { scrollTop: number; active: number }): void {
     this.rows = rows;
     this.activeRow = Math.min(keep?.active ?? (rows.length ? 0 : -1), rows.length - 1);
     this.layout();
@@ -131,7 +138,8 @@ export class ArchiveList {
     const [from, to] = windowOf(this.box.scrollTop, this.box.clientHeight, h, this.rows.length);
     const frag = document.createDocumentFragment();
     for (let i = from; i < to; i++) {
-      const row = this.rows[i];
+      const row = this.rows.at(i);
+      if (!row) continue;
       const el = document.createElement("div");
       el.className = "archive-row";
       el.id = this.prefix + i;
@@ -167,6 +175,7 @@ export class ArchiveList {
   private key(key: string): boolean {
     const page = Math.max(1, Math.floor(this.box.clientHeight / this.rowHeight) - 1);
     const at = Math.max(0, this.activeRow);
+    const row = this.rows.at(at);
     switch (key) {
       case "ArrowDown":
         this.moveTo(this.activeRow < 0 ? 0 : at + 1);
@@ -188,10 +197,10 @@ export class ArchiveList {
         return true;
       case "Enter":
       case " ":
-        if (this.rows[at]) this.hooks.choose(this.rows[at]);
+        if (row) this.hooks.choose(row);
         return true;
       case "ArrowRight":
-        if (this.rows[at]?.kind === "folder") this.hooks.choose(this.rows[at]);
+        if (row?.kind === "folder") this.hooks.choose(row);
         return true;
       case "ArrowLeft":
       case "Backspace":
