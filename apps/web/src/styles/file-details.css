@@ -517,7 +517,7 @@ kbd {
 
 /* Text a tracked deletion still holds, marked the way Word marks it. */
 .deleted-text {
-  color: var(--tint-error, #e5484d);
+  color: var(--tint-error);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
 }

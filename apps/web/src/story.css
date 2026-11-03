@@ -150,7 +150,7 @@ body.story {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--panel);
-  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-story-player);
   overflow: hidden;
 }
 
@@ -197,7 +197,7 @@ body.story {
     min-height: 0;
     margin: 0 -16px -60px;
     border-radius: 14px 14px 0 0;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-story-player-mobile);
   }
 
   .story-player .player-stage {

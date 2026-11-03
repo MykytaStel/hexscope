@@ -35,4 +35,37 @@ describe("the app's stylesheets", () => {
     }
     expect(overridden).toEqual([]);
   });
+
+  it("define each light and dark palette value once in the shared tokens", () => {
+    const css = postcss.parse(readFileSync(new URL("styles/foundations.css", src), "utf8"));
+    const palette = [
+      "--bg", "--panel", "--panel-2", "--border", "--border-strong", "--text", "--muted", "--faint", "--accent",
+      "--on-accent", "--row-hover", "--row-selected", "--brand-mark-center", "--hex-bg", "--hex-text", "--hex-zero",
+      "--hex-offset", "--tint-sig", "--tint-ihdr", "--tint-plte", "--tint-idat", "--tint-iend", "--tint-text",
+      "--tint-anc", "--tint-gps", "--tint-warning", "--warning-text", "--ok-text", "--tint-error",
+    ];
+
+    for (const token of palette) {
+      const declarations: postcss.Declaration[] = [];
+      css.walkDecls(token, (decl) => { declarations.push(decl); });
+      expect(declarations, token).toHaveLength(1);
+      expect(declarations[0].parent?.type === "rule" ? (declarations[0].parent as postcss.Rule).selector : "", token).toBe(":root");
+      expect(declarations[0].value, token).toMatch(/^light-dark\(/);
+    }
+  });
+
+  it("keep shared chrome, dialogs, articles, and photo tools on foundation colour tokens", () => {
+    const shared = ["styles/chrome.css", "styles/dialog.css", "story.css", "guide.css", "photo-tools.css"];
+    const paintProperties = /^(?:color|background(?:-color)?|border(?:-color)?|outline(?:-color)?|box-shadow|text-shadow|fill|stroke)$/;
+    const rawColour = /#[\da-f]{3,8}\b|\b(?:rgba?|hsla?)\(/i;
+    const found: string[] = [];
+
+    for (const file of shared) {
+      postcss.parse(readFileSync(new URL(file, src), "utf8")).walkDecls((decl) => {
+        if (paintProperties.test(decl.prop) && rawColour.test(decl.value)) found.push(`${file}:${decl.source?.start?.line} ${decl.prop}: ${decl.value}`);
+      });
+    }
+
+    expect(found).toEqual([]);
+  });
 });
