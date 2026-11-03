@@ -34,6 +34,29 @@ impl Report {
             self.utc_date_order
         )
     }
+
+    fn relationship_groups(&self) -> impl Iterator<Item = &[usize]> {
+        self.serial_groups
+            .iter()
+            .map(Vec::as_slice)
+            .chain(self.location_groups.iter().map(Vec::as_slice))
+            .chain((self.local_date_order.len() > 1).then_some(self.local_date_order.as_slice()))
+            .chain((self.utc_date_order.len() > 1).then_some(self.utc_date_order.as_slice()))
+    }
+
+    /// Number of groups that connect more than one input photo.
+    pub fn relationship_group_count(&self) -> usize {
+        self.relationship_groups().count()
+    }
+
+    /// Number of distinct input photos present in any relationship group.
+    pub fn related_file_count(&self) -> usize {
+        let mut indexes = BTreeSet::new();
+        for group in self.relationship_groups() {
+            indexes.extend(group.iter().copied());
+        }
+        indexes.len()
+    }
 }
 fn sphere([lat, lon]: [f64; 2]) -> Option<[f64; 3]> {
     if !lat.is_finite()

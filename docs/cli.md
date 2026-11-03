@@ -275,7 +275,9 @@ them or where they live.
 
 The text output lists each input by index, then prints related indexes as
 `1 → 2` (separate groups use `;`). It does not print serial numbers or
-coordinates. Files that could not be checked are named and reported separately.
+coordinates. Its summary reports checked and unchecked files, distinct files
+in relationships, and relationship-group count. Files that could not be
+checked are named and reported separately.
 
 ## film
 
