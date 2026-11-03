@@ -68,7 +68,8 @@ it was given unless `clean --in-place` says so.
 | `--verify` | clean | Read each written copy back and say what was removed, remains, or could not be checked |
 | `--receipt FILE` | clean with `--verify` | Save an optional value-free, SHA-256-bound receipt for one written copy |
 | `--include-copy-hashes` | batch | Opt in to a distinct receipt schema with a fingerprint for each written copy |
-| `--out DIR` | clean, repair, redact, batch, film | Where the copies go; for one file with `clean` or `repair`, it can name the copy itself |
+| `--clean-related` | mosaic | Make verified copies of unique photos in relationship groups; requires `--out DIR` |
+| `--out DIR` | clean, repair, redact, batch, film, mosaic | Where the copies go; for one file with `clean` or `repair`, it can name the copy itself |
 | `--text WORDS` | redact | What to black out, wherever it appears; give it more than once for more |
 | `--recipe JSON` | film | The [film recipe](#film-recipe) to apply |
 | `--format jpeg\|tiff16` | film | 8-bit JPEG (the default) or 16-bit TIFF |
