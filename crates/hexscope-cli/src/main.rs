@@ -41,7 +41,7 @@ Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
   hexscope clean [options] PATH...    save copies without what they give away
   hexscope receipt verify COPY RECEIPT.json  check a receipt's copy fingerprint offline
-  hexscope mosaic [--json] PATH...    local photo correlations; exported values stay private
+  hexscope mosaic [--json] [--clean-related --out DIR] PATH... local photo correlations and optional clean copies
   hexscope film --recipe JSON --out DIR [--format jpeg|tiff16] PATH...
   hexscope batch [--include-copy-hashes] --out DIR PATH... verified folder copies and a receipt
   hexscope repair [options] PATH...   save copies of damaged files with what survived
