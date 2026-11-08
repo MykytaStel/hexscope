@@ -23,6 +23,40 @@ test("a batch shows value-free format coverage and can focus incomplete reads", 
   await expect(batch.locator(".batch-row", { hasText: "private-photo.png" })).toHaveCount(0);
 });
 
+test("a batch downloads a versioned coverage report without input names", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const coverage = page.locator("#batch .batch-coverage");
+  await coverage.locator("summary").click();
+  await expect(coverage.getByRole("button", { name: "Save coverage report" })).toBeVisible();
+  await expect(coverage).toContainText("no file names or findings");
+  const downloadPromise = page.waitForEvent("download");
+  await coverage.getByRole("button", { name: "Save coverage report" }).click();
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toBe("hexscope-batch-coverage.json");
+  const report = JSON.parse(readFileSync((await download.path())!, "utf8"));
+  expect(report).toEqual({
+    schema: "hexscope.batch-coverage",
+    version: 1,
+    files: { total: 2, read: 2, not_read: 0 },
+    formats: [
+      { format: "png", files: 1, complete: 1, partial: 0, unsupported: 0 },
+      { format: "unknown", files: 1, complete: 0, partial: 0, unsupported: 1 },
+    ],
+  });
+  expect(JSON.stringify(report)).not.toContain("private-photo");
+});
+
 test("a file that cannot be inspected stays visible in the attention filter", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");

@@ -1193,6 +1193,17 @@ body[data-state="batch"] .layout {
   gap: 4px 12px;
 }
 
+.batch-coverage-export {
+  margin-top: 10px;
+}
+
+.batch-coverage-note {
+  max-width: 48em;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .batch-coverage-name {
   color: var(--text);
   font-weight: 600;

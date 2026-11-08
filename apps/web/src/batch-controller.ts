@@ -1,4 +1,4 @@
-import type { BatchItem } from "./batch";
+import type { BatchItem } from "./batch-model";
 import type { CleanCopiesView } from "./batchclean";
 import { currentLocale, translateText } from "./i18n";
 

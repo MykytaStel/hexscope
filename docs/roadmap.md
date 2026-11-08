@@ -28,6 +28,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
+| 0.15.0 | Portable batch reports and reliability fixes | accumulating |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -153,6 +154,20 @@ remain open; those outcomes stay explicitly **Not checked** until measured.
 
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
+
+### 0.15.0 — accumulating
+
+The first candidate adds a downloadable, versioned Web batch coverage report.
+It contains only aggregate file counts and format read statuses, including
+how many batch inputs could not be read; it leaves out file names, paths,
+finding values, sizes and timestamps. The iPhone save/share path for the
+report still needs the author's physical-device check.
+
+The 0.14 audit's remaining maintenance candidates are under consideration:
+remove the batch/photo-mosaic type-only dependency cycle and reduce duplicate
+CI runs without weakening pull-request checks. Android Chrome and read-back
+for Web clean copies over 10 MiB remain evidence-gated; browser emulation
+cannot close those physical-device questions.
 
 ### 0.10.0 — shipped 2026-11-02
 
