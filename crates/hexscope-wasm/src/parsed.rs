@@ -86,6 +86,16 @@ impl Parsed {
         self.metadata_complete
     }
 
+    /// Canonical complete, partial or unsupported read status for the file.
+    #[wasm_bindgen(getter, js_name = coverageStatus)]
+    pub fn coverage_status(&self) -> u8 {
+        hexscope_core::coverage::CoverageStatus::from_format_and_completeness(
+            self.format,
+            self.metadata_complete,
+        )
+        .code()
+    }
+
     /// A photo's EXIF orientation, 1 to 8: how to turn the stored picture
     /// to show it the right way up. 1 when it says nothing.
     #[wasm_bindgen(getter)]

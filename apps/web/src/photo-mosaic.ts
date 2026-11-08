@@ -3,7 +3,7 @@ import { rasterModule } from "./film-core";
 import { saveAs } from "./files";
 import { registerLazyTranslations, currentLocale, translateText } from "./i18n";
 import "./photo-tools.css";
-export interface PhotoSignal { serial: string | null; location: [number, number] | null; taken: string | null }
+export type { PhotoSignal } from "./photo-signal";
 interface MosaicReport { schema: string; version: number; total: number; serial_groups: number[][]; location_groups: number[][]; located_files: number; local_date_order: number[]; utc_date_order: number[] }
 registerLazyTranslations({
   "Photo privacy mosaic": "Мозаїка приватності фото", "Close photo mosaic": "Закрити мозаїку фото", "Save mosaic report": "Зберегти звіт мозаїки",

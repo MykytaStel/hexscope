@@ -81,7 +81,7 @@ def byte(*v): return (1, len(v), bytes(v))
 def undefined(b): return (7, len(b), b)
 
 
-def tiff(thumbnail):
+def tiff(thumbnail, include_gps=True):
     ifd0 = [
         (0x010F, ascii_("hexscope")),
         (0x0110, ascii_("Sample Camera X1")),
@@ -89,8 +89,9 @@ def tiff(thumbnail):
         (0x0131, ascii_("hexscope sample generator")),
         (0x0132, ascii_("2026:06:14 18:32:07")),
         (0x8769, long_(0)),  # Exif IFD, patched below
-        (0x8825, long_(0)),  # GPS IFD, patched below
     ]
+    if include_gps:
+        ifd0.append((0x8825, long_(0)))  # GPS IFD, patched below
     exif = [
         (0x829A, rational((1, 250))),
         (0x829D, rational((18, 10))),
@@ -118,11 +119,14 @@ def tiff(thumbnail):
         (0x0202, long_(len(thumbnail))),
     ]
 
+    if not include_gps:
+        gps = []
+
     size = lambda entries: 2 + 12 * len(entries) + 4
     off0 = 8
     off_exif = off0 + size(ifd0)
     off_gps = off_exif + size(exif)
-    off_ifd1 = off_gps + size(gps)
+    off_ifd1 = off_gps + (size(gps) if include_gps else 0)
     values_at = off_ifd1 + size(ifd1)
 
     # Values first, to know where the thumbnail lands after them.
@@ -131,7 +135,9 @@ def tiff(thumbnail):
 
     def patch(entries, tag, value):
         return [(t, long_(value) if t == tag else v) for t, v in entries]
-    ifd0 = patch(patch(ifd0, 0x8769, off_exif), 0x8825, off_gps)
+    ifd0 = patch(ifd0, 0x8769, off_exif)
+    if include_gps:
+        ifd0 = patch(ifd0, 0x8825, off_gps)
     ifd1 = patch(ifd1, 0x0201, off_thumb)
 
     out = bytearray(b"MM" + struct.pack(">HI", 42, off0))
@@ -152,7 +158,8 @@ def tiff(thumbnail):
 
     write(ifd0, off_ifd1)
     write(exif, 0)
-    write(gps, 0)
+    if include_gps:
+        write(gps, 0)
     write(ifd1, 0)
     return bytes(out + values + thumbnail)
 
@@ -199,6 +206,21 @@ def main():
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(out)
     print(f"wrote {os.path.normpath(path)}: {len(out)} bytes, EXIF {len(block)} bytes, thumbnail {len(thumb)} bytes")
+
+    if not cropped:
+        # A placed photo with personal metadata but no location: the Office
+        # parser reports `photo`, while the public sample above reports
+        # `photoplace`. Both paths need clean-copy read-back evidence.
+        no_gps = b"Exif\0\0" + tiff(thumb, include_gps=False)
+        no_gps_app1 = b"\xFF\xE1" + struct.pack(">H", len(no_gps) + 2) + no_gps
+        fixture = photo[:2] + no_gps_app1 + photo[2:]
+        fixture_path = os.path.join(
+            os.path.dirname(__file__), "..", "crates", "hexscope-core", "tests", "fixtures",
+            "photo-no-location.jpg",
+        )
+        os.makedirs(os.path.dirname(fixture_path), exist_ok=True)
+        open(fixture_path, "wb").write(fixture)
+        print(f"wrote {os.path.normpath(fixture_path)}: {len(fixture)} bytes, no GPS")
 
 
 if __name__ == "__main__":

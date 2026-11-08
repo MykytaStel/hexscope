@@ -1,7 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { shareFile } from "./files";
+import { saveAs, shareFile } from "./files";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const photo = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "film-copy.jpg", { type: "image/jpeg" });
 
@@ -20,4 +24,22 @@ it("tells a dismissed share sheet from one that did not open", async () => {
   await expect(shareFile(photo())).resolves.toBe("failed");
   vi.stubGlobal("navigator", { share: async () => { throw new TypeError("Not a shareable file"); } });
   await expect(shareFile(photo())).resolves.toBe("failed");
+});
+
+it("gives a clean-copy download the media type its filename says", () => {
+  vi.useFakeTimers();
+  let saved: Blob | undefined;
+  const createObjectURL = vi.spyOn(URL, "createObjectURL").mockImplementation((value) => {
+    if (value instanceof Blob) saved = value;
+    return "blob:clean-copy";
+  });
+  const click = vi.fn();
+  vi.stubGlobal("document", {
+    createElement: () => ({ set href(_value: string) {}, set download(_value: string) {}, click }),
+  });
+
+  saveAs("photo-clean.jpg", new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])]));
+
+  expect(createObjectURL).toHaveBeenCalledOnce();
+  expect(saved?.type).toBe("image/jpeg");
 });

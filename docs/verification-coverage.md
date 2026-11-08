@@ -31,7 +31,7 @@ file, such as a photo in a document, is not covered.
 | `office97` | title, subject, author, editor, keywords, description, category, created, modified, revisions, company, manager, application, editing, template |
 | `rtf` | title, subject, author, editor, manager, company, category, keywords, description, created, modified, printed, revisions, editing, application, template, custom, tracked, deleted, comments |
 | `svg` | original, links, software, author, company, title, created, description, keywords, embedded, photoplace |
-| `mp3` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
+| `mp3` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, comment, audio-tag |
 | `flac` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 | `ogg` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 <!-- coverage:end -->
@@ -85,7 +85,8 @@ Why each row can be trusted:
 - **MP3**: leading ID3v2 tags and trailing APE, ID3v1 Plus and ID3v1 tags are
   removed as whole blocks; compressed MPEG frames are copied byte for byte.
   Only listed metadata kinds can be confirmed, and only when both parses are
-  complete.
+  complete. User-defined ID3 `TXXX` frames remain uninspected, so the MP3
+  contract does not claim Vorbis-only `organization` or `location` findings.
 - **FLAC**: Vorbis comments and whole picture blocks are removed; STREAMINFO,
   padding, seek tables and compressed audio frames stay byte for byte. A
   complete parse is required, so uninspected application, cue sheet or
@@ -123,6 +124,14 @@ version 1 schema and stable machine reason codes; scripts do not need to change.
 - [`verification.rs`](../crates/hexscope-core/src/verification.rs) owns the
   capability list and tests that its exact combinations match the decision
   gate, while unknown kinds, formats, and scopes remain uncovered.
+- [`coverage_evidence.rs`](../crates/hexscope-core/tests/coverage_evidence.rs)
+  cleans each complete corpus input, reads the copy back, and checks every
+  covered finding present in that input. The value-free output reports the
+  number of finding kinds exercised per format. It also builds complete
+  ID3, FLAC-comment and Ogg Vorbis streams in memory. The less common Office
+  97 properties have a focused property-set blank/read-back test, paired with
+  the compound-file cleaner's read-back test. The synthetic Office fixture is
+  reproducible with `scripts/make-verification-fixtures.py` on macOS.
 - [`verification.test.ts`](../apps/web/src/verification.test.ts) checks that
   every stable core reason decodes into its intended user-facing status and
   explanation.

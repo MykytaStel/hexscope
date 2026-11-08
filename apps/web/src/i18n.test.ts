@@ -8,6 +8,22 @@ import { OTHERS, READS } from "./verdict";
 registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy.": "У копії залишилося інше значення." });
 
 describe("the interface language", () => {
+  it("translates local batch coverage and its read statuses", () => {
+    expect(translateText("Coverage by format", "uk")).toBe("Покриття за форматами");
+    expect(translateText("complete", "uk")).toBe("повністю прочитано");
+    expect(translateText("partial", "uk")).toBe("прочитано частково");
+    expect(translateText("unsupported", "uk")).toBe("не підтримується");
+    expect(translateText("Incomplete", "uk")).toBe("Перевірено не повністю");
+    expect(translateText("Incomplete · 1", "uk")).toBe("Перевірено не повністю · 1");
+  });
+
+  it("explains which feedback details are saved", () => {
+    expect(translateText(
+      "Also sent: hexscope version, your browser and system, this page and your language. The saved message has no IP address. The file itself is never sent.",
+      "uk",
+    )).toBe("Також надсилаються: версія hexscope, браузер і система, сторінка та вибрана мова. У збереженому повідомленні немає IP-адреси. Сам файл не надсилається.");
+  });
+
   it("preserves whitespace-only text nodes when translating", () => {
     expect(translateText(" ", "uk")).toBe(" ");
     expect(translateText("\n  \t", "uk")).toBe("\n  \t");

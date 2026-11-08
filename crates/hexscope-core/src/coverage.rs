@@ -19,16 +19,22 @@ pub enum CoverageStatus {
 }
 
 impl CoverageStatus {
-    /// Classify a parser summary without treating an unrecognized file as a
-    /// complete read merely because its bytes have been accounted for.
-    pub fn from_summary(summary: &Summary) -> Self {
-        if summary.format == "unknown" {
+    /// Classify one parser result. An unknown byte tree can be complete as a
+    /// byte map while still being unsupported for format-aware inspection.
+    pub fn from_format_and_completeness(format: &str, complete: bool) -> Self {
+        if format == "unknown" {
             Self::Unsupported
-        } else if summary.complete {
+        } else if complete {
             Self::Complete
         } else {
             Self::Partial
         }
+    }
+
+    /// Classify a parser summary without treating an unrecognized file as a
+    /// complete read merely because its bytes have been accounted for.
+    pub fn from_summary(summary: &Summary) -> Self {
+        Self::from_format_and_completeness(summary.format, summary.complete)
     }
 
     /// Stable, lowercase name for machine-readable reports.
@@ -37,6 +43,16 @@ impl CoverageStatus {
             Self::Complete => "complete",
             Self::Partial => "partial",
             Self::Unsupported => "unsupported",
+        }
+    }
+
+    /// Compact, stable code for browser interfaces: complete 0, partial 1,
+    /// unsupported 2.
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::Complete => 0,
+            Self::Partial => 1,
+            Self::Unsupported => 2,
         }
     }
 }
@@ -153,5 +169,24 @@ mod tests {
             rows.iter()
                 .all(|row| { row.files == row.complete + row.partial + row.unsupported })
         );
+    }
+
+    #[test]
+    fn classifies_read_status_from_format_and_parser_completeness() {
+        assert_eq!(
+            CoverageStatus::from_format_and_completeness("jpeg", true),
+            CoverageStatus::Complete
+        );
+        assert_eq!(
+            CoverageStatus::from_format_and_completeness("pdf", false),
+            CoverageStatus::Partial
+        );
+        assert_eq!(
+            CoverageStatus::from_format_and_completeness("unknown", true),
+            CoverageStatus::Unsupported
+        );
+        assert_eq!(CoverageStatus::Complete.code(), 0);
+        assert_eq!(CoverageStatus::Partial.code(), 1);
+        assert_eq!(CoverageStatus::Unsupported.code(), 2);
     }
 }

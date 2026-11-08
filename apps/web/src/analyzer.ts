@@ -991,6 +991,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchA
   return {
     kind: kindOf(parsed),
     format: parsed.file.format,
+    coverage: parsed.file.coverageStatus,
     hasRemovableMetadata: hasCleanableAudioTags(parsed.file.format, parsed.file.labels, parsed.file.metadataComplete, parsed.file.facts),
     lines: verdict(parsed),
     headline: headline(parsed),

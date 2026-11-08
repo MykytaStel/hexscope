@@ -202,7 +202,16 @@ export function phoneCanShare(name = "photo.jpg"): boolean {
 
 /** Hands bytes, or a finished archive, to the browser as a download. */
 export function saveAs(name: string, data: Uint8Array | Blob): void {
-  const blob = data instanceof Blob ? data : new Blob([data.slice() as BlobPart]);
+  const inferredType = typeOf(name);
+  // Clean copies from the worker have no Blob type. Keep an iOS download
+  // recognizable even on Safari builds that drop the anchor's download name.
+  let blob: Blob;
+  if (data instanceof Blob) {
+    if (data.type || !inferredType) blob = data;
+    else blob = new Blob([data], { type: inferredType });
+  } else {
+    blob = new Blob([data.slice() as BlobPart], { type: inferredType });
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

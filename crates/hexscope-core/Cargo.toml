@@ -47,7 +47,7 @@ strings = []
 audio = []
 
 [dependencies]
-hexscope-inflate = { path = "../hexscope-inflate", version = "0.13.0" }
+hexscope-inflate = { path = "../hexscope-inflate", version = "0.14.0" }
 
 [dev-dependencies]
 flate2 = "1"

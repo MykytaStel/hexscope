@@ -3,10 +3,14 @@
 // No DOM and no worker globals, so it runs in tests as it runs in the
 // worker.
 import type { Parsed } from "./wasm-pdf/hexscope_pdf.js";
-import type { Blackout, PageArea, ParsedFile } from "./model";
+import type { Blackout, CoverageStatus, PageArea, ParsedFile } from "./model";
 
 /** Joins the strings the WebAssembly side packs into one. */
 export const SEPARATOR = "\u001f";
+
+function coverageStatus(code: number): CoverageStatus {
+  return code === 0 ? "complete" : code === 1 ? "partial" : "unsupported";
+}
 
 /** Reads everything the page needs out of a parsed document. */
 export function describe(parsed: Parsed): ParsedFile {
@@ -32,6 +36,7 @@ export function describe(parsed: Parsed): ParsedFile {
     missing: new Float64Array(0),
     format: parsed.format as ParsedFile["format"],
     metadataComplete: parsed.metadataComplete,
+    coverageStatus: coverageStatus(parsed.coverageStatus),
     dimensions: null,
     orientation: parsed.orientation,
     facts: [],

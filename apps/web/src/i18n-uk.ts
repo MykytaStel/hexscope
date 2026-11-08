@@ -66,7 +66,7 @@ const UK: Record<string, string> = {
   "Email or Telegram, if you want an answer — optional": "Email або Telegram, якщо хочете відповідь, — не обов’язково",
   "Attach the open file's structure — its layout, none of its content": "Додати структуру відкритого файла — будову, без жодного вмісту",
   "See exactly what is attached": "Подивитися, що саме буде додано",
-  "Also sent: the version of hexscope, your browser and system in two words, and this page's address. Never your file, never your IP address.": "Також надсилається: версія hexscope, ваш браузер і система двома словами та адреса цієї сторінки. Ніколи — ваш файл чи IP-адреса.",
+  "Also sent: hexscope version, your browser and system, this page and your language. The saved message has no IP address. The file itself is never sent.": "Також надсилаються: версія hexscope, браузер і система, сторінка та вибрана мова. У збереженому повідомленні немає IP-адреси. Сам файл не надсилається.",
   "Send": "Надіслати",
   "hexscope is made by one person. A problem you met, an idea, a word of thanks — it is read, and it makes the next version better.": "hexscope робить одна людина. Проблема, ідея чи подяка — усе прочитаю, і наступна версія стане кращою.",
   "Write a few words first.": "Спершу напишіть кілька слів.",
@@ -171,6 +171,11 @@ const UK: Record<string, string> = {
   "The word 'byte' written once, then a back-reference pointing ten bytes back instead of writing it again.": "Слово «byte» записане один раз, а далі замість повтору — посилання на десять байтів назад.",
   "Examples": "Приклади",
   "Formats": "Формати",
+  "Coverage by format": "Покриття за форматами",
+  "complete": "повністю прочитано",
+  "partial": "прочитано частково",
+  "unsupported": "не підтримується",
+  "Incomplete": "Перевірено не повністю",
   "Menu": "Меню",
   "Local processing.": "Обробка локально.",
   "Nothing is uploaded; your file stays in this tab.": "Нічого не передається: файл залишається в цій вкладці.",
@@ -1263,8 +1268,8 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "пошкоджений", "пошкоджені", "пошкоджених")}`;
   match = /^(\d+) not fully checked$/.exec(value);
   if (match) return `${match[1]} не повністю перевірено`;
-  match = /^(All|Give something away|Needs attention) · (\d+)$/.exec(value);
-  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги" }[match[1]]} · ${match[2]}`;
+  match = /^(All|Give something away|Needs attention|Incomplete) · (\d+)$/.exec(value);
+  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги", Incomplete: "Перевірено не повністю" }[match[1]]} · ${match[2]}`;
   match = /^Select all (\d+) cleanable files?$/.exec(value);
   if (match) return `Вибрати всі ${match[1]} ${ukrainianCountWord(Number(match[1]), "файл, придатний для очищення", "файли, придатні для очищення", "файлів, придатних для очищення")}`;
   match = /^\+(\d+) more$/.exec(value);

@@ -2,7 +2,8 @@
 // without an account. What goes is what the person sees in the dialog —
 // their words, a way to answer if they give one, the open file's structure
 // report if they tick it (its layout, none of its content) — and nothing
-// else: not the file, not an address. Kept by server/feedback.ts.
+// else: the saved record has no file contents or IP-address field. Kept by
+// server/feedback.ts.
 import { dismissable } from "./dialogs";
 import { currentLocale, translateText } from "./i18n";
 
@@ -107,7 +108,6 @@ export function openFeedback(options: { kind?: Kind; report?: string } = {}): vo
   const attach = el("label", "feedback-attach");
   const box = el("input");
   box.type = "checkbox";
-  box.checked = Boolean(options.report);
   attach.append(box, el("span", undefined, "Attach the open file's structure — its layout, none of its content"));
   const preview = el("details", "feedback-preview");
   const shown = el("textarea", "report-text");
@@ -118,7 +118,7 @@ export function openFeedback(options: { kind?: Kind; report?: string } = {}): vo
 
   const device = deviceName(navigator.userAgent);
   const version = typeof __VERSION__ === "string" ? __VERSION__ : "dev";
-  const also = el("p", "hint", "Also sent: the version of hexscope, your browser and system in two words, and this page's address. Never your file, never your IP address.");
+  const also = el("p", "hint", "Also sent: hexscope version, your browser and system, this page and your language. The saved message has no IP address. The file itself is never sent.");
   const status = el("p", "feedback-status");
   status.setAttribute("role", "status");
 

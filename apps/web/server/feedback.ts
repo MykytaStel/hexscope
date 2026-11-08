@@ -1,7 +1,8 @@
 // What a person sends from "Report a problem" or "Send an idea": their words,
 // how to answer them if they leave a way, and — only if they tick the box —
 // the open file's structure report, which has its layout and none of its
-// content. No address, no cookie, no file. Read by the site's author alone:
+// content. The saved message has no IP address field, and no file is sent.
+// Read by the site's author alone:
 // `pnpm feedback` (scripts/feedback.mjs).
 
 export const KINDS = ["bug", "idea", "thanks"] as const;

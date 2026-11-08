@@ -27,6 +27,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.11.0 | Hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | shipped 2026-11-03 |
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
+| 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | in progress; date TBD |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -132,6 +133,38 @@ report-only run available.
 This scorecard describes the supplied local files, not parser accuracy or a
 safety certification. A reusable per-format corpus with expected findings,
 clean-copy readback and quality regression gates remains future work.
+
+### 0.14.0 — in progress after the repository audit
+
+Make format coverage useful in the browser and make clean-copy confidence
+measurable across supported formats and mobile devices:
+
+- Show complete, partial and unsupported counts by format in a local batch;
+  let a person focus the list on files that need attention. Keep reports free
+  of names and finding values.
+- Add a deterministic, redistributable fixture matrix for parser completeness,
+  expected findings and every advertised clean-copy removal capability. Make
+  CI report regressions by format and refuse false `Removed` claims.
+- Measure memory and read-back verification on physical iOS Safari and Android
+  Chrome. The Web currently skips read-back for copies over 10 MiB; keep those
+  outcomes explicitly **Not checked** unless a measured implementation can
+  verify them within a device budget.
+- Make the optional structure report opt-in by default, and align privacy
+  wording with the exact feedback fields and the site's aggregate visit counts.
+- Add Rust and JavaScript dependency advisory checks to CI; the 2026-11-08
+  audit found no current Cargo or pnpm advisories.
+
+The candidate branch now includes the batch coverage view, opt-in feedback,
+mobile download type fixes, scheduled dependency scans, and a clean-copy
+scorecard that reports all 14 format rows. Its fixture corpus covers every
+advertised finding kind using full-file read-back or a focused property-set
+test. A physical iPhone check confirmed the clean-copy save/share path works;
+Android Chrome remains untested because no Android phone is available.
+Large-copy verification above 10 MiB and the remaining physical-device matrix
+stay open until measured on the relevant devices.
+
+The full audit, evidence, secondary maintenance candidates and release gates
+are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
 ### 0.10.0 — shipped 2026-11-02
 
@@ -311,7 +344,7 @@ Hexscope should help a person understand what a file reveals before they share i
 
 ## Principles
 
-- **Local by default:** no file uploads, accounts, telemetry, or server-side inspection. The website counts visitors as daily totals only — no cookie, id or address, nothing about files — read only by the maintainer, from the database (`pnpm stats`).
+- **Local by default:** no file uploads, accounts, user-level tracking, or server-side file inspection. The site stores aggregate visit counts by country, page, device class, language and referring host; it stores no cookie, user ID or IP address in those totals. A feedback message stores the chosen kind and text, optional contact and structure report, page, language, version and browser/system; no file contents or IP address are stored with the message. The maintainer reads stored counts and feedback (`pnpm stats`, `pnpm feedback`).
 - **Evidence before verdict:** explain what was read, what was changed, and what could not be checked.
 - **One core, several interfaces:** keep format facts and conservative decisions in Rust core; expose consistent results to the Web, CLI, and GitHub Action.
 - **Copies stay under user control:** never silently alter the source; keep a successfully produced copy available when post-write verification is incomplete, and refuse to produce one when source content cannot be inspected safely.
