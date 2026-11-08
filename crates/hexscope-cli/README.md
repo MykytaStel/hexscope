@@ -13,6 +13,7 @@ Check a file and fail the command when it reveals a location:
 
 ```sh
 hexscope check --fail-on location photo.jpg
+hexscope coverage --json photos/
 ```
 
 Save a clean copy, repair a damaged image, or redact text in a PDF:
@@ -27,6 +28,11 @@ Use `--json` for one JSON record per file or `--sarif` for a SARIF 2.1.0
 report that GitHub Code Scanning can ingest. `--help` lists all commands,
 options and exit codes. By default, `check` exits non-zero for reveals,
 hidden content or damage; choose `--fail-on` to tune a CI gate.
+`coverage` reports complete, partial and unsupported reads by format, along
+with input sizes and elapsed time. Its JSON output includes no file names or
+finding values. By default, `check` also fails when it cannot read a file as a
+supported format; `--fail-on none` reports without failing.
+
 What stays the same from one version to the next — commands, options, exit
 status, and the fields of the JSON and SARIF — is in
 [the command line's contract](https://github.com/MykytaStel/hexscope/blob/main/docs/cli.md).

@@ -25,7 +25,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.9.0 | A lighter page until a file is chosen, large files on phones, sharing from the film lab, browsing large archives | GitHub Release published 2026-10-30; Homebrew tap updated 2026-11-01 |
 | 0.10.0 | Chained Ogg metadata, safer audio clean copies, Ultra HDR clean copies, batch usability and core reliability | shipped 2026-11-02 |
 | 0.11.0 | Hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | shipped 2026-11-03 |
-| 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | release candidate; tag and publication pending |
+| 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Trustworthy format coverage scorecard, backed by a local corpus and CI gates | planned; no physical-phone gate |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
@@ -117,8 +117,8 @@ makes those relationships actionable in the browser batch:
   explicit. Physical-device checks stay deferred.
 
 The implementation is merged and the post-merge CI and site deploy pass. The
-0.12.0 tag and package publication are pending; physical iPhone and Android
-checks remain explicitly deferred.
+0.12.0 release, its packages and Homebrew update are complete; physical iPhone
+and Android checks remain explicitly deferred.
 
 ### 0.13.0 — planned
 
@@ -130,9 +130,13 @@ coverage scorecard:
 - Track parser completeness, positive and negative findings, clean-copy
   readback, explicit unchecked cases, runtime and artifact size per format.
 - Add a stable core contract and a value-free CLI report so people and CI can
-  see the same supported claims and their limits.
+  see the same supported claims and their limits. `hexscope coverage` reports
+  complete, partial and unsupported reads by format, with input bytes and
+  elapsed time; the core crate exposes the typed aggregate.
 - Gate regressions that would turn an unchecked or incomplete result into
-  false reassurance. Keep performance and bundle budgets visible per format.
+  false reassurance, using explicit corpus expectations for findings and
+  clean-copy readback. Keep runtime and input-size measurements visible by
+  format, alongside the existing WebAssembly bundle budgets.
 - Do not present the scorecard as a safety certification or a single accuracy
   percentage. Physical-device testing is not a release gate for this scope.
 

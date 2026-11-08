@@ -29,6 +29,11 @@ email and CFB parsing. The optional `audio` feature reads MP3, FLAC and Ogg
 metadata without decoding audio. Disable default features for the smaller
 images-and-video parser.
 
+`summary::summarize` reports whether a supported file was read completely.
+`coverage::CoverageScorecard` aggregates those results by format, along with
+input byte counts and elapsed time, without retaining file names or finding
+values.
+
 Supported top-level formats include PNG, JPEG, HEIF, WebP, GIF, TIFF, SVG,
 video, PDF, ZIP, RTF, WebAssembly, EML and CFB; MP3, FLAC and Ogg tags are
 available with the `audio` feature. Coverage varies within each format;

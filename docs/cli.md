@@ -28,6 +28,7 @@ for people and get better as the wording does.
 | Command | What it does | What it writes |
 | --- | --- | --- |
 | `hexscope check PATH...` | What each file gives away, and what is wrong with it | Nothing; it reports |
+| `hexscope coverage PATH...` | How completely each format in a local set was read | Nothing; it reports aggregate counts |
 | `hexscope PATH...` | The same as `check` | Nothing |
 | `hexscope clean PATH...` | Copies without what they give away | `NAME-clean.EXT` beside each file, or into `--out` |
 | `hexscope receipt verify COPY RECEIPT.json` | Checks whether a copy has the bytes named in its receipt | Nothing; it reports |
@@ -49,7 +50,8 @@ sorted order, leaving out `.git`, `node_modules`, `target`, `.venv` and
 with exit status 2, so a run that skipped files cannot look complete.
 A file of a format hexscope does not read is left out of `check`'s list
 unless `--all` is given, but never out of its count: the last line says how
-many were not read, by extension. `batch`, `mosaic` and `film` take up to
+many were not read, by extension. An unread file fails the default
+`incomplete` check; `--fail-on none` reports it without failing. `batch`, `mosaic` and `film` take up to
 1000 files of up to 50 MiB each.
 Every copy is written whole or not at all, and no command changes a file
 it was given unless `clean --in-place` says so.
@@ -60,7 +62,7 @@ it was given unless `clean --in-place` says so.
 | Option | Commands | Meaning |
 | --- | --- | --- |
 | `--fail-on WHAT` | check | Exit 1 when a file has any of `WHAT`, a comma-separated list of `reveals`, `hidden`, `damage`, `incomplete`, `oddity`, `misnamed` and [kinds of finding](#kinds-of-finding). Default `reveals,hidden,damage,incomplete`; `none` never fails |
-| `--json` | check, mosaic; clean with `--verify` | JSON instead of text |
+| `--json` | check, coverage, mosaic; clean with `--verify` | JSON instead of text |
 | `--sarif` | check | One SARIF 2.1.0 log for all files |
 | `--all` | check | Also list files hexscope does not read, and files with nothing to say |
 | `--in-place` | clean | Replace each file with its clean copy |
@@ -85,7 +87,7 @@ ignored.
 
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
-| `check` | No file has what `--fail-on` names | A file has it | A usage error, a path that cannot be read, a symbolic link |
+| `check` | No file has what `--fail-on` names | A file has it, including a format hexscope cannot read when `incomplete` is selected | A usage error, a path that cannot be read, a symbolic link |
 | `clean` | Every copy that could be made was written; files with nothing to remove, or of a kind it does not clean, do not count | A copy could not be made; with `--verify`, also a finding still present or not checked, or no copy at all | A usage error; two files would get one name; a copy would overwrite a file given; a file that cannot be read or written |
 | `repair`, `redact` | As `clean` | A copy could not be made | As `clean`; `repair --in-place`; `redact` without `--text` |
 | `batch` | Every copy written and every finding confirmed removed | A file not copied, or a finding present or not checked | A usage error; the output folder already holds a receipt or a copy |
@@ -95,6 +97,24 @@ ignored.
 
 `hexscope` with nothing after it prints the usage and exits 2; `--help` and
 `--version` exit 0.
+
+## coverage
+
+`hexscope coverage PATH...` reads files and folders like `check` and reports
+per-format counts for complete, partial and unsupported reads, input bytes and
+elapsed time. The report contains no file names or finding values and does not
+change any files. Use `--json` for the versioned, value-free
+`hexscope.format-coverage` schema:
+
+```json
+{"schema":"hexscope.format-coverage","version":1,"files":2,"bytes":348,"elapsed_microseconds":125,"formats":[{"format":"jpeg","files":1,"complete":1,"partial":0,"unsupported":0,"bytes":340,"elapsed_microseconds":110},{"format":"unknown","files":1,"complete":0,"partial":0,"unsupported":1,"bytes":8,"elapsed_microseconds":15}]}
+```
+
+Format rows are sorted by name. `complete`, `partial` and `unsupported` add
+up to `files` in each row. Runtime measurements describe this local run and
+are not performance guarantees. This reports parser reads; the separately
+verified clean-copy claims are listed in
+[verification coverage](verification-coverage.md).
 
 ## check --json
 
@@ -110,7 +130,7 @@ One JSON object per file, one per line, in the order the files were read:
 | `format` | One of the [formats](#formats) |
 | `problems` | What is wrong with it: `code` (the stable explanation code), `message` (the same wording as the page), `label` (the parser's structural detail), `concern` (`damage`, `hidden` or `oddity`), and where — `offset` and `length` in bytes |
 | `reveals` | What it gives away: `kind` (one of the [kinds of finding](#kinds-of-finding)) and `text`, the value as the file holds it |
-| `complete` | Only when `false`: a supported metadata structure was malformed, too large, or not fully inspected; an omitted field means the read was complete |
+| `complete` | Only when `false`: a supported structure was malformed, too large, or not fully inspected, or the format was not recognized; an omitted field means the supported read was complete |
 | `misnamed` | Only when its name says another format: `ext` (the name's extension, lower case, no dot), `is` (what the file is, in words) and `fits` (the extension that fits, with its dot) |
 
 `text` is what the file says — a name, a place, a serial number. JSON is
@@ -354,5 +374,6 @@ more.
 <!-- kinds:end -->
 
 `--fail-on` also takes the groups `reveals` (any kind), `hidden`, `damage`,
-`incomplete` (a supported structure was not fully read), `oddity` and
+`incomplete` (a supported structure was not fully read, or the format is not
+recognized), `oddity` and
 `misnamed`.

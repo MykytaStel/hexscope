@@ -67,6 +67,7 @@ copy is one right-click away; `hexscope menu --remove` takes it away.
 
 ```sh
 hexscope check photos/                              # inspect files in a folder
+hexscope coverage photos/ --json                    # value-free format coverage report
 hexscope check --fail-on location,serial photos/    # choose what fails the check
 hexscope check --fail-on misnamed uploads/          # a Word file named .pdf, a HEIC named .jpg
 hexscope clean --out clean/ photos/                 # write clean copies separately
@@ -75,11 +76,13 @@ hexscope redact --text "Private Name" report.pdf    # redact matching PDF text
 ```
 
 `check` reads files and folders recursively. By default, it exits with `1` when
-it finds disclosures, hidden content or damage; `--fail-on` can select finding
-types, and `--fail-on none` reports without failing. Exit `2` means a usage or
-file error. Symlinks and unreadable folders stop the scan with an error rather
-than being silently skipped. Use `--json` for newline-delimited JSON or `--sarif`
-for SARIF 2.1.0.
+it finds disclosures, hidden content, damage or a file it cannot read as a
+supported format; `--fail-on` can select what fails, and `--fail-on none`
+reports without failing. `coverage` gives value-free counts of complete,
+partial and unsupported reads by format, input size and elapsed time. Exit `2`
+means a usage or file error. Symlinks and unreadable folders stop the scan with
+an error rather than being silently skipped. Use `--json` for newline-delimited
+JSON or `--sarif` for SARIF 2.1.0.
 Run `hexscope --help` for all options; what stays the same from one version
 to the next — options, exit status, JSON and SARIF — is in
 [docs/cli.md](docs/cli.md). Clean and repaired files are written as
