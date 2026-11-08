@@ -19,6 +19,9 @@ change; `node scripts/changelog.mjs` shows it as it will read here.
   batch**, then focus the list on files that could not be fully checked.
 - **Use one shared read-status classifier in the core and WebAssembly**, so
   the browser, CLI and core agree on unknown and incomplete inputs.
+- **Keep a clean-copy evidence scorecard in CI.** Complete fixtures and
+  focused core tests cover each advertised removal kind; the log prints only
+  per-format counts, never metadata values.
 
 ### Changed
 
@@ -26,6 +29,9 @@ change; `node scripts/changelog.mjs` shows it as it will read here.
   must choose to attach it.
 - **The feedback form names the details saved with a message**, including its
   language and that no file contents or IP address are stored with it.
+- **Only claim MP3 fields the ID3 reader can inspect.** User-defined ID3 text
+  remains incomplete, and Vorbis-only location and organization are no longer
+  in the MP3 clean-copy contract.
 
 ### Fixed
 

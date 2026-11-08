@@ -190,6 +190,23 @@ const AUDIO: &[&str] = &[
     "audio-tag",
 ];
 
+/// ID3 text frames do not expose Vorbis-only organization or location names:
+/// TXXX user-defined frames are deliberately left uninspected.
+const MP3_AUDIO: &[&str] = &[
+    "title",
+    "artist",
+    "album",
+    "album-artist",
+    "year",
+    "track",
+    "disc",
+    "genre",
+    "composer",
+    "encoder",
+    "comment",
+    "audio-tag",
+];
+
 /// Canonical clean-copy removal contract shared by the core, Web, and CLI:
 /// each format and the file-scoped findings it covers. Reports outside these
 /// exact combinations remain `present` or `unchecked`.
@@ -205,7 +222,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("office97", OFFICE97),
     ("rtf", RTF),
     ("svg", SVG),
-    ("mp3", AUDIO),
+    ("mp3", MP3_AUDIO),
     ("flac", AUDIO),
     ("ogg", AUDIO),
 ];
@@ -661,7 +678,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             tuples.len(),
-            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14 + 14
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14 + 12
         );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));
@@ -673,6 +690,8 @@ mod tests {
         assert!(!covered("zip", "comments", "file"));
         assert!(!covered("gif", "caption", "file"));
         assert!(!covered("svg", "scripts", "file"));
+        assert!(!covered("mp3", "organization", "file"));
+        assert!(!covered("mp3", "location", "file"));
     }
 
     /// The coverage table in docs/verification-coverage.md, as this contract
@@ -1094,8 +1113,10 @@ mod tests {
                 "author",
                 "created",
                 "history",
+                "keywords",
                 "modified",
                 "producer",
+                "subject",
                 "title"
             ]
         );

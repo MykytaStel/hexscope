@@ -99,6 +99,7 @@ def report():
     w.obj(5, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     w.obj(6, b"<< /Type /Metadata /Subtype /XML /Length %d >>" % len(XMP), XMP)
     w.obj(7, b"<< /Title (Quarterly plan) /Author (Olena Koval)\n"
+             b"   /Subject (Quarterly planning) /Keywords (finance, draft)\n"
              b"   /Creator (Sample Writer 3.1) /Producer (hexscope sample generator)\n"
              b"   /CreationDate (D:20260302091400+02'00') >>")
     first = w.xref(range(0, 8),
@@ -110,6 +111,7 @@ def report():
     w.obj(4, b"<< /Length %d /Filter /FlateDecode >>" % len(content), content)
     w.obj(7, b"<< /Title <FEFF0051007500610072007400650072006C007900200070006C0061006E0020002D00200076003200>\n"
              b"   /Author (Olena Koval) /Creator (Sample Writer 3.1)\n"
+             b"   /Subject (Quarterly planning) /Keywords (finance, draft)\n"
              b"   /Producer (hexscope sample generator)\n"
              b"   /CreationDate (D:20260302091400+02'00') /ModDate (D:20260305174210+02'00') >>")
     w.xref([0, 4, 7],

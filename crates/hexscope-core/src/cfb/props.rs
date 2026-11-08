@@ -195,3 +195,134 @@ pub(crate) fn blanks(stream: &[u8]) -> Vec<(usize, usize)> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DOCUMENT, SUMMARY, VT_FILETIME, VT_I2, VT_LPSTR, blanks, facts};
+
+    fn u32le(out: &mut Vec<u8>, value: u32) {
+        out.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn u64le(out: &mut Vec<u8>, value: u64) {
+        out.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn string_property(id: u32, value: &str) -> (u32, Vec<u8>) {
+        let bytes = value.as_bytes();
+        let mut out = VT_LPSTR.to_le_bytes().to_vec();
+        u32le(&mut out, bytes.len() as u32 + 1);
+        out.extend_from_slice(bytes);
+        out.push(0);
+        (id, out)
+    }
+
+    fn time_property(id: u32, value: u64) -> (u32, Vec<u8>) {
+        let mut out = VT_FILETIME.to_le_bytes().to_vec();
+        u64le(&mut out, value);
+        (id, out)
+    }
+
+    fn set(properties: &[(u32, Vec<u8>)]) -> Vec<u8> {
+        let mut out = vec![0; 8 + properties.len() * 8];
+        u32le_at(&mut out, 4, properties.len() as u32);
+        for (index, (id, value)) in properties.iter().enumerate() {
+            let entry = 8 + index * 8;
+            u32le_at(&mut out, entry, *id);
+            let offset = out.len() as u32;
+            u32le_at(&mut out, entry + 4, offset);
+            out.extend_from_slice(value);
+            while !out.len().is_multiple_of(4) {
+                out.push(0);
+            }
+        }
+        let len = out.len() as u32;
+        u32le_at(&mut out, 0, len);
+        out
+    }
+
+    fn u32le_at(out: &mut [u8], at: usize, value: u32) {
+        out[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+
+    fn stream(fmtid: &[u8; 16], properties: &[(u32, Vec<u8>)]) -> Vec<u8> {
+        let property_set = set(properties);
+        let base = 48u32;
+        let mut out = vec![0xFE, 0xFF, 0, 0, 0, 0, 0, 0];
+        out.extend_from_slice(&[0; 16]);
+        out.extend_from_slice(&1u32.to_le_bytes());
+        out.extend_from_slice(fmtid);
+        out.extend_from_slice(&base.to_le_bytes());
+        out.extend_from_slice(&property_set);
+        out
+    }
+
+    #[test]
+    fn every_office97_property_kind_has_a_blankable_read_back_span() {
+        let filetime = 132_537_600_000_000_000;
+        let mut codepage = VT_I2.to_le_bytes().to_vec();
+        codepage.extend_from_slice(&1252u16.to_le_bytes());
+        codepage.extend_from_slice(&[0; 2]);
+        let mut summary = stream(
+            &SUMMARY,
+            &[
+                (1, codepage),
+                string_property(2, "Title"),
+                string_property(3, "Subject"),
+                string_property(4, "Author"),
+                string_property(5, "Keywords"),
+                string_property(6, "Description"),
+                string_property(7, "Template"),
+                string_property(8, "Editor"),
+                string_property(9, "3"),
+                time_property(10, 3_600_000_000),
+                time_property(12, filetime),
+                time_property(13, filetime + 60_000_000),
+                string_property(18, "Office"),
+            ],
+        );
+        let mut document = stream(
+            &DOCUMENT,
+            &[
+                string_property(2, "Category"),
+                string_property(14, "Manager"),
+                string_property(15, "Company"),
+            ],
+        );
+        let mut before = facts(&summary);
+        before.extend(facts(&document));
+        let kinds: Vec<_> = before.iter().map(|(kind, _)| *kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                "title",
+                "subject",
+                "author",
+                "keywords",
+                "description",
+                "template",
+                "editor",
+                "revisions",
+                "editing",
+                "created",
+                "modified",
+                "application",
+                "category",
+                "manager",
+                "company",
+            ]
+        );
+
+        let summary_spans = blanks(&summary);
+        let document_spans = blanks(&document);
+        assert_eq!(summary_spans.len() + document_spans.len(), kinds.len());
+        for (start, end) in summary_spans {
+            summary[start..end].fill(0);
+        }
+        for (start, end) in document_spans {
+            document[start..end].fill(0);
+        }
+        assert!(facts(&summary).is_empty());
+        assert!(facts(&document).is_empty());
+    }
+}

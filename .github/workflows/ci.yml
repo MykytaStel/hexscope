@@ -40,6 +40,12 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all
+      # The all-features corpus crosses the source, cleaner, output reader and
+      # verification report. Keep its value-free per-format evidence in CI.
+      - name: Clean-copy evidence by format
+        run: >-
+          cargo test -p hexscope-core --features audio --test coverage_evidence
+          every_verified_removal_has_fixture_or_focused_core_evidence -- --nocapture
       # Large files within a time budget, in a release build: a long movie,
       # PDFs of ten thousand pages, archives and emails of thousands of parts.
       # A failure is work growing faster than the file.

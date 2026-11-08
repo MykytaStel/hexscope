@@ -27,7 +27,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.11.0 | Hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | shipped 2026-11-03 |
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
-| 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | proposed; date TBD |
+| 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | in progress; date TBD |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -134,7 +134,7 @@ This scorecard describes the supplied local files, not parser accuracy or a
 safety certification. A reusable per-format corpus with expected findings,
 clean-copy readback and quality regression gates remains future work.
 
-### 0.14.0 — proposed after the repository audit
+### 0.14.0 — in progress after the repository audit
 
 Make format coverage useful in the browser and make clean-copy confidence
 measurable across supported formats and mobile devices:
@@ -153,6 +153,15 @@ measurable across supported formats and mobile devices:
   wording with the exact feedback fields and the site's aggregate visit counts.
 - Add Rust and JavaScript dependency advisory checks to CI; the 2026-11-08
   audit found no current Cargo or pnpm advisories.
+
+The candidate branch now includes the batch coverage view, opt-in feedback,
+mobile download type fixes, scheduled dependency scans, and a clean-copy
+scorecard that reports all 14 format rows. Its fixture corpus covers every
+advertised finding kind using full-file read-back or a focused property-set
+test. A physical iPhone check confirmed the clean-copy save/share path works;
+Android Chrome remains untested because no Android phone is available.
+Large-copy verification above 10 MiB and the remaining physical-device matrix
+stay open until measured on the relevant devices.
 
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).

@@ -61,6 +61,8 @@ fn a_document_with_an_update_keeps_both_versions() {
             // The line the update replaced, which no page shows any more.
             ("earlier", "“Salary: 4,200 EUR a month”"),
             ("title", "Quarterly plan - v2"),
+            ("subject", "Quarterly planning"),
+            ("keywords", "finance, draft"),
             ("application", "Sample Writer 3.1"),
             ("producer", "hexscope sample generator"),
             ("created", "2026-03-02 09:14 +02:00"),

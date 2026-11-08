@@ -1171,6 +1171,18 @@ mod tests {
         crate::jpeg::testing::jpeg_with_exif(Some(&build(s)))
     }
 
+    fn photo_without_location() -> Vec<u8> {
+        use crate::exif::ByteOrder;
+        use crate::exif::testing::{Spec, V, build};
+        let mut s = Spec::new(ByteOrder::Little);
+        s.ifd0 = vec![(0x0110, V::Ascii("Canon EOS R5"))];
+        s.exif = vec![
+            (0xA430, V::Ascii("Sample Owner")),
+            (0xA431, V::Ascii("HX-000042")),
+        ];
+        crate::jpeg::testing::jpeg_with_exif(Some(&build(s)))
+    }
+
     /// A chart pasted into Word keeps the whole workbook it was drawn
     /// from: every sheet, and who made it.
     #[test]
@@ -1357,6 +1369,32 @@ mod tests {
                     .to_string()
             )]
         );
+    }
+
+    #[test]
+    fn a_photo_without_location_is_removed_and_confirmed_in_a_clean_copy() {
+        use crate::verification::{compare, snapshot};
+        let input = build(&Archive {
+            entries: vec![
+                Entry::new("[Content_Types].xml", b"<Types/>", 8),
+                Entry::new("word/document.xml", b"<w:document/>", 8),
+                Entry::new("word/media/photo.jpg", &photo_without_location(), 0),
+            ],
+            ..Default::default()
+        })
+        .bytes;
+        let before = crate::summary::summarize(&input);
+        assert_eq!(before.format, "zip");
+        assert!(before.complete, "{:?}", before.problems);
+        assert!(before.facts.iter().any(|(kind, _)| *kind == "photo"));
+
+        let copy = crate::clean::clean(&input).unwrap();
+        let after = crate::summary::summarize(&copy.bytes);
+        assert!(after.complete, "{:?}", after.problems);
+        let report = compare(&snapshot(&before), &snapshot(&after));
+        assert!(report.removed.iter().any(|finding| finding.kind == "photo"));
+        assert!(report.present.is_empty(), "{report:?}");
+        assert!(report.unchecked.is_empty(), "{report:?}");
     }
 
     #[test]

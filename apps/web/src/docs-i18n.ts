@@ -4,6 +4,15 @@
 import { registerLazyTranslations } from "./i18n";
 
 const entries: [string, string][] = [
+  ["The document's subject, as set in its properties.", "Тема документа, зазначена в його властивостях."],
+  ["The author's manager, as set in the document's properties.", "Керівник автора, зазначений у властивостях документа."],
+  ["The document's category, as set in its properties.", "Категорія документа, зазначена в його властивостях."],
+  ["Keywords set in the document's properties.", "Ключові слова, зазначені у властивостях документа."],
+  ["A note set in the document's properties, not shown in its text.", "Примітка з властивостей документа, якої немає в його тексті."],
+  ["What the document is about.", "Про що цей документ."],
+  ["Keywords someone gave the document.", "Ключові слова, додані до документа."],
+  ["More about the document: the company and manager, and any properties someone added.", "Додаткові відомості про документ: компанія, керівник і додані властивості."],
+  ["Document properties: company, manager, and any added", "Властивості документа: компанія, керівник і додані поля."],
   ["An MP3 stream: ID3 tags beside compressed audio frames, which this view does not decode.", "Потік MP3: теги ID3 поруч зі стисненими аудіокадрами, які цей перегляд не декодує."],
   ["An ID3 tag: a versioned set of named frames for the title, people, dates and other details.", "Тег ID3: набір іменованих кадрів певної версії з назвою, виконавцями, датами та іншими відомостями."],
   ["This file has more leading ID3v2 tags than this view can inspect; later tags and the audio boundary are left unchecked.", "У файлі більше початкових тегів ID3v2, ніж може перевірити цей перегляд; наступні теги та межу аудіо залишено неперевіреними."],

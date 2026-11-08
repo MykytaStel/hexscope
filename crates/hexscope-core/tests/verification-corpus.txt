@@ -1,0 +1,35 @@
+# Complete, redistributable inputs whose cleaned copies prove at least one
+# advertised removal. The integration test checks every contract kind against
+# these read-back results and focused Core property tests, then prints only
+# format-level counts. See verification-coverage.md for the supplementary
+# focused property-set evidence and fixture generation command.
+tests/fixtures/photo.jpg
+tests/fixtures/iphone-hdr.jpg
+tests/fixtures/photo.png
+tests/fixtures/ai-picture.png
+tests/fixtures/notes.png
+tests/fixtures/cwebp-photo.webp
+tests/fixtures/photo.heic
+tests/fixtures/photo.tif
+tests/fixtures/iphone.mov
+tests/fixtures/android.mp4
+tests/fixtures/voice.m4a
+tests/fixtures/report.pdf
+tests/fixtures/redacted.pdf
+tests/fixtures/report.docx
+tests/fixtures/all-office-properties.docx
+tests/fixtures/tracked.docx
+tests/fixtures/lease.odt
+tests/fixtures/budget.ods
+tests/fixtures/lease.rtf
+tests/fixtures/inkscape.svg
+tests/fixtures/illustrator.svg
+tests/fixtures/windows.docx
+tests/fixtures/windows.xlsx
+tests/fixtures/mac-report.zip
+tests/fixtures/plan.doc
+tests/fixtures/office97-properties.doc
+fuzz/seeds/clean_roundtrip/title.mp3
+fuzz/seeds/clean_roundtrip/comments.flac
+fuzz/seeds/parse_audio/ogg-vorbis.ogg
+fuzz/seeds/parse_audio/ogg-opus.ogg
