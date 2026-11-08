@@ -1,5 +1,7 @@
 name: CI
 
+# Every branch push runs CI. Same-repository PR events skip the duplicate
+# run; fork PRs still run here because their pushes happen in another repo.
 # Every branch, not only main: a failure on main went unnoticed for days
 # because all the work happened on branches that never triggered a run.
 on:
@@ -17,6 +19,7 @@ env:
 
 jobs:
   test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -65,6 +68,7 @@ jobs:
   # photo that gives nothing away passes; the samples, which give plenty
   # away, fail.
   action:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -99,6 +103,7 @@ jobs:
           python3 -c 'import json; json.load(open("report.sarif")); [json.loads(l) for l in open("report.jsonl")]'
 
   fuzz:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -132,6 +137,7 @@ jobs:
   # one extra step once a host is chosen. Until then the build is kept as a
   # downloadable artifact on every run.
   web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       # The whole history: each page's dates for search engines are its commits' (seo.ts).
@@ -230,6 +236,7 @@ jobs:
   # sample's answer, a clean copy, an email, offline. The very build that is
   # deployed, in four parts at once — one run took seven minutes.
   e2e:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     needs: web
     runs-on: ubuntu-26.04
     strategy:
@@ -265,6 +272,7 @@ jobs:
   # A small desktop smoke in independent browser engines catches API and
   # keyboard behavior differences without multiplying the full test matrix.
   cross-browser:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     needs: web
     runs-on: ubuntu-26.04
     steps:

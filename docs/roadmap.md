@@ -170,11 +170,12 @@ limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
 and Files paths for both reports still need the author's physical-device
 check.
 
-The 0.14 audit's remaining maintenance candidates are under consideration:
-remove the batch/photo-mosaic type-only dependency cycle and reduce duplicate
-CI runs without weakening pull-request checks. Android Chrome and read-back
-for Web clean copies over 10 MiB remain evidence-gated; browser emulation
-cannot close those physical-device questions.
+The 0.14 maintenance follow-ups are now addressed: shared batch types live
+outside the photo mosaic, and same-repository pull requests reuse the full CI
+run from their branch push. Fork pull requests still run CI in this repository.
+Android Chrome and read-back for Web clean copies over 10 MiB remain
+evidence-gated; browser emulation cannot close those physical-device
+questions.
 
 ### 0.10.0 — shipped 2026-11-02
 
