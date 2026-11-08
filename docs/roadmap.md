@@ -27,7 +27,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.11.0 | Hardened clean copies, one wording for every interface, one set of styles, Ogg clean copies | shipped 2026-11-03 |
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
-| 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | in progress; date TBD |
+| 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -130,38 +130,26 @@ the typed status and scorecard. A file skipped because its format is
 unsupported now fails the default incomplete check; `--fail-on none` keeps a
 report-only run available.
 
-This scorecard describes the supplied local files, not parser accuracy or a
-safety certification. A reusable per-format corpus with expected findings,
-clean-copy readback and quality regression gates remains future work.
+This 0.13 scorecard describes the supplied local files, not parser accuracy
+or a safety certification. Version 0.14.0 adds a reusable per-format corpus
+with expected findings, clean-copy readback and quality regression gates.
 
-### 0.14.0 — in progress after the repository audit
+### 0.14.0 — shipped 2026-11-08
 
-Make format coverage useful in the browser and make clean-copy confidence
-measurable across supported formats and mobile devices:
+Batch coverage now groups complete, partial and unsupported reads by format
+and lets people focus on files that need attention, without sending file
+names or finding values. The clean-copy evidence gate checks all 14 advertised
+formats against deterministic fixtures, including source-to-copy read-back;
+MP3's verification contract only claims fields the ID3 reader inspects.
+Feedback structure reports are opt-in, dependency advisory checks run in CI,
+and mobile downloads preserve their file type. The iPhone save/share flow was
+confirmed by the user. GitHub Release assets cover all five supported
+platform targets, four crates are published, and the Homebrew formula was
+updated and tested.
 
-- Show complete, partial and unsupported counts by format in a local batch;
-  let a person focus the list on files that need attention. Keep reports free
-  of names and finding values.
-- Add a deterministic, redistributable fixture matrix for parser completeness,
-  expected findings and every advertised clean-copy removal capability. Make
-  CI report regressions by format and refuse false `Removed` claims.
-- Measure memory and read-back verification on physical iOS Safari and Android
-  Chrome. The Web currently skips read-back for copies over 10 MiB; keep those
-  outcomes explicitly **Not checked** unless a measured implementation can
-  verify them within a device budget.
-- Make the optional structure report opt-in by default, and align privacy
-  wording with the exact feedback fields and the site's aggregate visit counts.
-- Add Rust and JavaScript dependency advisory checks to CI; the 2026-11-08
-  audit found no current Cargo or pnpm advisories.
-
-The candidate branch now includes the batch coverage view, opt-in feedback,
-mobile download type fixes, scheduled dependency scans, and a clean-copy
-scorecard that reports all 14 format rows. Its fixture corpus covers every
-advertised finding kind using full-file read-back or a focused property-set
-test. A physical iPhone check confirmed the clean-copy save/share path works;
-Android Chrome remains untested because no Android phone is available.
-Large-copy verification above 10 MiB and the remaining physical-device matrix
-stay open until measured on the relevant devices.
+Android Chrome could not be tested because no Android phone was available.
+The wider physical-device matrix and read-back for Web copies over 10 MiB
+remain open; those outcomes stay explicitly **Not checked** until measured.
 
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
