@@ -96,6 +96,7 @@ function flac(
 for (const [sample, build] of [
   ["photo.jpg", "hexscope_media"],
   ["drawing.svg", "hexscope_media"],
+  ["drawing.svgz", "hexscope_media"],
   ["report.pdf", "hexscope_pdf"],
   ["report.docx", "hexscope_docs"],
   ["message.eml", "hexscope_docs"],

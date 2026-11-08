@@ -14,9 +14,13 @@
 
 Every name and path is invented.
 
+The Web sample `apps/web/public/samples/drawing.svgz` is a deterministic gzip
+copy of the same Inkscape drawing.
+
     python3 scripts/make-sample-svg.py
 """
 import base64
+import gzip
 import os
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -180,3 +184,9 @@ for path, text in [
     with open(path, "w", newline="\n") as f:
         f.write(text)
     print(path, len(text.encode()))
+
+svgz_path = os.path.join(SAMPLES, "drawing.svgz")
+with open(svgz_path, "wb") as svgz_file:
+    with gzip.GzipFile(filename="", mode="wb", fileobj=svgz_file, mtime=0) as svgz:
+        svgz.write(inkscape.encode())
+print(svgz_path, os.path.getsize(svgz_path))

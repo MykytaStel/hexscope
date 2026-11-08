@@ -170,6 +170,10 @@ limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
 and Files paths for both reports still need the author's physical-device
 check.
 
+The Web sample picker and SVG metadata guide include a compressed Inkscape
+example, generated alongside the SVG source, so `.svgz` can be tried without
+finding or preparing a local file.
+
 The 0.14 maintenance follow-ups are now addressed: shared batch types live
 outside the photo mosaic, same-repository pull requests reuse their branch-push
 CI run, and advisory scans also cover manifest changes. The advisory workflow
