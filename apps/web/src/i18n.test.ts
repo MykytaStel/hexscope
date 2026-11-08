@@ -10,6 +10,11 @@ registerLazyTranslations({ ...GUIDE_UK, "A different value remains in the copy."
 describe("the interface language", () => {
   it("translates local batch coverage and its read statuses", () => {
     expect(translateText("Coverage by format", "uk")).toBe("Покриття за форматами");
+    expect(translateText("Share coverage report", "uk")).toBe("Поділитися звітом про покриття");
+    expect(translateText("Save coverage report", "uk")).toBe("Зберегти звіт про покриття");
+    expect(translateText("Share diagnostic report", "uk")).toBe("Поділитися звітом про проблеми");
+    expect(translateText("Save diagnostic report", "uk")).toBe("Зберегти звіт про проблеми");
+    expect(translateText("Retry failed files", "uk")).toBe("Повторити файли з помилкою");
     expect(translateText("complete", "uk")).toBe("повністю прочитано");
     expect(translateText("partial", "uk")).toBe("прочитано частково");
     expect(translateText("unsupported", "uk")).toBe("не підтримується");

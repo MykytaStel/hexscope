@@ -2,6 +2,8 @@
 // reads it and none of the others.
 import { expect, test, type Page } from "@playwright/test";
 import { Buffer } from "node:buffer";
+import { readFileSync } from "node:fs";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 async function wasmLoadedFor(page: Page, sample: string): Promise<string[]> {
   const loaded: string[] = [];
@@ -94,6 +96,7 @@ function flac(
 for (const [sample, build] of [
   ["photo.jpg", "hexscope_media"],
   ["drawing.svg", "hexscope_media"],
+  ["drawing.svgz", "hexscope_media"],
   ["report.pdf", "hexscope_pdf"],
   ["report.docx", "hexscope_docs"],
   ["message.eml", "hexscope_docs"],
@@ -102,6 +105,29 @@ for (const [sample, build] of [
     expect(await wasmLoadedFor(page, sample)).toEqual([build]);
   });
 }
+
+test("an SVGZ drawing is read and its clean copy stays compressed", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  const source = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/inkscape.svg", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles({
+    name: "private-drawing.svgz",
+    mimeType: "image/svg+xml",
+    buffer: gzipSync(source),
+  });
+
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(page.locator(".reveals")).toContainText("Olena Koval");
+  const downloadPromise = page.waitForEvent("download");
+  await page.locator(".verdict-cta").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("private-drawing-clean.svgz");
+  const output = gunzipSync(readFileSync((await download.path())!)).toString("utf8");
+  expect(output).toContain("<svg");
+  expect(output).toContain("<rect");
+  expect(output).not.toContain("Olena Koval");
+  expect(output).not.toContain("inkscape:version");
+});
 
 test("an MP3 file loads its parser, links the tag to its bytes, and confirms the clean copy", async ({ page }) => {
   const loaded: string[] = [];

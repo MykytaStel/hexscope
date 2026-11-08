@@ -1,4 +1,4 @@
-import type { BatchItem } from "./batch";
+import type { BatchItem } from "./batch-model";
 import type { CleanCopiesView } from "./batchclean";
 import { currentLocale, translateText } from "./i18n";
 
@@ -81,6 +81,24 @@ export class BatchController {
     this.paused = false;
     this.view.render(items, this.paused);
     void this.run(items, this.generation);
+  }
+
+  /** Retries failed reads while leaving completed files untouched. */
+  retryFailed(): boolean {
+    const items = this.current;
+    if (!items || this.running) return false;
+    const failed = items.filter((item) => item.state === "failed");
+    if (failed.length === 0) return false;
+    for (const item of failed) {
+      item.state = "waiting";
+      item.note = "";
+    }
+    this.generation++;
+    this.announced = -1;
+    this.paused = false;
+    this.view.render(items, this.paused);
+    void this.run(items, this.generation);
+    return true;
   }
 
   open(index: number): void {

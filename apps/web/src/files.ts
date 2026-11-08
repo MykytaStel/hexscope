@@ -128,6 +128,7 @@ const TYPES: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif",
   svg: "image/svg+xml",
+  svgz: "image/svg+xml",
   tif: "image/tiff",
   tiff: "image/tiff",
   heic: "image/heic",

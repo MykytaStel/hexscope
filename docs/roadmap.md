@@ -28,6 +28,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
+| 0.15.0 | Portable batch reports and reliability fixes | accumulating |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -153,6 +154,34 @@ remain open; those outcomes stay explicitly **Not checked** until measured.
 
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
+
+### 0.15.0 — release candidate
+
+The Web batch workflow now has a versioned coverage report and a separate,
+value-free diagnostics report for rows that need attention. Both can be saved
+or shared from phones that support file sharing. Diagnostics contain only a
+one-based row index, detected format and status; they omit raw errors, names,
+paths, contents, metadata, sizes and timestamps. Failed batch rows can be
+retried without reading completed files again.
+
+Core now reads and cleans bounded `.svgz` files, validates gzip integrity and
+checks the cleaned copy by reading it back. Input and expanded XML are each
+limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
+and Files paths for both reports still need the author's physical-device
+check.
+
+The Web sample picker and SVG metadata guide include a compressed Inkscape
+example, generated alongside the SVG source, so `.svgz` can be tried without
+finding or preparing a local file.
+
+The 0.14 maintenance follow-ups are now addressed: shared batch types live
+outside the photo mosaic, same-repository pull requests reuse their branch-push
+CI run, and advisory scans also cover manifest changes. The advisory workflow
+still runs weekly and on demand; fork pull requests run checks in the base
+repository.
+Android Chrome and read-back for Web clean copies over 10 MiB remain
+evidence-gated; browser emulation cannot close those physical-device
+questions.
 
 ### 0.10.0 — shipped 2026-11-02
 

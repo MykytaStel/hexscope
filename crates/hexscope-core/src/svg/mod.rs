@@ -30,6 +30,9 @@ const MAX_TEXT: usize = 512;
 /// Embedded pictures read for what they say, at most, and how large.
 const MAX_PICTURES: usize = 16;
 const MAX_PICTURE: usize = 32 << 20;
+/// Compressed drawings and their expanded XML are each bounded to avoid
+/// spending unbounded memory on a small gzip bomb.
+const MAX_SVGZ: usize = 64 << 20;
 
 #[derive(Debug)]
 pub struct SvgDocument {
@@ -37,6 +40,30 @@ pub struct SvgDocument {
     pub facts: Vec<DocumentFact>,
     /// What a clean copy cuts or replaces, in the order it lies in the file.
     pub(crate) edits: Vec<Edit>,
+    /// The source XML, retained for cleaning when it arrived compressed.
+    pub(crate) compressed_source: Option<Vec<u8>>,
+}
+
+/// Reads one bounded gzip member as an SVGZ drawing. Tree ranges point to the
+/// compressed payload as a whole because DEFLATE bytes do not map one-to-one
+/// to XML offsets.
+pub(crate) fn parse_svgz(data: &[u8]) -> Option<SvgDocument> {
+    if data.len() > MAX_SVGZ {
+        return None;
+    }
+    let decoded = crate::gzip::decode(data, MAX_SVGZ as u64).ok()?;
+    if !is_svg(&decoded.bytes) {
+        return None;
+    }
+    let mut doc = parse_svg(&decoded.bytes);
+    doc.tree.map_ranges(|_| decoded.deflate_range);
+    doc.tree.relabel(
+        0,
+        "gzip-compressed SVG drawing",
+        ByteRange::new(0, data.len() as u64),
+    );
+    doc.compressed_source = Some(decoded.bytes);
+    Some(doc)
 }
 
 /// Whether the file is an SVG: after an optional byte-order mark, XML
@@ -544,7 +571,12 @@ pub fn parse_svg(data: &[u8]) -> SvgDocument {
             node,
         })
         .collect();
-    SvgDocument { tree, facts, edits }
+    SvgDocument {
+        tree,
+        facts,
+        edits,
+        compressed_source: None,
+    }
 }
 
 /// An element that closed at `end`: its node gets its full range, and a
@@ -791,6 +823,18 @@ pub(crate) fn clean_svg(data: &[u8], doc: &SvgDocument) -> Result<Cleaned, Clean
         return Err(CleanError::Damaged);
     }
     crate::clean::apply(data, &doc.edits)
+}
+
+/// Cleans the decompressed XML, then writes it back as a verified gzip
+/// envelope so `.svgz` stays usable by programs that expect compressed SVG.
+pub(crate) fn clean_svgz(doc: &SvgDocument) -> Result<Cleaned, CleanError> {
+    let source = doc
+        .compressed_source
+        .as_deref()
+        .ok_or(CleanError::Damaged)?;
+    let mut cleaned = clean_svg(source, doc)?;
+    cleaned.bytes = crate::gzip::encode(&cleaned.bytes);
+    Ok(cleaned)
 }
 
 #[cfg(test)]

@@ -145,7 +145,13 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         Document::Wasm(doc) if cfg!(feature = "module") => clean_wasm(data, &doc),
         Document::Cfb(doc) if cfg!(feature = "office") => clean_cfb(data, &doc),
         Document::Rtf(doc) if cfg!(feature = "office") => clean_rtf(data, &doc),
-        Document::Svg(doc) if cfg!(feature = "svg") => crate::svg::clean_svg(data, &doc),
+        Document::Svg(doc) if cfg!(feature = "svg") => {
+            if doc.compressed_source.is_some() {
+                crate::svg::clean_svgz(&doc)
+            } else {
+                crate::svg::clean_svg(data, &doc)
+            }
+        }
         _ => Err(CleanError::Unsupported),
     }?;
     // A copy is shared as the same kind of file: one that another program

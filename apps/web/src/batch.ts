@@ -3,64 +3,19 @@
 // photos or documents can be checked before it is sent. Each opens as a
 // file of its own, with a way back; all the clean copies save as one ZIP.
 import type { VerdictLine } from "./verdict";
-import type { PhotoSignal } from "./photo-signal";
-import { listed, type Headline } from "./headline";
+import { listed } from "./headline";
 import { currentLocale, translateText } from "./i18n";
-import type { CoverageStatus } from "./model";
+import { batchCoverageReport } from "./batch-coverage-report";
+import { batchDiagnosticsReport } from "./batch-diagnostics-report";
+import { phoneCanShare, saveAs, shareFile } from "./files";
+import { cleanable, type BatchFormatCoverage, type BatchItem } from "./batch-model";
 
 // The view and its queue controller form one public composition surface.
 export { BatchController, type BatchAnalysis, type BatchControllerHooks, type BatchViewPort } from "./batch-controller";
-
-export interface BatchItem {
-  file: File;
-  state: "waiting" | "reading" | "done" | "failed";
-  /** Shown beside the name: "JPEG", "PDF 1.7". */
-  kind: string;
-  lines: VerdictLine[];
-  /** The answer a single file opens on; null until it is read. */
-  headline: Headline | null;
-  /** What it gives away, as categories: "where it was taken". */
-  reveals: string[];
-  /** The clean copy's name, for the ZIP. */
-  cleanName: string;
-  /** Machine format code from the parser, used by portable receipts. */
-  format?: string;
-  /** Canonical parser read status, classified by the Rust core. */
-  coverage?: CoverageStatus;
-  /** The file has a supported metadata block that can be removed even if it has no recognized facts. */
-  hasRemovableMetadata?: boolean;
-  note: string;
-  /** Left out of the clean copies, by choice. */
-  skip: boolean;
-  copyStatus?: string;
-  photoSignal?: PhotoSignal;
-}
-
-/** Whether a file has something a clean copy takes out. */
-export function cleanable(i: BatchItem): boolean {
-  // Audio copies are offered only when a supported metadata block passed the
-  // same boundary checks used by its cleaner.
-  if (i.format === "mp3" || i.format === "flac" || i.format === "ogg") {
-    return i.state === "done" && i.hasRemovableMetadata === true;
-  }
-  // These formats can expose findings, but the core does not make a clean
-  // copy of the file itself. Attachments can be opened and cleaned separately.
-  if (i.format && ["unknown", "eml", "msg"].includes(i.format)) return false;
-  return i.state === "done" && (
-    i.reveals.length > 0
-    || i.lines.some((l) => l.kind === "hidden")
-  );
-}
+export { cleanable } from "./batch-model";
+export type { BatchFormatCoverage, BatchItem } from "./batch-model";
 
 export type BatchShow = "all" | "reveals" | "problems" | "incomplete";
-
-export interface BatchFormatCoverage {
-  format: string;
-  files: number;
-  complete: number;
-  partial: number;
-  unsupported: number;
-}
 
 export interface BatchSummary {
   settled: number;
@@ -194,6 +149,7 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
 export interface BatchHooks {
   open(index: number): void;
   toggleReading(): void;
+  retryFailed(): boolean;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
   saveClean(keepNames: boolean, includeCopyFingerprints: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
@@ -413,6 +369,14 @@ export class BatchView {
     // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
     keep.hidden = totals.busy || chosen === 0 || phone;
     head.append(label, title, summary);
+    const failedCount = items.filter((item) => item.state === "failed").length;
+    if (!totals.busy && failedCount > 0) {
+      const retry = el("button", "btn batch-retry-failed", translateText("Retry failed files", currentLocale()));
+      retry.type = "button";
+      retry.title = translateText("Only failed files are read again; completed files stay untouched.", currentLocale());
+      retry.addEventListener("click", () => this.hooks.retryFailed());
+      head.append(retry);
+    }
     if (totals.busy) {
       const toggle = el("button", "btn batch-toggle", translateText(this.paused ? "Resume reading" : "Pause reading", currentLocale()));
       toggle.type = "button";
@@ -550,7 +514,55 @@ export class BatchView {
         row.append(el("span", "batch-coverage-name", name), el("span", "batch-coverage-counts", counts.join(" · ")));
         rows.append(row);
       }
-      coverage.append(rows);
+      const exportButton = el("button", "btn batch-coverage-export", translateText("Save coverage report", currentLocale()));
+      exportButton.type = "button";
+      exportButton.addEventListener("click", () => {
+        const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
+        saveAs("hexscope-batch-coverage.json", new Blob([report], { type: "application/json" }));
+      });
+      const reportName = "hexscope-batch-coverage.json";
+      const actions = el("div", "batch-coverage-actions");
+      if (phoneCanShare(reportName)) {
+        const shareButton = el("button", "btn btn-primary batch-coverage-share", translateText("Share coverage report", currentLocale()));
+        shareButton.type = "button";
+        shareButton.addEventListener("click", () => {
+          const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
+          void shareFile(new File([report], reportName, { type: "application/json" }));
+        });
+        actions.append(shareButton);
+      }
+      actions.append(exportButton);
+      const privacyNote = el("p", "batch-coverage-note", translateText(
+        "The report includes format names and read counts only; no file names or findings.",
+        currentLocale(),
+      ));
+      coverage.append(rows, actions, privacyNote);
+      const diagnostics = batchDiagnosticsReport(items);
+      if (diagnostics) {
+        const diagnosticsName = "hexscope-batch-diagnostics.json";
+        const diagnosticActions = el("div", "batch-coverage-actions");
+        if (phoneCanShare(diagnosticsName)) {
+          const shareDiagnostics = el("button", "btn btn-primary", translateText("Share diagnostic report", currentLocale()));
+          shareDiagnostics.type = "button";
+          shareDiagnostics.addEventListener("click", () => {
+            void shareFile(new File([diagnostics], diagnosticsName, { type: "application/json" }));
+          });
+          diagnosticActions.append(shareDiagnostics);
+        }
+        const saveDiagnostics = el("button", "btn", translateText("Save diagnostic report", currentLocale()));
+        saveDiagnostics.type = "button";
+        saveDiagnostics.addEventListener("click", () => {
+          saveAs(diagnosticsName, new Blob([diagnostics], { type: "application/json" }));
+        });
+        diagnosticActions.append(saveDiagnostics);
+        coverage.append(
+          diagnosticActions,
+          el("p", "batch-coverage-note", translateText(
+            "The diagnostic report lists affected row numbers, formats and statuses only; it excludes file names, paths, contents and raw errors.",
+            currentLocale(),
+          )),
+        );
+      }
       card.append(coverage);
     }
     if (selection.childNodes.length) card.append(selection);

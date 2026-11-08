@@ -20,6 +20,7 @@ pub mod film;
 pub mod finding_kinds;
 mod fixed;
 pub mod gif;
+mod gzip;
 pub mod heif;
 #[cfg(feature = "audio")]
 mod ogg_crc;

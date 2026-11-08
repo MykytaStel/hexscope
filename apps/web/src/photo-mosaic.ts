@@ -1,4 +1,4 @@
-import { cleanable, type BatchItem } from "./batch";
+import { cleanable, type BatchItem } from "./batch-model";
 import { rasterModule } from "./film-core";
 import { saveAs } from "./files";
 import { registerLazyTranslations, currentLocale, translateText } from "./i18n";

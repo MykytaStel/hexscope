@@ -11,7 +11,7 @@ import {
   type CopyReceiptRow,
   type ReceiptRow,
 } from "./batch-receipt";
-import { cleanable, type BatchItem } from "./batch";
+import { cleanable, type BatchItem } from "./batch-model";
 import { StoredZip } from "./zipwrite";
 import { phoneCanShare, saveAs } from "./files";
 import { hasCoarsePointer } from "./dom";

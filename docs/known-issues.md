@@ -45,11 +45,14 @@ Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed, and
 encrypted entries are marked but not read. Multi-disk archives are named and
 read no further.
 
-**Compressed and unusual SVG.** A drawing saved as `.svgz` is gzip: it is
-named as a gzip archive, not read. Base64-embedded JPEG, PNG, WebP, TIFF,
-HEIF and AVIF photos are read and cleaned — up to 16 of them, of up to
-32 MiB each; other embedded picture formats are not. A root element may
-carry a namespace prefix, such as `<svg:svg>`.
+**Compressed and unusual SVG.** `.svgz` files are read and cleaned when they
+contain one valid gzip member with SVG XML. Compressed input and expanded XML
+are each limited to 64 MiB. Parse-tree byte ranges for the XML point to the
+compressed DEFLATE payload as a whole because individual XML offsets cannot
+be mapped to compressed bytes. Base64-embedded JPEG, PNG, WebP, TIFF, HEIF and
+AVIF photos are read and cleaned — up to 16 of them, of up to 32 MiB each;
+other embedded picture formats are not. A root element may carry a namespace
+prefix, such as `<svg:svg>`.
 
 ## Limits by design
 

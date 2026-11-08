@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { saveAs, shareFile } from "./files";
+import { saveAs, shareFile, typeOf } from "./files";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -42,4 +42,8 @@ it("gives a clean-copy download the media type its filename says", () => {
 
   expect(createObjectURL).toHaveBeenCalledOnce();
   expect(saved?.type).toBe("image/jpeg");
+});
+
+it("gives a gzip-compressed SVG its registered SVG media type", () => {
+  expect(typeOf("drawing.svgz")).toBe("image/svg+xml");
 });

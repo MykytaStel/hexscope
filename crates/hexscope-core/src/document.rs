@@ -175,6 +175,12 @@ pub fn parse(data: &[u8]) -> Document {
     if cfg!(feature = "svg") && svg::is_svg(data) {
         return Document::Svg(parse_svg(data));
     }
+    if cfg!(feature = "svg")
+        && data.starts_with(b"\x1F\x8B")
+        && let Some(doc) = svg::parse_svgz(data)
+    {
+        return Document::Svg(doc);
+    }
     // Text last: a message is header lines, and nothing binary claims it.
     if cfg!(feature = "mail") && eml::is_eml(data) {
         return Document::Eml(parse_eml(data));

@@ -939,6 +939,7 @@ const batchView = new BatchView($("batch"), {
   canShareCopies: phoneCanShare,
   open: (i) => batchController.open(i),
   toggleReading: () => batchController.toggleReading(),
+  retryFailed: () => batchController.retryFailed(),
   saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
   mosaic: (items) => void import("./photo-mosaic")
     .then((m) => m.showMosaic(

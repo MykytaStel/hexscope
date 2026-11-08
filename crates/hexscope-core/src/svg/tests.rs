@@ -1,5 +1,9 @@
 use super::*;
 use crate::summary::summarize;
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use std::io::{Read, Write};
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(
@@ -15,6 +19,46 @@ fn said(doc: &SvgDocument, kind: &str) -> String {
         .find(|f| f.kind == kind)
         .map(|f| f.text.clone())
         .unwrap_or_default()
+}
+
+fn svgz(data: &[u8]) -> Vec<u8> {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(data).unwrap();
+    encoder.finish().unwrap()
+}
+
+#[test]
+fn compressed_svgz_is_read_cleaned_and_kept_compressed() {
+    let source = svgz(&fixture("inkscape.svg"));
+    let before = summarize(&source);
+    assert_eq!(before.format, "svg");
+    assert!(before.facts.iter().any(|(kind, _)| *kind == "author"));
+    assert!(before.complete, "{:?}", before.problems);
+
+    let doc = crate::document::parse(&source);
+    assert!(
+        doc.tree()
+            .nodes()
+            .iter()
+            .all(|node| node.range.end() <= source.len() as u64)
+    );
+
+    let copy = crate::clean::clean(&source).unwrap();
+    assert!(copy.bytes.starts_with(b"\x1F\x8B"));
+    let mut decoded = Vec::new();
+    GzDecoder::new(&copy.bytes[..])
+        .read_to_end(&mut decoded)
+        .unwrap();
+    let text = String::from_utf8(decoded).unwrap();
+    assert!(text.contains("<svg"));
+    assert!(text.contains("<rect"));
+    assert!(!text.contains("Olena Koval"));
+    assert!(!text.contains("inkscape:version"));
+
+    let after = summarize(&copy.bytes);
+    assert_eq!(after.format, "svg");
+    assert!(after.complete, "{:?}", after.problems);
+    assert!(after.facts.iter().all(|(kind, _)| *kind == "scripts"));
 }
 
 #[test]

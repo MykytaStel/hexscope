@@ -11,6 +11,21 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), a file a
 change; `node scripts/changelog.mjs` shows it as it will read here.
 
+## [0.15.0] — 2026-11-08
+
+### Added
+
+- **Share or save a private batch diagnostics report** for rows needing attention. Each row contains only its one-based index, detected format and status; raw errors, names, paths, contents, metadata, sizes and timestamps are omitted.
+- **Retry failed batch reads** after the batch settles. Completed files remain untouched and are not parsed again.
+- **Read and clean bounded `.svgz` drawings** in Core and Web. Gzip integrity is validated and the cleaned copy is read back; compressed input and expanded XML are each limited to 64 MiB, and concatenated gzip members are rejected.
+- **Try SVGZ in the Web app.** The compressed Inkscape example is available in the sample picker and the SVG metadata guide, and is generated alongside the SVG sample.
+- **Save or share a batch coverage report** as a versioned JSON file with aggregate format read counts, including inputs that could not be read. Phones with file sharing can send it through the system share sheet; saving remains available. The report contains no file names, paths, finding values, sizes or timestamps.
+
+### Changed
+
+- **Avoid duplicate full CI and dependency-advisory runs for same-repository pull requests.** Branch pushes still run the checks; fork pull requests still run them in the base repository.
+- **Run dependency advisory scans when manifests change** as well as when lockfiles change. The weekly and manual scans remain available.
+
 ## [0.14.0] — 2026-11-08
 
 ### Added
@@ -750,7 +765,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/MykytaStel/hexscope/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/MykytaStel/hexscope/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/MykytaStel/hexscope/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/MykytaStel/hexscope/compare/v0.11.0...v0.12.0
