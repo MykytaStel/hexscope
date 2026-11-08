@@ -155,7 +155,7 @@ remain open; those outcomes stay explicitly **Not checked** until measured.
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
-### 0.15.0 — accumulating
+### 0.15.0 — release candidate
 
 The Web batch workflow now has a versioned coverage report and a separate,
 value-free diagnostics report for rows that need attention. Both can be saved
