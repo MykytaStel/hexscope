@@ -14,6 +14,7 @@ describe("the interface language", () => {
     expect(translateText("partial", "uk")).toBe("прочитано частково");
     expect(translateText("unsupported", "uk")).toBe("не підтримується");
     expect(translateText("Incomplete", "uk")).toBe("Перевірено не повністю");
+    expect(translateText("Incomplete · 1", "uk")).toBe("Перевірено не повністю · 1");
   });
 
   it("explains which feedback details are saved", () => {

@@ -1268,8 +1268,8 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `${match[1]} ${ukrainianCountWord(Number(match[1]), "пошкоджений", "пошкоджені", "пошкоджених")}`;
   match = /^(\d+) not fully checked$/.exec(value);
   if (match) return `${match[1]} не повністю перевірено`;
-  match = /^(All|Give something away|Needs attention) · (\d+)$/.exec(value);
-  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги" }[match[1]]} · ${match[2]}`;
+  match = /^(All|Give something away|Needs attention|Incomplete) · (\d+)$/.exec(value);
+  if (match) return `${{ All: "Усі", "Give something away": "Розкривають дані", "Needs attention": "Потребують уваги", Incomplete: "Перевірено не повністю" }[match[1]]} · ${match[2]}`;
   match = /^Select all (\d+) cleanable files?$/.exec(value);
   if (match) return `Вибрати всі ${match[1]} ${ukrainianCountWord(Number(match[1]), "файл, придатний для очищення", "файли, придатні для очищення", "файлів, придатних для очищення")}`;
   match = /^\+(\d+) more$/.exec(value);

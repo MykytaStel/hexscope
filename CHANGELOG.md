@@ -27,6 +27,13 @@ change; `node scripts/changelog.mjs` shows it as it will read here.
 - **The feedback form names the details saved with a message**, including its
   language and that no file contents or IP address are stored with it.
 
+### Fixed
+
+- **The incomplete-read batch filter is translated in Ukrainian**, including
+  its count.
+- **Clean-copy downloads retain their format type** when the worker returns
+  untyped bytes, helping mobile browsers recognize the saved file.
+
 ## [0.13.0] — 2026-11-08
 
 ### Added
