@@ -93,6 +93,47 @@ test("a phone can share the value-free batch coverage report directly", async ({
   await expect(coverage.getByRole("button", { name: "Save coverage report" })).toBeVisible();
 });
 
+test("a phone can share a value-free diagnostic report for rows needing attention", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "The share-sheet flow uses the mobile browser profile.");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: { files?: File[] }) => {
+        const file = data.files?.[0];
+        if (!file) throw new Error("No file was shared");
+        localStorage.setItem("hexscope.test.share-name", file.name);
+        localStorage.setItem("hexscope.test.share-content", await file.text());
+      },
+    });
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "private-unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const coverage = page.locator("#batch .batch-coverage");
+  await coverage.locator("summary").click();
+  await expect(coverage.getByRole("button", { name: "Share diagnostic report" })).toBeVisible();
+  await coverage.getByRole("button", { name: "Share diagnostic report" }).click();
+
+  expect(await page.evaluate(() => localStorage.getItem("hexscope.test.share-name"))).toBe("hexscope-batch-diagnostics.json");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-content"))).not.toBeNull();
+  const content = await page.evaluate(() => localStorage.getItem("hexscope.test.share-content"));
+  expect(JSON.parse(content!)).toEqual({
+    schema: "hexscope.batch-diagnostics",
+    version: 1,
+    total: 2,
+    issues: [{ index: 2, format: "unknown", status: "unsupported" }],
+  });
+  expect(content).not.toContain("private-unknown");
+  await expect(coverage.getByRole("button", { name: "Save diagnostic report" })).toBeVisible();
+});
+
 test("a file that cannot be inspected stays visible in the attention filter", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");
@@ -108,6 +149,48 @@ test("a file that cannot be inspected stays visible in the attention filter", as
   await expect(batch.locator(".batch-summary")).not.toContainText("No personal metadata found");
   await batch.getByRole("button", { name: /Needs attention/ }).click();
   await expect(batch.locator(".batch-row", { hasText: "unknown.bin" })).toBeVisible();
+});
+
+test("failed batch reads can be retried without rereading completed files", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    const state = window as typeof window & { __failedParseOnce?: boolean; __parseAttempts?: number };
+    state.__failedParseOnce = false;
+    state.__parseAttempts = 0;
+    const NativeWorker = window.Worker;
+    class FlakyWorker extends NativeWorker {
+      postMessage(message: any, transfer?: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message?.type === "parse" && ["retry.png", "already-read.png"].includes(message.file?.name)) {
+          state.__parseAttempts = (state.__parseAttempts ?? 0) + 1;
+          if (message.file?.name === "retry.png" && !state.__failedParseOnce) {
+            state.__failedParseOnce = true;
+            setTimeout(() => this.dispatchEvent(new ErrorEvent("error")), 0);
+            return;
+          }
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = FlakyWorker;
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "retry.png", mimeType: "image/png", buffer: photo },
+    { name: "already-read.png", mimeType: "image/png", buffer: photo },
+  ]);
+
+  const batch = page.locator("#batch");
+  const retry = batch.getByRole("button", { name: "Retry failed files" });
+  await expect(retry).toBeVisible();
+  expect(await page.evaluate(() => (window as typeof window & { __parseAttempts: number }).__parseAttempts)).toBe(2);
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  expect(await page.evaluate(() => (window as typeof window & { __parseAttempts: number }).__parseAttempts)).toBe(3);
 });
 
 test("MP3 metadata is visible and can be selected for a batch clean copy", async ({ page }) => {

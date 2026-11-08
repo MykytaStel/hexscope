@@ -158,6 +158,34 @@ describe("BatchController", () => {
     expect(announce.mock.calls[0][0]).not.toContain("No personal metadata found");
   });
 
+  it("retries only failed files and leaves completed rows alone", async () => {
+    const view = new MemoryBatchView();
+    const attempts: string[] = [];
+    const controller = new BatchController(view, {
+      analyze: async (input) => {
+        attempts.push(input.name);
+        if (input.name === "retry.jpg" && attempts.filter((name) => name === "retry.jpg").length === 1) {
+          throw new Error("temporary read failure");
+        }
+        return report(input);
+      },
+      openFile: () => {},
+      saveClean: async () => {},
+      announce: () => {},
+    });
+
+    controller.start([file("retry.jpg"), file("already-read.jpg")]);
+    controller.resume();
+    await vi.waitFor(() => expect(controller.items?.map((item) => item.state)).toEqual(["failed", "done"]));
+
+    expect(controller.retryFailed()).toBe(true);
+    await vi.waitFor(() => expect(controller.items?.map((item) => item.state)).toEqual(["done", "done"]));
+    expect(attempts).toEqual(["retry.jpg", "already-read.jpg", "retry.jpg"]);
+    expect(controller.items?.[0].note).toBe("");
+    expect(controller.retryFailed()).toBe(false);
+    expect(attempts).toHaveLength(3);
+  });
+
   it("does not redraw or announce a list cleared during analysis", async () => {
     const view = new MemoryBatchView();
     const pending = deferred<BatchAnalysis>();

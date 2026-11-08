@@ -31,7 +31,7 @@ export const EXTENSIONS: Record<string, string[]> = {
   msg: ["msg"],
   office97: ["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
   rtf: ["rtf"],
-  svg: ["svg"],
+  svg: ["svg", "svgz"],
   mp3: ["mp3"],
   flac: ["flac"],
   ogg: ["ogg", "oga", "opus"],

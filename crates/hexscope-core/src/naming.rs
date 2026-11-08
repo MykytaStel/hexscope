@@ -45,7 +45,7 @@ const EXTENSIONS: &[(&str, &[&str])] = &[
         &["doc", "dot", "xls", "xlt", "xla", "ppt", "pot", "pps"],
     ),
     ("rtf", &["rtf"]),
-    ("svg", &["svg"]),
+    ("svg", &["svg", "svgz"]),
 ];
 
 /// Documents a ZIP can be, each with the extensions that are its own.

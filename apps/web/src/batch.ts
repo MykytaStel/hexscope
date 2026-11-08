@@ -6,6 +6,7 @@ import type { VerdictLine } from "./verdict";
 import { listed } from "./headline";
 import { currentLocale, translateText } from "./i18n";
 import { batchCoverageReport } from "./batch-coverage-report";
+import { batchDiagnosticsReport } from "./batch-diagnostics-report";
 import { phoneCanShare, saveAs, shareFile } from "./files";
 import { cleanable, type BatchFormatCoverage, type BatchItem } from "./batch-model";
 
@@ -148,6 +149,7 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
 export interface BatchHooks {
   open(index: number): void;
   toggleReading(): void;
+  retryFailed(): boolean;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
   saveClean(keepNames: boolean, includeCopyFingerprints: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
@@ -367,6 +369,14 @@ export class BatchView {
     // Copies shared to a chat go one by one, under the names the chat shows: the choice is for a ZIP.
     keep.hidden = totals.busy || chosen === 0 || phone;
     head.append(label, title, summary);
+    const failedCount = items.filter((item) => item.state === "failed").length;
+    if (!totals.busy && failedCount > 0) {
+      const retry = el("button", "btn batch-retry-failed", translateText("Retry failed files", currentLocale()));
+      retry.type = "button";
+      retry.title = translateText("Only failed files are read again; completed files stay untouched.", currentLocale());
+      retry.addEventListener("click", () => this.hooks.retryFailed());
+      head.append(retry);
+    }
     if (totals.busy) {
       const toggle = el("button", "btn batch-toggle", translateText(this.paused ? "Resume reading" : "Pause reading", currentLocale()));
       toggle.type = "button";
@@ -527,6 +537,32 @@ export class BatchView {
         currentLocale(),
       ));
       coverage.append(rows, actions, privacyNote);
+      const diagnostics = batchDiagnosticsReport(items);
+      if (diagnostics) {
+        const diagnosticsName = "hexscope-batch-diagnostics.json";
+        const diagnosticActions = el("div", "batch-coverage-actions");
+        if (phoneCanShare(diagnosticsName)) {
+          const shareDiagnostics = el("button", "btn btn-primary", translateText("Share diagnostic report", currentLocale()));
+          shareDiagnostics.type = "button";
+          shareDiagnostics.addEventListener("click", () => {
+            void shareFile(new File([diagnostics], diagnosticsName, { type: "application/json" }));
+          });
+          diagnosticActions.append(shareDiagnostics);
+        }
+        const saveDiagnostics = el("button", "btn", translateText("Save diagnostic report", currentLocale()));
+        saveDiagnostics.type = "button";
+        saveDiagnostics.addEventListener("click", () => {
+          saveAs(diagnosticsName, new Blob([diagnostics], { type: "application/json" }));
+        });
+        diagnosticActions.append(saveDiagnostics);
+        coverage.append(
+          diagnosticActions,
+          el("p", "batch-coverage-note", translateText(
+            "The diagnostic report lists affected row numbers, formats and statuses only; it excludes file names, paths, contents and raw errors.",
+            currentLocale(),
+          )),
+        );
+      }
       card.append(coverage);
     }
     if (selection.childNodes.length) card.append(selection);

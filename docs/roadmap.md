@@ -157,12 +157,18 @@ are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
 ### 0.15.0 — accumulating
 
-The first candidate adds a versioned Web batch coverage report with both a
-download and a direct system share action on phones that support file sharing.
-It contains only aggregate file counts and format read statuses, including
-how many batch inputs could not be read; it leaves out file names, paths,
-finding values, sizes and timestamps. The iPhone share-sheet and Files paths
-for the report still need the author's physical-device check.
+The Web batch workflow now has a versioned coverage report and a separate,
+value-free diagnostics report for rows that need attention. Both can be saved
+or shared from phones that support file sharing. Diagnostics contain only a
+one-based row index, detected format and status; they omit raw errors, names,
+paths, contents, metadata, sizes and timestamps. Failed batch rows can be
+retried without reading completed files again.
+
+Core now reads and cleans bounded `.svgz` files, validates gzip integrity and
+checks the cleaned copy by reading it back. Input and expanded XML are each
+limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
+and Files paths for both reports still need the author's physical-device
+check.
 
 The 0.14 audit's remaining maintenance candidates are under consideration:
 remove the batch/photo-mosaic type-only dependency cycle and reduce duplicate
