@@ -47,3 +47,7 @@ it("gives a clean-copy download the media type its filename says", () => {
 it("gives a gzip-compressed SVG its registered SVG media type", () => {
   expect(typeOf("drawing.svgz")).toBe("image/svg+xml");
 });
+
+it("gives a batch CSV report its registered text media type", () => {
+  expect(typeOf("hexscope-batch-coverage.csv")).toBe("text/csv");
+});

@@ -28,7 +28,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
-| 0.15.0 | Portable batch reports and reliability fixes | accumulating |
+| 0.15.0 | Portable batch reports and reliability fixes | shipped 2026-11-08; Homebrew tap updated 2026-11-09 |
+| 0.16.0 | Easy-to-open private reports and mobile copy confidence | accumulating |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -155,7 +156,7 @@ remain open; those outcomes stay explicitly **Not checked** until measured.
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
-### 0.15.0 — release candidate
+### 0.15.0 — shipped 2026-11-08
 
 The Web batch workflow now has a versioned coverage report and a separate,
 value-free diagnostics report for rows that need attention. Both can be saved
@@ -166,9 +167,8 @@ retried without reading completed files again.
 
 Core now reads and cleans bounded `.svgz` files, validates gzip integrity and
 checks the cleaned copy by reading it back. Input and expanded XML are each
-limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
-and Files paths for both reports still need the author's physical-device
-check.
+limited to 64 MiB, and only one gzip member is accepted. Physical iPhone
+checks for report sharing and Files downloads remain open.
 
 The Web sample picker and SVG metadata guide include a compressed Inkscape
 example, generated alongside the SVG source, so `.svgz` can be tried without
@@ -179,9 +179,27 @@ outside the photo mosaic, same-repository pull requests reuse their branch-push
 CI run, and advisory scans also cover manifest changes. The advisory workflow
 still runs weekly and on demand; fork pull requests run checks in the base
 repository.
-Android Chrome and read-back for Web clean copies over 10 MiB remain
+The v0.15.0 site and GitHub Release shipped with five CLI archives and
+checksums; all four crates are published. The Homebrew tap was updated on
+2026-11-09, and upgrading from 0.14.0 plus `brew test` passed.
+
+Android Chrome and Web read-back for clean copies over 10 MiB remain
 evidence-gated; browser emulation cannot close those physical-device
 questions.
+
+### 0.16.0 — accumulating
+
+The first slice adds spreadsheet-friendly CSV saves for batch coverage and
+diagnostic reports, alongside the existing versioned JSON. CSV output keeps
+the same privacy boundary: aggregate counts, or row index, format and status;
+no file names, paths, contents or raw errors. Spreadsheet formula cells are
+escaped, and downloads carry the `text/csv` type.
+
+Next priorities are to verify JSON and CSV save/share behavior in iPhone Safari
+and Files, keep Android Chrome explicitly unverified until a physical device
+is available, and measure the Web clean-copy read-back limit before changing
+it. A further parser format should be selected from user demand and must pass
+fixture-backed read, clean and read-back evidence.
 
 ### 0.10.0 — shipped 2026-11-02
 

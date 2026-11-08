@@ -5,8 +5,8 @@
 import type { VerdictLine } from "./verdict";
 import { listed } from "./headline";
 import { currentLocale, translateText } from "./i18n";
-import { batchCoverageReport } from "./batch-coverage-report";
-import { batchDiagnosticsReport } from "./batch-diagnostics-report";
+import { batchCoverageCsv, batchCoverageReport } from "./batch-coverage-report";
+import { batchDiagnosticsCsv, batchDiagnosticsReport } from "./batch-diagnostics-report";
 import { phoneCanShare, saveAs, shareFile } from "./files";
 import { cleanable, type BatchFormatCoverage, type BatchItem } from "./batch-model";
 
@@ -520,6 +520,12 @@ export class BatchView {
         const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
         saveAs("hexscope-batch-coverage.json", new Blob([report], { type: "application/json" }));
       });
+      const csvExportButton = el("button", "btn batch-coverage-export-csv", translateText("Save coverage report as CSV", currentLocale()));
+      csvExportButton.type = "button";
+      csvExportButton.addEventListener("click", () => {
+        const report = batchCoverageCsv(totals.coverageByFormat, totals.settled);
+        saveAs("hexscope-batch-coverage.csv", new Blob([report], { type: "text/csv" }));
+      });
       const reportName = "hexscope-batch-coverage.json";
       const actions = el("div", "batch-coverage-actions");
       if (phoneCanShare(reportName)) {
@@ -531,7 +537,7 @@ export class BatchView {
         });
         actions.append(shareButton);
       }
-      actions.append(exportButton);
+      actions.append(exportButton, csvExportButton);
       const privacyNote = el("p", "batch-coverage-note", translateText(
         "The report includes format names and read counts only; no file names or findings.",
         currentLocale(),
@@ -554,7 +560,14 @@ export class BatchView {
         saveDiagnostics.addEventListener("click", () => {
           saveAs(diagnosticsName, new Blob([diagnostics], { type: "application/json" }));
         });
-        diagnosticActions.append(saveDiagnostics);
+        const saveDiagnosticsCsv = el("button", "btn", translateText("Save diagnostic report as CSV", currentLocale()));
+        saveDiagnosticsCsv.type = "button";
+        saveDiagnosticsCsv.addEventListener("click", () => {
+          const csvDiagnostics = batchDiagnosticsCsv(items);
+          if (!csvDiagnostics) return;
+          saveAs("hexscope-batch-diagnostics.csv", new Blob([csvDiagnostics], { type: "text/csv" }));
+        });
+        diagnosticActions.append(saveDiagnostics, saveDiagnosticsCsv);
         coverage.append(
           diagnosticActions,
           el("p", "batch-coverage-note", translateText(

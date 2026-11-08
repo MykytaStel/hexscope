@@ -157,6 +157,7 @@ const TYPES: Record<string, string> = {
   ods: "application/vnd.oasis.opendocument.spreadsheet",
   odp: "application/vnd.oasis.opendocument.presentation",
   msg: "application/vnd.ms-outlook",
+  csv: "text/csv",
 };
 
 /** The media type a file's name says, or "" when unknown. */

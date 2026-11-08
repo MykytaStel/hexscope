@@ -37,10 +37,10 @@ test("a batch downloads a versioned coverage report without input names", async 
 
   const coverage = page.locator("#batch .batch-coverage");
   await coverage.locator("summary").click();
-  await expect(coverage.getByRole("button", { name: "Save coverage report" })).toBeVisible();
+  await expect(coverage.getByRole("button", { name: "Save coverage report", exact: true })).toBeVisible();
   await expect(coverage).toContainText("no file names or findings");
   const downloadPromise = page.waitForEvent("download");
-  await coverage.getByRole("button", { name: "Save coverage report" }).click();
+  await coverage.getByRole("button", { name: "Save coverage report", exact: true }).click();
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toBe("hexscope-batch-coverage.json");
@@ -55,6 +55,47 @@ test("a batch downloads a versioned coverage report without input names", async 
     ],
   });
   expect(JSON.stringify(report)).not.toContain("private-photo");
+});
+
+test("a batch saves readable coverage and diagnostic CSV reports", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "private-unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const coverage = page.locator("#batch .batch-coverage");
+  await coverage.locator("summary").click();
+
+  const coverageDownloadPromise = page.waitForEvent("download");
+  await coverage.getByRole("button", { name: "Save coverage report as CSV" }).click();
+  const coverageDownload = await coverageDownloadPromise;
+  expect(coverageDownload.suggestedFilename()).toBe("hexscope-batch-coverage.csv");
+  const coverageCsv = readFileSync((await coverageDownload.path())!, "utf8");
+  expect(coverageCsv).toBe([
+    "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+    "png,1,1,0,0,2,2,0",
+    "unknown,1,0,0,1,2,2,0",
+  ].join("\r\n"));
+  expect(coverageCsv).not.toContain("private-photo");
+  expect(coverageCsv).not.toContain("private-unknown");
+
+  const diagnosticsDownloadPromise = page.waitForEvent("download");
+  await coverage.getByRole("button", { name: "Save diagnostic report as CSV" }).click();
+  const diagnosticsDownload = await diagnosticsDownloadPromise;
+  expect(diagnosticsDownload.suggestedFilename()).toBe("hexscope-batch-diagnostics.csv");
+  const diagnosticsCsv = readFileSync((await diagnosticsDownload.path())!, "utf8");
+  expect(diagnosticsCsv).toBe([
+    "Row,Format,Status,Total files",
+    "2,unknown,unsupported,2",
+  ].join("\r\n"));
+  expect(diagnosticsCsv).not.toContain("private-photo");
+  expect(diagnosticsCsv).not.toContain("private-unknown");
 });
 
 test("a phone can share the value-free batch coverage report directly", async ({ page }, info) => {
@@ -90,7 +131,7 @@ test("a phone can share the value-free batch coverage report directly", async ({
   const content = await page.evaluate(() => localStorage.getItem("hexscope.test.share-content"));
   expect(JSON.parse(content!)).toMatchObject({ schema: "hexscope.batch-coverage", version: 1 });
   expect(content).not.toContain("private-photo");
-  await expect(coverage.getByRole("button", { name: "Save coverage report" })).toBeVisible();
+  await expect(coverage.getByRole("button", { name: "Save coverage report", exact: true })).toBeVisible();
 });
 
 test("a phone can share a value-free diagnostic report for rows needing attention", async ({ page }, info) => {
@@ -131,7 +172,7 @@ test("a phone can share a value-free diagnostic report for rows needing attentio
     issues: [{ index: 2, format: "unknown", status: "unsupported" }],
   });
   expect(content).not.toContain("private-unknown");
-  await expect(coverage.getByRole("button", { name: "Save diagnostic report" })).toBeVisible();
+  await expect(coverage.getByRole("button", { name: "Save diagnostic report", exact: true })).toBeVisible();
 });
 
 test("a file that cannot be inspected stays visible in the attention filter", async ({ page }) => {
