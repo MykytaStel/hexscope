@@ -7,6 +7,7 @@ mod bmff;
 pub mod cfb;
 pub mod clean;
 mod clock;
+pub mod coverage;
 pub mod crc32;
 pub mod crypto;
 mod deflate;

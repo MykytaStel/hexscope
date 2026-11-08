@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 mod batch_report;
+mod coverage;
 mod film;
 mod menu;
 mod mosaic;
@@ -39,6 +40,7 @@ const USAGE: &str = "hexscope — see what your files say about you
 
 Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
+  hexscope coverage [--json] PATH... value-free read coverage by format
   hexscope clean [options] PATH...    save copies without what they give away
   hexscope receipt verify COPY RECEIPT.json  check a receipt's copy fingerprint offline
   hexscope mosaic [--json] [--clean-related --out DIR] PATH... local photo correlations and optional clean copies
@@ -123,6 +125,7 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
             Ok(ExitCode::SUCCESS)
         }
         "check" => check(rest),
+        "coverage" => coverage::run(rest),
         "clean" => copies(rest, Make::Clean),
         "receipt" => receipt::run(rest),
         "batch" => batch_report::run(rest),
@@ -280,7 +283,7 @@ fn tags<'a>(s: &'a Summary, mis: Option<&Misnamed>) -> Vec<&'a str> {
     if !s.facts.is_empty() {
         t.push("reveals");
     }
-    if !s.complete {
+    if !s.complete || s.format == "unknown" {
         t.push("incomplete");
     }
     t.extend(s.facts.iter().map(|(k, _)| *k));
@@ -326,7 +329,11 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             }
         };
         let mis = mis.as_ref();
-        let quiet = s.complete && s.problems.is_empty() && s.facts.is_empty() && mis.is_none();
+        let quiet = s.format != "unknown"
+            && s.complete
+            && s.problems.is_empty()
+            && s.facts.is_empty()
+            && mis.is_none();
         // A file of no known format is passed over, and counted, unless its
         // text names someone.
         if s.format == "unknown" && s.facts.is_empty() && !o.all {
@@ -337,6 +344,12 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
             match unread.iter_mut().find(|(e, _)| *e == ext) {
                 Some((_, n)) => *n += 1,
                 None => unread.push((ext, 1)),
+            }
+            // The default gate includes incomplete reads. Unsupported files
+            // are not listed without --all, but they must still fail that
+            // gate so a CI check cannot succeed after skipping an input.
+            if o.fail_on.iter().any(|kind| kind == "incomplete") {
+                failed += 1;
             }
             continue;
         }
@@ -540,12 +553,21 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
     for (kind, text) in &s.facts {
         let _ = writeln!(out, "  reveals  {}: {text}", finding_label(kind));
     }
-    if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg") {
+    if s.format == "unknown" {
+        if s.facts.is_empty() {
+            out.push_str("  not read: hexscope does not read this format\n");
+        } else {
+            out.push_str("  format not recognized; its structure was not inspected\n");
+        }
+    } else if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg") {
         out.push_str("  metadata not fully inspected; some tags may be unread\n");
     }
-    if s.format == "unknown" && s.facts.is_empty() {
-        out.push_str("  not read: hexscope does not read this format\n");
-    } else if s.complete && s.problems.is_empty() && s.facts.is_empty() && mis.is_none() {
+    if s.format != "unknown"
+        && s.complete
+        && s.problems.is_empty()
+        && s.facts.is_empty()
+        && mis.is_none()
+    {
         out.push_str("  nothing found\n");
     }
     out
@@ -658,7 +680,7 @@ fn json(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
             json_str(m.fits)
         )
     });
-    let completeness = if s.complete {
+    let completeness = if s.complete && s.format != "unknown" {
         String::new()
     } else {
         ",\"complete\":false".to_string()

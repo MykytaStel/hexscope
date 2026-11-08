@@ -1,6 +1,7 @@
 //! The command line, run as a person would run it.
 
 use serde_json::json;
+use std::collections::BTreeSet;
 use std::process::Command;
 
 const BIN: &str = env!("CARGO_BIN_EXE_hexscope");
@@ -1468,4 +1469,112 @@ fn batch_default_receipt_bytes_remain_v1_and_hashes_are_opt_in() {
     assert!(!text.contains(opt_inputs.to_str().unwrap()));
     assert!(!text.contains("PRIVATE_TEXT_SENTINEL"));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn unsupported_files_fail_the_default_incomplete_check() {
+    let path =
+        std::env::temp_dir().join(format!("hexscope-unsupported-{}.bin", std::process::id()));
+    std::fs::write(&path, [0, 1, 2, 3]).unwrap();
+    let path_arg = path.to_str().unwrap();
+
+    let (code, out, err) = run(&["check", path_arg]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(err.contains("not read"), "{err}");
+
+    let (code, out, err) = run(&["check", "--all", path_arg]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(out.contains("not read"), "{out}");
+
+    let (code, out, err) = run(&["check", "--all", "--json", path_arg]);
+    assert_eq!(code, 1, "{out}{err}");
+    let report: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(report["format"], "unknown");
+    assert_eq!(report["complete"], false);
+
+    let (code, out, err) = run(&["check", "--fail-on", "none", path_arg]);
+    assert_eq!(code, 0, "{out}{err}");
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn coverage_json_is_value_free_and_distinguishes_partial_and_unsupported_files() {
+    let dir = std::env::temp_dir().join(format!("hexscope-coverage-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let photo = dir.join("private-photo.jpg");
+    let partial = dir.join("partial.jpg");
+    let unsupported = dir.join("secret.bin");
+    std::fs::copy(fixture("photo.jpg"), &photo).unwrap();
+    std::fs::write(&partial, [0xff, 0xd8, 0xff]).unwrap();
+    std::fs::write(&unsupported, [0, 1, 2, 3]).unwrap();
+
+    let (code, out, err) = run(&["coverage", "--json", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}{err}");
+    let report: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    let keys: BTreeSet<_> = report
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "bytes",
+            "elapsed_microseconds",
+            "files",
+            "formats",
+            "schema",
+            "version",
+        ]
+        .into_iter()
+        .collect()
+    );
+    assert_eq!(report["schema"], "hexscope.format-coverage");
+    assert_eq!(report["version"], 1);
+    assert_eq!(report["files"], 3);
+    assert_eq!(
+        report["bytes"],
+        std::fs::metadata(&photo).unwrap().len() + 7
+    );
+    let formats = report["formats"].as_array().unwrap();
+    assert_eq!(formats.len(), 2);
+    let format_keys: BTreeSet<_> = formats[0]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        format_keys,
+        [
+            "bytes",
+            "complete",
+            "elapsed_microseconds",
+            "files",
+            "format",
+            "partial",
+            "unsupported",
+        ]
+        .into_iter()
+        .collect()
+    );
+    assert_eq!(formats[0]["format"], "jpeg");
+    assert_eq!(formats[0]["files"], 2);
+    assert_eq!(formats[0]["complete"], 1);
+    assert_eq!(formats[0]["partial"], 1);
+    assert_eq!(formats[1]["format"], "unknown");
+    assert_eq!(formats[1]["unsupported"], 1);
+    assert!(!out.contains(dir.to_str().unwrap()), "{out}");
+    assert!(!out.contains("private-photo.jpg"), "{out}");
+    assert!(!out.contains("secret.bin"), "{out}");
+
+    let (code, text, err) = run(&["coverage", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{text}{err}");
+    assert!(text.contains("Hexscope format coverage"), "{text}");
+    assert!(text.contains("unknown\t1\t0\t0\t1"), "{text}");
+    assert!(!text.contains(dir.to_str().unwrap()), "{text}");
+
+    std::fs::remove_dir_all(dir).unwrap();
 }
