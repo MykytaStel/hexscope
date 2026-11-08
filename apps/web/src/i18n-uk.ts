@@ -172,6 +172,7 @@ const UK: Record<string, string> = {
   "Examples": "Приклади",
   "Formats": "Формати",
   "Coverage by format": "Покриття за форматами",
+  "Share coverage report": "Поділитися звітом про покриття",
   "Save coverage report": "Зберегти звіт про покриття",
   "The report includes format names and read counts only; no file names or findings.": "Звіт містить лише назви форматів і кількість прочитаних файлів — без імен файлів і знахідок.",
   "complete": "повністю прочитано",

@@ -157,11 +157,12 @@ are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
 ### 0.15.0 — accumulating
 
-The first candidate adds a downloadable, versioned Web batch coverage report.
+The first candidate adds a versioned Web batch coverage report with both a
+download and a direct system share action on phones that support file sharing.
 It contains only aggregate file counts and format read statuses, including
 how many batch inputs could not be read; it leaves out file names, paths,
-finding values, sizes and timestamps. The iPhone save/share path for the
-report still needs the author's physical-device check.
+finding values, sizes and timestamps. The iPhone share-sheet and Files paths
+for the report still need the author's physical-device check.
 
 The 0.14 audit's remaining maintenance candidates are under consideration:
 remove the batch/photo-mosaic type-only dependency cycle and reduce duplicate

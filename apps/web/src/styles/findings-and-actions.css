@@ -1193,7 +1193,10 @@ body[data-state="batch"] .layout {
   gap: 4px 12px;
 }
 
-.batch-coverage-export {
+.batch-coverage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 10px;
 }
 

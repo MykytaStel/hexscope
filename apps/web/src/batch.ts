@@ -6,7 +6,7 @@ import type { VerdictLine } from "./verdict";
 import { listed } from "./headline";
 import { currentLocale, translateText } from "./i18n";
 import { batchCoverageReport } from "./batch-coverage-report";
-import { saveAs } from "./files";
+import { phoneCanShare, saveAs, shareFile } from "./files";
 import { cleanable, type BatchFormatCoverage, type BatchItem } from "./batch-model";
 
 // The view and its queue controller form one public composition surface.
@@ -510,11 +510,23 @@ export class BatchView {
         const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
         saveAs("hexscope-batch-coverage.json", new Blob([report], { type: "application/json" }));
       });
+      const reportName = "hexscope-batch-coverage.json";
+      const actions = el("div", "batch-coverage-actions");
+      if (phoneCanShare(reportName)) {
+        const shareButton = el("button", "btn btn-primary batch-coverage-share", translateText("Share coverage report", currentLocale()));
+        shareButton.type = "button";
+        shareButton.addEventListener("click", () => {
+          const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
+          void shareFile(new File([report], reportName, { type: "application/json" }));
+        });
+        actions.append(shareButton);
+      }
+      actions.append(exportButton);
       const privacyNote = el("p", "batch-coverage-note", translateText(
         "The report includes format names and read counts only; no file names or findings.",
         currentLocale(),
       ));
-      coverage.append(rows, exportButton, privacyNote);
+      coverage.append(rows, actions, privacyNote);
       card.append(coverage);
     }
     if (selection.childNodes.length) card.append(selection);

@@ -57,6 +57,42 @@ test("a batch downloads a versioned coverage report without input names", async 
   expect(JSON.stringify(report)).not.toContain("private-photo");
 });
 
+test("a phone can share the value-free batch coverage report directly", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "The share-sheet flow uses the mobile browser profile.");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: { files?: File[] }) => {
+        const file = data.files?.[0];
+        if (!file) throw new Error("No file was shared");
+        localStorage.setItem("hexscope.test.share-name", file.name);
+        localStorage.setItem("hexscope.test.share-content", await file.text());
+      },
+    });
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const coverage = page.locator("#batch .batch-coverage");
+  await coverage.locator("summary").click();
+  await expect(coverage.getByRole("button", { name: "Share coverage report" })).toBeVisible();
+  await coverage.getByRole("button", { name: "Share coverage report" }).click();
+
+  expect(await page.evaluate(() => localStorage.getItem("hexscope.test.share-name"))).toBe("hexscope-batch-coverage.json");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-content"))).not.toBeNull();
+  const content = await page.evaluate(() => localStorage.getItem("hexscope.test.share-content"));
+  expect(JSON.parse(content!)).toMatchObject({ schema: "hexscope.batch-coverage", version: 1 });
+  expect(content).not.toContain("private-photo");
+  await expect(coverage.getByRole("button", { name: "Save coverage report" })).toBeVisible();
+});
+
 test("a file that cannot be inspected stays visible in the attention filter", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");
