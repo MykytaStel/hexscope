@@ -123,8 +123,8 @@ test("a phone can share the value-free batch coverage report directly", async ({
 
   const coverage = page.locator("#batch .batch-coverage");
   await coverage.locator("summary").click();
-  await expect(coverage.getByRole("button", { name: "Share coverage report" })).toBeVisible();
-  await coverage.getByRole("button", { name: "Share coverage report" }).click();
+  await expect(coverage.getByRole("button", { name: "Share coverage report", exact: true })).toBeVisible();
+  await coverage.getByRole("button", { name: "Share coverage report", exact: true }).click();
 
   expect(await page.evaluate(() => localStorage.getItem("hexscope.test.share-name"))).toBe("hexscope-batch-coverage.json");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-content"))).not.toBeNull();
@@ -132,6 +132,64 @@ test("a phone can share the value-free batch coverage report directly", async ({
   expect(JSON.parse(content!)).toMatchObject({ schema: "hexscope.batch-coverage", version: 1 });
   expect(content).not.toContain("private-photo");
   await expect(coverage.getByRole("button", { name: "Save coverage report", exact: true })).toBeVisible();
+});
+
+test("a phone can share both value-free CSV reports directly", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "The share-sheet flow uses the mobile browser profile.");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: (data: { files?: File[] }) => Boolean(data.files?.length) && data.files!.every((file) => file.type === "text/csv"),
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: { files?: File[] }) => {
+        const file = data.files?.[0];
+        if (!file) throw new Error("No file was shared");
+        localStorage.setItem("hexscope.test.share-csv", JSON.stringify({
+          name: file.name,
+          type: file.type,
+          content: await file.text(),
+        }));
+      },
+    });
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "private-unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const coverage = page.locator("#batch .batch-coverage");
+  await coverage.locator("summary").click();
+  const coverageShare = coverage.getByRole("button", { name: "Share coverage report as CSV" });
+  await expect(coverageShare).toBeVisible();
+  await coverageShare.click();
+
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-csv"))).not.toBeNull();
+  const sharedCoverage = JSON.parse((await page.evaluate(() => localStorage.getItem("hexscope.test.share-csv")))!);
+  expect(sharedCoverage).toMatchObject({
+    name: "hexscope-batch-coverage.csv",
+    type: "text/csv",
+  });
+  expect(sharedCoverage.content).toContain("Format,Files,Complete,Partial,Unsupported");
+  expect(sharedCoverage.content).not.toContain("private-photo");
+
+  const diagnosticShare = coverage.getByRole("button", { name: "Share diagnostic report as CSV" });
+  await expect(diagnosticShare).toBeVisible();
+  await page.evaluate(() => localStorage.removeItem("hexscope.test.share-csv"));
+  await diagnosticShare.click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-csv"))).not.toBeNull();
+  const sharedDiagnostics = JSON.parse((await page.evaluate(() => localStorage.getItem("hexscope.test.share-csv")))!);
+  expect(sharedDiagnostics).toMatchObject({
+    name: "hexscope-batch-diagnostics.csv",
+    type: "text/csv",
+  });
+  expect(sharedDiagnostics.content).toContain("2,unknown,unsupported,2");
+  expect(sharedDiagnostics.content).not.toContain("private-unknown");
 });
 
 test("a phone can share a value-free diagnostic report for rows needing attention", async ({ page }, info) => {
@@ -159,8 +217,8 @@ test("a phone can share a value-free diagnostic report for rows needing attentio
 
   const coverage = page.locator("#batch .batch-coverage");
   await coverage.locator("summary").click();
-  await expect(coverage.getByRole("button", { name: "Share diagnostic report" })).toBeVisible();
-  await coverage.getByRole("button", { name: "Share diagnostic report" }).click();
+  await expect(coverage.getByRole("button", { name: "Share diagnostic report", exact: true })).toBeVisible();
+  await coverage.getByRole("button", { name: "Share diagnostic report", exact: true }).click();
 
   expect(await page.evaluate(() => localStorage.getItem("hexscope.test.share-name"))).toBe("hexscope-batch-diagnostics.json");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("hexscope.test.share-content"))).not.toBeNull();

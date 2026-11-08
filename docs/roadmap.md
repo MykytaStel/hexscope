@@ -190,10 +190,11 @@ questions.
 ### 0.16.0 — accumulating
 
 The first slice adds spreadsheet-friendly CSV saves for batch coverage and
-diagnostic reports, alongside the existing versioned JSON. CSV output keeps
-the same privacy boundary: aggregate counts, or row index, format and status;
-no file names, paths, contents or raw errors. Spreadsheet formula cells are
-escaped, and downloads carry the `text/csv` type.
+diagnostic reports, alongside the existing versioned JSON. Compatible phones
+can also share those CSV files directly to another app or Files. CSV output
+keeps the same privacy boundary: aggregate counts, or row index, format and
+status; no file names, paths, contents or raw errors. Spreadsheet formula
+cells are escaped, and downloads carry the `text/csv` type.
 
 Next priorities are to verify JSON and CSV save/share behavior in iPhone Safari
 and Files, keep Android Chrome explicitly unverified until a physical device
