@@ -1,4 +1,27 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+test("a batch shows value-free format coverage and can focus incomplete reads", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "private-photo.png", mimeType: "image/png", buffer: photo },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+
+  const batch = page.locator("#batch");
+  const coverage = batch.locator(".batch-coverage");
+  await expect(coverage.locator("[data-coverage-format=png]")).toContainText("complete");
+  await expect(coverage.locator("[data-coverage-format=unknown]")).toContainText("unsupported");
+  await expect(coverage).not.toContainText("private-photo.png");
+  await batch.getByRole("button", { name: /Incomplete/ }).click();
+  await expect(batch.locator(".batch-row", { hasText: "unknown.bin" })).toBeVisible();
+  await expect(batch.locator(".batch-row", { hasText: "private-photo.png" })).toHaveCount(0);
+});
 
 test("a file that cannot be inspected stays visible in the attention filter", async ({ page }) => {
   await page.addInitScript(() => {

@@ -359,6 +359,13 @@ fn an_unknown_file_is_named_not_ignored() {
 }
 
 #[test]
+fn coverage_status_matches_the_core_for_complete_partial_and_unknown_files() {
+    assert_eq!(parse(&fixture("basn2c08.png")).coverage_status(), 0);
+    assert_eq!(parse(&[0xff, 0xd8, 0xff]).coverage_status(), 1);
+    assert_eq!(parse(b"not a supported format").coverage_status(), 2);
+}
+
+#[test]
 fn a_pixel_leads_to_the_step_that_wrote_it_and_back() {
     let parsed = parse(&fixture("basn2c08.png"));
     assert_eq!(parsed.preview_size(), vec![32, 32]);

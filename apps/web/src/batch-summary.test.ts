@@ -5,7 +5,7 @@ import { summarizeBatch } from "./batch";
 function item(
   name: string,
   state: BatchItem["state"],
-  options: Partial<Pick<BatchItem, "lines" | "reveals" | "headline" | "skip" | "format" | "hasRemovableMetadata">> = {},
+  options: Partial<Pick<BatchItem, "lines" | "reveals" | "headline" | "skip" | "format" | "coverage" | "hasRemovableMetadata">> = {},
 ): BatchItem {
   return {
     file: new File([name], name),
@@ -22,6 +22,23 @@ function item(
 }
 
 describe("batch summary", () => {
+  it("counts parser coverage by format and filters incomplete reads", () => {
+    const complete = item("private-photo.jpg", "done", { format: "jpeg", coverage: "complete" });
+    const partial = item("partial.mp3", "done", { format: "mp3", coverage: "partial" });
+    const unsupported = item("unknown.bin", "done", { format: "unknown", coverage: "unsupported" });
+
+    const result = summarizeBatch([complete, partial, unsupported], "incomplete");
+
+    expect(result.incomplete).toBe(2);
+    expect(result.coverageByFormat).toEqual([
+      { format: "jpeg", files: 1, complete: 1, partial: 0, unsupported: 0 },
+      { format: "mp3", files: 1, complete: 0, partial: 1, unsupported: 0 },
+      { format: "unknown", files: 1, complete: 0, partial: 0, unsupported: 1 },
+    ]);
+    expect(result.shown.map(({ index }) => index)).toEqual([1, 2]);
+    expect(JSON.stringify(result.coverageByFormat)).not.toContain("private-photo");
+  });
+
   it("counts statuses and filters rows in one consistent pass", () => {
     const waiting = item("waiting.jpg", "waiting");
     const hidden = item("hidden.pdf", "done", {

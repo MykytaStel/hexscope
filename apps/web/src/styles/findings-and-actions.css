@@ -1168,6 +1168,36 @@ body[data-state="batch"] .layout {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+.batch-coverage {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+
+.batch-coverage > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.batch-coverage-list {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.batch-coverage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.batch-coverage-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .batch-selection {
   display: flex;
   justify-content: flex-end;

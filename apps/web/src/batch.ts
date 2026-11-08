@@ -3,8 +3,10 @@
 // photos or documents can be checked before it is sent. Each opens as a
 // file of its own, with a way back; all the clean copies save as one ZIP.
 import type { VerdictLine } from "./verdict";
+import type { PhotoSignal } from "./photo-signal";
 import { listed, type Headline } from "./headline";
 import { currentLocale, translateText } from "./i18n";
+import type { CoverageStatus } from "./model";
 
 // The view and its queue controller form one public composition surface.
 export { BatchController, type BatchAnalysis, type BatchControllerHooks, type BatchViewPort } from "./batch-controller";
@@ -23,13 +25,15 @@ export interface BatchItem {
   cleanName: string;
   /** Machine format code from the parser, used by portable receipts. */
   format?: string;
+  /** Canonical parser read status, classified by the Rust core. */
+  coverage?: CoverageStatus;
   /** The file has a supported metadata block that can be removed even if it has no recognized facts. */
   hasRemovableMetadata?: boolean;
   note: string;
   /** Left out of the clean copies, by choice. */
   skip: boolean;
   copyStatus?: string;
-  photoSignal?: import("./photo-mosaic").PhotoSignal;
+  photoSignal?: PhotoSignal;
 }
 
 /** Whether a file has something a clean copy takes out. */
@@ -48,7 +52,15 @@ export function cleanable(i: BatchItem): boolean {
   );
 }
 
-export type BatchShow = "all" | "reveals" | "problems";
+export type BatchShow = "all" | "reveals" | "problems" | "incomplete";
+
+export interface BatchFormatCoverage {
+  format: string;
+  files: number;
+  complete: number;
+  partial: number;
+  unsupported: number;
+}
 
 export interface BatchSummary {
   settled: number;
@@ -62,6 +74,7 @@ export interface BatchSummary {
   chosen: number;
   cleanable: number;
   problemCount: number;
+  coverageByFormat: BatchFormatCoverage[];
   shownCount: number;
   shown: { item: BatchItem; index: number }[];
   anyPick: boolean;
@@ -81,6 +94,7 @@ interface BatchItemSummary {
 
 function summarizeBatchItem(item: BatchItem): BatchItemSummary {
   const failed = item.state === "failed";
+  const coverageIncomplete = item.coverage === "partial" || item.coverage === "unsupported";
   let hasUnknownOrDamage = false;
   let hasDamage = false;
   let hasHidden = false;
@@ -97,6 +111,10 @@ function summarizeBatchItem(item: BatchItem): BatchItemSummary {
     }
     if (line.kind === "hidden") hasHidden = true;
     if (line.kind === "misnamed") hasMisnamed = true;
+  }
+  if (coverageIncomplete) {
+    hasUnknownOrDamage = true;
+    hasIncomplete = true;
   }
   const reveals = item.reveals.length > 0;
   return {
@@ -126,14 +144,25 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
     chosen: 0,
     cleanable: 0,
     problemCount: 0,
+    coverageByFormat: [],
     shownCount: 0,
     shown: [],
     anyPick: false,
   };
+  const byFormat = new Map<string, BatchFormatCoverage>();
 
   for (let index = 0; index < items.length; index++) {
     const item = items[index]!;
     const facts = summarizeBatchItem(item);
+    if (item.state === "done" && item.format && item.coverage) {
+      let row = byFormat.get(item.format);
+      if (!row) {
+        row = { format: item.format, files: 0, complete: 0, partial: 0, unsupported: 0 };
+        byFormat.set(item.format, row);
+      }
+      row.files++;
+      row[item.coverage]++;
+    }
     if (facts.settled) summary.settled++;
     if (facts.reveals) summary.revealing++;
     if (facts.damaged) summary.damaged++;
@@ -149,7 +178,8 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
       if (!item.skip) summary.chosen++;
     }
 
-    const matches = show === "all" || (show === "reveals" ? facts.reveals : facts.problem);
+    const matches = show === "all"
+      || (show === "reveals" ? facts.reveals : show === "incomplete" ? facts.incomplete : facts.problem);
     if (matches) {
       summary.shownCount++;
       if (summary.shown.length < visibleLimit) summary.shown.push({ item, index });
@@ -157,6 +187,7 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
     }
   }
   summary.busy = summary.settled < items.length;
+  summary.coverageByFormat = [...byFormat.values()].sort((a, b) => a.format < b.format ? -1 : a.format > b.format ? 1 : 0);
   return summary;
 }
 
@@ -415,6 +446,7 @@ export class BatchView {
       ["all", "All", items.length],
       ["reveals", "Give something away", totals.revealing],
       ["problems", "Needs attention", totals.problemCount],
+      ["incomplete", "Incomplete", totals.incomplete],
     ];
     const bar = el("div", "batch-filter");
     bar.setAttribute("role", "group");
@@ -502,6 +534,25 @@ export class BatchView {
       list.append(li);
     }
     card.append(head, bar);
+    if (!totals.busy && totals.coverageByFormat.length > 0) {
+      const coverage = el("details", "batch-coverage");
+      coverage.append(el("summary", undefined, translateText("Coverage by format", currentLocale())));
+      const rows = el("ul", "batch-coverage-list");
+      for (const entry of totals.coverageByFormat) {
+        const row = el("li", "batch-coverage-row");
+        row.dataset.coverageFormat = entry.format;
+        const name = items.find((item) => item.format === entry.format)?.kind || entry.format;
+        const counts = [
+          entry.complete ? `${entry.complete} ${translateText("complete", currentLocale())}` : "",
+          entry.partial ? `${entry.partial} ${translateText("partial", currentLocale())}` : "",
+          entry.unsupported ? `${entry.unsupported} ${translateText("unsupported", currentLocale())}` : "",
+        ].filter(Boolean);
+        row.append(el("span", "batch-coverage-name", name), el("span", "batch-coverage-counts", counts.join(" · ")));
+        rows.append(row);
+      }
+      coverage.append(rows);
+      card.append(coverage);
+    }
     if (selection.childNodes.length) card.append(selection);
     card.append(list);
     if (totals.shownCount > this.limit) {

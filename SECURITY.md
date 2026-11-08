@@ -22,4 +22,6 @@ smallest file that shows the problem, or send hexscope's *structure report*
 (under the file's details, "Report a problem with this file"), which holds
 the file's layout and none of its content.
 
-Fixes go out as soon as they are ready; the site is the only release.
+Fixes to the hosted site go out as soon as they are ready. If a fix affects
+the shared parser or clean-copy core, publish updated CLI binaries, crates and
+Homebrew formula as well; one site deployment cannot update those artifacts.

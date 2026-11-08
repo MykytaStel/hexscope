@@ -2,6 +2,8 @@ import { explanation } from "./explanations";
 import { Missing } from "./missing";
 import type { FilmScanReport } from "./filmscan";
 
+export type CoverageStatus = "complete" | "partial" | "unsupported";
+
 /** Node kinds, matching the codes `hexscope-wasm` emits. */
 export const Kind = { Container: 0, Field: 1, Warning: 2, Error: 3 } as const;
 export type Kind = (typeof Kind)[keyof typeof Kind];
@@ -42,6 +44,8 @@ export interface ParsedFile {
   format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "mp3" | "flac" | "ogg" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
   /** False when supported metadata could not be completely read. */
   metadataComplete?: boolean;
+  /** Canonical parser read status shared with the Rust coverage contract. */
+  coverageStatus: CoverageStatus;
   /** The picture, scaled to fit, as RGBA; null when there are no pixels to show. */
   preview: { width: number; height: number; pixels: Uint8Array } | null;
   /** Each scanline's filter type, for a PNG that is not interlaced. */

@@ -27,7 +27,7 @@ test("a message goes from the footer with nothing but what was written and the p
   expect(Object.keys(got.sent ?? {}).sort()).toEqual(["contact", "device", "kind", "lang", "message", "page", "report", "version", "website"]);
 });
 
-test("a file's structure report goes along only when ticked, and says nothing of what the file says", async ({ page }) => {
+test("a file's structure report is off by default", async ({ page }) => {
   const got: { sent: Record<string, string> | null } = { sent: null };
   await page.route("**/api/feedback", async (route) => {
     got.sent = route.request().postDataJSON();
@@ -39,7 +39,27 @@ test("a file's structure report goes along only when ticked, and says nothing of
   await page.getByRole("button", { name: "Report a problem with this file" }).click();
   await page.getByRole("button", { name: "Send to the developer" }).click();
   const dialog = page.locator("dialog.feedback");
-  await expect(dialog.getByRole("checkbox")).toBeChecked();
+  await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+  await dialog.getByRole("textbox", { name: "Your message" }).fill("The map is in the wrong place.");
+  await dialog.getByRole("button", { name: "Send" }).click();
+  await expect(dialog).toContainText("Sent.");
+  expect(got.sent?.report).toBe("");
+});
+
+test("a file's structure report is sent only after the person opts in", async ({ page }) => {
+  const got: { sent: Record<string, string> | null } = { sent: null };
+  await page.route("**/api/feedback", async (route) => {
+    got.sent = route.request().postDataJSON();
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator(".more-details > summary").click();
+  await page.getByRole("button", { name: "Report a problem with this file" }).click();
+  await page.getByRole("button", { name: "Send to the developer" }).click();
+  const dialog = page.locator("dialog.feedback");
+  await expect(dialog.getByRole("checkbox")).not.toBeChecked();
+  await dialog.getByRole("checkbox").check();
   await dialog.getByRole("textbox", { name: "Your message" }).fill("The map is in the wrong place.");
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect(dialog).toContainText("Sent.");
