@@ -1,16 +1,26 @@
 name: Dependency advisories
 
+# Branch pushes are the source of truth for same-repository changes. Keep the
+# pull_request checks for forks, whose pushes run in a different repository.
 on:
   push:
     branches: ["**"]
     paths:
+      - '**/Cargo.toml'
       - Cargo.lock
+      - '**/package.json'
+      - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .github/workflows/dependency-audit.yml
   pull_request:
     paths:
+      - '**/Cargo.toml'
       - Cargo.lock
+      - '**/package.json'
+      - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .github/workflows/dependency-audit.yml
   schedule:
     - cron: "31 7 * * 1"
@@ -21,16 +31,18 @@ permissions:
 
 jobs:
   rust:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: rustup toolchain install
-      - name: Install cargo-audit
+      - name: Install pinned cargo-audit
         run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Check Cargo.lock advisories
-        run: cargo audit
+        run: cargo audit --file Cargo.lock
 
   web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

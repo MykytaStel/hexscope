@@ -171,8 +171,10 @@ and Files paths for both reports still need the author's physical-device
 check.
 
 The 0.14 maintenance follow-ups are now addressed: shared batch types live
-outside the photo mosaic, and same-repository pull requests reuse the full CI
-run from their branch push. Fork pull requests still run CI in this repository.
+outside the photo mosaic, same-repository pull requests reuse their branch-push
+CI run, and advisory scans also cover manifest changes. The advisory workflow
+still runs weekly and on demand; fork pull requests run checks in the base
+repository.
 Android Chrome and read-back for Web clean copies over 10 MiB remain
 evidence-gated; browser emulation cannot close those physical-device
 questions.
