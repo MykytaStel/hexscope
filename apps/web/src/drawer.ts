@@ -22,7 +22,10 @@ import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "
 import { hasCleanableAudioTags } from "./audio-clean";
 import { evidenceOverview } from "./evidence-overview";
 import { photoInspector } from "./photo-inspector";
+import { documentMap } from "./document-map";
+import { pdfNavigator } from "./pdf-navigator";
 import { currentLocale, translateText } from "./i18n";
+import type { PageGlyphs } from "./worker";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -211,6 +214,8 @@ export class Drawer {
     if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
       flow.append(this.reveals(m));
     }
+    const docMap = documentMap(m, (node) => this.onSelect(node), (entry) => this.onOpen(entry), this.nested);
+    if (docMap) flow.append(docMap);
     // What to do about it, right under the answer: it presses the clean
     // copy's own button, further down, where the result is said.
     const clean = this.file.querySelector<HTMLButtonElement>(".reveals .btn-clean");
@@ -235,15 +240,34 @@ export class Drawer {
       answer.querySelector(".verdict-lines")?.after(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
-    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) {
-      flow.append(
-        pdfRedactorPlaceholder(
+    if (f.format === "pdf") {
+      let pageRead: Promise<PageGlyphs[]> | null = null;
+      const readPages = () => pageRead ??= this.cleaning.pages().catch((error: unknown) => {
+        pageRead = null;
+        throw error;
+      });
+      const encrypted = f.facts.some((x) => x.kind === "encryption");
+      let redactor: HTMLElement | null = null;
+      if (!encrypted) {
+        redactor = pdfRedactorPlaceholder(
           m,
-          this.cleaning,
+          { ...this.cleaning, pages: readPages },
           (page) => this.picturesOf(m, page),
           (page) => this.pictureState(m, page),
-        ),
-      );
+        );
+      }
+      flow.append(pdfNavigator(
+        m,
+        readPages,
+        (page) => this.picturesOf(m, page),
+        (page) => this.pictureState(m, page),
+        (node) => this.onSelect(node),
+        (entry) => this.onOpen(entry),
+        () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      ));
+      if (redactor) {
+        flow.append(redactor);
+      }
     }
     // Technical detail is available in one place, after the useful answer.
     const more = el("details", "more-details");

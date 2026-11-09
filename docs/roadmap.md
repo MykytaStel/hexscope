@@ -346,9 +346,23 @@ passes after generating the repository's WASM bindings. The photo card now
 separates visible pixel properties from metadata, links properties to parser
 nodes where available, and names stored frame/auxiliary image data without
 implying that it was decoded. Clean-copy status and visual comparison continue
-to use the Core read-back report and existing bounded browser preview. Document
-and PDF maps, family polish, device checks and the remaining 0.17 acceptance
-work are still open.
+to use the Core read-back report and existing bounded browser preview.
+
+The document map groups supported ZIP-based Office, OpenDocument and EPUB
+entries, exposes local name filtering, compression sizes/methods and explicit
+encrypted, incomplete, unsupported and unopened states. Legacy Office and RTF
+explain their different content-read scope. The PDF navigator links pages to
+page objects, groups findings, forms, attachments and document actions, and
+keeps OCR absence and image-read status visible; password-protected PDFs show
+their structural findings while page reading stays disabled. These maps do not
+yet report entry-level clean-copy outcomes, and PDF findings are not all
+grouped by a page-to-area action chain. Those evidence links, the remaining
+family polish, mobile/accessibility checks, device checks and the rest of 0.17
+acceptance work remain open.
+
+The full Web production build passed after regenerating the repository's WASM
+bindings. Vite still reports existing warnings for static pages that load
+`theme.js` without `type="module"`; the build completes successfully.
 
 Each slice needs representative fixtures and explicit incomplete/malformed
 behavior. Parser or cleaner changes must retain Core + Web coverage and the

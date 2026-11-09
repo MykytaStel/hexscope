@@ -173,6 +173,223 @@
   margin: 0;
 }
 
+.document-map {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.document-map > h2 {
+  margin: 0;
+  font-size: var(--type-body);
+}
+
+.document-map-intro,
+.document-map-copy-note,
+.document-map-status {
+  margin: 0;
+}
+
+.document-map-search {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.document-map-group {
+  border-top: 1px solid var(--border);
+}
+
+.document-map-group > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 42px;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.document-map-count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.document-map-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.document-map-entry {
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.document-map-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-2);
+}
+
+.document-map-entry-name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.document-map-open {
+  flex: 0 0 auto;
+}
+
+.document-map-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: var(--space-1) 0 0;
+  color: var(--faint);
+  font-size: var(--type-small);
+}
+
+.document-map-entry-state {
+  color: var(--text);
+}
+
+.document-map-copy-note {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.pdf-navigator {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.pdf-navigator > h2 {
+  margin: 0;
+  font-size: var(--type-body);
+}
+
+.pdf-nav-intro,
+.pdf-nav-status,
+.pdf-nav-more {
+  margin: 0;
+}
+
+.pdf-nav-load {
+  justify-self: start;
+}
+
+.pdf-nav-pages {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 34rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0 0 0 1.5rem;
+}
+
+.pdf-nav-page {
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.pdf-nav-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pdf-nav-object {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pdf-nav-state {
+  color: var(--faint);
+  font-size: var(--type-small);
+}
+
+.pdf-nav-state.is-warning {
+  color: var(--warning-text);
+}
+
+.pdf-nav-page-text,
+.pdf-nav-image-status {
+  margin: var(--space-1) 0 0;
+}
+
+.pdf-nav-fact-group {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.pdf-nav-fact-group > summary,
+.pdf-nav-page-findings > summary {
+  min-height: 38px;
+  align-content: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pdf-nav-facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 var(--space-2) 1.25rem;
+  list-style: disc;
+}
+
+.pdf-nav-fact {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.pdf-nav-tools {
+  justify-self: start;
+}
+
 @media (max-width: 520px) {
   .evidence-filters {
     flex-wrap: nowrap;
@@ -183,6 +400,14 @@
 
   .evidence-filter {
     flex: 0 0 auto;
+  }
+
+  .pdf-nav-pages {
+    max-height: 26rem;
+  }
+
+  .document-map-entry-head {
+    flex-wrap: wrap;
   }
 }
 

@@ -790,6 +790,8 @@ pub(crate) fn pictures_by_page(
 pub struct PageText {
     /// Counted from 1.
     pub page: u32,
+    /// PDF object number of the page dictionary in the current revision.
+    pub object: u32,
     /// `[left, bottom, right, top]` in the page's points.
     pub media: [f64; 4],
     /// Whether its content, forms, and page-tree coverage were inspected fully.
@@ -823,6 +825,7 @@ pub(super) fn page_texts(data: &[u8], ctx: &Ctx) -> Vec<PageText> {
         total += glyphs.len();
         out.push(PageText {
             page: i as u32 + 1,
+            object: page.num,
             media: page.media,
             glyphs,
             complete: w.complete && page_tree_complete,

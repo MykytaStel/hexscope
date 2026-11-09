@@ -24,6 +24,7 @@ export interface Match {
 /** A page as one searchable string, with the glyph each character came from (-1 for a space put between words). */
 export interface Searchable {
   page: number;
+  object?: number;
   media: PageArea;
   text: string;
   lower: string;
@@ -68,7 +69,7 @@ export function searchable(pages: PageGlyphs[]): Searchable[] {
       const l = ch.toLowerCase();
       lower += l.length === ch.length ? l : ch;
     }
-    return { page: n + 1, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts, complete: p.complete, boxes: p.boxes };
+    return { page: p.page ?? n + 1, object: p.object, media: p.media, text, lower: lower.replace(/\s/g, " "), glyph: Int32Array.from(owner), areas: p.areas, texts: p.texts, complete: p.complete, boxes: p.boxes };
   });
 }
 

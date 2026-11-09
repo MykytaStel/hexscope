@@ -62,6 +62,10 @@ export type WorkerResponse =
 
 /** One page's visible glyphs: where each lands, four numbers each, and its text. */
 export interface PageGlyphs {
+  /** Page number in the PDF page tree's reading order. */
+  page?: number;
+  /** PDF page object number, for jumping from the page list to its source object. */
+  object?: number;
   media: PageArea;
   areas: Float64Array;
   texts: string[];
