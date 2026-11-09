@@ -219,7 +219,7 @@ function setView(view: "summary" | "bytes" | "files"): void {
   }
 }
 
-type WorkspaceView = "overview" | "metadata" | "content" | "files" | "structure" | "bytes";
+type WorkspaceView = "overview" | "metadata" | "content" | "map" | "files" | "structure" | "bytes";
 
 /** A ZIP that is only an archive: Office documents, books and apps have their own views. */
 const archives = new WeakMap<FileModel, boolean>();
@@ -333,6 +333,9 @@ narrow.addEventListener("change", () => {
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
   document.body.dataset.appView = view;
+  const makeup = $("drawer").querySelector<HTMLElement>(".more-details > .makeup");
+  const details = $("drawer").querySelector<HTMLDetailsElement>(".more-details");
+  if (view === "map" && details) details.open = true;
   if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
   syncAppNavigation();
@@ -345,6 +348,8 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
     ? $("drawer").querySelector<HTMLElement>(".reveals")
     : view === "content"
       ? $("drawer").querySelector<HTMLElement>(contentTargetSelector)
+      : view === "map"
+        ? makeup
       : null;
   if (view === "metadata") {
     // The view of every field: the extra ones too, open.
@@ -1151,7 +1156,7 @@ export async function openSample(btn: HTMLButtonElement): Promise<void> {
 // samples on this page can be opened this way; the name picks a button.
 /** Where a link asked the sample to open: a view, and a part by its name. */
 let linked: { view: WorkspaceView | null; part: string | null } | null = null;
-const LINKABLE_VIEWS: readonly WorkspaceView[] = ["overview", "metadata", "content", "files", "structure", "bytes"];
+const LINKABLE_VIEWS: readonly WorkspaceView[] = ["overview", "metadata", "content", "map", "files", "structure", "bytes"];
 
 /** Opens the linked view and part once the sample is shown; whether a link asked for one. */
 function followLink(model: FileModel): boolean {

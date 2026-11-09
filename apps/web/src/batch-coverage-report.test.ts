@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { batchCoverageReport } from "./batch-coverage-report";
+import { batchCoverageCsv, batchCoverageReport } from "./batch-coverage-report";
 
 describe("batch coverage report", () => {
   it("exports a versioned format summary without file names or findings", () => {
@@ -44,5 +44,30 @@ describe("batch coverage report", () => {
     ], 2));
 
     expect(report.files).toEqual({ total: 2, read: 1, not_read: 1 });
+  });
+
+  it("exports a sorted, spreadsheet-safe CSV without file details", () => {
+    const csv = batchCoverageCsv([
+      { format: "svg,variant", files: 1, complete: 0, partial: 1, unsupported: 0 },
+      { format: "=SUM(1,1)", files: 1, complete: 0, partial: 0, unsupported: 1 },
+      { format: "jpeg", files: 2, complete: 2, partial: 0, unsupported: 0 },
+    ], 5);
+
+    expect(csv).toBe([
+      "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+      "Total,4,2,1,1,5,4,1",
+      `"'=SUM(1,1)",1,0,0,1,5,4,1`,
+      "jpeg,2,2,0,0,5,4,1",
+      `"svg,variant",1,0,1,0,5,4,1`,
+    ].join("\r\n"));
+    expect(csv).not.toContain("private-photo");
+    expect(csv).not.toContain("GPS");
+  });
+
+  it("reports every input as unread when no format was recognized", () => {
+    expect(batchCoverageCsv([], 3)).toBe([
+      "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+      "Total,0,0,0,0,3,0,3",
+    ].join("\r\n"));
   });
 });

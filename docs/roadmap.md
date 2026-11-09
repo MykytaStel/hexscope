@@ -28,7 +28,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.12.0 | Make batch photo privacy mosaic relationships easier to understand and navigate | shipped 2026-11-03 |
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
-| 0.15.0 | Portable batch reports and reliability fixes | accumulating |
+| 0.15.0 | Portable batch reports and reliability fixes | shipped 2026-11-08; Homebrew tap updated 2026-11-09 |
+| 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | release candidate |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -155,7 +156,7 @@ remain open; those outcomes stay explicitly **Not checked** until measured.
 The full audit, evidence, secondary maintenance candidates and release gates
 are in [the 0.14 audit](audits/2026-11-08-hexscope-0.14-audit.md).
 
-### 0.15.0 — release candidate
+### 0.15.0 — shipped 2026-11-08
 
 The Web batch workflow now has a versioned coverage report and a separate,
 value-free diagnostics report for rows that need attention. Both can be saved
@@ -166,9 +167,8 @@ retried without reading completed files again.
 
 Core now reads and cleans bounded `.svgz` files, validates gzip integrity and
 checks the cleaned copy by reading it back. Input and expanded XML are each
-limited to 64 MiB, and only one gzip member is accepted. The iPhone share-sheet
-and Files paths for both reports still need the author's physical-device
-check.
+limited to 64 MiB, and only one gzip member is accepted. Physical iPhone
+checks for report sharing and Files downloads remain open.
 
 The Web sample picker and SVG metadata guide include a compressed Inkscape
 example, generated alongside the SVG source, so `.svgz` can be tried without
@@ -179,9 +179,75 @@ outside the photo mosaic, same-repository pull requests reuse their branch-push
 CI run, and advisory scans also cover manifest changes. The advisory workflow
 still runs weekly and on demand; fork pull requests run checks in the base
 repository.
-Android Chrome and read-back for Web clean copies over 10 MiB remain
+The v0.15.0 site and GitHub Release shipped with five CLI archives and
+checksums; all four crates are published. The Homebrew tap was updated on
+2026-11-09, and upgrading from 0.14.0 plus `brew test` passed.
+
+Android Chrome and Web read-back for clean copies over 10 MiB remain
 evidence-gated; browser emulation cannot close those physical-device
 questions.
+
+### 0.16.0 — release candidate
+
+The first slice adds spreadsheet-friendly CSV saves for batch coverage and
+diagnostic reports, alongside the existing versioned JSON. Compatible phones
+can also share those CSV files directly to another app or Files. CSV output
+keeps the same privacy boundary: aggregate counts, or row index, format and
+status; no file names, paths, contents or raw errors. Spreadsheet formula
+cells are escaped, and downloads carry the `text/csv` type.
+
+0.16 completes the private batch-report path: coverage and diagnostics export as
+JSON or CSV, reports remain available when every read fails, CSV includes an
+all-files total row, and a local numbered list links diagnostics back to the
+current batch. Format coverage can focus the matching rows while batch-wide
+totals remain visible. Exports keep their value-free privacy boundary, and
+formula-like CSV cells are escaped.
+
+The file workspace gains a first-class byte-layout map, a HEIF item graph and
+an AVIS timing timeline. The UI labels parser coverage as complete, partial or
+unsupported. Signature search is asynchronous, bounded and cancellable; a
+signature is only a possible match. Photo blackout regions can be edited one
+by one, with clear warnings about re-encoding. PDF pages report text and image
+read status, and the reconstructed preview explains what may be missing.
+Image comparison gains an interactive wipe between two bounded previews.
+
+The pair comparison remains a tool for the two files selected. A repeatable
+multi-pair sharing-path lab is not part of 0.16 and must not be described as
+measuring or certifying a messaging service. Treat it as a separate follow-up
+with explicit pairing, privacy and evidence requirements.
+
+Keep the 10 MiB Web read-back gates and report affected findings as **Not
+checked** when the generated copy cannot be reparsed. JSON/CSV sharing from
+emulated phone profiles has automated coverage; physical iPhone Files
+handoff and Android Chrome remain unverified. Do not raise the limit based on
+emulation alone, and require fixture-backed read, clean and read-back evidence
+for any parser expansion.
+
+### Formats and visual evidence selected for 0.16
+
+- **File anatomy map.** Promote the existing byte composition into a first-class
+  Map view. It remains bounded for large files, follows byte order, exposes a
+  keyboard-operable role legend, and jumps to the source part in Bytes. A merged
+  bar segment points to its largest source slice; the map does not claim that
+  every compressed archive entry is individually visible.
+- **HEIF item graph and AVIF sequence timing.** Show primary, derived, tile,
+  thumbnail, auxiliary and metadata items with their `iref` relationships.
+  Construction method 2 stays explicitly **not assembled** and cannot be
+  mistaken for source bytes. For `avis`, read the `pict` track's `mdhd` timebase
+  and `stts` sample runs into a bounded timeline; this reports stored timing,
+  not decoded or played frames. Apple Live Photo pairs can be selected as a
+  still and a motion clip for side-by-side inspection, but the pairing
+  identifier is not checked.
+- **Image wipe comparison.** When both images fit the existing 16 MiB input
+  bound and a 12-megapixel-per-image preview budget, a keyboard-operable slider
+  reveals one browser-rendered image over the other. JPEG orientation is
+  applied. The display is explicitly approximate; colour and HDR rendering
+  can differ, and parser-backed metadata/structure comparison stays separate.
+
+These views are local and value-free in exported reports. Keep the map's
+segment count bounded, the HEIF item/timing tables bounded, and decode failures
+visible. The image wipe is available only when both previews are within budget;
+manually paired motion previews use the browser's native local video player.
 
 ### 0.10.0 — shipped 2026-11-02
 

@@ -121,8 +121,13 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
     expect(surfaces.showHeight, `the file action is easy to hit at ${width}px`).toBeGreaterThanOrEqual(30);
   }
 
-  for (const view of ["content", "metadata"] as const) {
+  for (const view of ["content", "metadata", "map"] as const) {
     await openView(page, view);
+    if (view === "map") {
+      await expect(page.locator(".more-details")).toHaveAttribute("open", "");
+      await expect(page.locator(".makeup")).toBeVisible();
+      await expect(page.locator(".makeup-part:not(:disabled)").first()).toBeVisible();
+    }
     for (const width of [320, 390, 640, 768, 900, 1024, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       const content = await page.locator("#drawer").evaluate((root) => ({

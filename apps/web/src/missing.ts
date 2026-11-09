@@ -86,7 +86,7 @@ export class Missing {
     }
   }
 
-  /** The parts of `[0, length)` read with the file, between the missing ranges. */
+  /** The parts of `[0, length)` supplied during the initial parse. */
   read(length: number): [number, number][] {
     const out: [number, number][] = [];
     let at = 0;
@@ -95,6 +95,31 @@ export class Missing {
       at = b;
     }
     if (at < length) out.push([at, length]);
+    return out;
+  }
+
+  /** The parts of `[0, length)` available now, including deferred chunks read since. */
+  available(length: number): [number, number][] {
+    const out: [number, number][] = [];
+    const add = (start: number, end: number) => {
+      const from = Math.max(0, Math.min(length, start));
+      const to = Math.max(from, Math.min(length, end));
+      if (from >= to) return;
+      const previous = out[out.length - 1];
+      if (previous && previous[1] >= from) previous[1] = Math.max(previous[1], to);
+      else out.push([from, to]);
+    };
+    let at = 0;
+    for (const [a, b] of this.ranges) {
+      const start = Math.max(0, Math.min(length, a));
+      const end = Math.max(start, Math.min(length, b));
+      add(at, start);
+      for (let chunk = Math.floor(start / CHUNK); chunk * CHUNK < end; chunk++) {
+        if (this.loaded.has(chunk)) add(Math.max(start, chunk * CHUNK), Math.min(end, (chunk + 1) * CHUNK));
+      }
+      at = Math.max(at, end);
+    }
+    add(at, length);
     return out;
   }
 }

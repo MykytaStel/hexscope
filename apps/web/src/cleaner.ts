@@ -68,7 +68,14 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
       ? CLEAN_NOTES.archive
       : cleanCopyNote(m.file);
   const limits = cleanLimits(m);
-  box.append(button, el("p", "hint clean-copy-note", note));
+  box.append(
+    button,
+    el("p", "hint clean-copy-note", note),
+    el("p", "hint clean-copy-limit", translateText(
+      "Clean copies over 10 MiB may not be read back in this tab; findings that were not checked stay Not checked.",
+      currentLocale(),
+    )),
+  );
   // A workbook's or a deck's comments and notes are its content: gone only when asked.
   const word = m.file.labels.includes("word/document.xml");
   const extras = format === "zip" && !word && m.file.facts.some((x) => x.kind === "notes" || x.kind === "comments");

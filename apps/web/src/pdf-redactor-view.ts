@@ -4,11 +4,13 @@ import { el, formatBytes, hasCoarsePointer } from "./dom";
 import type { FileModel, PageArea } from "./model";
 import { areasOf, find, findPreset, pageFigure, PRESETS, searchable, textIn, type Match, type Searchable } from "./redactor";
 import type { Shown } from "./pdf-pictures";
+import { currentLocale, translateText } from "./i18n";
 
 export function pdfRedactorView(
   m: FileModel,
   cleaning: Pick<CleanActions, "pages" | "pictures" | "redact" | "save" | "open">,
   picturesOf: (page: number) => Promise<Shown[]>,
+  pictureState: (page: number) => "loading" | "loaded" | "failed",
 ): HTMLElement {
   const group = el("div", "group redactor");
   group.append(el("h2", undefined, "Black out text yourself"));
@@ -17,6 +19,13 @@ export function pdfRedactorView(
       "p",
       "hint",
       "Type a name, a number or an address, or pick a kind below: every place it appears is found. The copy takes it out of the pages — not only covers it — and draws a black box where it was.",
+    ),
+  );
+  group.append(
+    el(
+      "p",
+      "hint",
+      "Search reads text stored in the PDF. It does not use OCR to find words inside scanned pages or pictures; draw a box over those instead.",
     ),
   );
   const incomplete = el(
@@ -38,18 +47,26 @@ export function pdfRedactorView(
   const presets = el("div", "redact-presets");
   const list = el("div", "redact-list");
   const status = el("p", "hint redact-status");
+  const pageStatus = el("p", "hint redact-page-status");
+  pageStatus.hidden = true;
   // "not on the pages", "Reading the pages…": heard as they change.
   status.setAttribute("role", "status");
   const preview = el("div", "redact-preview");
   const save = el("button", "btn btn-primary", "Save a blacked-out copy");
   save.hidden = true;
   const result = el("div", "cleaner");
-  group.append(incomplete, form, presets, status, list, preview, save, result);
+  group.append(incomplete, pageStatus, form, presets, status, list, preview, save, result);
 
   let pages: Searchable[] | null = null;
   const load = async () => {
     pages ??= searchable(await cleaning.pages());
     incomplete.hidden = pages.every((page) => page.complete);
+    const partial = pages.filter((page) => !page.complete).length;
+    pageStatus.hidden = false;
+    pageStatus.replaceChildren(
+      `${translateText("Pages", currentLocale())}: ${pages.length} · `,
+      `${translateText("Pages with partial text", currentLocale())}: ${partial}`,
+    );
     return pages;
   };
   // Every search kept, each place with its tick; boxes drawn are one more.
@@ -66,19 +83,49 @@ export function pdfRedactorView(
     const marks = picked();
     const withMarks = new Set(marks.map((m) => m.page));
     const show = [...new Set([...withMarks, ...shownPages])].sort((a, b) => a - b);
-    if (show.length > 0) preview.append(el("p", "redact-preview-title", "As the copy will show it"));
+    if (show.length > 0) {
+      preview.append(
+        el("p", "redact-preview-title", "Page preview"),
+        el("p", "hint", "This view reconstructs text and extractable pictures; unsupported images and other PDF drawing may be omitted. Open the saved copy to check it before sharing."),
+      );
+    }
     for (const n of show) {
       const p = pages[n - 1];
       if (!p) continue;
       const areas = marks.filter((m) => m.page === n).flatMap((m) => m.areas);
-      preview.append(pageFigure(p, areas, (area) => addBox(p, area), picturesOf(n)));
+      const pageImages = picturesOf(n);
+      const pageLabel = el("p", "hint redact-page-status");
+      pageLabel.setAttribute("role", "status");
+      const updatePageLabel = (pictures: Shown[]) => {
+        if (!pageLabel.isConnected) return;
+        const imageStatus = pictureState(n);
+        const imageText = imageStatus === "failed"
+          ? translateText("Page images could not be read; the preview may omit content.", currentLocale())
+          : imageStatus === "loading"
+            ? translateText("Reading page images…", currentLocale())
+            : `${translateText("Extracted pictures shown", currentLocale())}: ${pictures.length}`;
+        pageLabel.textContent = `${translateText("Page", currentLocale())} ${p.page} · ${translateText(p.complete ? "Text read" : "Text partly read", currentLocale())} · ${imageText}`;
+      };
+      preview.append(pageLabel);
+      updatePageLabel([]);
+      void pageImages.then(updatePageLabel);
+      preview.append(pageFigure(p, areas, (area) => addBox(p, area), pageImages));
     }
     // Any other page, to draw a box on.
     if (pages.length > 0) {
       const pick = el("select", "redact-page-pick");
       pick.setAttribute("aria-label", "Show a page to draw a box on");
       pick.append(el("option", undefined, show.length ? "Draw on another page…" : "Draw a box on a page…"));
-      for (const p of pages) if (!show.includes(p.page)) pick.append(new Option(`Page ${p.page}`, String(p.page)));
+      for (const p of pages) {
+        if (!show.includes(p.page)) {
+          pick.append(
+            new Option(
+              `${translateText("Page", currentLocale())} ${p.page} · ${translateText(p.complete ? "text read" : "partial text", currentLocale())}`,
+              String(p.page),
+            ),
+          );
+        }
+      }
       pick.addEventListener("change", () => {
         shownPages.add(Number(pick.value));
         drawPreview();
@@ -145,7 +192,14 @@ export function pdfRedactorView(
     if (!term || chosen.some((c) => c.term.toLowerCase() === `“${term}”`.toLowerCase())) return;
     findBtn.disabled = true;
     status.textContent = pages ? "" : "Reading the pages…";
-    const ps = await load();
+    let ps: Searchable[];
+    try {
+      ps = await load();
+    } catch {
+      status.textContent = "Could not read searchable text from the PDF pages.";
+      findBtn.disabled = false;
+      return;
+    }
     findBtn.disabled = false;
     const matches = find(ps, term);
     if (matches.length === 0) {
@@ -164,8 +218,16 @@ export function pdfRedactorView(
     b.addEventListener("click", async () => {
       if (chosen.some((c) => c.term === preset.name)) return;
       b.disabled = true;
-      const matches = findPreset(await load(), preset);
+      let ps: Searchable[];
+      try {
+        ps = await load();
+      } catch {
+        status.textContent = "Could not read searchable text from the PDF pages.";
+        b.disabled = false;
+        return;
+      }
       b.disabled = false;
+      const matches = findPreset(ps, preset);
       if (matches.length === 0) {
         status.textContent = `No ${preset.name.toLowerCase()} on the pages.`;
         drawPreview();
@@ -181,10 +243,16 @@ export function pdfRedactorView(
   const drawOn = el("button", "link", "Draw a box on a page instead");
   drawOn.type = "button";
   drawOn.addEventListener("click", async () => {
-    await load();
-    drawOn.remove();
-    if (pages && pages.length > 0) shownPages.add(1);
-    drawPreview();
+    drawOn.disabled = true;
+    try {
+      await load();
+      drawOn.remove();
+      if (pages && pages.length > 0) shownPages.add(1);
+      drawPreview();
+    } catch {
+      status.textContent = "Could not read searchable text from the PDF pages.";
+      drawOn.disabled = false;
+    }
   });
   presets.append(drawOn);
 
@@ -198,7 +266,14 @@ export function pdfRedactorView(
     }));
     save.disabled = true;
     save.textContent = "Making the copy…";
-    const r = await cleaning.redact(areasOf(marks), selections);
+    let r: Awaited<ReturnType<typeof cleaning.redact>>;
+    try {
+      r = await cleaning.redact(areasOf(marks), selections);
+    } catch {
+      result.replaceChildren(el("p", "problem is-warning", "Could not finish making the copy. Check your downloads before trying again."));
+      refresh();
+      return;
+    }
     refresh();
     result.replaceChildren();
     if (r.error) {

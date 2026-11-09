@@ -347,16 +347,39 @@
   border-radius: 5px;
   overflow: hidden;
   background: var(--border);
+  cursor: pointer;
 }
 
 .makeup-part {
+  flex-basis: 0;
   min-width: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: var(--role);
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .makeup-part:hover {
   filter: brightness(1.2);
+}
+
+.makeup-part:disabled {
+  cursor: default;
+}
+
+.makeup-part:focus-visible,
+.makeup-row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.makeup-hint {
+  margin: -4px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .makeup-legend {
@@ -373,14 +396,25 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
 }
 
-.makeup-row.is-link {
+.makeup-row:not(:disabled) {
   cursor: pointer;
 }
 
-.makeup-row.is-link:hover .makeup-name {
+.makeup-row:not(:disabled):hover .makeup-name {
   text-decoration: underline;
+}
+
+.makeup-row:disabled {
+  opacity: 1;
 }
 
 .makeup-swatch {

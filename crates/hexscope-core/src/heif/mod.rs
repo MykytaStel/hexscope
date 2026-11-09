@@ -82,8 +82,18 @@ struct Ref {
 }
 
 #[derive(Default)]
+struct SequenceTrack {
+    node: NodeId,
+    handler: String,
+    timescale: Option<u64>,
+    sample_count: u64,
+    sample_ticks: u64,
+}
+
+#[derive(Default)]
 struct Ctx {
     brand: String,
+    brands: Vec<String>,
     items: Vec<Item>,
     locs: Vec<Loc>,
     refs: Vec<Ref>,
@@ -93,6 +103,8 @@ struct Ctx {
     idat: Option<(u64, NodeId, ByteRange)>,
     /// Data range and node of each `mdat`.
     mdat: Vec<(ByteRange, NodeId)>,
+    sequence_tracks: Vec<SequenceTrack>,
+    current_track: Option<usize>,
 }
 
 /// Parses a HEIF image. Never fails: damage is recorded as nodes.
@@ -112,6 +124,30 @@ pub(crate) fn parse_heif_at(data: &[u8], depth: u8) -> HeifDocument {
     );
     let mut ctx = Ctx::default();
     walk(&mut tree, root, data, 0, len, 0, &mut ctx);
+
+    if ctx.brands.iter().any(|brand| brand == "avis") {
+        for track in &ctx.sequence_tracks {
+            let timescale = track.timescale.unwrap_or(0);
+            let value = if track.handler == "pict" && timescale > 0 && track.sample_count > 0 {
+                format!(
+                    "AV1 image sequence · {} · {} samples · {} ticks at {} ticks/s",
+                    track.handler, track.sample_count, track.sample_ticks, timescale,
+                )
+            } else if track.handler == "pict" {
+                "AV1 image sequence · pict · timing not fully read".to_string()
+            } else {
+                format!(
+                    "AVIS track · {}",
+                    if track.handler.is_empty() {
+                        "unknown handler"
+                    } else {
+                        &track.handler
+                    }
+                )
+            };
+            tree.set_value(track.node, Some(Value::Text(value)));
+        }
+    }
 
     let mut doc = HeifDocument {
         tree,
@@ -181,6 +217,7 @@ fn decode(
     match typ {
         "ftyp" => {
             ctx.brand = f.cc("majorBrand")?;
+            ctx.brands.push(ctx.brand.clone());
             f.num("minorVersion", 4)?;
             let brands: Vec<String> = data
                 .get(f.at as usize..end as usize)?
@@ -190,6 +227,7 @@ fn decode(
                 .map(|c| fourcc(c))
                 .collect();
             let start = f.at;
+            ctx.brands.extend(brands.iter().cloned());
             f.tree.add(
                 Some(node),
                 "compatibleBrands",
@@ -204,7 +242,23 @@ fn decode(
                 walk(tree, node, data, body + 4, end, depth + 1, ctx);
             }
         }
-        "dinf" | "iprp" | "ipco" => {
+        "moov" | "trak" | "mdia" | "minf" | "stbl" | "edts" | "mvex" | "iprp" | "ipco" => {
+            if deeper {
+                if typ == "trak" {
+                    if ctx.sequence_tracks.len() < MAX_ITEMS {
+                        ctx.sequence_tracks.push(SequenceTrack {
+                            node,
+                            ..SequenceTrack::default()
+                        });
+                        ctx.current_track = Some(ctx.sequence_tracks.len() - 1);
+                    } else {
+                        ctx.current_track = None;
+                    }
+                }
+                walk(tree, node, data, body, end, depth + 1, ctx);
+            }
+        }
+        "dinf" => {
             if deeper {
                 walk(tree, node, data, body, end, depth + 1, ctx);
             }
@@ -220,7 +274,13 @@ fn decode(
         "hdlr" => {
             f.full_box()?;
             f.num("preDefined", 4)?;
-            f.cc("handlerType")?;
+            let handler = f.cc("handlerType")?;
+            if let Some(track) = ctx
+                .current_track
+                .and_then(|i| ctx.sequence_tracks.get_mut(i))
+            {
+                track.handler = handler;
+            }
             let start = f.take(12)?;
             f.tree.add(
                 Some(node),
@@ -231,6 +291,54 @@ fn decode(
             );
             if f.at < end {
                 f.cstr("name")?;
+            }
+        }
+        "mdhd" => {
+            let version = f.full_box()?;
+            if version > 1 {
+                return None;
+            }
+            let time_size = if version == 1 { 8 } else { 4 };
+            f.num("creationTime", time_size)?;
+            f.num("modificationTime", time_size)?;
+            let timescale = f.num("timescale", 4)?;
+            let duration = f.num("duration", time_size)?;
+            f.num("language", 2)?;
+            f.num("preDefined", 2)?;
+            if let Some(track) = ctx
+                .current_track
+                .and_then(|i| ctx.sequence_tracks.get_mut(i))
+            {
+                track.timescale = Some(timescale);
+                if track.sample_count == 0 {
+                    track.sample_ticks = duration;
+                }
+            }
+        }
+        "stts" => {
+            f.full_box()?;
+            let count = f.num("entryCount", 4)?;
+            if count > MAX_ITEMS as u64 {
+                f.tree.warning(
+                    node,
+                    "sample timing table exceeds the item limit",
+                    ByteRange::new(body, end - body),
+                );
+            }
+            let mut samples = 0u64;
+            let mut ticks = 0u64;
+            for _ in 0..count.min(MAX_ITEMS as u64) {
+                let sample_count = f.num("sampleCount", 4)?;
+                let sample_delta = f.num("sampleDelta", 4)?;
+                samples = samples.checked_add(sample_count)?;
+                ticks = ticks.checked_add(sample_count.checked_mul(sample_delta)?)?;
+            }
+            if let Some(track) = ctx
+                .current_track
+                .and_then(|i| ctx.sequence_tracks.get_mut(i))
+            {
+                track.sample_count = samples;
+                track.sample_ticks = ticks;
             }
         }
         "pitm" => {
@@ -660,6 +768,71 @@ mod tests {
         assert!(doc.tree.nodes().iter().any(
             |n| matches!(&n.value, Some(Value::Text(t)) if t.starts_with("the picture: a grid of"))
         ));
+    }
+
+    fn bx(typ: &[u8; 4], body: &[u8]) -> Vec<u8> {
+        let mut out = ((body.len() + 8) as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(typ);
+        out.extend_from_slice(body);
+        out
+    }
+
+    fn avif_sequence_fixture() -> Vec<u8> {
+        let ftyp = b"avis\0\0\0\0avismif1".to_vec();
+
+        let mut mdhd = vec![0; 4];
+        mdhd.extend_from_slice(&0u32.to_be_bytes()); // creation time
+        mdhd.extend_from_slice(&0u32.to_be_bytes()); // modification time
+        mdhd.extend_from_slice(&1000u32.to_be_bytes()); // media timescale
+        mdhd.extend_from_slice(&400u32.to_be_bytes()); // media duration
+        mdhd.extend_from_slice(&[0; 4]); // language and pre-defined
+
+        let mut hdlr = vec![0; 4];
+        hdlr.extend_from_slice(&0u32.to_be_bytes());
+        hdlr.extend_from_slice(b"pict");
+        hdlr.extend_from_slice(&[0; 12]);
+        hdlr.push(0);
+
+        let mut stts = vec![0; 4];
+        stts.extend_from_slice(&2u32.to_be_bytes());
+        stts.extend_from_slice(&2u32.to_be_bytes());
+        stts.extend_from_slice(&100u32.to_be_bytes());
+        stts.extend_from_slice(&1u32.to_be_bytes());
+        stts.extend_from_slice(&200u32.to_be_bytes());
+
+        let stbl = bx(b"stbl", &bx(b"stts", &stts));
+        let minf = bx(b"minf", &stbl);
+        let mut mdia_body = bx(b"mdhd", &mdhd);
+        mdia_body.extend_from_slice(&bx(b"hdlr", &hdlr));
+        mdia_body.extend_from_slice(&minf);
+        let track = bx(b"trak", &bx(b"mdia", &mdia_body));
+        let moov = bx(b"moov", &track);
+
+        let mut out = bx(b"ftyp", &ftyp);
+        out.extend_from_slice(&moov);
+        out
+    }
+
+    #[test]
+    fn avis_sequence_tracks_expose_handler_and_sample_timing() {
+        let doc = parse_heif(&avif_sequence_fixture());
+        let track = doc.tree.nodes().iter().find(|n| n.label == "trak").unwrap();
+        let value = match &track.value {
+            Some(Value::Text(value)) => value,
+            other => panic!("expected sequence summary, got {other:?}"),
+        };
+        assert!(value.contains("AV1 image sequence · pict"), "{value}");
+        assert!(value.contains("3 samples"), "{value}");
+        assert!(value.contains("400 ticks at 1000 ticks/s"), "{value}");
+        assert!(problems(&doc.tree).is_empty(), "{:?}", problems(&doc.tree));
+    }
+
+    #[test]
+    fn every_avif_sequence_truncation_is_survivable() {
+        let bytes = avif_sequence_fixture();
+        for n in 0..=bytes.len() {
+            assert!(parse_heif(&bytes[..n]).tree.root().is_some(), "at {n}");
+        }
     }
 
     #[test]

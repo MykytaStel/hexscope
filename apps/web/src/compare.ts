@@ -26,7 +26,7 @@ export async function parseAside(file: File): Promise<FileModel> {
       worker.postMessage({ id: 1, type: "parse", file } as WorkerRequest);
     });
     if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
-    return new FileModel(response.result, response.bytes, file.name);
+    return new FileModel(response.result, response.bytes, file.name, file);
   } finally {
     worker.terminate();
   }
@@ -148,6 +148,8 @@ const tr = (s: string) => translateText(s, currentLocale());
 const number = (n: number) => n.toLocaleString(currentLocale());
 const PREVIEW_BYTES = 16 * 1024 * 1024;
 const PREVIEW_PIXELS = 40_000_000;
+/** Two full-size bitmaps are decoded for the wipe; cap their combined peak memory. */
+const WIPE_PIXELS = 12_000_000;
 
 /** Bytes shown per row around the first difference: narrow enough for a phone. */
 const ROW = 8;
@@ -197,21 +199,37 @@ function section(title: string, className: string): HTMLElement {
   return box;
 }
 
-function fileCard(model: FileModel, side: "a" | "b"): HTMLElement {
+function canPreview(model: FileModel, maxPixels = PREVIEW_PIXELS): boolean {
+  const { format, dimensions } = model.file;
+  return ["jpeg", "png", "heif", "webp", "gif"].includes(format) &&
+    model.bytes.length <= PREVIEW_BYTES &&
+    dimensions !== undefined && dimensions !== null &&
+    dimensions[0] > 0 && dimensions[1] > 0 &&
+    dimensions[0] * dimensions[1] <= maxPixels;
+}
+
+export function canCompareVisual(a: FileModel, b: FileModel): boolean {
+  return canPreview(a, WIPE_PIXELS) && canPreview(b, WIPE_PIXELS);
+}
+
+function fileCard(model: FileModel, side: "a" | "b", mediaUrls: string[], showPreview = true): HTMLElement {
   const card = el("article", "compare-file");
   card.dataset.side = side;
   card.append(el("span", "compare-file-label", tr(side === "a" ? "File A" : "File B")));
   const format = model.file.format;
-  const dimensions = model.file.dimensions;
-  const canPreview =
-    ["jpeg", "png", "heif", "webp", "gif"].includes(format) &&
-    model.bytes.length <= PREVIEW_BYTES &&
-    dimensions !== undefined &&
-    dimensions !== null &&
-    dimensions[0] > 0 &&
-    dimensions[1] > 0 &&
-    dimensions[0] * dimensions[1] <= PREVIEW_PIXELS;
-  if (canPreview) {
+  if (showPreview && format === "video" && model.source) {
+    const frame = el("div", "compare-preview");
+    const player = el("video", "compare-video-preview");
+    player.controls = true;
+    player.playsInline = true;
+    player.preload = "metadata";
+    player.setAttribute("aria-label", tr(side === "a" ? "Preview of file A" : "Preview of file B"));
+    const url = URL.createObjectURL(model.source);
+    mediaUrls.push(url);
+    player.src = url;
+    frame.append(player);
+    card.append(frame);
+  } else if (showPreview && canPreview(model)) {
     const frame = el("div", "compare-preview");
     card.append(frame);
     void decodePicture(model)
@@ -244,6 +262,73 @@ function fileCard(model: FileModel, side: "a" | "b"): HTMLElement {
   return card;
 }
 
+function isStill(model: FileModel): boolean {
+  return ["jpeg", "png", "heif", "webp", "gif"].includes(model.file.format);
+}
+
+function motionPairNote(a: FileModel, b: FileModel): HTMLElement | null {
+  if (!((isStill(a) && b.file.format === "video") || (isStill(b) && a.file.format === "video"))) return null;
+  const note = section("Still + motion preview", "compare-motion-pair");
+  note.append(el("p", "hint", tr("Choose the still photo and motion clip from the same Live Photo to inspect them side by side. The pairing identifier is not checked.")));
+  return note;
+}
+
+/** A bounded, browser-rendered image wipe; this is a visual aid, not a pixel audit. */
+function visualWipe(a: FileModel, b: FileModel): HTMLElement {
+  const visualSection = section("Visual comparison", "compare-wipe-section");
+  const frame = el("div", "compare-wipe");
+  frame.setAttribute("role", "img");
+  frame.setAttribute("aria-label", tr("File A and file B previews, split by the slider"));
+  frame.style.setProperty("--wipe-position", "50%");
+  const labels = el("div", "compare-wipe-labels");
+  labels.append(el("span", undefined, tr("File A")), el("span", undefined, tr("File B")));
+  frame.append(labels);
+  const divider = el("span", "compare-wipe-divider");
+  divider.setAttribute("aria-hidden", "true");
+  frame.append(divider);
+
+  const slider = el("input", "compare-wipe-control");
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = "100";
+  slider.value = "50";
+  slider.setAttribute("aria-label", tr("Reveal file A"));
+  slider.setAttribute("aria-valuetext", `50% · ${tr("File A")}`);
+  slider.addEventListener("input", () => {
+    frame.style.setProperty("--wipe-position", `${slider.value}%`);
+    slider.setAttribute("aria-valuetext", `${slider.value}% · ${tr("File A")}`);
+  });
+
+  const note = el("p", "compare-wipe-note", tr("These are scaled previews rendered by this browser. Colour and HDR appearance may differ from the original; metadata is compared separately."));
+  visualSection.append(frame, slider, note);
+  void Promise.all([decodePicture(a), decodePicture(b)])
+    .then(([left, right]) => {
+      if (!left || !right) {
+        left?.close();
+        right?.close();
+        frame.replaceChildren(labels, el("p", "hint", tr("This browser could not decode both images for a visual comparison.")));
+        return;
+      }
+      try {
+        const cap = 1600;
+        const leftCanvas = drawn(left, a.file.format === "jpeg" ? a.file.orientation : 1, cap);
+        const rightCanvas = drawn(right, b.file.format === "jpeg" ? b.file.orientation : 1, cap);
+        leftCanvas.className = "compare-wipe-image is-a";
+        rightCanvas.className = "compare-wipe-image is-b";
+        leftCanvas.setAttribute("aria-hidden", "true");
+        rightCanvas.setAttribute("aria-hidden", "true");
+        frame.append(rightCanvas, leftCanvas, divider);
+      } catch {
+        frame.replaceChildren(labels, el("p", "hint", tr("This browser could not prepare both images for a visual comparison.")));
+      } finally {
+        left.close();
+        right.close();
+      }
+    })
+    .catch(() => frame.replaceChildren(labels, el("p", "hint", tr("This browser could not decode both images for a visual comparison."))));
+  return visualSection;
+}
+
 function metric(label: string, value: string | number): HTMLElement {
   const card = el("div", "compare-metric");
   card.append(el("span", "compare-metric-label", tr(label)), el("strong", "compare-metric-value", String(value)));
@@ -253,8 +338,12 @@ function metric(label: string, value: string | number): HTMLElement {
 /** Shows a comparison in a dialog. */
 export function showComparison(a: FileModel, b: FileModel, c: Comparison): void {
   const dialog = el("dialog", "report compare");
+  const mediaUrls: string[] = [];
   dialog.setAttribute("aria-labelledby", "compare-title");
-  dialog.addEventListener("close", () => dialog.remove());
+  dialog.addEventListener("close", () => {
+    for (const url of mediaUrls) URL.revokeObjectURL(url);
+    dialog.remove();
+  });
 
   const heading = el("header", "compare-header");
   const title = el("h2", undefined, tr("Compare"));
@@ -262,7 +351,8 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
   heading.append(title);
 
   const pair = el("div", "compare-pair");
-  pair.append(fileCard(a, "a"), el("span", "compare-vs", "vs."), fileCard(b, "b"));
+  const wipe = canCompareVisual(a, b);
+  pair.append(fileCard(a, "a", mediaUrls, !wipe), el("span", "compare-vs", "vs."), fileCard(b, "b", mediaUrls, !wipe));
 
   const summary = el("div", "compare-summary");
   summary.setAttribute("aria-label", tr("Finding summary"));
@@ -339,7 +429,11 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
     structure.append(bytes);
   }
 
-  dialog.append(heading, pair, summary, reveals, problems, structure);
+  dialog.append(heading, pair);
+  const motionNote = motionPairNote(a, b);
+  if (motionNote) dialog.append(motionNote);
+  if (wipe) dialog.append(visualWipe(a, b));
+  dialog.append(summary, reveals, problems, structure);
   document.body.append(dialog);
   dismissable(dialog);
   const close = dialog.querySelector<HTMLButtonElement>(".dialog-x");

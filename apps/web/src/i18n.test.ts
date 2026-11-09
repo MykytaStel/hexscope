@@ -11,9 +11,23 @@ describe("the interface language", () => {
   it("translates local batch coverage and its read statuses", () => {
     expect(translateText("Coverage by format", "uk")).toBe("Покриття за форматами");
     expect(translateText("Share coverage report", "uk")).toBe("Поділитися звітом про покриття");
+    expect(translateText("Share coverage report as CSV", "uk")).toBe("Поділитися звітом про покриття як CSV");
     expect(translateText("Save coverage report", "uk")).toBe("Зберегти звіт про покриття");
+    expect(translateText("Save coverage report as CSV", "uk")).toBe("Зберегти звіт про покриття як CSV");
+    expect(translateText("Filter this batch to the format", "uk")).toBe("Фільтрувати цю групу за форматом");
+    expect(translateText("Clear format filter", "uk")).toBe("Скинути фільтр формату");
+    expect(translateText(
+      "Clean copies over 10 MiB may not be read back in this tab; findings that were not checked stay Not checked.",
+      "uk",
+    )).toContain("10 МіБ");
+    expect(translateText(
+      "In a batch, if the original or clean copy exceeds 10 MiB, read-back verification may be skipped; affected findings stay Not checked.",
+      "uk",
+    )).toContain("оригінал або чиста копія перевищує 10 МіБ");
     expect(translateText("Share diagnostic report", "uk")).toBe("Поділитися звітом про проблеми");
+    expect(translateText("Share diagnostic report as CSV", "uk")).toBe("Поділитися звітом про проблеми як CSV");
     expect(translateText("Save diagnostic report", "uk")).toBe("Зберегти звіт про проблеми");
+    expect(translateText("Save diagnostic report as CSV", "uk")).toBe("Зберегти звіт про проблеми як CSV");
     expect(translateText("Retry failed files", "uk")).toBe("Повторити файли з помилкою");
     expect(translateText("complete", "uk")).toBe("повністю прочитано");
     expect(translateText("partial", "uk")).toBe("прочитано частково");
@@ -115,6 +129,15 @@ describe("the interface language", () => {
     expect(translateText("Metadata fields", "uk")).toBe("Поля метаданих");
     expect(translateText("Only in A", "uk")).toBe("Лише у файлі A");
     expect(translateText("Inspect byte differences", "uk")).toBe("Переглянути відмінності байтів");
+    expect(translateText("Visual comparison", "uk")).toBe("Візуальне порівняння");
+    expect(translateText("Reveal file A", "uk")).toBe("Показати файл A");
+  });
+
+  it("translates the file map and HEIF relationship view", () => {
+    expect(translateText("Map", "uk")).toBe("Карта");
+    expect(translateText("HEIF item graph", "uk")).toBe("Граф елементів HEIF");
+    expect(translateText("Constructed from other items · bytes not assembled", "uk")).toContain("байти не зібрано");
+    expect(translateText("AVIF image sequence", "uk")).toBe("Послідовність зображень AVIF");
   });
 
   it("keeps technical names in English when no Ukrainian equivalent exists", () => {

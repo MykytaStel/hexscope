@@ -5,8 +5,8 @@
 import type { VerdictLine } from "./verdict";
 import { listed } from "./headline";
 import { currentLocale, translateText } from "./i18n";
-import { batchCoverageReport } from "./batch-coverage-report";
-import { batchDiagnosticsReport } from "./batch-diagnostics-report";
+import { batchCoverageCsv, batchCoverageReport } from "./batch-coverage-report";
+import { batchDiagnosticRows, batchDiagnosticsCsv, batchDiagnosticsReport } from "./batch-diagnostics-report";
 import { phoneCanShare, saveAs, shareFile } from "./files";
 import { cleanable, type BatchFormatCoverage, type BatchItem } from "./batch-model";
 
@@ -86,7 +86,12 @@ function summarizeBatchItem(item: BatchItem): BatchItemSummary {
 }
 
 /** Summarizes a batch and applies its current filter in one pass. */
-export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit = Number.POSITIVE_INFINITY): BatchSummary {
+export function summarizeBatch(
+  items: BatchItem[],
+  show: BatchShow,
+  visibleLimit = Number.POSITIVE_INFINITY,
+  formatFilter: string | null = null,
+): BatchSummary {
   const summary: BatchSummary = {
     settled: 0,
     busy: false,
@@ -135,7 +140,7 @@ export function summarizeBatch(items: BatchItem[], show: BatchShow, visibleLimit
 
     const matches = show === "all"
       || (show === "reveals" ? facts.reveals : show === "incomplete" ? facts.incomplete : facts.problem);
-    if (matches) {
+    if (matches && (formatFilter === null || item.format === formatFilter)) {
       summary.shownCount++;
       if (summary.shown.length < visibleLimit) summary.shown.push({ item, index });
       if (facts.canClean) summary.anyPick = true;
@@ -195,6 +200,7 @@ function tags(item: BatchItem): HTMLElement[] {
 
 /** Rows drawn at a time: a folder of thousands would make the page crawl. */
 const PAGE = 300;
+const DIAGNOSTIC_PAGE = 50;
 
 /** A report in sentences, each its own text so each is translated on its own. */
 function sentences(text: string): Node[] {
@@ -205,9 +211,21 @@ function sentences(text: string): Node[] {
     .flatMap((line, i) => [...(i ? [document.createTextNode(" ")] : []), el("span", undefined, line)]);
 }
 
+function diagnosticStatusLabel(status: string): string {
+  switch (status) {
+    case "read_failed": return "Read failed";
+    case "partial": return "Partial";
+    case "unsupported": return "Unsupported";
+    case "damaged": return "Damaged";
+    default: return "Needs attention";
+  }
+}
+
 export class BatchView {
   private status = el("p", "batch-result");
   private show: BatchShow = "all";
+  private formatFilter: string | null = null;
+  private coverageOpen = false;
   private limit = PAGE;
   private items: BatchItem[] = [];
   private lastDrawn = 0;
@@ -240,6 +258,11 @@ export class BatchView {
 
   /** Draws the list, at most a few times a second while files are read. */
   render(items: BatchItem[], paused = false): void {
+    if (this.items !== items) {
+      this.show = "all";
+      this.formatFilter = null;
+      this.limit = PAGE;
+    }
     this.items = items;
     this.paused = paused;
     const wait = 150 - (performance.now() - this.lastDrawn);
@@ -276,6 +299,7 @@ export class BatchView {
   focusItem(index: number): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.items.length) return;
     this.show = "all";
+    this.formatFilter = null;
     this.limit = Math.min(
       this.items.length,
       Math.max(this.limit, Math.ceil((index + 1) / PAGE) * PAGE),
@@ -300,7 +324,7 @@ export class BatchView {
       ? active.dataset.batchFocus
       : undefined;
     const items = this.items;
-    const totals = summarizeBatch(items, this.show, this.limit);
+    const totals = summarizeBatch(items, this.show, this.limit, this.formatFilter);
 
     const card = el("div", "batch-card");
     const head = el("div", "batch-head");
@@ -386,6 +410,12 @@ export class BatchView {
       head.append(toggle);
     } else {
       head.append(save, keep, fingerprint);
+      if (chosen > 0) {
+        head.append(el("p", "batch-copy-limit", translateText(
+          "In a batch, if the original or clean copy exceeds 10 MiB, read-back verification may be skipped; affected findings stay Not checked.",
+          currentLocale(),
+        )));
+      }
     }
     head.append(this.status);
     // The tools for a whole roll of photos, out of the way of the one thing most come for.
@@ -421,10 +451,30 @@ export class BatchView {
       b.setAttribute("aria-pressed", String(this.show === key));
       b.addEventListener("click", () => {
         this.show = key;
+        this.formatFilter = null;
         this.limit = PAGE;
         this.draw();
       });
       bar.append(b);
+    }
+    card.append(bar);
+    if (this.formatFilter !== null) {
+      const formatName = items.find((item) => item.format === this.formatFilter)?.kind ?? this.formatFilter;
+      const activeFormat = el("div", "batch-format-active");
+      activeFormat.append(
+        el("span", undefined, translateText("Showing format:", currentLocale())),
+        el("strong", undefined, formatName),
+      );
+      const clearFormat = el("button", "btn batch-format-clear", translateText("Clear format filter", currentLocale()));
+      clearFormat.type = "button";
+      clearFormat.dataset.batchFocus = "clear-format";
+      clearFormat.addEventListener("click", () => {
+        this.formatFilter = null;
+        this.limit = PAGE;
+        this.draw();
+      });
+      activeFormat.append(clearFormat);
+      card.append(activeFormat);
     }
     const selection = el("div", "batch-selection");
     selection.setAttribute("role", "group");
@@ -464,10 +514,15 @@ export class BatchView {
       row.dataset.batchIndex = String(index);
       row.disabled = item.state === "waiting" || item.state === "reading";
       row.title = row.disabled ? "Still reading" : "Open this file";
+      // A stable position lets a private diagnostic report point back to this row.
+      const nameGroup = el("span", "batch-name-group");
+      const number = el("span", "batch-number", `#${index + 1}`);
+      number.setAttribute("aria-label", `${translateText("File number", currentLocale())} ${index + 1}`);
       // In a folder, where it is in the folder.
       const name = el("span", "batch-name", item.file.webkitRelativePath || item.file.name);
       const meta = el("span", "batch-meta", [item.kind, size(item.file.size)].filter(Boolean).join(" · "));
-      row.append(name, meta);
+      nameGroup.append(number, name);
+      row.append(nameGroup, meta);
       if (item.headline) row.append(el("span", `batch-answer is-${item.headline.tone}`, listed(item.headline)));
       const found = tags(item);
       if (found.length > 0) {
@@ -497,11 +552,19 @@ export class BatchView {
       li.append(row);
       list.append(li);
     }
-    card.append(head, bar);
-    if (!totals.busy && totals.coverageByFormat.length > 0) {
+    card.prepend(head);
+    if (!totals.busy && items.length > 0) {
       const coverage = el("details", "batch-coverage");
-      coverage.append(el("summary", undefined, translateText("Coverage by format", currentLocale())));
+      coverage.open = this.coverageOpen;
+      coverage.addEventListener("toggle", () => { this.coverageOpen = coverage.open; });
+      coverage.append(el("summary", undefined, translateText(
+        totals.coverageByFormat.length ? "Coverage by format" : "Batch reports",
+        currentLocale(),
+      )));
       const rows = el("ul", "batch-coverage-list");
+      if (totals.coverageByFormat.length > 0) {
+        coverage.append(el("p", "batch-coverage-note", translateText("Select a format to show matching files.", currentLocale())));
+      }
       for (const entry of totals.coverageByFormat) {
         const row = el("li", "batch-coverage-row");
         row.dataset.coverageFormat = entry.format;
@@ -511,7 +574,18 @@ export class BatchView {
           entry.partial ? `${entry.partial} ${translateText("partial", currentLocale())}` : "",
           entry.unsupported ? `${entry.unsupported} ${translateText("unsupported", currentLocale())}` : "",
         ].filter(Boolean);
-        row.append(el("span", "batch-coverage-name", name), el("span", "batch-coverage-counts", counts.join(" · ")));
+        const filter = el("button", "batch-coverage-filter");
+        filter.type = "button";
+        filter.dataset.batchFocus = `format:${entry.format}`;
+        filter.setAttribute("aria-pressed", String(this.formatFilter === entry.format));
+        filter.setAttribute("aria-label", `${translateText("Filter this batch to the format", currentLocale())} ${name}`);
+        filter.append(el("span", "batch-coverage-name", name), el("span", "batch-coverage-counts", counts.join(" · ")));
+        filter.addEventListener("click", () => {
+          this.formatFilter = this.formatFilter === entry.format ? null : entry.format;
+          this.limit = PAGE;
+          this.draw();
+        });
+        row.append(filter);
         rows.append(row);
       }
       const exportButton = el("button", "btn batch-coverage-export", translateText("Save coverage report", currentLocale()));
@@ -520,6 +594,13 @@ export class BatchView {
         const report = batchCoverageReport(totals.coverageByFormat, totals.settled);
         saveAs("hexscope-batch-coverage.json", new Blob([report], { type: "application/json" }));
       });
+      const csvExportButton = el("button", "btn batch-coverage-export-csv", translateText("Save coverage report as CSV", currentLocale()));
+      csvExportButton.type = "button";
+      csvExportButton.addEventListener("click", () => {
+        const report = batchCoverageCsv(totals.coverageByFormat, totals.settled);
+        saveAs("hexscope-batch-coverage.csv", new Blob([report], { type: "text/csv" }));
+      });
+      const csvReportName = "hexscope-batch-coverage.csv";
       const reportName = "hexscope-batch-coverage.json";
       const actions = el("div", "batch-coverage-actions");
       if (phoneCanShare(reportName)) {
@@ -531,14 +612,74 @@ export class BatchView {
         });
         actions.append(shareButton);
       }
-      actions.append(exportButton);
+      if (phoneCanShare(csvReportName)) {
+        const shareCsvButton = el("button", "btn btn-primary batch-coverage-share-csv", translateText("Share coverage report as CSV", currentLocale()));
+        shareCsvButton.type = "button";
+        shareCsvButton.addEventListener("click", () => {
+          const report = batchCoverageCsv(totals.coverageByFormat, totals.settled);
+          void shareFile(new File([report], csvReportName, { type: "text/csv" }));
+        });
+        actions.append(shareCsvButton);
+      }
+      actions.append(exportButton, csvExportButton);
       const privacyNote = el("p", "batch-coverage-note", translateText(
         "The report includes format names and read counts only; no file names or findings.",
         currentLocale(),
       ));
-      coverage.append(rows, actions, privacyNote);
+      if (totals.coverageByFormat.length > 0) coverage.append(rows);
+      else coverage.append(el("p", "batch-coverage-note", translateText("No files could be read by format.", currentLocale())));
+      coverage.append(actions, privacyNote);
       const diagnostics = batchDiagnosticsReport(items);
       if (diagnostics) {
+        const localList = el("ul", "batch-diagnostic-list");
+        const localEntries = batchDiagnosticRows(items);
+        for (const entry of localEntries.slice(0, DIAGNOSTIC_PAGE)) {
+          const item = items[entry.index - 1]!;
+          const localRow = el("li", "batch-diagnostic-row");
+          const description = el("span", "batch-diagnostic-description");
+          description.append(
+            el("span", "batch-number", `#${entry.index}`),
+            el("span", "batch-diagnostic-name", item.file.webkitRelativePath || item.file.name),
+            el("span", "batch-meta", `${item.kind} · ${translateText(diagnosticStatusLabel(entry.status), currentLocale())}`),
+          );
+          const showFile = el("button", "btn batch-diagnostic-open", translateText("Show this file in the batch", currentLocale()));
+          showFile.type = "button";
+          showFile.dataset.batchFocus = `diagnostic:${entry.index}`;
+          showFile.addEventListener("click", () => this.focusItem(entry.index - 1));
+          localRow.append(description, showFile);
+          localList.append(localRow);
+        }
+        const localParts: Node[] = [
+          el("summary", undefined, translateText("Find files needing attention", currentLocale())),
+          localList,
+        ];
+        if (localEntries.length > DIAGNOSTIC_PAGE) {
+          const lookup = el("form", "batch-diagnostic-lookup");
+          const lookupLabel = el("label", undefined, translateText("Find file number", currentLocale()));
+          const fileNumber = el("input");
+          fileNumber.type = "number";
+          fileNumber.min = "1";
+          fileNumber.max = String(items.length);
+          fileNumber.step = "1";
+          fileNumber.required = true;
+          fileNumber.setAttribute("aria-label", translateText("Find file number", currentLocale()));
+          const lookupButton = el("button", "btn", translateText("Show this file in the batch", currentLocale()));
+          lookupButton.type = "submit";
+          lookup.append(lookupLabel, fileNumber, lookupButton);
+          lookup.addEventListener("submit", (event) => {
+            event.preventDefault();
+            if (!fileNumber.checkValidity()) return;
+            this.focusItem(Number(fileNumber.value) - 1);
+          });
+          localParts.push(
+            lookup,
+            el("p", "batch-coverage-note", translateText("Use a row number from the report to find any file in this batch.", currentLocale())),
+          );
+        }
+        localParts.push(el("p", "batch-coverage-note", translateText("File names appear here on this device only; exported reports omit them.", currentLocale())));
+        const localDetails = el("details", "batch-diagnostics-local");
+        localDetails.append(...localParts);
+        coverage.append(localDetails);
         const diagnosticsName = "hexscope-batch-diagnostics.json";
         const diagnosticActions = el("div", "batch-coverage-actions");
         if (phoneCanShare(diagnosticsName)) {
@@ -549,12 +690,30 @@ export class BatchView {
           });
           diagnosticActions.append(shareDiagnostics);
         }
+        const diagnosticsCsvName = "hexscope-batch-diagnostics.csv";
+        if (phoneCanShare(diagnosticsCsvName)) {
+          const shareDiagnosticsCsv = el("button", "btn btn-primary", translateText("Share diagnostic report as CSV", currentLocale()));
+          shareDiagnosticsCsv.type = "button";
+          shareDiagnosticsCsv.addEventListener("click", () => {
+            const csvDiagnostics = batchDiagnosticsCsv(items);
+            if (!csvDiagnostics) return;
+            void shareFile(new File([csvDiagnostics], diagnosticsCsvName, { type: "text/csv" }));
+          });
+          diagnosticActions.append(shareDiagnosticsCsv);
+        }
         const saveDiagnostics = el("button", "btn", translateText("Save diagnostic report", currentLocale()));
         saveDiagnostics.type = "button";
         saveDiagnostics.addEventListener("click", () => {
           saveAs(diagnosticsName, new Blob([diagnostics], { type: "application/json" }));
         });
-        diagnosticActions.append(saveDiagnostics);
+        const saveDiagnosticsCsv = el("button", "btn", translateText("Save diagnostic report as CSV", currentLocale()));
+        saveDiagnosticsCsv.type = "button";
+        saveDiagnosticsCsv.addEventListener("click", () => {
+          const csvDiagnostics = batchDiagnosticsCsv(items);
+          if (!csvDiagnostics) return;
+          saveAs(diagnosticsCsvName, new Blob([csvDiagnostics], { type: "text/csv" }));
+        });
+        diagnosticActions.append(saveDiagnostics, saveDiagnosticsCsv);
         coverage.append(
           diagnosticActions,
           el("p", "batch-coverage-note", translateText(

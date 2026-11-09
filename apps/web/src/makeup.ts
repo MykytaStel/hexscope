@@ -4,9 +4,11 @@
 import { Role, type FileModel, type Slice } from "./model";
 import { el, formatBytes } from "./dom";
 import { roleName } from "./knowledge";
+import { currentLocale, translateText } from "./i18n";
 
 /** Parts the bar draws, at most: past a few hundred, a part is narrower than a pixel. */
 export const MAX_BAR_PARTS = 400;
+const tr = (s: string) => translateText(s, currentLocale());
 
 /** One stretch of the bar: its colour, its bytes, and the part a click shows (-1: none). */
 export interface BarPart {
@@ -94,16 +96,52 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
   const total = slices.reduce((n, s) => n + s.len, 0);
   if (total === 0) return group;
 
+  group.append(el("p", "makeup-hint", "Each band follows file order. Select one to inspect its source part in Bytes."));
   const bar = el("div", "makeup-bar");
-  for (const p of barParts(slices)) {
-    const part = el("span", `makeup-part role-${p.role}`);
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", "File parts in byte order");
+  const visibleParts = barParts(slices);
+  const chooseAt = (clientX: number, action: (id: number) => void) => {
+    const bounds = bar.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+    const x = Math.max(0, Math.min(bounds.width, clientX - bounds.left));
+    const byte = Math.min(total - Number.EPSILON, x / bounds.width * total);
+    let at = 0;
+    for (const candidate of visibleParts) {
+      at += candidate.len;
+      if (byte < at) {
+        if (candidate.node >= 0) action(candidate.node);
+        return;
+      }
+    }
+  };
+  let hovered = -1;
+  bar.addEventListener("click", (event) => {
+    if (event.detail === 0) return;
+    chooseAt(event.clientX, select);
+  });
+  bar.addEventListener("pointermove", (event) => {
+    chooseAt(event.clientX, (node) => {
+      if (node === hovered) return;
+      hovered = node;
+      hover(node);
+    });
+  });
+  bar.addEventListener("pointerleave", () => {
+    hovered = -1;
+    hover(-1);
+  });
+  for (const p of visibleParts) {
+    const part = el("button", `makeup-part role-${p.role}`);
+    part.type = "button";
     part.style.flexGrow = String(p.len);
     part.title = `${roleName(p.role, m.file.format)}${p.node >= 0 && !p.merged ? ` · ${m.label(p.node)}` : ""} · ${formatBytes(p.len)}`;
+    part.setAttribute("aria-label", `${roleName(p.role, m.file.format)} · ${formatBytes(p.len)}${p.merged ? " · combined region" : ""}`);
     if (p.node >= 0) {
-      part.addEventListener("click", () => select(p.node));
-      part.addEventListener("mouseenter", () => hover(p.node));
-      part.addEventListener("mouseleave", () => hover(-1));
-    }
+      part.addEventListener("click", (event) => {
+        if (event.detail === 0) select(p.node);
+      });
+    } else part.disabled = true;
     bar.append(part);
   }
 
@@ -120,18 +158,23 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
   const legend = el("ul", "makeup-legend");
   for (const [role, r] of [...byRole].sort((a, b) => b[1].bytes - a[1].bytes)) {
     const pct = (r.bytes / total) * 100;
-    const li = el("li", "makeup-row");
-    li.append(
+    const li = el("li");
+    const row = el("button", "makeup-row");
+    row.type = "button";
+    row.append(
       el("span", `makeup-swatch role-${role}`),
       el("span", "makeup-name", roleName(role, m.file.format)),
       el("span", "makeup-pct", pct < 1 ? "<1%" : `${Math.round(pct)}%`),
       el("span", "makeup-size", formatBytes(r.bytes)),
     );
     if (r.biggest.node >= 0) {
-      li.classList.add("is-link");
-      li.title = "Show the largest part";
-      li.addEventListener("click", () => select(r.biggest.node));
+      row.title = "Show the largest part";
+      row.setAttribute("aria-label", `${roleName(role, m.file.format)} · ${formatBytes(r.bytes)} · ${tr("Show the largest part")}`);
+      row.addEventListener("click", () => select(r.biggest.node));
+    } else {
+      row.disabled = true;
     }
+    li.append(row);
     legend.append(li);
   }
   // In one sentence: the thing itself, what is about it, what is unaccounted.

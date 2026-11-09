@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BatchItem } from "./batch-model";
-import { batchDiagnosticsReport } from "./batch-diagnostics-report";
+import { batchDiagnosticsCsv, batchDiagnosticsReport } from "./batch-diagnostics-report";
 
 function item(overrides: Partial<BatchItem>): BatchItem {
   return {
@@ -47,5 +47,25 @@ describe("batch diagnostics report", () => {
   it("omits rows with complete reads and returns no report when there is nothing to diagnose", () => {
     expect(batchDiagnosticsReport([item({})])).toBeNull();
     expect(batchDiagnosticsReport([])).toBeNull();
+  });
+
+  it("exports only affected row positions, formats, and statuses as a safe CSV", () => {
+    const csv = batchDiagnosticsCsv([
+      item({}),
+      item({ format: "=SUM(1,1)", coverage: "unsupported" }),
+      item({ state: "failed", format: undefined, coverage: undefined }),
+      item({ coverage: "partial" }),
+    ]);
+
+    expect(csv).toBe([
+      "Row,Format,Status,Total files",
+      `2,"'=SUM(1,1)",unsupported,4`,
+      "3,unknown,read_failed,4",
+      "4,pdf,partial,4",
+    ].join("\r\n"));
+    expect(csv).not.toContain("secret-client-contract");
+    expect(csv).not.toContain("private contents");
+    expect(csv).not.toContain("/Users/alice");
+    expect(csv).not.toContain("private raw parser error");
   });
 });
