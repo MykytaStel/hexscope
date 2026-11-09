@@ -835,6 +835,10 @@ const OTHER_UK: Record<string, string> = {
 const NOUNS: Record<string, string> = {
   "audio file": "Аудіофайл",
   "a WAV recording with metadata": "аудіозапис WAV із метаданими",
+  "synthetic ID3 tags; no audio": "синтетичні теги ID3; без аудіо",
+  "synthetic stream info; no audio": "синтетичний блок StreamInfo; без аудіо",
+  "synthetic Vorbis headers; no audio": "синтетичні заголовки Vorbis; без аудіо",
+  "synthetic Opus headers; no audio": "синтетичні заголовки Opus; без аудіо",
   "Copyright holder": "Власник авторських прав",
   "Engineer": "Інженер",
   "Originator": "Автор запису",

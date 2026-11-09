@@ -372,6 +372,9 @@ mobile/accessibility review and the rest of the family gates remain open.
 Uncompressed SVG up to 2 MiB now has an opt-in static preview;
 the sanitizer strips active content, styles and external references before
 the browser renders it. SVGZ and larger files keep their structural view only.
+The sample picker now includes tiny synthetic MP3, FLAC, Ogg Vorbis and Ogg
+Opus structures alongside the existing WAV sample; these contain no encoded
+audio or personal metadata.
 
 The full Web production build passed after regenerating the repository's WASM
 bindings. Vite still reports existing warnings for static pages that load
