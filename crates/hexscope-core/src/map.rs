@@ -203,6 +203,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
         {
             Some(Role::Metadata)
         }
+        #[cfg(feature = "audio")]
         Format::Mp3 => {
             if inside(tree, id, |ancestor| {
                 ancestor.starts_with("ID3v2") || ancestor == "ID3v1 tag"
@@ -214,6 +215,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
                 Some(Role::Structure)
             }
         }
+        #[cfg(feature = "audio")]
         Format::Flac => {
             if inside(tree, id, |ancestor| {
                 ancestor == "FLAC Vorbis comments block"
@@ -225,6 +227,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
                 Some(Role::Structure)
             }
         }
+        #[cfg(feature = "audio")]
         Format::Ogg => {
             if inside(tree, id, |ancestor| {
                 matches!(
@@ -239,6 +242,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
                 Some(Role::Structure)
             }
         }
+        #[cfg(feature = "audio")]
         Format::Wav => {
             if depth == 1 {
                 Some(if label.contains("data chunk") {
@@ -358,6 +362,7 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
     }
 }
 
+#[cfg(feature = "audio")]
 fn inside(tree: &ParseTree, id: NodeId, matches: impl Fn(&str) -> bool) -> bool {
     let mut parent = tree.try_get(id).and_then(|node| node.parent);
     while let Some(id) = parent {
