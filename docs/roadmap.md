@@ -357,8 +357,19 @@ keeps OCR absence and image-read status visible; password-protected PDFs show
 their structural findings while page reading stays disabled. These maps do not
 yet report entry-level clean-copy outcomes, and PDF findings are not all
 grouped by a page-to-area action chain. Those evidence links, the remaining
-family polish, mobile/accessibility checks, device checks and the rest of 0.17
-acceptance work remain open.
+further family polish, mobile/accessibility checks, device checks and the rest
+of 0.17 acceptance work remain open.
+
+This family pass adds bounded source-linked summaries from the existing
+parse tree: video tracks and stored timing, audio tags/artwork/container
+blocks, SVG scripts/references/images, email sender/route claims and links,
+and WebAssembly imports/exports/debug references. These panels do not decode
+media, execute SVG/WebAssembly, verify email authentication claims or fetch
+external references. Unknown files now say that metadata and cleaning were not
+structurally checked, and point to the existing bounded signature search for
+its actual searched range. The SVG static preview, deeper per-format
+read-back links, mobile/accessibility review and the rest of the family gates
+remain open.
 
 The full Web production build passed after regenerating the repository's WASM
 bindings. Vite still reports existing warnings for static pages that load

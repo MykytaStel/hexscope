@@ -390,6 +390,55 @@
   justify-self: start;
 }
 
+.format-inspector {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.format-inspector > h3,
+.format-inspector-intro {
+  margin: 0;
+}
+
+.format-evidence-group {
+  border-top: 1px solid var(--border);
+}
+
+.format-evidence-group > summary {
+  min-height: 40px;
+  align-content: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.format-evidence-list,
+.format-track-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 var(--space-2) 1.25rem;
+}
+
+.format-evidence-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.format-track {
+  min-width: 0;
+}
+
 @media (max-width: 520px) {
   .evidence-filters {
     flex-wrap: nowrap;

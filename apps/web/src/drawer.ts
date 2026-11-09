@@ -24,6 +24,7 @@ import { evidenceOverview } from "./evidence-overview";
 import { photoInspector } from "./photo-inspector";
 import { documentMap } from "./document-map";
 import { pdfNavigator } from "./pdf-navigator";
+import { formatInspector } from "./format-inspectors";
 import { currentLocale, translateText } from "./i18n";
 import type { PageGlyphs } from "./worker";
 
@@ -710,6 +711,8 @@ export class Drawer {
       const path = emailPath(m, (id) => this.onSelect(id));
       if (path) group.append(path);
     }
+    const formatDetails = formatInspector(m, (node) => this.onSelect(node));
+    if (formatDetails) group.append(formatDetails);
     // The picture it is about, and where it was taken, drawn: what the
     // numbers below mean, before reading them.
     const pictured = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
@@ -762,22 +765,22 @@ export class Drawer {
       // time it was changed: still worth a clean copy.
       const notes = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "data after the end of the image"];
       const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
-      const none =
-        audioFile
-          ? f.format === "wav"
-            ? "No supported WAV INFO or Broadcast Wave metadata was found."
-            : "No supported audio metadata tags were found."
-          : f.format === "pdf"
-          ? "No document information or XMP: nothing about who wrote it, with what, or when."
-          : removable
-            ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
-            : f.format === "video"
-              ? isAudio(m)
-                ? "No location, device or software in its metadata."
-                : "No location, camera or software in its metadata."
-              : f.format === "wasm"
-                ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
-              : "No EXIF metadata: nothing about the camera, the time or the place.";
+      const none = (() => {
+        if (audioFile) return f.format === "wav"
+          ? "No supported WAV INFO or Broadcast Wave metadata was found."
+          : "No supported audio metadata tags were found.";
+        if (f.format === "pdf") return "No document information or XMP: nothing about who wrote it, with what, or when.";
+        if (removable) return "Nothing about the camera, the place or who made it, but it holds notes or data that can go.";
+        if (f.format === "video") return isAudio(m)
+          ? "No location, device or software in its metadata."
+          : "No location, camera or software in its metadata.";
+        if (f.format === "wasm") return "No names, tools, paths or debug info: nothing about how, or by whom, it was built.";
+        if (f.format === "unknown") return "No structural read was available, so metadata could not be checked.";
+        if (f.format === "eml" || f.format === "msg") return "No supported email findings were read.";
+        if (f.format === "svg" || f.format === "zip" || f.format === "cfb" || f.format === "office97" || f.format === "rtf") return "No supported document metadata findings were read.";
+        if (pictured) return "No EXIF metadata: nothing about the camera, the time or the place.";
+        return "No supported metadata findings were read.";
+      })();
       group.append(el("p", "hint", none));
       if (audioFile && f.metadataComplete === false) {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
@@ -953,8 +956,7 @@ export class Drawer {
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
     } else if (f.format === "unknown") {
-      // Found in its text, not read from its structure: there is nothing to rewrite it by.
-      group.append(el("p", "hint", "hexscope does not take this format apart, so it makes no clean copy of it. The program that made the file keeps these names: change them there, or export a copy without them."));
+      group.append(el("p", "hint", "No clean copy is offered because Hexscope cannot rewrite this file's structure."));
     } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
