@@ -75,6 +75,117 @@
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
 }
 
+.evidence-overview {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--accent) 12%);
+}
+
+.evidence-overview-title {
+  margin: 0;
+  font-size: var(--type-small);
+  font-weight: 700;
+}
+
+.evidence-search {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.evidence-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.evidence-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-small);
+  cursor: pointer;
+}
+
+.evidence-filter[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--text);
+  font-weight: 650;
+}
+
+.evidence-filter-count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.evidence-unchecked-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-unchecked-item {
+  display: grid;
+  gap: 2px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.evidence-unchecked-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.evidence-unchecked-detail,
+.evidence-empty {
+  color: var(--faint);
+  font-size: var(--type-small);
+}
+
+.evidence-empty {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .evidence-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+  }
+
+  .evidence-filter {
+    flex: 0 0 auto;
+  }
+}
+
 .metadata-group {
   min-width: 0;
   padding: var(--space-3) 0;

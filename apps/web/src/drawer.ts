@@ -20,6 +20,7 @@ import { createCleaner } from "./cleaner";
 import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
 import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
 import { hasCleanableAudioTags } from "./audio-clean";
+import { evidenceOverview } from "./evidence-overview";
 import { currentLocale, translateText } from "./i18n";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
@@ -757,6 +758,9 @@ export class Drawer {
           ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
           : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
       }
+      if (f.coverageStatus !== "complete" || f.missing.length > 0 || f.metadataComplete === false) {
+        group.append(evidenceOverview(m, el("div"), (node) => this.onSelect(node), (start, len) => this.onSelectRange(start, len)));
+      }
       if (cleanableAudioTags) group.append(createCleaner(m, this.cleaning, group));
       if (removable) group.append(createCleaner(m, this.cleaning, group));
       if (canBlackOut(m)) group.append(this.blackOutButton(m));
@@ -900,8 +904,11 @@ export class Drawer {
       });
       metadataSummary.append(jump);
     }
-    if (metadataSummary.children.length > 1) group.append(metadataSummary);
-    group.append(metadataGroups);
+    if (metadataSummary.children.length > 1) metadataGroups.append(metadataSummary);
+    group.append(
+      evidenceOverview(m, metadataGroups, (node) => this.onSelect(node), (start, len) => this.onSelectRange(start, len)),
+      metadataGroups,
+    );
     if (audioFile && f.metadataComplete === false) {
       group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
     }

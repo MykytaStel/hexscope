@@ -335,8 +335,15 @@ read bounded chunk structure plus supported INFO/Broadcast Wave fields, and
 show their source ranges and privacy categories. The file stays read-only and
 audio is never decoded or played. CLI format reporting, Ukrainian copy and a
 synthetic browser sample are wired in. The audio WebAssembly module and its
-explanation catalogue compile; the full Web build and the remaining 0.17
-acceptance checks are still open.
+explanation catalogue compile.
+
+**Progress 2026-11-09:** the shared evidence panel now filters local findings
+by privacy, metadata, attachments and unchecked parts. Fact rows keep their
+parser-node links; unreadable nodes and deferred media bytes link to their
+source. Its incomplete state comes from the parser's coverage result and parse
+tree, without a second UI confidence score. The complete Web production build
+passes after generating the repository's WASM bindings. Format maps, device
+checks and the remaining 0.17 acceptance work are still open.
 
 Each slice needs representative fixtures and explicit incomplete/malformed
 behavior. Parser or cleaner changes must retain Core + Web coverage and the
