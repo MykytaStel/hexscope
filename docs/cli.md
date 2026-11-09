@@ -349,7 +349,7 @@ not done, `index`, `operation_state` and `check`.
 (MP4, MOV, M4A), `pdf`, `zip` (ZIP archives, Word, Excel, PowerPoint,
 OpenDocument, EPUB, APK), `office97` (Word, Excel and PowerPoint 97–2003),
 `msg` (Outlook), `cfb` (other compound files), `rtf`, `svg`, `eml`,
-`wasm`, `mp3`, `flac`, `ogg`, `unknown`.
+`wasm`, `wav`, `mp3`, `flac`, `ogg`, `unknown`.
 <!-- formats:end -->
 
 ## Kinds of finding

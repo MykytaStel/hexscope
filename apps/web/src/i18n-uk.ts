@@ -466,7 +466,7 @@ const UK: Record<string, string> = {
   "Image formats": "Формати зображень",
   "Video and audio formats": "Формати відео й аудіо",
   "Video & audio": "Відео й аудіо",
-  "MP3, FLAC and Ogg tags only; audio is not played.": "У MP3, FLAC та Ogg читаються лише теги; аудіо не відтворюється.",
+  "WAV, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
   "Document formats": "Формати документів",
   "Email, archive and technical formats": "Формати електронної пошти, архівів і технічних файлів",
   "Guides and more sample files": "Посібники та інші приклади файлів",
@@ -834,6 +834,11 @@ const OTHER_UK: Record<string, string> = {
 
 const NOUNS: Record<string, string> = {
   "audio file": "Аудіофайл",
+  "a WAV recording with metadata": "аудіозапис WAV із метаданими",
+  "Copyright holder": "Власник авторських прав",
+  "Engineer": "Інженер",
+  "Originator": "Автор запису",
+  "Broadcast reference": "Ідентифікатор Broadcast Wave",
   photo: "Фото",
   picture: "Зображення",
   video: "Відео",

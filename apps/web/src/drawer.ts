@@ -670,11 +670,12 @@ export class Drawer {
       mp3: "What this audio file reveals",
       flac: "What this audio file reveals",
       ogg: "What this audio file reveals",
+      wav: "What this audio file reveals",
       unknown: "What this file reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };
-    const audioFile = ["mp3", "flac", "ogg"].includes(f.format);
+    const audioFile = ["mp3", "flac", "ogg", "wav"].includes(f.format);
     const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete, f.facts);
     const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
@@ -733,7 +734,9 @@ export class Drawer {
       const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
       const none =
         audioFile
-          ? "No supported audio metadata tags were found."
+          ? f.format === "wav"
+            ? "No supported WAV INFO or Broadcast Wave metadata was found."
+            : "No supported audio metadata tags were found."
           : f.format === "pdf"
           ? "No document information or XMP: nothing about who wrote it, with what, or when."
           : removable
@@ -750,7 +753,9 @@ export class Drawer {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
       }
       if (audioFile && !cleanableAudioTags) {
-        group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
+        group.append(el("p", "hint", f.format === "wav"
+          ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+          : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
       }
       if (cleanableAudioTags) group.append(createCleaner(m, this.cleaning, group));
       if (removable) group.append(createCleaner(m, this.cleaning, group));
@@ -917,7 +922,9 @@ export class Drawer {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else if (audioFile && !cleanableAudioTags) {
-      group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
+      group.append(el("p", "hint", f.format === "wav"
+        ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+        : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));
     }

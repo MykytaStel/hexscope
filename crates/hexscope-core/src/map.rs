@@ -239,6 +239,23 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
                 Some(Role::Structure)
             }
         }
+        Format::Wav => {
+            if depth == 1 {
+                Some(if label.contains("data chunk") {
+                    Role::Content
+                } else if label.contains("INFO") || label.contains("bext") {
+                    Role::Metadata
+                } else {
+                    Role::Structure
+                })
+            } else if label.contains("audio data") {
+                Some(Role::Content)
+            } else if label.contains("WAVE INFO") || label.contains("INFO value") || label.contains("broadcast ") {
+                Some(Role::Metadata)
+            } else {
+                None
+            }
+        }
         // A module's code and data run; custom sections describe it,
         // except those linkers need.
         Format::Wasm if depth == 1 => Some(match label {

@@ -3,6 +3,7 @@ pub(crate) mod docs;
 mod flac;
 mod id3;
 mod ogg;
+mod wav;
 
 pub(crate) use id3::removable_tag_ranges;
 pub use id3::{is_mp3, parse_mp3};
@@ -18,10 +19,13 @@ pub enum AudioFormat {
     Ogg,
     OggVorbis,
     OggOpus,
+    Wav,
 }
 
 pub fn parse(data: &[u8]) -> Option<AudioDocument> {
-    if is_mp3(data) {
+    if wav::is_wave(data) {
+        Some(wav::parse_wave(data))
+    } else if is_mp3(data) {
         Some(parse_mp3(data))
     } else if flac::is_flac(data) {
         Some(flac::parse_flac(data))

@@ -29,6 +29,7 @@ const EXTENSIONS: &[(&str, &[&str])] = &[
     ("mp3", &["mp3"]),
     ("flac", &["flac"]),
     ("ogg", &["ogg", "oga", "opus"]),
+    ("wav", &["wav", "wave"]),
     ("pdf", &["pdf"]),
     (
         "zip",
@@ -120,6 +121,7 @@ fn what_it_is(doc: &Document, data: &[u8]) -> Option<(&'static str, &'static str
             crate::audio::AudioFormat::Ogg => ("ogg", "an Ogg media file", ".ogg"),
             crate::audio::AudioFormat::OggVorbis => ("ogg", "an Ogg Vorbis audio file", ".ogg"),
             crate::audio::AudioFormat::OggOpus => ("ogg", "an Ogg Opus audio file", ".opus"),
+            crate::audio::AudioFormat::Wav => ("wav", "a WAV audio file", ".wav"),
         },
         Document::Pdf(_) => ("pdf", "a PDF", ".pdf"),
         Document::Wasm(_) => ("wasm", "a WebAssembly module", ".wasm"),

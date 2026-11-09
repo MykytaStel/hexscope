@@ -56,6 +56,8 @@ export function kindWord(m: FileModel): string {
       return "FLAC audio";
     case "ogg":
       return "Ogg audio";
+    case "wav":
+      return "WAV audio";
     case "pdf":
       return "PDF";
     case "eml":
@@ -115,6 +117,8 @@ export function kindOf(m: FileModel): string {
       return "Rich Text";
     case "svg":
       return "SVG";
+    case "wav":
+      return "WAV audio";
     default:
       return "";
   }

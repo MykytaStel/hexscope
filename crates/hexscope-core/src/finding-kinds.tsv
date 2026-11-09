@@ -98,6 +98,10 @@ category	Category
 status	Status
 encryption	Encryption
 screenshot	Screenshot		that it is a screenshot
+copyright	Copyright holder	copyright information	who claims copyright on it	99
+engineer	Engineer	engineer named in metadata	who engineered the recording	100
+originator	Originator	recording originator	who created the broadcast recording	101
+broadcast-reference	Broadcast reference	broadcast reference	a broadcast reference code	102
 opens	When opened
 scripts	Scripts
 launch	Opens a program

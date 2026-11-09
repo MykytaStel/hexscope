@@ -39,7 +39,7 @@ addresses, never anything about a file — read only by its author.
 ### Formats
 
 hexscope reads PNG, JPEG, HEIC/HEIF, AVIF, WebP, GIF, TIFF, SVG, MP4/QuickTime,
-MP3, FLAC and Ogg Vorbis/Opus tags, PDF, ZIP
+WAV, MP3, FLAC and Ogg Vorbis/Opus tags, PDF, ZIP
 archives and common files inside them (`.docx`, `.xlsx`, `.pptx`, LibreOffice's
 `.odt`, `.ods`, `.odp`, `.apk`, `.jar`, `.epub`), RTF, legacy Office files (`.doc`, `.xls`, `.ppt`), `.eml`, Outlook `.msg`,
 and WebAssembly modules. What it can inspect or change varies by format. For

@@ -35,6 +35,7 @@ export const EXTENSIONS: Record<string, string[]> = {
   mp3: ["mp3"],
   flac: ["flac"],
   ogg: ["ogg", "oga", "opus"],
+  wav: ["wav", "wave"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -54,6 +55,7 @@ const NAMES: Record<string, [string, string]> = {
   office97: ["a Word, Excel or PowerPoint 97–2003 file", ".doc"],
   rtf: ["a Rich Text document", ".rtf"],
   svg: ["an SVG drawing", ".svg"],
+  wav: ["a WAV audio file", ".wav"],
 };
 
 /** Documents a ZIP can be, with the extensions that are their own, as naming.rs lists them. */
@@ -239,7 +241,7 @@ export function verdict(m: FileModel): VerdictLine[] {
       node: incompleteForm.node,
     });
   }
-  if (["mp3", "flac", "ogg"].includes(f.format) && f.metadataComplete === false) {
+  if (["mp3", "flac", "ogg", "wav"].includes(f.format) && f.metadataComplete === false) {
     const factNodes = new Set(f.facts.map((fact) => fact.node));
     const error = m.problems.find((id) => m.kind(id) === Kind.Error);
     const warning = m.problems.find((id) => m.kind(id) === Kind.Warning);

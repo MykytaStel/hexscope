@@ -28,7 +28,7 @@ const DOCS = new Set<ParsedFile["format"]>(["zip", "wasm", "eml", "msg", "office
 const buildOf = (format: ParsedFile["format"]): Build =>
   format === "pdf"
     ? "pdf"
-    : format === "mp3" || format === "flac" || format === "ogg"
+    : format === "mp3" || format === "flac" || format === "ogg" || format === "wav"
       ? "audio"
       : DOCS.has(format)
         ? "docs"
