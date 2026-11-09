@@ -342,8 +342,13 @@ by privacy, metadata, attachments and unchecked parts. Fact rows keep their
 parser-node links; unreadable nodes and deferred media bytes link to their
 source. Its incomplete state comes from the parser's coverage result and parse
 tree, without a second UI confidence score. The complete Web production build
-passes after generating the repository's WASM bindings. Format maps, device
-checks and the remaining 0.17 acceptance work are still open.
+passes after generating the repository's WASM bindings. The photo card now
+separates visible pixel properties from metadata, links properties to parser
+nodes where available, and names stored frame/auxiliary image data without
+implying that it was decoded. Clean-copy status and visual comparison continue
+to use the Core read-back report and existing bounded browser preview. Document
+and PDF maps, family polish, device checks and the remaining 0.17 acceptance
+work are still open.
 
 Each slice needs representative fixtures and explicit incomplete/malformed
 behavior. Parser or cleaner changes must retain Core + Web coverage and the

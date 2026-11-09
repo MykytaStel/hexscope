@@ -21,6 +21,7 @@ import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
 import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
 import { hasCleanableAudioTags } from "./audio-clean";
 import { evidenceOverview } from "./evidence-overview";
+import { photoInspector } from "./photo-inspector";
 import { currentLocale, translateText } from "./i18n";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
@@ -728,6 +729,10 @@ export class Drawer {
           });
       }
     }
+    if (pictured) {
+      const inspector = photoInspector(m, (node) => this.onSelect(node));
+      if (inspector) group.append(inspector);
+    }
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the
       // time it was changed: still worth a clean copy.
@@ -792,7 +797,8 @@ export class Drawer {
     fact(generalList, "File type", f.format === "unknown" ? "Not a format hexscope reads" : kindOf(m));
     fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
-    if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
+    const isPicture = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
+    if (dimensions && !isPicture) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
 
     const row = (label: string, text: string, node: number, strong = false, key: MetadataGroupKey = "additional") => {
       const dd = el("dd");

@@ -236,6 +236,57 @@
 
 /* The picture a photo's card is about, beside its heading. */
 /* The picture, and where it was taken: seen before the numbers are read. */
+.photo-inspector {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.photo-inspector h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--type-small);
+  font-weight: 700;
+}
+
+.photo-inspector-hint {
+  margin: 0 0 var(--space-2);
+}
+
+.photo-property-list {
+  display: grid;
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  align-items: baseline;
+}
+
+.photo-property-list dt {
+  color: var(--faint);
+  font-size: var(--type-small);
+  font-weight: 600;
+}
+
+.photo-property-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-property-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.photo-property-link:hover,
+.photo-property-link:focus-visible {
+  text-decoration: underline;
+}
+
 .reveal-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
