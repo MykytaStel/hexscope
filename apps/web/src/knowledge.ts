@@ -117,7 +117,7 @@ export function roleName(role: number, format: string): string {
             ? "Code and data"
           : format === "svg"
             ? "The drawing"
-          : format === "mp3" || format === "flac" || format === "ogg"
+          : format === "mp3" || format === "flac" || format === "ogg" || format === "wav"
             ? "Audio data"
             : "Picture";
     case Role.Metadata:

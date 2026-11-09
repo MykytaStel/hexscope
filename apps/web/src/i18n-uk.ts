@@ -466,7 +466,7 @@ const UK: Record<string, string> = {
   "Image formats": "Формати зображень",
   "Video and audio formats": "Формати відео й аудіо",
   "Video & audio": "Відео й аудіо",
-  "MP3, FLAC and Ogg tags only; audio is not played.": "У MP3, FLAC та Ogg читаються лише теги; аудіо не відтворюється.",
+  "WAV, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
   "Document formats": "Формати документів",
   "Email, archive and technical formats": "Формати електронної пошти, архівів і технічних файлів",
   "Guides and more sample files": "Посібники та інші приклади файлів",
@@ -713,6 +713,17 @@ const UK: Record<string, string> = {
   "Some PDF page or form content could not be fully checked. Search may miss text.": "Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.",
   "Loading PDF tools…": "Завантажуємо інструменти PDF…",
   "PDF tools could not be loaded. Try again.": "Не вдалося завантажити інструменти PDF. Спробуйте ще раз.",
+  "PDF tools could not be loaded. The file structure is still available.": "Не вдалося завантажити інструменти PDF. Структура файла доступна й далі.",
+  "Loading document map…": "Завантажуємо карту документа…",
+  "The document map could not be loaded. The file structure is still available.": "Не вдалося завантажити карту документа. Структура файла доступна й далі.",
+  "Loading PDF navigator…": "Завантажуємо навігатор PDF…",
+  "The PDF navigator could not be loaded. The file structure is still available.": "Не вдалося завантажити навігатор PDF. Структура файла доступна й далі.",
+  "Loading file structure map…": "Завантажуємо мапу структури файла…",
+  "The file map could not be loaded. The structure and bytes are still available.": "Не вдалося завантажити мапу файла. Структура та байти доступні й далі.",
+  "Loading format summary…": "Завантажуємо опис формату…",
+  "The format summary could not be loaded. The file structure is still available.": "Не вдалося завантажити опис формату. Структура файла доступна й далі.",
+  "Loading image properties…": "Завантажуємо властивості зображення…",
+  "The image properties could not be loaded. The file structure is still available.": "Не вдалося завантажити властивості зображення. Структура файла доступна й далі.",
   "Compression player could not be loaded. Try again.": "Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.",
   "PDF not fully checked": "PDF перевірено не повністю",
   "Some PDF page or form content may be missing.": "У PDF може бракувати частини вмісту сторінки або форми.",
@@ -834,6 +845,15 @@ const OTHER_UK: Record<string, string> = {
 
 const NOUNS: Record<string, string> = {
   "audio file": "Аудіофайл",
+  "a WAV recording with metadata": "аудіозапис WAV із метаданими",
+  "synthetic ID3 tags; no audio": "синтетичні теги ID3; без аудіо",
+  "synthetic stream info; no audio": "синтетичний блок StreamInfo; без аудіо",
+  "synthetic Vorbis headers; no audio": "синтетичні заголовки Vorbis; без аудіо",
+  "synthetic Opus headers; no audio": "синтетичні заголовки Opus; без аудіо",
+  "Copyright holder": "Власник авторських прав",
+  "Engineer": "Інженер",
+  "Originator": "Автор запису",
+  "Broadcast reference": "Ідентифікатор Broadcast Wave",
   photo: "Фото",
   picture: "Зображення",
   video: "Відео",
@@ -856,6 +876,14 @@ const REVEAL_WORDS: Record<string, string> = {
   "the place it names": "згадане місце",
   "the file it was made from": "початковий файл",
   "how it was edited": "спосіб редагування",
+  "copyright information": "відомості про авторські права",
+  "who claims copyright on it": "заявника авторських прав",
+  "engineer named in metadata": "інженера, вказаного в метаданих",
+  "who engineered the recording": "інженера запису",
+  "recording originator": "автора запису",
+  "who created the broadcast recording": "автора мовленнєвого запису",
+  "broadcast reference": "ідентифікатор Broadcast Wave",
+  "a broadcast reference code": "ідентифікатор Broadcast Wave",
   "who wrote it": "автора",
   "who saved it last": "останнього редактора",
   "text hidden from view": "прихований текст",
@@ -1653,6 +1681,8 @@ function factSentence(v: string): string | undefined {
     return `«${m[1]}» —${m[3] ? ` названо так, ніби це ${m[3]},` : ""} ${RISKY[m[4]]}`;
   if ((m = /^(.+), but it opens without a password, so anyone can read it$/.exec(v)))
     return `${m[1]}, але відкривається без пароля, тож прочитати може будь-хто`;
+  if ((m = /^embedded picture: (\d+) bytes$/.exec(v)))
+    return `вбудоване зображення: ${Number(m[1]).toLocaleString("uk")} ${ukrainianCountWord(Number(m[1]), "байт", "байти", "байтів")}`;
   if ((m = /^embedded JPEG, (\d+) bytes$/.exec(v))) return `вбудований JPEG, ${m[1]} ${ukrainianCountWord(Number(m[1]), "байт", "байти", "байтів")}`;
   if ((m = /^a picture of the first page, (\d+×\d+)$/.exec(v))) return `зображення першої сторінки, ${m[1]}`;
   if ((m = /^on (\d+) slides?: (.+)$/.exec(v)))

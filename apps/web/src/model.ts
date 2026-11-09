@@ -41,7 +41,7 @@ export interface ParsedFile {
   entropyWindow: number;
   /** A large movie's media, not read with the rest: `[start, len, …]`. */
   missing: Float64Array;
-  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "mp3" | "flac" | "ogg" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
+  format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "mp3" | "flac" | "ogg" | "wav" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
   /** False when supported metadata could not be completely read. */
   metadataComplete?: boolean;
   /** Canonical parser read status shared with the Rust coverage contract. */

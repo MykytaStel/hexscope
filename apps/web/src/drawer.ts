@@ -11,16 +11,16 @@ import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { kindOf } from "./files";
-import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hasCoarsePointer, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
 import { copyPictureButton, isAudio, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
 import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
-import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
 import { hasCleanableAudioTags } from "./audio-clean";
+import { evidenceOverview } from "./evidence-overview";
 import { currentLocale, translateText } from "./i18n";
+import type { PageGlyphs } from "./worker";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -36,6 +36,13 @@ const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
 ];
 
 type VerdictKind = ReturnType<typeof verdict>[number]["kind"];
+
+function loadingStatus(className: string, message: string): HTMLElement {
+  const status = el("p", `hint ${className}`, translateText(message, currentLocale()));
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-busy", "true");
+  return status;
+}
 
 const AUTOMATIC_EMBEDDED_SEARCH_BYTES = 16 * 1024 * 1024;
 const EMBEDDED_MEDIA_READ_CHUNK = 1024 * 1024;
@@ -209,6 +216,27 @@ export class Drawer {
     if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
       flow.append(this.reveals(m));
     }
+    const documentPackage = f.format === "zip" && (
+      f.labels.includes("word/document.xml")
+      || f.labels.includes("xl/workbook.xml")
+      || f.labels.includes("ppt/presentation.xml")
+      || f.labels.includes("META-INF/container.xml")
+      || isOpenDocument(f.labels)
+    );
+    if (["office97", "rtf"].includes(f.format) || documentPackage) {
+      const slot = loadingStatus("document-map-loading", "Loading document map…");
+      flow.append(slot);
+      void import("./document-map")
+        .then(({ documentMap }) => {
+          if (!slot.isConnected) return;
+          const docMap = documentMap(m, (node) => this.onSelect(node), (entry) => this.onOpen(entry), this.nested);
+          if (docMap) slot.replaceWith(docMap);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The document map could not be loaded. The file structure is still available."));
+        });
+    }
     // What to do about it, right under the answer: it presses the clean
     // copy's own button, further down, where the result is said.
     const clean = this.file.querySelector<HTMLButtonElement>(".reveals .btn-clean");
@@ -233,21 +261,74 @@ export class Drawer {
       answer.querySelector(".verdict-lines")?.after(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
-    if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) {
-      flow.append(
-        pdfRedactorPlaceholder(
-          m,
-          this.cleaning,
-          (page) => this.picturesOf(m, page),
-          (page) => this.pictureState(m, page),
-        ),
-      );
+    if (f.format === "pdf") {
+      let pageRead: Promise<PageGlyphs[]> | null = null;
+      const readPages = () => pageRead ??= this.cleaning.pages().catch((error: unknown) => {
+        pageRead = null;
+        throw error;
+      });
+      const encrypted = f.facts.some((x) => x.kind === "encryption");
+      let redactor: HTMLElement | null = null;
+      if (!encrypted) {
+        redactor = el("div", "group redactor");
+        redactor.setAttribute("aria-busy", "true");
+        redactor.append(el("p", "hint", translateText("Loading PDF tools…", currentLocale())));
+        const redactorSlot = redactor;
+        void import("./drawer-tools")
+          .then(({ pdfRedactorPlaceholder }) => {
+            if (redactorSlot.isConnected) redactorSlot.replaceWith(pdfRedactorPlaceholder(
+              m,
+              { ...this.cleaning, pages: readPages },
+              (page) => this.picturesOf(m, page),
+              (page) => this.pictureState(m, page),
+            ));
+          })
+          .catch(() => {
+            if (!redactorSlot.isConnected) return;
+            redactorSlot.setAttribute("aria-busy", "false");
+            redactorSlot.replaceChildren(el("p", "hint", "PDF tools could not be loaded. The file structure is still available."));
+          });
+      }
+      const slot = loadingStatus("pdf-navigator-loading", "Loading PDF navigator…");
+      flow.append(slot);
+      void import("./pdf-navigator")
+        .then(({ pdfNavigator }) => {
+          if (!slot.isConnected) return;
+          slot.replaceWith(pdfNavigator(
+            m,
+            readPages,
+            (page) => this.picturesOf(m, page),
+            (page) => this.pictureState(m, page),
+            (node) => this.onSelect(node),
+            (entry) => this.onOpen(entry),
+            () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          ));
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The PDF navigator could not be loaded. The file structure is still available."));
+        });
+      if (redactor) {
+        flow.append(redactor);
+      }
     }
     // Technical detail is available in one place, after the useful answer.
     const more = el("details", "more-details");
     more.append(el("summary", undefined, "For the curious"));
     const later = (e: HTMLElement) => more.append(e);
-    more.append(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
+    const makeupSlot = loadingStatus("makeup-loading", "Loading file structure map…");
+    more.append(makeupSlot);
+    let makeupLoaded = false;
+    more.addEventListener("toggle", () => {
+      if (!more.open || makeupLoaded) return;
+      makeupLoaded = true;
+      void import("./makeup")
+        .then(({ makeupGroup }) => {
+          if (makeupSlot.isConnected) makeupSlot.replaceWith(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
+        })
+        .catch(() => {
+          if (makeupSlot.isConnected) makeupSlot.replaceWith(el("p", "hint", "The file map could not be loaded. The structure and bytes are still available."));
+        });
+    });
     if (f.format === "heif") {
       void import("./heif-map")
         .then(({ heifMapGroup }) => {
@@ -288,10 +369,18 @@ export class Drawer {
     fileGroup.append(grid);
     const report = el("button", "link report-link", "Report a problem with this file");
     report.title = "Shows the file's layout, without its content, to paste into a bug report";
-    report.addEventListener("click", () => openStructureReport(m));
+    report.addEventListener("click", () => {
+      void import("./drawer-tools")
+        .then(({ openStructureReport }) => openStructureReport(m))
+        .catch(() => this.showNote("Could not load report tools. Try again."));
+    });
     const save = el("button", "link report-link", "Save the structure as JSON");
     save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
-    save.addEventListener("click", () => saveStructureJson(m));
+    save.addEventListener("click", () => {
+      void import("./drawer-tools")
+        .then(({ saveStructureJson }) => saveStructureJson(m))
+        .catch(() => this.showNote("Could not load structure export. Try again."));
+    });
     const inside = el("button", "link report-link", translateText("Search for embedded files", currentLocale()));
     inside.title = translateText("Reads the first 256 MiB in small local slices and searches for known file signatures", currentLocale());
     let activeController: AbortController | null = null;
@@ -670,11 +759,12 @@ export class Drawer {
       mp3: "What this audio file reveals",
       flac: "What this audio file reveals",
       ogg: "What this audio file reveals",
+      wav: "What this audio file reveals",
       unknown: "What this file reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };
-    const audioFile = ["mp3", "flac", "ogg"].includes(f.format);
+    const audioFile = ["mp3", "flac", "ogg", "wav"].includes(f.format);
     const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete, f.facts);
     const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
@@ -682,6 +772,20 @@ export class Drawer {
     if (f.format === "eml") {
       const path = emailPath(m, (id) => this.onSelect(id));
       if (path) group.append(path);
+    }
+    if (["video", "mp3", "flac", "ogg", "wav", "svg", "eml", "msg", "wasm", "unknown"].includes(f.format)) {
+      const slot = loadingStatus("format-inspector-loading", "Loading format summary…");
+      group.append(slot);
+      void import("./format-inspectors")
+        .then(({ formatInspector }) => {
+          if (!slot.isConnected) return;
+          const details = formatInspector(m, (node) => this.onSelect(node));
+          if (details) slot.replaceWith(details);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The format summary could not be loaded. The file structure is still available."));
+        });
     }
     // The picture it is about, and where it was taken, drawn: what the
     // numbers below mean, before reading them.
@@ -726,31 +830,52 @@ export class Drawer {
           });
       }
     }
+    if (pictured) {
+      const slot = loadingStatus("photo-inspector-loading", "Loading image properties…");
+      group.append(slot);
+      void import("./photo-inspector")
+        .then(({ photoInspector }) => {
+          if (!slot.isConnected) return;
+          const inspector = photoInspector(m, (node) => this.onSelect(node));
+          if (inspector) slot.replaceWith(inspector);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The image properties could not be loaded. The file structure is still available."));
+        });
+    }
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the
       // time it was changed: still worth a clean copy.
       const notes = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "data after the end of the image"];
       const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
-      const none =
-        audioFile
-          ? "No supported audio metadata tags were found."
-          : f.format === "pdf"
-          ? "No document information or XMP: nothing about who wrote it, with what, or when."
-          : removable
-            ? "Nothing about the camera, the place or who made it, but it holds notes or data that can go."
-            : f.format === "video"
-              ? isAudio(m)
-                ? "No location, device or software in its metadata."
-                : "No location, camera or software in its metadata."
-              : f.format === "wasm"
-                ? "No names, tools, paths or debug info: nothing about how, or by whom, it was built."
-              : "No EXIF metadata: nothing about the camera, the time or the place.";
+      const none = (() => {
+        if (audioFile) return f.format === "wav"
+          ? "No supported WAV INFO or Broadcast Wave metadata was found."
+          : "No supported audio metadata tags were found.";
+        if (f.format === "pdf") return "No document information or XMP: nothing about who wrote it, with what, or when.";
+        if (removable) return "Nothing about the camera, the place or who made it, but it holds notes or data that can go.";
+        if (f.format === "video") return isAudio(m)
+          ? "No location, device or software in its metadata."
+          : "No location, camera or software in its metadata.";
+        if (f.format === "wasm") return "No names, tools, paths or debug info: nothing about how, or by whom, it was built.";
+        if (f.format === "unknown") return "No structural read was available, so metadata could not be checked.";
+        if (f.format === "eml" || f.format === "msg") return "No supported email findings were read.";
+        if (f.format === "svg" || f.format === "zip" || f.format === "cfb" || f.format === "office97" || f.format === "rtf") return "No supported document metadata findings were read.";
+        if (pictured) return "No EXIF metadata: nothing about the camera, the time or the place.";
+        return "No supported metadata findings were read.";
+      })();
       group.append(el("p", "hint", none));
       if (audioFile && f.metadataComplete === false) {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
       }
       if (audioFile && !cleanableAudioTags) {
-        group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
+        group.append(el("p", "hint", f.format === "wav"
+          ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+          : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
+      }
+      if (f.coverageStatus !== "complete" || f.missing.length > 0 || f.metadataComplete === false) {
+        group.append(evidenceOverview(m, el("div"), (node) => this.onSelect(node), (start, len) => this.onSelectRange(start, len)));
       }
       if (cleanableAudioTags) group.append(createCleaner(m, this.cleaning, group));
       if (removable) group.append(createCleaner(m, this.cleaning, group));
@@ -783,7 +908,8 @@ export class Drawer {
     fact(generalList, "File type", f.format === "unknown" ? "Not a format hexscope reads" : kindOf(m));
     fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
-    if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
+    const isPicture = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
+    if (dimensions && !isPicture) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
 
     const row = (label: string, text: string, node: number, strong = false, key: MetadataGroupKey = "additional") => {
       const dd = el("dd");
@@ -895,8 +1021,11 @@ export class Drawer {
       });
       metadataSummary.append(jump);
     }
-    if (metadataSummary.children.length > 1) group.append(metadataSummary);
-    group.append(metadataGroups);
+    if (metadataSummary.children.length > 1) metadataGroups.append(metadataSummary);
+    group.append(
+      evidenceOverview(m, metadataGroups, (node) => this.onSelect(node), (start, len) => this.onSelectRange(start, len)),
+      metadataGroups,
+    );
     if (audioFile && f.metadataComplete === false) {
       group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
     }
@@ -911,13 +1040,14 @@ export class Drawer {
     if (f.facts.some((x) => x.kind === "encryption")) {
       group.append(el("p", "hint", "It is encrypted, so hexscope does not make a clean copy of it."));
     } else if (f.format === "unknown") {
-      // Found in its text, not read from its structure: there is nothing to rewrite it by.
-      group.append(el("p", "hint", "hexscope does not take this format apart, so it makes no clean copy of it. The program that made the file keeps these names: change them there, or export a copy without them."));
+      group.append(el("p", "hint", "No clean copy is offered because Hexscope cannot rewrite this file's structure."));
     } else if (f.format === "eml" || f.format === "msg") {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else if (audioFile && !cleanableAudioTags) {
-      group.append(el("p", "hint", "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
+      group.append(el("p", "hint", f.format === "wav"
+        ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+        : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));
     }

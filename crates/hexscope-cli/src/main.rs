@@ -559,7 +559,7 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
         } else {
             out.push_str("  format not recognized; its structure was not inspected\n");
         }
-    } else if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg") {
+    } else if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg" | "wav") {
         out.push_str("  metadata not fully inspected; some tags may be unread\n");
     }
     if s.format != "unknown"

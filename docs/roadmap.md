@@ -254,6 +254,161 @@ segment count bounded, the HEIF item/timing tables bounded, and decode failures
 visible. The image wipe is available only when both previews are within budget;
 manually paired motion previews use the browser's native local video player.
 
+### 0.17.0 — understand the whole file
+
+**Theme:** make the existing format coverage feel like one coherent inspector,
+then deepen each family and add one carefully bounded format. The version starts
+after 0.16.0 ships; this is a scope, not a release date.
+
+The shared inspection path should answer, in order: what this file is; what
+content and metadata were read; what the parser could not check; where each
+finding came from in the structure or bytes; and what a clean copy changes and
+confirms. Reuse the core's typed findings, parse tree, byte ranges, coverage
+state and clean-copy read-back. Do not invent a second confidence model in the
+Web UI. Preserve the detailed byte view as the evidence layer beneath a short
+summary.
+
+#### User-facing scope
+
+1. **Shared evidence overview.** Give each format the same way to reach its
+   summary, content, metadata/privacy, unchecked areas, structure and copy
+   status. Findings link to their source node or byte range when the parser can
+   establish that link. Use the states *found*, *not checked*, *removed and
+   confirmed*, and *still present* only when backed by parser and read-back
+   evidence. Add local search and filters for privacy fields, unchecked items,
+   attachments and metadata. Keep English and Ukrainian wording aligned.
+2. **Photo inspector.** Group visible image properties separately from metadata
+   and privacy findings. Explain GPS, camera identifiers, thumbnails, profiles,
+   animation and auxiliary HEIF/AVIF items when present. Link fields to their
+   bytes or structural item, compare original and clean-copy findings, and
+   provide a bounded visual before/after view. State when image re-encoding can
+   change pixels, HDR, profiles or animation.
+3. **Document map.** For ZIP-based Office, LibreOffice and EPUB, group entries
+   by purpose and surface comments, hidden/deleted content, attachments,
+   compression, encryption, read status and clean-copy outcome. Keep encrypted,
+   unsupported and unread entries explicitly unchecked; link findings to their
+   package entry. For legacy Office and RTF, make the difference between
+   property inspection and document-content inspection clear.
+4. **PDF navigator.** Connect page, text/image read status, finding, object and
+   available action. Surface forms, attachments and document actions in their
+   own groups. Keep OCR absence and reconstructed-preview limits visible; never
+   make a scanned page look text-checked when it was not.
+5. **Media and remaining family polish.** Present video tracks and stored
+   timing separately from decoded media. For MP3/FLAC/Ogg, distinguish tags,
+   cover art and streams, and list unsupported blocks. For SVG/SVGZ, group
+   external references, scripts, embedded images and metadata in a safe local
+   preview. For EML/MSG, separate claimed sender, transport route, links and
+   attachments. For WASM, show imports, exports and dependencies; for unknown
+   files, make the searched byte range and limits explicit.
+6. **New format: WAV.** Add bounded, read-only RIFF/WAVE inspection: chunk map,
+   audio format, channel count, sample rate, bit depth and duration where the
+   parsed fields support it; inspect supported broadcast and INFO metadata with
+   exact source ranges. Do not decode or play audio, and do not offer cleaning
+   until a writer can preserve audio data and prove metadata removal by reading
+   the copy back. Include malformed, truncated, oversized and padded-chunk
+   behavior in the format contract.
+7. **Mobile and learning paths.** Keep the overview, filters, page/entry lists
+   and evidence links usable with keyboard, screen readers, zoom and narrow
+   screens. Add local samples for the main inspectors and connect the existing
+   byte-to-meaning lessons to the selected file where practical.
+
+#### Delivery slices and gates
+
+- **A — shared evidence vocabulary:** map current core facts, coverage states,
+  source ranges and clean-copy receipts into one presentation contract. Begin
+  with photos and documents; avoid a generic abstraction until it is used by
+  more than one family.
+- **B — photo inspector:** ship the grouped view, source links and before/after
+  evidence for supported fixtures.
+- **C — document and PDF maps:** complete package-entry and page navigation,
+  including negative states for encrypted, unsupported and unread content.
+- **D — WAV:** finish core parsing and coverage first, then CLI/Web display and
+  English/Ukrainian guidance. Keep WAV read-only in this release unless its
+  clean-copy evidence is independently complete.
+- **E — family polish and mobile/accessibility pass:** finish the selected
+  audio, video, SVG, email and WASM improvements; add samples and verify the
+  common interaction path across the families touched.
+
+**Implementation started 2026-11-09:** a separate `feat/0-17-format-inspectors`
+branch now contains the first WAV slice. Core and Web recognize RIFF/WAVE,
+read bounded chunk structure plus supported INFO/Broadcast Wave fields, and
+show their source ranges and privacy categories. The file stays read-only and
+audio is never decoded or played. CLI format reporting, Ukrainian copy and a
+synthetic browser sample are wired in. The audio WebAssembly module and its
+explanation catalogue compile.
+
+**Progress 2026-11-09:** the shared evidence panel now filters local findings
+by privacy, metadata, attachments and unchecked parts. Fact rows keep their
+parser-node links; unreadable nodes and deferred media bytes link to their
+source. Its incomplete state comes from the parser's coverage result and parse
+tree, without a second UI confidence score. The complete Web production build
+passes after generating the repository's WASM bindings. The photo card now
+separates visible pixel properties from metadata, links properties to parser
+nodes where available, and names stored frame/auxiliary image data without
+implying that it was decoded. Clean-copy status and visual comparison continue
+to use the Core read-back report and existing bounded browser preview.
+
+The document map groups supported ZIP-based Office, OpenDocument and EPUB
+entries, exposes local name filtering, compression sizes/methods and explicit
+encrypted, incomplete, unsupported and unopened states. Legacy Office and RTF
+explain their different content-read scope. The PDF navigator links pages to
+page objects, groups findings, forms, attachments and document actions, and
+keeps OCR absence and image-read status visible; password-protected PDFs show
+their structural findings while page reading stays disabled. These maps do not
+claim entry-level clean-copy outcomes because Core read-back findings are
+file-scoped. The clean-copy card reports supported removals and its read-back
+result; the map lets someone inspect the output's package parts. PDF facts are
+grouped by page when the parser identifies one, while document-level forms and
+actions remain in their own groups.
+
+This family pass adds bounded source-linked summaries from the existing
+parse tree: video tracks and stored timing, audio tags/artwork/container
+blocks, SVG scripts/references/images, email sender/route claims and links,
+and WebAssembly imports/exports/debug references. These panels do not decode
+media, execute SVG/WebAssembly, verify email authentication claims or fetch
+external references. Unknown files now say that metadata and cleaning were not
+structurally checked, and point to the existing bounded signature search for
+its actual searched range. No per-entry clean-copy removal status is claimed;
+adding that requires a Core verification scope for package parts. The family
+panel implementation is complete, while screen-reader, zoom and physical
+device review remain open.
+Uncompressed SVG up to 2 MiB now has an opt-in static preview;
+the sanitizer strips active content, styles and external references before
+the browser renders it. SVGZ and larger files keep their structural view only.
+The sample picker now includes tiny synthetic MP3, FLAC, Ogg Vorbis and Ogg
+Opus structures alongside the existing WAV sample; these contain no encoded
+audio or personal metadata.
+
+The full Web production build passed after regenerating the repository's WASM
+bindings. Vite still reports existing warnings for static pages that load
+`theme.js` without `type="module"`; the build completes successfully.
+
+The inspector's source links, filters, search fields and disclosure rows now
+keep 44-pixel touch targets on coarse-pointer devices, including wrapped PDF
+findings and package-part names. Native controls retain keyboard focus
+indication and labels.
+This is a code-level accessibility pass; screen-reader, zoom and physical-phone
+checks remain open and are not inferred from the CSS or production build.
+Evidence links select the actual node or byte range in the currently open
+file, where the existing byte-to-meaning explanations are shown. PDF page
+findings are indexed once when page text loads, so filtering pages does not
+rescan the full findings list for each displayed page.
+
+Each slice needs representative fixtures and explicit incomplete/malformed
+behavior. Parser or cleaner changes must retain Core + Web coverage and the
+existing value-free report boundary. Keep physical phone evidence separate from
+browser automation; Android remains open until a device is available. Do not
+raise the 10 MiB Web read-back limit without bounded-memory design and device
+measurements. Web previews never execute file scripts, follow links or decode
+media solely to imply that its contents are safe.
+
+**Release is done when** every included format has an honest read/unchecked
+state; visible findings can reach their evidence when available; clean-copy
+claims agree with read-back; English and Ukrainian cover the new path; and the
+new WAV format is recognized consistently in Core, CLI, Web, coverage and
+documentation. Any family polish that does not meet those gates moves forward
+as a complete slice rather than weakening the evidence contract.
+
 ### 0.10.0 — shipped 2026-11-02
 
 The work merged after `v0.9.0` shipped together: the core reads chained

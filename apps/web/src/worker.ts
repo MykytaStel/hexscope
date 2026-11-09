@@ -469,7 +469,7 @@ async function handle(req: OperationRequest): Promise<void> {
     const pages: PageGlyphs[] = [];
     for (let i = 0; i < t.count; i++) {
       const texts = t.texts(i);
-      pages.push({ media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], complete: t.complete(i), boxes: t.boxes(i) });
+      pages.push({ page: i + 1, object: t.object(i), media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], complete: t.complete(i), boxes: t.boxes(i) });
     }
     t.free();
     post({ id: req.id, type: "pageTexts", pages });

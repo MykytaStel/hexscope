@@ -369,6 +369,7 @@ fn parsed(doc: Document, source: SourceBytes<'_>, len: u64, retain_zip_source: b
                 hexscope_core::audio::AudioFormat::Ogg
                 | hexscope_core::audio::AudioFormat::OggVorbis
                 | hexscope_core::audio::AudioFormat::OggOpus => "ogg",
+                hexscope_core::audio::AudioFormat::Wav => "wav",
             };
             for fact in &doc.facts {
                 parsed

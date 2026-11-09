@@ -199,7 +199,7 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         Format::Cfb if cfg!(feature = "office") => crate::cfb::docs::describe(tree, node, problem),
         Format::Rtf if cfg!(feature = "office") => crate::rtf::docs::describe(label, problem),
         Format::Svg if cfg!(feature = "svg") => crate::svg::docs::describe(label, problem),
-        Format::Mp3 | Format::Flac | Format::Ogg => {
+        Format::Mp3 | Format::Flac | Format::Ogg | Format::Wav => {
             #[cfg(feature = "audio")]
             {
                 crate::audio::docs::describe(tree, node, problem)

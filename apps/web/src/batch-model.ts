@@ -40,7 +40,7 @@ export interface BatchFormatCoverage {
 export function cleanable(i: BatchItem): boolean {
   // Audio copies are offered only when a supported metadata block passed the
   // same boundary checks used by its cleaner.
-  if (i.format === "mp3" || i.format === "flac" || i.format === "ogg") {
+  if (i.format === "mp3" || i.format === "flac" || i.format === "ogg" || i.format === "wav") {
     return i.state === "done" && i.hasRemovableMetadata === true;
   }
   // These formats can expose findings, but the core does not make a clean

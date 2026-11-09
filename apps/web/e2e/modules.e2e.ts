@@ -129,6 +129,22 @@ test("an SVGZ drawing is read and its clean copy stays compressed", async ({ pag
   expect(output).not.toContain("inkscape:version");
 });
 
+test("format inspectors and the collapsed file map load with their matching views", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.tour", "done"));
+  for (const [sample, selector] of [
+    ["photo.jpg", ".photo-inspector"],
+    ["drawing.svg", ".format-inspector"],
+    ["report.pdf", ".pdf-navigator"],
+    ["report.docx", ".document-map"],
+  ] as const) {
+    await page.goto(`./?sample=${sample}`);
+    await expect(page.locator(selector)).toBeVisible();
+  }
+
+  await page.locator(".more-details > summary").click();
+  await expect(page.locator(".makeup-bar")).toBeVisible();
+});
+
 test("an MP3 file loads its parser, links the tag to its bytes, and confirms the clean copy", async ({ page }) => {
   const loaded: string[] = [];
   page.on("request", (r) => {

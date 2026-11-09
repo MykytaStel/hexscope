@@ -42,12 +42,12 @@ svg = []
 # Names in the text of files no format reads: home folders, email addresses.
 # In the browser, read by the small module, which such files load.
 strings = []
-# MP3, FLAC and Ogg metadata tags. Kept separate so small browser builds do
+# WAV, MP3, FLAC and Ogg metadata. Kept separate so small browser builds do
 # not pull in audio parsing unless the audio family is selected.
 audio = []
 
 [dependencies]
-hexscope-inflate = { path = "../hexscope-inflate", version = "0.16.0" }
+hexscope-inflate = { path = "../hexscope-inflate", version = "0.17.0" }
 
 [dev-dependencies]
 flate2 = "1"

@@ -20,6 +20,7 @@ function noun(m: FileModel): string {
     case "mp3":
     case "flac":
     case "ogg":
+    case "wav":
       return "audio file";
     case "eml":
     case "msg":

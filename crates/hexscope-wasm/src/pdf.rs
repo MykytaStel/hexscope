@@ -78,6 +78,11 @@ impl PageTexts {
         self.pages.len()
     }
 
+    /// PDF object number for the page dictionary.
+    pub fn object(&self, i: usize) -> u32 {
+        self.pages.get(i).map_or(0, |page| page.object)
+    }
+
     /// A page's `[left, bottom, right, top]`.
     pub fn media(&self, i: usize) -> Vec<f64> {
         self.pages.get(i).map_or(Vec::new(), |p| p.media.to_vec())

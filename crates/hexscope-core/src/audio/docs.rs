@@ -8,6 +8,8 @@ const FLAC: &str = "https://www.rfc-editor.org/rfc/rfc9639.html";
 const OGG: &str = "https://www.rfc-editor.org/rfc/rfc3533.html";
 const VORBIS: &str = "https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html";
 const OPUS: &str = "https://www.rfc-editor.org/rfc/rfc7845.html";
+const RIFF: &str = "https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-";
+const BWF: &str = "https://tech.ebu.ch/docs/tech/tech3285.pdf";
 
 const fn id3(text: &'static str) -> Doc {
     Doc::new(text).cite("ID3v2.4.0", ID3)
@@ -29,6 +31,14 @@ const fn opus(text: &'static str) -> Doc {
     Doc::new(text).cite("RFC 7845, Ogg Opus", OPUS)
 }
 
+const fn riff(text: &'static str) -> Doc {
+    Doc::new(text).cite("Microsoft RIFF reference", RIFF)
+}
+
+const fn bwf(text: &'static str) -> Doc {
+    Doc::new(text).cite("EBU Tech 3285, Broadcast Wave Format", BWF)
+}
+
 const fn damage(text: &'static str) -> Doc {
     Doc::new(text).concern(Concern::Damage)
 }
@@ -38,6 +48,158 @@ const fn oddity(text: &'static str) -> Doc {
 }
 
 const TABLE: Table = &[
+    (
+        "WAV audio",
+        riff("A RIFF/WAVE recording. This view reads its chunks and supported metadata but does not decode or play the sound."),
+    ),
+    (
+        "WAVE fmt chunk",
+        riff("The WAVE format chunk describes the audio encoding, channel count, sample rate and sample layout."),
+    ),
+    (
+        "WAVE data chunk",
+        riff("The WAVE audio data chunk. Its bytes are counted but are not decoded or played."),
+    ),
+    (
+        "WAVE LIST* chunk",
+        riff("A RIFF list groups related chunks. This view inspects INFO text and labels other list contents as unchecked."),
+    ),
+    (
+        "WAVE bext chunk",
+        bwf("Broadcast Wave metadata can include a description, originator, date, sample reference and coding history."),
+    ),
+    (
+        "WAVE * chunk",
+        riff("A chunk in the RIFF/WAVE form; its label and byte range are shown in the structure map."),
+    ),
+    (
+        "WAVE INFO *",
+        riff("A text item in the WAVE INFO list, such as a title, artist, comment or software name."),
+    ),
+    (
+        "WAVE INFO value",
+        riff("The text stored in this WAVE INFO item."),
+    ),
+    (
+        "broadcast description",
+        bwf("A description of the broadcast recording, stored as plain text."),
+    ),
+    (
+        "broadcast originator",
+        bwf("The name of the person or organization recorded as the originator."),
+    ),
+    (
+        "broadcast originator reference",
+        bwf("A reference identifier for the recorded originator; Hexscope does not verify it."),
+    ),
+    (
+        "broadcast origination date",
+        bwf("The date recorded for the broadcast recording, in the format stored by the file."),
+    ),
+    (
+        "broadcast origination time",
+        bwf("The time recorded for the broadcast recording, in the format stored by the file."),
+    ),
+    (
+        "WAVE audio data (not decoded)",
+        riff("These bytes hold encoded audio. This view reports their location and size without decoding or playing them."),
+    ),
+    (
+        "WAVE chunk data not inspected",
+        riff("This chunk is part of the RIFF/WAVE form, but its contents are not interpreted here."),
+    ),
+    (
+        "WAVE LIST contents not inspected",
+        riff("This list type is not INFO, so its contents are not interpreted here."),
+    ),
+    (
+        "WAVE extensible subformat GUID",
+        riff("The extensible format's GUID identifies the specific audio encoding."),
+    ),
+    (
+        "WAVE format extension not inspected",
+        riff("This encoding-specific format extension is present, but its contents are not interpreted here."),
+    ),
+    (
+        "WAVE format trailing bytes not inspected",
+        riff("These bytes trail the declared format extension and are not interpreted here."),
+    ),
+    (
+        "WAVE INFO value truncated at the 512-byte display limit",
+        riff("This INFO value is longer than the display limit; only its first 512 bytes are shown."),
+    ),
+    (
+        "nonzero bytes after WAVE INFO text",
+        riff("Nonzero bytes follow the text's terminator, so the rest of this field is not interpreted."),
+    ),
+    (
+        "nonzero bytes after Broadcast Wave fixed text",
+        bwf("Nonzero bytes follow the fixed text's terminator, so the rest of this field is not interpreted."),
+    ),
+    (
+        "Broadcast Wave coding history truncated at the 512-byte display limit",
+        bwf("This coding history is longer than the display limit; only its first 512 bytes are shown."),
+    ),
+    (
+        "broadcast *",
+        bwf("A field in the Broadcast Wave extension; its stored value is shown without validating the recording's provenance."),
+    ),
+    (
+        "broadcast coding history",
+        bwf("The stored text describes processing steps recorded by the author of the Broadcast Wave file; Hexscope does not verify that history."),
+    ),
+    (
+        "broadcast UMID",
+        bwf("The UMID is a stored identifier for audiovisual material; Hexscope displays it as bytes and does not check the identity it refers to."),
+    ),
+    (
+        "broadcast loudness stored value",
+        bwf("A signed loudness measurement stored in the Broadcast Wave extension. Its numeric value is shown without interpreting the standard's units."),
+    ),
+    (
+        "broadcast reserved bytes",
+        bwf("Bytes reserved by the Broadcast Wave extension for future use; nonzero values are left unchecked."),
+    ),
+    (
+        "broadcast coding history exceeds the inspection limit",
+        bwf("This coding history is larger than the display limit, so it remains unchecked."),
+    ),
+    (
+        "Broadcast Wave coding history is not UTF-8",
+        bwf("The coding history does not use readable UTF-8 text, so its contents remain unchecked."),
+    ),
+    (
+        "Broadcast Wave fixed text is not ASCII",
+        bwf("A fixed-width Broadcast Wave text field contains bytes outside ASCII, so that value remains unchecked."),
+    ),
+    (
+        "unsupported Broadcast Wave extension version",
+        bwf("This Broadcast Wave extension version is newer than the versions whose fields this view understands."),
+    ),
+    (
+        "nonzero Broadcast Wave reserved bytes",
+        bwf("Reserved bytes are nonzero, so they may carry an extension this view does not understand."),
+    ),
+    (
+        "duplicate WAVE format chunk",
+        riff("The form has more than one audio format chunk, so it is unclear which description applies."),
+    ),
+    (
+        "audio duration in whole seconds (estimated from chunk sizes)",
+        riff("An estimate from the declared average byte rate and audio-data chunk sizes; compressed audio is not decoded to measure its duration."),
+    ),
+    (
+        "bytes after the RIFF form",
+        riff("These bytes are outside the length declared by the RIFF header and were not interpreted as WAVE chunks.").concern(Concern::Hidden),
+    ),
+    (
+        "WAVE chunk count exceeds the inspection limit",
+        riff("There are more WAVE chunks than this view inspects, so later chunks remain unchecked."),
+    ),
+    (
+        "WAVE INFO item count exceeds the inspection limit",
+        riff("There are more INFO items than this view inspects, so later metadata remains unchecked."),
+    ),
     (
         "MP3 audio",
         id3(

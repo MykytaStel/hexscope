@@ -349,7 +349,7 @@ not done, `index`, `operation_state` and `check`.
 (MP4, MOV, M4A), `pdf`, `zip` (ZIP archives, Word, Excel, PowerPoint,
 OpenDocument, EPUB, APK), `office97` (Word, Excel and PowerPoint 97–2003),
 `msg` (Outlook), `cfb` (other compound files), `rtf`, `svg`, `eml`,
-`wasm`, `mp3`, `flac`, `ogg`, `unknown`.
+`wasm`, `wav`, `mp3`, `flac`, `ogg`, `unknown`.
 <!-- formats:end -->
 
 ## Kinds of finding
@@ -368,7 +368,7 @@ more.
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `authclaim`, `riskyfile` |
-| Audio | `title`, `artist`, `album`, `album-artist`, `year`, `track`, `disc`, `genre`, `composer`, `encoder`, `organization`, `comment`, `location`, `audio-tag` |
+| Audio | `title`, `artist`, `album`, `album-artist`, `year`, `track`, `disc`, `genre`, `composer`, `encoder`, `organization`, `comment`, `location`, `audio-tag`, `copyright`, `engineer`, `originator`, `broadcast-reference` |
 | Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->

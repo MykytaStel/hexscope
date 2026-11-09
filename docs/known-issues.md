@@ -83,8 +83,13 @@ Other MPF layouts, depth maps and gain maps with metadata Hexscope cannot
 safely inspect do not get a clean copy; an unrecognized indexed picture is
 never replaced with blank bytes.
 
-**Audio metadata, not audio decoding.** MP3 text and comment frames (ID3v1
-and ID3v2.2–2.4), FLAC Vorbis comments, and Vorbis or Opus tags in sequential
+**Audio metadata, not audio decoding.** WAV inspection reads RIFF/WAVE chunk
+structure, supported `LIST/INFO` text and selected Broadcast Wave `bext`
+fields. It does not decode or play sound, and it does not make clean copies.
+RF64/BW64 and big-endian RIFX, other LIST types, unknown chunk contents and
+WAVE chunks after the 4,096-item limit are not interpreted. An unknown chunk
+is accounted for by its declared size, not validated internally. MP3 text and
+comment frames (ID3v1 and ID3v2.2–2.4), FLAC Vorbis comments, and Vorbis or Opus tags in sequential
 chained Ogg streams are read. Interleaved Ogg streams and unsupported codecs
 remain incomplete. Supported Ogg pages are checked for valid sequence,
 boundaries and checksums through the end of each stream, up to 4,096 pages;

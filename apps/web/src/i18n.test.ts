@@ -291,6 +291,25 @@ describe("the interface language", () => {
     expect(translateText("PDF tools could not be loaded. Try again.", "uk")).toBe("Не вдалося завантажити інструменти PDF. Спробуйте ще раз.");
   });
 
+  it("translates lazy file inspector loading and fallback states", () => {
+    expect(translateText("Loading document map…", "uk")).toBe("Завантажуємо карту документа…");
+    expect(translateText("Loading PDF navigator…", "uk")).toBe("Завантажуємо навігатор PDF…");
+    expect(translateText("Loading file structure map…", "uk")).toBe("Завантажуємо мапу структури файла…");
+    expect(translateText("Loading format summary…", "uk")).toBe("Завантажуємо опис формату…");
+    expect(translateText("Loading image properties…", "uk")).toBe("Завантажуємо властивості зображення…");
+    expect(translateText("The file map could not be loaded. The structure and bytes are still available.", "uk")).toBe(
+      "Не вдалося завантажити мапу файла. Структура та байти доступні й далі.",
+    );
+  });
+
+  it("translates file evidence text without changing stored values", () => {
+    expect(translateText("UTC+03:00, the sender's clock when it was sent", "uk")).toBe("UTC+03:00, годинник відправника на момент надсилання");
+    expect(translateText("Authentication-Results reports SPF=pass (the header author is unverified)", "uk")).toBe(
+      "У заголовку Authentication-Results записано SPF=pass; автора заголовка не перевірено",
+    );
+    expect(translateText("embedded picture: 14297 bytes", "uk")).toBe("вбудоване зображення: 14\u00a0297 байтів");
+  });
+
   it("translates the lazy compression player retry state", () => {
     expect(translateText("Compression player could not be loaded. Try again.", "uk")).toBe(
       "Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.",

@@ -51,6 +51,7 @@ function isDocument(b: Uint8Array): boolean {
 
 /** Whether the audio-only build can inspect the bytes without decoding audio. */
 function isAudio(b: Uint8Array): boolean {
+  if (starts(b, [0x52, 0x49, 0x46, 0x46]) && starts(b.subarray(8), [0x57, 0x41, 0x56, 0x45])) return true;
   if (starts(b, [0x49, 0x44, 0x33]) || starts(b, [0x66, 0x4c, 0x61, 0x43])) return true;
   if (isOggAudio(b)) return true;
   if (b.length < 4 || b[0] !== 0xff || (b[1] & 0xe0) !== 0xe0) return false;
