@@ -148,6 +148,42 @@ details[open] > summary::before {
     width: 20px;
     height: 20px;
   }
+
+  /* Source links are the main way through the new inspectors. Keep each
+     row easy to tap, even when its label wraps on a narrow screen. */
+  .document-map-entry-name,
+  .document-map-open,
+  .pdf-nav-object,
+  .pdf-nav-image-check,
+  .pdf-nav-tools,
+  .photo-property-link,
+  .evidence-filter,
+  .evidence-unchecked-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .document-map-group > summary,
+  .pdf-nav-fact-group > summary,
+  .pdf-nav-page-findings > summary,
+  .format-evidence-group > summary {
+    min-height: 44px;
+  }
+
+  .pdf-nav-fact,
+  .format-evidence-link {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    text-align: left;
+  }
+
+  .evidence-search,
+  .document-map-search,
+  .pdf-nav-search {
+    min-height: 44px;
+  }
 }
 
 /* Another file, from the end of the summary: on a phone, where the top

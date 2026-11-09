@@ -377,6 +377,13 @@ The full Web production build passed after regenerating the repository's WASM
 bindings. Vite still reports existing warnings for static pages that load
 `theme.js` without `type="module"`; the build completes successfully.
 
+The inspector's source links, filters, search fields and disclosure rows now
+keep 44-pixel touch targets on coarse-pointer devices, including wrapped PDF
+findings and package-part names. Native controls retain keyboard focus
+indication and labels.
+This is a code-level accessibility pass; screen-reader, zoom and physical-phone
+checks remain open and are not inferred from the CSS or production build.
+
 Each slice needs representative fixtures and explicit incomplete/malformed
 behavior. Parser or cleaner changes must retain Core + Web coverage and the
 existing value-free report boundary. Keep physical phone evidence separate from
