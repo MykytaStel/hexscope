@@ -2304,6 +2304,7 @@ test("imports PDF redaction code only for PDF files", async ({ page }) => {
 
   await page.goto("./?sample=report.pdf");
   await expect(page.locator(".redactor")).toBeVisible();
+  await expect(page.locator(".redactor input[type='search']")).toBeVisible();
   expect(scripts.some((url) => url.includes("/pdf-redactor-view-"))).toBe(true);
 });
 
