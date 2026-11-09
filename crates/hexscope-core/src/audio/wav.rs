@@ -110,7 +110,11 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
             break;
         };
         let padded_end = body_end.saturating_add(size & 1);
-        let label = if id == b"LIST" && size >= 4 && &data[body_start..body_start + 4] == b"INFO" {
+        let is_info_list = id == b"LIST"
+            && size >= 4
+            && body_end <= form_end
+            && data.get(body_start..body_start.saturating_add(4)) == Some(&b"INFO"[..]);
+        let label = if is_info_list {
             "LIST/INFO".to_owned()
         } else {
             chunk_name(id)
@@ -478,7 +482,10 @@ fn parse_info(
         let node = tree.add(
             Some(parent),
             format!("WAVE INFO {name}"),
-            ByteRange::new(cursor as u64, padded_end.saturating_sub(cursor) as u64),
+            ByteRange::new(
+                cursor as u64,
+                padded_end.min(end).saturating_sub(cursor) as u64,
+            ),
             NodeKind::Container,
             None,
         );
@@ -889,5 +896,50 @@ fn info_fact_kind(id: &[u8]) -> Option<&'static str> {
         b"IARL" => Some("place"),
         b"ITRK" => Some("track"),
         _ => Some("audio-tag"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_wave;
+
+    #[test]
+    fn truncated_list_type_is_reported_without_indexing_past_the_file() {
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend_from_slice(&14u32.to_le_bytes());
+        bytes.extend_from_slice(b"WAVE");
+        bytes.extend_from_slice(b"LIST");
+        bytes.extend_from_slice(&4u32.to_le_bytes());
+        bytes.extend_from_slice(b"IN");
+
+        let document = parse_wave(&bytes);
+
+        assert!(!document.metadata_complete);
+        assert!(
+            document
+                .tree
+                .nodes()
+                .iter()
+                .any(|node| { node.label == "WAVE chunk extends beyond the RIFF form" })
+        );
+    }
+
+    #[test]
+    fn fuzzed_nested_lists_keep_all_ranges_inside_the_file() {
+        let bytes = include_bytes!("../../fuzz/seeds/parse_audio/wav-list-range.wav");
+        let document = parse_wave(bytes);
+        let out_of_bounds = document
+            .tree
+            .nodes()
+            .iter()
+            .find(|node| node.range.end() > bytes.len() as u64);
+
+        assert!(
+            out_of_bounds.is_none(),
+            "node {:?} has range {:?} beyond {} input bytes",
+            out_of_bounds.map(|node| &node.label),
+            out_of_bounds.map(|node| node.range),
+            bytes.len()
+        );
     }
 }
