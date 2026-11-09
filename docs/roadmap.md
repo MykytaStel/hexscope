@@ -29,7 +29,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.13.0 | Per-format coverage reports for local inputs, with safer handling of unsupported files | shipped 2026-11-08 |
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
 | 0.15.0 | Portable batch reports and reliability fixes | shipped 2026-11-08; Homebrew tap updated 2026-11-09 |
-| 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | release candidate |
+| 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | shipped 2026-11-09 |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -187,7 +187,7 @@ Android Chrome and Web read-back for clean copies over 10 MiB remain
 evidence-gated; browser emulation cannot close those physical-device
 questions.
 
-### 0.16.0 — release candidate
+### 0.16.0 — shipped 2026-11-09
 
 The first slice adds spreadsheet-friendly CSV saves for batch coverage and
 diagnostic reports, alongside the existing versioned JSON. Compatible phones
@@ -222,6 +222,11 @@ emulated phone profiles has automated coverage; physical iPhone Files
 handoff and Android Chrome remain unverified. Do not raise the limit based on
 emulation alone, and require fixture-backed read, clean and read-back evidence
 for any parser expansion.
+
+The release is live on hexscope.org; the live-site check passed. The published
+GitHub Release has all ten platform archives and checksums, and all four
+crates.io packages are available. The Homebrew tap now points to 0.16.0; an
+upgrade from 0.15.0, `brew test`, and a fresh `cargo install` all report 0.16.0.
 
 ### Formats and visual evidence selected for 0.16
 
