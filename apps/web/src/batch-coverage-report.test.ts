@@ -55,11 +55,19 @@ describe("batch coverage report", () => {
 
     expect(csv).toBe([
       "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+      "Total,4,2,1,1,5,4,1",
       `"'=SUM(1,1)",1,0,0,1,5,4,1`,
       "jpeg,2,2,0,0,5,4,1",
       `"svg,variant",1,0,1,0,5,4,1`,
     ].join("\r\n"));
     expect(csv).not.toContain("private-photo");
     expect(csv).not.toContain("GPS");
+  });
+
+  it("reports every input as unread when no format was recognized", () => {
+    expect(batchCoverageCsv([], 3)).toBe([
+      "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+      "Total,0,0,0,0,3,0,3",
+    ].join("\r\n"));
   });
 });

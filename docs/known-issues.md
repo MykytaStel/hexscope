@@ -4,6 +4,20 @@ What is known to be missing or wrong, and why it has not been fixed yet.
 None of it breaks the crate's guarantees — the parser does not panic, always
 returns a tree, and has no runtime dependencies.
 
+## Fixed in the 0.16 work
+
+**Embedded-file signature search could monopolize the page and exceed its
+stated range cap.** The search used to run synchronously during overview
+rendering; format-specific end-marker scans could also look beyond the
+outer-loop limit. It now yields to the page every 256 KiB, can be cancelled,
+and applies one total byte budget to marker scans and all requested ranges.
+Automatic hidden-data checks stop at 16 MiB and do not force media reads;
+manual searches read deferred media locally in 1 MiB slices up to the 256 MiB
+file-offset limit, then stop at a 256 MiB search budget and 100 matches. Bytes
+still outside those limits are skipped and identified in the result. Loaded
+media ranges are included in the manual scan. A signature match is still only
+a candidate, not a complete format parse or a malware check.
+
 ## Not yet built
 
 These are features in their own right rather than defects, each worth its own
@@ -36,9 +50,13 @@ and TIFF predictors; a cross-reference stream is read as a whole, its
 entries not shown one by one. A stream kept with a filter named by an
 indirect object is not read.
 
-**HEIF items built from other items.** An item stored by construction
-method 2 is assembled from other items' bytes; it is named, not assembled.
-HEIF sequences (Live Photo videos, bursts) are read as boxes only.
+**HEIF image reconstruction and sequence playback.** The Web view now maps
+primary, derived, tile, thumbnail, auxiliary and metadata items, shows their
+item references, and reads AVIS sample timing into a timeline. An item stored
+by construction method 2 is still named, not assembled from the referenced
+items' bytes. AVIF/HEIF item payloads and AVIS temporal units are not decoded
+into pixels or played as a sequence. Manually comparing a still with a motion
+clip does not verify that their Live Photo pairing identifiers match.
 
 **Other ZIP compression methods.** Stored and deflated entries open and play;
 Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed, and
@@ -153,6 +171,12 @@ the visibility check does not implement arbitrary clipping paths,
 transparency groups or shadings; those can affect what appears behind text.
 The clean copy writes rewritten page and form content uncompressed, so the
 file can grow.
+
+The PDF redaction preview is reconstructed from extracted text and pictures,
+not rendered by a full PDF viewer. Unsupported image encodings and other page
+drawing may be omitted; a failed picture extraction is identified per page.
+Text search does not OCR scanned images. Open the saved copy in a PDF viewer
+and check every redaction before sharing it.
 
 **Very large files in a browser.** A file is read up to 2 GB in a tab. A
 video over 64 MB is read without its picture and sound, so it needs a few

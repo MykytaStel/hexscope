@@ -1,13 +1,14 @@
 // Black out text yourself, in a PDF: type a name or a number — or pick
 // "every email address", "every phone number" — see every place it appears
 // on the pages, tick the ones to go, draw boxes of your own on a page, and
-// see each page as it will be before the copy is made. The copy takes the
+// see a reconstructed preview of each page before the copy is made. The copy takes the
 // ticked places out of the page — not only covers them — with a black box
 // drawn where each was. The search runs here, over each page's glyphs and
 // where they land; the core rewrites the pages.
 import type { PageArea } from "./model";
 import type { PageGlyphs } from "./worker";
 import type { Shown } from "./pdf-pictures";
+import { currentLocale, translateText } from "./i18n";
 export { forgetPictures, toShown } from "./pdf-pictures";
 export type { Shown } from "./pdf-pictures";
 
@@ -263,7 +264,7 @@ export function areasOf(matches: Match[]): Float64Array {
   return Float64Array.from(out);
 }
 
-// --- the page, as the copy will show it ------------------------------------------
+// --- a reconstructed page preview ------------------------------------------------
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -302,7 +303,7 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
   const pic = svg("svg", {
     viewBox: `${view[0]} ${view[1]} ${view[2] - view[0]} ${view[3] - view[1]}`,
     role: "img",
-    "aria-label": `Page ${p.page} as the copy will show it; drag across it to black out more`,
+    "aria-label": `${translateText("Page", currentLocale())} ${p.page}: ${translateText("Reconstructed PDF page preview; drag across it to black out more", currentLocale())}`,
   });
   pic.append(svg("rect", { class: "blackout-page", x: 0, y: 0, width: mr - ml, height: mt - mb }));
   // The page's pictures, under its text: a scan is all picture. Each unit

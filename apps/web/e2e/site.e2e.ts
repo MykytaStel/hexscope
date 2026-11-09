@@ -474,7 +474,7 @@ test("the analyzer preview follows the selected site language", async ({ page })
   await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).not.toContain("analyzer-preview-uk");
 });
 
-test("analyzer navigation switches between its existing workspace views", async ({ page }) => {
+test("analyzer navigation exposes and switches between workspace views", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) <= 900, "the desktop navigation has a separate responsive phone treatment");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
@@ -485,8 +485,8 @@ test("analyzer navigation switches between its existing workspace views", async 
 
   const nav = page.getByRole("navigation", { name: "Робоча область файла" });
   await expect(nav).toBeVisible();
-  await expect(nav.locator("button:not([hidden]) > svg.app-nav-icon[aria-hidden='true']")).toHaveCount(7);
-  for (const label of ["Огляд", "Метадані", "Вміст", "Структура", "Байти", "Стиснення", "Порівняння"]) {
+  await expect(nav.locator("button:not([hidden]) > svg.app-nav-icon[aria-hidden='true']")).toHaveCount(8);
+  for (const label of ["Огляд", "Метадані", "Вміст", "Мапа файла", "Структура", "Байти", "Стиснення", "Порівняння"]) {
     await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
   }
 
@@ -820,6 +820,84 @@ test("comparison gives both files a clear summary and keeps raw bytes in a detai
   await expect(bytes.locator(".compare-rows")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
+});
+
+test("visual comparison wipes between two bounded image previews", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const details = page.locator("#drawer .more-details");
+  if (!(await details.evaluate((node) => (node as HTMLDetailsElement).open))) await page.locator("#drawer .more-details > summary").first().click();
+  const chooserEvent = page.waitForEvent("filechooser");
+  await page.locator("#drawer .compare-pick").click();
+  await (await chooserEvent).setFiles(sample("cropped.jpg"));
+
+  const dialog = page.locator("dialog.compare");
+  const slider = dialog.locator(".compare-wipe-control");
+  await expect(slider).toHaveAccessibleName("Показати файл A");
+  await expect(dialog.locator(".compare-wipe canvas")).toHaveCount(2);
+  await slider.evaluate((input: HTMLInputElement) => {
+    input.value = "25";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect(slider).toHaveAttribute("aria-valuetext", "25% · Файл A");
+  await expect(dialog.locator(".compare-wipe")).toHaveCSS("--wipe-position", "25%");
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+});
+
+test("a manually chosen Live Photo still and motion clip can be inspected together", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  const details = page.locator("#drawer .more-details");
+  if (!(await details.evaluate((node) => (node as HTMLDetailsElement).open))) await page.locator("#drawer .more-details > summary").first().click();
+  const chooserEvent = page.waitForEvent("filechooser");
+  await page.locator("#drawer .compare-pick").click();
+  await (await chooserEvent).setFiles(sample("video.mov"));
+  const dialog = page.locator("dialog.compare");
+  await expect(dialog.locator(".compare-motion-pair")).toContainText("Ідентифікатор пари не перевіряється.");
+  await expect(dialog.locator(".compare-video-preview")).toHaveAttribute("controls", "");
+  await expect(dialog.locator(".compare-video-preview")).toHaveAttribute("src", /^blob:/);
+});
+
+test("map view opens the file anatomy and its regions lead to bytes", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='map']").click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "map");
+  await expect(page.locator(".makeup")).toBeVisible();
+  await expect(page.locator(".makeup-bar")).toHaveAttribute("aria-label", "Частини файла в порядку байтів");
+  const firstBand = page.locator(".makeup-part:not(:disabled)").first();
+  await firstBand.focus();
+  await firstBand.press("Enter");
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#hex")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='map']").click();
+  await page.locator(".makeup-bar").click({ position: { x: 3, y: 5 } });
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+});
+
+test("HEIF map loads its item relationships on demand", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.heic");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await page.locator("#app-nav [data-app-view='map']").click();
+  await expect(page.locator(".heif-map h2")).toHaveText("Граф елементів HEIF");
+  await expect(page.locator(".heif-items .heif-item").first()).toBeVisible();
 });
 
 test("phone analyzer opens on overview and reaches bytes through workspace navigation", async ({ page }) => {

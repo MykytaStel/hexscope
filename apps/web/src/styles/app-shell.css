@@ -487,8 +487,28 @@
    the picture and the actions stay on the overview. */
 body[data-state="ready"][data-app-view="metadata"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveals),
-body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups) {
+body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups, .metadata-summary) {
   display: none;
+}
+
+/* The map view promotes the byte composition and HEIF relationship graph. */
+body[data-state="ready"][data-app-view="map"] .drawer-file > :not(.overview-flow),
+body[data-state="ready"][data-app-view="map"] .overview-flow > :not(.more-details),
+body[data-state="ready"][data-app-view="map"] .more-details > summary,
+body[data-state="ready"][data-app-view="map"] .more-details > :not(.makeup, .heif-map) {
+  display: none;
+}
+
+body[data-state="ready"][data-app-view="map"] .overview-flow > .more-details {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+body[data-state="ready"][data-app-view="map"] .more-details > .makeup,
+body[data-state="ready"][data-app-view="map"] .more-details > .heif-map {
+  display: block;
+  min-width: 0;
 }
 
 /* An archive's files: the list, and beside it what the chosen entry is —

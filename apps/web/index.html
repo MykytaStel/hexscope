@@ -68,6 +68,7 @@
         <button type="button" data-app-view="overview" aria-current="page">Overview</button>
         <button type="button" data-app-view="metadata">Metadata</button>
         <button type="button" data-app-view="content">Content</button>
+        <button type="button" data-app-view="map">File map</button>
         <button type="button" data-app-view="files" hidden>Files</button>
         <button type="button" data-app-view="structure">Structure</button>
         <button type="button" data-app-view="bytes">Bytes</button>
@@ -371,7 +372,7 @@
           <summary>For the curious: look inside a file</summary>
           <div class="geek-more-content">
             <h2 class="doors-title">Look inside</h2>
-            <p class="doors-lede">Why a file won't open, and how it is built: every byte explained, with where its format defines it.</p>
+            <p class="doors-lede">See the parts hexscope recognizes, where they sit in the file, and what the format says about them.</p>
             <div class="doors doors-compact">
               <button class="door" data-sample="samples/broken.png" data-name="broken.png">
                 <svg class="door-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.2" r="0.6" class="fill" /></svg>
@@ -387,7 +388,7 @@
               </button>
             </div>
             <ul class="geek-list">
-              <li><strong>Bytes view</strong> — the structure beside the hex, every part with its spec reference</li>
+              <li><strong>Bytes view</strong> — recognized parts beside their bytes, with notes from the format</li>
               <li><strong>Find</strong> <kbd>/</kbd> — text or hex, and the part of the file it falls in</li>
               <li><strong>Compare</strong> — two files, or a file and its clean copy</li>
               <li><strong>JSON</strong> — the whole structure, with its explanations</li>

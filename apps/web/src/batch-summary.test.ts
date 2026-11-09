@@ -138,4 +138,19 @@ describe("batch summary", () => {
     expect(result.shownCount).toBe(20);
     expect(result.shown.map(({ index }) => index)).toEqual([0, 1, 2]);
   });
+
+  it("filters visible rows by format without changing batch-wide coverage totals", () => {
+    const files = [
+      item("one.jpg", "done", { format: "jpeg", coverage: "complete" }),
+      item("two.png", "done", { format: "png", coverage: "partial" }),
+      item("three.jpg", "done", { format: "jpeg", coverage: "partial" }),
+    ];
+
+    const result = summarizeBatch(files, "all", Number.POSITIVE_INFINITY, "jpeg");
+
+    expect(result.shown.map(({ index }) => index)).toEqual([0, 2]);
+    expect(result.shownCount).toBe(2);
+    expect(result.coverageByFormat).toHaveLength(2);
+    expect(result.settled).toBe(3);
+  });
 });

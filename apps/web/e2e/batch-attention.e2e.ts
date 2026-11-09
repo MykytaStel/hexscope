@@ -23,6 +23,38 @@ test("a batch shows value-free format coverage and can focus incomplete reads", 
   await expect(batch.locator(".batch-row", { hasText: "private-photo.png" })).toHaveCount(0);
 });
 
+test("format coverage filters batch rows and can be cleared", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const jpeg = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.jpg", import.meta.url));
+  const png = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "first.jpg", mimeType: "image/jpeg", buffer: jpeg },
+    { name: "second.png", mimeType: "image/png", buffer: png },
+  ]);
+
+  const batch = page.locator("#batch");
+  const coverage = batch.locator(".batch-coverage");
+  await coverage.locator(":scope > summary").click();
+  await coverage.locator("[data-coverage-format=jpeg] button").click();
+
+  await expect(batch.locator(".batch-format-active")).toContainText("JPEG");
+  await expect(batch.locator(".batch-row")).toHaveCount(1);
+  await expect(batch.locator(".batch-row")).toContainText("first.jpg");
+  await expect(coverage.locator(".batch-coverage-row")).toHaveCount(2);
+  await batch.getByRole("button", { name: "Clear format filter" }).click();
+  await expect(batch.locator(".batch-row")).toHaveCount(2);
+
+  const jpegFilter = coverage.locator("[data-coverage-format=jpeg] button");
+  await jpegFilter.focus();
+  await jpegFilter.press("Enter");
+  await expect(batch.locator(".batch-row")).toHaveCount(1);
+  await expect(jpegFilter).toHaveAttribute("aria-pressed", "true");
+});
+
 test("a batch downloads a versioned coverage report without input names", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");
@@ -36,7 +68,7 @@ test("a batch downloads a versioned coverage report without input names", async 
   ]);
 
   const coverage = page.locator("#batch .batch-coverage");
-  await coverage.locator("summary").click();
+  await coverage.locator(":scope > summary").click();
   await expect(coverage.getByRole("button", { name: "Save coverage report", exact: true })).toBeVisible();
   await expect(coverage).toContainText("no file names or findings");
   const downloadPromise = page.waitForEvent("download");
@@ -70,7 +102,7 @@ test("a batch saves readable coverage and diagnostic CSV reports", async ({ page
   ]);
 
   const coverage = page.locator("#batch .batch-coverage");
-  await coverage.locator("summary").click();
+  await coverage.locator(":scope > summary").click();
 
   const coverageDownloadPromise = page.waitForEvent("download");
   await coverage.getByRole("button", { name: "Save coverage report as CSV" }).click();
@@ -79,6 +111,7 @@ test("a batch saves readable coverage and diagnostic CSV reports", async ({ page
   const coverageCsv = readFileSync((await coverageDownload.path())!, "utf8");
   expect(coverageCsv).toBe([
     "Format,Files,Complete,Partial,Unsupported,Total files,Read,Not read",
+    "Total,2,1,0,1,2,2,0",
     "png,1,1,0,0,2,2,0",
     "unknown,1,0,0,1,2,2,0",
   ].join("\r\n"));
@@ -122,7 +155,7 @@ test("a phone can share the value-free batch coverage report directly", async ({
   ]);
 
   const coverage = page.locator("#batch .batch-coverage");
-  await coverage.locator("summary").click();
+  await coverage.locator(":scope > summary").click();
   await expect(coverage.getByRole("button", { name: "Share coverage report", exact: true })).toBeVisible();
   await coverage.getByRole("button", { name: "Share coverage report", exact: true }).click();
 
@@ -164,7 +197,7 @@ test("a phone can share both value-free CSV reports directly", async ({ page }, 
   ]);
 
   const coverage = page.locator("#batch .batch-coverage");
-  await coverage.locator("summary").click();
+  await coverage.locator(":scope > summary").click();
   const coverageShare = coverage.getByRole("button", { name: "Share coverage report as CSV" });
   await expect(coverageShare).toBeVisible();
   await coverageShare.click();
@@ -216,7 +249,7 @@ test("a phone can share a value-free diagnostic report for rows needing attentio
   ]);
 
   const coverage = page.locator("#batch .batch-coverage");
-  await coverage.locator("summary").click();
+  await coverage.locator(":scope > summary").click();
   await expect(coverage.getByRole("button", { name: "Share diagnostic report", exact: true })).toBeVisible();
   await coverage.getByRole("button", { name: "Share diagnostic report", exact: true }).click();
 
@@ -290,6 +323,66 @@ test("failed batch reads can be retried without rereading completed files", asyn
   await retry.click();
   await expect(retry).toHaveCount(0);
   expect(await page.evaluate(() => (window as typeof window & { __parseAttempts: number }).__parseAttempts)).toBe(3);
+});
+
+test("an all-failed batch can export diagnostics and navigate back to a file", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+    const NativeWorker = window.Worker;
+    class FailedWorker extends NativeWorker {
+      postMessage(message: any, transfer?: Transferable[]): void;
+      postMessage(message: any, options?: StructuredSerializeOptions): void;
+      postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message?.type === "parse" && ["broken-a.png", "broken-b.png"].includes(message.file?.name)) {
+          setTimeout(() => this.dispatchEvent(new ErrorEvent("error")), 0);
+          return;
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    }
+    window.Worker = FailedWorker;
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "broken-a.png", mimeType: "image/png", buffer: photo },
+    { name: "broken-b.png", mimeType: "image/png", buffer: photo },
+  ]);
+
+  const batch = page.locator("#batch");
+  const coverage = batch.locator(".batch-coverage");
+  await expect(batch.getByRole("button", { name: "Retry failed files" })).toBeVisible();
+  await expect(coverage.locator(":scope > summary")).toHaveText("Batch reports");
+  await coverage.locator(":scope > summary").click();
+  await expect(coverage).toContainText("No files could be read by format.");
+
+  const coverageDownloadPromise = page.waitForEvent("download");
+  await coverage.getByRole("button", { name: "Save coverage report as CSV" }).click();
+  const coverageDownload = await coverageDownloadPromise;
+  expect(coverageDownload.suggestedFilename()).toBe("hexscope-batch-coverage.csv");
+  const coverageCsv = readFileSync((await coverageDownload.path())!, "utf8");
+  expect(coverageCsv).toContain("Total,0,0,0,0,2,0,2");
+
+  const downloadPromise = page.waitForEvent("download");
+  await coverage.getByRole("button", { name: "Save diagnostic report", exact: true }).click();
+  const download = await downloadPromise;
+  const report = JSON.parse(readFileSync((await download.path())!, "utf8"));
+  expect(report).toEqual({
+    schema: "hexscope.batch-diagnostics",
+    version: 1,
+    total: 2,
+    issues: [
+      { index: 1, format: "unknown", status: "read_failed" },
+      { index: 2, format: "unknown", status: "read_failed" },
+    ],
+  });
+
+  const localList = coverage.locator(".batch-diagnostics-local");
+  await localList.locator(":scope > summary").click();
+  await localList.getByRole("button", { name: "Show this file in the batch" }).first().click();
+  await expect(batch.locator('.batch-row[data-batch-index="0"]')).toBeFocused();
 });
 
 test("MP3 metadata is visible and can be selected for a batch clean copy", async ({ page }) => {
