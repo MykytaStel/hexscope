@@ -132,7 +132,7 @@
 }
 
 .evidence-filter-count {
-  color: var(--faint);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
