@@ -367,9 +367,11 @@ and WebAssembly imports/exports/debug references. These panels do not decode
 media, execute SVG/WebAssembly, verify email authentication claims or fetch
 external references. Unknown files now say that metadata and cleaning were not
 structurally checked, and point to the existing bounded signature search for
-its actual searched range. The SVG static preview, deeper per-format
-read-back links, mobile/accessibility review and the rest of the family gates
-remain open.
+its actual searched range. Deeper per-format read-back links,
+mobile/accessibility review and the rest of the family gates remain open.
+Uncompressed SVG up to 2 MiB now has an opt-in static preview;
+the sanitizer strips active content, styles and external references before
+the browser renders it. SVGZ and larger files keep their structural view only.
 
 The full Web production build passed after regenerating the repository's WASM
 bindings. Vite still reports existing warnings for static pages that load

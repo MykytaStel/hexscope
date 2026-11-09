@@ -4,6 +4,7 @@ import { el } from "./dom";
 import { FACT_LABELS } from "./knowledge";
 import { Kind, type FileModel } from "./model";
 import { currentLocale, translateText } from "./i18n";
+import { svgStaticPreview } from "./svg-preview";
 
 const tr = (text: string) => translateText(text, currentLocale());
 const MAX_ROWS = 80;
@@ -180,6 +181,7 @@ function audioStructure(m: FileModel, select: (node: number) => void): HTMLEleme
 
 function svgContents(m: FileModel, select: (node: number) => void): HTMLElement {
   const root = section("SVG contents", "This map does not execute scripts or fetch linked files. Embedded pictures keep their own metadata.");
+  root.append(svgStaticPreview(m.bytes));
   const scripts: number[] = [];
   const images: number[] = [];
   for (let id = 1; id < Math.min(m.count, MAX_STRUCTURE_SCAN); id++) {

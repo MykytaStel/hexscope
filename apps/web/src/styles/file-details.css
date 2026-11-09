@@ -439,6 +439,46 @@
   min-width: 0;
 }
 
+.svg-static-preview {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.svg-static-preview > h4,
+.svg-preview-status {
+  margin: 0;
+}
+
+.svg-preview-button {
+  justify-self: start;
+}
+
+.svg-preview-frame {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background-color: var(--panel);
+  background-image: linear-gradient(45deg, color-mix(in srgb, var(--border) 55%, transparent) 25%, transparent 25%), linear-gradient(-45deg, color-mix(in srgb, var(--border) 55%, transparent) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border) 55%, transparent) 75%), linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border) 55%, transparent) 75%);
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-size: 10px 10px;
+}
+
+.svg-preview-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 22rem;
+  object-fit: contain;
+}
+
 @media (max-width: 520px) {
   .evidence-filters {
     flex-wrap: nowrap;
