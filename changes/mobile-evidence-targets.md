@@ -1,1 +1,0 @@
-- **Make evidence controls easier to tap.** On touch devices, source links, filters, search fields and disclosure rows in the inspectors have 44-pixel targets, including wrapped labels.

@@ -1,1 +1,0 @@
-- **Try the audio structure inspectors locally.** The sample picker includes synthetic MP3, FLAC, Ogg Vorbis and Ogg Opus metadata structures. They contain no encoded audio or personal metadata.

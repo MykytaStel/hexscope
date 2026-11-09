@@ -11,20 +11,14 @@ import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { kindOf } from "./files";
-import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hasCoarsePointer, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
 import { copyPictureButton, isAudio, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
 import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
-import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
 import { hasCleanableAudioTags } from "./audio-clean";
 import { evidenceOverview } from "./evidence-overview";
-import { photoInspector } from "./photo-inspector";
-import { documentMap } from "./document-map";
-import { pdfNavigator } from "./pdf-navigator";
-import { formatInspector } from "./format-inspectors";
 import { currentLocale, translateText } from "./i18n";
 import type { PageGlyphs } from "./worker";
 
@@ -42,6 +36,13 @@ const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
 ];
 
 type VerdictKind = ReturnType<typeof verdict>[number]["kind"];
+
+function loadingStatus(className: string, message: string): HTMLElement {
+  const status = el("p", `hint ${className}`, translateText(message, currentLocale()));
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-busy", "true");
+  return status;
+}
 
 const AUTOMATIC_EMBEDDED_SEARCH_BYTES = 16 * 1024 * 1024;
 const EMBEDDED_MEDIA_READ_CHUNK = 1024 * 1024;
@@ -215,8 +216,27 @@ export class Drawer {
     if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
       flow.append(this.reveals(m));
     }
-    const docMap = documentMap(m, (node) => this.onSelect(node), (entry) => this.onOpen(entry), this.nested);
-    if (docMap) flow.append(docMap);
+    const documentPackage = f.format === "zip" && (
+      f.labels.includes("word/document.xml")
+      || f.labels.includes("xl/workbook.xml")
+      || f.labels.includes("ppt/presentation.xml")
+      || f.labels.includes("META-INF/container.xml")
+      || isOpenDocument(f.labels)
+    );
+    if (["office97", "rtf"].includes(f.format) || documentPackage) {
+      const slot = loadingStatus("document-map-loading", "Loading document map…");
+      flow.append(slot);
+      void import("./document-map")
+        .then(({ documentMap }) => {
+          if (!slot.isConnected) return;
+          const docMap = documentMap(m, (node) => this.onSelect(node), (entry) => this.onOpen(entry), this.nested);
+          if (docMap) slot.replaceWith(docMap);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The document map could not be loaded. The file structure is still available."));
+        });
+    }
     // What to do about it, right under the answer: it presses the clean
     // copy's own button, further down, where the result is said.
     const clean = this.file.querySelector<HTMLButtonElement>(".reveals .btn-clean");
@@ -250,22 +270,43 @@ export class Drawer {
       const encrypted = f.facts.some((x) => x.kind === "encryption");
       let redactor: HTMLElement | null = null;
       if (!encrypted) {
-        redactor = pdfRedactorPlaceholder(
-          m,
-          { ...this.cleaning, pages: readPages },
-          (page) => this.picturesOf(m, page),
-          (page) => this.pictureState(m, page),
-        );
+        redactor = el("div", "group redactor");
+        redactor.setAttribute("aria-busy", "true");
+        redactor.append(el("p", "hint", translateText("Loading PDF tools…", currentLocale())));
+        const redactorSlot = redactor;
+        void import("./drawer-tools")
+          .then(({ pdfRedactorPlaceholder }) => {
+            if (redactorSlot.isConnected) redactorSlot.replaceWith(pdfRedactorPlaceholder(
+              m,
+              { ...this.cleaning, pages: readPages },
+              (page) => this.picturesOf(m, page),
+              (page) => this.pictureState(m, page),
+            ));
+          })
+          .catch(() => {
+            if (!redactorSlot.isConnected) return;
+            redactorSlot.setAttribute("aria-busy", "false");
+            redactorSlot.replaceChildren(el("p", "hint", "PDF tools could not be loaded. The file structure is still available."));
+          });
       }
-      flow.append(pdfNavigator(
-        m,
-        readPages,
-        (page) => this.picturesOf(m, page),
-        (page) => this.pictureState(m, page),
-        (node) => this.onSelect(node),
-        (entry) => this.onOpen(entry),
-        () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      ));
+      const slot = loadingStatus("pdf-navigator-loading", "Loading PDF navigator…");
+      flow.append(slot);
+      void import("./pdf-navigator")
+        .then(({ pdfNavigator }) => {
+          if (!slot.isConnected) return;
+          slot.replaceWith(pdfNavigator(
+            m,
+            readPages,
+            (page) => this.picturesOf(m, page),
+            (page) => this.pictureState(m, page),
+            (node) => this.onSelect(node),
+            (entry) => this.onOpen(entry),
+            () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          ));
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The PDF navigator could not be loaded. The file structure is still available."));
+        });
       if (redactor) {
         flow.append(redactor);
       }
@@ -274,7 +315,20 @@ export class Drawer {
     const more = el("details", "more-details");
     more.append(el("summary", undefined, "For the curious"));
     const later = (e: HTMLElement) => more.append(e);
-    more.append(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
+    const makeupSlot = loadingStatus("makeup-loading", "Loading file structure map…");
+    more.append(makeupSlot);
+    let makeupLoaded = false;
+    more.addEventListener("toggle", () => {
+      if (!more.open || makeupLoaded) return;
+      makeupLoaded = true;
+      void import("./makeup")
+        .then(({ makeupGroup }) => {
+          if (makeupSlot.isConnected) makeupSlot.replaceWith(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
+        })
+        .catch(() => {
+          if (makeupSlot.isConnected) makeupSlot.replaceWith(el("p", "hint", "The file map could not be loaded. The structure and bytes are still available."));
+        });
+    });
     if (f.format === "heif") {
       void import("./heif-map")
         .then(({ heifMapGroup }) => {
@@ -315,10 +369,18 @@ export class Drawer {
     fileGroup.append(grid);
     const report = el("button", "link report-link", "Report a problem with this file");
     report.title = "Shows the file's layout, without its content, to paste into a bug report";
-    report.addEventListener("click", () => openStructureReport(m));
+    report.addEventListener("click", () => {
+      void import("./drawer-tools")
+        .then(({ openStructureReport }) => openStructureReport(m))
+        .catch(() => this.showNote("Could not load report tools. Try again."));
+    });
     const save = el("button", "link report-link", "Save the structure as JSON");
     save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
-    save.addEventListener("click", () => saveStructureJson(m));
+    save.addEventListener("click", () => {
+      void import("./drawer-tools")
+        .then(({ saveStructureJson }) => saveStructureJson(m))
+        .catch(() => this.showNote("Could not load structure export. Try again."));
+    });
     const inside = el("button", "link report-link", translateText("Search for embedded files", currentLocale()));
     inside.title = translateText("Reads the first 256 MiB in small local slices and searches for known file signatures", currentLocale());
     let activeController: AbortController | null = null;
@@ -711,8 +773,20 @@ export class Drawer {
       const path = emailPath(m, (id) => this.onSelect(id));
       if (path) group.append(path);
     }
-    const formatDetails = formatInspector(m, (node) => this.onSelect(node));
-    if (formatDetails) group.append(formatDetails);
+    if (["video", "mp3", "flac", "ogg", "wav", "svg", "eml", "msg", "wasm", "unknown"].includes(f.format)) {
+      const slot = loadingStatus("format-inspector-loading", "Loading format summary…");
+      group.append(slot);
+      void import("./format-inspectors")
+        .then(({ formatInspector }) => {
+          if (!slot.isConnected) return;
+          const details = formatInspector(m, (node) => this.onSelect(node));
+          if (details) slot.replaceWith(details);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The format summary could not be loaded. The file structure is still available."));
+        });
+    }
     // The picture it is about, and where it was taken, drawn: what the
     // numbers below mean, before reading them.
     const pictured = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
@@ -757,8 +831,18 @@ export class Drawer {
       }
     }
     if (pictured) {
-      const inspector = photoInspector(m, (node) => this.onSelect(node));
-      if (inspector) group.append(inspector);
+      const slot = loadingStatus("photo-inspector-loading", "Loading image properties…");
+      group.append(slot);
+      void import("./photo-inspector")
+        .then(({ photoInspector }) => {
+          if (!slot.isConnected) return;
+          const inspector = photoInspector(m, (node) => this.onSelect(node));
+          if (inspector) slot.replaceWith(inspector);
+          else slot.remove();
+        })
+        .catch(() => {
+          if (slot.isConnected) slot.replaceWith(el("p", "hint", "The image properties could not be loaded. The file structure is still available."));
+        });
     }
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the

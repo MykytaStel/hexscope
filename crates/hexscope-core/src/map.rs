@@ -250,7 +250,10 @@ fn role_of(tree: &ParseTree, id: NodeId, format: Format, depth: u32) -> Option<R
                 })
             } else if label.contains("audio data") {
                 Some(Role::Content)
-            } else if label.contains("WAVE INFO") || label.contains("INFO value") || label.contains("broadcast ") {
+            } else if label.contains("WAVE INFO")
+                || label.contains("INFO value")
+                || label.contains("broadcast ")
+            {
                 Some(Role::Metadata)
             } else {
                 None
