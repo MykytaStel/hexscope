@@ -116,6 +116,7 @@ export function pdfNavigator(
 
   let pageData: PageGlyphs[] | null = null;
   let pageObjectNodes = new Map<number, number>();
+  let pageFindings = new Map<number, FileModel["file"]["facts"]>();
   const renderPages = () => {
     if (!pageData) return;
     const query = pageSearch.value.trim();
@@ -147,10 +148,7 @@ export function pdfNavigator(
         : page.complete ? "No supported stored text was found. OCR is not used." : "No supported stored text was read completely. OCR is not used.";
       li.append(el("p", "hint pdf-nav-page-text", tr(textDescription)));
 
-      const findings = m.file.facts.filter((item) => {
-        const match = PAGE_FACT.exec(item.text);
-        return match !== null && Number(match[1]) === number;
-      });
+      const findings = pageFindings.get(number) ?? [];
       if (findings.length > 0) {
         const foundDetails = el("details", "pdf-nav-page-findings");
         foundDetails.append(el("summary", undefined, `${findings.length.toLocaleString(currentLocale())} ${tr("page findings")}`));
@@ -204,6 +202,15 @@ export function pdfNavigator(
     try {
       pageData = await loadPages();
       pageObjectNodes = pageObjects(m, pageData);
+      pageFindings = new Map();
+      for (const item of m.file.facts) {
+        const match = PAGE_FACT.exec(item.text);
+        if (!match) continue;
+        const number = Number(match[1]);
+        const group = pageFindings.get(number) ?? [];
+        group.push(item);
+        pageFindings.set(number, group);
+      }
       pageSearch.hidden = false;
       pages.hidden = false;
       tools.hidden = false;

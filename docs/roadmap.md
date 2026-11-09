@@ -355,10 +355,11 @@ explain their different content-read scope. The PDF navigator links pages to
 page objects, groups findings, forms, attachments and document actions, and
 keeps OCR absence and image-read status visible; password-protected PDFs show
 their structural findings while page reading stays disabled. These maps do not
-yet report entry-level clean-copy outcomes, and PDF findings are not all
-grouped by a page-to-area action chain. Those evidence links, the remaining
-further family polish, mobile/accessibility checks, device checks and the rest
-of 0.17 acceptance work remain open.
+claim entry-level clean-copy outcomes because Core read-back findings are
+file-scoped. The clean-copy card reports supported removals and its read-back
+result; the map lets someone inspect the output's package parts. PDF facts are
+grouped by page when the parser identifies one, while document-level forms and
+actions remain in their own groups.
 
 This family pass adds bounded source-linked summaries from the existing
 parse tree: video tracks and stored timing, audio tags/artwork/container
@@ -367,8 +368,10 @@ and WebAssembly imports/exports/debug references. These panels do not decode
 media, execute SVG/WebAssembly, verify email authentication claims or fetch
 external references. Unknown files now say that metadata and cleaning were not
 structurally checked, and point to the existing bounded signature search for
-its actual searched range. Deeper per-format read-back links,
-mobile/accessibility review and the rest of the family gates remain open.
+its actual searched range. No per-entry clean-copy removal status is claimed;
+adding that requires a Core verification scope for package parts. The family
+panel implementation is complete, while screen-reader, zoom and physical
+device review remain open.
 Uncompressed SVG up to 2 MiB now has an opt-in static preview;
 the sanitizer strips active content, styles and external references before
 the browser renders it. SVGZ and larger files keep their structural view only.
@@ -386,6 +389,10 @@ findings and package-part names. Native controls retain keyboard focus
 indication and labels.
 This is a code-level accessibility pass; screen-reader, zoom and physical-phone
 checks remain open and are not inferred from the CSS or production build.
+Evidence links select the actual node or byte range in the currently open
+file, where the existing byte-to-meaning explanations are shown. PDF page
+findings are indexed once when page text loads, so filtering pages does not
+rescan the full findings list for each displayed page.
 
 Each slice needs representative fixtures and explicit incomplete/malformed
 behavior. Parser or cleaner changes must retain Core + Web coverage and the
