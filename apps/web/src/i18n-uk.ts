@@ -713,6 +713,17 @@ const UK: Record<string, string> = {
   "Some PDF page or form content could not be fully checked. Search may miss text.": "Не весь вміст сторінок або форм у PDF вдалося перевірити. Пошук може пропустити текст.",
   "Loading PDF tools…": "Завантажуємо інструменти PDF…",
   "PDF tools could not be loaded. Try again.": "Не вдалося завантажити інструменти PDF. Спробуйте ще раз.",
+  "PDF tools could not be loaded. The file structure is still available.": "Не вдалося завантажити інструменти PDF. Структура файла доступна й далі.",
+  "Loading document map…": "Завантажуємо карту документа…",
+  "The document map could not be loaded. The file structure is still available.": "Не вдалося завантажити карту документа. Структура файла доступна й далі.",
+  "Loading PDF navigator…": "Завантажуємо навігатор PDF…",
+  "The PDF navigator could not be loaded. The file structure is still available.": "Не вдалося завантажити навігатор PDF. Структура файла доступна й далі.",
+  "Loading file structure map…": "Завантажуємо мапу структури файла…",
+  "The file map could not be loaded. The structure and bytes are still available.": "Не вдалося завантажити мапу файла. Структура та байти доступні й далі.",
+  "Loading format summary…": "Завантажуємо опис формату…",
+  "The format summary could not be loaded. The file structure is still available.": "Не вдалося завантажити опис формату. Структура файла доступна й далі.",
+  "Loading image properties…": "Завантажуємо властивості зображення…",
+  "The image properties could not be loaded. The file structure is still available.": "Не вдалося завантажити властивості зображення. Структура файла доступна й далі.",
   "Compression player could not be loaded. Try again.": "Не вдалося завантажити плеєр стиснення. Спробуйте ще раз.",
   "PDF not fully checked": "PDF перевірено не повністю",
   "Some PDF page or form content may be missing.": "У PDF може бракувати частини вмісту сторінки або форми.",
@@ -1670,6 +1681,8 @@ function factSentence(v: string): string | undefined {
     return `«${m[1]}» —${m[3] ? ` названо так, ніби це ${m[3]},` : ""} ${RISKY[m[4]]}`;
   if ((m = /^(.+), but it opens without a password, so anyone can read it$/.exec(v)))
     return `${m[1]}, але відкривається без пароля, тож прочитати може будь-хто`;
+  if ((m = /^embedded picture: (\d+) bytes$/.exec(v)))
+    return `вбудоване зображення: ${Number(m[1]).toLocaleString("uk")} ${ukrainianCountWord(Number(m[1]), "байт", "байти", "байтів")}`;
   if ((m = /^embedded JPEG, (\d+) bytes$/.exec(v))) return `вбудований JPEG, ${m[1]} ${ukrainianCountWord(Number(m[1]), "байт", "байти", "байтів")}`;
   if ((m = /^a picture of the first page, (\d+×\d+)$/.exec(v))) return `зображення першої сторінки, ${m[1]}`;
   if ((m = /^on (\d+) slides?: (.+)$/.exec(v)))

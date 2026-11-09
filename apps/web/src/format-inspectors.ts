@@ -59,7 +59,7 @@ function factList(
   const list = el("ul", "format-evidence-list");
   for (const item of facts.slice(0, MAX_ROWS)) {
     const li = el("li");
-    const button = el("button", "format-evidence-link", `${tr(FACT_LABELS[item.kind] ?? item.kind)}: ${item.text}`);
+    const button = el("button", "format-evidence-link", `${tr(FACT_LABELS[item.kind] ?? item.kind)}: ${tr(item.text)}`);
     button.type = "button";
     button.title = tr("Show this finding in the file structure");
     button.addEventListener("click", () => select(item.node));
