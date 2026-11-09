@@ -489,7 +489,7 @@ registerLazyTranslations({
   "Show this package entry in the file structure": "Показати цей запис пакета у структурі файла",
   "Open entry": "Відкрити запис",
   "Open this package part as a file of its own": "Відкрити цю частину пакета як окремий файл",
-  "Clean-copy findings appear in the copy's Core read-back report; this map does not certify individual package entries as removed.": "Результати очищення показані у звіті Core після повторного читання копії; ця мапа не засвідчує видалення окремих записів пакета.",
+  "Open the clean copy to inspect its package parts. Core read-back verifies supported findings, not each part's removal.": "Відкрийте чисту копію, щоб переглянути її частини. Повторне читання Core перевіряє підтримувані знахідки, але не засвідчує видалення кожної частини окремо.",
   "More parts are available in the Files view.": "Більше частин доступно у вкладці «Файли».",
   "matching package parts": "частин пакета знайдено",
   "PDF navigator": "Навігатор PDF",

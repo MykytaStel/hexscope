@@ -11,12 +11,17 @@ const MAX_VISIBLE_PAGES = 100;
 const tr = (text: string) => translateText(text, currentLocale());
 const PAGE_FACT = /^page\s+(\d+)(?::|,)/i;
 
-function pageObject(m: FileModel, object: number | undefined): number {
-  if (!object) return -1;
-  for (let id = m.count - 1; id >= 0; id--) {
-    if (new RegExp(`^object ${object}(?: \\d+)?$`).test(m.label(id))) return id;
+function pageObjects(m: FileModel, pages: PageGlyphs[]): Map<number, number> {
+  const wanted = new Set(pages.map((page) => page.object).filter((object): object is number => !!object));
+  const indexed = new Map<number, number>();
+  if (wanted.size === 0) return indexed;
+  for (let id = 0; id < m.count; id++) {
+    const match = /^object (\d+)(?: \d+)?$/.exec(m.label(id));
+    if (!match) continue;
+    const object = Number(match[1]);
+    if (wanted.has(object)) indexed.set(object, id);
   }
-  return -1;
+  return indexed;
 }
 
 function factGroup(
@@ -110,6 +115,7 @@ export function pdfNavigator(
   section.append(load, status, pageSearch, more, pages, tools);
 
   let pageData: PageGlyphs[] | null = null;
+  let pageObjectNodes = new Map<number, number>();
   const renderPages = () => {
     if (!pageData) return;
     const query = pageSearch.value.trim();
@@ -122,7 +128,7 @@ export function pdfNavigator(
       const number = page.page ?? pageData.indexOf(page) + 1;
       const li = el("li", "pdf-nav-page");
       const head = el("div", "pdf-nav-page-head");
-      const source = pageObject(m, page.object);
+      const source = page.object ? pageObjectNodes.get(page.object) ?? -1 : -1;
       if (source >= 0) {
         const object = el("button", "pdf-nav-object", `${tr("Page")} ${number} · ${tr("PDF object")} ${page.object}`);
         object.type = "button";
@@ -197,6 +203,7 @@ export function pdfNavigator(
     status.textContent = tr("Reading PDF pages…");
     try {
       pageData = await loadPages();
+      pageObjectNodes = pageObjects(m, pageData);
       pageSearch.hidden = false;
       pages.hidden = false;
       tools.hidden = false;

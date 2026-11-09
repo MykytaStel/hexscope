@@ -11,6 +11,7 @@ type Purpose = "content" | "metadata" | "comments" | "media" | "navigation" | "o
 interface PackageEntry {
   index: number;
   name: string;
+  searchName: string;
   purpose: Purpose;
 }
 
@@ -92,7 +93,12 @@ export function documentMap(
   statusLine.setAttribute("role", "status");
   section.append(statusLine);
 
-  const entries = m.entryNames().map((name, index): PackageEntry => ({ index, name, purpose: purposeOf(name) }));
+  const entries = m.entryNames().map((name, index): PackageEntry => ({
+    index,
+    name,
+    searchName: name.toLocaleLowerCase(currentLocale()),
+    purpose: purposeOf(name),
+  }));
   const groups = new Map<Purpose, { details: HTMLDetailsElement; list: HTMLElement; count: HTMLElement }>();
   for (const purpose of PURPOSES) {
     const details = el("details", "document-map-group");
@@ -106,14 +112,18 @@ export function documentMap(
     groups.set(purpose.key, { details, list, count });
   }
 
-  section.append(el("p", "hint document-map-copy-note", tr("Clean-copy findings appear in the copy's Core read-back report; this map does not certify individual package entries as removed.")));
+  section.append(el("p", "hint document-map-copy-note", tr("Open the clean copy to inspect its package parts. Core read-back verifies supported findings, not each part's removal.")));
 
   const render = () => {
     const query = search.value.trim().toLocaleLowerCase(currentLocale());
     let matches = 0;
+    const foundByPurpose = new Map<Purpose, PackageEntry[]>(PURPOSES.map(({ key }) => [key, []]));
+    for (const entry of entries) {
+      if (!query || entry.searchName.includes(query)) foundByPurpose.get(entry.purpose)!.push(entry);
+    }
     for (const purpose of PURPOSES) {
       const group = groups.get(purpose.key)!;
-      const found = entries.filter((entry) => entry.purpose === purpose.key && (!query || entry.name.toLocaleLowerCase(currentLocale()).includes(query)));
+      const found = foundByPurpose.get(purpose.key)!;
       matches += found.length;
       group.count.textContent = found.length.toLocaleString(currentLocale());
       group.details.hidden = found.length === 0;
