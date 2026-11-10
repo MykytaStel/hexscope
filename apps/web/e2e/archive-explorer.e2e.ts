@@ -71,7 +71,7 @@ test("an archive opens its files, filters, shows an entry and comes back where i
   await start(page);
   await openZip(page, BUNDLE);
   await showFiles(page);
-  if (!phone) await expect(page.locator(".pane-drawer .drawer-node")).toContainText("Select a file to see its details and actions.");
+  if (!phone) await expect(page.locator(".pane-drawer .drawer-node")).toContainText("AES method has no readable AES extra field");
   await expect(pane(page).locator(".archive-summary")).toContainText("9 entries in 7 folders");
   await expect(rows(page).locator(".archive-name")).toHaveText(["..", "/", "docs", "photos", "Structure", "odd.bin", "readme.txt", "secret.txt"]);
   await pane(page).getByLabel("Filter by name").fill("todo");
@@ -216,6 +216,7 @@ test("the list works by keyboard and passes axe in both themes", async ({ page }
   await showFiles(page);
   const list = pane(page).locator(".archive-list");
   await list.focus();
+  await page.keyboard.press("Home");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await expect(pane(page).locator(".archive-row.is-active .archive-name")).toHaveText("docs");

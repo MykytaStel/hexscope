@@ -314,6 +314,16 @@ function syncAppNavigation(): void {
   const playIcon = playBtn.querySelector<SVGPathElement>("svg path");
   if (playIcon) playIcon.setAttribute("d", playerOpen ? "M4 4h8v8H4z" : "M4 2.5 13.5 8 4 13.5z");
 
+  const compressionAction = appNavigation.querySelector<HTMLButtonElement>('[data-app-action="compression"]');
+  if (compressionAction) {
+    compressionAction.disabled = !playerOpen && !canPlay();
+    compressionAction.setAttribute("aria-pressed", String(playerOpen));
+    compressionAction.title = translateText(
+      playerOpen ? "Close compression player" : "Step through the DEFLATE decompression (P)",
+      currentLocale(),
+    );
+  }
+
   const hasMetadata = !!$("drawer").querySelector(".reveals");
   const hasContent = !!$("drawer").querySelector(contentTargetSelector);
   const current = document.body.dataset.appView;
@@ -384,6 +394,14 @@ appNavigation.addEventListener("click", (event) => {
   }
   tourDismissedByNavigation = true;
   dismissTour();
+  if (button.dataset.appAction === "compression") {
+    if (playerPending || player?.isOpen) closePlayer();
+    else {
+      toBytes();
+      void openPlayer();
+    }
+    return;
+  }
   if (button.dataset.appAction === "compare") {
     comparePicker.click();
   }

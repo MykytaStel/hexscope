@@ -725,7 +725,7 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
 
-  // On the overview the extra fields wait folded; the Metadata view opens them.
+  // Extra fields stay folded until someone opens that group.
   const folded = page.locator("#drawer .metadata-group[data-metadata-group='additional'] details");
   await expect(folded).not.toHaveAttribute("open", "");
   const metadataNav = page.locator("#app-nav [data-app-view='metadata']");
@@ -741,8 +741,8 @@ test("photo metadata is grouped and its location still opens the exact bytes", a
 
   const additional = metadata.locator(".metadata-group[data-metadata-group='additional']");
   await expect(additional).toContainText("Додаткові поля");
-  if (await metadataNav.isVisible()) await expect(additional.locator("details")).toHaveAttribute("open", "");
-  else await additional.locator("summary").click();
+  await expect(additional.locator("details")).not.toHaveAttribute("open", "");
+  await additional.locator("summary").click();
   await expect(additional.locator("dd[data-kind='thumbnail']")).toBeVisible();
 
   const locationRow = metadata.locator(".metadata-group[data-metadata-group='location'] dd[data-kind='location']");
