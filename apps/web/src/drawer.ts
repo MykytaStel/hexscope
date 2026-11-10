@@ -595,9 +595,7 @@ export class Drawer {
     const row = this.file.querySelector<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
     const label = row?.previousElementSibling as HTMLElement | null;
     if (!row || !label) return false;
-    for (let details = row.closest("details"); details; details = details.parentElement?.closest("details") ?? null) {
-      details.open = true;
-    }
+    row.closest<HTMLDetailsElement>("details")?.setAttribute("open", "");
     label.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     row.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     for (const e of [label, row]) {
@@ -1013,8 +1011,8 @@ export class Drawer {
       if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
     }
     const additionalDetails = metadataGroups.querySelector<HTMLDetailsElement>(".metadata-additional-details");
-    const additionalCount = Math.floor((groupElements.get("additional")!.list.children.length) / 2);
-    if (additionalDetails && additionalCount > 0 && additionalCount <= 8) additionalDetails.open = true;
+    const additionalFields = groupElements.get("additional")!.list.childElementCount;
+    if (additionalDetails && additionalFields > 0 && additionalFields <= 16) additionalDetails.open = true;
     const metadataSummary = el("nav", "metadata-summary");
     metadataSummary.setAttribute("aria-label", translateText("Metadata fields found", currentLocale()));
     metadataSummary.append(el("p", "metadata-summary-title", "Metadata found"));

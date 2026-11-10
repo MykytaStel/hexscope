@@ -33,7 +33,6 @@ withUkrainian(() => import("./docs-i18n"));
 
 let batchController: BatchController;
 let workspace: WorkspaceController;
-let workspaceHistoryId = 0;
 
 /** "Take the tour": on the sample photo, from the start. */
 export function startTour(): void {
@@ -348,7 +347,7 @@ narrow.addEventListener("change", () => {
 });
 
 function writeWorkspaceHistory(view: WorkspaceView, replace = false): void {
-  const state = { hexscopeWorkspace: true, hexscopeView: view, hexscopeFileId: workspaceHistoryId };
+  const state = { hexscopeWorkspace: true, hexscopeView: view };
   if (replace) history.replaceState(state, "", location.href);
   else history.pushState(state, "", location.href);
 }
@@ -383,8 +382,8 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
 
 window.addEventListener("popstate", (event: PopStateEvent) => {
   if (document.body.dataset.state === "batch") return;
-  const state = event.state as { hexscopeWorkspace?: boolean; hexscopeView?: WorkspaceView; hexscopeFileId?: number } | null;
-  if (state?.hexscopeWorkspace && state.hexscopeFileId === workspaceHistoryId && workspace?.model) {
+  const state = event.state as { hexscopeWorkspace?: boolean; hexscopeView?: WorkspaceView } | null;
+  if (state?.hexscopeWorkspace && workspace?.model) {
     document.body.dataset.state = "ready";
     showFileInfo(workspace.model, workspace.levels);
     setWorkspaceView(state.hexscopeView ?? "overview", false);
@@ -1101,9 +1100,8 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   drawer.showNode(m, -1, false);
   showFileInfo(m, levels);
   const initialView = openingView() === "bytes" ? "bytes" : "overview";
-  workspaceHistoryId++;
   setWorkspaceView(initialView, false);
-  const currentState = history.state as { hexscopeWorkspace?: boolean; hexscopeFileId?: number } | null;
+  const currentState = history.state as { hexscopeWorkspace?: boolean } | null;
   writeWorkspaceHistory(initialView, currentState?.hexscopeWorkspace === true);
   updateProblems();
   playBtn.hidden = !canPlay();
