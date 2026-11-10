@@ -238,6 +238,10 @@ const TABLE: Table = &[
         heif("The colour space's numbers, or the profile."),
     ),
     (
+        "profile data",
+        heif("The ICC profile carried by this colour property."),
+    ),
+    (
         "associations",
         heif("For each item, the numbers of its properties."),
     ),

@@ -1,4 +1,4 @@
-//! Plain explanations for the audio metadata this parser can read.
+//! Plain explanations for audio metadata this parser can read without decoding.
 
 use crate::docs::{Concern, Doc, Table, lookup};
 use crate::model::{Node, ParseTree};
@@ -10,6 +10,9 @@ const VORBIS: &str = "https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html";
 const OPUS: &str = "https://www.rfc-editor.org/rfc/rfc7845.html";
 const RIFF: &str = "https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-";
 const BWF: &str = "https://tech.ebu.ch/docs/tech/tech3285.pdf";
+const RF64: &str = "https://tech.ebu.ch/files/live/sites/tech/files/shared/tech/tech3306.pdf";
+const BW64: &str =
+    "https://www.itu.int/dms_pubrec/itu-r/rec/bs/R-REC-BS.2088-2-202511-I%21%21PDF-E.pdf";
 
 const fn id3(text: &'static str) -> Doc {
     Doc::new(text).cite("ID3v2.4.0", ID3)
@@ -39,6 +42,14 @@ const fn bwf(text: &'static str) -> Doc {
     Doc::new(text).cite("EBU Tech 3285, Broadcast Wave Format", BWF)
 }
 
+const fn rf64(text: &'static str) -> Doc {
+    Doc::new(text).cite("EBU Tech 3306, RF64", RF64)
+}
+
+const fn bw64(text: &'static str) -> Doc {
+    Doc::new(text).cite("ITU-R BS.2088-2, BW64", BW64)
+}
+
 const fn damage(text: &'static str) -> Doc {
     Doc::new(text).concern(Concern::Damage)
 }
@@ -50,7 +61,71 @@ const fn oddity(text: &'static str) -> Doc {
 const TABLE: Table = &[
     (
         "WAV audio",
-        riff("A RIFF/WAVE recording. This view reads its chunks and supported metadata but does not decode or play the sound."),
+        riff("A RIFF/WAVE recording. A clean copy can remove fully checked INFO and Broadcast Wave metadata chunks while leaving its format and audio data unchanged; the sound is not decoded or played."),
+    ),
+    (
+        "RF64/WAVE audio",
+        rf64("A read-only RF64/WAVE recording with 64-bit sizes from its required ds64 chunk; supported metadata is read without decoding audio, and unsupported chunks make the result partial."),
+    ),
+    (
+        "RF64 ds64 chunk",
+        rf64("The mandatory RF64 ds64 chunk provides the 64-bit form size, data size, sample count and optional table of additional chunk sizes."),
+    ),
+    (
+        "RF64 fmt chunk",
+        rf64("The RF64 format chunk describes audio encoding, channel count, sample rate and sample layout."),
+    ),
+    (
+        "RF64 data chunk",
+        rf64("The RF64 audio data chunk. Its declared size is resolved from ds64 when the 32-bit size field is 0xFFFFFFFF; audio is not decoded or played."),
+    ),
+    (
+        "RF64 * chunk",
+        rf64("A chunk in the RF64/WAVE form. Its label, size and byte range are shown; unsupported chunk contents remain unread."),
+    ),
+    (
+        "BW64/WAVE audio",
+        bw64("A read-only BW64/WAVE recording with 64-bit sizes from its required ds64 chunk; this view reads supported metadata without decoding audio or interpreting XML and channel metadata chunks."),
+    ),
+    (
+        "BW64 ds64 chunk",
+        bw64("The mandatory BW64 ds64 chunk provides the 64-bit form and data sizes, reserved compatibility fields and an optional table of additional chunk sizes."),
+    ),
+    (
+        "BW64 fmt chunk",
+        bw64("The BW64 format chunk describes audio encoding, channel count, sample rate and sample layout."),
+    ),
+    (
+        "BW64 data chunk",
+        bw64("The BW64 audio data chunk. Its declared size is resolved from ds64 when the 32-bit size field is 0xFFFFFFFF; audio is not decoded or played."),
+    ),
+    (
+        "BW64 * chunk",
+        bw64("A chunk in the BW64/WAVE form. Its label, size and byte range are shown; unsupported chunk contents remain unread."),
+    ),
+    (
+        "RIFX/WAVE audio",
+        riff("A big-endian RIFX/WAVE recording. Hexscope reads the supported chunk structure and metadata fields without decoding or playing audio. RIFX remains read-only."),
+    ),
+    (
+        "RIFX fmt chunk",
+        riff("The big-endian RIFX format chunk describes the audio encoding, channel count, sample rate and sample layout."),
+    ),
+    (
+        "RIFX data chunk",
+        riff("The RIFX/WAVE audio data chunk. Its bytes are counted but are not decoded or played."),
+    ),
+    (
+        "RIFX LIST/INFO chunk",
+        riff("The big-endian RIFX INFO list is read as metadata, but stays read-only; other list contents remain unchecked."),
+    ),
+    (
+        "RIFX bext chunk",
+        bwf("Selected Broadcast Wave fields are read from this big-endian RIFX chunk. The format remains read-only."),
+    ),
+    (
+        "RIFX * chunk",
+        riff("A chunk in the big-endian RIFX/WAVE form; its label and byte range are shown in the structure map."),
     ),
     (
         "WAVE fmt chunk",
@@ -62,11 +137,11 @@ const TABLE: Table = &[
     ),
     (
         "WAVE LIST* chunk",
-        riff("A RIFF list groups related chunks. This view inspects INFO text and labels other list contents as unchecked."),
+        riff("A RIFF list groups related chunks. INFO text is inspected and removed in a clean copy; other list contents remain unchecked and prevent cleaning."),
     ),
     (
         "WAVE bext chunk",
-        bwf("Broadcast Wave metadata can include a description, originator, date, sample reference and coding history."),
+        bwf("Broadcast Wave metadata can include a description, originator, date, sample reference and coding history. A clean copy removes the whole chunk, including sample timing, loudness values and coding history."),
     ),
     (
         "WAVE * chunk",

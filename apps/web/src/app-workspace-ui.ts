@@ -1,4 +1,4 @@
-import { AlignLeft, Archive, Binary, Ellipsis, Eye, FileText, FolderOpen, GitCompare, ListTree, Map as MapIcon, createElement } from "lucide";
+import { AlignLeft, Binary, Ellipsis, Eye, FileText, FolderOpen, GitCompare, ListTree, Map as MapIcon, Play, createElement } from "lucide";
 import { dismissable } from "./dialogs";
 import { currentLocale, translateText } from "./i18n";
 
@@ -10,7 +10,7 @@ const icons = {
   files: FolderOpen,
   structure: ListTree,
   bytes: Binary,
-  compression: Archive,
+  compression: Play,
   compare: GitCompare,
   more: Ellipsis,
 };

@@ -18,6 +18,12 @@ export function hasCleanableAudioTags(
       && labels.includes("audio frames (not decoded)")
       && (labels.includes("FLAC Vorbis comments block") || labels.includes("FLAC picture block"));
   }
+  if (format === "wav") {
+    return metadataComplete
+      && labels.includes("WAVE fmt chunk")
+      && labels.includes("WAVE data chunk")
+      && (labels.includes("WAVE LIST/INFO chunk") || labels.includes("WAVE bext chunk"));
+  }
   const vorbisComments = labels.filter((label) => label === "Vorbis comment packet").length;
   const vorbisSetups = labels.filter((label) => label === "Vorbis setup packet (not decoded)").length;
   return format === "ogg"

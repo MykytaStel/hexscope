@@ -103,7 +103,7 @@ test("the support page offers ways to help, and every guide ends with a way to w
     await expect(way).toHaveAttribute("target", "_blank");
     await expect(way).toHaveAttribute("rel", "noopener noreferrer");
   }
-  await expect(page.locator(".story-text .num")).toHaveText(["1", "2", "3"]);
+  await expect(page.locator(".story-text .num")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "write here" })).toBeVisible();
   // A full stop after a link stays a full stop.
   await expect(page.locator(".story-text")).toContainText("github.com/MykytaStel/hexscope.");

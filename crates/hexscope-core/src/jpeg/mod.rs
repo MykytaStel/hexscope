@@ -36,6 +36,17 @@ pub struct JpegDocument {
 /// The label of a picture an MPF index lists after the main one.
 pub const LISTED_PICTURE: &str = "picture listed in the MPF index";
 
+#[derive(Clone, Copy)]
+struct IccFragment {
+    node: NodeId,
+    sequence: u8,
+    total: u8,
+    data: ByteRange,
+    segment: ByteRange,
+}
+
+const MAX_ICC_FRAGMENTS: usize = 255;
+
 fn marker_name(m: u8) -> String {
     match m {
         0xC4 => "DHT".into(),
@@ -163,6 +174,7 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
     }
 
     let mut saw_eoi = false;
+    let mut icc_fragments = Vec::new();
     while r.remaining() > 0 {
         let start = r.pos();
         let Ok(first) = r.u8() else { break };
@@ -302,6 +314,59 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
             depth,
         );
 
+        if marker == 0xE2 && app_kind(payload) == Some("ICC") {
+            if payload.len() < 14 {
+                tree.error(
+                    node,
+                    "ICC APP2 fragment is shorter than its sequence header",
+                    ByteRange::new(payload_start, payload.len() as u64),
+                );
+            } else {
+                let sequence = payload[12];
+                let total = payload[13];
+                let segment_range = ByteRange::new(start, r.pos() - start);
+                if sequence == 0 || total == 0 || sequence > total {
+                    tree.error(
+                        node,
+                        "ICC APP2 fragment has an invalid sequence number",
+                        ByteRange::new(payload_start + 12, 2),
+                    );
+                } else {
+                    tree.add(
+                        Some(node),
+                        "fragment sequence",
+                        ByteRange::new(payload_start + 12, 2),
+                        NodeKind::Field,
+                        Some(Value::Text(format!("{sequence}/{total}"))),
+                    );
+                    let fragment =
+                        ByteRange::new(payload_start + 14, payload.len().saturating_sub(14) as u64);
+                    tree.add(
+                        Some(node),
+                        "profile fragment",
+                        fragment,
+                        NodeKind::Field,
+                        Some(Value::Bytes(fragment.len)),
+                    );
+                    if icc_fragments.len() < MAX_ICC_FRAGMENTS {
+                        icc_fragments.push(IccFragment {
+                            node,
+                            sequence,
+                            total,
+                            data: fragment,
+                            segment: segment_range,
+                        });
+                    } else {
+                        tree.warning(
+                            node,
+                            "ICC APP2 fragment count exceeds the inspection limit",
+                            segment_range,
+                        );
+                    }
+                }
+            }
+        }
+
         if marker == 0xDA {
             // Scan data follows SOS, unframed: it ends at the first marker
             // that is neither a stuffed 0xFF (FF 00) nor a restart marker.
@@ -321,6 +386,8 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
             );
         }
     }
+
+    inspect_icc_fragments(&mut tree, root, data, &icc_fragments);
 
     if !saw_eoi {
         tree.warning(
@@ -349,6 +416,146 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
 
     doc.tree = tree;
     doc
+}
+
+/// JPEG ICC profiles are split among ordered APP2 segments. Reassemble only
+/// a complete, consistent set, while keeping each fragment's source range.
+fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts: &[IccFragment]) {
+    let Some(first) = parts.first() else { return };
+    let total = first.total as usize;
+    if total == 0 || total > MAX_ICC_FRAGMENTS {
+        return;
+    }
+    let mut ordered = vec![None; total];
+    let mut invalid = false;
+    for part in parts {
+        if part.total as usize != total {
+            tree.warning(
+                part.node,
+                "ICC APP2 fragments disagree about the total count",
+                part.segment,
+            );
+            invalid = true;
+            continue;
+        }
+        let slot = &mut ordered[part.sequence as usize - 1];
+        if slot.is_some() {
+            tree.warning(
+                part.node,
+                "duplicate ICC APP2 fragment sequence",
+                part.segment,
+            );
+            invalid = true;
+        } else {
+            *slot = Some(*part);
+        }
+    }
+    if invalid || ordered.iter().any(Option::is_none) {
+        let start = parts
+            .iter()
+            .map(|p| p.segment.start)
+            .min()
+            .unwrap_or(first.segment.start);
+        let end = parts
+            .iter()
+            .map(|p| p.segment.end())
+            .max()
+            .unwrap_or(first.segment.end());
+        tree.warning(
+            root,
+            "ICC profile is incomplete or has conflicting APP2 fragments",
+            ByteRange::new(start, end.saturating_sub(start)),
+        );
+        return;
+    }
+
+    let ordered: Vec<IccFragment> = ordered.into_iter().flatten().collect();
+    let Some(total_bytes) = ordered.iter().try_fold(0usize, |n, p| {
+        usize::try_from(p.data.len)
+            .ok()
+            .and_then(|len| n.checked_add(len))
+    }) else {
+        return;
+    };
+    if total_bytes > crate::icc::MAX_PROFILE_BYTES {
+        let start = ordered.iter().map(|p| p.segment.start).min().unwrap_or(0);
+        let end = ordered
+            .iter()
+            .map(|p| p.segment.end())
+            .max()
+            .unwrap_or(start);
+        tree.add(
+            Some(root),
+            "profile inspection limit",
+            ByteRange::new(start, end.saturating_sub(start)),
+            NodeKind::Field,
+            Some(Value::U64(total_bytes as u64)),
+        );
+        return;
+    }
+
+    let mut profile = Vec::with_capacity(total_bytes);
+    let mut pieces = Vec::with_capacity(ordered.len());
+    let mut profile_at = 0u64;
+    for part in &ordered {
+        let Ok(start) = usize::try_from(part.data.start) else {
+            return;
+        };
+        let Ok(end) = usize::try_from(part.data.end()) else {
+            return;
+        };
+        let Some(bytes) = file.get(start..end) else {
+            tree.error(part.node, "ICC APP2 fragment runs past the file", part.data);
+            return;
+        };
+        pieces.push((profile_at, profile_at + bytes.len() as u64, part.data));
+        profile.extend_from_slice(bytes);
+        profile_at += bytes.len() as u64;
+    }
+
+    let source_start = ordered.iter().map(|p| p.segment.start).min().unwrap_or(0);
+    let source_end = ordered
+        .iter()
+        .map(|p| p.segment.end())
+        .max()
+        .unwrap_or(source_start);
+    tree.add(
+        Some(root),
+        "ICC fragment source map",
+        ByteRange::new(source_start, source_end.saturating_sub(source_start)),
+        NodeKind::Field,
+        Some(Value::Text(format!("{} × APP2", ordered.len()))),
+    );
+    let source = ByteRange::new(source_start, source_end.saturating_sub(source_start));
+    crate::icc::add_profile(tree, root, &profile, source, &mut |offset, len| {
+        let end = offset.saturating_add(len);
+        if len == 0 {
+            for (logical_start, logical_end, source_part) in &pieces {
+                if *logical_start <= offset && offset <= *logical_end {
+                    return ByteRange::new(
+                        source_part.start + offset.saturating_sub(*logical_start),
+                        0,
+                    );
+                }
+            }
+            return ByteRange::new(source_start, 0);
+        }
+        let (mut file_start, mut file_end) = (u64::MAX, 0u64);
+        for (logical_start, logical_end, source_part) in &pieces {
+            let overlap_start = offset.max(*logical_start);
+            let overlap_end = end.min(*logical_end);
+            if overlap_start >= overlap_end {
+                continue;
+            }
+            file_start = file_start.min(source_part.start + overlap_start - *logical_start);
+            file_end = file_end.max(source_part.start + overlap_end - *logical_start);
+        }
+        if file_start == u64::MAX {
+            ByteRange::new(source_start, 0)
+        } else {
+            ByteRange::new(file_start, file_end.saturating_sub(file_start))
+        }
+    });
 }
 
 /// A gain map is a JPEG of its own. Read its metadata too, below the indexed

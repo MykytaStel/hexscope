@@ -123,6 +123,12 @@ body.story {
   gap: 10px;
 }
 
+.story-cta > .btn {
+  min-height: var(--control-height);
+  height: var(--control-height);
+  padding-inline: 16px;
+}
+
 .story-foot {
   color: var(--faint);
   font-size: 13.5px;

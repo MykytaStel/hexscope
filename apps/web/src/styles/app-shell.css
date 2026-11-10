@@ -43,8 +43,7 @@
   color: var(--text);
 }
 
-.app-nav button[aria-current="page"],
-.app-nav button[aria-pressed="true"] {
+.app-nav button[aria-current="page"] {
   border-color: var(--border);
   border-left-color: var(--text);
   background: var(--panel-2);
@@ -59,6 +58,33 @@
 .app-nav button:disabled {
   color: var(--faint);
   cursor: not-allowed;
+}
+
+.app-nav-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-nav-heading {
+  margin: 8px 10px 2px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.app-nav-primary > .app-nav-heading {
+  margin-top: 0;
+}
+
+.app-nav-inspection,
+.app-nav-tools {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .app-nav-more {
@@ -344,6 +370,37 @@
     flex: 0 0 17px;
   }
 
+  .app-nav-group {
+    display: contents;
+  }
+
+  .app-nav-heading {
+    display: none;
+  }
+
+  .app-nav-more-actions .app-nav-group {
+    display: grid;
+    gap: 4px;
+  }
+
+  .app-nav-more-actions .app-nav-heading {
+    display: block;
+    margin: 8px 8px 2px;
+  }
+
+  .app-nav-more-actions .app-nav-inspection {
+    margin: 0;
+    padding: 0 0 8px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-nav-more-actions .app-nav-tools {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
   .app-nav button[aria-current="page"],
   .app-nav-more > summary[aria-current="page"] {
     border-color: transparent;
@@ -488,6 +545,18 @@
 body[data-state="ready"][data-app-view="metadata"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveals),
 body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups, .metadata-summary) {
+  display: none;
+}
+
+/* Content is its own focused page: show what the file contains, without
+   repeating the verdict, metadata table, cleanup advice, or technical map. */
+body[data-state="ready"][data-app-view="content"] .drawer-file > :not(.overview-flow),
+body[data-state="ready"][data-app-view="content"] .overview-flow > :not(.reveals),
+body[data-state="ready"][data-app-view="content"] .reveals > .metadata-groups,
+body[data-state="ready"][data-app-view="content"] .reveals > .cleaner,
+body[data-state="ready"][data-app-view="content"] .reveals > .blackout-open,
+body[data-state="ready"][data-app-view="content"] .reveals > .advice,
+body[data-state="ready"][data-app-view="content"] .reveals > .sharer {
   display: none;
 }
 

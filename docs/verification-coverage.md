@@ -34,6 +34,7 @@ file, such as a photo in a document, is not covered.
 | `mp3` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, comment, audio-tag |
 | `flac` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
 | `ogg` | title, artist, album, album-artist, year, track, disc, genre, composer, encoder, organization, location, comment, audio-tag |
+| `wav` | title, artist, album, description, copyright, created, software, engineer, keywords, subject, place, track, audio-tag, originator, broadcast-reference, history |
 <!-- coverage:end -->
 
 Why each row can be trusted:
@@ -98,6 +99,14 @@ Why each row can be trusted:
   checked through each final page, up to 4,096 pages. Interleaved streams,
   unsupported codecs and incomplete files remain read-only; audio packets are
   not decoded.
+- **WAV**: complete `LIST/INFO` and whole `bext` chunks are removed only after
+  the RIFF/WAVE structure and supported metadata are fully read. The `fmt ` and
+  `data` chunks stay byte for byte. Removing `bext` also removes its broadcast
+  time references, loudness values and coding history. Unknown chunks, other
+  `LIST` types, partial metadata, RIFX, RF64 and BW64 remain read-only; audio
+  is not decoded or re-encoded. RIFX has a separate big-endian structural
+  reader, while RF64/BW64 read the mandatory `ds64` size fields and bounded
+  chunk table. All three remain outside the verified WAV-removal contract.
 - **Every other format, finding, or scope**: none. A finding still observed in
   the copy is **Still present**; absent but uncovered, it is **Not checked**,
   as is anything from an incomplete read.

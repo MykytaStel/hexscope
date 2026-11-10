@@ -163,6 +163,7 @@ test("an MP3 file loads its parser, links the tag to its bytes, and confirms the
   await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.getByRole("heading", { name: "What this audio file reveals" })).toBeVisible();
   await page.getByRole("button", { name: "Metadata", exact: true }).click();
+  await page.locator("#drawer .metadata-additional-details > summary").click();
   await expect(page.getByRole("button", { name: "song" })).toBeVisible();
   await page.getByRole("button", { name: "Overview", exact: true }).click();
   await expect(page.locator(".verdict-cta")).toBeVisible();
@@ -187,6 +188,7 @@ test("stacked MP3 tags are both read and the clean copy removes both", async ({ 
 
   await expect(page.locator(".verdict-title")).toBeVisible();
   await page.getByRole("button", { name: "Metadata", exact: true }).click();
+  await page.locator("#drawer .metadata-additional-details > summary").click();
   await expect(page.getByRole("button", { name: "first title" })).toBeVisible();
   await expect(page.getByRole("button", { name: "second title" })).toBeVisible();
   await page.getByRole("button", { name: "Overview", exact: true }).click();

@@ -65,18 +65,27 @@
 
     <main class="layout">
       <nav class="app-nav" id="app-nav" aria-label="File workspace" hidden>
-        <button type="button" data-app-view="overview" aria-current="page">Overview</button>
-        <button type="button" data-app-view="metadata">Metadata</button>
-        <button type="button" data-app-view="content">Content</button>
-        <button type="button" data-app-view="map">File map</button>
-        <button type="button" data-app-view="files" hidden>Files</button>
-        <button type="button" data-app-view="structure">Structure</button>
-        <button type="button" data-app-view="bytes">Bytes</button>
+        <div class="app-nav-group app-nav-primary" role="group" aria-label="File views">
+          <span class="app-nav-heading" aria-hidden="true">File</span>
+          <button type="button" data-app-view="overview" aria-current="page">Overview</button>
+          <button type="button" data-app-view="metadata">Metadata</button>
+          <button type="button" data-app-view="content">Content</button>
+          <button type="button" data-app-view="map">File map</button>
+          <button type="button" data-app-view="files" hidden>Files</button>
+        </div>
         <details class="app-nav-more">
           <summary data-app-action="more">More</summary>
           <div class="app-nav-more-actions">
-            <button type="button" data-app-action="compression" disabled>Compression</button>
-            <button type="button" data-app-action="compare">Compare</button>
+            <div class="app-nav-group app-nav-inspection" role="group" aria-label="Inspect">
+              <span class="app-nav-heading" aria-hidden="true">Inspect</span>
+              <button type="button" data-app-view="structure">Structure</button>
+              <button type="button" data-app-view="bytes">Bytes</button>
+            </div>
+            <div class="app-nav-group app-nav-tools" role="group" aria-label="Tools">
+              <span class="app-nav-heading" aria-hidden="true">Tools</span>
+              <button type="button" data-app-action="compression">Compression</button>
+              <button type="button" data-app-action="compare">Compare</button>
+            </div>
           </div>
         </details>
       </nav>
@@ -332,9 +341,10 @@
             <h3 id="format-video-title">Video &amp; audio</h3>
             <ul class="format-tags" aria-label="Video and audio formats">
               <li><code>MP4</code></li><li><code>QuickTime</code></li><li><code>MOV</code></li><li><code>M4V</code></li>
-              <li><code>WAV</code></li><li><code>MP3</code></li><li><code>FLAC</code></li><li><code>Ogg Vorbis / Opus</code></li>
+              <li><code>WAV</code></li><li><code>RIFX</code></li><li><code>RF64</code></li><li><code>BW64</code></li>
+              <li><code>MP3</code></li><li><code>FLAC</code></li><li><code>Ogg Vorbis / Opus</code></li>
             </ul>
-            <p class="format-category-note">WAV, MP3, FLAC and Ogg tags only; audio is not played.</p>
+            <p class="format-category-note">WAV, RIFX, RF64, BW64, MP3, FLAC and Ogg tags only; audio is not played.</p>
           </section>
           <section class="format-category" aria-labelledby="format-documents-title">
             <h3 id="format-documents-title">Documents &amp; Office</h3>

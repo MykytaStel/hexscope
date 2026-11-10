@@ -156,8 +156,23 @@ pub(crate) fn glob(pattern: &str, label: &str) -> bool {
 /// What node `id` is. Problems always get an answer, a generic one if their
 /// format has nothing specific; other nodes get one when their format knows
 /// them.
+fn inside_icc_profile(tree: &ParseTree, id: NodeId) -> bool {
+    std::iter::successors(Some(id), |&parent| tree.try_get(parent)?.parent).any(|ancestor| {
+        tree.try_get(ancestor)
+            .is_some_and(|node| node.label == "ICC profile")
+    })
+}
+
 pub fn describe(tree: &ParseTree, id: NodeId, format: Format) -> Option<Doc> {
-    specific(tree, id, format).or_else(|| generic(tree.try_get(id)?.kind))
+    let node = tree.try_get(id)?;
+    let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
+    let in_icc_profile = inside_icc_profile(tree, id);
+    let format_doc = if in_icc_profile {
+        crate::icc::docs::describe(&node.label, problem).or_else(|| specific(tree, id, format))
+    } else {
+        specific(tree, id, format).or_else(|| crate::icc::docs::describe(&node.label, problem))
+    };
+    format_doc.or_else(|| generic(node.kind))
 }
 
 /// The format's own explanation, without the generic fallback.
@@ -169,6 +184,11 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         .map(|p| p.label.as_str());
     let label = node.label.as_str();
     let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
+    if inside_icc_profile(tree, id)
+        && let Some(doc) = crate::icc::docs::describe(label, problem)
+    {
+        return Some(doc);
+    }
     match format {
         Format::Png => crate::png::docs::describe(label, parent, problem).or_else(|| {
             // Inside eXIf, the EXIF tables explain the TIFF block.
@@ -251,6 +271,7 @@ pub fn every() -> Vec<(&'static str, Doc)> {
         ("media", crate::png::docs::EVERY),
         ("media", crate::heif::docs::EVERY),
         ("media", crate::webp::docs::EVERY),
+        ("media", crate::icc::docs::EVERY),
         ("media", crate::gif::docs::EVERY),
         ("media", crate::video::docs::EVERY),
         ("media", crate::svg::docs::EVERY),

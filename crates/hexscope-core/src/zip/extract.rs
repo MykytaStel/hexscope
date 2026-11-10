@@ -4,12 +4,18 @@
 use super::ZipEntry;
 use crate::crc32::crc32;
 use crate::inflate::{InflateError, NoTrace, inflate};
+#[cfg(any(feature = "zip-bzip2", feature = "zip-zstd"))]
+use std::io::Read;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtractError {
     /// A compression method this tool does not decompress.
     Unsupported(u16),
     Encrypted,
+    /// The BZIP2 stream is malformed or truncated.
+    Bzip2,
+    /// The Zstandard stream is malformed, truncated, or exceeds its window limit.
+    Zstd,
     /// The entry's data runs past the end of the file.
     OutOfRange,
     Inflate(InflateError),
@@ -63,6 +69,10 @@ pub fn extract_compressed(
             InflateError::OutputTooLarge => ExtractError::TooLarge,
             e => ExtractError::Inflate(e),
         })?,
+        #[cfg(feature = "zip-bzip2")]
+        12 => inflate_bzip2(bytes, limit)?,
+        #[cfg(feature = "zip-zstd")]
+        93 => inflate_zstd(bytes, limit)?,
         m => return Err(ExtractError::Unsupported(m)),
     };
     let actual_size = out.len() as u64;
@@ -78,6 +88,103 @@ pub fn extract_compressed(
             stored: entry.crc32,
             actual,
         });
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "zip-bzip2")]
+fn inflate_bzip2(bytes: &[u8], limit: u64) -> Result<Vec<u8>, ExtractError> {
+    let mut decoder = bzip2_rs::DecoderReader::new(bytes);
+    let mut out = Vec::new();
+    let mut chunk = [0; 8192];
+    loop {
+        let n = decoder.read(&mut chunk).map_err(|_| ExtractError::Bzip2)?;
+        if n == 0 {
+            break;
+        }
+        if (out.len() as u64)
+            .checked_add(n as u64)
+            .is_none_or(|next| next > limit)
+        {
+            return Err(ExtractError::TooLarge);
+        }
+        out.extend_from_slice(&chunk[..n]);
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "zip-zstd")]
+fn inflate_zstd(bytes: &[u8], limit: u64) -> Result<Vec<u8>, ExtractError> {
+    use ruzstd::decoding::{
+        BlockDecodingStrategy, FrameDecoder,
+        errors::{FrameDecoderError, ReadFrameHeaderError},
+    };
+    use ruzstd::io::Read as _;
+    use std::io::Cursor;
+
+    if bytes.is_empty() {
+        return Err(ExtractError::Zstd);
+    }
+
+    let mut source = Cursor::new(bytes);
+    let mut decoder = FrameDecoder::new();
+    let mut out = Vec::new();
+    let mut chunk = [0; 8192];
+    let mut saw_frame = false;
+
+    while source.position() < bytes.len() as u64 {
+        match decoder.reset(&mut source) {
+            Ok(()) => saw_frame = true,
+            Err(FrameDecoderError::ReadFrameHeaderError(ReadFrameHeaderError::SkipFrame {
+                length,
+                ..
+            })) => {
+                let end = source
+                    .position()
+                    .checked_add(u64::from(length))
+                    .filter(|end| *end <= bytes.len() as u64)
+                    .ok_or(ExtractError::Zstd)?;
+                source.set_position(end);
+                continue;
+            }
+            Err(_) => return Err(ExtractError::Zstd),
+        }
+
+        loop {
+            let position_before = source.position();
+            let blocks_before = decoder.blocks_decoded();
+            if !decoder.is_finished() {
+                decoder
+                    .decode_blocks(&mut source, BlockDecodingStrategy::UptoBlocks(1))
+                    .map_err(|_| ExtractError::Zstd)?;
+            }
+
+            let n = decoder.read(&mut chunk).map_err(|_| ExtractError::Zstd)?;
+            if n > 0 {
+                if (out.len() as u64)
+                    .checked_add(n as u64)
+                    .is_none_or(|next| next > limit)
+                {
+                    return Err(ExtractError::TooLarge);
+                }
+                out.extend_from_slice(&chunk[..n]);
+            }
+
+            if decoder.is_finished() && decoder.can_collect() == 0 {
+                break;
+            }
+            if n == 0
+                && !decoder.is_finished()
+                && source.position() == position_before
+                && decoder.blocks_decoded() == blocks_before
+            {
+                return Err(ExtractError::Zstd);
+            }
+        }
+    }
+
+    if !saw_frame {
+        return Err(ExtractError::Zstd);
     }
     Ok(out)
 }
@@ -161,7 +268,7 @@ mod tests {
     fn refuses_what_it_cannot_or_should_not_extract() {
         let mut a = archive();
         a.entries[0].flags = 1;
-        a.entries[1].method = 12;
+        a.entries[1].method = 14;
         let b = build(&a);
         let doc = parse_zip(&b.bytes);
         assert_eq!(
@@ -170,7 +277,7 @@ mod tests {
         );
         assert_eq!(
             extract(&b.bytes, &doc.entries[1], u64::MAX),
-            Err(ExtractError::Unsupported(12))
+            Err(ExtractError::Unsupported(14))
         );
         assert_eq!(
             extract(&b.bytes, &doc.entries[2], 100),

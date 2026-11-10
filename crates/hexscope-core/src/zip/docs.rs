@@ -10,9 +10,13 @@ use crate::docs::{Concern, Doc, Table, lookup};
 use crate::model::{Node, ParseTree};
 
 const APPNOTE: &str = "https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT";
+const WINZIP_AES: &str = "https://www.winzip.com/en/support/aes-encryption/";
 
 const fn zip(text: &'static str, cite: &'static str) -> Doc {
     Doc::new(text).cite(cite, APPNOTE)
+}
+const fn aes(text: &'static str) -> Doc {
+    Doc::new(text).cite("WinZip AES specification", WINZIP_AES)
 }
 const fn damage(text: &'static str) -> Doc {
     Doc::new(text).concern(Concern::Damage)
@@ -196,9 +200,76 @@ const PARTS: Table = &[
     ),
     (
         "AES encryption",
-        zip(
-            "WinZip's AES encryption settings for this file.",
-            "APPNOTE 4.6.1",
+        aes(
+            "WinZip AES parameters. The actual compression method is listed here, but encrypted file data is not decrypted.",
+        ),
+    ),
+    (
+        "AES vendor version",
+        aes(
+            "WinZip AES version: AE-1 stores the usual CRC; AE-2 stores zero in its place and checks an authentication code during decryption.",
+        ),
+    ),
+    (
+        "AES vendor ID",
+        aes("The two-byte vendor identifier. The WinZip AES format uses AE."),
+    ),
+    (
+        "AES key strength",
+        aes("The AES key size code: 1 is 128 bits, 2 is 192 bits, and 3 is 256 bits."),
+    ),
+    (
+        "AES compression method",
+        aes(
+            "The compression method used before encryption; method 99 in the main ZIP header only marks AES encryption.",
+        ),
+    ),
+    (
+        "AES extension data not inspected",
+        aes("Bytes after the defined AES fields are kept visible but are not interpreted."),
+    ),
+    (
+        "AES extra field is shorter than the defined fields",
+        damage(
+            "The AES extra field is too short to read its version, vendor, strength and compression method.",
+        ),
+    ),
+    (
+        "AES method has no readable AES extra field",
+        damage(
+            "The ZIP method says AES is used, but the AES details are absent or too short to read.",
+        ),
+    ),
+    (
+        "AES extra field disagrees with the entry method or encryption flag",
+        oddity(
+            "The AES details are present, but the main header does not mark the entry as encrypted method 99.",
+        ),
+    ),
+    (
+        "AES parameters differ from the central directory's",
+        hidden(
+            "The local header and directory disagree about how this file is encrypted or compressed.",
+        ),
+    ),
+    (
+        "AES vendor ID is not AE",
+        oddity("The vendor identifier differs from the AE value used by the WinZip AES format."),
+    ),
+    (
+        "AES vendor version is not AE-1 or AE-2",
+        oddity("The AES version is outside the AE-1 and AE-2 variants this view recognizes."),
+    ),
+    (
+        "AES key strength is not 128, 192 or 256 bits",
+        oddity(
+            "The AES key-strength code is outside the three values defined by the WinZip AES format.",
+        ),
+    ),
+    (
+        "multiple AES extra fields",
+        oddity(
+            "More than one AES settings field is present, so the archive's intended parameters are unclear.",
         ),
     ),
     (

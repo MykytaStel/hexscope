@@ -183,6 +183,7 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
             b"pHYs" => decode_phys(&chunk, &mut tree, node),
             b"gAMA" => decode_gama(&chunk, &mut tree, node),
             b"tRNS" => decode_trns(&chunk, &mut tree, node, ihdr.map(|h| h.color_type)),
+            b"iCCP" => decode_iccp(&chunk, &mut tree, node),
             b"IDAT" => {
                 idat.extend_from_slice(chunk.data);
                 idat_ranges.push(chunk.data_range);
@@ -231,6 +232,131 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
             exif
         },
     }
+}
+
+/// Reads the PNG's keyword and zlib-compressed ICC profile. The inflated
+/// offsets are virtual, so profile fields point back to the compressed span.
+fn decode_iccp(chunk: &crate::png::chunks::Chunk, tree: &mut ParseTree, parent: NodeId) {
+    let Some(name_end) = chunk.data.iter().position(|&byte| byte == 0) else {
+        tree.error(
+            parent,
+            "iCCP profile name is not terminated",
+            chunk.data_range,
+        );
+        return;
+    };
+    let name = &chunk.data[..name_end];
+    let name_range = ByteRange::new(chunk.data_range.start, name_end as u64);
+    // PNG keywords use Latin-1 bytes rather than UTF-8.
+    let profile_name: String = name.iter().map(|&byte| char::from(byte)).collect();
+    tree.add(
+        Some(parent),
+        "profile name",
+        name_range,
+        NodeKind::Field,
+        Some(Value::Text(profile_name)),
+    );
+    if !valid_iccp_name(name) {
+        tree.warning(parent, "iCCP profile name is invalid", name_range);
+    }
+
+    let method_at = name_end + 1;
+    let Some(&method) = chunk.data.get(method_at) else {
+        tree.error(
+            parent,
+            "iCCP compression method is missing",
+            ByteRange::new(chunk.data_range.end(), 0),
+        );
+        return;
+    };
+    let method_range = ByteRange::new(chunk.data_range.start + method_at as u64, 1);
+    tree.add(
+        Some(parent),
+        "compression method",
+        method_range,
+        if method == 0 {
+            NodeKind::Field
+        } else {
+            NodeKind::Warning
+        },
+        Some(Value::Enum {
+            raw: method as u64,
+            name: if method == 0 { "zlib" } else { "undefined" },
+        }),
+    );
+    if method != 0 {
+        return;
+    }
+
+    let compressed_at = method_at + 1;
+    let compressed = &chunk.data[compressed_at..];
+    let compressed_range = ByteRange::new(
+        chunk.data_range.start + compressed_at as u64,
+        compressed.len() as u64,
+    );
+    if compressed.is_empty() {
+        tree.error(parent, "iCCP compressed profile is empty", compressed_range);
+        return;
+    }
+    tree.add(
+        Some(parent),
+        "compressed profile",
+        compressed_range,
+        NodeKind::Field,
+        Some(Value::Bytes(compressed.len() as u64)),
+    );
+    tree.add(
+        Some(parent),
+        "profile source mapping",
+        compressed_range,
+        NodeKind::Field,
+        Some(Value::Text("profile fields refer to inflated bytes".into())),
+    );
+    match crate::inflate::zlib_decompress(
+        compressed,
+        crate::icc::MAX_PROFILE_BYTES as u64,
+        &mut crate::inflate::NoTrace,
+    ) {
+        Ok(profile) => {
+            crate::icc::add_profile(tree, parent, &profile, compressed_range, &mut |_, _| {
+                compressed_range
+            })
+        }
+        Err(crate::inflate::InflateError::OutputTooLarge) => {
+            tree.add(
+                Some(parent),
+                "profile inspection limit",
+                compressed_range,
+                NodeKind::Field,
+                Some(Value::Text("inflated profile is over 16 MiB".into())),
+            );
+        }
+        Err(error) => {
+            let error_node = tree.error(
+                parent,
+                "iCCP profile decompression failed",
+                compressed_range,
+            );
+            tree.add(
+                Some(error_node),
+                "decompression error",
+                compressed_range,
+                NodeKind::Field,
+                Some(Value::Text(format!("{error:?}"))),
+            );
+        }
+    }
+}
+
+fn valid_iccp_name(name: &[u8]) -> bool {
+    !name.is_empty()
+        && name.len() <= 79
+        && name.first() != Some(&b' ')
+        && name.last() != Some(&b' ')
+        && !name.windows(2).any(|pair| pair == b"  ")
+        && name
+            .iter()
+            .all(|&byte| (32..=126).contains(&byte) || byte >= 161)
 }
 
 /// Longest text fact kept, in characters.

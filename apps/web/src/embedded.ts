@@ -133,6 +133,9 @@ const SIGNATURES: Signature[] = [
     end: async (b, i, limit) => Math.min(limit, i + 8 + (b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24))),
   },
   { magic: ascii("RIFF"), what: "a WAV recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
+  { magic: ascii("RIFX"), what: "a big-endian RIFX/WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
+  { magic: ascii("RF64"), what: "an RF64 WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
+  { magic: ascii("BW64"), what: "a BW64 WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
   {
     magic: Uint8Array.of(0x50, 0x4b, 0x03, 0x04),
     what: "a ZIP archive",

@@ -23,6 +23,39 @@ pub(super) struct Zip64Values {
     pub offset: Option<u64>,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct ExtraValues {
+    pub zip64: Zip64Values,
+    pub aes: Option<WinZipAes>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct WinZipAes {
+    pub version: u16,
+    pub vendor: [u8; 2],
+    pub strength: u8,
+    pub method: u16,
+}
+
+impl WinZipAes {
+    pub fn version_name(self) -> &'static str {
+        match self.version {
+            1 => "AE-1",
+            2 => "AE-2",
+            _ => "unknown AES version",
+        }
+    }
+
+    pub fn strength_name(self) -> &'static str {
+        match self.strength {
+            1 => "AES-128",
+            2 => "AES-192",
+            3 => "AES-256",
+            _ => "unknown AES strength",
+        }
+    }
+}
+
 /// Reads fields at a cursor, adding a node for each under `parent`. With
 /// `detail` off, values are still read but no nodes are added: large archives
 /// keep their size in check that way.
@@ -137,13 +170,13 @@ impl Fields<'_, '_> {
         Some(raw.to_vec())
     }
 
-    /// The extra block: a run of (id, size, data) fields. Returns what a
-    /// ZIP64 field held of what `need` asked for.
-    pub fn extra(&mut self, len: u16, need: Zip64Need) -> Option<Zip64Values> {
+    /// The extra block: resolves requested ZIP64 values and reads known AES
+    /// fields while retaining unknown field bytes in the tree.
+    pub fn extra(&mut self, len: u16, need: Zip64Need) -> Option<ExtraValues> {
         let start = self.r.pos();
         let end = start + len as u64;
         let block = self.r.bytes(len as usize).ok()?;
-        let mut found = Zip64Values::default();
+        let mut found = ExtraValues::default();
         if len == 0 {
             return Some(found);
         }
@@ -170,18 +203,104 @@ impl Fields<'_, '_> {
                     .warning(self.parent, "extra field runs past the extra block", range);
                 break;
             };
-            if id == 0x0001 {
-                found = zip64_values(body, need);
+            match id {
+                0x0001 => found.zip64 = zip64_values(body, need),
+                0x9901 if body.len() >= 7 => {
+                    found.aes = Some(WinZipAes {
+                        version: u16::from_le_bytes([body[0], body[1]]),
+                        vendor: [body[2], body[3]],
+                        strength: body[4],
+                        method: u16::from_le_bytes([body[5], body[6]]),
+                    });
+                }
+                _ => {}
             }
             if self.detail {
                 let range = ByteRange::new(at, 4 + size as u64);
-                self.tree.add(
-                    Some(self.parent),
-                    extra_name(id),
-                    range,
-                    NodeKind::Field,
-                    Some(Value::Bytes(size as u64)),
-                );
+                if id == 0x9901 {
+                    let node = self.tree.add(
+                        Some(self.parent),
+                        extra_name(id),
+                        range,
+                        NodeKind::Container,
+                        Some(Value::Bytes(size as u64)),
+                    );
+                    if body.len() < 7 {
+                        self.tree.warning(
+                            node,
+                            "AES extra field is shorter than the defined fields",
+                            ByteRange::new(at + 4, body.len() as u64),
+                        );
+                    } else {
+                        let version = u16::from_le_bytes([body[0], body[1]]);
+                        let vendor = [body[2], body[3]];
+                        let strength = body[4];
+                        let method = u16::from_le_bytes([body[5], body[6]]);
+                        self.tree.add(
+                            Some(node),
+                            "AES vendor version",
+                            ByteRange::new(at + 4, 2),
+                            NodeKind::Field,
+                            Some(Value::Enum {
+                                raw: version as u64,
+                                name: match version {
+                                    1 => "AE-1",
+                                    2 => "AE-2",
+                                    _ => "unknown AES version",
+                                },
+                            }),
+                        );
+                        self.tree.add(
+                            Some(node),
+                            "AES vendor ID",
+                            ByteRange::new(at + 6, 2),
+                            NodeKind::Field,
+                            Some(Value::Text(String::from_utf8_lossy(&vendor).into_owned())),
+                        );
+                        self.tree.add(
+                            Some(node),
+                            "AES key strength",
+                            ByteRange::new(at + 8, 1),
+                            NodeKind::Field,
+                            Some(Value::Enum {
+                                raw: strength as u64,
+                                name: match strength {
+                                    1 => "AES-128",
+                                    2 => "AES-192",
+                                    3 => "AES-256",
+                                    _ => "unknown AES strength",
+                                },
+                            }),
+                        );
+                        self.tree.add(
+                            Some(node),
+                            "AES compression method",
+                            ByteRange::new(at + 9, 2),
+                            NodeKind::Field,
+                            Some(Value::Enum {
+                                raw: method as u64,
+                                name: method_name(method),
+                            }),
+                        );
+                        if body.len() > 7 {
+                            self.tree.add(
+                                Some(node),
+                                "AES extension data not inspected",
+                                ByteRange::new(at + 11, (body.len() - 7) as u64),
+                                NodeKind::Field,
+                                Some(Value::Bytes((body.len() - 7) as u64)),
+                            );
+                        }
+                    }
+                } else {
+                    self.tree.add(
+                        Some(self.parent),
+                        extra_name(id),
+                        range,
+                        NodeKind::Field,
+                        Some(Value::Bytes(size as u64)),
+                    );
+                }
             }
         }
         self.parent = outer;

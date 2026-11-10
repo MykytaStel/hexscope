@@ -35,7 +35,7 @@ export const EXTENSIONS: Record<string, string[]> = {
   mp3: ["mp3"],
   flac: ["flac"],
   ogg: ["ogg", "oga", "opus"],
-  wav: ["wav", "wave"],
+  wav: ["wav", "wave", "rifx", "rf64", "bw64"],
 };
 
 /** A format as a person would name it, and the extension that fits it. */
@@ -56,6 +56,9 @@ const NAMES: Record<string, [string, string]> = {
   rtf: ["a Rich Text document", ".rtf"],
   svg: ["an SVG drawing", ".svg"],
   wav: ["a WAV audio file", ".wav"],
+  rifx: ["a big-endian RIFX/WAVE audio file", ".wav"],
+  rf64: ["an RF64 WAVE audio file", ".wav"],
+  bw64: ["a BW64 WAVE audio file", ".wav"],
 };
 
 /** Documents a ZIP can be, with the extensions that are their own, as naming.rs lists them. */
@@ -96,7 +99,7 @@ export function misfit(m: FileModel): { ext: string; what: string; fits: string 
   if (!claimed) return null;
   // A document in a ZIP is named as what it is: a Word file called .xlsx is misnamed too.
   const kind = f.format === "zip" ? zipKind(m) : undefined;
-  if (claimed === f.format) {
+  if (claimed === f.format || (claimed === "wav" && ["rifx", "rf64", "bw64"].includes(f.format))) {
     const namedAsDocument = ZIP_KINDS.some(([, , exts]) => exts.includes(ext));
     if (!kind || !namedAsDocument || kind[2].includes(ext)) return null;
   }
@@ -241,7 +244,7 @@ export function verdict(m: FileModel): VerdictLine[] {
       node: incompleteForm.node,
     });
   }
-  if (["mp3", "flac", "ogg", "wav"].includes(f.format) && f.metadataComplete === false) {
+  if (["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(f.format) && f.metadataComplete === false) {
     const factNodes = new Set(f.facts.map((fact) => fact.node));
     const error = m.problems.find((id) => m.kind(id) === Kind.Error);
     const warning = m.problems.find((id) => m.kind(id) === Kind.Warning);

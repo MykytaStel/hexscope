@@ -75,6 +75,10 @@ pub(crate) fn extract_message(err: ExtractError) -> String {
         }
         ExtractError::OutOfRange => "its data runs past the end of the file".into(),
         ExtractError::Inflate(e) => format!("its DEFLATE data is damaged ({e:?})"),
+        ExtractError::Bzip2 => "its BZIP2 data is damaged or truncated".into(),
+        ExtractError::Zstd => {
+            "its Zstandard data is damaged, truncated or uses a window this tool cannot read".into()
+        }
         ExtractError::Crc { stored, actual } => {
             format!("its CRC-32 does not match: stored {stored:08X}, computed {actual:08X}")
         }

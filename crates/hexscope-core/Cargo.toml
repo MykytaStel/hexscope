@@ -45,9 +45,16 @@ strings = []
 # WAV, MP3, FLAC and Ogg metadata. Kept separate so small browser builds do
 # not pull in audio parsing unless the audio family is selected.
 audio = []
+# ZIP method 12 (BZIP2) extraction. Kept optional so browser modules can defer
+# the decoder until it can be loaded separately without exceeding their budget.
+zip-bzip2 = ["dep:bzip2-rs"]
+# ZIP method 93 (Zstandard) extraction. Kept optional for the same reason.
+zip-zstd = ["dep:ruzstd"]
 
 [dependencies]
 hexscope-inflate = { path = "../hexscope-inflate", version = "0.17.0" }
+bzip2-rs = { version = "0.1.2", optional = true }
+ruzstd = { version = "0.9.1", optional = true }
 
 [dev-dependencies]
 flate2 = "1"

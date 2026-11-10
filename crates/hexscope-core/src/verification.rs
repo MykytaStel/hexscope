@@ -207,6 +207,27 @@ const MP3_AUDIO: &[&str] = &[
     "audio-tag",
 ];
 
+/// WAV clean copies remove complete INFO and Broadcast Wave chunks only
+/// after the RIFF/WAVE structure and all supported metadata were read.
+const WAV_AUDIO: &[&str] = &[
+    "title",
+    "artist",
+    "album",
+    "description",
+    "copyright",
+    "created",
+    "software",
+    "engineer",
+    "keywords",
+    "subject",
+    "place",
+    "track",
+    "audio-tag",
+    "originator",
+    "broadcast-reference",
+    "history",
+];
+
 /// Canonical clean-copy removal contract shared by the core, Web, and CLI:
 /// each format and the file-scoped findings it covers. Reports outside these
 /// exact combinations remain `present` or `unchecked`.
@@ -225,6 +246,7 @@ pub const VERIFIED_REMOVAL: &[(&str, &[&str])] = &[
     ("mp3", MP3_AUDIO),
     ("flac", AUDIO),
     ("ogg", AUDIO),
+    ("wav", WAV_AUDIO),
 ];
 
 /// Every covered combination, one by one.
@@ -678,7 +700,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             tuples.len(),
-            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14 + 12
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 12 + 14 + 14 + 16
         );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));

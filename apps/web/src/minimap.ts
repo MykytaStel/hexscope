@@ -108,9 +108,9 @@ export class Minimap {
   }
 
   private readTheme(): void {
-    const { v } = themeColors();
-    this.ramp = STOPS.map(([at, name]) => ({ at, color: rgb(v(name)) }));
-    this.marks = { problem: v("--tint-error"), selection: v("--accent"), outline: v("--text") };
+    const { color } = themeColors();
+    this.ramp = STOPS.map(([at, name]) => ({ at, color: rgb(color(name)) }));
+    this.marks = { problem: color("--tint-error"), selection: color("--accent"), outline: color("--text") };
   }
 
   private colorFor(h: number): string {

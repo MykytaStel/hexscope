@@ -23,7 +23,7 @@ use crate::fixed::fixed;
 use crate::model::{ByteRange, NodeId, NodeKind, ParseTree, Value};
 use crate::reader::Reader;
 pub use extract::{ExtractError, extract, extract_compressed};
-use fields::{Fields, Zip64Need, display, method_name};
+use fields::{Fields, WinZipAes, Zip64Need, display, method_name};
 pub use office::DocumentFact;
 
 pub const MAGIC: [u8; 4] = *b"PK\x03\x04";
@@ -220,6 +220,7 @@ struct Central {
     name: Vec<u8>,
     flags: u16,
     method: u16,
+    aes: Option<WinZipAes>,
     crc: u32,
     compressed: u64,
     uncompressed: u64,
@@ -632,7 +633,8 @@ fn read_central(
     let offset_at = f.pos();
     let offset = f.u32("localHeaderOffset")?;
     f.text("name", n)?;
-    let z = f.extra(
+    let extra_at = f.pos();
+    let extra = f.extra(
         x,
         Zip64Need {
             uncompressed: uncomp == u32::MAX,
@@ -640,6 +642,42 @@ fn read_central(
             offset: offset == u32::MAX,
         },
     )?;
+    if method == 99 && extra.aes.is_none() {
+        f.tree.warning(
+            record,
+            "AES method has no readable AES extra field",
+            ByteRange::new(extra_at, x as u64),
+        );
+    } else if extra.aes.is_some() && (method != 99 || flags & 1 == 0) {
+        f.tree.warning(
+            record,
+            "AES extra field disagrees with the entry method or encryption flag",
+            ByteRange::new(extra_at, x as u64),
+        );
+    }
+    if let Some(aes) = extra.aes {
+        if aes.vendor != *b"AE" {
+            f.tree.warning(
+                record,
+                "AES vendor ID is not AE",
+                ByteRange::new(extra_at, x as u64),
+            );
+        }
+        if !matches!(aes.version, 1 | 2) {
+            f.tree.warning(
+                record,
+                "AES vendor version is not AE-1 or AE-2",
+                ByteRange::new(extra_at, x as u64),
+            );
+        }
+        if !matches!(aes.strength, 1..=3) {
+            f.tree.warning(
+                record,
+                "AES key strength is not 128, 192 or 256 bits",
+                ByteRange::new(extra_at, x as u64),
+            );
+        }
+    }
     if c > 0 {
         f.text("comment", c)?;
     }
@@ -649,10 +687,11 @@ fn read_central(
         flags,
         method,
         crc,
-        compressed: z.compressed.unwrap_or(comp as u64),
-        uncompressed: z.uncompressed.unwrap_or(uncomp as u64),
-        zip64: z.compressed.is_some() || z.uncompressed.is_some(),
-        local: z.offset.unwrap_or(offset as u64),
+        aes: extra.aes,
+        compressed: extra.zip64.compressed.unwrap_or(comp as u64),
+        uncompressed: extra.zip64.uncompressed.unwrap_or(uncomp as u64),
+        zip64: extra.zip64.compressed.is_some() || extra.zip64.uncompressed.is_some(),
+        local: extra.zip64.offset.unwrap_or(offset as u64),
         offset_field: ByteRange::new(offset_at, 4),
         record: Some(record),
         record_range: Some(ByteRange::new(at, total)),
@@ -762,7 +801,8 @@ fn add_entry(
     f.u16("extraLength");
     let name_at = f.pos();
     let name = f.text("name", n).unwrap_or_default();
-    let z = f
+    let extra_at = f.pos();
+    let extra = f
         .extra(
             x,
             Zip64Need {
@@ -795,6 +835,26 @@ fn add_entry(
             ByteRange::new(at + 8, 2),
         );
     }
+    if method == 99 && extra.aes.is_none() {
+        tree.warning(
+            header,
+            "AES method has no readable AES extra field",
+            ByteRange::new(extra_at, x as u64),
+        );
+    } else if extra.aes.is_some() && (method != 99 || flags & 1 == 0) {
+        tree.warning(
+            header,
+            "AES extra field disagrees with the entry method or encryption flag",
+            ByteRange::new(extra_at, x as u64),
+        );
+    }
+    if extra.aes != c.aes {
+        tree.warning(
+            header,
+            "AES parameters differ from the central directory's",
+            ByteRange::new(extra_at, x as u64),
+        );
+    }
     let deferred = flags & (1 << 3) != 0;
     if !deferred && crc != c.crc {
         tree.warning(
@@ -804,8 +864,8 @@ fn add_entry(
         );
     }
     let local_sizes = (
-        z.compressed.unwrap_or(comp as u64),
-        z.uncompressed.unwrap_or(uncomp as u64),
+        extra.zip64.compressed.unwrap_or(comp as u64),
+        extra.zip64.uncompressed.unwrap_or(uncomp as u64),
     );
     if !deferred && local_sizes != (c.compressed, c.uncompressed) {
         tree.warning(
@@ -916,6 +976,7 @@ fn scan_local_headers(
             name,
             flags,
             method,
+            aes: None,
             crc,
             compressed: comp as u64,
             uncompressed: uncomp as u64,
@@ -953,6 +1014,29 @@ fn summary(c: &Central) -> String {
     }
     let s = match c.method {
         0 => format!("stored · {}", human(c.uncompressed)),
+        99 => {
+            let aes = c.aes.map_or_else(
+                || "AES parameters unavailable".to_string(),
+                |aes| {
+                    let vendor = String::from_utf8_lossy(&aes.vendor);
+                    let encryption = if aes.vendor == *b"AE" {
+                        format!("WinZip AES {}", aes.version_name())
+                    } else {
+                        format!("AES vendor {vendor} {}", aes.version_name())
+                    };
+                    format!(
+                        "{encryption} · {} · {}",
+                        aes.strength_name(),
+                        method_name(aes.method)
+                    )
+                },
+            );
+            format!(
+                "{aes} · {} → {}",
+                human(c.compressed),
+                human(c.uncompressed)
+            )
+        }
         m => format!(
             "{} · {} → {}",
             method_name(m),

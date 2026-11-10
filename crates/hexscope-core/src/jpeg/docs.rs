@@ -6,6 +6,7 @@ use crate::docs::{Concern, Doc, Table, lookup};
 const T81: &str = "https://www.w3.org/Graphics/JPEG/itu-t81.pdf";
 const JFIF: &str = "https://www.w3.org/Graphics/JPEG/jfif3.pdf";
 const MPF: &str = "https://www.cipa.jp/std/documents/e/DC-X007-KEY_E.pdf";
+const ICC: &str = "https://www.color.org/specifications/ICC.1-2022-05.pdf";
 
 const fn t81(text: &'static str, cite: &'static str) -> Doc {
     Doc::new(text).cite(cite, T81)
@@ -37,7 +38,17 @@ const TABLE: Table = &[
     ("APP* · JFXX", jfif("A JFIF extension, usually a thumbnail.")),
     ("APP* · EXIF", Doc::new("EXIF metadata: the camera, its settings, the time, and often where the picture was taken.").cite("EXIF 2.32, file structure", "https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf")),
     ("APP* · XMP", Doc::new("XMP metadata: Adobe's XML record of the picture's history, author and edits.").cite("XMP, part 3", "https://github.com/adobe/XMP-Toolkit-SDK/blob/main/docs/XMPSpecificationPart3.pdf")),
-    ("APP* · ICC", t81("A colour profile: how the picture's colours should look on any screen.", "T.81 §B.2.4.6")),
+    ("APP* · ICC", Doc::new("A colour profile stored in one or more APP2 segments.").cite("ICC.1:2022 Annex B.4", ICC)),
+    ("fragment sequence", Doc::new("Where this APP2 profile fragment belongs in the full ICC profile.").cite("ICC profile embedding", "https://www.color.org/profile_embedding/")),
+    ("profile fragment", Doc::new("Part of the ICC profile; JPEG may split one profile across several APP2 segments.").cite("ICC profile embedding", "https://www.color.org/profile_embedding/")),
+    ("ICC fragment source map", Doc::new("The profile bytes were joined from the numbered APP2 fragments listed above.")),
+    ("ICC APP2 fragment is shorter than its sequence header", damage("This ICC segment ends before its fragment number and total count.")),
+    ("ICC APP2 fragment has an invalid sequence number", damage("ICC fragment numbers start at 1 and cannot exceed the declared total.")),
+    ("ICC APP2 fragments disagree about the total count", damage("Every fragment of one JPEG ICC profile must declare the same total count.")),
+    ("duplicate ICC APP2 fragment sequence", damage("Two APP2 segments claim the same position in the ICC profile.")),
+    ("ICC APP2 fragment count exceeds the inspection limit", damage("There are more ICC fragments than this inspector accepts.")),
+    ("ICC APP2 fragment runs past the file", damage("The ICC fragment's bytes extend beyond the JPEG file.")),
+    ("ICC profile is incomplete or has conflicting APP2 fragments", damage("The full ICC profile cannot be reconstructed from the APP2 segments present.")),
     ("APP* · MPF", t81("Multi-picture format: this file holds more pictures, such as a depth map or a second exposure.", "T.81 §B.2.4.6")),
     ("APP* · Photoshop", t81("Photoshop's data: captions, keywords and settings it saved.", "T.81 §B.2.4.6")),
     ("resource · IPTC", Doc::new("IPTC's record: who took the picture, where, the caption, keywords and credits, as newsrooms and photo tools write them.").cite("IPTC IIM 4.2", "https://iptc.org/std/IIM/4.2/specification/IIMV4.2.pdf")),

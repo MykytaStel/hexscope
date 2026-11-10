@@ -70,6 +70,28 @@ fn color_type_name(raw: u8) -> &'static str {
     }
 }
 
+fn compression_method_name(raw: u8) -> &'static str {
+    match raw {
+        0 => "DEFLATE",
+        _ => "undefined",
+    }
+}
+
+fn filter_method_name(raw: u8) -> &'static str {
+    match raw {
+        0 => "adaptive filtering",
+        _ => "undefined",
+    }
+}
+
+fn interlace_method_name(raw: u8) -> &'static str {
+    match raw {
+        0 => "none",
+        1 => "Adam7",
+        _ => "undefined",
+    }
+}
+
 /// Adds one field node whose range is expressed in file coordinates.
 fn field(
     tree: &mut ParseTree,
@@ -149,7 +171,10 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         chunk,
         10,
         1,
-        Value::U64(compression as u64),
+        Value::Enum {
+            raw: compression as u64,
+            name: compression_method_name(compression),
+        },
     );
     field(
         tree,
@@ -158,7 +183,10 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         chunk,
         11,
         1,
-        Value::U64(filter as u64),
+        Value::Enum {
+            raw: filter as u64,
+            name: filter_method_name(filter),
+        },
     );
     field(
         tree,
@@ -167,7 +195,10 @@ pub fn decode_ihdr(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         chunk,
         12,
         1,
-        Value::U64(interlace as u64),
+        Value::Enum {
+            raw: interlace as u64,
+            name: interlace_method_name(interlace),
+        },
     );
 
     // A structurally fine IHDR can still describe an impossible image. Saying

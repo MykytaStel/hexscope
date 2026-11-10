@@ -193,6 +193,9 @@ pub fn summary_of(doc: &Document) -> Summary {
                 | crate::audio::AudioFormat::OggVorbis
                 | crate::audio::AudioFormat::OggOpus => "ogg",
                 crate::audio::AudioFormat::Wav => "wav",
+                crate::audio::AudioFormat::Rifx => "rifx",
+                crate::audio::AudioFormat::Rf64 => "rf64",
+                crate::audio::AudioFormat::Bw64 => "bw64",
             };
             (format, d.metadata_complete)
         }

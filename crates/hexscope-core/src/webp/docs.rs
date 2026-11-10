@@ -26,7 +26,6 @@ const TABLE: Table = &[
     ("ANMF", webp("One frame of the animation, with where it goes and how long it shows.")),
     ("frame", webp("The frame's own picture chunks.")),
     ("ICCP", webp("A colour profile: how the picture's colours should look on any screen.")),
-    ("profile", webp("The colour profile's bytes.")),
     ("C2PA", Doc::new("Content Credentials (C2PA): a signed record of who or what made the picture and how it was edited, AI included.").cite("C2PA 2.1 §11.3.5", "https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html")),
     ("EXIF", Doc::new("EXIF metadata: the camera, the time, and often where the picture was taken.").cite("WebP container: EXIF", SPEC)),
     ("XMP", Doc::new("XMP metadata: an XML record of the picture's history, author and edits.").cite("WebP container: XMP", SPEC)),

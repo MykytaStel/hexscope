@@ -123,7 +123,15 @@ const UK: Record<string, string> = {
   "Metadata": "Метадані",
   "Content": "Вміст",
   "Compression": "Стиснення",
+  "Close player": "Закрити програвач",
+  "Close compression player": "Закрити програвач стиснення",
   "File workspace": "Робоча область файла",
+  "File views": "Розділи файла",
+  "File": "Файл",
+  "Inspect": "Технічний огляд",
+  "Tools": "Інструменти",
+  "Technical details": "Технічні деталі",
+  "View full value": "Показати повне значення",
   "Bytes": "Байти",
   "Contains location": "Містить геолокацію",
   "This photo records where it was taken — click to see it": "У фото записано місце зйомки — натисніть, щоб побачити",
@@ -280,7 +288,7 @@ const UK: Record<string, string> = {
   "Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.": "Розбір DEFLATE побітово: кожен код Гаффмана й кожне копіювання попередніх байтів.",
   "Play it →": "Запустити →",
   "Bytes view": "Перегляд байтів",
-  " — recognized parts beside their bytes, with notes from the format": " — розпізнані частини поруч із відповідними байтами та поясненнями формату",
+  "— recognized parts beside their bytes, with notes from the format": "— розпізнані частини поруч із відповідними байтами та поясненнями формату",
   "Find": "Пошук",
   " — text or hex, and the part of the file it falls in": " — тексту чи hex-значень у файлі",
   "Compare": "Порівняння",
@@ -353,6 +361,12 @@ const UK: Record<string, string> = {
   "an old Word file": "старий файл Word",
   "a progressive JPEG": "прогресивний JPEG",
   "a WebAssembly module": "модуль WebAssembly",
+  "a compressed Inkscape drawing": "стиснений малюнок з Inkscape",
+  "a WAV recording with metadata": "аудіозапис WAV із метаданими",
+  "synthetic ID3 tags; no audio": "синтетичні теги ID3; без аудіо",
+  "synthetic stream info; no audio": "синтетичний блок StreamInfo; без аудіо",
+  "synthetic Vorbis headers; no audio": "синтетичні заголовки Vorbis; без аудіо",
+  "synthetic Opus headers; no audio": "синтетичні заголовки Opus; без аудіо",
   "Open source · no accounts · no tracking · no uploads": "Відкритий код · без облікових записів · без стеження · без передавання файлів",
   "How your files stay private": "Як ми захищаємо ваші файли",
   "Source on GitHub": "Код на GitHub",
@@ -432,6 +446,48 @@ const UK: Record<string, string> = {
   "SOI": "Початок зображення (SOI)",
   "marker": "маркер",
   "length": "довжина",
+  "ICC profile": "Профіль ICC",
+  "InterColorProfile": "Профіль кольору ICC",
+  "profile size": "Розмір профілю",
+  "profile name": "Назва профілю",
+  "profile inspection limit": "Ліміт аналізу профілю",
+  "profile source mapping": "Зіставлення джерела профілю",
+  "device class": "Клас пристрою",
+  "data colour space": "Колірний простір даних",
+  "PCS": "Простір зв’язку профілів (PCS)",
+  "rendering intent": "Режим передавання кольору",
+  "tag table": "Таблиця тегів",
+  "tag count": "Кількість тегів",
+  "tag": "Тег",
+  "tag signature": "Сигнатура тегу",
+  "tag offset": "Зсув тегу",
+  "tag length": "Довжина тегу",
+  "tag data": "Дані тегу",
+  "compression method": "Метод стиснення",
+  "compressed profile": "Стиснений профіль",
+  "fragment sequence": "Порядок фрагмента",
+  "profile fragment": "Фрагмент профілю",
+  "ICC fragment source map": "Джерельні фрагменти ICC",
+  "ICC APP2 fragment is shorter than its sequence header": "Фрагмент ICC у APP2 коротший за заголовок послідовності.",
+  "ICC APP2 fragment has an invalid sequence number": "Фрагмент ICC у APP2 має неприпустимий номер.",
+  "ICC APP2 fragments disagree about the total count": "Фрагменти ICC у APP2 містять різну загальну кількість.",
+  "duplicate ICC APP2 fragment sequence": "Дубльований номер фрагмента ICC у APP2.",
+  "ICC APP2 fragment count exceeds the inspection limit": "Кількість фрагментів ICC у APP2 перевищує ліміт аналізу.",
+  "ICC APP2 fragment runs past the file": "Фрагмент ICC у APP2 виходить за кінець файла.",
+  "profile fields refer to inflated bytes": "Поля профілю посилаються на розпаковані байти.",
+  "inflated profile is over 16 MiB": "Розпакований профіль перевищує 16 МіБ.",
+  "iCCP profile name is not terminated": "Назва профілю iCCP не завершується нульовим байтом.",
+  "iCCP profile name is invalid": "Назва профілю iCCP має неприпустимий формат.",
+  "iCCP compression method is missing": "У блоці iCCP немає методу стиснення.",
+  "iCCP compressed profile is empty": "Стиснений профіль iCCP порожній.",
+  "iCCP profile decompression failed": "Не вдалося розпакувати профіль iCCP.",
+  "decompression error": "Помилка розпакування",
+  "ICC profile header or tag count is truncated": "Заголовок профілю ICC або кількість тегів обрізані.",
+  "ICC profile size is smaller than its header and tag count": "Заявлений розмір профілю ICC замалий для заголовка й кількості тегів.",
+  "ICC profile runs past its carrier data": "Заявлений профіль ICC виходить за межі даних контейнера.",
+  "ICC profile signature is not acsp": "У профілі ICC немає очікуваної сигнатури acsp.",
+  "ICC tag table runs past the declared profile size": "Таблиця тегів ICC виходить за межі заявленого розміру профілю.",
+  "ICC profile is incomplete or has conflicting APP2 fragments": "Профіль ICC неповний або його фрагменти APP2 суперечать один одному.",
   "TIFF header": "Заголовок TIFF",
   "IFD0": "IFD0 · основний каталог",
   "Exif IFD": "Exif IFD · дані камери",
@@ -459,14 +515,14 @@ const UK: Record<string, string> = {
   "Photos & images": "Фото й зображення",
   "Documents & Office": "Документи й файли Office",
   "Email, archives & technical files": "Електронна пошта, архіви й технічні файли",
-  "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Film Lab.",
+  "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Плівковій лабораторії.",
   "Includes MOV and M4V files.": "Зокрема файли MOV і M4V.",
   "Older Word, Excel and PowerPoint formats, and LibreOffice's, included.": "Також підтримуються старі формати Word, Excel і PowerPoint і документи LibreOffice.",
   "Common file types inside ZIP archives are supported too.": "Також підтримуються поширені типи файлів усередині ZIP-архівів.",
   "Image formats": "Формати зображень",
   "Video and audio formats": "Формати відео й аудіо",
   "Video & audio": "Відео й аудіо",
-  "WAV, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
+  "WAV, RIFX, RF64, BW64, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, RIFX, RF64, BW64, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
   "Document formats": "Формати документів",
   "Email, archive and technical formats": "Формати електронної пошти, архівів і технічних файлів",
   "Guides and more sample files": "Посібники та інші приклади файлів",
@@ -522,7 +578,6 @@ const UK: Record<string, string> = {
   "Video": "Відео",
   "Recording": "Аудіозапис",
   "Email": "Лист",
-  "File": "Файл",
   "Size": "Розмір",
   "Location": "Місце зйомки",
   "General information": "Основна інформація",
@@ -534,6 +589,7 @@ const UK: Record<string, string> = {
   "Camera": "Фотоапарат",
   "Lens": "Об’єктив",
   "Serial number": "Серійний номер",
+  "Camera serial": "Серійний номер фотоапарата",
   "Owner": "Власник",
   "Taken": "Дата зйомки",
   "Software": "Програма",
@@ -783,8 +839,10 @@ const UK: Record<string, string> = {
   "Step forward (→)": "Крок уперед (→)",
   "Close (Esc)": "Закрити (Esc)",
   "Click to jump": "Клацніть, щоб перейти",
+  "Speed": "Швидкість",
   "Loading the stream…": "Завантажуємо потік…",
   "Fetching steps…": "Отримуємо кроки…",
+  "Nothing decoded yet — the output starts here.": "Декодованих даних іще немає — тут починається результат.",
   "New block": "Новий блок",
   "— stored: the bytes that follow are copied in as they are.": "— без стиснення: наступні байти копіюються як є.",
   "— fixed Huffman: codes come from the table built into the format.": "— сталий Гаффман: коди беруться з таблиці, вбудованої у формат.",
@@ -1538,8 +1596,31 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `Прочитано ${units(match[1])} (біти ${match[2]}–${match[3]}) · вихідний байт ${match[4]}`;
   match = /^Stopped at compressed bit ([\d,  ]+) · output so far ([\d,  ]+) bytes$/.exec(value);
   if (match) return `Зупинилися на стисненому біті ${match[1]} · виведено ${match[2]} байтів`;
+  match = /^([\d,]+) steps?\/s$/.exec(value);
+  if (match) {
+    const count = Number(match[1].replaceAll(",", ""));
+    return `${count.toLocaleString("uk")} ${ukrainianCountWord(count, "крок", "кроки", "кроків")}/с`;
+  }
   match = /^(stored|fixed Huffman|dynamic Huffman) block$/.exec(value);
   if (match) return `${{ stored: "Блок без стиснення", "fixed Huffman": "Блок зі сталим Гаффманом", "dynamic Huffman": "Блок із динамічним Гаффманом" }[match[1]]}`;
+  match = /^BTYPE · (stored|fixed Huffman|dynamic Huffman|reserved)$/.exec(value);
+  if (match) return `BTYPE · ${{ stored: "без стиснення", "fixed Huffman": "сталий Гаффман", "dynamic Huffman": "динамічний Гаффман", reserved: "зарезервовано" }[match[1]]}`;
+  match = /^LEN · ([\d,]+) bytes$/.exec(value);
+  if (match) return `LEN · ${units(`${match[1]} bytes`)}`;
+  match = /^byte (0x[0-9A-F]{2})$/.exec(value);
+  if (match) return `байт ${match[1]}`;
+  match = /^HLIT · (\d+) \+ 257 = (\d+) lit\/len codes$/.exec(value);
+  if (match) return `HLIT · ${match[1]} + 257 = ${match[2]} кодів літералів і довжин`;
+  match = /^HDIST · (\d+) \+ 1 = (\d+) distance codes$/.exec(value);
+  if (match) return `HDIST · ${match[1]} + 1 = ${match[2]} кодів відстаней`;
+  match = /^HCLEN · (\d+) \+ 4 = (\d+) code-length codes$/.exec(value);
+  if (match) return `HCLEN · ${match[1]} + 4 = ${match[2]} кодів довжин кодів`;
+  match = /^\+(\d+) → length ([\d,]+)$/.exec(value);
+  if (match) return `+${match[1]} → довжина ${match[2]}`;
+  match = /^\+(\d+) → ([\d,]+) back$/.exec(value);
+  if (match) return `+${match[1]} → ${match[2]} назад`;
+  match = /^Stopped: (.+)\.$/.exec(value);
+  if (match) return `Зупинилися: ${translateText(match[1], locale)}.`;
   match = /^— dynamic Huffman: this block ships its own code tables, ([\d,  ]+) bits of them\.$/.exec(value);
   if (match) return `— динамічний Гаффман: блок несе власні таблиці кодів, ${units(`${match[1]} bits`)}.`;
   match = /^— write byte (0x[0-9A-F]{2})( '.')? as it is\.$/.exec(value);
@@ -1558,6 +1639,8 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `код відстані ${match[1]}`;
   match = /^(\S+) is past this range$/.exec(value);
   if (match) return `${match[1]} виходить за цей діапазон`;
+  match = /^(\S+) is #(\d+) here$/.exec(value);
+  if (match) return `${match[1]} — №${match[2]} тут`;
   const fact = factSentence(value);
   if (fact) return fact;
   // Several sentences, none of them known as a whole: each on its own.

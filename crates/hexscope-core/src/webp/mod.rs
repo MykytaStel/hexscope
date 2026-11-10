@@ -227,13 +227,12 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
                 facts.fill_from(crate::exif::xmp::from_xmp(&text, node));
             }
             "C2PA" => facts.fill_from(crate::exif::c2pa::from_manifest(payload, node)),
-            "ICCP" => field(
+            "ICCP" => crate::icc::add_profile(
                 &mut tree,
                 node,
-                "profile",
-                body,
-                size,
-                Value::U64(size as u64),
+                payload,
+                ByteRange::new(body as u64, size as u64),
+                &mut |offset, len| ByteRange::new(body as u64 + offset, len),
             ),
             "ANIM" => {
                 if let Some(loops) = payload.get(4..6) {

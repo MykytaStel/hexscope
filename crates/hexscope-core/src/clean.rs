@@ -81,7 +81,7 @@ impl CleanError {
                 "parts of it are compressed in a way hexscope does not read, and a copy could lose them"
             }
             CleanError::Unsupported => {
-                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP3 and FLAC tags, complete Vorbis and Opus tags in Ogg, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
+                "hexscope cleans PNG, JPEG, HEIC, AVIF, WebP, GIF and TIFF images, SVG drawings, MP3, FLAC and WAV metadata, complete Vorbis and Opus tags in Ogg, MP4 and QuickTime videos, PDFs, Office and LibreOffice documents, RTF, old Word, Excel and PowerPoint files, and WebAssembly modules only"
             }
             CleanError::PictureUnderBox => {
                 "a box covers part of a picture on the page that hexscope cannot edit — a JBIG2, CCITT or JPEG 2000 scan, or one too large — and the picture would still show what is under the box"
@@ -130,6 +130,10 @@ pub fn clean_with(data: &[u8], options: CleanOptions) -> Result<Cleaned, CleanEr
         #[cfg(feature = "audio")]
         Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Flac => {
             clean_flac(data, &doc)
+        }
+        #[cfg(feature = "audio")]
+        Document::Audio(doc) if doc.format == crate::audio::AudioFormat::Wav => {
+            clean_wav(data, &doc)
         }
         #[cfg(feature = "audio")]
         Document::Audio(doc)
@@ -313,6 +317,121 @@ fn clean_flac(data: &[u8], doc: &crate::audio::AudioDocument) -> Result<Cleaned,
         });
     }
 
+    Ok(Cleaned {
+        bytes: out,
+        removed,
+        orientation_kept: None,
+    })
+}
+
+/// Removes complete WAVE INFO and Broadcast Wave chunks while preserving
+/// every retained RIFF chunk, including the format and audio data, byte for byte.
+#[cfg(feature = "audio")]
+fn clean_wav(data: &[u8], doc: &crate::audio::AudioDocument) -> Result<Cleaned, CleanError> {
+    use crate::audio::AudioFormat;
+
+    if doc.format != AudioFormat::Wav
+        || data.get(..4) != Some(b"RIFF")
+        || data.get(8..12) != Some(b"WAVE")
+        || data.len() < 12
+        || !doc.metadata_complete
+        || doc
+            .tree
+            .nodes()
+            .iter()
+            .any(|node| matches!(node.kind, NodeKind::Error | NodeKind::Warning))
+    {
+        return Err(CleanError::Damaged);
+    }
+
+    let declared_size =
+        u32::from_le_bytes(data[4..8].try_into().map_err(|_| CleanError::Damaged)?) as usize;
+    let form_end = 8usize
+        .checked_add(declared_size)
+        .filter(|&end| end == data.len())
+        .ok_or(CleanError::Damaged)?;
+    let root = doc.tree.root().ok_or(CleanError::Damaged)?;
+    let chunks = doc
+        .tree
+        .get(root)
+        .children
+        .iter()
+        .map(|&id| doc.tree.get(id))
+        .filter(|node| {
+            node.kind == NodeKind::Container
+                && node.label.starts_with("WAVE ")
+                && node.label.ends_with(" chunk")
+        })
+        .collect::<Vec<_>>();
+
+    let mut out = Vec::with_capacity(data.len());
+    out.extend_from_slice(&data[..12]);
+    let mut cursor = 12u64;
+    let mut info_bytes = 0u64;
+    let mut broadcast_bytes = 0u64;
+    let mut has_format = false;
+    let mut has_audio = false;
+
+    for chunk in chunks {
+        let end = chunk.range.end();
+        if chunk.range.start != cursor || end > form_end as u64 {
+            return Err(CleanError::Damaged);
+        }
+        let start = usize::try_from(chunk.range.start).map_err(|_| CleanError::Damaged)?;
+        let end = usize::try_from(end).map_err(|_| CleanError::Damaged)?;
+        let bytes = data.get(start..end).ok_or(CleanError::Damaged)?;
+        match chunk.label.as_str() {
+            "WAVE LIST/INFO chunk" => info_bytes += chunk.range.len,
+            "WAVE bext chunk" => broadcast_bytes += chunk.range.len,
+            "WAVE fmt chunk" => {
+                has_format = true;
+                out.extend_from_slice(bytes);
+            }
+            "WAVE data chunk" => {
+                has_audio = true;
+                out.extend_from_slice(bytes);
+            }
+            _ => out.extend_from_slice(bytes),
+        }
+        cursor = end as u64;
+    }
+    if cursor != form_end as u64 || !has_format || !has_audio {
+        return Err(CleanError::Damaged);
+    }
+    if info_bytes == 0 && broadcast_bytes == 0 {
+        return Err(CleanError::NothingToRemove);
+    }
+
+    let new_size = u32::try_from(out.len().checked_sub(8).ok_or(CleanError::Damaged)?)
+        .map_err(|_| CleanError::Damaged)?;
+    out[4..8].copy_from_slice(&new_size.to_le_bytes());
+
+    let after = crate::audio::parse(&out).ok_or(CleanError::Damaged)?;
+    if after.format != AudioFormat::Wav
+        || !after.metadata_complete
+        || after.tree.nodes().iter().any(|node| {
+            matches!(
+                node.label.as_str(),
+                "WAVE LIST/INFO chunk" | "WAVE bext chunk"
+            )
+        })
+    {
+        return Err(CleanError::Damaged);
+    }
+
+    let mut removed = Vec::with_capacity(2);
+    if info_bytes > 0 {
+        removed.push(Removed {
+            what: "WAVE INFO metadata".into(),
+            bytes: info_bytes,
+        });
+    }
+    if broadcast_bytes > 0 {
+        removed.push(Removed {
+            what: "Broadcast Wave metadata".into(),
+            bytes: broadcast_bytes,
+        });
+    }
     Ok(Cleaned {
         bytes: out,
         removed,

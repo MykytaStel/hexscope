@@ -42,12 +42,12 @@ interface Palette {
 }
 
 function readPalette(): Palette {
-  const { v, rgba } = themeColors();
+  const { v, color, rgba } = themeColors();
   const alpha = (name: string) => parseFloat(v(name));
 
   const fill = {} as Palette["fill"];
   for (const t of TINTS) {
-    const hex = v(`--tint-${t}`);
+    const hex = color(`--tint-${t}`);
     fill[t] = {
       base: rgba(hex, alpha("--alpha-base")),
       selected: rgba(hex, alpha("--alpha-selected")),
@@ -55,12 +55,12 @@ function readPalette(): Palette {
       solid: hex,
     };
   }
-  const accent = v("--accent");
+  const accent = color("--accent");
   return {
-    bg: v("--hex-bg"),
-    text: v("--hex-text"),
-    zero: v("--hex-zero"),
-    offset: v("--hex-offset"),
+    bg: color("--hex-bg"),
+    text: color("--hex-text"),
+    zero: color("--hex-zero"),
+    offset: color("--hex-offset"),
     head: accent,
     headFill: rgba(accent, 0.22),
     fill,
