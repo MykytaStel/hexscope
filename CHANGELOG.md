@@ -46,6 +46,20 @@ file per change; `node scripts/changelog.mjs` shows how it will read here.
   stay inside one source extent; ranges crossing a boundary, chained or
   external references, and implicit lengths remain unread. The parser does not
   copy or decode the image payload, and clean-copy behavior is unchanged.
+- **Inspect embedded ICC profiles in images.** Supported profile blocks now
+  expose their header and tag structure, and photo details link to the stored
+  profile. Film Lab also recognizes TIFF profiles. This reports profile
+  structure and presence; it does not apply or validate colour transforms.
+- **Explain PNG IHDR method values.** Compression, filter and interlace fields
+  keep their raw values and show recognized meanings; compression method 0 is
+  identified as DEFLATE, and undefined values remain explicit.
+- **Make the file inspector easier to scan.** Primary file views are grouped
+  separately from technical inspection and tools. Additional metadata and long
+  values stay folded until requested; deliberate filtering reveals matching
+  fields, and repeated numbering is removed from the support page.
+- **Keep byte and DEFLATE views readable.** Canvas colours resolve the active
+  light or dark theme before drawing, the compression player fits narrow panes,
+  and its controls have Ukrainian labels.
 - **See how AES-encrypted ZIP entries are configured.** The archive view reads
   WinZip AES version, key strength and the compression method from the `0x9901`
   extra field, and compares those recognized fields in the local header and
@@ -56,6 +70,9 @@ file per change; `node scripts/changelog.mjs` shows how it will read here.
 
 - **Hear when PDF picture checks finish.** Progress and read results are now
   announced politely to screen readers.
+- **Keep Compare available on phones.** The More menu stays open while the
+  system file picker is pending or cancelled, then closes after a file is
+  selected so the comparison can open.
 
 ## [0.17.0] — 2026-11-09
 
