@@ -377,8 +377,10 @@ appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
   // Tools live inside the same mobile overlay as views, so dismiss it for
-  // either kind of transition before a dialog or file picker takes focus.
-  if (narrow.matches) moreMenu.removeAttribute("open");
+  // transitions before a dialog or player takes focus. Keep it open while
+  // Compare's native picker is pending, so cancelling doesn't hide the action.
+  const compareAction = button.dataset.appAction === "compare";
+  if (narrow.matches && !compareAction) moreMenu.removeAttribute("open");
   if (button.dataset.appView) {
     delete appNavigation.dataset.inspectorRequested;
     const nextView = button.dataset.appView as WorkspaceView;
@@ -410,7 +412,10 @@ appNavigation.addEventListener("click", (event) => {
 comparePicker.addEventListener("change", () => {
   const file = comparePicker.files?.[0];
   comparePicker.value = "";
-  if (file) void compareWith(file);
+  if (file) {
+    if (narrow.matches) moreMenu.removeAttribute("open");
+    void compareWith(file);
+  }
 });
 
 let tourDismissedByNavigation = false;
