@@ -263,6 +263,70 @@ fn complete_ogg_vorbis() -> Vec<u8> {
     out
 }
 
+#[cfg(feature = "audio")]
+fn wav_chunk(id: &[u8; 4], body: &[u8]) -> Vec<u8> {
+    let mut chunk = id.to_vec();
+    chunk.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    chunk.extend_from_slice(body);
+    if !body.len().is_multiple_of(2) {
+        chunk.push(0);
+    }
+    chunk
+}
+
+#[cfg(feature = "audio")]
+fn complete_wav() -> Vec<u8> {
+    let mut info = b"INFO".to_vec();
+    for (id, value) in [
+        (b"INAM", "Title"),
+        (b"IART", "Artist"),
+        (b"IPRD", "Album"),
+        (b"ICMT", "A description"),
+        (b"ICOP", "Copyright"),
+        (b"ICRD", "2026-11-10"),
+        (b"ISFT", "Hexscope"),
+        (b"IENG", "Engineer"),
+        (b"IKEY", "keywords"),
+        (b"ISBJ", "Subject"),
+        (b"IARL", "Kyiv"),
+        (b"ITRK", "7"),
+        (b"ICFG", "A custom audio tag"),
+    ] {
+        let mut text = value.as_bytes().to_vec();
+        text.push(0);
+        info.extend(wav_chunk(id, &text));
+    }
+
+    let mut broadcast = vec![0; 602];
+    for (offset, width, value) in [
+        (0, 256, "Broadcast description"),
+        (256, 32, "Originator"),
+        (288, 32, "REF-42"),
+        (320, 10, "2026-11-10"),
+    ] {
+        broadcast[offset..offset + value.len().min(width)]
+            .copy_from_slice(&value.as_bytes()[..value.len().min(width)]);
+    }
+    broadcast.extend_from_slice(b"A=PCM,F=8000,W=16,M=mono,T=Test\0");
+
+    let mut wave = b"RIFF\0\0\0\0WAVE".to_vec();
+    let format = [
+        1, 0, // PCM
+        1, 0, // one channel
+        0x40, 0x1f, 0, 0, // 8000 samples per second
+        0x80, 0x3e, 0, 0, // 16000 bytes per second
+        2, 0, // block alignment
+        16, 0, // bits per sample
+    ];
+    wave.extend(wav_chunk(b"fmt ", &format));
+    wave.extend(wav_chunk(b"LIST", &info));
+    wave.extend(wav_chunk(b"bext", &broadcast));
+    wave.extend(wav_chunk(b"data", &[0, 0]));
+    let size = (wave.len() - 8) as u32;
+    wave[4..8].copy_from_slice(&size.to_le_bytes());
+    wave
+}
+
 /// Cleans `name` and returns the kinds confirmed removed, after checking that
 /// each covered finding of the original is among them.
 fn confirmed(name: &str, format: &str) -> Vec<String> {
@@ -323,6 +387,7 @@ fn every_verified_removal_has_fixture_or_focused_core_evidence() {
         ("generated audio/mp3", complete_mp3()),
         ("generated audio/flac", complete_flac()),
         ("generated audio/ogg-vorbis", complete_ogg_vorbis()),
+        ("generated audio/wav", complete_wav()),
     ] {
         assert_fixture_read_back(name, &bytes, &mut observed);
     }
@@ -345,7 +410,9 @@ fn every_verified_removal_has_fixture_or_focused_core_evidence() {
     let missing = verified_removal_capabilities()
         .filter(|capability| {
             // Audio metadata is absent from the smaller parser builds.
-            if ["mp3", "flac", "ogg"].contains(&capability.format) && !cfg!(feature = "audio") {
+            if ["mp3", "flac", "ogg", "wav"].contains(&capability.format)
+                && !cfg!(feature = "audio")
+            {
                 return false;
             }
             !observed.contains(&(capability.format.to_owned(), capability.kind.to_owned()))
@@ -359,7 +426,7 @@ fn every_verified_removal_has_fixture_or_focused_core_evidence() {
     );
 
     for (format, kinds) in VERIFIED_REMOVAL {
-        if ["mp3", "flac", "ogg"].contains(format) && !cfg!(feature = "audio") {
+        if ["mp3", "flac", "ogg", "wav"].contains(format) && !cfg!(feature = "audio") {
             continue;
         }
         let proven = kinds

@@ -527,7 +527,7 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
         Some(Value::Text(format!("{} × APP2", ordered.len()))),
     );
     let source = ByteRange::new(source_start, source_end.saturating_sub(source_start));
-    crate::icc::add_profile(tree, root, &profile, source, |offset, len| {
+    crate::icc::add_profile(tree, root, &profile, source, &mut |offset, len| {
         let end = offset.saturating_add(len);
         if len == 0 {
             for (logical_start, logical_end, source_part) in &pieces {

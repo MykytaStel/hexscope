@@ -232,7 +232,7 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
                 node,
                 payload,
                 ByteRange::new(body as u64, size as u64),
-                |offset, len| ByteRange::new(body as u64 + offset, len),
+                &mut |offset, len| ByteRange::new(body as u64 + offset, len),
             ),
             "ANIM" => {
                 if let Some(loops) = payload.get(4..6) {

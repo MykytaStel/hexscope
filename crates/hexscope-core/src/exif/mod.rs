@@ -976,7 +976,7 @@ impl Walk<'_, '_> {
                         profile_parent,
                         profile,
                         source,
-                        |offset, len| t.range(e.value_off + offset, len),
+                        &mut |offset, len| t.range(e.value_off + offset, len),
                     );
                 }
             }

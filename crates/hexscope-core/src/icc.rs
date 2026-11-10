@@ -12,14 +12,6 @@ pub(crate) const MAX_PROFILE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_TAGS: usize = 4096;
 
 #[derive(Debug)]
-struct Tag {
-    signature: String,
-    entry_at: u64,
-    offset: u64,
-    size: u64,
-}
-
-#[derive(Debug)]
 struct Issue {
     label: String,
     offset: u64,
@@ -36,7 +28,6 @@ struct Profile {
     pcs: String,
     rendering_intent: u32,
     tag_count: u32,
-    tags: Vec<Tag>,
     issues: Vec<Issue>,
 }
 
@@ -49,7 +40,7 @@ pub(crate) fn add_profile(
     parent: NodeId,
     bytes: &[u8],
     source: ByteRange,
-    mut map: impl FnMut(u64, u64) -> ByteRange,
+    map: &mut dyn FnMut(u64, u64) -> ByteRange,
 ) {
     let profile_node = tree.add(
         Some(parent),
@@ -91,7 +82,7 @@ pub(crate) fn add_profile(
         0,
         4,
         Value::U64(profile.size as u64),
-        &mut map,
+        map,
     );
     add_field(
         tree,
@@ -100,7 +91,7 @@ pub(crate) fn add_profile(
         8,
         4,
         Value::Text(profile.version.clone()),
-        &mut map,
+        map,
     );
     add_field(
         tree,
@@ -109,7 +100,7 @@ pub(crate) fn add_profile(
         12,
         4,
         Value::Text(profile.class.clone()),
-        &mut map,
+        map,
     );
     add_field(
         tree,
@@ -118,7 +109,7 @@ pub(crate) fn add_profile(
         16,
         4,
         Value::Text(profile.data_space.clone()),
-        &mut map,
+        map,
     );
     add_field(
         tree,
@@ -127,7 +118,7 @@ pub(crate) fn add_profile(
         20,
         4,
         Value::Text(profile.pcs.clone()),
-        &mut map,
+        map,
     );
     add_field(
         tree,
@@ -136,7 +127,7 @@ pub(crate) fn add_profile(
         36,
         4,
         Value::Text("acsp".into()),
-        &mut map,
+        map,
     );
     let intent = match profile.rendering_intent {
         0 => "perceptual",
@@ -178,46 +169,8 @@ pub(crate) fn add_profile(
         128,
         4,
         Value::U64(profile.tag_count as u64),
-        &mut map,
+        map,
     );
-    for tag in &profile.tags {
-        let entry = tree.add(
-            Some(table_node),
-            "tag",
-            map(tag.entry_at, TAG_ENTRY_SIZE as u64),
-            NodeKind::Container,
-            Some(Value::Text(tag.signature.clone())),
-        );
-        tree.add(
-            Some(entry),
-            "tag signature",
-            map(tag.entry_at, 4),
-            NodeKind::Field,
-            Some(Value::Text(tag.signature.clone())),
-        );
-        tree.add(
-            Some(entry),
-            "tag offset",
-            map(tag.entry_at + 4, 4),
-            NodeKind::Field,
-            Some(Value::U64(tag.offset)),
-        );
-        tree.add(
-            Some(entry),
-            "tag length",
-            map(tag.entry_at + 8, 4),
-            NodeKind::Field,
-            Some(Value::U64(tag.size)),
-        );
-        // Tag data is addressed from the profile root, not from its table row.
-        tree.add(
-            Some(profile_node),
-            "tag data",
-            map(tag.offset, tag.size),
-            NodeKind::Field,
-            Some(Value::Text(format!("{} · {} B", tag.signature, tag.size))),
-        );
-    }
     for issue in profile.issues {
         if issue.error {
             tree.error(profile_node, issue.label, map(issue.offset, issue.len));
@@ -242,7 +195,7 @@ fn add_field(
     offset: u64,
     len: u64,
     value: Value,
-    map: &mut impl FnMut(u64, u64) -> ByteRange,
+    map: &mut dyn FnMut(u64, u64) -> ByteRange,
 ) {
     tree.add(
         Some(parent),
@@ -304,16 +257,16 @@ fn parse(bytes: &[u8]) -> Result<Profile, (String, u64, u64)> {
         });
     }
 
-    let mut tags = Vec::with_capacity(inspect_count);
     let mut signatures = HashSet::with_capacity(inspect_count);
     for index in 0..inspect_count {
         let entry_at = 132 + (index * TAG_ENTRY_SIZE) as u64;
         let at = entry_at as usize;
         let raw_sig = bytes.get(at..at + 4).unwrap_or_default();
+        let signature_code = u32::from_be_bytes([raw_sig[0], raw_sig[1], raw_sig[2], raw_sig[3]]);
         let signature = signature(raw_sig);
         let offset = be32(bytes, at + 4).unwrap_or(0) as u64;
         let len = be32(bytes, at + 8).unwrap_or(0) as u64;
-        if !signatures.insert(signature.clone()) {
+        if !signatures.insert(signature_code) {
             issues.push(Issue {
                 label: format!("duplicate ICC tag signature {signature}"),
                 offset: entry_at,
@@ -328,13 +281,6 @@ fn parse(bytes: &[u8]) -> Result<Profile, (String, u64, u64)> {
                 offset: entry_at + 4,
                 len: 8,
                 error: true,
-            });
-        } else {
-            tags.push(Tag {
-                signature,
-                entry_at,
-                offset,
-                size: len,
             });
         }
     }
@@ -358,7 +304,6 @@ fn parse(bytes: &[u8]) -> Result<Profile, (String, u64, u64)> {
         pcs: signature(bytes.get(20..24).unwrap_or_default()),
         rendering_intent: be32(bytes, 64).unwrap_or(u32::MAX),
         tag_count,
-        tags,
         issues,
     })
 }
@@ -371,10 +316,14 @@ fn signature(bytes: &[u8]) -> String {
     if bytes.len() == 4 && bytes.iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
         String::from_utf8_lossy(bytes).trim_end().to_string()
     } else {
-        format!(
-            "0x{}",
-            bytes.iter().map(|b| format!("{b:02X}")).collect::<String>()
-        )
+        const HEX: &[u8; 16] = b"0123456789ABCDEF";
+        let mut text = String::with_capacity(2 + bytes.len() * 2);
+        text.push_str("0x");
+        for byte in bytes {
+            text.push(HEX[(byte >> 4) as usize] as char);
+            text.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+        text
     }
 }
 
@@ -420,31 +369,13 @@ const TABLE: Table = &[
     ),
     (
         "tag table",
-        icc("The profile's table of tags and the offsets and lengths of their data."),
+        icc(
+            "This table stores each tag's signature and data range; its entries remain available in the byte view.",
+        ),
     ),
     (
         "tag count",
         icc("How many tag entries the profile declares."),
-    ),
-    (
-        "tag",
-        icc("One ICC tag entry: its signature, offset and byte length."),
-    ),
-    (
-        "tag signature",
-        icc("The four-character name of an ICC tag."),
-    ),
-    (
-        "tag offset",
-        icc("Where this tag's data begins, relative to the profile."),
-    ),
-    (
-        "tag length",
-        icc("How many bytes this tag's data occupies."),
-    ),
-    (
-        "tag data",
-        icc("The bytes for this ICC tag, at the offset recorded in the table."),
     ),
     (
         "profile inspection limit",

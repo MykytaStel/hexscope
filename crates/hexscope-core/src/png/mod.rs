@@ -317,9 +317,11 @@ fn decode_iccp(chunk: &crate::png::chunks::Chunk, tree: &mut ParseTree, parent: 
         crate::icc::MAX_PROFILE_BYTES as u64,
         &mut crate::inflate::NoTrace,
     ) {
-        Ok(profile) => crate::icc::add_profile(tree, parent, &profile, compressed_range, |_, _| {
-            compressed_range
-        }),
+        Ok(profile) => {
+            crate::icc::add_profile(tree, parent, &profile, compressed_range, &mut |_, _| {
+                compressed_range
+            })
+        }
         Err(crate::inflate::InflateError::OutputTooLarge) => {
             tree.add(
                 Some(parent),

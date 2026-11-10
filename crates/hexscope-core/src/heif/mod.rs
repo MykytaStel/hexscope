@@ -478,7 +478,7 @@ fn decode(
                 let profile = data.get(profile_at as usize..end as usize)?;
                 let source = ByteRange::new(profile_at, end - profile_at);
                 f.rest("profile data");
-                crate::icc::add_profile(f.tree, node, profile, source, |offset, len| {
+                crate::icc::add_profile(f.tree, node, profile, source, &mut |offset, len| {
                     ByteRange::new(profile_at + offset, len)
                 });
             } else {

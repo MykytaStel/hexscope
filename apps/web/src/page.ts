@@ -95,23 +95,39 @@ if (guide) {
     syncContents();
     window.addEventListener("hexscope:locale", syncContents);
 
+    const setCurrentSection = (current: number) => {
+      links.forEach((link, index) => {
+        if (index === current) link.setAttribute("aria-current", "location");
+        else link.removeAttribute("aria-current");
+      });
+    };
+    links.forEach((link, index) => {
+      // Keep the current marker responsive even when a short last section
+      // cannot scroll its heading past the normal reading-line threshold.
+      link.addEventListener("click", () => setCurrentSection(index));
+    });
+
     let scrollFrame = 0;
     const syncCurrentSection = () => {
       if (scrollFrame) return;
       scrollFrame = window.requestAnimationFrame(() => {
         scrollFrame = 0;
-        let current = 0;
-        headings.forEach((heading, index) => {
-          if (heading.getBoundingClientRect().top <= 112) current = index;
-        });
-        links.forEach((link, index) => {
-          if (index === current) link.setAttribute("aria-current", "location");
-          else link.removeAttribute("aria-current");
-        });
+        const root = document.documentElement;
+        const pageHeight = Math.max(root.scrollHeight, document.body.scrollHeight);
+        const canScroll = pageHeight > window.innerHeight + 1;
+        const atBottom = canScroll && window.scrollY + window.innerHeight >= pageHeight - 2;
+        let current = atBottom ? headings.length - 1 : 0;
+        if (!atBottom) {
+          headings.forEach((heading, index) => {
+            if (heading.getBoundingClientRect().top <= 112) current = index;
+          });
+        }
+        setCurrentSection(current);
       });
     };
     window.addEventListener("scroll", syncCurrentSection, { passive: true });
     window.addEventListener("resize", syncCurrentSection);
+    window.addEventListener("hashchange", syncCurrentSection);
     syncCurrentSection();
   }
 }
