@@ -31,7 +31,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.15.0 | Portable batch reports and reliability fixes | shipped 2026-11-08; Homebrew tap updated 2026-11-09 |
 | 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | shipped 2026-11-09 |
 | 0.17.0 | Source-linked inspectors across file families, plus bounded WAV inspection | shipped 2026-11-09 |
-| 0.18.0 | Verified WAV cleaning and deeper format inspection | scope complete; release pending |
+| 0.18.0 | Verified WAV cleaning and deeper format inspection | shipped 2026-11-10 |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
