@@ -1,4 +1,5 @@
 import { HEX, MONO, themeColors } from "./canvas";
+import { currentLocale, translateText } from "./i18n";
 import { onThemeChange } from "./theme";
 import { CodesView, readExplained, readTables, type BlockTables } from "./codes";
 import { BLOCK_NAMES, STRIDE, StepKind, type Step } from "./deflate";
@@ -48,19 +49,19 @@ interface StripPalette {
 }
 
 function readStripPalette(): StripPalette {
-  const { v, rgba } = themeColors();
-  const lit = v("--tint-sig");
-  const mat = v("--tint-idat");
+  const { color, rgba } = themeColors();
+  const lit = color("--tint-sig");
+  const mat = color("--tint-idat");
   return {
-    cell: rgba(v("--tint-anc"), 0.1),
-    text: v("--hex-text"),
-    faint: v("--hex-offset"),
+    cell: rgba(color("--tint-anc"), 0.1),
+    text: color("--hex-text"),
+    faint: color("--hex-offset"),
     literal: lit,
     literalFill: rgba(lit, 0.32),
     match: mat,
     matchFill: rgba(mat, 0.34),
     sourceFill: rgba(mat, 0.14),
-    error: v("--tint-error"),
+    error: color("--tint-error"),
   };
 }
 
@@ -251,6 +252,9 @@ export class Player {
     new ResizeObserver(() => this.resize()).observe(this.canvas);
     onThemeChange(() => {
       this.palette = readStripPalette();
+      this.draw();
+    });
+    window.addEventListener("hexscope:locale", () => {
       this.draw();
     });
   }
@@ -595,7 +599,7 @@ export class Player {
 
     if (outEnd === 0) {
       ctx.fillStyle = p.faint;
-      const message = "Nothing decoded yet — the output starts here.";
+      const message = translateText("Nothing decoded yet — the output starts here.", currentLocale());
       const maxWidth = Math.max(1, this.viewW - padX * 2);
       const lines: string[] = [];
       let line = "";

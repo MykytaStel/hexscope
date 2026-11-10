@@ -280,15 +280,7 @@ async function showFiles(): Promise<void> {
   view.show(model.entryOf(selected));
 }
 
-const contentTargetSelector = [
-  ".reveals .reveal-hero",
-  ".reveals .blackout-figure",
-  '.reveals .reveal-list dd[data-kind="hiddentext"]',
-  '.reveals .reveal-list dd[data-kind="covered"]',
-  '.reveals .reveal-list dd[data-kind="deleted"]',
-  '.reveals .reveal-list dd[data-kind="earlier"]',
-  '.reveals .reveal-list dd[data-kind="attachments"] .attachment-open',
-].join(", ");
+const contentTargetSelector = ".reveals > h2";
 
 function syncAppNavigation(): void {
   const model = typeof workspace === "undefined" ? null : workspace?.model;
@@ -374,9 +366,11 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
 appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
+  // Tools live inside the same mobile overlay as views, so dismiss it for
+  // either kind of transition before a dialog or file picker takes focus.
+  if (narrow.matches) moreMenu.removeAttribute("open");
   if (button.dataset.appView) {
-    // A phone's More closes when a view is chosen. Tools keep the menu open.
-    if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
+    delete appNavigation.dataset.inspectorRequested;
     const nextView = button.dataset.appView as WorkspaceView;
     const sameView = nextView === document.body.dataset.appView;
     const playerOpen = playerPending || document.body.classList.contains("is-playing");

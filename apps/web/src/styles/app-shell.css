@@ -548,6 +548,18 @@ body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata
   display: none;
 }
 
+/* Content is its own focused page: show what the file contains, without
+   repeating the verdict, metadata table, cleanup advice, or technical map. */
+body[data-state="ready"][data-app-view="content"] .drawer-file > :not(.overview-flow),
+body[data-state="ready"][data-app-view="content"] .overview-flow > :not(.reveals),
+body[data-state="ready"][data-app-view="content"] .reveals > .metadata-groups,
+body[data-state="ready"][data-app-view="content"] .reveals > .cleaner,
+body[data-state="ready"][data-app-view="content"] .reveals > .blackout-open,
+body[data-state="ready"][data-app-view="content"] .reveals > .advice,
+body[data-state="ready"][data-app-view="content"] .reveals > .sharer {
+  display: none;
+}
+
 /* The map view promotes the byte composition and HEIF relationship graph. */
 body[data-state="ready"][data-app-view="map"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="map"] .overview-flow > :not(.more-details),

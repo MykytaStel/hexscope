@@ -288,7 +288,7 @@ const UK: Record<string, string> = {
   "Step through DEFLATE bit by bit: every Huffman code, every copy from earlier bytes.": "Розбір DEFLATE побітово: кожен код Гаффмана й кожне копіювання попередніх байтів.",
   "Play it →": "Запустити →",
   "Bytes view": "Перегляд байтів",
-  " — recognized parts beside their bytes, with notes from the format": " — розпізнані частини поруч із відповідними байтами та поясненнями формату",
+  "— recognized parts beside their bytes, with notes from the format": "— розпізнані частини поруч із відповідними байтами та поясненнями формату",
   "Find": "Пошук",
   " — text or hex, and the part of the file it falls in": " — тексту чи hex-значень у файлі",
   "Compare": "Порівняння",
@@ -361,6 +361,12 @@ const UK: Record<string, string> = {
   "an old Word file": "старий файл Word",
   "a progressive JPEG": "прогресивний JPEG",
   "a WebAssembly module": "модуль WebAssembly",
+  "a compressed Inkscape drawing": "стиснений малюнок з Inkscape",
+  "a WAV recording with metadata": "аудіозапис WAV із метаданими",
+  "synthetic ID3 tags; no audio": "синтетичні теги ID3; без аудіо",
+  "synthetic stream info; no audio": "синтетичний блок StreamInfo; без аудіо",
+  "synthetic Vorbis headers; no audio": "синтетичні заголовки Vorbis; без аудіо",
+  "synthetic Opus headers; no audio": "синтетичні заголовки Opus; без аудіо",
   "Open source · no accounts · no tracking · no uploads": "Відкритий код · без облікових записів · без стеження · без передавання файлів",
   "How your files stay private": "Як ми захищаємо ваші файли",
   "Source on GitHub": "Код на GitHub",
@@ -509,7 +515,7 @@ const UK: Record<string, string> = {
   "Photos & images": "Фото й зображення",
   "Documents & Office": "Документи й файли Office",
   "Email, archives & technical files": "Електронна пошта, архіви й технічні файли",
-  "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Film Lab.",
+  "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Плівковій лабораторії.",
   "Includes MOV and M4V files.": "Зокрема файли MOV і M4V.",
   "Older Word, Excel and PowerPoint formats, and LibreOffice's, included.": "Також підтримуються старі формати Word, Excel і PowerPoint і документи LibreOffice.",
   "Common file types inside ZIP archives are supported too.": "Також підтримуються поширені типи файлів усередині ZIP-архівів.",
@@ -583,6 +589,7 @@ const UK: Record<string, string> = {
   "Camera": "Фотоапарат",
   "Lens": "Об’єктив",
   "Serial number": "Серійний номер",
+  "Camera serial": "Серійний номер фотоапарата",
   "Owner": "Власник",
   "Taken": "Дата зйомки",
   "Software": "Програма",
@@ -832,8 +839,10 @@ const UK: Record<string, string> = {
   "Step forward (→)": "Крок уперед (→)",
   "Close (Esc)": "Закрити (Esc)",
   "Click to jump": "Клацніть, щоб перейти",
+  "Speed": "Швидкість",
   "Loading the stream…": "Завантажуємо потік…",
   "Fetching steps…": "Отримуємо кроки…",
+  "Nothing decoded yet — the output starts here.": "Декодованих даних іще немає — тут починається результат.",
   "New block": "Новий блок",
   "— stored: the bytes that follow are copied in as they are.": "— без стиснення: наступні байти копіюються як є.",
   "— fixed Huffman: codes come from the table built into the format.": "— сталий Гаффман: коди беруться з таблиці, вбудованої у формат.",
@@ -1587,8 +1596,31 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `Прочитано ${units(match[1])} (біти ${match[2]}–${match[3]}) · вихідний байт ${match[4]}`;
   match = /^Stopped at compressed bit ([\d,  ]+) · output so far ([\d,  ]+) bytes$/.exec(value);
   if (match) return `Зупинилися на стисненому біті ${match[1]} · виведено ${match[2]} байтів`;
+  match = /^([\d,]+) steps?\/s$/.exec(value);
+  if (match) {
+    const count = Number(match[1].replaceAll(",", ""));
+    return `${count.toLocaleString("uk")} ${ukrainianCountWord(count, "крок", "кроки", "кроків")}/с`;
+  }
   match = /^(stored|fixed Huffman|dynamic Huffman) block$/.exec(value);
   if (match) return `${{ stored: "Блок без стиснення", "fixed Huffman": "Блок зі сталим Гаффманом", "dynamic Huffman": "Блок із динамічним Гаффманом" }[match[1]]}`;
+  match = /^BTYPE · (stored|fixed Huffman|dynamic Huffman|reserved)$/.exec(value);
+  if (match) return `BTYPE · ${{ stored: "без стиснення", "fixed Huffman": "сталий Гаффман", "dynamic Huffman": "динамічний Гаффман", reserved: "зарезервовано" }[match[1]]}`;
+  match = /^LEN · ([\d,]+) bytes$/.exec(value);
+  if (match) return `LEN · ${units(`${match[1]} bytes`)}`;
+  match = /^byte (0x[0-9A-F]{2})$/.exec(value);
+  if (match) return `байт ${match[1]}`;
+  match = /^HLIT · (\d+) \+ 257 = (\d+) lit\/len codes$/.exec(value);
+  if (match) return `HLIT · ${match[1]} + 257 = ${match[2]} кодів літералів і довжин`;
+  match = /^HDIST · (\d+) \+ 1 = (\d+) distance codes$/.exec(value);
+  if (match) return `HDIST · ${match[1]} + 1 = ${match[2]} кодів відстаней`;
+  match = /^HCLEN · (\d+) \+ 4 = (\d+) code-length codes$/.exec(value);
+  if (match) return `HCLEN · ${match[1]} + 4 = ${match[2]} кодів довжин кодів`;
+  match = /^\+(\d+) → length ([\d,]+)$/.exec(value);
+  if (match) return `+${match[1]} → довжина ${match[2]}`;
+  match = /^\+(\d+) → ([\d,]+) back$/.exec(value);
+  if (match) return `+${match[1]} → ${match[2]} назад`;
+  match = /^Stopped: (.+)\.$/.exec(value);
+  if (match) return `Зупинилися: ${translateText(match[1], locale)}.`;
   match = /^— dynamic Huffman: this block ships its own code tables, ([\d,  ]+) bits of them\.$/.exec(value);
   if (match) return `— динамічний Гаффман: блок несе власні таблиці кодів, ${units(`${match[1]} bits`)}.`;
   match = /^— write byte (0x[0-9A-F]{2})( '.')? as it is\.$/.exec(value);
@@ -1607,6 +1639,8 @@ function translateText(value: string, locale: Locale): string {
   if (match) return `код відстані ${match[1]}`;
   match = /^(\S+) is past this range$/.exec(value);
   if (match) return `${match[1]} виходить за цей діапазон`;
+  match = /^(\S+) is #(\d+) here$/.exec(value);
+  if (match) return `${match[1]} — №${match[2]} тут`;
   const fact = factSentence(value);
   if (fact) return fact;
   // Several sentences, none of them known as a whole: each on its own.
