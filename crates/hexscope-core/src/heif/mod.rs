@@ -472,8 +472,18 @@ fn decode(
             }
         }
         "colr" => {
-            f.cc("colourType")?;
-            f.rest("colourData");
+            let colour_type = f.cc("colourType")?;
+            if matches!(colour_type.as_str(), "prof" | "rICC") {
+                let profile_at = f.at;
+                let profile = data.get(profile_at as usize..end as usize)?;
+                let source = ByteRange::new(profile_at, end - profile_at);
+                f.rest("profile data");
+                crate::icc::add_profile(f.tree, node, profile, source, |offset, len| {
+                    ByteRange::new(profile_at + offset, len)
+                });
+            } else {
+                f.rest("colourData");
+            }
         }
         "ipma" => {
             f.full_box()?;

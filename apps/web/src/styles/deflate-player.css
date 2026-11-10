@@ -153,6 +153,7 @@ body.is-playing .drawer-file {
 
 .drawer-player {
   display: grid;
+  min-width: 0;
   grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   gap: 6px;
   min-height: 0;
@@ -283,9 +284,14 @@ body.is-playing .drawer-file {
 
 .player-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   gap: 16px;
+  min-width: 0;
   min-height: 0;
+}
+
+.player-stage > * {
+  min-width: 0;
 }
 
 .player-bits {
@@ -329,9 +335,14 @@ body.is-playing .drawer-file {
 }
 
 .player-codes {
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   font-size: 12px;
+}
+
+.codes-table {
+  min-width: 0;
 }
 
 .codes-table + .codes-table {
@@ -339,12 +350,13 @@ body.is-playing .drawer-file {
 }
 
 .codes-table h4 {
-  display: inline;
-  margin: 0 8px 0 0;
+  margin: 0 0 2px;
   font-size: 12px;
 }
 
 .codes-hint {
+  display: block;
+  overflow-wrap: anywhere;
   color: var(--faint);
   font-size: 11px;
 }
@@ -357,7 +369,8 @@ body.is-playing .drawer-file {
 
 .codes-row {
   display: grid;
-  grid-template-columns: 44px 40px auto minmax(0, 1fr);
+  min-width: 0;
+  grid-template-columns: 44px 40px minmax(0, 1fr) minmax(0, 1.5fr);
   align-items: baseline;
   gap: 2px 8px;
   padding: 2px 6px;
@@ -367,10 +380,15 @@ body.is-playing .drawer-file {
 
 .codes-len { color: var(--muted); }
 .codes-count { color: var(--faint); }
-.codes-range { color: var(--text); }
+.codes-range {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
 
 .codes-symbols {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 0 5px;
   color: var(--muted);
@@ -380,6 +398,8 @@ body.is-playing .drawer-file {
 
 .codes-why {
   grid-column: 3 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 11px;
   color: var(--faint);
 }

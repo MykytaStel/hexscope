@@ -963,6 +963,24 @@ impl Walk<'_, '_> {
                 }
             }
 
+            if e.tag == 0x8773 {
+                let profile_parent = value_node.unwrap_or(entry);
+                if let (Ok(start), Ok(end)) = (
+                    usize::try_from(e.value_off),
+                    usize::try_from(e.value_off.saturating_add(e.size)),
+                ) && let Some(profile) = t.data.get(start..end)
+                {
+                    let source = t.range(e.value_off, e.size);
+                    crate::icc::add_profile(
+                        tree,
+                        profile_parent,
+                        profile,
+                        source,
+                        |offset, len| t.range(e.value_off + offset, len),
+                    );
+                }
+            }
+
             // A maker's note, in the maker's own format.
             if (kind, e.tag) == (Ifd::Exif, 0x927C)
                 && let Some(note) = value_node

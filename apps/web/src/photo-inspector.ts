@@ -70,9 +70,15 @@ export function photoInspector(m: FileModel, select: (node: number) => void): HT
     appendProperty(list, "Stored EXIF orientation", String(f.orientation), orientationNode, select);
   }
 
-  const profileNode = sourceNode(m, /(?:ICC|colour profile|color profile|nclx)/i);
+  const detailedProfile = sourceNode(m, /^ICC profile$/i);
+  const profileNode = detailedProfile >= 0
+    ? detailedProfile
+    : sourceNode(m, /(?:ICC|colour profile|color profile|nclx)/i);
   if (profileNode >= 0) {
-    appendProperty(list, "Colour profile", "An embedded profile or colour description is present", profileNode, select);
+    const summary = detailedProfile >= 0 && /^ICC v\d/.test(m.value(detailedProfile))
+      ? m.value(detailedProfile)
+      : "An embedded profile or colour description is present";
+    appendProperty(list, "Color profile", summary, profileNode, select);
   }
 
   const explicitFrames: number[] = [];

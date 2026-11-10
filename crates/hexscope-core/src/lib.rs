@@ -22,6 +22,7 @@ mod fixed;
 pub mod gif;
 mod gzip;
 pub mod heif;
+mod icc;
 #[cfg(feature = "audio")]
 mod ogg_crc;
 /// DEFLATE and zlib, from their own crate: see `hexscope-inflate`.

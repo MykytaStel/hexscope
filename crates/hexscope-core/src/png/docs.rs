@@ -92,6 +92,19 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "iCCP",
+        png(
+            "An ICC colour profile, with a name and a zlib-compressed profile body.",
+            "PNG §11.3.3.3",
+            "https://www.w3.org/TR/png-3/#11iCCP",
+        ),
+    ),
+    ("profile name", png("The name assigned to this ICC profile.", "PNG §11.3.3.3", "https://www.w3.org/TR/png-3/#11iCCP")),
+    ("compression method", png("How the ICC profile is compressed; method 0 is zlib.", "PNG §11.3.3.3", "https://www.w3.org/TR/png-3/#11iCCP")),
+    ("compressed profile", png("The zlib-compressed ICC profile bytes.", "PNG §11.3.3.3", "https://www.w3.org/TR/png-3/#11iCCP")),
+    ("profile source mapping", png("The profile is decompressed for inspection; its internal offsets do not map one-to-one to the compressed bytes.", "PNG §11.3.3.3", "https://www.w3.org/TR/png-3/#11iCCP")),
+    ("decompression error", png("Why the profile's zlib stream could not be decompressed.", "PNG §11.3.3.3", "https://www.w3.org/TR/png-3/#11iCCP")),
+    (
         "sBIT",
         png(
             "How many bits of each colour were significant in the original, before it was stored in more.",
@@ -212,7 +225,7 @@ const TABLE: Table = &[
     (
         "compression",
         png(
-            "The compression method; 0, DEFLATE, is the only one defined.",
+            "The value 0 means PNG image data is compressed with DEFLATE; no other method is defined.",
             "PNG §10.1",
             "https://www.w3.org/TR/png-3/#10Compression",
         ),
@@ -515,6 +528,10 @@ const TABLE: Table = &[
     (
         "IDAT decompression failed*",
         damage("The compressed image data breaks here: everything after this point is lost."),
+    ),
+    (
+        "iCCP profile decompression failed",
+        damage("The compressed profile data is not a complete zlib stream."),
     ),
     (
         "unfiltering failed*",

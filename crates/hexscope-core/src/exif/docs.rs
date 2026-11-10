@@ -5,6 +5,7 @@
 use crate::docs::{Concern, Doc, Table, lookup};
 
 const CIPA: &str = "https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf";
+const ICC: &str = "https://www.color.org/specifications/ICC.1-2022-05.pdf";
 
 const fn tiff(text: &'static str) -> Doc {
     Doc::new(text).cite("EXIF 2.32, TIFF attributes", CIPA)
@@ -197,6 +198,11 @@ pub(crate) const TAGS: Table = &[
     (
         "Model",
         tiff("Which camera or phone model took the picture."),
+    ),
+    (
+        "InterColorProfile",
+        Doc::new("The ICC colour profile embedded in this TIFF image.")
+            .cite("ICC.1:2022 Annex B.3", ICC),
     ),
     (
         "StripOffsets",

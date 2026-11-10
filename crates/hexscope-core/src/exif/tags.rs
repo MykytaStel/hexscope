@@ -72,6 +72,7 @@ pub(super) fn tag_name(ifd: Ifd, tag: u16) -> Option<&'static str> {
         0x0211 => "YCbCrCoefficients",
         0x0213 => "YCbCrPositioning",
         0x0214 => "ReferenceBlackWhite",
+        0x8773 => "InterColorProfile",
         0x8298 => "Copyright",
         0x829A => "ExposureTime",
         0x829D => "FNumber",

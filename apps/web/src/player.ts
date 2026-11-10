@@ -595,7 +595,26 @@ export class Player {
 
     if (outEnd === 0) {
       ctx.fillStyle = p.faint;
-      ctx.fillText("Nothing decoded yet — the output starts here.", padX, top + cellH / 2);
+      const message = "Nothing decoded yet — the output starts here.";
+      const maxWidth = Math.max(1, this.viewW - padX * 2);
+      const lines: string[] = [];
+      let line = "";
+      for (const word of message.split(/\s+/)) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (line && ctx.measureText(candidate).width > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line) lines.push(line);
+      const lineHeight = FONT_PX * 1.4;
+      const centerY = top + cellH / 2;
+      lines.forEach((part, index) => {
+        const offset = (index - (lines.length - 1) / 2) * lineHeight;
+        ctx.fillText(part, padX, centerY + offset);
+      });
     }
 
     for (const s of segs) {

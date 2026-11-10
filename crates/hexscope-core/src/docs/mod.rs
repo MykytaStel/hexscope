@@ -157,7 +157,19 @@ pub(crate) fn glob(pattern: &str, label: &str) -> bool {
 /// format has nothing specific; other nodes get one when their format knows
 /// them.
 pub fn describe(tree: &ParseTree, id: NodeId, format: Format) -> Option<Doc> {
-    specific(tree, id, format).or_else(|| generic(tree.try_get(id)?.kind))
+    let node = tree.try_get(id)?;
+    let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
+    let in_icc_profile = std::iter::successors(Some(id), |&parent| tree.try_get(parent)?.parent)
+        .any(|ancestor| {
+            tree.try_get(ancestor)
+                .is_some_and(|n| n.label == "ICC profile")
+        });
+    let format_doc = if in_icc_profile {
+        crate::icc::docs::describe(&node.label, problem).or_else(|| specific(tree, id, format))
+    } else {
+        specific(tree, id, format).or_else(|| crate::icc::docs::describe(&node.label, problem))
+    };
+    format_doc.or_else(|| generic(node.kind))
 }
 
 /// The format's own explanation, without the generic fallback.
@@ -251,6 +263,7 @@ pub fn every() -> Vec<(&'static str, Doc)> {
         ("media", crate::png::docs::EVERY),
         ("media", crate::heif::docs::EVERY),
         ("media", crate::webp::docs::EVERY),
+        ("media", crate::icc::docs::EVERY),
         ("media", crate::gif::docs::EVERY),
         ("media", crate::video::docs::EVERY),
         ("media", crate::svg::docs::EVERY),
