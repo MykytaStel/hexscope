@@ -976,8 +976,17 @@ test("phone analyzer exposes all workspace views and secondary actions", async (
 
   const comparePicker = page.waitForEvent("filechooser");
   await compare.click();
-  await comparePicker;
+  const picker = await comparePicker;
+  await expect(more).toHaveAttribute("open", "");
+  await expect(compare).toBeVisible();
+  await picker.setFiles(sample("report.docx"));
+  const comparison = page.locator("dialog.compare");
+  await expect(comparison).toBeVisible();
   await expect(more).not.toHaveAttribute("open", "");
+  await page.keyboard.press("Escape");
+  await expect(comparison).not.toBeVisible();
+  await more.locator("summary").click();
+  await expect(compare).toBeVisible();
 
   await page.setViewportSize({ width: 320, height: 740 });
   await expect(page.locator("html")).toHaveJSProperty("scrollWidth", 320);
