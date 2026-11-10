@@ -700,7 +700,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             tuples.len(),
-            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 14 + 14 + 12
+            8 + 10 + 8 + 7 + 7 + 5 + 13 + 28 + 15 + 20 + 11 + 12 + 14 + 14 + 16
         );
         for (index, (format, kind, scope)) in tuples.iter().enumerate() {
             assert!(covered(format, kind, scope));

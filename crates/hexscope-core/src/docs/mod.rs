@@ -156,14 +156,17 @@ pub(crate) fn glob(pattern: &str, label: &str) -> bool {
 /// What node `id` is. Problems always get an answer, a generic one if their
 /// format has nothing specific; other nodes get one when their format knows
 /// them.
+fn inside_icc_profile(tree: &ParseTree, id: NodeId) -> bool {
+    std::iter::successors(Some(id), |&parent| tree.try_get(parent)?.parent).any(|ancestor| {
+        tree.try_get(ancestor)
+            .is_some_and(|node| node.label == "ICC profile")
+    })
+}
+
 pub fn describe(tree: &ParseTree, id: NodeId, format: Format) -> Option<Doc> {
     let node = tree.try_get(id)?;
     let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
-    let in_icc_profile = std::iter::successors(Some(id), |&parent| tree.try_get(parent)?.parent)
-        .any(|ancestor| {
-            tree.try_get(ancestor)
-                .is_some_and(|n| n.label == "ICC profile")
-        });
+    let in_icc_profile = inside_icc_profile(tree, id);
     let format_doc = if in_icc_profile {
         crate::icc::docs::describe(&node.label, problem).or_else(|| specific(tree, id, format))
     } else {
@@ -181,6 +184,11 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         .map(|p| p.label.as_str());
     let label = node.label.as_str();
     let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
+    if inside_icc_profile(tree, id) {
+        if let Some(doc) = crate::icc::docs::describe(label, problem) {
+            return Some(doc);
+        }
+    }
     match format {
         Format::Png => crate::png::docs::describe(label, parent, problem).or_else(|| {
             // Inside eXIf, the EXIF tables explain the TIFF block.

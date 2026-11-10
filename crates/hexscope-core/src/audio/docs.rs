@@ -65,7 +65,7 @@ const TABLE: Table = &[
     ),
     (
         "RF64/WAVE audio",
-        rf64("An RF64/WAVE recording with 64-bit sizes read from its mandatory ds64 chunk. Hexscope reads supported chunk sizes and metadata without decoding or playing audio. RF64 remains read-only; unsupported chunks make the read partial."),
+        rf64("A read-only RF64/WAVE recording with 64-bit sizes from its required ds64 chunk; supported metadata is read without decoding audio, and unsupported chunks make the result partial."),
     ),
     (
         "RF64 ds64 chunk",
@@ -85,7 +85,7 @@ const TABLE: Table = &[
     ),
     (
         "BW64/WAVE audio",
-        bw64("A BW64/WAVE recording with 64-bit sizes read from its mandatory ds64 chunk. Hexscope reads supported chunk sizes and metadata without decoding or playing audio. BW64 remains read-only; XML and channel metadata chunks are not interpreted yet."),
+        bw64("A read-only BW64/WAVE recording with 64-bit sizes from its required ds64 chunk; this view reads supported metadata without decoding audio or interpreting XML and channel metadata chunks."),
     ),
     (
         "BW64 ds64 chunk",

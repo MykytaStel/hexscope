@@ -617,6 +617,7 @@ const entries: [string, string][] = [
   ["AV1-compressed picture data: the photo itself, a tile of it, or its thumbnail.", "Дані картинки, стиснені AV1: саме фото, його плитка чи мініатюра."],
   ["A chunk this tool does not decode. A lower-case first letter tells readers they may safely skip it.", "Фрагмент, якого ця програма не розбирає. Мала перша літера каже програмам, що його можна безпечно пропустити."],
   ["A TIFF image, as scanners and cameras save them: a header, then directories of tags — the picture's size and colours, where its strips of pixels lie, and the same camera, place and time tags a JPEG's EXIF carries.", "Зображення TIFF, як його зберігають сканери й фотоапарати: заголовок, далі каталоги тегів — розмір і кольори картинки, де лежать її смуги пікселів і ті самі теги камери, місця й часу, що в EXIF фото JPEG."],
+  ["The ICC colour profile embedded in this TIFF image.", "Вбудований у це зображення TIFF колірний профіль ICC."],
   ["How pixel values map to colours: RGB, YCbCr and so on.", "Як значення пікселів відповідають кольорам: RGB, YCbCr тощо."],
   ["Where the image's data starts, for images stored in strips.", "Де починаються дані зображення — для зображень, збережених смугами."],
   ["How many colour components make one pixel.", "Скільки складових кольору утворюють один піксель."],
