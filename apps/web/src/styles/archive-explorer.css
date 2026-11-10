@@ -156,6 +156,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.archive-row[aria-selected="true"] .archive-meta {
+  color: var(--text);
+}
+
 .archive-flag {
   flex: none;
   padding: 1px 6px;
