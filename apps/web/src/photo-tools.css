@@ -271,7 +271,7 @@
 .film-roll-actions { display: flex; justify-content: flex-end; gap: 9px; }
 .film-roll-actions .btn { min-height: var(--control-height); padding: 8px 15px; font-size: 13px; }
 .film-roll-actions .btn:disabled { cursor: not-allowed; opacity: 0.62; }
-.film-roll-actions .btn-primary { min-width: 190px; }
+.film-roll-actions .btn-primary { min-width: 0; max-width: 100%; white-space: normal; text-align: center; }
 .film-roll-actions [hidden] { display: none !important; }
 
 @media (max-width: 600px) {

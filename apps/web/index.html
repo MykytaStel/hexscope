@@ -23,10 +23,10 @@
   </head>
   <body>
     <header class="topbar">
-      <div class="brand">
+      <a class="brand" href="/" data-home-link aria-label="hexscope home">
         <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" /><circle cx="16" cy="16" r="5" /></svg>
         <span class="brand-name">hexscope</span>
-      </div>
+      </a>
       <nav class="landing-nav" aria-label="Main">
         <a href="#examples">Examples</a>
         <a href="#formats">Formats</a>
@@ -440,30 +440,64 @@
           </section>
           <section class="more-block">
             <h2 class="more-title">More samples to try</h2>
-            <ul class="sample-chips">
-              <li><button class="chip" data-sample="samples/cropped.jpg" data-name="cropped.jpg"><span class="chip-kind">JPG</span>a cropped photo</button></li>
-              <li><button class="chip" data-sample="samples/photo.heic" data-name="photo.heic"><span class="chip-kind">HEIC</span>an iPhone photo</button></li>
-              <li><button class="chip" data-sample="samples/holiday.jpg" data-name="holiday.jpg"><span class="chip-kind">JPG</span>a photo with the wrong name</button></li>
-              <li><button class="chip" data-sample="samples/wifi.png" data-name="wifi.png"><span class="chip-kind">PNG</span>a Wi-Fi QR code</button></li>
-              <li><button class="chip" data-sample="samples/ai-picture.png" data-name="ai-picture.png"><span class="chip-kind">PNG</span>an AI-made picture</button></li>
-              <li><button class="chip" data-sample="samples/video.mov" data-name="video.mov"><span class="chip-kind">MOV</span>an iPhone video</button></li>
-              <li><button class="chip" data-sample="samples/sample.wav" data-name="sample.wav"><span class="chip-kind">WAV</span>a WAV recording with metadata</button></li>
-              <li><button class="chip" data-sample="samples/sample.mp3" data-name="sample.mp3"><span class="chip-kind">MP3</span>synthetic ID3 tags; no audio</button></li>
-              <li><button class="chip" data-sample="samples/sample.flac" data-name="sample.flac"><span class="chip-kind">FLAC</span>synthetic stream info; no audio</button></li>
-              <li><button class="chip" data-sample="samples/vorbis.ogg" data-name="vorbis.ogg"><span class="chip-kind">OGG</span>synthetic Vorbis headers; no audio</button></li>
-              <li><button class="chip" data-sample="samples/opus.ogg" data-name="opus.ogg"><span class="chip-kind">OGG</span>synthetic Opus headers; no audio</button></li>
-              <li><button class="chip" data-sample="samples/report.docx" data-name="report.docx"><span class="chip-kind">DOCX</span>a Word document</button></li>
-              <li><button class="chip" data-sample="samples/budget.xlsx" data-name="budget.xlsx"><span class="chip-kind">XLSX</span>a spreadsheet</button></li>
-              <li><button class="chip" data-sample="samples/lease.odt" data-name="lease.odt"><span class="chip-kind">ODT</span>a LibreOffice document</button></li>
-              <li><button class="chip" data-sample="samples/report.pdf" data-name="report.pdf"><span class="chip-kind">PDF</span>an edited PDF</button></li>
-              <li><button class="chip" data-sample="samples/message.eml" data-name="message.eml"><span class="chip-kind">EML</span>an email</button></li>
-              <li><button class="chip" data-sample="samples/phishing.msg" data-name="phishing.msg"><span class="chip-kind">MSG</span>an Outlook message</button></li>
-              <li><button class="chip" data-sample="samples/plan.doc" data-name="plan.doc"><span class="chip-kind">DOC</span>an old Word file</button></li>
-              <li><button class="chip" data-sample="samples/drawing.svg" data-name="drawing.svg"><span class="chip-kind">SVG</span>an Inkscape drawing</button></li>
-              <li><button class="chip" data-sample="samples/drawing.svgz" data-name="drawing.svgz"><span class="chip-kind">SVGZ</span>a compressed Inkscape drawing</button></li>
-              <li><button class="chip" data-sample="samples/progressive.jpg" data-name="progressive.jpg"><span class="chip-kind">JPG</span>a progressive JPEG</button></li>
-              <li><button class="chip" data-sample="samples/hello.wasm" data-name="hello.wasm"><span class="chip-kind">WASM</span>a WebAssembly module</button></li>
-            </ul>
+            <div class="sample-format-groups">
+              <section class="sample-format-group"><h3>JPG</h3><ul>
+                <li><button class="chip" data-sample="samples/cropped.jpg" data-name="cropped.jpg">a cropped photo</button></li>
+                <li><button class="chip" data-sample="samples/holiday.jpg" data-name="holiday.jpg">a photo with the wrong name</button></li>
+                <li><button class="chip" data-sample="samples/progressive.jpg" data-name="progressive.jpg">a progressive JPEG</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>HEIC</h3><ul>
+                <li><button class="chip" data-sample="samples/photo.heic" data-name="photo.heic">an iPhone photo</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>PNG</h3><ul>
+                <li><button class="chip" data-sample="samples/wifi.png" data-name="wifi.png">a Wi-Fi QR code</button></li>
+                <li><button class="chip" data-sample="samples/ai-picture.png" data-name="ai-picture.png">an AI-made picture</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>MOV</h3><ul>
+                <li><button class="chip" data-sample="samples/video.mov" data-name="video.mov">an iPhone video</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>WAV</h3><ul>
+                <li><button class="chip" data-sample="samples/sample.wav" data-name="sample.wav">a WAV recording with metadata</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>MP3</h3><ul>
+                <li><button class="chip" data-sample="samples/sample.mp3" data-name="sample.mp3">synthetic ID3 tags; no audio</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>FLAC</h3><ul>
+                <li><button class="chip" data-sample="samples/sample.flac" data-name="sample.flac">synthetic stream info; no audio</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>OGG</h3><ul>
+                <li><button class="chip" data-sample="samples/vorbis.ogg" data-name="vorbis.ogg">synthetic Vorbis headers; no audio</button></li>
+                <li><button class="chip" data-sample="samples/opus.ogg" data-name="opus.ogg">synthetic Opus headers; no audio</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>DOCX</h3><ul>
+                <li><button class="chip" data-sample="samples/report.docx" data-name="report.docx">a Word document</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>XLSX</h3><ul>
+                <li><button class="chip" data-sample="samples/budget.xlsx" data-name="budget.xlsx">a spreadsheet</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>ODT</h3><ul>
+                <li><button class="chip" data-sample="samples/lease.odt" data-name="lease.odt">a LibreOffice document</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>PDF</h3><ul>
+                <li><button class="chip" data-sample="samples/report.pdf" data-name="report.pdf">an edited PDF</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>EML</h3><ul>
+                <li><button class="chip" data-sample="samples/message.eml" data-name="message.eml">an email</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>MSG</h3><ul>
+                <li><button class="chip" data-sample="samples/phishing.msg" data-name="phishing.msg">an Outlook message</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>DOC</h3><ul>
+                <li><button class="chip" data-sample="samples/plan.doc" data-name="plan.doc">an old Word file</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>SVG / SVGZ</h3><ul>
+                <li><button class="chip" data-sample="samples/drawing.svg" data-name="drawing.svg">an Inkscape drawing</button></li>
+                <li><button class="chip" data-sample="samples/drawing.svgz" data-name="drawing.svgz">a compressed Inkscape drawing</button></li>
+              </ul></section>
+              <section class="sample-format-group"><h3>WASM</h3><ul>
+                <li><button class="chip" data-sample="samples/hello.wasm" data-name="hello.wasm">a WebAssembly module</button></li>
+              </ul></section>
+            </div>
           </section>
           </nav>
         </details>

@@ -346,8 +346,15 @@ narrow.addEventListener("change", () => {
   if (!narrow.matches && document.body.dataset.state === "ready") syncAppNavigation();
 });
 
-function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
+function writeWorkspaceHistory(view: WorkspaceView, replace = false): void {
+  const state = { hexscopeWorkspace: true, hexscopeView: view };
+  if (replace) history.replaceState(state, "", location.href);
+  else history.pushState(state, "", location.href);
+}
+
+function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHistory = false): void {
   document.body.dataset.appView = view;
+  if (recordHistory) writeWorkspaceHistory(view, true);
   const makeup = $("drawer").querySelector<HTMLElement>(".more-details > .makeup");
   const details = $("drawer").querySelector<HTMLDetailsElement>(".more-details");
   if (view === "map" && details) details.open = true;
@@ -373,6 +380,30 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
   }
 }
 
+window.addEventListener("popstate", (event: PopStateEvent) => {
+  if (document.body.dataset.state === "batch") return;
+  const state = event.state as { hexscopeWorkspace?: boolean; hexscopeView?: WorkspaceView } | null;
+  if (state?.hexscopeWorkspace && workspace?.model) {
+    document.body.dataset.state = "ready";
+    showFileInfo(workspace.model, workspace.levels);
+    setWorkspaceView(state.hexscopeView ?? "overview", false);
+    updateProblems();
+    playBtn.hidden = !canPlay();
+    return;
+  }
+  if (workspace?.model && document.body.dataset.state === "ready") {
+    // The entry before the first inspected file is the landing page. Keep the
+    // parsed file in memory so Forward can restore the workspace immediately.
+    document.body.dataset.state = "empty";
+    $("fileinfo").replaceChildren();
+    locationBtn.hidden = true;
+    problemsBtn.hidden = true;
+    playBtn.hidden = true;
+    syncAppNavigation();
+    void startDemo($("demo"));
+  }
+});
+
 appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
@@ -391,7 +422,10 @@ appNavigation.addEventListener("click", (event) => {
     dismissTour();
     // Close an open player, but don't reapply the active page's layout or scroll.
     if (sameView) return;
-    setWorkspaceView(nextView);
+    // Workspace tabs are one browser-history entry. Replacing its state keeps
+    // Back/Forward for leaving and restoring the inspected file, without
+    // leaving stale entries for files that have since been replaced.
+    setWorkspaceView(nextView, true, true);
     return;
   }
   tourDismissedByNavigation = true;
@@ -1065,7 +1099,10 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   drawer.showFile(m);
   drawer.showNode(m, -1, false);
   showFileInfo(m, levels);
-  setWorkspaceView(openingView() === "bytes" ? "bytes" : "overview", false);
+  const initialView = openingView() === "bytes" ? "bytes" : "overview";
+  setWorkspaceView(initialView, false);
+  const currentState = history.state as { hexscopeWorkspace?: boolean } | null;
+  writeWorkspaceHistory(initialView, currentState?.hexscopeWorkspace === true);
   updateProblems();
   playBtn.hidden = !canPlay();
   syncAppNavigation();

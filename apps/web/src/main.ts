@@ -21,6 +21,14 @@ document.querySelector(".topbar .actions")?.prepend(languageButton());
 // Light, dark or the system's, beside Open.
 document.querySelector('[data-opens="picker"]')?.before(themeButton());
 
+document.querySelector<HTMLAnchorElement>("[data-home-link]")?.addEventListener("click", (event) => {
+  if (document.body.dataset.state === "empty") return;
+  event.preventDefault();
+  // Use a distinct entry so the logo always returns to a fresh landing page,
+  // even when the analyzer itself is already at `/`.
+  location.assign(`${location.pathname}?home=1`);
+});
+
 function syncAnalyzerPreviewLocale(): void {
   const image = document.querySelector<HTMLImageElement>(".deeper-image");
   if (!image) return;
@@ -126,6 +134,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 
 document.body.dataset.state = "empty";
 const asked = new URLSearchParams(location.search);
+if (asked.has("home")) history.replaceState(null, "", location.pathname);
 // What a link asked to open goes first: a sample by name, or a file shared to the app.
 const linked = asked.get("sample");
 if (linked && [...document.querySelectorAll<HTMLElement>("[data-sample]")].some((b) => b.dataset.name === linked)) {

@@ -595,7 +595,9 @@ export class Drawer {
     const row = this.file.querySelector<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
     const label = row?.previousElementSibling as HTMLElement | null;
     if (!row || !label) return false;
+    row.closest<HTMLDetailsElement>("details")?.setAttribute("open", "");
     label.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    row.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     for (const e of [label, row]) {
       e.classList.remove("is-flash");
       void e.offsetWidth;
@@ -1007,6 +1009,11 @@ export class Drawer {
     for (const { key } of METADATA_GROUPS) {
       const elements = groupElements.get(key)!;
       if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
+    }
+    const additionalDetails = metadataGroups.querySelector<HTMLDetailsElement>(".metadata-additional-details");
+    const additionalFields = groupElements.get("additional")!.list.childElementCount;
+    if (additionalDetails && m.file.format === "wav" && additionalFields > 0 && additionalFields <= 16) {
+      additionalDetails.open = true;
     }
     const metadataSummary = el("nav", "metadata-summary");
     metadataSummary.setAttribute("aria-label", translateText("Metadata fields found", currentLocale()));
