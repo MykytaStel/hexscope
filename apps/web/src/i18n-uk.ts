@@ -341,7 +341,7 @@ const UK: Record<string, string> = {
   "Remove metadata from Word, Excel and PowerPoint": "Видалити метадані з Word, Excel і PowerPoint",
   "Remove metadata from LibreOffice and RTF files": "Видалити метадані з LibreOffice та RTF",
   "Text no one can see in a PDF": "Текст у PDF, якого ніхто не бачить",
-  "What type of file is this?": "Що це за тип файла?",
+  "What type of file is this?": "Що це за файл?",
   "Check a file": "Перевірити файл",
   "Read the method and data": "Як це працює і які дані читає",
   "Remove the location from a photo →": "Прибрати геолокацію з фото →",

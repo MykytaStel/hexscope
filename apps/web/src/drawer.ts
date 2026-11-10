@@ -1012,7 +1012,9 @@ export class Drawer {
     }
     const additionalDetails = metadataGroups.querySelector<HTMLDetailsElement>(".metadata-additional-details");
     const additionalFields = groupElements.get("additional")!.list.childElementCount;
-    if (additionalDetails && additionalFields > 0 && additionalFields <= 16) additionalDetails.open = true;
+    if (additionalDetails && m.file.format === "wav" && additionalFields > 0 && additionalFields <= 16) {
+      additionalDetails.open = true;
+    }
     const metadataSummary = el("nav", "metadata-summary");
     metadataSummary.setAttribute("aria-label", translateText("Metadata fields found", currentLocale()));
     metadataSummary.append(el("p", "metadata-summary-title", "Metadata found"));

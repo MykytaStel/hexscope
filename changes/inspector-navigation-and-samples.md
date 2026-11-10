@@ -2,9 +2,8 @@
 
 - **Group sample files by format.** The example list now shows each extension
   once as a heading, with the matching files below it.
-- **Make short metadata lists easier to inspect.** Additional fields open
-  automatically when there are eight or fewer, and the spacing around metadata
-  groups is tighter.
+- **Make WAV metadata easier to inspect.** A short Additional fields section
+  opens automatically, and spacing around metadata groups is tighter.
 - **Translate the remaining guide and start-page labels into Ukrainian.**
 - **Fit action labels to their buttons.** Long translated labels can wrap, and
   film-scan actions no longer reserve unnecessary width.
