@@ -1008,10 +1008,6 @@ export class Drawer {
       const elements = groupElements.get(key)!;
       if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
     }
-    const additionalFacts = f.facts.filter((entry) => metadataGroupFor(entry.kind) === "additional");
-    if (additionalFacts.some((entry) => STRONG.includes(entry.kind))) {
-      groupElements.get("additional")!.body.setAttribute("open", "");
-    }
     const metadataSummary = el("nav", "metadata-summary");
     metadataSummary.setAttribute("aria-label", translateText("Metadata fields found", currentLocale()));
     metadataSummary.append(el("p", "metadata-summary-title", "Metadata found"));

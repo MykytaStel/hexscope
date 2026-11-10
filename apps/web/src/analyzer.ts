@@ -364,10 +364,6 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
       : view === "map"
         ? makeup
       : null;
-  if (view === "metadata") {
-    // The view of every field: the extra ones too, open.
-    for (const more of $("drawer").querySelectorAll<HTMLDetailsElement>(".metadata-groups details")) more.open = true;
-  }
   if (view === "overview" || view === "metadata") {
     requestAnimationFrame(() => file?.scrollTo({ top: 0, behavior: "smooth" }));
   } else if (target) {

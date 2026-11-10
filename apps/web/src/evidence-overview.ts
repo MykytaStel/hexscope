@@ -130,8 +130,10 @@ export function evidenceOverview(
       dd,
     };
   });
+  const additionalDetails = fields.querySelector<HTMLDetailsElement>(".metadata-additional-details");
 
   let active: EvidenceFilter = factRows.length === 0 && issues.length > 0 ? "unchecked" : "all";
+  let filterRequested = false;
   const filters: { key: EvidenceFilter; label: string; count: number }[] = [
     { key: "all", label: "All findings", count: factRows.length },
     { key: "privacy", label: "Privacy", count: factRows.filter((row) => PRIVACY_KINDS.has(row.kind) && !ATTACHMENT_KINDS.has(row.kind)).length },
@@ -146,6 +148,7 @@ export function evidenceOverview(
     button.append(document.createTextNode(tr(filter.label)), el("span", "evidence-filter-count", String(filter.count)));
     button.setAttribute("aria-pressed", filter.key === active ? "true" : "false");
     button.addEventListener("click", () => {
+      filterRequested = true;
       active = filter.key;
       update();
     });
@@ -177,6 +180,14 @@ export function evidenceOverview(
       if (row.dt) row.dt.hidden = !show;
       row.dd.hidden = !show;
       if (show) visible++;
+    }
+    if (
+      filterRequested && active !== "unchecked" &&
+      additionalDetails?.querySelector<HTMLElement>('dd[data-kind]:not([hidden])')
+    ) {
+      // A deliberate filter/search should reveal its matching fields even
+      // when the additional-fields group starts collapsed for readability.
+      additionalDetails.open = true;
     }
     const general = fields.querySelector<HTMLElement>('.metadata-group[data-metadata-group="general"]');
     let generalVisible = false;
@@ -214,7 +225,10 @@ export function evidenceOverview(
     else if (needle && visible === 0) empty.textContent = tr("No matching findings.");
     else empty.textContent = active === "unchecked" ? tr("The parser reported no unchecked parts.") : tr("No findings in this group.");
   };
-  query.addEventListener("input", update);
+  query.addEventListener("input", () => {
+    filterRequested = true;
+    update();
+  });
   update();
   return box;
 }
