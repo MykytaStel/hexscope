@@ -452,10 +452,11 @@ uninterpreted; both formats are read-only and outside the WAV clean-copy
 contract.
 
 **Implementation update 2026-11-10:** HEIF construction method 2 now maps an
-item extent through its 1-based `iloc` reference when that reference points to
-one local item with one explicit, in-file extent. Chained locations, multiple
-source extents, external references and implicit lengths remain visibly
-unread; this does not decode HEIF/AVIF image payloads.
+item extent through its 1-based `iloc` reference when the requested bytes lie
+inside one explicit, in-file extent of a local source item. The source item may
+have multiple extents, including extents in `idat`; a request crossing an
+extent boundary, chained locations, external references and implicit lengths
+remain visibly unread. This does not decode HEIF/AVIF image payloads.
 
 **Implementation update 2026-11-10:** ZIP method 12 (BZIP2) now decompresses
 entry bytes on demand in native Core/CLI builds with the optional `zip-bzip2`
