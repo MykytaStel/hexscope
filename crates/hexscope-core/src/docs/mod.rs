@@ -184,10 +184,10 @@ pub(crate) fn specific(tree: &ParseTree, id: NodeId, format: Format) -> Option<D
         .map(|p| p.label.as_str());
     let label = node.label.as_str();
     let problem = matches!(node.kind, NodeKind::Warning | NodeKind::Error);
-    if inside_icc_profile(tree, id) {
-        if let Some(doc) = crate::icc::docs::describe(label, problem) {
-            return Some(doc);
-        }
+    if inside_icc_profile(tree, id)
+        && let Some(doc) = crate::icc::docs::describe(label, problem)
+    {
+        return Some(doc);
     }
     match format {
         Format::Png => crate::png::docs::describe(label, parent, problem).or_else(|| {
