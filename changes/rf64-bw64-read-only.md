@@ -1,1 +1,7 @@
-RF64 and BW64 are now identified separately and inspected as read-only WAVE formats. The parser reads the mandatory first `ds64` chunk, resolves 64-bit form, data and optional table sizes with checked bounds, and then inspects supported WAVE format and metadata chunks. The table is limited to 4,096 entries; unresolved sizes and uninterpreted chunks produce a partial result. BW64 XML and channel metadata chunks remain unread. Audio is not decoded or played, and these formats do not inherit WAV clean-copy support.
+### Added
+
+- **Inspect RF64 and BW64 WAVE files.** The parser reads the mandatory first
+  `ds64` chunk and resolves 64-bit form, data and table sizes with checked
+  bounds and a 4,096-entry limit. Audio is not decoded or played; BW64 XML and
+  channel metadata remain unread, and neither format inherits WAV clean-copy
+  support.

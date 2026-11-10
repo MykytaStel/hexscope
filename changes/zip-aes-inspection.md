@@ -1,4 +1,4 @@
-### Improved
+### Changed
 
 - **See how AES-encrypted ZIP entries are configured.** The archive view reads
   WinZip AES version, key strength and the compression method from the `0x9901`

@@ -349,7 +349,6 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
         complete = false;
     }
     let form_end = declared_end.min(data.len() as u64) as usize;
-    let mut cursor = cursor;
     if wide && cursor > form_end {
         tree.error(
             root,

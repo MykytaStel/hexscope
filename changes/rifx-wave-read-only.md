@@ -1,1 +1,6 @@
-RIFX/WAVE is now identified and inspected as a read-only audio format. The parser reads the big-endian form and chunk sizes, supported WAVE format fields, INFO list item sizes, and selected Broadcast Wave numeric fields. The Web and CLI distinguish RIFX from RIFF/WAVE; RIFX does not inherit the verified WAV clean-copy capabilities. Audio remains undecoded and unplayed.
+### Added
+
+- **Inspect big-endian RIFX/WAVE files.** The parser reads form and chunk
+  sizes, supported WAVE format fields, INFO item sizes and selected Broadcast
+  Wave numeric fields. RIFX remains read-only, undecoded and unplayed; it does
+  not inherit the verified WAV clean-copy capabilities.

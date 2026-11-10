@@ -60,8 +60,14 @@ and AVIS temporal units are not decoded into pixels or played as a sequence.
 Manually comparing a still with a motion clip does not verify that their Live
 Photo pairing identifiers match.
 
-**Other ZIP compression methods.** Stored and deflated entries open and play;
-Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed. WinZip AES
+**Other ZIP compression methods.** Stored and deflated entries can be opened
+in the Web app; native Core and CLI builds also open BZIP2 and Zstandard
+entries when their optional features are enabled. The browser leaves both
+methods named but unread until separately loaded decoders fit its WebAssembly
+budget. Zstandard frames needing dictionaries or a window above 128 MiB are
+not read; deprecated method 20 remains unsupported. The byte-by-byte ZIP
+player remains DEFLATE-only. Deflate64, LZMA and xz are named but not
+decompressed. WinZip AES
 entries show their AE-1/AE-2 version, key strength and underlying compression
 method from the 0x9901 extra field, with recognized local and directory
 values compared; extra extension bytes remain uninterpreted, and their

@@ -457,6 +457,19 @@ one local item with one explicit, in-file extent. Chained locations, multiple
 source extents, external references and implicit lengths remain visibly
 unread; this does not decode HEIF/AVIF image payloads.
 
+**Implementation update 2026-11-10:** ZIP method 12 (BZIP2) now decompresses
+entry bytes on demand in native Core/CLI builds with the optional `zip-bzip2`
+feature, applying the output limit, uncompressed-size check and CRC-32 check.
+The browser leaves these entries named and unread until a separately loaded
+decoder fits its WebAssembly budget; other unsupported methods remain unread.
+
+**Implementation update 2026-11-10:** ZIP method 93 (Zstandard) now decompresses
+sequential frames on demand in native Core/CLI builds with the optional
+`zip-zstd` feature. Output is bounded and still checked against the recorded
+size and CRC-32; each frame's window is capped at 128 MiB, and dictionary
+frames are unread. Deprecated method 20 remains unsupported, as does browser
+decompression pending a separately loaded module.
+
 4. **Make encrypted ZIP entries more informative.** Read WinZip AES `0x9901`
    fields in both the local header and central directory, show AE version,
    key strength and the underlying compression method, compare recognized
