@@ -11,6 +11,52 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.18.0] — 2026-11-10
+
+### Added
+
+- **Inspect RF64 and BW64 WAVE files.** The parser reads the mandatory first
+  `ds64` chunk and resolves 64-bit form, data and table sizes with checked
+  bounds and a 4,096-entry limit. Audio is not decoded or played; BW64 XML and
+  channel metadata remain unread, and neither format inherits WAV clean-copy
+  support.
+- **Inspect big-endian RIFX/WAVE files.** The parser reads form and chunk
+  sizes, supported WAVE format fields, INFO item sizes and selected Broadcast
+  Wave numeric fields. RIFX remains read-only, undecoded and unplayed; it does
+  not inherit the verified WAV clean-copy capabilities.
+- **Make a clean copy of a fully inspected WAV recording.** The copy removes
+  complete WAVE INFO and Broadcast Wave metadata chunks while preserving the
+  format and audio data byte for byte. Removing Broadcast Wave also removes
+  its timing, loudness values and coding history; unsupported or incomplete
+  chunks keep the file read-only.
+- **Read BZIP2- and Zstandard-compressed ZIP entries in the CLI.** Extracted
+  data remains subject to the output limit, recorded size and CRC checks.
+  Zstandard decoding accepts sequential frames with windows up to 128 MiB;
+  dictionary frames are unsupported. The browser keeps both methods unread
+  until they fit separately loaded WebAssembly modules.
+
+### Changed
+
+- **HEIF item-location fields explain all three storage methods:** the
+  structure view describes bytes stored in the file, in `idat` data, or in
+  another item, and states which referenced ranges remain unread.
+- **Inspect more HEIF item locations.** Construction method 2 maps an explicit
+  requested range through its 1-based `iloc` reference into a local item, even
+  when that item has several explicit `mdat` or `idat` extents. A range must
+  stay inside one source extent; ranges crossing a boundary, chained or
+  external references, and implicit lengths remain unread. The parser does not
+  copy or decode the image payload, and clean-copy behavior is unchanged.
+- **See how AES-encrypted ZIP entries are configured.** The archive view reads
+  WinZip AES version, key strength and the compression method from the `0x9901`
+  extra field, and compares those recognized fields in the local header and
+  central directory. Additional extension bytes remain uninterpreted, and
+  encrypted file data is not decrypted or opened.
+
+### Fixed
+
+- **Hear when PDF picture checks finish.** Progress and read results are now
+  announced politely to screen readers.
+
 ## [0.17.0] — 2026-11-09
 
 ### Added
@@ -836,7 +882,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/MykytaStel/hexscope/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/hexscope/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/MykytaStel/hexscope/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/MykytaStel/hexscope/compare/v0.14.0...v0.15.0
