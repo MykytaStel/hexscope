@@ -37,6 +37,7 @@ textarea {
   align-items: center;
   gap: 8px;
   color: var(--text);
+  text-decoration: none;
   font-weight: 650;
   letter-spacing: -0.01em;
   flex: none;

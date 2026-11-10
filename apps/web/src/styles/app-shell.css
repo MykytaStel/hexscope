@@ -544,7 +544,7 @@
    the picture and the actions stay on the overview. */
 body[data-state="ready"][data-app-view="metadata"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveals),
-body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .metadata-groups, .metadata-summary) {
+body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .evidence-overview, .metadata-groups, .metadata-summary) {
   display: none;
 }
 
