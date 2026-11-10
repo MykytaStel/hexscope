@@ -437,6 +437,7 @@ const entries: [string, string][] = [
   ["The fixed acsp signature identifies this as an ICC profile.", "Стала сигнатура acsp позначає ці дані як профіль ICC."],
   ["How colours outside the destination device's range should be mapped.", "Як відобразити кольори, що виходять за межі діапазону пристрою призначення."],
   ["The profile's table of tags and the offsets and lengths of their data.", "Таблиця тегів профілю зі зсувами й довжинами їхніх даних."],
+  ["This table stores each tag's signature and data range; its entries remain available in the byte view.", "Таблиця зберігає сигнатури тегів і діапазони їхніх даних; записи доступні у перегляді байтів."],
   ["How many tag entries the profile declares.", "Скільки записів тегів заявлено у профілі."],
   ["One ICC tag entry: its signature, offset and byte length.", "Запис тегу ICC: його сигнатура, зсув і довжина в байтах."],
   ["The four-character name of an ICC tag.", "Чотирисимвольна назва тегу ICC."],

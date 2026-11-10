@@ -75,7 +75,10 @@ fn parse_ds64(
         tree.error(
             chunk,
             "truncated ds64 fixed fields",
-            ByteRange::new(body_start as u64, size as u64),
+            ByteRange::new(
+                body_start as u64,
+                size.min(data.len().saturating_sub(body_start)) as u64,
+            ),
         );
         *complete = false;
         return None;
