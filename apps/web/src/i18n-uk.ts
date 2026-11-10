@@ -130,6 +130,8 @@ const UK: Record<string, string> = {
   "File": "Файл",
   "Inspect": "Технічний огляд",
   "Tools": "Інструменти",
+  "Technical details": "Технічні деталі",
+  "View full value": "Показати повне значення",
   "Bytes": "Байти",
   "Contains location": "Містить геолокацію",
   "This photo records where it was taken — click to see it": "У фото записано місце зйомки — натисніть, щоб побачити",

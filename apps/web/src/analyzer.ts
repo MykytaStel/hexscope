@@ -378,9 +378,9 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true): void {
 appNavigation.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button");
   if (!button || button.disabled) return;
-  // A phone's More closes on whatever was chosen in it.
-  if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appView) {
+    // A phone's More closes when a view is chosen. Tools keep the menu open.
+    if (narrow.matches) button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
     const nextView = button.dataset.appView as WorkspaceView;
     const sameView = nextView === document.body.dataset.appView;
     const playerOpen = playerPending || document.body.classList.contains("is-playing");
@@ -394,7 +394,6 @@ appNavigation.addEventListener("click", (event) => {
   }
   tourDismissedByNavigation = true;
   dismissTour();
-  button.closest<HTMLDetailsElement>(".app-nav-more")?.removeAttribute("open");
   if (button.dataset.appAction === "compare") {
     comparePicker.click();
   }

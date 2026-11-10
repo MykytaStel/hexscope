@@ -1262,6 +1262,29 @@ export class Drawer {
       this.node.append(el("p", "explain", doc.text));
     }
 
+    const value = m.value(id);
+    if (value) {
+      const valueBlock = el("div", "node-value");
+      valueBlock.append(el("span", "node-value-label", translateText("Value", currentLocale())));
+      const isLong = value.length > 160 || value.includes("\n");
+      let preview = value.slice(0, 160);
+      const finalCodeUnit = preview.charCodeAt(preview.length - 1);
+      if (finalCodeUnit >= 0xd800 && finalCodeUnit <= 0xdbff) preview = preview.slice(0, -1);
+      if (isLong) preview = `${preview.replace(/\s+/g, " ").trimEnd()}…`;
+      valueBlock.append(el("code", "node-value-content", preview));
+      if (isLong) {
+        const fullValue = el("details", "node-value-details");
+        fullValue.append(
+          el("summary", undefined, translateText("View full value", currentLocale())),
+          el("pre", "node-value-full", value),
+        );
+        valueBlock.append(fullValue);
+      }
+      this.node.append(valueBlock);
+    }
+
+    const technical = el("details", "node-technical");
+    technical.append(el("summary", undefined, translateText("Technical details", currentLocale())));
     const grid = el("dl", "facts");
     const start = m.start(id);
     const len = m.len(id);
@@ -1272,7 +1295,6 @@ export class Drawer {
       fact(grid, "Offset", "— no bytes to point at");
     }
     fact(grid, "Kind", KIND_NAMES[kind]);
-    if (m.value(id)) fact(grid, "Value", m.value(id), true);
     if (doc?.cite) {
       const dd = el("dd");
       if (doc.url) {
@@ -1287,9 +1309,12 @@ export class Drawer {
       }
       grid.append(el("dt", undefined, "Spec"), dd);
     }
-    this.node.append(grid);
+    technical.append(grid);
     const here = !m.missing || m.missing.wanted(start, start + len).length === 0;
-    if (len > 0 && len <= MAX_COPIED && here) this.node.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
+    if (len > 0 && len <= MAX_COPIED && here) {
+      technical.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
+    }
+    this.node.append(technical);
 
     if (!filesView && entry >= 0) this.node.append(this.entry(m, entry));
   }
