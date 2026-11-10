@@ -166,6 +166,8 @@ export function pdfNavigator(
       }
 
       const imageStatus = el("p", "hint pdf-nav-image-status", tr("Picture status not checked."));
+      imageStatus.setAttribute("role", "status");
+      imageStatus.setAttribute("aria-live", "polite");
       const imageButton = el("button", "link pdf-nav-image-check", tr("Read supported picture status"));
       imageButton.type = "button";
       imageButton.addEventListener("click", async () => {

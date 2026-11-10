@@ -466,7 +466,7 @@ const UK: Record<string, string> = {
   "Image formats": "Формати зображень",
   "Video and audio formats": "Формати відео й аудіо",
   "Video & audio": "Відео й аудіо",
-  "WAV, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
+  "WAV, RIFX, RF64, BW64, MP3, FLAC and Ogg tags only; audio is not played.": "У WAV, RIFX, RF64, BW64, MP3, FLAC та Ogg читаються лише метадані; аудіо не відтворюється.",
   "Document formats": "Формати документів",
   "Email, archive and technical formats": "Формати електронної пошти, архівів і технічних файлів",
   "Guides and more sample files": "Посібники та інші приклади файлів",

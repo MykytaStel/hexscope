@@ -29,7 +29,7 @@ const EXTENSIONS: &[(&str, &[&str])] = &[
     ("mp3", &["mp3"]),
     ("flac", &["flac"]),
     ("ogg", &["ogg", "oga", "opus"]),
-    ("wav", &["wav", "wave"]),
+    ("wav", &["wav", "wave", "rifx", "rf64", "bw64"]),
     ("pdf", &["pdf"]),
     (
         "zip",
@@ -76,7 +76,8 @@ pub fn misnamed(name: &str, doc: &Document, data: &[u8]) -> Option<Misnamed> {
         .find(|(_, exts)| exts.contains(&ext.as_str()))?
         .0;
     let (format, what, fits) = what_it_is(doc, data)?;
-    if claimed != format {
+    let same_wave_family = claimed == "wav" && matches!(format, "rf64" | "bw64");
+    if claimed != format && !same_wave_family {
         return Some(Misnamed { ext, what, fits });
     }
     // A ZIP named as another kind of document: a Word file called `.xlsx`.
@@ -122,6 +123,9 @@ fn what_it_is(doc: &Document, data: &[u8]) -> Option<(&'static str, &'static str
             crate::audio::AudioFormat::OggVorbis => ("ogg", "an Ogg Vorbis audio file", ".ogg"),
             crate::audio::AudioFormat::OggOpus => ("ogg", "an Ogg Opus audio file", ".opus"),
             crate::audio::AudioFormat::Wav => ("wav", "a WAV audio file", ".wav"),
+            crate::audio::AudioFormat::Rifx => ("wav", "a big-endian RIFX/WAVE audio file", ".wav"),
+            crate::audio::AudioFormat::Rf64 => ("rf64", "an RF64 WAVE audio file", ".wav"),
+            crate::audio::AudioFormat::Bw64 => ("bw64", "a BW64 WAVE audio file", ".wav"),
         },
         Document::Pdf(_) => ("pdf", "a PDF", ".pdf"),
         Document::Wasm(_) => ("wasm", "a WebAssembly module", ".wasm"),

@@ -21,6 +21,9 @@ function noun(m: FileModel): string {
     case "flac":
     case "ogg":
     case "wav":
+    case "rifx":
+    case "rf64":
+    case "bw64":
       return "audio file";
     case "eml":
     case "msg":

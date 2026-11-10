@@ -72,8 +72,9 @@ clean:
                    or could not be checked
   --json           with --verify, one value-free result per input, one object per line
   --receipt FILE   with --verify and one input, save a value-free, copy-bound receipt
-  audio            cleans supported MP3/FLAC tags and complete sequential
-                   Vorbis/Opus tags in Ogg; audio is not decoded or re-encoded
+  audio            cleans supported MP3/FLAC tags, complete sequential
+                   Vorbis/Opus tags in Ogg, and fully checked WAV INFO/BWF
+                   chunks; audio is not decoded or re-encoded
 
 receipt verify:
   Confirms only that COPY has the bytes named in RECEIPT.json; it does not verify
@@ -559,8 +560,13 @@ fn human(path: &Path, s: &Summary, mis: Option<&Misnamed>) -> String {
         } else {
             out.push_str("  format not recognized; its structure was not inspected\n");
         }
-    } else if !s.complete && matches!(s.format, "mp3" | "flac" | "ogg" | "wav") {
-        out.push_str("  metadata not fully inspected; some tags may be unread\n");
+    } else if !s.complete
+        && matches!(
+            s.format,
+            "mp3" | "flac" | "ogg" | "wav" | "rifx" | "rf64" | "bw64"
+        )
+    {
+        out.push_str("  metadata not fully inspected; some fields may be unread\n");
     }
     if s.format != "unknown"
         && s.complete

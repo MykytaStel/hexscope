@@ -42,6 +42,9 @@ export function noun(m: FileModel): string {
     case "flac":
     case "ogg":
     case "wav":
+    case "rifx":
+    case "rf64":
+    case "bw64":
       return "audio file";
     case "pdf":
       return "PDF";
@@ -81,12 +84,17 @@ export function headline(m: FileModel): Headline {
   if (n === "email" && FORGED.some((k) => kinds.has(k))) {
     return { tone: "danger", text: "This email may not be from who it says" };
   }
-  if (["mp3", "flac", "ogg", "wav"].includes(m.file.format) && has("warning")) {
+  if (["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(m.file.format) && has("warning")) {
     return { tone: "warning", text: "Some metadata in this audio file could not be fully read" };
   }
   const count = categories(m).length;
-  if (["mp3", "flac", "ogg", "wav"].includes(m.file.format) && count === 0) {
-    return { tone: "ok", text: m.file.format === "wav" ? "No supported WAV INFO or Broadcast Wave metadata was found." : "No supported audio metadata tags were found." };
+  if (["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(m.file.format) && count === 0) {
+    const text = m.file.format === "rifx"
+      ? "No supported RIFX/WAVE metadata was found."
+      : m.file.format === "rf64" || m.file.format === "bw64"
+        ? `No supported ${m.file.format.toUpperCase()} WAVE metadata was found.`
+        : m.file.format === "wav" ? "No supported WAV INFO or Broadcast Wave metadata was found." : "No supported audio metadata tags were found.";
+    return { tone: "ok", text };
   }
   const pressing = has("hidden") || PRESSING.some((k) => kinds.has(k));
   if (count > 0) {

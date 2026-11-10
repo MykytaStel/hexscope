@@ -117,7 +117,7 @@ export function roleName(role: number, format: string): string {
             ? "Code and data"
           : format === "svg"
             ? "The drawing"
-          : format === "mp3" || format === "flac" || format === "ogg" || format === "wav"
+          : ["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(format)
             ? "Audio data"
             : "Picture";
     case Role.Metadata:

@@ -58,6 +58,12 @@ export function kindWord(m: FileModel): string {
       return "Ogg audio";
     case "wav":
       return "WAV audio";
+    case "rifx":
+      return "RIFX/WAVE audio";
+    case "rf64":
+      return "RF64/WAVE audio";
+    case "bw64":
+      return "BW64/WAVE audio";
     case "pdf":
       return "PDF";
     case "eml":
@@ -119,6 +125,12 @@ export function kindOf(m: FileModel): string {
       return "SVG";
     case "wav":
       return "WAV audio";
+    case "rifx":
+      return "RIFX/WAVE audio";
+    case "rf64":
+      return "RF64/WAVE audio";
+    case "bw64":
+      return "BW64/WAVE audio";
     default:
       return "";
   }
@@ -143,6 +155,10 @@ const TYPES: Record<string, string> = {
   mov: "video/quicktime",
   m4a: "audio/mp4",
   mp3: "audio/mpeg",
+  wav: "audio/wav",
+  rifx: "audio/wav",
+  rf64: "audio/wav",
+  bw64: "audio/wav",
   flac: "audio/flac",
   ogg: "audio/ogg",
   oga: "audio/ogg",

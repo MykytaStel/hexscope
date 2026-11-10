@@ -30,6 +30,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.14.0 | Batch coverage in the Web, format-backed quality gates, and verified-copy confidence on phones | shipped 2026-11-08 |
 | 0.15.0 | Portable batch reports and reliability fixes | shipped 2026-11-08; Homebrew tap updated 2026-11-09 |
 | 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | shipped 2026-11-09 |
+| 0.17.0 | Source-linked inspectors across file families, plus bounded WAV inspection | shipped 2026-11-09 |
+| 0.18.0 | Verified WAV cleaning and deeper format inspection | scope in progress; date TBD |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -408,6 +410,69 @@ claims agree with read-back; English and Ukrainian cover the new path; and the
 new WAV format is recognized consistently in Core, CLI, Web, coverage and
 documentation. Any family polish that does not meet those gates moves forward
 as a complete slice rather than weakening the evidence contract.
+
+### 0.18.0 — verified audio cleaning and deeper format inspection
+
+**Theme:** extend the existing format readers into one new evidence-backed
+action, then choose further format work by user value and bounded parser scope.
+RIFF/WAVE clean copies and read-only RIFX/RF64/BW64 structural inspection are
+now part of the 0.18.0 accumulation branch; additional formats remain gated by
+their own bounded-read and evidence requirements.
+
+1. **Make a verified clean WAV copy.** For a complete, supported RIFF/WAVE
+   file, remove complete `LIST/INFO` and whole `bext` chunks while preserving
+   the format description and audio sample chunks byte for byte. Explain that
+   removing `bext` also removes broadcast timing, loudness values and coding
+   history. Keep malformed files, incomplete metadata and unknown chunks
+   read-only. RIFX has bounded structural inspection, but stays read-only until
+   a separate cleaner has its own copy evidence. RF64 and BW64 have bounded
+   structural readers for `ds64` sizes and chunk traversal, but remain read-only
+   until a separate cleaner has its own copy evidence.
+2. **Use one read-back contract.** Core owns the WAV removal capabilities and
+   verifies the actual output. Web single-file and batch flows, CLI output,
+   JSON, the coverage table, and English/Ukrainian explanations must agree on
+   which findings were removed, remain present, or were not checked. Audio is
+   not decoded or re-encoded.
+3. **Select the next format slices from explicit limits.** Candidate work
+   after the WAV path includes HEIF items stored by construction method 2 and
+   additional ZIP compression methods. Each
+   stays a candidate until its representative inputs, malformed cases,
+   parser limits, size cost, and user benefit are clear.
+
+**Implementation update 2026-11-10:** Core, CLI and Web now identify and inspect
+RIFX/WAVE using big-endian reads for form, chunk, format, INFO-size and selected
+Broadcast Wave fields. RIFX has its own machine format code and remains
+read-only, outside the verified RIFF/WAVE clean-copy contract.
+
+**Implementation update 2026-11-10:** Core, CLI and Web now identify RF64 and
+BW64 separately and resolve the mandatory first `ds64` chunk's 64-bit form,
+data and table sizes with checked bounds and a 4,096-entry limit. Supported
+WAVE metadata chunks are inspected, while BW64 XML and channel metadata remain
+uninterpreted; both formats are read-only and outside the WAV clean-copy
+contract.
+
+**Implementation update 2026-11-10:** HEIF construction method 2 now maps an
+item extent through its 1-based `iloc` reference when that reference points to
+one local item with one explicit, in-file extent. Chained locations, multiple
+source extents, external references and implicit lengths remain visibly
+unread; this does not decode HEIF/AVIF image payloads.
+
+4. **Make encrypted ZIP entries more informative.** Read WinZip AES `0x9901`
+   fields in both the local header and central directory, show AE version,
+   key strength and the underlying compression method, compare recognized
+   fields, and call out malformed or conflicting settings. Keep unknown
+   extension bytes and encrypted file data unread without a password.
+
+**Release is done when** a clean WAV is offered only after a complete read;
+the resulting file retains the same `fmt ` and `data` bytes; every removal
+claim is backed by a complete read-back under the shared Core contract; CLI,
+Web, batch and docs agree; and incomplete or unrecognized metadata remains
+explicitly unchecked. Recognized AES ZIP fields in the local header and
+central directory must be reported and compared without implying that
+encrypted bytes or unknown extension bytes were read. Each user-facing change
+gets its own `changes/` fragment.
+Screen-reader, zoom, and physical-device gaps recorded during 0.17 remain
+open for the 1.0 acceptance checklist.
 
 ### 0.10.0 — shipped 2026-11-02
 

@@ -162,7 +162,7 @@ function audioStructure(m: FileModel, select: (node: number) => void): HTMLEleme
     if (m.kind(id) === Kind.Warning || m.kind(id) === Kind.Error || /unsupported|not inspected|exceeds the inspection limit|truncated|could not be read|multiplexed|interleaved/.test(label)) remember(incomplete, id);
     else if (/picture|cover art|attached picture/.test(label)) remember(artwork, id);
     else if (/id3|apev2|vorbis comment|metadata block|info text|broadcast wave|tag block/.test(label)) remember(metadata, id);
-    else if (/streaminfo|logical stream|ogg page|audio data|mpeg audio|audio frame|riff|wave chunk/.test(label)) remember(streams, id);
+    else if (/streaminfo|logical stream|ogg page|audio data|mpeg audio|audio frame|riff|wave chunk|rf64|bw64|ds64/.test(label)) remember(streams, id);
   }
   const groups = [
     nodeList(m, "Cover art and pictures", artwork, select),
@@ -247,7 +247,10 @@ export function formatInspector(m: FileModel, select: (node: number) => void): H
     case "mp3":
     case "flac":
     case "ogg":
-    case "wav": return audioStructure(m, select);
+    case "wav":
+    case "rifx":
+    case "rf64":
+    case "bw64": return audioStructure(m, select);
     case "svg": return svgContents(m, select);
     case "eml":
     case "msg": return emailEvidence(m, select);

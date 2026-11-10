@@ -52,16 +52,21 @@ indirect object is not read.
 
 **HEIF image reconstruction and sequence playback.** The Web view now maps
 primary, derived, tile, thumbnail, auxiliary and metadata items, shows their
-item references, and reads AVIS sample timing into a timeline. An item stored
-by construction method 2 is still named, not assembled from the referenced
-items' bytes. AVIF/HEIF item payloads and AVIS temporal units are not decoded
-into pixels or played as a sequence. Manually comparing a still with a motion
-clip does not verify that their Live Photo pairing identifiers match.
+item references, and reads AVIS sample timing into a timeline. Construction
+method 2 exposes a payload range only when its `iloc` reference resolves to
+one local item with one explicit, in-file extent. Chained references, multiple
+source extents, and implicit lengths remain unread. AVIF/HEIF item payloads
+and AVIS temporal units are not decoded into pixels or played as a sequence.
+Manually comparing a still with a motion clip does not verify that their Live
+Photo pairing identifiers match.
 
 **Other ZIP compression methods.** Stored and deflated entries open and play;
-Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed, and
-encrypted entries are marked but not read. Multi-disk archives are named and
-read no further.
+Deflate64, bzip2, LZMA, zstd and xz are named but not decompressed. WinZip AES
+entries show their AE-1/AE-2 version, key strength and underlying compression
+method from the 0x9901 extra field, with recognized local and directory
+values compared; extra extension bytes remain uninterpreted, and their
+encrypted data still cannot be read. Multi-disk archives are named and read
+no further.
 
 **Compressed and unusual SVG.** `.svgz` files are read and cleaned when they
 contain one valid gzip member with SVG XML. Compressed input and expanded XML
@@ -85,10 +90,17 @@ never replaced with blank bytes.
 
 **Audio metadata, not audio decoding.** WAV inspection reads RIFF/WAVE chunk
 structure, supported `LIST/INFO` text and selected Broadcast Wave `bext`
-fields. It does not decode or play sound, and it does not make clean copies.
-RF64/BW64 and big-endian RIFX, other LIST types, unknown chunk contents and
-WAVE chunks after the 4,096-item limit are not interpreted. An unknown chunk
-is accounted for by its declared size, not validated internally. MP3 text and
+fields. A clean copy removes fully read `LIST/INFO` and whole `bext` chunks,
+preserving the `fmt ` and `data` chunks byte for byte; removing `bext` also
+removes broadcast time references, loudness values and coding history. A copy
+is refused if the read is incomplete or contains an unknown chunk. Big-endian
+RIFX chunk sizes, supported INFO text and selected Broadcast Wave fields are
+inspected, but RIFX remains read-only. Other LIST types, unknown chunk
+contents and WAVE chunks after the 4,096-item limit are not interpreted.
+RF64/BW64 use the mandatory `ds64` chunk for bounded 64-bit form and chunk
+sizes, including at most 4,096 table entries, but remain read-only; BW64 XML
+and channel metadata chunk contents are not interpreted. An unknown chunk is
+accounted for by its declared size, not validated internally. MP3 text and
 comment frames (ID3v1 and ID3v2.2–2.4), FLAC Vorbis comments, and Vorbis or Opus tags in sequential
 chained Ogg streams are read. Interleaved Ogg streams and unsupported codecs
 remain incomplete. Supported Ogg pages are checked for valid sequence,

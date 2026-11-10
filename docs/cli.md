@@ -152,6 +152,14 @@ boundaries and order are validated through the end of supported streams, up
 to 4,096 pages; chained Vorbis and Opus streams are read and cleaned together.
 Interleaved streams, unsupported codecs, incomplete files and Vorbis streams
 without a checked setup header remain read-only. Audio packets are not decoded.
+For WAV, it removes complete `LIST/INFO` and whole Broadcast Wave `bext`
+chunks only after a complete RIFF/WAVE read. The `fmt ` and `data` chunks are
+copied byte for byte; removing `bext` also removes broadcast timing, loudness
+values and coding history. RIFX is inspected with big-endian field reads but
+remains read-only. RF64/BW64 read the mandatory `ds64` form and chunk sizes
+with a 4,096-entry table limit, but remain read-only; BW64 XML and channel
+metadata chunks are not interpreted. Unknown chunks, other `LIST` types and
+incomplete WAV-family reads are also read-only.
 If a supported metadata structure could not be fully read, JSON adds
 `"complete":false`; the default `--fail-on` also fails on `incomplete`.
 
@@ -349,7 +357,7 @@ not done, `index`, `operation_state` and `check`.
 (MP4, MOV, M4A), `pdf`, `zip` (ZIP archives, Word, Excel, PowerPoint,
 OpenDocument, EPUB, APK), `office97` (Word, Excel and PowerPoint 97–2003),
 `msg` (Outlook), `cfb` (other compound files), `rtf`, `svg`, `eml`,
-`wasm`, `wav`, `mp3`, `flac`, `ogg`, `unknown`.
+`wasm`, `wav`, `rifx`, `mp3`, `flac`, `ogg`, `unknown`.
 <!-- formats:end -->
 
 ## Kinds of finding
@@ -368,7 +376,7 @@ more.
 | What it does when opened (PDF, SVG) | `scripts`, `launch`, `submits`, `opens` |
 | Links | `weblinks`, `linkmismatch`, `linkidn` |
 | Email | `sentfrom`, `computer`, `mailer`, `timezone`, `replyto`, `returnpath`, `authclaim`, `riskyfile` |
-| Audio | `title`, `artist`, `album`, `album-artist`, `year`, `track`, `disc`, `genre`, `composer`, `encoder`, `organization`, `comment`, `location`, `audio-tag`, `copyright`, `engineer`, `originator`, `broadcast-reference` |
+| Audio | `title`, `artist`, `album`, `album-artist`, `year`, `track`, `disc`, `genre`, `composer`, `encoder`, `organization`, `comment`, `location`, `audio-tag`, `copyright`, `engineer`, `originator`, `broadcast-reference`, `description`, `created`, `software`, `keywords`, `subject`, `place`, `history` |
 | Files hexscope does not read, from their text | `account`, `emails` |
 | WebAssembly | `paths`, `sourcemap`, `debug`, `debuginfo`, `names`, `language`, `toolchain`, `sdk`, `imports` |
 <!-- kinds:end -->

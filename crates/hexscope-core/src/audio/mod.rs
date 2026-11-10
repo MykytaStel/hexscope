@@ -20,10 +20,13 @@ pub enum AudioFormat {
     OggVorbis,
     OggOpus,
     Wav,
+    Rifx,
+    Rf64,
+    Bw64,
 }
 
 pub fn parse(data: &[u8]) -> Option<AudioDocument> {
-    if wav::is_wave(data) {
+    if wav::is_rifx(data) || wav::is_wave(data) || wav::is_rf64(data) || wav::is_bw64(data) {
         Some(wav::parse_wave(data))
     } else if is_mp3(data) {
         Some(parse_mp3(data))

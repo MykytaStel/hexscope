@@ -164,7 +164,7 @@ export function shareFallbackHint(alreadySaved = false): HTMLParagraphElement {
 
 /** A movie file with sound and no picture: a voice memo, a song. */
 export function isAudio(m: FileModel): boolean {
-  return m.file.format === "wav" || m.file.format === "video" && / audio\b/.test(m.value(0));
+  return ["wav", "rifx", "rf64", "bw64"].includes(m.file.format) || m.file.format === "video" && / audio\b/.test(m.value(0));
 }
 
 /** A name with a date in it, the way phones and messengers name files: `IMG_20260614_183207`, `Screenshot 2026-06-14 at 18.32`. */
@@ -234,7 +234,7 @@ export function renderBeforeAfter(card: HTMLElement, report: VerificationReport 
 /** What no clean copy can remove from this file, folded away until asked for; empty for what has none worth saying. */
 export function cleanLimits(m: FileModel): HTMLElement {
   const format = m.file.format;
-  const kind = ["jpeg", "heif", "png", "webp", "gif", "tiff"].includes(format) ? "photo" : isAudio(m) || ["mp3", "flac", "ogg", "wav"].includes(format) ? "audio" : format;
+  const kind = ["jpeg", "heif", "png", "webp", "gif", "tiff"].includes(format) ? "photo" : isAudio(m) || ["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(format) ? "audio" : format;
   const items = [...(LIMITS[kind] ?? [])];
   const base = m.name.split("/").pop() ?? m.name;
   if (DATED.test(base)) {

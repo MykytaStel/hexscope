@@ -1,4 +1,4 @@
-//! Bounded, read-only inspection of RIFF/WAVE headers and metadata chunks.
+//! Bounded inspection of RIFF/RF64/BW64/RIFX WAVE headers and metadata chunks.
 
 use super::{AudioDocument, AudioFormat};
 use crate::facts::DocumentFact;
@@ -13,11 +13,259 @@ pub(super) fn is_wave(data: &[u8]) -> bool {
     data.get(..4) == Some(b"RIFF") && data.get(8..12) == Some(b"WAVE")
 }
 
+pub(super) fn is_rifx(data: &[u8]) -> bool {
+    data.get(..4) == Some(b"RIFX") && data.get(8..12) == Some(b"WAVE")
+}
+
+pub(super) fn is_rf64(data: &[u8]) -> bool {
+    data.get(..4) == Some(b"RF64") && data.get(8..12) == Some(b"WAVE")
+}
+
+pub(super) fn is_bw64(data: &[u8]) -> bool {
+    data.get(..4) == Some(b"BW64") && data.get(8..12) == Some(b"WAVE")
+}
+
+struct ChunkSize64 {
+    id: [u8; 4],
+    size: u64,
+    used: bool,
+}
+
+struct Ds64 {
+    riff_size: u64,
+    data_size: u64,
+    data_size_used: bool,
+    table: Vec<ChunkSize64>,
+}
+
+fn parse_ds64(
+    data: &[u8],
+    root: u32,
+    signature: &str,
+    bw64: bool,
+    tree: &mut ParseTree,
+    complete: &mut bool,
+) -> Option<(Ds64, usize)> {
+    if data.len() < 20 || data.get(12..16) != Some(&b"ds64"[..]) {
+        tree.error(
+            root,
+            "RF64/BW64 is missing its mandatory first ds64 chunk",
+            ByteRange::new(12, data.len().saturating_sub(12).min(8) as u64),
+        );
+        *complete = false;
+        return None;
+    }
+
+    let size = read_u32(data, 16, false) as usize;
+    let body_start = 20usize;
+    let Some(body_end) = body_start.checked_add(size) else {
+        tree.error(root, "invalid ds64 chunk size", ByteRange::new(12, 8));
+        *complete = false;
+        return None;
+    };
+    let padded_end = body_end.saturating_add(size & 1);
+    let chunk = tree.add(
+        Some(root),
+        format!("{signature} ds64 chunk"),
+        ByteRange::new(12, padded_end.min(data.len()).saturating_sub(12) as u64),
+        NodeKind::Container,
+        None,
+    );
+    if size < 28 {
+        tree.error(
+            chunk,
+            "truncated ds64 fixed fields",
+            ByteRange::new(body_start as u64, size as u64),
+        );
+        *complete = false;
+        return None;
+    }
+    if body_end > data.len() {
+        tree.error(
+            chunk,
+            "ds64 chunk extends beyond the file",
+            ByteRange::new(16, 4),
+        );
+        *complete = false;
+        return None;
+    }
+    if padded_end > data.len() {
+        tree.error(
+            chunk,
+            "ds64 chunk is missing its required padding byte",
+            ByteRange::new(body_end as u64, 0),
+        );
+        *complete = false;
+        return None;
+    }
+
+    let riff_size = read_u64(data, body_start);
+    let data_size = read_u64(data, body_start + 8);
+    tree.add(
+        Some(chunk),
+        format!("{signature} form size from ds64"),
+        ByteRange::new(body_start as u64, 8),
+        NodeKind::Field,
+        Some(Value::U64(riff_size)),
+    );
+    tree.add(
+        Some(chunk),
+        "data size from ds64",
+        ByteRange::new((body_start + 8) as u64, 8),
+        NodeKind::Field,
+        Some(Value::U64(data_size)),
+    );
+    if bw64 {
+        field(
+            tree,
+            chunk,
+            "BW64 dummy low field",
+            body_start + 16,
+            4,
+            Value::U64(read_u32(data, body_start + 16, false) as u64),
+        );
+        field(
+            tree,
+            chunk,
+            "BW64 dummy high field",
+            body_start + 20,
+            4,
+            Value::U64(read_u32(data, body_start + 20, false) as u64),
+        );
+    } else {
+        tree.add(
+            Some(chunk),
+            "RF64 sample count from ds64",
+            ByteRange::new((body_start + 16) as u64, 8),
+            NodeKind::Field,
+            Some(Value::U64(read_u64(data, body_start + 16))),
+        );
+    }
+    let table_length = read_u32(data, body_start + 24, false) as usize;
+    field(
+        tree,
+        chunk,
+        "ds64 table entry count",
+        body_start + 24,
+        4,
+        Value::U64(table_length as u64),
+    );
+    let available_count = (size - 28) / 12;
+    let requested_bytes = table_length.checked_mul(12).and_then(|n| n.checked_add(28));
+    if table_length > MAX_CHUNKS {
+        tree.warning(
+            chunk,
+            "ds64 table entry count exceeds the 4096-item inspection limit",
+            ByteRange::new((body_start + 24) as u64, 4),
+        );
+        *complete = false;
+    }
+    if table_length > available_count {
+        tree.error(
+            chunk,
+            "ds64 chunk size is too small for its declared table",
+            ByteRange::new((body_start + 24) as u64, 4),
+        );
+        *complete = false;
+    }
+    if let Some(required) = requested_bytes {
+        if size > required {
+            tree.add(
+                Some(chunk),
+                "ds64 trailing bytes not inspected",
+                ByteRange::new((body_start + required) as u64, (size - required) as u64),
+                NodeKind::Field,
+                Some(Value::Bytes((size - required) as u64)),
+            );
+            *complete = false;
+        }
+    } else {
+        *complete = false;
+    }
+
+    let count = table_length.min(available_count).min(MAX_CHUNKS);
+    let mut table = Vec::with_capacity(count);
+    for index in 0..count {
+        let start = body_start + 28 + index * 12;
+        let id: [u8; 4] = data[start..start + 4].try_into().unwrap();
+        let size = read_u64(data, start + 4);
+        let item = tree.add(
+            Some(chunk),
+            "ds64 size entry",
+            ByteRange::new(start as u64, 12),
+            NodeKind::Container,
+            None,
+        );
+        tree.add(
+            Some(item),
+            "64-bit chunk ID",
+            ByteRange::new(start as u64, 4),
+            NodeKind::Field,
+            Some(Value::Text(chunk_name(&id))),
+        );
+        tree.add(
+            Some(item),
+            "64-bit chunk data size",
+            ByteRange::new((start + 4) as u64, 8),
+            NodeKind::Field,
+            Some(Value::U64(size)),
+        );
+        table.push(ChunkSize64 {
+            id,
+            size,
+            used: false,
+        });
+    }
+    Some((
+        Ds64 {
+            riff_size,
+            data_size,
+            data_size_used: false,
+            table,
+        },
+        padded_end,
+    ))
+}
+
 pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
+    let big_endian = data.get(..4) == Some(b"RIFX");
+    let rf64 = data.get(..4) == Some(b"RF64");
+    let bw64 = data.get(..4) == Some(b"BW64");
+    let wide = rf64 || bw64;
+    let signature = if big_endian {
+        "RIFX"
+    } else if rf64 {
+        "RF64"
+    } else if bw64 {
+        "BW64"
+    } else {
+        "RIFF"
+    };
+    let chunk_prefix = if big_endian {
+        "RIFX"
+    } else if wide {
+        signature
+    } else {
+        "WAVE"
+    };
+    let audio_format = if big_endian {
+        AudioFormat::Rifx
+    } else if rf64 {
+        AudioFormat::Rf64
+    } else if bw64 {
+        AudioFormat::Bw64
+    } else {
+        AudioFormat::Wav
+    };
     let mut tree = ParseTree::new();
     let root = tree.add(
         None,
-        "WAV audio",
+        match audio_format {
+            AudioFormat::Rifx => "RIFX/WAVE audio",
+            AudioFormat::Rf64 => "RF64/WAVE audio",
+            AudioFormat::Bw64 => "BW64/WAVE audio",
+            _ => "WAV audio",
+        },
         ByteRange::new(0, data.len() as u64),
         NodeKind::Container,
         None,
@@ -26,20 +274,19 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
     let mut complete = true;
     tree.add(
         Some(root),
-        "RIFF signature",
+        format!("{signature} signature"),
         ByteRange::new(0, 4),
         NodeKind::Field,
-        Some(Value::Text("RIFF".into())),
+        Some(Value::Text(signature.into())),
     );
 
-    let declared =
-        u32::from_le_bytes(data[4..8].try_into().expect("WAVE signature has a size")) as u64;
+    let declared_field = read_u32(data, 4, big_endian);
     tree.add(
         Some(root),
-        "RIFF form size",
+        format!("{signature} form size"),
         ByteRange::new(4, 4),
         NodeKind::Field,
-        Some(Value::U64(declared)),
+        Some(Value::U64(declared_field as u64)),
     );
     tree.add(
         Some(root),
@@ -49,11 +296,46 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
         Some(Value::Text("WAVE".into())),
     );
 
-    let declared_end = 8u64.saturating_add(declared);
+    let mut ds64 = None;
+    let mut cursor = 12usize;
+    let declared = if wide {
+        if declared_field != u32::MAX {
+            tree.warning(
+                root,
+                "RF64/BW64 form size field is not the required 0xFFFFFFFF sentinel",
+                ByteRange::new(4, 4),
+            );
+            complete = false;
+        }
+        match parse_ds64(data, root, signature, bw64, &mut tree, &mut complete) {
+            Some((parsed, ds64_end)) => {
+                cursor = ds64_end;
+                let size = parsed.riff_size;
+                ds64 = Some(parsed);
+                size
+            }
+            None => {
+                complete = false;
+                cursor = data.len();
+                declared_field as u64
+            }
+        }
+    } else {
+        declared_field as u64
+    };
+    let declared_end = declared.checked_add(8).unwrap_or_else(|| {
+        tree.error(
+            root,
+            format!("{signature} form size overflows the supported range"),
+            ByteRange::new(4, 4),
+        );
+        complete = false;
+        u64::MAX
+    });
     if declared < 4 {
         tree.error(
             root,
-            "RIFF form size is smaller than its form type",
+            format!("{signature} form size is smaller than its form type"),
             ByteRange::new(4, 4),
         );
         complete = false;
@@ -61,13 +343,22 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
     if declared_end > data.len() as u64 {
         tree.error(
             root,
-            "RIFF form extends beyond the file",
+            format!("{signature} form extends beyond the file"),
             ByteRange::new(4, data.len().saturating_sub(4).min(4) as u64),
         );
         complete = false;
     }
     let form_end = declared_end.min(data.len() as u64) as usize;
-    let mut cursor = 12usize;
+    let mut cursor = cursor;
+    if wide && cursor > form_end {
+        tree.error(
+            root,
+            "mandatory ds64 chunk extends beyond the declared form",
+            ByteRange::new(12, form_end.saturating_sub(12) as u64),
+        );
+        complete = false;
+        cursor = form_end;
+    }
     let mut chunks = 0usize;
     let mut has_format = false;
     let mut has_data = false;
@@ -98,7 +389,51 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
         }
 
         let id = &data[cursor..cursor + 4];
-        let size = u32::from_le_bytes(data[cursor + 4..cursor + 8].try_into().unwrap()) as usize;
+        let raw_size = read_u32(data, cursor + 4, big_endian);
+        let resolved_size = if raw_size == u32::MAX && wide {
+            match ds64.as_mut() {
+                Some(ds64) if id == b"data" && !ds64.data_size_used => {
+                    ds64.data_size_used = true;
+                    Some(ds64.data_size)
+                }
+                Some(ds64) if id != b"data" => ds64
+                    .table
+                    .iter_mut()
+                    .find(|entry| !entry.used && entry.id == id)
+                    .map(|entry| {
+                        entry.used = true;
+                        entry.size
+                    }),
+                _ => None,
+            }
+        } else {
+            Some(raw_size as u64)
+        };
+        if wide
+            && id == b"data"
+            && raw_size != u32::MAX
+            && let Some(ds64) = ds64.as_mut()
+        {
+            ds64.data_size_used = true;
+        }
+        let Some(size64) = resolved_size else {
+            tree.error(
+                root,
+                "cannot resolve this 64-bit chunk size from ds64",
+                ByteRange::new((cursor + 4) as u64, 4),
+            );
+            complete = false;
+            break;
+        };
+        let Ok(size) = usize::try_from(size64) else {
+            tree.error(
+                root,
+                "WAVE chunk size exceeds the addressable file range",
+                ByteRange::new((cursor + 4) as u64, 4),
+            );
+            complete = false;
+            break;
+        };
         let body_start = cursor + 8;
         let Some(body_end) = body_start.checked_add(size) else {
             tree.error(
@@ -121,7 +456,7 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
         };
         let chunk = tree.add(
             Some(root),
-            format!("WAVE {label} chunk"),
+            format!("{chunk_prefix} {label} chunk"),
             ByteRange::new(cursor as u64, (padded_end.min(form_end) - cursor) as u64),
             NodeKind::Container,
             None,
@@ -129,7 +464,7 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
         if body_end > form_end {
             tree.error(
                 chunk,
-                "WAVE chunk extends beyond the RIFF form",
+                format!("WAVE chunk extends beyond the {signature} form"),
                 ByteRange::new((cursor + 4) as u64, 4),
             );
             complete = false;
@@ -147,10 +482,14 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
 
         tree.add(
             Some(chunk),
-            "chunk data size",
+            if raw_size == u32::MAX && wide {
+                "chunk data size resolved from ds64"
+            } else {
+                "chunk data size"
+            },
             ByteRange::new((cursor + 4) as u64, 4),
             NodeKind::Field,
-            Some(Value::U64(size as u64)),
+            Some(Value::U64(size64)),
         );
         match id {
             b"fmt " => {
@@ -163,8 +502,15 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
                     complete = false;
                 }
                 has_format = true;
-                let rate =
-                    parse_format(data, body_start, body_end, chunk, &mut tree, &mut complete);
+                let rate = parse_format(
+                    data,
+                    body_start,
+                    body_end,
+                    chunk,
+                    &mut tree,
+                    &mut complete,
+                    big_endian,
+                );
                 byte_rate = rate;
             }
             b"data" => {
@@ -187,8 +533,15 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
                     );
                     complete = false;
                 } else if &data[body_start..body_start + 4] == b"INFO" {
-                    complete &=
-                        parse_info(data, body_start + 4, body_end, chunk, &mut tree, &mut facts);
+                    complete &= parse_info(
+                        data,
+                        body_start + 4,
+                        body_end,
+                        chunk,
+                        &mut tree,
+                        &mut facts,
+                        big_endian,
+                    );
                 } else {
                     tree.add(
                         Some(chunk),
@@ -201,7 +554,9 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
                 }
             }
             b"bext" => {
-                complete &= parse_bext(data, body_start, body_end, chunk, &mut tree, &mut facts)
+                complete &= parse_bext(
+                    data, body_start, body_end, chunk, &mut tree, &mut facts, big_endian,
+                )
             }
             _ => {
                 tree.add(
@@ -242,14 +597,14 @@ pub(super) fn parse_wave(data: &[u8]) -> AudioDocument {
     if declared_end < data.len() as u64 {
         tree.warning(
             root,
-            "bytes after the RIFF form",
+            format!("bytes after the {signature} form"),
             ByteRange::new(declared_end, data.len() as u64 - declared_end),
         );
         complete = false;
     }
 
     AudioDocument {
-        format: AudioFormat::Wav,
+        format: audio_format,
         tree,
         facts,
         metadata_complete: complete,
@@ -263,6 +618,7 @@ fn parse_format(
     parent: u32,
     tree: &mut ParseTree,
     complete: &mut bool,
+    big_endian: bool,
 ) -> Option<u32> {
     if end - start < 16 {
         tree.error(
@@ -273,12 +629,12 @@ fn parse_format(
         *complete = false;
         return None;
     }
-    let tag = u16le(data, start);
-    let channels = u16le(data, start + 2);
-    let sample_rate = u32le(data, start + 4);
-    let rate = u32le(data, start + 8);
-    let align = u16le(data, start + 12);
-    let bits = u16le(data, start + 14);
+    let tag = read_u16(data, start, big_endian);
+    let channels = read_u16(data, start + 2, big_endian);
+    let sample_rate = read_u32(data, start + 4, big_endian);
+    let rate = read_u32(data, start + 8, big_endian);
+    let align = read_u16(data, start + 12, big_endian);
+    let bits = read_u16(data, start + 14, big_endian);
     field(
         tree,
         parent,
@@ -338,7 +694,7 @@ fn parse_format(
         );
         *complete = false;
     } else if end - start >= 18 {
-        let extra = u16le(data, start + 16) as usize;
+        let extra = read_u16(data, start + 16, big_endian) as usize;
         field(
             tree,
             parent,
@@ -404,7 +760,7 @@ fn parse_format(
             );
             *complete = false;
         } else {
-            let extra = u16le(data, start + 16) as usize;
+            let extra = read_u16(data, start + 16, big_endian) as usize;
             if extra < 22 || 18usize.saturating_add(extra) > end - start {
                 tree.warning(
                     parent,
@@ -419,7 +775,7 @@ fn parse_format(
                 "WAVE channel mask",
                 start + 20,
                 4,
-                Value::U64(u32le(data, start + 20) as u64),
+                Value::U64(read_u32(data, start + 20, big_endian) as u64),
             );
             field(
                 tree,
@@ -427,7 +783,7 @@ fn parse_format(
                 "WAVE valid bits per sample",
                 start + 18,
                 2,
-                Value::U64(u16le(data, start + 18) as u64),
+                Value::U64(read_u16(data, start + 18, big_endian) as u64),
             );
             tree.add(
                 Some(parent),
@@ -448,6 +804,7 @@ fn parse_info(
     parent: u32,
     tree: &mut ParseTree,
     facts: &mut Vec<DocumentFact>,
+    big_endian: bool,
 ) -> bool {
     let mut complete = true;
     let mut count = 0usize;
@@ -472,7 +829,7 @@ fn parse_info(
             return false;
         }
         let id = &data[cursor..cursor + 4];
-        let size = u32le(data, cursor + 4) as usize;
+        let size = read_u32(data, cursor + 4, big_endian) as usize;
         let body = cursor + 8;
         let Some(item_end) = body.checked_add(size) else {
             return false;
@@ -585,6 +942,7 @@ fn parse_bext(
     parent: u32,
     tree: &mut ParseTree,
     facts: &mut Vec<DocumentFact>,
+    big_endian: bool,
 ) -> bool {
     // BWF v1's fixed fields end after the 180-byte reserved area (602 bytes).
     const FIELDS: [(&str, usize, usize, Option<&str>); 5] = [
@@ -671,7 +1029,7 @@ fn parse_bext(
             "broadcast sample time reference low",
             start + 338,
             4,
-            Value::U64(u32le(data, start + 338) as u64),
+            Value::U64(read_u32(data, start + 338, big_endian) as u64),
         );
         field(
             tree,
@@ -679,11 +1037,11 @@ fn parse_bext(
             "broadcast sample time reference high",
             start + 342,
             4,
-            Value::U64(u32le(data, start + 342) as u64),
+            Value::U64(read_u32(data, start + 342, big_endian) as u64),
         );
     }
     if len >= 602 {
-        let version = u16le(data, start + 346);
+        let version = read_u16(data, start + 346, big_endian);
         field(
             tree,
             parent,
@@ -729,7 +1087,12 @@ fn parse_bext(
         }
         for i in 0..5 {
             let offset = start + 412 + i * 2;
-            let value = i16::from_le_bytes(data[offset..offset + 2].try_into().unwrap());
+            let pair = data[offset..offset + 2].try_into().unwrap();
+            let value = if big_endian {
+                i16::from_be_bytes(pair)
+            } else {
+                i16::from_le_bytes(pair)
+            };
             field(
                 tree,
                 parent,
@@ -829,11 +1192,25 @@ fn field(tree: &mut ParseTree, parent: u32, label: &str, start: usize, len: usiz
     );
 }
 
-fn u16le(data: &[u8], at: usize) -> u16 {
-    u16::from_le_bytes(data[at..at + 2].try_into().unwrap())
+fn read_u16(data: &[u8], at: usize, big_endian: bool) -> u16 {
+    let bytes = data[at..at + 2].try_into().unwrap();
+    if big_endian {
+        u16::from_be_bytes(bytes)
+    } else {
+        u16::from_le_bytes(bytes)
+    }
 }
-fn u32le(data: &[u8], at: usize) -> u32 {
-    u32::from_le_bytes(data[at..at + 4].try_into().unwrap())
+fn read_u32(data: &[u8], at: usize, big_endian: bool) -> u32 {
+    let bytes = data[at..at + 4].try_into().unwrap();
+    if big_endian {
+        u32::from_be_bytes(bytes)
+    } else {
+        u32::from_le_bytes(bytes)
+    }
+}
+
+fn read_u64(data: &[u8], at: usize) -> u64 {
+    u64::from_le_bytes(data[at..at + 8].try_into().unwrap())
 }
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()

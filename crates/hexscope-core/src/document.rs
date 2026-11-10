@@ -117,7 +117,9 @@ impl Document {
                 AudioFormat::Mp3 => Format::Mp3,
                 AudioFormat::Flac => Format::Flac,
                 AudioFormat::Ogg | AudioFormat::OggVorbis | AudioFormat::OggOpus => Format::Ogg,
-                AudioFormat::Wav => Format::Wav,
+                AudioFormat::Wav | AudioFormat::Rifx | AudioFormat::Rf64 | AudioFormat::Bw64 => {
+                    Format::Wav
+                }
             },
             Document::Unknown(_) => Format::Unknown,
         }
@@ -193,7 +195,7 @@ pub fn parse(data: &[u8]) -> Document {
 /// Signatures of formats people are likely to drop in, so the answer can be
 /// "that is a gzip" rather than "unrecognised".
 pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
-    const SIGNATURES: [(&[u8], &str); 9] = [
+    const SIGNATURES: [(&[u8], &str); 10] = [
         (b"\x7FELF", "an ELF executable"),
         (b"\xCF\xFA\xED\xFE", "a Mach-O executable"),
         (b"MZ", "a Windows executable"),
@@ -202,6 +204,7 @@ pub(crate) fn identify(data: &[u8]) -> Option<(&'static str, u64)> {
         (b"Rar!", "a RAR archive"),
         (b"OggS", "an Ogg media file"),
         (b"RF64", "an RF64 WAVE file"),
+        (b"BW64", "a BW64 WAVE file"),
         (b"RIFX", "a big-endian RIFX/WAVE file"),
     ];
     if let Some((sig, name)) = SIGNATURES.iter().find(|(sig, _)| data.starts_with(sig)) {

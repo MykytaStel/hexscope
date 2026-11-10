@@ -760,11 +760,13 @@ export class Drawer {
       flac: "What this audio file reveals",
       ogg: "What this audio file reveals",
       wav: "What this audio file reveals",
+      rifx: "What this audio file reveals",
       unknown: "What this file reveals",
       eml: "What this email reveals",
       msg: "What this email reveals",
     };
-    const audioFile = ["mp3", "flac", "ogg", "wav"].includes(f.format);
+    const audioFile = ["mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64"].includes(f.format);
+    const readOnlyWave = ["rifx", "rf64", "bw64"].includes(f.format);
     const cleanableAudioTags = hasCleanableAudioTags(f.format, f.labels, f.metadataComplete, f.facts);
     const title = el("h2", undefined, audioFile ? "What this audio file reveals" : isAudio(m) ? "What this recording reveals" : (heading[f.format] ?? "What this document reveals"));
     group.append(title);
@@ -773,7 +775,7 @@ export class Drawer {
       const path = emailPath(m, (id) => this.onSelect(id));
       if (path) group.append(path);
     }
-    if (["video", "mp3", "flac", "ogg", "wav", "svg", "eml", "msg", "wasm", "unknown"].includes(f.format)) {
+    if (["video", "mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64", "svg", "eml", "msg", "wasm", "unknown"].includes(f.format)) {
       const slot = loadingStatus("format-inspector-loading", "Loading format summary…");
       group.append(slot);
       void import("./format-inspectors")
@@ -850,9 +852,13 @@ export class Drawer {
       const notes = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "data after the end of the image"];
       const removable = f.format === "png" && m.children(0).some((id) => notes.includes(m.label(id)));
       const none = (() => {
-        if (audioFile) return f.format === "wav"
-          ? "No supported WAV INFO or Broadcast Wave metadata was found."
-          : "No supported audio metadata tags were found.";
+        if (audioFile) return f.format === "rifx"
+          ? "No supported RIFX/WAVE metadata was found."
+          : f.format === "rf64" || f.format === "bw64"
+            ? `No supported ${f.format.toUpperCase()} WAVE metadata was found.`
+          : f.format === "wav"
+            ? "No supported WAV INFO or Broadcast Wave metadata was found."
+            : "No supported audio metadata tags were found.";
         if (f.format === "pdf") return "No document information or XMP: nothing about who wrote it, with what, or when.";
         if (removable) return "Nothing about the camera, the place or who made it, but it holds notes or data that can go.";
         if (f.format === "video") return isAudio(m)
@@ -870,8 +876,12 @@ export class Drawer {
         group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
       }
       if (audioFile && !cleanableAudioTags) {
-        group.append(el("p", "hint", f.format === "wav"
-          ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+        group.append(el("p", "hint", readOnlyWave
+          ? `${f.format.toUpperCase()}/WAVE is read-only. Audio is not decoded or played.`
+          : f.format === "wav"
+          ? f.metadataComplete
+            ? "No supported WAV metadata chunks are available to clean. Audio is not decoded or played."
+            : "This WAV file has unread or unsupported chunks, so Hexscope cannot safely make a clean copy. Audio is not decoded or played."
           : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
       }
       if (f.coverageStatus !== "complete" || f.missing.length > 0 || f.metadataComplete === false) {
@@ -1045,8 +1055,12 @@ export class Drawer {
       // A message is read, not sent on as it is: what it says is what the servers wrote.
       group.append(el("p", "hint", "The servers it passed through wrote these lines; an email is not cleaned, but its attached files can be — open one, then save a clean copy of it."));
     } else if (audioFile && !cleanableAudioTags) {
-      group.append(el("p", "hint", f.format === "wav"
-        ? "WAV metadata is read-only in this release. Audio playback and clean copies are not provided."
+      group.append(el("p", "hint", readOnlyWave
+        ? `${f.format.toUpperCase()}/WAVE is read-only. Audio is not decoded or played.`
+        : f.format === "wav"
+        ? f.metadataComplete
+          ? "No supported WAV metadata chunks are available to clean. Audio is not decoded or played."
+          : "This WAV file has unread or unsupported chunks, so Hexscope cannot safely make a clean copy. Audio is not decoded or played."
         : "Read-only metadata inspection. Audio playback is not provided. No clean copy can be made unless supported tags are present and fully checked."));
     } else {
       group.append(createCleaner(m, this.cleaning, group));
