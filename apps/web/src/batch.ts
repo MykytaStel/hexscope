@@ -1,3 +1,4 @@
+import type { PublicationProfile } from "./preflight-model";
 // Many files at once: a list that says, for each, what hexscope found — the
 // same verdict a single file opens on, in a few words — so a folder of
 // photos or documents can be checked before it is sent. Each opens as a
@@ -15,7 +16,7 @@ export { BatchController, type BatchAnalysis, type BatchControllerHooks, type Ba
 export { cleanable } from "./batch-model";
 export type { BatchFormatCoverage, BatchItem } from "./batch-model";
 
-export type BatchShow = "all" | "reveals" | "problems" | "incomplete";
+export type BatchShow = "all" | "reveals" | "problems" | "incomplete" | "policy";
 
 export interface BatchSummary {
   settled: number;
@@ -29,6 +30,9 @@ export interface BatchSummary {
   chosen: number;
   cleanable: number;
   problemCount: number;
+  policyBlocked: number;
+  policyUnchecked: number;
+  policyChecked: number;
   coverageByFormat: BatchFormatCoverage[];
   shownCount: number;
   shown: { item: BatchItem; index: number }[];
@@ -104,6 +108,9 @@ export function summarizeBatch(
     chosen: 0,
     cleanable: 0,
     problemCount: 0,
+    policyBlocked: 0,
+    policyUnchecked: 0,
+    policyChecked: 0,
     coverageByFormat: [],
     shownCount: 0,
     shown: [],
@@ -138,8 +145,12 @@ export function summarizeBatch(
       if (!item.skip) summary.chosen++;
     }
 
+    const blocked = (item.policy?.blocked_kinds.length ?? 0) > 0;
+    if (item.policy) summary.policyChecked++;
+    if (blocked) summary.policyBlocked++;
+    if (item.policy?.unchecked || item.state === "failed") summary.policyUnchecked++;
     const matches = show === "all"
-      || (show === "reveals" ? facts.reveals : show === "incomplete" ? facts.incomplete : facts.problem);
+      || (show === "reveals" ? facts.reveals : show === "incomplete" ? facts.incomplete : show === "policy" ? blocked || item.policy?.unchecked || item.state === "failed" : facts.problem);
     if (matches && (formatFilter === null || item.format === formatFilter)) {
       summary.shownCount++;
       if (summary.shown.length < visibleLimit) summary.shown.push({ item, index });
@@ -155,6 +166,7 @@ export interface BatchHooks {
   open(index: number): void;
   toggleReading(): void;
   retryFailed(): boolean;
+  applyProfile?(profile: PublicationProfile): boolean;
   /** Makes the copies of the files chosen; `keepNames` names each as the original. */
   saveClean(keepNames: boolean, includeCopyFingerprints: boolean): void;
   /** Whether the clean copies can go to the share sheet, one file each: a phone. */
@@ -232,6 +244,7 @@ export class BatchView {
   private pending = 0;
   private paused = false;
   private keepNames = false;
+  private profileActive = false;
   private includeCopyFingerprints = false;
 
   constructor(
@@ -260,6 +273,7 @@ export class BatchView {
   render(items: BatchItem[], paused = false): void {
     if (this.items !== items) {
       this.show = "all";
+      this.profileActive = false;
       this.formatFilter = null;
       this.limit = PAGE;
     }
@@ -418,6 +432,26 @@ export class BatchView {
       }
     }
     head.append(this.status);
+    if (!totals.busy && this.hooks.applyProfile) {
+      const profile = el("button", "btn", currentLocale() === "uk" ? "Профіль для пакета" : "Batch publication profile");
+      profile.onclick = () => {
+        void import("./batch-policy-dialog").then(({ showBatchPolicyDialog }) => {
+          if (this.items !== items) return;
+          showBatchPolicyDialog((rules) => {
+            if (this.items !== items) return false;
+            this.profileActive = true;
+            return this.hooks.applyProfile?.(rules) ?? false;
+          });
+        });
+      };
+      head.append(profile);
+    }
+    if (this.profileActive) {
+      const uk = currentLocale() === "uk";
+      head.append(el("p", "batch-policy-summary", uk
+        ? `Профіль · оцінено ${totals.policyChecked} з ${items.length} · заблоковано ${totals.policyBlocked} · неперевірено ${totals.policyUnchecked}`
+        : `Profile · evaluated ${totals.policyChecked} of ${items.length} · blocked ${totals.policyBlocked} · unchecked ${totals.policyUnchecked}`));
+    }
     // The tools for a whole roll of photos, out of the way of the one thing most come for.
     const tools: HTMLButtonElement[] = [];
     if (!totals.busy && items.length <= 1000 && this.hooks.mosaic) {
@@ -442,6 +476,7 @@ export class BatchView {
       ["problems", "Needs attention", totals.problemCount],
       ["incomplete", "Incomplete", totals.incomplete],
     ];
+    if (this.profileActive) filters.push(["policy", currentLocale() === "uk" ? "Проблеми за профілем" : "Profile issues", items.filter((item) => item.state === "failed" || item.policy?.unchecked || item.policy?.blocked_kinds.length).length]);
     const bar = el("div", "batch-filter");
     bar.setAttribute("role", "group");
     bar.setAttribute("aria-label", "Show");
@@ -529,6 +564,14 @@ export class BatchView {
         const box = el("span", "batch-tags");
         box.append(...found);
         row.append(box);
+      }
+      if (item.policy) {
+        const uk = currentLocale() === "uk";
+        const result = [
+          item.policy.blocked_kinds.length ? `${uk ? "Заблоковано" : "Blocked"} · ${item.policy.blocked_kinds.join(", ")}` : "",
+          item.policy.unchecked ? (uk ? "Не перевірено" : "Unchecked") : "",
+        ].filter(Boolean).join(" · ");
+        row.append(el("span", "batch-meta", result || (uk ? "Профіль пройдено" : "Profile passed")));
       }
       row.addEventListener("click", () => this.hooks.open(index));
       // Whether this one goes into the clean copies.

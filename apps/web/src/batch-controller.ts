@@ -1,8 +1,9 @@
+import type { PublicationProfile } from "./preflight-model";
 import type { BatchItem } from "./batch-model";
 import type { CleanCopiesView } from "./batchclean";
 import { currentLocale, translateText } from "./i18n";
 
-export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "coverage" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal" | "hasRemovableMetadata">;
+export type BatchAnalysis = Pick<BatchItem, "kind" | "format" | "coverage" | "lines" | "headline" | "reveals" | "cleanName" | "photoSignal" | "hasRemovableMetadata" | "policy">;
 
 /** The output that batch analysis and clean-copy work share with its view. */
 export interface BatchViewPort extends CleanCopiesView {
@@ -10,7 +11,7 @@ export interface BatchViewPort extends CleanCopiesView {
 }
 
 export interface BatchControllerHooks {
-	analyze(file: File, signal: AbortSignal): Promise<BatchAnalysis>;
+	analyze(file: File, signal: AbortSignal, profile?: PublicationProfile): Promise<BatchAnalysis>;
   openFile(file: File): void;
   saveClean(items: BatchItem[], keepNames: boolean, includeCopyFingerprints: boolean, output: BatchViewPort, isCurrent: () => boolean): Promise<void>;
   announce(message: string): void;
@@ -24,6 +25,7 @@ export class BatchController {
   private active: AbortController | null = null;
   private generation = 0;
   private announced = -1;
+  private profile?: PublicationProfile;
 
   constructor(
     private readonly view: BatchViewPort,
@@ -40,6 +42,7 @@ export class BatchController {
     this.generation++;
     this.announced = -1;
     this.paused = true;
+    this.profile = undefined;
     this.current = files.map((file) => ({
       file,
       state: "waiting",
@@ -81,6 +84,21 @@ export class BatchController {
     this.paused = false;
     this.view.render(items, this.paused);
     void this.run(items, this.generation);
+  }
+
+  applyProfile(profile: PublicationProfile): boolean {
+    const items = this.current;
+    if (!items || this.running || items.some((item) => item.state === "waiting" || item.state === "reading")) return false;
+    this.profile = profile;
+    this.generation++;
+    this.announced = -1;
+    for (const item of items) {
+      delete item.policy;
+      item.state = "waiting";
+      item.note = "";
+    }
+    this.resume();
+    return true;
   }
 
   /** Retries failed reads while leaving completed files untouched. */
@@ -131,7 +149,7 @@ export class BatchController {
         item.state = "reading";
         this.view.render(items, this.paused);
         try {
-          const analysis = await this.hooks.analyze(item.file, controller.signal);
+          const analysis = await this.hooks.analyze(item.file, controller.signal, this.profile);
           if (!this.isCurrent(items, generation)) break;
           if (controller.signal.aborted) {
             item.state = "waiting";

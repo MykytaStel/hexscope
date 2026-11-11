@@ -19,6 +19,7 @@ export interface BatchItem {
   format?: string;
   /** Canonical parser read status, classified by the Rust core. */
   coverage?: CoverageStatus;
+  policy?: { blocked_kinds: string[]; unchecked: boolean };
   /** The file has a supported metadata block that can be removed even if it has no recognized facts. */
   hasRemovableMetadata?: boolean;
   note: string;
