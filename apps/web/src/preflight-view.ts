@@ -76,6 +76,14 @@ export function mountPreflight(host: HTMLElement, m: FileModel, select: (node: n
   policy.append(kinds, label, check, exportButton, input, status);
   host.append(policy);
 
+  const receipt = el("button", "btn", say("Verify a copy receipt", "Перевірити квитанцію копії"));
+  receipt.onclick = () => {
+    void import("./receipt-verification-dialog").then(({ showReceiptVerification }) => {
+      if (receipt.isConnected) showReceiptVerification();
+    });
+  };
+  host.append(receipt);
+
   const graph = el("details"); graph.append(el("summary", undefined, say("Finding origins and differing fields", "Походження знахідок і різні значення полів")));
   graph.append(el("p", "hint", say("Only stored tree relationships are shown. Different values may be normal; they do not prove tampering.", "Показано лише зв’язки дерева файла. Різні значення можуть бути нормальними й не доводять підробку.")));
   for (const fact of m.file.facts.slice(0, 80)) {

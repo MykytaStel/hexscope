@@ -1,3 +1,5 @@
+import { decodeCoreVerification } from "./core-verification";
+import type { ParsedFile } from "./model";
 import type { VerificationItem, VerificationReasonCode, VerificationReport } from "./verification";
 import { MAX_VERIFY_BYTES } from "./verification";
 import { REASONS_BY_GROUP, type VerificationGroup } from "./verification-reasons";
@@ -52,6 +54,37 @@ function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function copyFingerprint(copy: Blob): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("SHA-256 is not available in this browser.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", await copy.arrayBuffer());
+  return hex(new Uint8Array(digest));
+}
+
+export type ReceiptCheck = "match" | "mismatch" | "invalid" | "no-fingerprint" | "copy-too-large";
+
+export async function verifyCleanCopyReceipt(copy: Blob, receipt: Blob): Promise<ReceiptCheck> {
+  if (receipt.size > 16 * 1024 * 1024) return "invalid";
+  let value: CleanCopyReceipt;
+  try {
+    value = JSON.parse(await receipt.text());
+  } catch {
+    return "invalid";
+  }
+  if (value?.schema !== SCHEMA || value.version !== 1
+    || typeof value.hexscope_version !== "string" || !value.hexscope_version.length
+    || !value.copy || !FORMATS.has(value.copy.format)
+    || Object.keys(value).some((key) => !["schema", "version", "hexscope_version", "copy", "verification"].includes(key))
+    || Object.keys(value.copy).some((key) => !["format", "sha256", "fingerprint_reason"].includes(key))
+    || !value.verification || !decodeCoreVerification(JSON.stringify(value.verification), value.copy.format as ParsedFile["format"], {}, {})) {
+    return "invalid";
+  }
+  const { sha256, fingerprint_reason: reason } = value.copy;
+  if (sha256 == null && (reason == null || reason === "size_limit")) return "no-fingerprint";
+  if (typeof sha256 !== "string" || !/^[a-f0-9]{64}$/.test(sha256) || reason != null) return "invalid";
+  if (copy.size > MAX_VERIFY_BYTES) return "copy-too-large";
+  return await copyFingerprint(copy) === sha256 ? "match" : "mismatch";
+}
+
 /** Build a portable, value-free receipt only after the user asks to save it. */
 export async function makeCleanCopyReceipt(
   format: string,
@@ -76,13 +109,12 @@ export async function makeCleanCopyReceipt(
     };
   }
 
-  if (!globalThis.crypto?.subtle) throw new Error("SHA-256 is not available in this browser.");
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", await copy.arrayBuffer());
+  const digest = await copyFingerprint(copy);
   return {
     schema: SCHEMA,
     version: 1,
     hexscope_version: typeof __VERSION__ === "string" ? __VERSION__ : "dev",
-    copy: { format, sha256: hex(new Uint8Array(digest)) },
+    copy: { format, sha256: digest },
     verification,
   };
 }

@@ -57,6 +57,10 @@ or source names. The copy's visible content remains its owner's responsibility.
 Batch copy ZIPs also include the summary. The existing 10 MiB fingerprint and
 Web read-back limits remain; unchecked outcomes stay unchecked.
 
+In **Before sharing: plan and tools**, select **Verify a copy receipt** and
+choose the copy and its JSON receipt. The check compares SHA-256 fingerprints
+locally. For copies over 10 MiB, use `hexscope receipt verify COPY RECEIPT.json`.
+
 ## Experimental OCR
 
 The image black-out editor offers English or Ukrainian OCR. A PDF page preview
