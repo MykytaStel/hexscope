@@ -481,14 +481,7 @@
 
 @media (max-width: 520px) {
   .evidence-filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 3px;
-    scrollbar-width: thin;
-  }
-
-  .evidence-filter {
-    flex: 0 0 auto;
+    flex-wrap: wrap;
   }
 
   .pdf-nav-pages {
