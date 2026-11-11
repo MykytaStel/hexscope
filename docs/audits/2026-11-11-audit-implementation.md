@@ -39,7 +39,10 @@ ExifTool/Pillow, браузерних залежностей Playwright і `musl
 apt-залежності з відповідних gates: незалежна перевірка бере ExifTool із
 зафіксованого pnpm package, Pillow встановлюється як pinned wheel в окремий
 venv, Playwright jobs використовують version-matched browser image, а Linux
-musl release builds — зафіксований `cross`.
+musl release builds — зафіксований `cross`. Перший hosted запуск виявив, що
+`cross` 0.2.5 на ARM runner намагається встановити несумісний x86 host
+toolchain; matrix для `aarch64` перенесено на x86_64 runner. Цей build лишається
+обов'язковим hosted PR gate.
 
 Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
 runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.
