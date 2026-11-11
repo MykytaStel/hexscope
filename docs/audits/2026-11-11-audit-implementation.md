@@ -44,7 +44,8 @@ musl release builds — зафіксований `cross`. Перший hosted з
 toolchain; matrix для `aarch64` перенесено на x86_64 runner. Цей build лишається
 обов'язковим hosted PR gate. Cross-browser smoke використовує `HOME=/root`, як
 вимагає Firefox у контейнері при запуску від root; ARM package smoke запускає
-бінарник через `cross run`, а не напряму на x86 host.
+перевірку ELF machine id замість виконання foreign-architecture бінарника на
+x86 host. x86 musl package як і раніше перевіряється запуском `--version`.
 
 Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
 runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.

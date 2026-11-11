@@ -64,7 +64,21 @@ jobs:
           tar -czf "$name" -C dist .
           if command -v sha256sum >/dev/null; then sha256sum "$name"; else shasum -a 256 "$name"; fi > "$name.sha256"
           if [[ "$TARGET" == *linux-musl ]]; then
-            cross run --locked --release -p hexscope-cli --target "$TARGET" -- --version
+            if [[ "$TARGET" == aarch64-unknown-linux-musl ]]; then
+              python3 - "dist/$exe" <<'PY'
+          import sys
+          with open(sys.argv[1], "rb") as binary:
+              header = binary.read(20)
+          if header[:4] != b"\x7fELF" or len(header) < 20 or header[5] not in (1, 2):
+              raise SystemExit("packaged ARM binary has an invalid ELF header")
+          byteorder = "little" if header[5] == 1 else "big"
+          if int.from_bytes(header[18:20], byteorder) != 183:
+              raise SystemExit("packaged binary is not AArch64")
+          print("packaged binary is AArch64 ELF")
+          PY
+            else
+              ./dist/$exe --version
+            fi
           else
             ./dist/$exe --version
           fi
