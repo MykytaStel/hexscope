@@ -56,6 +56,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   const boxes: Box[] = m.codeBoxes.map((b) => [...b] as Box);
   const labels = m.codeBoxes.map(() => "Detected QR code area");
   const history: { boxes: Box[]; labels: string[] }[] = [];
+  const future: typeof history = [];
   let drawing: Box | null = null;
   let selectedBox: number | null = null;
   let moving: { index: number; start: [number, number]; original: Box; preview: Box } | null = null;
@@ -91,6 +92,8 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   };
   const commitBoxes = (change: () => void) => {
     history.push({ boxes: boxes.map((box) => [...box] as Box), labels: [...labels] });
+    if (history.length > 80) history.shift();
+    future.length = 0;
     change();
     invalidateCopy();
     draw();
@@ -251,6 +254,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   undo.addEventListener("click", () => {
     const previous = history.pop();
     if (!previous) return;
+    future.push({ boxes: boxes.map((box) => [...box] as Box), labels: [...labels] });
     boxes.splice(0, boxes.length, ...previous.boxes);
     labels.splice(0, labels.length, ...previous.labels);
     selectedBox = boxes.length > 0 ? Math.min(selectedBox ?? boxes.length - 1, boxes.length - 1) : null;
@@ -258,6 +262,14 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
     draw();
     refresh();
   });
+  const redo = el("button", "btn", currentLocale() === "uk" ? "Повторити" : "Redo");
+  redo.onclick = () => {
+    const next = future.pop();
+    if (!next) return;
+    history.push({ boxes: boxes.map((box) => [...box] as Box), labels: [...labels] });
+    boxes.splice(0, boxes.length, ...next.boxes); labels.splice(0, labels.length, ...next.labels);
+    selectedBox = null; invalidateCopy(); draw(); refresh();
+  };
   const clear = el("button", "btn", "Remove all boxes");
   clear.addEventListener("click", () => commitBoxes(() => {
     boxes.splice(0, boxes.length);
@@ -273,6 +285,7 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
   };
   const refresh = () => {
     undo.disabled = makingCopy || history.length === 0;
+    redo.disabled = makingCopy || future.length === 0;
     clear.disabled = makingCopy || boxes.length === 0;
     save.disabled = makingCopy || boxes.length === 0;
     canvas.style.pointerEvents = makingCopy ? "none" : "";
@@ -370,8 +383,48 @@ export async function openBlackPicture(m: FileModel, copy: PictureCopy): Promise
     "The copy is re-encoded: PNG stays PNG; animated images become a still image; JPEG, HEIF and WebP become JPEG at 92% quality. HDR and colour-profile details may change. The original stays untouched.",
   );
   const bar = el("div", "blackpicture-bar");
-  bar.append(save, undo, clear, close);
-  dialog.append(hint, conversion, canvas, boxList, bar, result);
+  bar.append(save, undo, redo, clear, close);
+  const ocr = el("details", "local-ocr");
+  const say = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
+  ocr.append(el("summary", undefined, say("Experimental local text recognition", "Експериментальне локальне розпізнавання тексту")));
+  ocr.append(el("p", "hint", say("Loads an optional local engine and English or Ukrainian model (up to about 20 MB). No image is uploaded. Recognition can miss text; add only boxes you have checked.", "Завантажує додатковий рушій і англійську або українську модель (до приблизно 20 МБ). Зображення не передається. Розпізнавання може пропустити текст; додавайте лише перевірені рамки.")));
+  const language = el("select");
+  language.setAttribute("aria-label", say("OCR language", "Мова OCR"));
+  for (const [value, label] of [["eng", "English"], ["ukr", "Українська"]]) { const option = el("option", undefined, label); option.value = value; language.append(option); }
+  const recognize = el("button", "btn", say("Find text locally", "Знайти текст локально"));
+  const cancelOcr = el("button", "btn", say("Cancel recognition", "Скасувати розпізнавання")); cancelOcr.hidden = true;
+  const suggestions = el("div");
+  const ocrStatus = el("p", "hint"); ocrStatus.setAttribute("role", "status");
+  let controller: AbortController | undefined;
+  cancelOcr.onclick = () => controller?.abort();
+  dialog.addEventListener("close", () => { controller?.abort(); bitmap.close(); });
+  recognize.onclick = async () => {
+    recognize.disabled = true; cancelOcr.hidden = false;
+    controller = new AbortController();
+    suggestions.replaceChildren();
+    ocrStatus.textContent = say("Recognizing text locally…", "Локальне розпізнавання тексту…");
+    try {
+      const { recognizeLocally } = await import("./local-ocr");
+      const found = await recognizeLocally(base, language.value === "ukr" ? "ukr" : "eng", controller.signal);
+      if (!dialog.open) return;
+      ocrStatus.textContent = `${say("Suggested words", "Запропоновані слова")}: ${found.length}. ${say("Check the area before adding a box.", "Перевірте область перед додаванням рамки.")}`;
+      for (const suggestion of found) {
+        const row = el("div");
+        const add = el("button", "btn", say("Add checked box", "Додати перевірену рамку"));
+        const preview = el("button", "link", suggestion.text);
+        preview.onclick = () => { drawing = [...suggestion.box] as Box; draw(); };
+        add.onclick = () => {
+          if (makingCopy) return;
+          commitBoxes(() => { boxes.push([...suggestion.box] as Box); labels.push("Added black area"); selectedBox = boxes.length - 1; });
+          drawing = null; draw(); add.disabled = true;
+        };
+        row.append(preview, add); suggestions.append(row);
+      }
+    } catch (error) { if (dialog.open) ocrStatus.textContent = String(error); }
+    finally { recognize.disabled = false; cancelOcr.hidden = true; }
+  };
+  ocr.append(language, recognize, cancelOcr, ocrStatus, suggestions);
+  dialog.append(hint, conversion, canvas, boxList, ocr, bar, result);
   document.body.append(dialog);
   dismissable(dialog, true);
   dialog.showModal();

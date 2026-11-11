@@ -60,6 +60,8 @@ export interface ParsedFile {
   filmScan?: FilmScanReport;
   /** Worker-owned compact core snapshot used to verify a later clean copy. */
   verificationToken?: number;
+  /** Observed kinds covered by Core; a plan, never a removal result. */
+  plannedRemovalKinds?: string[];
   location: PhotoLocation | null;
   /** A PDF's attached files, by name; each opens by its index. */
   attachments: string[];

@@ -12,6 +12,7 @@ import {
   type ReceiptRow,
 } from "./batch-receipt";
 import { cleanable, type BatchItem } from "./batch-model";
+import { publicationSummary } from "./publication-package";
 import { StoredZip } from "./zipwrite";
 import { phoneCanShare, saveAs } from "./files";
 import { hasCoarsePointer } from "./dom";
@@ -146,6 +147,7 @@ export async function cleanCopies(
   if (made > 0 && !share) {
     try {
       await zip.add("hexscope-report.json", reportBlob);
+      await zip.add("summary.html", publicationSummary(receipt.removed, receipt.present, receipt.unchecked));
     } catch {
       if (!current()) return;
       saveZip(zip);

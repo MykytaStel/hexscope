@@ -1,4 +1,5 @@
-import { canBlackOut, openBlackPicture } from "./blackpicture";
+import { preflightLauncher } from "./preflight-loader";
+import { canBlackOut, openBlackPicture } from "./blackpicture-loader";
 import { findEmbedded, type Embedded, type EmbeddedSearchProgress, type EmbeddedSearchResult } from "./embedded";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
@@ -534,6 +535,16 @@ export class Drawer {
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     intro.append(title);
+    if (m.file.coverageStatus !== "complete" || m.file.missing.length > 0 || m.file.metadataComplete === false) {
+      intro.append(el("p", "hint verdict-unchecked", currentLocale() === "uk"
+        ? "Не все перевірено: повноту читання та непрочитані частини показано в доказах нижче."
+        : "Not everything was checked: read coverage and unread parts are listed in the evidence below."));
+    }
+    if ((m.source?.size ?? m.bytes.length) > 10 * 1024 * 1024) {
+      intro.append(el("p", "hint", currentLocale() === "uk"
+        ? "Джерело понад 10 MiB: повторну перевірку копії у цій вкладці можуть пропустити."
+        : "Source over 10 MiB: copy read-back may be skipped in this tab."));
+    }
     // A message that may be forged: what to do comes before why.
     if (noun(m) === "email" && head.tone === "danger") {
       intro.append(el("p", "verdict-do", "Do not reply, open its files or follow its links. If it matters, ask the sender another way — a number or address you already have."));
@@ -848,6 +859,7 @@ export class Drawer {
           if (slot.isConnected) slot.replaceWith(el("p", "hint", "The image properties could not be loaded. The file structure is still available."));
         });
     }
+    group.append(preflightLauncher(m, (node) => this.onSelect(node)));
     if (!f.location && f.facts.length === 0) {
       // A PNG can hold notes that name no one, such as a comment or the
       // time it was changed: still worth a clean copy.
@@ -1035,6 +1047,7 @@ export class Drawer {
       metadataSummary.append(jump);
     }
     if (metadataSummary.children.length > 1) metadataGroups.append(metadataSummary);
+
     group.append(
       evidenceOverview(m, metadataGroups, (node) => this.onSelect(node), (start, len) => this.onSelectRange(start, len)),
       metadataGroups,

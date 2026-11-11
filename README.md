@@ -51,6 +51,12 @@ hexscope is a file-structure inspector, **not a virus scanner**. It does not
 open links or follow redirects. A finding is an explanation of what the parser
 can establish from the file, not a guarantee that a file is safe.
 
+The optional **Before sharing: plan and tools** panel offers a change plan,
+portable local publication rules and source paths for findings. Comparisons
+name changed values; verified copy results can be saved with a receipt and
+summary in one ZIP. Image/PDF redaction also offers opt-in local English and
+Ukrainian OCR suggestions, confirmed manually. See [limits and workflow](docs/publication-tools.md).
+
 ## Use the CLI
 
 Install the published `hexscope` command with Homebrew (macOS, Linux), with
@@ -68,6 +74,8 @@ copy is one right-click away; `hexscope menu --remove` takes it away.
 
 ```sh
 hexscope check photos/                              # inspect files in a folder
+hexscope plan photos/                             # planned removal kinds, before writing
+hexscope policy hexscope-policy.json photos/       # local publication rules
 hexscope coverage photos/ --json                    # value-free format coverage report
 hexscope check --fail-on location,serial photos/    # choose what fails the check
 hexscope check --fail-on misnamed uploads/          # a Word file named .pdf, a HEIC named .jpg

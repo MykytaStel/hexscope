@@ -468,6 +468,28 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
   const caption = document.createElement("figcaption");
   caption.textContent = hint;
   figure.append(pic, caption);
+  if (pictures) {
+    const ocr = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = currentLocale() === "uk" ? "Експериментальне OCR зображення" : "Experimental image OCR";
+    ocr.append(summary);
+    let loaded = false;
+    ocr.addEventListener("toggle", async () => {
+      if (!ocr.open || loaded) return;
+      loaded = true;
+      try {
+        const { pdfOcrTools } = await import("./pdf-ocr-tools");
+        ocr.append(pdfOcrTools(pictures, onBox, ([left, bottom, right, top]) => {
+          drawn.style.display = "";
+          drawn.setAttribute("x", String(left - ml)); drawn.setAttribute("y", String(mt - top));
+          drawn.setAttribute("width", String(right - left)); drawn.setAttribute("height", String(top - bottom));
+          pic.scrollIntoView({ block: "nearest" });
+        }));
+      }
+      catch { loaded = false; }
+    });
+    figure.append(ocr);
+  }
   return figure;
 }
 

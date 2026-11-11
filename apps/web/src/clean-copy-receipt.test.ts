@@ -9,6 +9,12 @@ const report: VerificationReport = {
 };
 
 describe("clean-copy receipts", () => {
+  it("supports audio receipts as well as image receipts", async () => {
+    for (const format of ["mp3", "flac", "ogg", "wav"]) {
+      expect((await makeCleanCopyReceipt(format, new Blob(["abc"]), report)).copy.format).toBe(format);
+    }
+  });
+
   it("uses the core v1 schema and fingerprints the exact output bytes", async () => {
     const receipt = await makeCleanCopyReceipt("png", new Blob(["abc"]), report);
 

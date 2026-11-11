@@ -82,7 +82,7 @@ export function copyVerification(
   const addReceiptAction = (report: VerificationReport) => {
     void import("./receipt-button")
       .then(({ appendCleanCopyReceiptAction }) =>
-        appendCleanCopyReceiptAction(region, format, result.copy, report))
+        appendCleanCopyReceiptAction(region, format, result.copy, report, result.name))
       .catch(() => announce(tr("Try again")));
   };
   const unavailable: VerificationReport = {

@@ -5,6 +5,9 @@
 //
 // The second file is parsed by a worker of its own, so the one on screen
 // keeps its place in the page's worker.
+import { semanticDiff } from "./semantic-diff";
+import { FACT_LABELS } from "./finding-kinds";
+import { PARSE_DEADLINE_MS } from "./resource-budget";
 import { Concern, FileModel, Kind } from "./model";
 import { categories } from "./share";
 import type { WorkerRequest, WorkerResponse } from "./worker";
@@ -21,9 +24,20 @@ const MAX_HASHED = 1 << 16;
 export async function parseAside(file: File): Promise<FileModel> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   try {
-    const response = await new Promise<WorkerResponse>((resolve) => {
-      worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => resolve(e.data), { once: true });
-      worker.postMessage({ id: 1, type: "parse", file } as WorkerRequest);
+    const response = await new Promise<WorkerResponse>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Reading took too long; try a smaller file or use the command line tool")), PARSE_DEADLINE_MS);
+      const finish = (response: WorkerResponse) => {
+        clearTimeout(timer);
+        resolve(response);
+      };
+      worker.addEventListener("message", (e: MessageEvent<WorkerResponse>) => {
+        if (e.data.id !== 1 || e.data.type === "progress") return;
+        finish(e.data);
+      });
+      worker.addEventListener("error", () => finish({ id: 1, type: "error", message: "The comparison reader stopped; try a smaller file" }));
+      worker.addEventListener("messageerror", () => finish({ id: 1, type: "error", message: "The comparison reader could not return this file" }));
+      try { worker.postMessage({ id: 1, type: "parse", file } as WorkerRequest); }
+      catch (error) { clearTimeout(timer); reject(error); }
     });
     if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
     return new FileModel(response.result, response.bytes, file.name, file);
@@ -359,6 +373,14 @@ export function showComparison(a: FileModel, b: FileModel, c: Comparison): void 
   summary.append(metric("Findings only in A", c.gone.length), metric("Findings only in B", c.added.length), metric("Findings in both", c.kept.length));
 
   const reveals = section("What they give away", "compare-findings");
+  const semantic = semanticDiff(a.file, b.file);
+  const say = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
+  if (semantic.changed.length) reveals.append(el("p", "compare-semantic", `${say("Stored values changed", "Збережені значення змінилися")}: ${semantic.changed.map((kind) => tr(FACT_LABELS[kind] ?? kind)).join(", ")}`));
+  if (!semantic.complete) reveals.append(el("p", "hint", say("At least one inspection is incomplete. An absent finding does not prove removal.", "Щонайменше один аналіз неповний. Відсутність знахідки не доводить її видалення.")));
+  reveals.append(el("p", "hint", c.firstDiff === -1 && !c.mediaByLength
+    ? say("All file bytes match.", "Усі байти файлів збігаються.")
+    : say("File bytes differ. Metadata comparison does not prove that the visible content is unchanged.", "Байти файлів різняться. Порівняння метаданих не доводить незмінність видимого вмісту.")));
+
   const findingGrid = el("div", "compare-finding-grid");
   const tags = (items: string[]) => {
     const box = el("div", "compare-tags");

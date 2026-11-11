@@ -7,7 +7,7 @@ declare const __VERSION__: string;
 const SCHEMA = "hexscope.clean-copy-receipt";
 const FORMATS = new Set([
   "jpeg", "png", "heif", "webp", "gif", "tiff", "video", "pdf", "zip", "wasm", "eml", "cfb",
-  "msg", "office97", "rtf", "svg", "unknown",
+  "msg", "office97", "rtf", "svg", "unknown", "mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64",
 ]);
 
 export interface CleanCopyReceiptItem {

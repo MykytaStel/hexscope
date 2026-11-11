@@ -1787,7 +1787,7 @@ function factSentence(v: string): string | undefined {
   if ((m = /^page (\d+): (“.+)$/.exec(v))) return `сторінка ${m[1]}: ${m[2]}`;
   if ((m = /^page (\d+), (drawn invisibly|in white on white|off the page|too small to see): (.+)$/.exec(v)))
     return `сторінка ${m[1]}, ${HIDDEN[m[2]]}: ${m[3]}`;
-  if (v === "once after it was first saved; the earlier version is still inside") return "раз після першого збереження; попередня версія досі всередині";
+  if (v === "once after it was first saved; the earlier version is still inside") return "один раз після першого збереження; попередня версія досі всередині";
   if ((m = /^(\d+) times after it was first saved; the earlier versions are still inside$/.exec(v)))
     return `${m[1]} ${ukrainianCountWord(Number(m[1]), "раз", "рази", "разів")} після першого збереження; попередні версії досі всередині`;
   if (/^\d+ hidden (rows?|columns?)( and \d+ hidden columns?)?$/.test(v)) return counted(v);

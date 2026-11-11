@@ -124,6 +124,35 @@ describe("worker RPC timeouts", () => {
     await expect(pending).resolves.toMatchObject({ id, type: "error", message: "Reading cancelled" });
   });
 
+  it("stops an overdue parse and ignores stale messages from its worker", async () => {
+    const rpc = await import("./rpc");
+    const reset = vi.fn(); rpc.onWorkerReset(reset);
+    const pending = rpc.call({ type: "parse", file: new File(["x"], "large.bin") });
+    const old = FakeWorker.instances[0];
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(pending).resolves.toMatchObject({ type: "error", message: expect.stringContaining("too long") });
+    expect(old.terminated).toBe(true); expect(reset).toHaveBeenCalledOnce();
+    const next = rpc.call({ type: "parse", file: new File(["y"], "next.bin") });
+    const replacement = FakeWorker.instances[1]; const id = replacement.sent[0].id;
+    old.respond({ id, type: "parsed", result: {} as never, bytes: new Uint8Array() });
+    expect(old.sent).not.toContainEqual(expect.objectContaining({ type: "commitParse" }));
+    replacement.respond({ id, type: "error", message: "fixture done" });
+    await expect(next).resolves.toMatchObject({ message: "fixture done" });
+  });
+
+  it("does not discard a resumed request when an older cancelled parse misses its grace period", async () => {
+    const rpc = await import("./rpc");
+    const controller = new AbortController();
+    const old = rpc.call({ type: "parse", file: new File(["a"], "a.bin") }, undefined, { signal: controller.signal });
+    controller.abort(); await old;
+    const next = rpc.call({ type: "parse", file: new File(["b"], "b.bin") });
+    const worker = FakeWorker.instances[0]; const id = worker.sent.at(-1)!.id;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(worker.terminated).toBe(false);
+    worker.respond({ id, type: "error", message: "fixture complete" });
+    await expect(next).resolves.toMatchObject({ message: "fixture complete" });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

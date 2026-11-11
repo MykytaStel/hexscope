@@ -36,6 +36,7 @@ export function describe(parsed: Parsed): ParsedFile {
     missing: new Float64Array(0),
     format: parsed.format as ParsedFile["format"],
     metadataComplete: parsed.metadataComplete,
+    plannedRemovalKinds: parsed.plannedRemovalKinds?.split(SEPARATOR).filter(Boolean) ?? [],
     coverageStatus: coverageStatus(parsed.coverageStatus),
     dimensions: null,
     orientation: parsed.orientation,

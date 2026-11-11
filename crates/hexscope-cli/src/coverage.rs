@@ -40,7 +40,8 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
                     &movie.gaps,
                 ))),
                 None => {
-                    let data = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+                    let data = super::input::read(&path)
+                        .map_err(|e| format!("{}: {e}", path.display()))?;
                     summary_of(&parse(&data))
                 }
             };

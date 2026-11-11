@@ -52,3 +52,9 @@ apps/web/src/wasm-raster/
 
 # Wrangler's local secrets for pages dev
 apps/web/.dev.vars
+
+# Generated optional OCR engine and model assets
+apps/web/public/ocr-v7-data1/
+
+# Optional local pnpm store
+/.pnpm-store/

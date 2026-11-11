@@ -1,3 +1,4 @@
+import { assertInputBudget } from "./resource-budget";
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
@@ -239,6 +240,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
       }
       return;
     }
+    assertInputBudget(req.file.size);
     const bytes = new Uint8Array(await req.file.arrayBuffer());
     controller.signal.throwIfAborted();
     const wasm = await moduleFor(bytes);
@@ -318,6 +320,12 @@ async function handle(req: OperationRequest): Promise<void> {
     return;
   }
 
+  if (req.type === "policy") {
+    const source = verificationSources.get(req.sourceToken);
+    if (!source) throw new Error("Reopen the file to evaluate its policy");
+    post({ id: req.id, type: "policy", result: source.evaluatePolicy(req.kinds, req.requireComplete) });
+    return;
+  }
   if (req.type === "clean") {
     const movie = await largeMovie(req.source, { includeWhole: false });
     if (movie) {
@@ -325,6 +333,7 @@ async function handle(req: OperationRequest): Promise<void> {
       postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source));
       return;
     }
+    assertInputBudget(req.source.size);
     const bytes = new Uint8Array(await req.source.arrayBuffer());
     const wasm = await moduleFor(bytes);
     // A PDF with a black box over a scanned JPEG: the picture is redrawn

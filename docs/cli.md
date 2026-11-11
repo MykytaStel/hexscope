@@ -28,6 +28,8 @@ for people and get better as the wording does.
 | Command | What it does | What it writes |
 | --- | --- | --- |
 | `hexscope check PATH...` | What each file gives away, and what is wrong with it | Nothing; it reports |
+| `hexscope plan PATH...` | Value-free planned removal kinds; not a writer acceptance or removal guarantee | Nothing; JSON lines |
+| `hexscope policy PROFILE.json PATH...` | Check local publication rules against Core findings | Nothing; value-free JSON lines |
 | `hexscope coverage PATH...` | How completely each format in a local set was read | Nothing; it reports aggregate counts |
 | `hexscope PATH...` | The same as `check` | Nothing |
 | `hexscope clean PATH...` | Copies without what they give away | `NAME-clean.EXT` beside each file, or into `--out` |
@@ -97,6 +99,31 @@ ignored.
 
 `hexscope` with nothing after it prints the usage and exits 2; `--help` and
 `--version` exit 0.
+
+## Local publication profiles and plans
+
+`hexscope plan PATH...` reports observed finding kinds covered by the shared
+Core removal contract. `verified: false` is intentional: only an actual output
+readback can confirm removal, and the writer can still refuse the source.
+
+`hexscope policy PROFILE.json PATH...` uses the same Core evaluator as the Web's
+**Before sharing: plan and tools** panel. Export or import a profile there:
+
+```json
+{"schema":"hexscope.policy","version":1,"blocked_kinds":["location","serial","owner"],"require_complete":true}
+```
+
+Profiles are limited to 64 KiB and 128 rules. Outputs contain input indexes,
+blocked finding codes and an unchecked flag, without paths or metadata values.
+Policy exit 0 means the selected rules passed; exit 1 means a blocked finding
+or a required complete inspection was missing; exit 2 means an input/profile
+error. Passing these rules does not certify a file's safety. Plan uses exit 0
+for a produced report, including partial and unsupported reads, and exit 2
+for input errors. These commands currently use bounded whole-file reads.
+
+Whole-file CLI reads are capped at 512 MiB, including readback. The existing
+large-movie inspection path reads supported media in slices. Web whole-file
+reads are capped at 128 MiB; its source/output verification cap stays 10 MiB.
 
 ## coverage
 

@@ -38,6 +38,12 @@ pub struct Summary {
 }
 
 impl Summary {
+    /// Format-aware read status. Prefer this over `complete` for admission decisions:
+    /// an unknown byte tree may account for every byte without inspecting its format.
+    pub fn inspection_status(&self) -> crate::coverage::CoverageStatus {
+        crate::coverage::CoverageStatus::from_format_and_completeness(self.format, self.complete)
+    }
+
     /// The problems of one concern.
     pub fn count(&self, concern: Concern) -> usize {
         self.problems

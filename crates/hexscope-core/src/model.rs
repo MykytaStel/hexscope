@@ -62,14 +62,32 @@ pub struct Node {
 }
 
 /// Arena of nodes. The first node added becomes the root.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ParseTree {
     nodes: Vec<Node>,
+    node_limit: usize,
+    limit_node: Option<NodeId>,
+}
+
+impl Default for ParseTree {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ParseTree {
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self::with_node_limit(500_000)
+    }
+
+    /// A shared tree allocation budget. Reaching it records an error node;
+    /// subsequent additions reuse that node rather than growing the arena.
+    pub fn with_node_limit(node_limit: usize) -> Self {
+        Self {
+            nodes: Vec::new(),
+            node_limit: node_limit.clamp(1, u32::MAX as usize - 1),
+            limit_node: None,
+        }
     }
 
     pub fn add(
@@ -80,6 +98,27 @@ impl ParseTree {
         kind: NodeKind,
         value: Option<Value>,
     ) -> NodeId {
+        if let Some(id) = self.limit_node {
+            return id;
+        }
+        if self.nodes.len() >= self.node_limit {
+            let id = self.nodes.len() as NodeId;
+            self.nodes.push(Node {
+                id,
+                parent: self.root(),
+                label: "parse tree node limit reached; remaining structures were not inspected"
+                    .into(),
+                range,
+                value: None,
+                kind: NodeKind::Error,
+                children: Vec::new(),
+            });
+            if id > 0 {
+                self.nodes[0].children.push(id);
+            }
+            self.limit_node = Some(id);
+            return id;
+        }
         let id = self.nodes.len() as NodeId;
         self.nodes.push(Node {
             id,

@@ -34,7 +34,7 @@ impl CoverageStatus {
     /// Classify a parser summary without treating an unrecognized file as a
     /// complete read merely because its bytes have been accounted for.
     pub fn from_summary(summary: &Summary) -> Self {
-        Self::from_format_and_completeness(summary.format, summary.complete)
+        summary.inspection_status()
     }
 
     /// Stable, lowercase name for machine-readable reports.
