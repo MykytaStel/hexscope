@@ -32,6 +32,21 @@
 контракти — у [cli.md](../cli.md). README, CONTRIBUTING, known issues та roadmap
 оновлено. Жодного нового version tag або package release цей набір не створює.
 
+## CI follow-up для 0.19.0
+
+Post-merge CI виявив DNS timeouts саме на Ubuntu apt mirrors під час встановлення
+ExifTool/Pillow, браузерних залежностей Playwright і `musl-tools`. Прибрано ці
+apt-залежності з відповідних gates: незалежна перевірка бере ExifTool із
+зафіксованого pnpm package, Pillow встановлюється як pinned wheel в окремий
+venv, Playwright jobs використовують version-matched browser image, а Linux
+musl release builds — зафіксований `cross`.
+
+Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
+runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.
+У цьому середовищі Docker daemon недоступний, тож musl builds і самі hosted
+browser jobs залишаються обов'язковими PR CI gates. Release tag і packages не
+створювались.
+
 ## Перевірка
 
 - Rust workspace з усіма features — пройшов.

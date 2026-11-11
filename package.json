@@ -16,6 +16,9 @@
     "feedback": "node scripts/feedback.mjs"
   },
   "packageManager": "pnpm@11.25.0",
+  "devDependencies": {
+    "exiftool-vendored.pl": "13.59.2"
+  },
   "engines": {
     "node": ">=24"
   }
