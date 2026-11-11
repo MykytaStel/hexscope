@@ -18,6 +18,12 @@ hexscope plan photos/
 hexscope policy hexscope-policy.json photos/
 ```
 
+After checking rules on the source, create a clean or redacted PDF copy to
+see its result under the same profile. Editing the rules clears the source
+check. The browser reads the output bytes and applies the Core policy. Copies
+above 10 MiB and checks that fail to finish are shown as unchecked. Source
+findings link to their evidence when a structure node is available.
+
 Rules evaluate Core findings. Unknown codes and supplemental QR rules remain
 unchecked even when a profile does not require a complete read; OCR and visible
 content are outside the evaluator.

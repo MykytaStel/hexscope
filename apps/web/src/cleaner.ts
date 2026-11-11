@@ -1,3 +1,4 @@
+import { checkedProfiles } from "./preflight-model";
 import { done } from "./announce";
 import { beforeAfter, cleanLimits, copyPictureButton, copyVerification, isAudio, renderBeforeAfter, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { confirmedRemovedKinds } from "./clean-summary";
@@ -60,6 +61,7 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
         if (kind === "notes" || kind === "comments") delete e.dataset.kept;
       }
     }
+    const profile = checkedProfiles.get(m.file);
     const r = await cleaning.clean(notes);
     box.replaceChildren();
     if (r.error) {
@@ -146,6 +148,14 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
       }
     }, format);
     if (verification) box.append(verification);
+    if (profile) {
+      const status = el("div", "copy-policy");
+      status.setAttribute("role", "status");
+      box.append(status);
+      void import("./copy-policy")
+        .then(({ showCopyPolicy }) => showCopyPolicy(status, r.copy, profile))
+        .catch(() => { status.textContent = currentLocale() === "uk" ? "Профіль для копії не перевірено" : "Copy profile not checked"; });
+    }
     const thanks = thanksLine();
     if (thanks) box.append(thanks);
   });

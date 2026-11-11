@@ -18,6 +18,9 @@ export function readProfile(json: string): PublicationProfile {
   return { schema: "hexscope.policy", version: 1, blocked_kinds: [...new Set<string>(value.blocked_kinds)], require_complete: value.require_complete };
 }
 
+/** Rules checked on a particular file, held only for that file's lifetime. */
+export const checkedProfiles = new WeakMap<ParsedFile, PublicationProfile>();
+
 /** Only actual parent edges; no inference about who made a file. */
 export function evidencePath(file: Pick<ParsedFile, "parents" | "labels">, node: number): number[] {
   const path: number[] = [];
