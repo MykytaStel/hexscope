@@ -15,23 +15,58 @@ export function imageBoxOnPage(box: [number, number, number, number], matrix: nu
 export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) => void, onPreview: (area: PageArea) => void): HTMLElement {
   const say = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
   const host = el("div", "pdf-ocr-tools");
-  host.append(el("p", "hint", say("Experimental OCR reads only the first extractable picture on this page, not the complete PDF render. It may miss text. Check every suggested area before adding it. An optional engine and language model are loaded from this site; no picture is uploaded.", "Експериментальний OCR читає лише перше доступне зображення сторінки, а не повний рендер PDF. Він може пропустити текст. Перевіряйте кожну область перед додаванням. Рушій і мовна модель завантажуються з цього сайту; зображення не передається.")));
+  host.append(el("p", "hint", say(
+    "Choose an extracted picture and check each suggested area on the page before adding it. OCR may miss text.",
+    "Виберіть витягнуте зображення й перевірте кожну запропоновану область на сторінці перед додаванням. OCR може пропустити текст.",
+  )));
+  const choice = el("select");
+  choice.setAttribute("aria-label", say("Page image", "Зображення сторінки"));
+  choice.disabled = true;
+  const previewImage = el("button", "btn", say("Show selected image on page", "Показати вибране зображення на сторінці"));
+  previewImage.disabled = true;
   const lang = el("select"); lang.setAttribute("aria-label", say("OCR language", "Мова OCR"));
   for (const [value, label] of [["eng", "English"], ["ukr", "Українська"]]) { const option = el("option", undefined, label); option.value = value; lang.append(option); }
-  const run = el("button", "btn", say("Recognize the first page image locally", "Розпізнати перше зображення сторінки локально"));
+  const run = el("button", "btn", say("Recognize the selected image locally", "Розпізнати вибране зображення локально"));
   const cancel = el("button", "btn", say("Cancel recognition", "Скасувати розпізнавання")); cancel.hidden = true;
   const status = el("p", "hint"); status.setAttribute("role", "status");
   const results = el("div");
   let controller: AbortController;
+  let available: Shown[] = [];
+  run.disabled = true;
+  status.textContent = say("Loading page images…", "Завантажуємо зображення сторінки…");
+  void pictures.then((images) => {
+    available = images;
+    if (images.length === 0) {
+      status.textContent = say("No extractable page image", "Немає доступного зображення сторінки");
+      return;
+    }
+    images.forEach((_, index) => {
+      const option = el("option", undefined, `${say("Image", "Зображення")} ${index + 1}`);
+      option.value = String(index);
+      choice.append(option);
+    });
+    choice.disabled = run.disabled = previewImage.disabled = false;
+    status.textContent = "";
+  }).catch(() => {
+    status.textContent = say("Could not read page images", "Не вдалося прочитати зображення сторінки");
+  });
+  choice.onchange = () => {
+    results.replaceChildren();
+    status.textContent = "";
+  };
+  previewImage.onclick = () => {
+    const picture = available[Number(choice.value)];
+    if (picture) onPreview(imageBoxOnPage([0, 0, 1, 1], picture.matrix));
+  };
   cancel.onclick = () => controller?.abort();
   run.onclick = async () => {
-    run.disabled = true; cancel.hidden = false; controller = new AbortController();
+    run.disabled = choice.disabled = lang.disabled = true; cancel.hidden = false; controller = new AbortController();
     results.replaceChildren(); status.textContent = say("Recognizing text locally…", "Локальне розпізнавання тексту…");
     // Removing this preview (new file/page/area) releases the optional worker.
     const observer = new MutationObserver(() => { if (!host.isConnected) controller.abort(); });
     observer.observe(document.body, { childList: true, subtree: true });
     try {
-      const picture = (await pictures)[0];
+      const picture = available[Number(choice.value)];
       if (!picture) throw new Error(say("No extractable page image", "Немає доступного зображення сторінки"));
       const image = await createImageBitmap(picture.blob);
       const canvas = document.createElement("canvas");
@@ -51,8 +86,8 @@ export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) 
         row.append(preview, add); results.append(row);
       }
     } catch (error) { status.textContent = String(error); }
-    finally { observer.disconnect(); run.disabled = false; cancel.hidden = true; }
+    finally { observer.disconnect(); run.disabled = choice.disabled = lang.disabled = false; cancel.hidden = true; }
   };
-  host.append(lang, run, cancel, status, results);
+  host.append(choice, previewImage, lang, run, cancel, status, results);
   return host;
 }
