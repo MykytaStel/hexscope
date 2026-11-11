@@ -3,6 +3,8 @@ import type { PagePicture } from "./worker";
 /** A page's picture ready to draw: its address and the matrix that places its unit square. */
 export interface Shown {
   href: string;
+  /** Same local bytes as the object URL, for consumers that must not fetch it. */
+  blob: Blob;
   matrix: number[];
 }
 
@@ -25,7 +27,7 @@ export async function toShown(pictures: PagePicture[]): Promise<Shown[]> {
     if (!blob) continue;
     const href = URL.createObjectURL(blob);
     addresses.push(href);
-    out.push({ href, matrix: p.matrix });
+    out.push({ href, blob, matrix: p.matrix });
   }
   return out;
 }

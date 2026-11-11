@@ -33,7 +33,7 @@ export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) 
     try {
       const picture = (await pictures)[0];
       if (!picture) throw new Error(say("No extractable page image", "Немає доступного зображення сторінки"));
-      const image = await createImageBitmap(await (await fetch(picture.href)).blob());
+      const image = await createImageBitmap(picture.blob);
       const canvas = document.createElement("canvas");
       const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
       canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));

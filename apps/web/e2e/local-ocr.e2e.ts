@@ -61,3 +61,48 @@ test("OCR cancellation releases its worker while a language model is still loadi
     await expect.poll(() => page.workers().filter((worker) => /ocr-worker-|worker.min.js/.test(worker.url())).length).toBe(0);
   } finally { release(); }
 });
+
+test("Ukrainian OCR on a PDF scan works with the unchanged content policy", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "one bounded desktop OCR test per source kind");
+  await page.addInitScript(() => { localStorage.setItem("hexscope.language", "en"); localStorage.setItem("hexscope.tour", "done"); });
+  await page.goto("./");
+  const jpeg = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 900; canvas.height = 220;
+    const ctx = canvas.getContext("2d")!; ctx.fillStyle = "white"; ctx.fillRect(0, 0, 900, 220);
+    ctx.fillStyle = "black"; ctx.font = "56px Arial"; ctx.fillText("ПРИВАТНІ ДАНІ", 40, 130);
+    return canvas.toDataURL("image/jpeg", 0.95).split(",")[1];
+  }), "base64");
+  await page.locator("#picker-empty").setInputFiles({ name: "synthetic-ukrainian-scan.pdf", mimeType: "application/pdf", buffer: scannedPdf(jpeg) });
+  await page.getByRole("button", { name: "Draw a box on a page instead" }).click();
+  await page.getByText("Experimental image OCR", { exact: true }).first().click();
+  const panel = page.locator(".pdf-ocr-tools").first();
+  await panel.getByLabel("OCR language").selectOption("ukr");
+  const model = page.waitForRequest(/\/ukr\.traineddata\.gz$/);
+  await panel.getByRole("button", { name: "Recognize the first page image locally" }).click();
+  await model;
+  await panel.getByRole("button", { name: "ДАНІ", exact: true }).click();
+  await expect(page.locator(".redact-preview .redact-drawing").first()).toBeVisible();
+  await panel.getByRole("button", { name: "Add checked area: ДАНІ", exact: true }).click();
+  await expect(page.locator(".redactor .btn-primary")).toBeVisible();
+});
+
+/** Synthetic one-page scan, no user text or files in the fixture. */
+function scannedPdf(jpeg: Buffer): Buffer {
+  const stream = (bytes: Buffer, attrs = "") => Buffer.concat([Buffer.from(`<< ${attrs} /Length ${bytes.length} >>\nstream\n`), bytes, Buffer.from("\nendstream")]);
+  const objects = [
+    Buffer.from("<< /Type /Catalog /Pages 2 0 R >>"),
+    Buffer.from("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+    Buffer.from("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 300] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>"),
+    stream(jpeg, "/Type /XObject /Subtype /Image /Width 900 /Height 220 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode"),
+    stream(Buffer.from("q 600 0 0 147 0 76 cm /Im0 Do Q\n")),
+  ];
+  const parts = [Buffer.from("%PDF-1.7\n")]; const offsets: number[] = [];
+  let length = parts[0].length;
+  objects.forEach((object, index) => {
+    offsets.push(length);
+    const next = Buffer.concat([Buffer.from(`${index + 1} 0 obj\n`), object, Buffer.from("\nendobj\n")]);
+    parts.push(next); length += next.length;
+  });
+  parts.push(Buffer.from(`xref\n0 6\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n${length}\n%%EOF\n`));
+  return Buffer.concat(parts);
+}

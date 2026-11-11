@@ -41,9 +41,11 @@
 - ExifTool/Pillow independent gate — 2 fixtures пройшли.
 - Dependency audit після OCR additions — known vulnerabilities не знайдено.
 - Accessibility desktop/phone — 64 passed, 4 штатні skipped у першому проході.
-- OCR browser tests — 2/2: реальний engine під production CSP розпізнав
+- OCR browser tests — 3/3: реальний engine під production CSP розпізнав
   synthetic email, ручне підтвердження/Undo/Redo пройшли, зовнішніх запитів
   не було; скасування під час завантаження моделі звільнило worker.
+  Український синтетичний PDF-скан підтвердив локальне розпізнавання,
+  попередній перегляд рамки та її ручне додавання під незмінним CSP.
 - Перший cross-browser run: 16 passed + 2 retries через конфлікт локального
   Playwright output directory з паралельним OCR run (`ENOENT` trace files).
   Фінальні прогони використовують окремі output directories; це не прихована
