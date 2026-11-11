@@ -8,6 +8,7 @@ import type { VerificationFinding, VerificationReport, VerificationSelection } f
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
   | { id: number; type: "policy"; sourceToken: number; kinds: string; requireComplete: boolean }
+  | { id: number; type: "copyPolicy"; copy: Blob; kinds: string; requireComplete: boolean }
   | { id: number; type: "cancel"; target: number }
   | { id: number; type: "commitParse"; target: number }
   | { id: number; type: "steps"; from: number; count: number }

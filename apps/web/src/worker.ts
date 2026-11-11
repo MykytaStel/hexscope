@@ -320,6 +320,18 @@ async function handle(req: OperationRequest): Promise<void> {
     return;
   }
 
+  if (req.type === "copyPolicy") {
+    if (req.copy.size > MAX_VERIFY_BYTES) throw new Error("Copy exceeds the verification limit");
+    const bytes = new Uint8Array(await req.copy.arrayBuffer());
+    const wasm = await moduleFor(bytes);
+    const copy = wasm.parseOwned(bytes);
+    try {
+      post({ id: req.id, type: "policy", result: copy.evaluatePolicy(req.kinds, req.requireComplete) });
+    } finally {
+      copy.free();
+    }
+    return;
+  }
   if (req.type === "policy") {
     const source = verificationSources.get(req.sourceToken);
     if (!source) throw new Error("Reopen the file to evaluate its policy");

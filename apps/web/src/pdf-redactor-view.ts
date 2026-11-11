@@ -1,3 +1,4 @@
+import { checkedProfiles } from "./preflight-model";
 import { announce, done } from "./announce";
 import { copyVerification, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { el, formatBytes, hasCoarsePointer } from "./dom";
@@ -257,6 +258,7 @@ export function pdfRedactorView(
   presets.append(drawOn);
 
   save.addEventListener("click", async () => {
+    const profile = checkedProfiles.get(m.file);
     const marks = picked();
     const selections = marks.map((mark) => ({
       page: mark.page,
@@ -310,6 +312,14 @@ export function pdfRedactorView(
     result.append(open);
     const verification = copyVerification(r, undefined, m.file.format);
     if (verification) result.append(verification);
+    if (profile) {
+      const status = el("div", "copy-policy");
+      status.setAttribute("role", "status");
+      result.append(status);
+      void import("./copy-policy")
+        .then(({ showCopyPolicy }) => showCopyPolicy(status, r.copy, profile))
+        .catch(() => { status.textContent = currentLocale() === "uk" ? "Профіль для копії не перевірено" : "Copy profile not checked"; });
+    }
   });
   return group;
 }

@@ -5,7 +5,7 @@ import { FACT_LABELS } from "./finding-kinds";
 import { MAX_VERIFY_BYTES } from "./verification";
 import { call } from "./rpc";
 import { saveAs } from "./files";
-import { differingFields, evidencePath, readProfile, type PublicationProfile } from "./preflight-model";
+import { checkedProfiles, differingFields, evidencePath, readProfile, type PublicationProfile } from "./preflight-model";
 import "./preflight.css";
 
 const say = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
@@ -41,21 +41,38 @@ export function mountPreflight(host: HTMLElement, m: FileModel, select: (node: n
   const check = el("button", "btn", say("Check these rules", "Перевірити ці правила"));
   check.onclick = async () => {
     check.disabled = true;
+    checkedProfiles.delete(m.file);
     try {
       const rules = profile();
       const response = await call({ type: "policy", sourceToken: m.file.verificationToken ?? -1, kinds: rules.blocked_kinds.join(","), requireComplete: rules.require_complete }, 5000, {});
       if (response.type !== "policy") throw new Error(say("Reopen the file to check rules.", "Відкрийте файл знову, щоб перевірити правила."));
       const result = JSON.parse(response.result);
+      if (JSON.stringify(profile()) !== JSON.stringify(rules)) return;
+      checkedProfiles.set(m.file, rules);
       status.textContent = result.passed ? say("These rules passed. This is not a safety certification.", "Ці правила пройдено. Це не сертифікація безпеки.")
         : `${say("Rules need attention", "Правила потребують уваги")}: ${result.blocked_kinds.map(words).join(", ")}${result.unchecked ? say(" · inspection incomplete", " · аналіз неповний") : ""}`;
+      for (const kind of result.blocked_kinds as string[]) {
+        const fact = m.file.facts.find((item) => item.kind === kind && item.node >= 0 && item.node < m.file.parents.length);
+        const node = fact?.node ?? (kind === "location" ? m.file.location?.node : undefined);
+        if (node === undefined || node < 0 || node >= m.file.parents.length) continue;
+        const link = el("button", "link", `${say("Show evidence", "Показати доказ")} · ${words(kind)}`);
+        link.onclick = () => select(node);
+        status.append(" ", link);
+      }
     } catch (error) { status.textContent = String(error); }
     finally { check.disabled = false; }
   };
+  const clearCheck = () => {
+    checkedProfiles.delete(m.file);
+    status.replaceChildren();
+  };
+  kinds.addEventListener("input", clearCheck);
+  strict.addEventListener("change", clearCheck);
   const exportButton = el("button", "btn", say("Export profile", "Експортувати профіль"));
   exportButton.onclick = () => { try { saveAs("hexscope-policy.json", new Blob([JSON.stringify(profile(), null, 2)], { type: "application/json" })); } catch (error) { status.textContent = String(error); } };
   const input = el("input"); input.type = "file"; input.accept = ".json,application/json";
   input.setAttribute("aria-label", say("Import profile", "Імпортувати профіль"));
-  input.onchange = async () => { try { const file = input.files?.[0]; if (!file) return; if (file.size > 65_536) throw new Error("Profile exceeds 64 KiB"); const rules = readProfile(await file.text()); kinds.value = rules.blocked_kinds.join(","); strict.checked = rules.require_complete; status.textContent = ""; } catch (error) { status.textContent = String(error); } };
+  input.onchange = async () => { try { const file = input.files?.[0]; if (!file) return; if (file.size > 65_536) throw new Error("Profile exceeds 64 KiB"); const rules = readProfile(await file.text()); kinds.value = rules.blocked_kinds.join(","); strict.checked = rules.require_complete; clearCheck(); } catch (error) { status.textContent = String(error); } };
   policy.append(kinds, label, check, exportButton, input, status);
   host.append(policy);
 

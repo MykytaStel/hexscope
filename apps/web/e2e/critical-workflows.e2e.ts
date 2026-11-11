@@ -58,3 +58,14 @@ test("ZIP entries remain navigable on every engine", async ({ page }) => {
   await openView(page, "files");
   await expect(page.locator(".pane-files .archive-name")).toContainText(["docs"]);
 });
+
+test("cleaning checks the actual copy against the source publication profile", async ({ page }) => {
+  page.on("download", (download) => void download.cancel());
+  await page.goto("./?sample=photo.jpg");
+  const tools = page.locator(".preflight-disclosure");
+  await tools.locator("summary").first().click();
+  await tools.getByRole("button", { name: "Check these rules" }).click();
+  await expect(tools.getByRole("button", { name: /Show evidence.*Location/ })).toBeVisible();
+  await page.locator(".verdict-cta").click();
+  await expect(page.locator(".copy-policy")).toHaveText("Copy passed the publication profile");
+});
