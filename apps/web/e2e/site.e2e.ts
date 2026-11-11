@@ -276,7 +276,23 @@ test("the phone landing menu anchors its panel to the trigger", async ({ page })
   expect(triggerBox).not.toBeNull();
   expect(panelBox).not.toBeNull();
   expect(Math.abs((panelBox!.x + panelBox!.width) - (triggerBox!.x + triggerBox!.width))).toBeLessThanOrEqual(1);
-  expect(panelBox!.x).toBeGreaterThanOrEqual(8);
+  const layout = await panel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const trigger = element.parentElement!.querySelector(":scope > summary")!.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      viewport: { width: innerWidth, clientWidth: document.documentElement.clientWidth },
+      panel: { x: rect.x, width: rect.width, right: rect.right, widthCss: style.width, maxWidth: style.maxWidth, minWidth: style.minWidth },
+      trigger: { x: trigger.x, width: trigger.width, right: trigger.right },
+      items: Array.from(element.children, (item) => ({
+        text: item.textContent?.trim(),
+        hidden: item.hasAttribute("hidden"),
+        display: getComputedStyle(item).display,
+        width: item.getBoundingClientRect().width,
+      })),
+    };
+  });
+  expect(panelBox!.x, JSON.stringify(layout)).toBeGreaterThanOrEqual(8);
   expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(382);
 });
 
