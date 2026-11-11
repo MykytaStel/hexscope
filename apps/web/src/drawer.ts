@@ -536,7 +536,7 @@ export class Drawer {
     title.tabIndex = -1;
     intro.append(title);
     if (m.file.coverageStatus !== "complete" || m.file.missing.length > 0 || m.file.metadataComplete === false) {
-      intro.append(el("p", "problem is-warning", currentLocale() === "uk"
+      intro.append(el("p", "hint verdict-unchecked", currentLocale() === "uk"
         ? "Не все перевірено: повноту читання та непрочитані частини показано в доказах нижче."
         : "Not everything was checked: read coverage and unread parts are listed in the evidence below."));
     }
