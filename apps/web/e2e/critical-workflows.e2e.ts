@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { zipOf } from "./zips";
@@ -19,6 +20,8 @@ test("Core plan and rules work before saving a photo", async ({ page }) => {
   await expect(tools.getByRole("status").first()).toContainText("Rules need attention");
   await tools.getByRole("button", { name: "Try a damaged sample" }).click();
   await expect(tools).toContainText("Your file was not changed.");
+  expect((await new AxeBuilder({ page }).include(".preflight-disclosure").analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test("a verified copy downloads together with its private receipt and summary", async ({ page }) => {

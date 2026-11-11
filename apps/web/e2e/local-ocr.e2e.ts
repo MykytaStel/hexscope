@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 test("local OCR suggests words, adds only a confirmed box, and supports undo/redo", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "bounded OCR experiment uses one desktop engine");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en"); localStorage.setItem("hexscope.tour", "done");
+  });
+  const csp = readFileSync(new URL("../public/_headers", import.meta.url), "utf8").match(/Content-Security-Policy: (.+)/)![1];
+  await page.route("**/", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), "content-security-policy": csp } });
   });
   const leaked: string[] = [];
   page.on("request", (request) => {
@@ -33,4 +39,25 @@ test("local OCR suggests words, adds only a confirmed box, and supports undo/red
   await editor.getByRole("button", { name: "Redo", exact: true }).click();
   await expect(editor.locator(".blackpicture-boxes li")).toHaveCount(1);
   expect(leaked).toEqual([]);
+});
+
+
+test("OCR cancellation releases its worker while a language model is still loading", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "one bounded desktop OCR lifecycle check");
+  await page.addInitScript(() => { localStorage.setItem("hexscope.language", "en"); localStorage.setItem("hexscope.tour", "done"); });
+  let release: () => void = () => {};
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/*.traineddata.gz", async (route) => { await blocked; await route.abort().catch(() => {}); });
+  await page.goto("./?sample=photo.jpg");
+  await page.locator(".blackout-open").click();
+  const editor = page.locator("dialog.blackpicture");
+  await editor.locator(".local-ocr summary").click();
+  const model = page.waitForRequest(/traineddata\.gz$/);
+  await editor.getByRole("button", { name: "Find text locally" }).click();
+  try {
+    await model;
+    await editor.getByRole("button", { name: "Cancel recognition" }).click();
+    await expect(editor.locator(".local-ocr")).toContainText("OCR cancelled");
+    await expect.poll(() => page.workers().filter((worker) => /ocr-worker-|worker.min.js/.test(worker.url())).length).toBe(0);
+  } finally { release(); }
 });

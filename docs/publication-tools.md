@@ -81,7 +81,9 @@ even if a CLI file grows. Supported large movies keep the sliced path. A tree
 holds 500,000 ordinary nodes plus one limit error. This bounds tree storage,
 not every allocation; format-specific decoded-byte limits remain necessary.
 Heavy Web operations have a 60-second deadline. A cancelled parse gets 500 ms
-to acknowledge cancellation before its worker is discarded; the current file
+to acknowledge cancellation before an otherwise idle worker is discarded. A
+newer pending operation keeps its own deadline and is never discarded by an old
+cancellation timer; the current file
 may need to reopen from local bytes.
 
 No physical iPhone/Android, HDR screen, VoiceOver/TalkBack, OCR recall or

@@ -142,7 +142,9 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
         if (req.type === "parse" && worker === target) {
           const timer = setTimeout(() => {
             abandoned.delete(id);
-            if (worker !== target) return;
+            // A resumed batch/new file owns its own deadline. An abandoned
+            // request must not terminate the worker underneath that newer work.
+            if (worker !== target || waiting.size > 0) return;
             worker = null;
             target.terminate();
             failWaiting("the reader stopped after reading was cancelled; reopen the file to continue");

@@ -12,7 +12,7 @@ export function imageBoxOnPage(box: [number, number, number, number], matrix: nu
   return [Math.min(...points.map((p) => p[0])), Math.min(...points.map((p) => p[1])), Math.max(...points.map((p) => p[0])), Math.max(...points.map((p) => p[1]))];
 }
 
-export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) => void): HTMLElement {
+export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) => void, onPreview: (area: PageArea) => void): HTMLElement {
   const say = (en: string, uk: string) => currentLocale() === "uk" ? uk : en;
   const host = el("div", "pdf-ocr-tools");
   host.append(el("p", "hint", say("Experimental OCR reads only the first extractable picture on this page, not the complete PDF render. It may miss text. Check every suggested area before adding it. An optional engine and language model are loaded from this site; no picture is uploaded.", "Експериментальний OCR читає лише перше доступне зображення сторінки, а не повний рендер PDF. Він може пропустити текст. Перевіряйте кожну область перед додаванням. Рушій і мовна модель завантажуються з цього сайту; зображення не передається.")));
@@ -42,9 +42,13 @@ export function pdfOcrTools(pictures: Promise<Shown[]>, onBox: (area: PageArea) 
       if (!host.isConnected) return;
       status.textContent = `${say("Suggested words", "Запропоновані слова")}: ${found.length}`;
       for (const suggestion of found) {
+        const area = imageBoxOnPage(suggestion.box, picture.matrix);
+        const row = el("div");
+        const preview = el("button", "link", suggestion.text);
+        preview.onclick = () => onPreview(area);
         const add = el("button", "btn", `${say("Add checked area", "Додати перевірену область")}: ${suggestion.text}`);
-        add.onclick = () => onBox(imageBoxOnPage(suggestion.box, picture.matrix));
-        results.append(add);
+        add.onclick = () => onBox(area);
+        row.append(preview, add); results.append(row);
       }
     } catch (error) { status.textContent = String(error); }
     finally { observer.disconnect(); run.disabled = false; cancel.hidden = true; }

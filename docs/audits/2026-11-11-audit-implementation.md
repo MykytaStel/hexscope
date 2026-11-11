@@ -35,20 +35,31 @@
 ## Перевірка
 
 - Rust workspace з усіма features — пройшов.
-- Web unit/typecheck — 518 тестів пройшли до фінальної перевірки.
+- Web unit/typecheck — 520 тестів пройшли після regression-виправлення.
 - Release performance — 6/6 large-file tests пройшли.
 - Stronger clean-roundtrip fuzz smoke — 6741 запуск за 31 секунду, без падіння.
 - ExifTool/Pillow independent gate — 2 fixtures пройшли.
 - Dependency audit після OCR additions — known vulnerabilities не знайдено.
 - Accessibility desktop/phone — 64 passed, 4 штатні skipped у першому проході.
-- OCR browser example — реальний engine розпізнав synthetic email, ручне
-  підтвердження/Undo/Redo пройшли, зовнішніх запитів не було.
+- OCR browser tests — 2/2: реальний engine під production CSP розпізнав
+  synthetic email, ручне підтвердження/Undo/Redo пройшли, зовнішніх запитів
+  не було; скасування під час завантаження моделі звільнило worker.
 - Перший cross-browser run: 16 passed + 2 retries через конфлікт локального
   Playwright output directory з паралельним OCR run (`ENOENT` trace files).
   Фінальні прогони використовують окремі output directories; це не прихована
   нестабільність продуктових assertions.
 
-Фінальний статус CI/merge/cleanup записується після завершення цих дій.
+Повний Chromium-прогін дав 476 passed / 67 skipped та виявив три падіння:
+два стосувалися одного нового light-theme contrast порушення; третє — race
+між таймером скасованого parse і batch resume. Обидві причини виправлені,
+для другої додано unit regression. Повторний прогін зачеплених suites:
+83 passed / 7 skipped. Фінальний critical Firefox/WebKit/mobile WebKit з
+відкритою preflight-панеллю, axe та overflow check: 18/18 без retries.
+Hosted advisory job також виявив незалежний workflow дефект: post-job cache
+зберігав неіснуючий pnpm store у job без install. Непотрібний cache прибрано;
+сканування advisories залишено.
+
+Hosted checks і результат інтеграції: [PR #188](https://github.com/MykytaStel/hexscope/pull/188). Сім чистих застарілих worktree видалено після перевірки merged refs. Перед очищенням локально збережено Git bundle і 882 fuzz-файли з перевіркою SHA-256.
 
 ## Чесні межі
 

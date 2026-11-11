@@ -477,7 +477,15 @@ export function pageFigure(p: Searchable, boxesToDraw: PageArea[], onBox: (area:
     ocr.addEventListener("toggle", async () => {
       if (!ocr.open || loaded) return;
       loaded = true;
-      try { const { pdfOcrTools } = await import("./pdf-ocr-tools"); ocr.append(pdfOcrTools(pictures, onBox)); }
+      try {
+        const { pdfOcrTools } = await import("./pdf-ocr-tools");
+        ocr.append(pdfOcrTools(pictures, onBox, ([left, bottom, right, top]) => {
+          drawn.style.display = "";
+          drawn.setAttribute("x", String(left - ml)); drawn.setAttribute("y", String(mt - top));
+          drawn.setAttribute("width", String(right - left)); drawn.setAttribute("height", String(top - bottom));
+          pic.scrollIntoView({ block: "nearest" });
+        }));
+      }
       catch { loaded = false; }
     });
     figure.append(ocr);

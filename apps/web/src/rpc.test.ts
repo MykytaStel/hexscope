@@ -140,6 +140,19 @@ describe("worker RPC timeouts", () => {
     await expect(next).resolves.toMatchObject({ message: "fixture done" });
   });
 
+  it("does not discard a resumed request when an older cancelled parse misses its grace period", async () => {
+    const rpc = await import("./rpc");
+    const controller = new AbortController();
+    const old = rpc.call({ type: "parse", file: new File(["a"], "a.bin") }, undefined, { signal: controller.signal });
+    controller.abort(); await old;
+    const next = rpc.call({ type: "parse", file: new File(["b"], "b.bin") });
+    const worker = FakeWorker.instances[0]; const id = worker.sent.at(-1)!.id;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(worker.terminated).toBe(false);
+    worker.respond({ id, type: "error", message: "fixture complete" });
+    await expect(next).resolves.toMatchObject({ message: "fixture complete" });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
