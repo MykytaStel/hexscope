@@ -69,3 +69,35 @@ test("cleaning checks the actual copy against the source publication profile", a
   await page.locator(".verdict-cta").click();
   await expect(page.locator(".copy-policy")).toHaveText("Copy passed the publication profile");
 });
+
+test("Web receipt verification distinguishes matching bytes, changed bytes and invalid JSON", async ({ page }) => {
+  await page.goto("./?sample=photo.jpg");
+  const tools = page.locator(".preflight-disclosure");
+  await tools.locator("summary").first().click();
+  await tools.getByRole("button", { name: "Verify a copy receipt" }).click();
+  const dialog = page.getByRole("dialog", { name: "Verify a copy receipt" });
+  const copy = dialog.getByLabel("Copy file");
+  const receipt = dialog.getByLabel("Receipt JSON");
+  const check = dialog.getByRole("button", { name: "Check fingerprint" });
+  const status = dialog.getByRole("status");
+  const record = {
+    schema: "hexscope.clean-copy-receipt", version: 1, hexscope_version: "0.18.0",
+    copy: { format: "png", sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" },
+    verification: { schema_version: 1, removed: [], present: [], unchecked: [] },
+  };
+  const loadCopy = (value: string) => copy.setInputFiles({ name: "copy.png", mimeType: "image/png", buffer: Buffer.from(value) });
+  const loadReceipt = (value: string) => receipt.setInputFiles({ name: "receipt.json", mimeType: "application/json", buffer: Buffer.from(value) });
+  await loadCopy("abc");
+  await loadReceipt(JSON.stringify(record));
+  await check.click();
+  await expect(status).toHaveText("Copy bytes match the receipt.");
+  await loadCopy("abcd");
+  await check.click();
+  await expect(status).toHaveText("Copy bytes differ from the receipt.");
+  await loadReceipt(JSON.stringify({ ...record, copy: { format: "png", sha256: null, fingerprint_reason: "size_limit" } }));
+  await check.click();
+  await expect(status).toHaveText("The receipt has no copy fingerprint.");
+  await loadReceipt("{broken");
+  await check.click();
+  await expect(status).toHaveText("Malformed or unsupported receipt.");
+});
