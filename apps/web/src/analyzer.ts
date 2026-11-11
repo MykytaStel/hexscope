@@ -1,3 +1,4 @@
+import type { PublicationProfile } from "./preflight-model";
 // The analyzer: the views of an open file, the workspace that opens it, the
 // batch list and the player. main.ts loads it when a file is asked for, so
 // the landing page does not load it before there is file intent.
@@ -1006,6 +1007,7 @@ const batchView = new BatchView($("batch"), {
   open: (i) => batchController.open(i),
   toggleReading: () => batchController.toggleReading(),
   retryFailed: () => batchController.retryFailed(),
+  applyProfile: (profile) => batchController.applyProfile(profile),
   saveClean: (keepNames, includeCopyFingerprints) => void batchController.saveClean(keepNames, includeCopyFingerprints),
   mosaic: (items) => void import("./photo-mosaic")
     .then((m) => m.showMosaic(
@@ -1047,15 +1049,27 @@ function showBatch(): void {
 }
 
 /** Reads and summarizes one file for the batch list. */
-async function analyzeBatchFile(file: File, signal: AbortSignal): Promise<BatchAnalysis> {
+async function analyzeBatchFile(file: File, signal: AbortSignal, profile?: PublicationProfile): Promise<BatchAnalysis> {
   if (file.size > MAX_FILE) throw new Error(tooLarge(file));
   const response = await call({ type: "parse", file }, undefined, { signal });
   if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");
   signal.throwIfAborted();
+  let policy: BatchAnalysis["policy"];
+  if (profile) {
+    const responsePolicy = await call({
+      type: "policy",
+      sourceToken: response.result.verificationToken ?? -1,
+      kinds: profile.blocked_kinds.join(","),
+      requireComplete: profile.require_complete,
+    }, 5000, { signal });
+    if (responsePolicy.type !== "policy") throw new Error("Could not check the publication profile");
+    policy = JSON.parse(responsePolicy.result);
+  }
   const parsed = new FileModel(response.result, response.bytes, file.name, file);
   await (await import("./qrfacts")).addCodeFacts(parsed, false, signal);
   signal.throwIfAborted();
   return {
+    policy,
     kind: kindOf(parsed),
     format: parsed.file.format,
     coverage: parsed.file.coverageStatus,

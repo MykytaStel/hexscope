@@ -24,6 +24,12 @@ check. The browser reads the output bytes and applies the Core policy. Copies
 above 10 MiB and checks that fail to finish are shown as unchecked. Source
 findings link to their evidence when a structure node is available.
 
+In a finished batch, open **Batch publication profile** to apply the same
+JSON profile or enter rules. Applying a profile rereads the batch. The summary
+counts blocked and unchecked files separately, and **Profile issues** filters
+to those rows. Pause and resume preserve completed results. **Retry failed
+files** uses the current profile and leaves completed rows in place.
+
 Rules evaluate Core findings. Unknown codes and supplemental QR rules remain
 unchecked even when a profile does not require a complete read; OCR and visible
 content are outside the evaluator.

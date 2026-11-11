@@ -486,3 +486,36 @@ test("APE text is shown while its audio metadata check remains partial", async (
   await expect(row).toContainText("Partial check");
   await expect(batch.getByRole("checkbox", { name: /Make a clean copy of ape.mp3/ })).toBeVisible();
 });
+
+test("a batch profile distinguishes blocked, passed and unchecked files", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const photo = readFileSync(new URL("../public/samples/photo.jpg", import.meta.url));
+  const clean = readFileSync(new URL("../public/samples/sample.png", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "gps.jpg", mimeType: "image/jpeg", buffer: photo },
+    { name: "plain.png", mimeType: "image/png", buffer: clean },
+    { name: "unknown.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
+  ]);
+  const batch = page.locator("#batch");
+  await batch.getByRole("button", { name: "Batch publication profile" }).click();
+  const dialog = page.getByRole("dialog", { name: "Batch publication profile" });
+  await dialog.getByLabel("Import profile JSON").setInputFiles({
+    name: "profile.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      schema: "hexscope.policy", version: 1, require_complete: true, blocked_kinds: ["location"],
+    })),
+  });
+  await expect(dialog.getByLabel("Blocked finding codes")).toHaveValue("location");
+  await dialog.getByRole("button", { name: "Check batch" }).click();
+  await expect(batch.locator(".batch-policy-summary")).toHaveText("Profile · evaluated 3 of 3 · blocked 1 · unchecked 1");
+  await expect(batch.locator(".batch-row", { hasText: "gps.jpg" })).toContainText("Blocked · location");
+  await expect(batch.locator(".batch-row", { hasText: "plain.png" })).toContainText("Profile passed");
+  await batch.getByRole("button", { name: "Profile issues · 2" }).click();
+  await expect(batch.locator(".batch-row")).toHaveCount(2);
+  await expect(batch.locator(".batch-row", { hasText: "unknown.bin" })).toContainText("Unchecked");
+});
