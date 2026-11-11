@@ -60,7 +60,7 @@ Web read-back limits remain; unchecked outcomes stay unchecked.
 ## Experimental OCR
 
 The image black-out editor offers English or Ukrainian OCR. A PDF page preview
-offers OCR on its **first extractable picture**, not a complete PDF rendering.
+lets you choose an extracted picture for OCR and locate it on the page.
 Text represented by unsupported image encodings, vector outlines or other
 page content may be absent. An OCR result does not change parser completeness.
 
