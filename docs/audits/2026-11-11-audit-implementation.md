@@ -46,6 +46,8 @@ toolchain; matrix для `aarch64` перенесено на x86_64 runner. Це
 вимагає Firefox у контейнері при запуску від root; ARM package smoke запускає
 перевірку ELF machine id замість виконання foreign-architecture бінарника на
 x86 host. x86 musl package як і раніше перевіряється запуском `--version`.
+Також E2E відтворив вихід мобільного меню за лівий safe margin; його ширину
+обмежено з урахуванням обох країв екрана.
 
 Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
 runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.
