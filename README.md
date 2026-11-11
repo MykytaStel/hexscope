@@ -153,6 +153,10 @@ Film scans and research notes:
 - [Verified photo batches, CLI/web film rolls, TIFF16 and local privacy mosaic](docs/photo-platform.md)
 - [Reproducible real-scan measurements and research limits](docs/film-evaluation.md)
 
+Engineering walkthrough:
+
+- [Rust engineering case study: architecture, CLI contracts and verification](docs/rust-engineering-case-study.md)
+
 ## For Rust users and contributors
 
 Published on crates.io, at the same version as the site:
