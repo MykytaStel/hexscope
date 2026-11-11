@@ -1301,8 +1301,8 @@ body[data-state="ready"] .topbar {
     display: grid;
     width: max-content;
     min-width: 176px;
-    /* Leave room for both screen gutters after anchoring to the trigger. */
-    max-width: calc(100vw - 32px);
+    /* The trigger is inset from the right edge, so reserve that inset too. */
+    max-width: calc(100vw - 40px);
     box-sizing: border-box;
     gap: 2px;
     padding: 8px;
