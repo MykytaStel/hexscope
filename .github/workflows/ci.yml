@@ -43,11 +43,19 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all
-      - name: Independent metadata and decoded-pixel gate
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Pillow in an isolated Python environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libimage-exiftool-perl python3-pil
-          python3 scripts/verify-independent.py --hexscope target/debug/hexscope
+          python3 -m venv "$RUNNER_TEMP/hexscope-independent"
+          "$RUNNER_TEMP/hexscope-independent/bin/pip" install --disable-pip-version-check --only-binary=:all: -r scripts/requirements-independent.txt
+          echo "$RUNNER_TEMP/hexscope-independent/bin" >> "$GITHUB_PATH"
+      - name: Independent metadata and decoded-pixel gate
+        run: pnpm exec python3 scripts/verify-independent.py --hexscope target/debug/hexscope
       # The all-features corpus crosses the source, cleaner, output reader and
       # verification report. Keep its value-free per-format evidence in CI.
       - name: Clean-copy evidence by format
@@ -257,6 +265,14 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     needs: web
     runs-on: ubuntu-26.04
+    container:
+      # This version-matched image already contains Chromium and its system
+      # libraries; CI no longer calls apt through an Ubuntu mirror.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    env:
+      # Firefox in this image rejects root when HOME belongs to pwuser.
+      HOME: /root
     strategy:
       fail-fast: false
       matrix:
@@ -273,8 +289,6 @@ jobs:
         with:
           name: hexscope-site
           path: apps/web/dist
-      - name: Install Chromium
-        run: pnpm --filter web exec playwright install --with-deps chromium
       - name: End-to-end tests, part ${{ matrix.shard }} of 4
         run: >-
           pnpm --filter web exec playwright test
@@ -293,6 +307,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     needs: web
     runs-on: ubuntu-26.04
+    container:
+      # The same pinned image has the exact Playwright Firefox/WebKit builds
+      # and their shared libraries, without an apt install step.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    env:
+      HOME: /root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -305,8 +326,6 @@ jobs:
         with:
           name: hexscope-site
           path: apps/web/dist
-      - name: Install Firefox and WebKit
-        run: pnpm --filter web exec playwright install --with-deps firefox webkit
       - name: Cross-browser analyzer and keyboard smoke
         run: >-
           pnpm --filter web exec playwright test

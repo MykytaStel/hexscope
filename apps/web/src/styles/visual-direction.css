@@ -1300,8 +1300,9 @@ body[data-state="ready"] .topbar {
     z-index: 30;
     display: grid;
     width: max-content;
-    min-width: 176px;
-    max-width: calc(100vw - 16px);
+    min-width: 144px;
+    /* Keep the intrinsic menu content inside narrow viewports. */
+    max-width: calc(100vw - 32px);
     box-sizing: border-box;
     gap: 2px;
     padding: 8px;

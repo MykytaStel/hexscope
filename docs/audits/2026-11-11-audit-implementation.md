@@ -32,6 +32,29 @@
 контракти — у [cli.md](../cli.md). README, CONTRIBUTING, known issues та roadmap
 оновлено. Жодного нового version tag або package release цей набір не створює.
 
+## CI follow-up для 0.19.0
+
+Post-merge CI виявив DNS timeouts саме на Ubuntu apt mirrors під час встановлення
+ExifTool/Pillow, браузерних залежностей Playwright і `musl-tools`. Прибрано ці
+apt-залежності з відповідних gates: незалежна перевірка бере ExifTool із
+зафіксованого pnpm package, Pillow встановлюється як pinned wheel в окремий
+venv, Playwright jobs використовують version-matched browser image, а Linux
+musl release builds — зафіксований `cross`. Перший hosted запуск виявив, що
+`cross` 0.2.5 на ARM runner намагається встановити несумісний x86 host
+toolchain; matrix для `aarch64` перенесено на x86_64 runner. Цей build лишається
+обов'язковим hosted PR gate. Cross-browser smoke використовує `HOME=/root`, як
+вимагає Firefox у контейнері при запуску від root; ARM package smoke запускає
+перевірку ELF machine id замість виконання foreign-architecture бінарника на
+x86 host. x86 musl package як і раніше перевіряється запуском `--version`.
+Також E2E відтворив вихід мобільного меню за лівий safe margin; його ширину
+обмежено з урахуванням обох країв екрана.
+
+Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
+runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.
+У цьому середовищі Docker daemon недоступний, тож musl builds і самі hosted
+browser jobs залишаються обов'язковими PR CI gates. Release tag і packages не
+створювались.
+
 ## Перевірка
 
 - Rust workspace з усіма features — пройшов.
@@ -60,6 +83,15 @@
 Hosted advisory job також виявив незалежний workflow дефект: post-job cache
 зберігав неіснуючий pnpm store у job без install. Непотрібний cache прибрано;
 сканування advisories залишено.
+
+Hosted Chromium E2E знайшов ще один крайовий випадок мобільної навігації:
+панель мала примусові 176 px мінімальної ширини; при ширині viewport 390 px
+і правому краї кнопки на 178.06 px це залишало лише 2.06 px зліва. `max-width`
+цього не виправляв, бо лімітував лише верхню межу. Мінімальну ширину знижено
+до 144 px, а E2E перевіряє обидва screen gutters; наявні пункти меню
+зберігають повну ширину тексту завдяки `width: max-content`.
+Тест phone inspector клікає в кілька точок першого рядка байтів, доки не
+потрапить у колонку даних: фіксований X залежав від системної ширини monospace.
 
 Hosted checks і результат інтеграції: [PR #188](https://github.com/MykytaStel/hexscope/pull/188). Сім чистих застарілих worktree видалено після перевірки merged refs. Перед очищенням локально збережено Git bundle і 882 fuzz-файли з перевіркою SHA-256.
 

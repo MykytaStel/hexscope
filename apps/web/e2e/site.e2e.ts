@@ -276,7 +276,23 @@ test("the phone landing menu anchors its panel to the trigger", async ({ page })
   expect(triggerBox).not.toBeNull();
   expect(panelBox).not.toBeNull();
   expect(Math.abs((panelBox!.x + panelBox!.width) - (triggerBox!.x + triggerBox!.width))).toBeLessThanOrEqual(1);
-  expect(panelBox!.x).toBeGreaterThanOrEqual(8);
+  const layout = await panel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const trigger = element.parentElement!.querySelector(":scope > summary")!.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      viewport: { width: innerWidth, clientWidth: document.documentElement.clientWidth },
+      panel: { x: rect.x, width: rect.width, right: rect.right, widthCss: style.width, maxWidth: style.maxWidth, minWidth: style.minWidth },
+      trigger: { x: trigger.x, width: trigger.width, right: trigger.right },
+      items: Array.from(element.children, (item) => ({
+        text: item.textContent?.trim(),
+        hidden: item.hasAttribute("hidden"),
+        display: getComputedStyle(item).display,
+        width: item.getBoundingClientRect().width,
+      })),
+    };
+  });
+  expect(panelBox!.x, JSON.stringify(layout)).toBeGreaterThanOrEqual(8);
   expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(382);
 });
 
@@ -1050,7 +1066,12 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
   expect(canvasBox).not.toBeNull();
   const treeSelection = page.locator("#tree .tree .row.is-selected");
   const selectionBeforeByteClick = await treeSelection.getAttribute("data-id");
-  await page.mouse.click(canvasBox!.x + Math.min(80, canvasBox!.width / 2), canvasBox!.y + 16);
+  // Font metrics and device scale move the first byte column. Try a few points
+  // across the first row so this exercises a byte, not the offset gutter.
+  for (const fraction of [0.25, 0.35, 0.45, 0.55, 0.65, 0.75]) {
+    await page.mouse.click(canvasBox!.x + canvasBox!.width * fraction, canvasBox!.y + 16);
+    if ((await treeSelection.getAttribute("data-id")) !== selectionBeforeByteClick) break;
+  }
   await expect(sheet).toBeVisible();
   await expect(page.locator("#hex")).toBeVisible();
   await expect(treeSelection).not.toHaveAttribute("data-id", selectionBeforeByteClick!);
@@ -1321,7 +1342,7 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   expect(Math.abs((menuBox!.x + menuBox!.width) - (opened!.x + opened!.width))).toBeLessThanOrEqual(1);
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
-  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(382);
   // Scrolled past the landing's button, the header's Open is at hand, inside the screen.
   await summary.click();
   await page.locator("#examples, .landing-proof").first().scrollIntoViewIfNeeded();
