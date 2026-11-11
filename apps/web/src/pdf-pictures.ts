@@ -31,7 +31,8 @@ export async function toShown(pictures: PagePicture[]): Promise<Shown[]> {
 }
 
 /** Lets go of every picture's address when the next file is opened. */
-export function forgetPictures(): void {
-  for (const address of addresses) URL.revokeObjectURL(address);
-  addresses = [];
+export function forgetPictures(pictures?: readonly Shown[]): void {
+  const forgotten = pictures ? new Set(pictures.map(({ href }) => href)) : new Set(addresses);
+  for (const address of forgotten) URL.revokeObjectURL(address);
+  addresses = addresses.filter((address) => !forgotten.has(address));
 }

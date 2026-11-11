@@ -10,6 +10,7 @@ export function pdfRedactorPlaceholder(
   m: FileModel,
   cleaning: CleanActions,
   picturesOf: (page: number) => Promise<Shown[]>,
+  pictureState: (page: number) => "loading" | "loaded" | "failed",
 ): HTMLElement {
   const group = el("div", "group redactor");
   const status = el("p", "hint", translateText("Loading PDF tools…", currentLocale()));
@@ -23,7 +24,7 @@ export function pdfRedactorPlaceholder(
     group.replaceChildren(status);
     void import("./pdf-redactor-view")
       .then(({ pdfRedactorView }) => {
-        if (group.isConnected) group.replaceWith(pdfRedactorView(m, cleaning, picturesOf));
+        if (group.isConnected) group.replaceWith(pdfRedactorView(m, cleaning, picturesOf, pictureState));
       })
       .catch(() => {
         if (!group.isConnected) return;

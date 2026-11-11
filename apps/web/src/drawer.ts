@@ -1,5 +1,5 @@
 import { canBlackOut, openBlackPicture } from "./blackpicture";
-import { findEmbedded, type Embedded } from "./embedded";
+import { findEmbedded, type Embedded, type EmbeddedSearchProgress, type EmbeddedSearchResult } from "./embedded";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
@@ -10,6 +10,7 @@ import { done } from "./announce";
 import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
+import { kindOf } from "./files";
 import { makeupGroup } from "./makeup";
 import { el, fact, formatBytes, hasCoarsePointer, hex } from "./dom";
 import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
@@ -19,6 +20,7 @@ import { createCleaner } from "./cleaner";
 import { forgetPictures, toShown, type Shown } from "./pdf-pictures";
 import { openStructureReport, pdfRedactorPlaceholder, saveStructureJson } from "./drawer-tools";
 import { hasCleanableAudioTags } from "./audio-clean";
+import { currentLocale, translateText } from "./i18n";
 
 export type { CleanActions, CleanResult, RepairResult } from "./cleancard";
 
@@ -34,6 +36,60 @@ const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
 ];
 
 type VerdictKind = ReturnType<typeof verdict>[number]["kind"];
+
+const AUTOMATIC_EMBEDDED_SEARCH_BYTES = 16 * 1024 * 1024;
+const EMBEDDED_MEDIA_READ_CHUNK = 1024 * 1024;
+
+/** Pulls deferred media into the existing byte view in small, cancellable reads. */
+async function loadEmbeddedSearchBytes(
+  m: FileModel,
+  maxBytes: number,
+  signal: AbortSignal,
+  onProgress: (loaded: number, total: number) => void,
+): Promise<void> {
+  if (!m.missing || !m.source) return;
+  const limit = Math.min(m.bytes.length, maxBytes);
+  const total = m.missing.wanted(0, limit).reduce((n, [from, to]) => n + to - from, 0);
+  onProgress(0, total);
+
+  for (let from = 0; from < limit; from += EMBEDDED_MEDIA_READ_CHUNK) {
+    const to = Math.min(limit, from + EMBEDDED_MEDIA_READ_CHUNK);
+    for (let attempt = 0; ; attempt++) {
+      if (signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+      const wanted = m.missing.wanted(from, to);
+      const bytes = wanted.reduce((n, [a, b]) => n + b - a, 0);
+      if (bytes === 0) break;
+      if (await m.missing.fill(m.bytes, m.source, from, to)) {
+        break;
+      }
+      // The byte view may be loading the same small range after a tap. Give
+      // that read time to finish before deciding that the source has failed.
+      if (attempt >= 9) throw new Error("Could not read the file's media bytes.");
+      await new Promise<void>((resolve) => setTimeout(resolve, 16));
+    }
+    const remaining = m.missing.wanted(0, limit).reduce((n, [a, b]) => n + b - a, 0);
+    onProgress(Math.max(0, total - remaining), total);
+  }
+}
+
+/** Keeps signature searches away from media bytes the parser has not loaded. */
+function readableRanges(m: FileModel, ranges: readonly [number, number][]): [number, number][] {
+  const available = m.missing ? m.missing.available(m.bytes.length) : [[0, m.bytes.length] as [number, number]];
+  const out: [number, number][] = [];
+  for (const [from, to] of ranges) {
+    for (const [readFrom, readTo] of available) {
+      const start = Math.max(from, readFrom);
+      const end = Math.min(to, readTo);
+      if (start < end) out.push([start, end]);
+    }
+  }
+  return out;
+}
+
+/** Whether this search actually skipped chunks that are still unloaded. */
+function hasUnreadBytes(m: FileModel, ranges: readonly [number, number][]): boolean {
+  return Boolean(m.missing && ranges.some(([from, to]) => m.missing!.wanted(from, to).length > 0));
+}
 
 const VERDICT_KIND_LABELS: Record<VerdictKind, string> = {
   damage: "Damage",
@@ -66,6 +122,7 @@ export class Drawer {
   private note: string | null = null;
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
+  private readonly embeddedSearches = new Set<AbortController>();
   /** How many archives the document on screen sits inside. */
   nested = 0;
 
@@ -90,19 +147,42 @@ export class Drawer {
   // Each page's pictures, fetched once per file, when a page is first drawn.
   private pictured: FileModel | null = null;
   private pictureCache = new Map<number, Promise<Shown[]>>();
+  private pictureReadStatus = new Map<number, "loading" | "loaded" | "failed">();
+
+  private setPictureOwner(m: FileModel | null): void {
+    if (m === this.pictured) return;
+    forgetPictures();
+    this.pictured = m;
+    this.pictureCache = new Map();
+    this.pictureReadStatus.clear();
+  }
 
   private picturesOf(m: FileModel, page: number): Promise<Shown[]> {
-    if (m !== this.pictured) {
-      forgetPictures();
-      this.pictured = m;
-      this.pictureCache = new Map();
-    }
+    this.setPictureOwner(m);
     let p = this.pictureCache.get(page);
     if (!p) {
-      p = this.cleaning.pictures(page).then(toShown).catch(() => []);
+      this.pictureReadStatus.set(page, "loading");
+      p = this.cleaning.pictures(page)
+        .then(toShown)
+        .then((pictures) => {
+          if (m !== this.pictured) {
+            forgetPictures(pictures);
+            return [];
+          }
+          this.pictureReadStatus.set(page, "loaded");
+          return pictures;
+        })
+        .catch(() => {
+          if (m === this.pictured) this.pictureReadStatus.set(page, "failed");
+          return [];
+        });
       this.pictureCache.set(page, p);
     }
     return p;
+  }
+
+  private pictureState(m: FileModel, page: number): "loading" | "loaded" | "failed" {
+    return m === this.pictured ? (this.pictureReadStatus.get(page) ?? "loading") : "loading";
   }
 
   /** Moves the keyboard to what was found, without scrolling the page away. */
@@ -111,6 +191,8 @@ export class Drawer {
   }
 
   showFile(m: FileModel | null): void {
+    this.cancelEmbeddedSearches();
+    this.setPictureOwner(m);
     this.file.replaceChildren();
     if (!m) return;
     const f = m.file;
@@ -152,7 +234,14 @@ export class Drawer {
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf" && !f.facts.some((x) => x.kind === "encryption")) {
-      flow.append(pdfRedactorPlaceholder(m, this.cleaning, (page) => this.picturesOf(m, page)));
+      flow.append(
+        pdfRedactorPlaceholder(
+          m,
+          this.cleaning,
+          (page) => this.picturesOf(m, page),
+          (page) => this.pictureState(m, page),
+        ),
+      );
     }
     // Technical detail is available in one place, after the useful answer.
     const more = el("details", "more-details");
@@ -164,6 +253,15 @@ export class Drawer {
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h2", undefined, "File"));
+    const coverageText = {
+      complete: "The parser read the structures this format supports.",
+      partial: "The parser could not read all supported structures; there may be more findings.",
+      unsupported: "No format-aware parser could read this file; only byte-level details and signature clues are shown.",
+    }[f.coverageStatus];
+    const coverage = el("p", f.coverageStatus === "complete" ? "hint coverage-status" : "problem is-warning coverage-status", coverageText);
+    coverage.dataset.status = f.coverageStatus;
+    coverage.setAttribute("role", "status");
+    fileGroup.append(coverage);
     const grid = el("dl", "facts");
     fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
@@ -183,13 +281,59 @@ export class Drawer {
     save.title = "Every part, its offset, length, value and explanation, nested as in the tree";
     save.addEventListener("click", () => saveStructureJson(m));
     const inside = el("button", "link report-link", "Find files inside");
-    inside.title = "Looks through every byte for the start of another file: pictures, archives, documents";
+    inside.title = "Reads up to 256 MiB in small local slices and searches for known file signatures";
+    let activeController: AbortController | null = null;
     inside.addEventListener("click", () => {
-      const parts = m.missing ? m.missing.read(m.bytes.length) : [[0, m.bytes.length]];
-      const found = parts.flatMap(([a, b]) => findEmbedded(m.bytes, a, b, m.file.format === "zip" ? ["zip"] : []));
-      const nowhere = m.missing ? "No other file starts anywhere outside the picture and sound." : "No other file starts anywhere in it.";
-      const list = found.length > 0 ? this.insideList(m, found, "Files inside") : el("p", "hint", nowhere);
-      inside.replaceWith(list);
+      if (activeController) {
+        activeController.abort();
+        inside.disabled = true;
+        const current = fileGroup.querySelector<HTMLElement>(".embedded-search-status .hint");
+        if (current) current.textContent = "Cancelling…";
+        return;
+      }
+      fileGroup.querySelector(".embedded-search-results")?.remove();
+      const controller = this.beginEmbeddedSearch();
+      activeController = controller;
+      const status = this.searchProgress("Searching file signatures…");
+      status.box.append(el("p", "hint", "Media data are read locally in small pieces, up to 256 MiB; nothing is uploaded."));
+      inside.after(status.box);
+      inside.textContent = "Cancel search";
+      const allRanges: [number, number][] = [[0, m.bytes.length]];
+      void (async () => {
+        await loadEmbeddedSearchBytes(m, 256 * 1024 * 1024, controller.signal, (loaded, total) => {
+          status.bar.value = total > 0 ? Math.min(1, loaded / total) : 1;
+          status.detail.textContent = `${translateText("Loading media data…", currentLocale())} · ${formatBytes(loaded)} / ${formatBytes(total)}`;
+        });
+        if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+        status.bar.value = 0;
+        status.detail.textContent = "Searching file signatures…";
+        return findEmbedded(
+          m.bytes,
+          readableRanges(m, allRanges),
+          m.file.format === "zip" ? ["zip"] : [],
+          { signal: controller.signal, onProgress: (progress) => this.updateSearchProgress(status, progress) },
+        );
+      })()
+        .then((result) => {
+          if (!status.box.isConnected) return;
+          status.box.replaceWith(this.embeddedSearchResults(m, result, "Files inside", hasUnreadBytes(m, allRanges)));
+          inside.textContent = "Find files inside";
+        })
+        .catch((error: unknown) => {
+          if (!status.box.isConnected) return;
+          if (error instanceof DOMException && error.name === "AbortError") {
+            status.box.replaceChildren(el("p", "hint", "Search cancelled; unsearched bytes remain."));
+            inside.textContent = "Find files inside";
+          } else {
+            status.box.replaceChildren(el("p", "hint", "Could not search this file."));
+            inside.textContent = "Find files inside";
+          }
+        })
+        .finally(() => {
+          this.embeddedSearches.delete(controller);
+          if (activeController === controller) activeController = null;
+          inside.disabled = false;
+        });
     });
     fileGroup.append(report, save, inside);
     // Another file beside this one: what one gives away that the other does not.
@@ -310,11 +454,27 @@ export class Drawer {
     group.append(intro, findings);
     // What the structure leaves over — data after the end, a gap — may be a
     // whole file of its own: say which, and open it.
-    const hidden = m
-      .slices()
-      .filter((sl) => sl.role === Role.Hidden)
-      .flatMap((sl) => findEmbedded(m.bytes, sl.start, sl.start + sl.len));
-    if (hidden.length > 0) findings.append(this.insideList(m, hidden, "Hidden in it"));
+    const hiddenParts = m.slices().filter((sl) => sl.role === Role.Hidden).map((sl): [number, number] => [sl.start, sl.start + sl.len]);
+    const hiddenRanges = readableRanges(m, hiddenParts);
+    if (hiddenParts.length > 0) {
+      const controller = this.beginEmbeddedSearch();
+      const status = this.searchProgress("Checking for embedded files…", () => controller.abort());
+      findings.append(status.box);
+      void findEmbedded(m.bytes, hiddenRanges, [], {
+        signal: controller.signal,
+        maxBytes: AUTOMATIC_EMBEDDED_SEARCH_BYTES,
+        onProgress: (progress) => this.updateSearchProgress(status, progress),
+      })
+        .then((result) => {
+          if (!status.box.isConnected) return;
+          status.box.replaceWith(this.embeddedSearchResults(m, result, "Hidden in it", hasUnreadBytes(m, hiddenParts), true));
+        })
+        .catch(() => {
+          if (!status.box.isConnected) return;
+          status.box.replaceChildren(el("p", "hint", "Search cancelled; unsearched bytes remain."));
+        })
+        .finally(() => this.embeddedSearches.delete(controller));
+    }
     if (m.file.format !== "unknown") intro.append(el("p", "hint", "Found by reading the file's structure. It is not a virus scan."));
     if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) findings.append(this.repairer());
     return group;
@@ -345,7 +505,10 @@ export class Drawer {
   /** Files found inside this one, each to open or save. */
   private insideList(m: FileModel, found: Embedded[], title: string): HTMLElement {
     const box = el("div", "inside");
-    box.append(el("p", "inside-title", `${title}: ${found.length === 1 ? "1 file" : `${found.length} files`}`));
+    box.append(
+      el("p", "inside-title", `${translateText(title, currentLocale())} · ${translateText("Possible file signatures", currentLocale())}: ${found.length}`),
+      el("p", "hint", "These are signature matches, not verified files. Open one to inspect it; this is not a virus scan."),
+    );
     const ul = el("ul", "inside-list");
     const stem = (m.name.split("/").pop() ?? m.name).replace(/\.[^.]*$/, "");
     for (const e of found) {
@@ -366,6 +529,77 @@ export class Drawer {
       ul.append(li);
     }
     box.append(ul);
+    return box;
+  }
+
+  private beginEmbeddedSearch(): AbortController {
+    const controller = new AbortController();
+    this.embeddedSearches.add(controller);
+    return controller;
+  }
+
+  private cancelEmbeddedSearches(): void {
+    for (const controller of this.embeddedSearches) controller.abort();
+    this.embeddedSearches.clear();
+  }
+
+  private searchProgress(label: string, cancel?: () => void): { box: HTMLElement; bar: HTMLProgressElement; detail: HTMLElement } {
+    const box = el("div", "embedded-search-status");
+    box.setAttribute("role", "status");
+    box.setAttribute("aria-live", "polite");
+    const bar = el("progress");
+    bar.max = 1;
+    bar.value = 0;
+    bar.setAttribute("aria-label", "Search progress");
+    const detail = el("p", "hint", label);
+    box.append(bar, detail);
+    if (cancel) {
+      const button = el("button", "link", "Cancel search");
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        button.textContent = "Cancelling…";
+        cancel();
+      });
+      box.append(button);
+    }
+    return { box, bar, detail };
+  }
+
+  private updateSearchProgress(
+    status: { bar: HTMLProgressElement; detail: HTMLElement },
+    progress: EmbeddedSearchProgress,
+  ): void {
+    status.bar.value = progress.total > 0 ? Math.min(1, progress.searched / progress.total) : 1;
+    status.detail.textContent = `${formatBytes(progress.searched)} / ${formatBytes(progress.total)} · ${progress.matches} ${translateText("found", currentLocale())}`;
+  }
+
+  private embeddedSearchResults(
+    m: FileModel,
+    result: EmbeddedSearchResult,
+    title: string,
+    skipsMedia: boolean,
+    automatic = false,
+  ): HTMLElement {
+    const box = el("div", "embedded-search-results");
+    if (result.matches.length > 0) box.append(this.insideList(m, result.matches, title));
+    else if (skipsMedia && result.searched === 0) {
+      const message = title === "Hidden in it"
+        ? "The hidden data is not loaded for this view, so it was not checked."
+        : "No readable bytes outside the picture and sound were available for this search.";
+      box.append(el("p", "hint", message));
+    }
+    else if (title === "Hidden in it") box.append(el("p", "hint", "No known file signatures were found in the hidden bytes checked."));
+    else box.append(el("p", "hint", "No known file signatures were found in the searched bytes."));
+
+    if (result.limited) {
+      const message = result.matchLimitReached
+        ? "The result limit was reached; more matches may be present."
+        : automatic
+          ? "Only part of the hidden data was checked automatically; use Find files inside for a wider search."
+          : "The search limit was reached; some available bytes were not checked.";
+      box.append(el("p", "hint", message));
+    }
+    if (skipsMedia) box.append(el("p", "hint", "Media bytes not loaded for this view were skipped."));
     return box;
   }
 
@@ -529,7 +763,7 @@ export class Drawer {
       groupElements.set(key, { section, list, body });
     }
     const generalList = groupElements.get("general")!.list;
-    fact(generalList, "File", f.format === "unknown" ? "Not a format hexscope reads" : f.format.toUpperCase());
+    fact(generalList, "File type", f.format === "unknown" ? "Not a format hexscope reads" : kindOf(m));
     fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
     if (dimensions) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
@@ -625,6 +859,26 @@ export class Drawer {
     if (additionalFacts.some((entry) => STRONG.includes(entry.kind))) {
       groupElements.get("additional")!.body.setAttribute("open", "");
     }
+    const metadataSummary = el("nav", "metadata-summary");
+    metadataSummary.setAttribute("aria-label", translateText("Metadata fields found", currentLocale()));
+    metadataSummary.append(el("p", "metadata-summary-title", "Metadata found"));
+    for (const { key, title } of METADATA_GROUPS) {
+      if (key === "general") continue;
+      const section = groupElements.get(key)!.section;
+      const count = Math.floor((section.querySelector("dl")?.children.length ?? 0) / 2);
+      if (count === 0) continue;
+      const label = translateText(title, currentLocale());
+      const jump = el("button", "link metadata-summary-link", `${label} · ${count.toLocaleString(currentLocale())}`);
+      jump.type = "button";
+      jump.addEventListener("click", () => {
+        const details = section.querySelector<HTMLDetailsElement>("details");
+        if (details) details.open = true;
+        section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        section.querySelector<HTMLButtonElement>(".reveal-link")?.focus({ preventScroll: true });
+      });
+      metadataSummary.append(jump);
+    }
+    if (metadataSummary.children.length > 1) group.append(metadataSummary);
     group.append(metadataGroups);
     if (audioFile && f.metadataComplete === false) {
       group.append(el("p", "hint", "Some audio metadata could not be fully read; the result is partial."));
