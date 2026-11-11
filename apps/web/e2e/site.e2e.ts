@@ -1326,7 +1326,7 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   expect(Math.abs((menuBox!.x + menuBox!.width) - (opened!.x + opened!.width))).toBeLessThanOrEqual(1);
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
-  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(382);
   // Scrolled past the landing's button, the header's Open is at hand, inside the screen.
   await summary.click();
   await page.locator("#examples, .landing-proof").first().scrollIntoViewIfNeeded();
