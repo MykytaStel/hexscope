@@ -42,7 +42,9 @@ venv, Playwright jobs використовують version-matched browser image
 musl release builds — зафіксований `cross`. Перший hosted запуск виявив, що
 `cross` 0.2.5 на ARM runner намагається встановити несумісний x86 host
 toolchain; matrix для `aarch64` перенесено на x86_64 runner. Цей build лишається
-обов'язковим hosted PR gate.
+обов'язковим hosted PR gate. Cross-browser smoke використовує `HOME=/root`, як
+вимагає Firefox у контейнері при запуску від root; ARM package smoke запускає
+бінарник через `cross run`, а не напряму на x86 host.
 
 Локально пройшли `actionlint` для змінених workflow (без застарілого переліку
 runner labels), `git diff --check` та ExifTool/Pillow gate на двох fixtures.
