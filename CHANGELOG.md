@@ -11,6 +11,61 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.19.0] — 2026-11-11
+
+### Added
+
+- **Verify a copy receipt in the browser.** Choose the copy and its JSON
+  receipt to check their SHA-256 match locally. The result distinguishes
+  mismatches, invalid receipts and missing fingerprints. Copies above
+  10 MiB can be checked with the CLI.
+- **Choose a PDF picture for local OCR.** Select an extracted image on the
+  page, preview where it appears and recognize its text. Check each suggested
+  area before adding it to the redaction.
+- **Check a whole batch against one publication profile.** Import the same
+  profile JSON used by the CLI or enter finding codes in the browser. Filter
+  the list to blocked or unchecked files and retry failed reads with the
+  same rules.
+- **Check the copy against the publication profile.** After checking rules on
+  a source file, make a clean or redacted PDF copy to see whether its actual
+  bytes pass the same rules. Copies above the browser verification limit stay
+  unchecked. Blocked findings on the source link to their evidence when available.
+- **Plan changes before making a copy**, with observed finding kinds from the shared Core removal contract, separate from proof that an output was cleaned.
+- **Local publication profiles** in the Web and `hexscope policy PROFILE.json PATH...`, with portable JSON rules and a shared Core evaluator. `hexscope plan PATH...` exports value-free preflight reports.
+- **Finding origin paths and differing stored fields**, with links to real source nodes and no inference of tampering.
+- **Copy publication packages** containing the copy, value-free receipt and a small HTML summary; batch ZIPs also include the summary.
+- **Opt-in local English/Ukrainian OCR** for image redaction and a PDF page's first extractable picture. Suggestions require manual confirmation; the engine and models load from the same site, without uploading images.
+- **A damaged-sample laboratory** that demonstrates CRC damage without changing the person's file.
+
+### Changed
+
+- **Keep file inputs consistent with the current theme.** File pickers use the same control styling and touch target size as the rest of the interface.
+- **Keep every evidence filter visible on narrow screens.** Filter buttons wrap onto additional rows instead of extending beyond the visible area.
+- **Whole-file reading has explicit budgets:** 128 MiB in Web, 512 MiB in CLI; supported large movies retain sliced inspection. The shared tree stops allocating after 500,000 ordinary nodes and records an incomplete-read error.
+- **Long operations recover through worker deadlines.** Unresponsive cancelled parses are discarded after a short grace period; late replies cannot replace a newer session.
+- **Comparisons explain changed finding values** and distinguish byte differences from proof of visible-content preservation.
+- **Photo area editing supports Redo**, with bounded undo history and keyboard controls.
+- **Group sample files by format.** The example list now shows each extension
+  once as a heading, with the matching files below it.
+- **Make WAV metadata easier to inspect.** A short Additional fields section
+  opens automatically, and spacing around metadata groups is tighter.
+- **Translate the remaining guide and start-page labels into Ukrainian.**
+- **Fit action labels to their buttons.** Long translated labels can wrap, and
+  film-scan actions no longer reserve unnecessary width.
+
+### Fixed
+
+- **Comparison workers ignore progress messages** until a terminal result, report failures and release overdue workers.
+- **Audio formats can produce verification receipts** consistently in Core and Web.
+- **Ukrainian PDF revision text preserves “one”** instead of displaying an incomplete phrase.
+- **Keep findings and evidence filters available on the Metadata view.**
+- **Make “Find in file” reach collapsed metadata.** The containing sections open
+  before the matching field is brought into view and focused.
+- **Make browser Back and Forward restore the inspected file.** Switching
+  workspace tabs updates the current history entry instead of adding stale
+  entries for every tab.
+- **Make the hexscope logo return to the start page from an open file.**
+
 ## [0.18.0] — 2026-11-10
 
 ### Added
@@ -899,7 +954,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/MykytaStel/hexscope/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/hexscope/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/MykytaStel/hexscope/compare/v0.15.0...v0.16.0

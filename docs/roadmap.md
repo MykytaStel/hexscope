@@ -47,6 +47,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | shipped 2026-11-09 |
 | 0.17.0 | Source-linked inspectors across file families, plus bounded WAV inspection | shipped 2026-11-09 |
 | 0.18.0 | Verified WAV cleaning and deeper format inspection | shipped 2026-11-10 |
+| 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | release preparation |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -502,6 +503,28 @@ encrypted bytes or unknown extension bytes were read. Each user-facing change
 gets its own `changes/` fragment.
 Screen-reader, zoom, and physical-device gaps recorded during 0.17 remain
 open for the 1.0 acceptance checklist.
+
+### 0.19.0 — evidence-led publishing and responsive workflows (release preparation)
+
+**Theme:** let people check publication rules, make and verify portable copies,
+and follow evidence without overstating parser coverage or OCR certainty.
+
+The accumulated scope adds local publication profiles shared by Web and CLI,
+batch preflight, value-free receipts and summaries, in-browser copy-receipt
+verification, and an opt-in local OCR path for images and an extracted PDF
+picture. OCR suggestions require manual confirmation. The release also includes
+bounded worker and memory handling, source-linked finding paths, clearer
+comparison coverage, and responsive controls for narrow screens. See the
+version changelog for the user-facing change list.
+
+**Release gates:** build and test the exact versioned commit, pass hosted CI,
+inspect the production build and release assets, and verify package metadata
+before publishing. The desktop and emulated mobile visual pass covers 1440,
+390 and 320 pixel widths, dark and light themes, and English and Ukrainian.
+Physical iPhone/Android, screen-reader and user-comprehension checks remain
+unverified; browser emulation does not satisfy them. OCR has synthetic
+integration evidence, not a measured recall or false-positive rate on a real
+corpus. Publishing crates remains a separate decision.
 
 ### 0.10.0 — shipped 2026-11-02
 
