@@ -26,7 +26,7 @@ function version(): Plugin {
 
 /** Files the service worker does not keep: the samples have their own list,
  * and the rest is for crawlers, link previews and the host. */
-const NOT_KEPT = /^(samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.jpg$|(uk\/)?404\.html$|[0-9a-f]{32}\.txt$)/;
+const NOT_KEPT = /^(ocr-v7-data1\/|samples\/|sw\.js$|_headers$|robots\.txt$|sitemap\.xml$|og\.jpg$|(uk\/)?404\.html$|[0-9a-f]{32}\.txt$)/;
 
 /**
  * Writes into the built sw.js every file of this build, and a version made

@@ -1,5 +1,6 @@
 // The page's line to the parsing worker. The worker keeps the parsed document,
 // so requests after the first (steps, explanations, entries) are cheap.
+import { PARSE_DEADLINE_MS } from "./resource-budget";
 import type { OperationRequest, WorkerRequest, WorkerResponse } from "./worker";
 
 // One outstanding promise per request id; responses can arrive in any order.
@@ -10,6 +11,7 @@ interface PendingRequest {
 }
 const waiting = new Map<number, PendingRequest>();
 const workerResetListeners = new Set<() => void>();
+const abandoned = new Map<number, { worker: Worker; timer: ReturnType<typeof setTimeout> }>();
 
 export interface CallOptions {
   signal?: AbortSignal;
@@ -39,6 +41,11 @@ function failWaiting(message: string): void {
 function start(): Worker {
   const w = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   w.addEventListener("message", (e: MessageEvent<WorkerResponse>) => {
+    if (worker !== w) return;
+    const cancelled = abandoned.get(e.data.id);
+    if (cancelled?.worker === w && e.data.type !== "progress") {
+      clearTimeout(cancelled.timer); abandoned.delete(e.data.id);
+    }
     const pending = waiting.get(e.data.id);
     if (!pending) return;
     if (e.data.type === "progress") {
@@ -69,6 +76,7 @@ function start(): Worker {
     failWaiting(message);
     w.terminate();
     if (worker === w) worker = null;
+    notifyWorkerReset();
   };
   w.addEventListener("error", died);
   w.addEventListener("messageerror", died);
@@ -83,6 +91,7 @@ export function call(req: Req): Promise<WorkerResponse>;
 export function call(req: Extract<Req, { type: "verifyCopy" }>, timeoutMs: number): Promise<WorkerResponse>;
 export function call(req: Req, timeoutMs: number | undefined, options: CallOptions): Promise<WorkerResponse>;
 export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promise<WorkerResponse> {
+  timeoutMs ??= ["parse", "clean", "redact", "repair", "open", "openBytes", "pageTexts", "pagePictures", "filmRender", "filmRoll"].includes(req.type) ? PARSE_DEADLINE_MS : undefined;
   const id = ++nextId;
   return new Promise((resolve) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -105,14 +114,14 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
     if (timeoutMs !== undefined) {
       timer = setTimeout(
         () => {
-          finish({ id, type: "error", message: "copy verification did not finish in time" });
+          finish({ id, type: "error", message: req.type === "verifyCopy" ? "copy verification did not finish in time" : "Reading took too long; try a smaller file or use the command line tool" });
           if (worker !== target) return;
           // WebAssembly work is synchronous, so a cancel message could sit
           // behind the timed-out request. Terminating the worker is the only
           // way to stop it before it blocks the reader any longer.
           worker = null;
           target.terminate();
-          failWaiting("the reader stopped after copy verification timed out; reopen the file to continue");
+          failWaiting("the reader stopped after an operation timed out; reopen the file to continue");
           notifyWorkerReset();
         },
         timeoutMs,
@@ -130,6 +139,17 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
           // The request still resolves as canceled if the worker has died.
         }
         finish({ id, type: "error", message: "Reading cancelled" });
+        if (req.type === "parse" && worker === target) {
+          const timer = setTimeout(() => {
+            abandoned.delete(id);
+            if (worker !== target) return;
+            worker = null;
+            target.terminate();
+            failWaiting("the reader stopped after reading was cancelled; reopen the file to continue");
+            notifyWorkerReset();
+          }, 500);
+          abandoned.set(id, { worker: target, timer });
+        }
       };
       options.signal.addEventListener("abort", abort, { once: true });
     }

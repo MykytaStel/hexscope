@@ -3,7 +3,8 @@ use std::fmt;
 
 const FORMATS: &[&str] = &[
     "jpeg", "png", "heif", "webp", "gif", "tiff", "video", "pdf", "zip", "wasm", "eml", "cfb",
-    "msg", "office97", "rtf", "svg", "unknown",
+    "msg", "office97", "rtf", "svg", "unknown", "mp3", "flac", "ogg", "wav", "rifx", "rf64",
+    "bw64",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

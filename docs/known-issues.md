@@ -4,6 +4,23 @@ What is known to be missing or wrong, and why it has not been fixed yet.
 None of it breaks the crate's guarantees — the parser does not panic, always
 returns a tree, and has no runtime dependencies.
 
+## Publication tools and resource limits
+
+The optional OCR tool reads preview images and, for PDF, only the first
+extractable picture of a chosen page. It does not perform a complete PDF
+render, certify that sensitive text was found, or automatically apply boxes.
+English and Ukrainian models load from this site's own origin on request;
+OCR recall and false-positive rates on real documents remain unmeasured.
+
+Whole-file reads are limited to 128 MiB in Web and 512 MiB in CLI. Supported
+large movies retain sliced inspection. The tree arena records an error after
+500,000 ordinary nodes; parser-specific decoding budgets still apply.
+Long Web operations can discard the worker and reopen the current local file.
+This is bounded recovery, not proof against all out-of-memory conditions.
+Web copy readback and fingerprints remain capped at 10 MiB. Publication rules
+check Core findings; unknown rule codes and supplemental QR checks remain
+unchecked. See [publication tools](publication-tools.md).
+
 ## Fixed in the 0.16 work
 
 **Embedded-file signature search could monopolize the page and exceed its

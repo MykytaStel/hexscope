@@ -34,6 +34,7 @@ pub mod mosaic;
 pub mod naming;
 pub mod pdf;
 pub mod png;
+pub mod policy;
 pub mod reader;
 pub mod receipt;
 pub mod repair;

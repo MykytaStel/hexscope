@@ -23,8 +23,7 @@ content, for an issue. Every real bug becomes a test fixture.
 - **Every input returns a tree.** There is no error return from a parser:
   damage becomes a node with its own byte range, so a broken file can still
   be explored.
-- **No runtime dependencies** in `hexscope-core`, `hexscope-inflate` or
-  `hexscope-cli`. Test-only dependencies are fine.
+- **Keep runtime dependencies bounded and reviewed.** Core/inflate remain dependency-light; optional BZIP2/Zstandard decoders and CLI serialization are explicit dependencies. The Web OCR engine and language data are opt-in, same-origin assets, excluded from first-visit precaching.
 - **Every part is explained.** A node the parser can name without a plain
   sentence and, where there is one, the section of its specification fails
   the coverage test.
@@ -89,15 +88,24 @@ keep 4.5:1 contrast. Check it at 375 px wide, and with the keyboard alone.
 
 ## Budgets
 
-- The parser is built twice: a small module for pictures and movies, which
-  the page loads first (under 140,000 bytes gzipped), and the whole one,
-  loaded only for a document (under 290,000). CI fails above either. A new
-  format belongs in the whole one unless it is a picture or a movie; the
-  worker picks the module by a file's first bytes (`isMedia` in
-  `apps/web/src/worker.ts`). `hexscope-inflate` is built for speed, everything else for size.
-  What has cost the most: float parsing and formatting (use `fixed.rs` and the
-  PDF lexer's own reader), `HashMap` and `BTreeMap`, `to_lowercase`, and a new
-  key type for `sort` — each pulls in code of its own.
+- Four format-aware WASM families are lazy-loaded: media (pictures/movies/SVG),
+  PDF, docs (Office/mail/modules), and audio. Raster is a separate image pipeline.
+  `apps/web/src/family.ts` routes input signatures; `parser-builds.ts` owns the
+  loaders. Core's Cargo features and the root `wasm:*` scripts define what each
+  family can inspect. Update routing, bridge and corpus gates together.
+- Actual compressed artifact budgets live in `.github/workflows/ci.yml`; check
+  its per-family WASM, landing, analyzer and article CSS limits after rebuilding.
+- The tree arena retains at most 500,000 ordinary nodes plus one limit error.
+  This bounds tree storage, not all parser allocations. Existing per-format
+  decoding limits still apply. A limit must remain an incomplete result.
+- Whole-file admission limits are 128 MiB in Web and 512 MiB in CLI. Supported
+  large movies use the existing sliced path. Web parsing has a 60-second worker
+  deadline; an overdue worker is discarded and the user reopens the file.
+- Read-back verification stays capped at 10 MiB in Web. Do not raise that cap
+  without physical-device memory measurements.
+- Optional OCR assets are prepared from locked npm packages by
+  `scripts/prepare-ocr.mjs`; never use a runtime CDN. OCR is a user-confirmed
+  suggestion tool, not an inspection-completeness or removal guarantee.
 - A 10 MB PNG parses within 300 ms in the browser (`cargo bench -p hexscope-core`).
 
 ## Checks

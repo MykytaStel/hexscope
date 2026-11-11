@@ -14,9 +14,11 @@
 mod batch_report;
 mod coverage;
 mod film;
+mod input;
 mod menu;
 mod mosaic;
 mod movie;
+mod preflight;
 mod receipt;
 
 use hexscope_core::Document;
@@ -40,6 +42,8 @@ const USAGE: &str = "hexscope — see what your files say about you
 
 Usage:
   hexscope check [options] PATH...    what each file gives away, and what is wrong with it
+  hexscope plan PATH...              value-free planned changes before making copies
+  hexscope policy PROFILE.json PATH... local publication rules (JSON output)
   hexscope coverage [--json] PATH... value-free read coverage by format
   hexscope clean [options] PATH...    save copies without what they give away
   hexscope receipt verify COPY RECEIPT.json  check a receipt's copy fingerprint offline
@@ -126,6 +130,8 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
             Ok(ExitCode::SUCCESS)
         }
         "check" => check(rest),
+        "plan" => preflight::run(rest, false),
+        "policy" => preflight::run(rest, true),
         "coverage" => coverage::run(rest),
         "clean" => copies(rest, Make::Clean),
         "receipt" => receipt::run(rest),
@@ -323,7 +329,7 @@ fn check(args: &[String]) -> Result<ExitCode, String> {
                 None,
             ),
             None => {
-                let data = std::fs::read(&path).map_err(failed_to_read)?;
+                let data = input::read(&path).map_err(failed_to_read)?;
                 let doc = parse(&data);
                 let mis = misnamed(&path.display().to_string(), &doc, &data);
                 (summary_of(&doc), mis)
@@ -992,7 +998,7 @@ fn verify_written(
     let failed_to_read = |e: std::io::Error| format!("{}: {e}", path.display());
     let output = match movie::read(path).map_err(failed_to_read)? {
         Some(m) => summary_of(&Document::Video(parse_video_gapped(&m.given, &m.gaps))),
-        None => summarize(&std::fs::read(path).map_err(failed_to_read)?),
+        None => summarize(&input::read(path).map_err(failed_to_read)?),
     };
     let format = output.format.to_string();
     let report = verification::compare(source, &verification::snapshot(&output));
@@ -1276,7 +1282,7 @@ fn copies(args: &[String], kind: Make) -> Result<ExitCode, String> {
             }
             continue;
         }
-        let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let data = input::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         let source_snapshot = o.verify.then(|| verification::snapshot(&summarize(&data)));
         let result = match kind {
             Make::Clean => clean_with(

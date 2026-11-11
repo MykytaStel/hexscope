@@ -7,6 +7,7 @@ import type { VerificationFinding, VerificationReport, VerificationSelection } f
 
 export type WorkerRequest =
   | { id: number; type: "parse"; file: File }
+  | { id: number; type: "policy"; sourceToken: number; kinds: string; requireComplete: boolean }
   | { id: number; type: "cancel"; target: number }
   | { id: number; type: "commitParse"; target: number }
   | { id: number; type: "steps"; from: number; count: number }
@@ -43,6 +44,7 @@ export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "progress"; progress: MovieProgress }
+  | { id: number; type: "policy"; result: string }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }
   | { id: number; type: "verification"; report: VerificationReport }

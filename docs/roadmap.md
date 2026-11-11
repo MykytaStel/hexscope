@@ -1,5 +1,20 @@
 # Hexscope roadmap
 
+## Audit follow-up: publication tools and reliability
+
+The 2026-11-11 implementation adds bounded input/tree admission, worker
+recovery deadlines, stronger cleaner fuzz invariants, typed inspection status,
+shared Core publication profiles/plans, semantic comparison, copy packages,
+local OCR suggestions, evidence origins and a synthetic damage laboratory.
+See [publication tools](publication-tools.md) and the
+[implementation record](audits/2026-11-11-audit-implementation.md).
+
+The next acceptance gate is physical iPhone/Android behavior, HDR display,
+VoiceOver/TalkBack and measured OCR recall/false positives on a representative
+corpus. Automated browser profiles and a synthetic OCR example do not close
+that gate. No release version is published by this change.
+
+
 This is the project's shared product and engineering roadmap. It describes priorities and decision gates, not release dates. Work moves forward in small, reviewable slices; a feature is not considered complete until the user-facing behavior, CLI/core parity where applicable, tests, and hosted state agree.
 
 ## Versions — what we do and when

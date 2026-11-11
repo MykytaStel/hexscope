@@ -5,7 +5,7 @@ import { defineConfig, devices } from "@playwright/test";
 // Never silently test a different checkout's preview server on the same port.
 // Pick another port when a local server is already running.
 const PORT = Number(process.env.HEXSCOPE_TEST_PORT ?? 4175);
-const CROSS_BROWSER_SPEC = /cross-browser\.e2e\.ts/;
+const CROSS_BROWSER_SPEC = /(cross-browser|critical-workflows)\.e2e\.ts/;
 
 export default defineConfig({
   testDir: "e2e",
@@ -37,6 +37,11 @@ export default defineConfig({
       name: "desktop-webkit",
       testMatch: CROSS_BROWSER_SPEC,
       use: { browserName: "webkit", viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: "mobile-webkit",
+      testMatch: CROSS_BROWSER_SPEC,
+      use: { ...devices["iPhone 13"], browserName: "webkit" },
     },
   ],
   webServer: {

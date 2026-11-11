@@ -418,6 +418,24 @@ pub fn snapshot(summary: &Summary) -> VerificationSnapshot {
     }
 }
 
+/// Observed finding kinds covered by the removal contract, before writing.
+/// This is a plan, never proof of removal or a promise the writer will accept.
+pub fn planned_removal_kinds(source: &VerificationSnapshot) -> Vec<&str> {
+    let mut kinds = source
+        .findings
+        .iter()
+        .filter(|finding| {
+            source.complete
+                && stable_value(finding).is_some()
+                && covered(&source.format, &finding.kind, &finding.scope)
+        })
+        .map(|finding| finding.kind.as_str())
+        .collect::<Vec<_>>();
+    kinds.sort_unstable();
+    kinds.dedup();
+    kinds
+}
+
 /// Compares observations as a multiset. A source finding is only called
 /// removed when its exact format/kind/scope is explicitly covered and both
 /// parses are complete.

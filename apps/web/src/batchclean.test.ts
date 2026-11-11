@@ -79,7 +79,7 @@ it("records one terminal batch receipt row when a ZIP copy write fails", async (
   const archive = state.downloads.find(({ name }) => name === "hexscope-clean-copies.zip");
   expect(archive).toBeDefined();
   const entries = JSON.parse(await archive!.data.text()) as { name: string; contents: string }[];
-  expect(entries.map(({ name }) => name)).toEqual(["saved-clean.jpg", "hexscope-report.json"]);
+  expect(entries.map(({ name }) => name)).toEqual(["saved-clean.jpg", "hexscope-report.json", "summary.html"]);
   const receipt = JSON.parse(entries[1].contents);
   expect(receipt).toMatchObject({ total: 2, written: 1, failed: 1 });
   expect(receipt.files).toHaveLength(2);
@@ -159,7 +159,7 @@ it("records the original input indexes even when the same item object appears tw
   const entries = JSON.parse(await archive.data.text()) as { name: string; contents: string }[];
   const receipt = JSON.parse(entries.find(({ name }) => name === "hexscope-report.json")!.contents);
   expect(receipt.files.map((row: { index: number }) => row.index)).toEqual([1, 2]);
-  expect(entries.map(({ name }) => name)).toEqual(["same-clean.jpg", "2-same-clean.jpg", "hexscope-report.json"]);
+  expect(entries.map(({ name }) => name)).toEqual(["same-clean.jpg", "2-same-clean.jpg", "hexscope-report.json", "summary.html"]);
 });
 
 it("omits only the fingerprint for a copy above the measured browser cap", async () => {

@@ -4,6 +4,9 @@
 import { registerLazyTranslations } from "./i18n";
 
 registerLazyTranslations({
+  "Before sharing: plan and tools": "Перед надсиланням: план та інструменти",
+  "Reading took too long; try a smaller file or use the command line tool": "Читання триває надто довго; спробуйте менший файл або командний рядок",
+  "This file exceeds the 128 MiB browser reading limit. Use the command line tool for larger files. Large supported movies are read in slices.": "Файл перевищує браузерний ліміт читання 128 MiB. Для більших файлів скористайтеся командним рядком. Підтримувані великі відео читаються частинами.",
   "No supported WAV metadata chunks are available to clean. Audio is not decoded or played.": "Немає підтримуваних блоків метаданих WAV для очищення. Аудіо не декодується й не відтворюється.",
   "This WAV file has unread or unsupported chunks, so Hexscope cannot safely make a clean copy. Audio is not decoded or played.": "У цьому WAV є непрочитані або непідтримувані блоки, тому Hexscope не може безпечно створити очищену копію. Аудіо не декодується й не відтворюється.",
   "Removes complete WAVE INFO and Broadcast Wave metadata chunks. This also removes Broadcast Wave time references, loudness values and coding history. WAVE format and audio data chunks are copied byte for byte; audio is not decoded or re-encoded. A copy is offered only after a complete structural read.": "Видаляє повні блоки метаданих WAVE INFO і Broadcast Wave. Разом із ними зникають часові прив’язки, значення гучності й історія кодування Broadcast Wave. Блоки формату й аудіоданих WAVE копіюються байт у байт; звук не декодується й не перекодовується. Копія доступна лише після повного структурного читання.",

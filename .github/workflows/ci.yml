@@ -43,6 +43,11 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --all
+      - name: Independent metadata and decoded-pixel gate
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libimage-exiftool-perl python3-pil
+          python3 scripts/verify-independent.py --hexscope target/debug/hexscope
       # The all-features corpus crosses the source, cleaner, output reader and
       # verification report. Keep its value-free per-format evidence in CI.
       - name: Clean-copy evidence by format
@@ -219,15 +224,17 @@ jobs:
       # ICC profile headers and tag-table ranges are checked for the image
       # containers; this shared support adds about 10 KB to each independently
       # loaded parser. Keep the increase bounded and visible in this budget.
+      # Shared publication plans/policies and tree admission add bounded code to each family.
+      # Measured locally: media 177 KB, PDF 228 KB, docs 239 KB, audio 167 KB gzip.
       - name: WebAssembly size budget
         run: |
           size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
           media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs); audio=$(size hexscope_audio)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings with Ultra HDR (budget 170000), $pdf with PDF (budget 223000), $docs with Office, email and WebAssembly (budget 233000), $audio with MP3, FLAC and Ogg tags (budget 161000)."
-          test "$media" -le 170000
-          test "$pdf" -le 223000
-          test "$docs" -le 233000
-          test "$audio" -le 161000
+          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings with Ultra HDR (budget 178000), $pdf with PDF (budget 229000), $docs with Office, email and WebAssembly (budget 240000), $audio with MP3, FLAC and Ogg tags (budget 168000)."
+          test "$media" -le 178000
+          test "$pdf" -le 229000
+          test "$docs" -le 240000
+          test "$audio" -le 168000
           # What each part is, fetched after the answer: one file per build.
           for f in apps/web/dist/assets/explain-*.js; do
             n=$(gzip -9c "$f" | wc -c)
@@ -235,8 +242,8 @@ jobs:
             test "$n" -le 34000
           done
           raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
-          echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 215000)."
-          test "$raster" -le 215000
+          echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 216000)."
+          test "$raster" -le 216000
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexscope-site
@@ -303,8 +310,7 @@ jobs:
       - name: Cross-browser analyzer and keyboard smoke
         run: >-
           pnpm --filter web exec playwright test
-          --project=desktop-firefox --project=desktop-webkit
-          e2e/cross-browser.e2e.ts
+          --project=desktop-firefox --project=desktop-webkit --project=mobile-webkit
 
   # Production from main, a preview URL for every other branch; never from a
   # pull request. Until the CLOUDFLARE_API_TOKEN secret exists (a token with

@@ -123,6 +123,30 @@ impl Parsed {
             .join(&sep)
     }
 
+    /// A value-free preflight derived from Core's removal contract.
+    #[wasm_bindgen(getter, js_name = plannedRemovalKinds)]
+    pub fn planned_removal_kinds(&self) -> String {
+        self.verification
+            .as_ref()
+            .map(|source| {
+                hexscope_core::verification::planned_removal_kinds(source).join("\u{001f}")
+            })
+            .unwrap_or_default()
+    }
+
+    /// Evaluates local publication rules against the same snapshot as CLI.
+    #[wasm_bindgen(js_name = evaluatePolicy)]
+    pub fn evaluate_policy(&self, kinds: &str, require_complete: bool) -> String {
+        let policy = hexscope_core::policy::Policy {
+            blocked_kinds: kinds.split(',').take(128).map(str::to_owned).collect(),
+            require_complete,
+        };
+        self.verification
+            .as_ref()
+            .map(|source| policy.evaluate_snapshot(source).to_json())
+            .unwrap_or_else(|| "{\"passed\":false,\"unchecked\":true,\"blocked_kinds\":[]}".into())
+    }
+
     /// Compares actual copy bytes with this already-parsed source. The extra
     /// summary parse is bounded for browser memory.
     #[wasm_bindgen(js_name = verifyCopy)]
