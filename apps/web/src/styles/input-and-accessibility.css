@@ -34,6 +34,31 @@ select,
   color: var(--text);
 }
 
+input[type="file"] {
+  max-width: 100%;
+  min-width: 0;
+  color: var(--muted);
+  font: inherit;
+}
+
+input[type="file"]::file-selector-button {
+  min-height: var(--control-height);
+  margin-inline-end: var(--space-2);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius-compact);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+input[type="file"]:hover::file-selector-button {
+  border-color: var(--faint);
+  background: var(--panel-2);
+}
+
 /* One disclosure chevron, with a full-height row as its keyboard and pointer target. */
 summary {
   display: flex;
