@@ -1050,7 +1050,12 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
   expect(canvasBox).not.toBeNull();
   const treeSelection = page.locator("#tree .tree .row.is-selected");
   const selectionBeforeByteClick = await treeSelection.getAttribute("data-id");
-  await page.mouse.click(canvasBox!.x + Math.min(80, canvasBox!.width / 2), canvasBox!.y + 16);
+  // Font metrics and device scale move the first byte column. Try a few points
+  // across the first row so this exercises a byte, not the offset gutter.
+  for (const fraction of [0.25, 0.35, 0.45, 0.55, 0.65, 0.75]) {
+    await page.mouse.click(canvasBox!.x + canvasBox!.width * fraction, canvasBox!.y + 16);
+    if ((await treeSelection.getAttribute("data-id")) !== selectionBeforeByteClick) break;
+  }
   await expect(sheet).toBeVisible();
   await expect(page.locator("#hex")).toBeVisible();
   await expect(treeSelection).not.toHaveAttribute("data-id", selectionBeforeByteClick!);

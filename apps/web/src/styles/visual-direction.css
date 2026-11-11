@@ -1301,8 +1301,8 @@ body[data-state="ready"] .topbar {
     display: grid;
     width: max-content;
     min-width: 176px;
-    /* The trigger is inset from the right edge, so reserve that inset too. */
-    max-width: calc(100vw - 40px);
+    /* Reserve the trigger inset, both gutters, and viewport scrollbar space. */
+    max-width: calc(100vw - 56px);
     box-sizing: border-box;
     gap: 2px;
     padding: 8px;
