@@ -117,6 +117,10 @@
 }
 
 .hex-statusbar-file {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
   flex: none;
   max-width: 50%;
   overflow: hidden;
@@ -124,6 +128,24 @@
   font: 12px var(--mono);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+#statusbar-selection {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hex-statusbar-separator {
+  flex: none;
+}
+
+#statusbar-selection:empty + .hex-statusbar-separator {
+  display: none;
+}
+
+#statusbar-size {
+  flex: none;
 }
 
 @media (max-width: 600px) {
@@ -145,6 +167,29 @@
     max-width: 100%;
     font-size: 10px;
     line-height: 1.25;
+  }
+
+  /* The open inspector repeats the selected part and its length. Keep only
+     the file size here, beside the byte prompt, so the two descriptions do
+     not compete for the phone's reading space. */
+  body[data-state="ready"]:has(.inspector-sheet[open]) .hex-statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 34px;
+    padding-block: 4px;
+  }
+
+  body[data-state="ready"]:has(.inspector-sheet[open]) #statusbar-selection,
+  body[data-state="ready"]:has(.inspector-sheet[open]) .hex-statusbar-separator {
+    display: none;
+  }
+
+  body[data-state="ready"]:has(.inspector-sheet[open]) .hex-statusbar-file {
+    flex: none;
+    max-width: 42%;
+    font-size: 10px;
   }
 
   .hex-tools {

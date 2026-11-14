@@ -2106,12 +2106,21 @@ test("the phone can inspect a photo in Ukrainian and return to its clean-copy ac
   await expect(inspector.locator(".drawer-node")).toContainText("Довжина");
   await expect(inspector.locator(".drawer-node")).toContainText("Тип");
   await expect(inspector.locator(".drawer-node")).toContainText("Копіювати як");
+  const repeatedSelection = page.locator("#statusbar-selection");
+  const fileSize = page.locator("#statusbar-size");
+  await expect(repeatedSelection).toHaveCount(1);
+  await expect(repeatedSelection).toBeHidden();
+  await expect(fileSize).toBeVisible();
+  const [status, size] = await Promise.all([page.locator("#status").boundingBox(), fileSize.boundingBox()]);
+  expect(status && size).toBeTruthy();
+  expect(Math.abs(status!.y + status!.height / 2 - size!.y - size!.height / 2)).toBeLessThanOrEqual(2);
   const copyBottom = await inspector.locator(".copy-bytes").evaluate((el) => Math.ceil(el.getBoundingClientRect().bottom));
   const drawerBottom = await inspector.locator(".drawer-node").evaluate((el) => Math.floor(el.getBoundingClientRect().bottom));
   expect(copyBottom).toBeLessThanOrEqual(drawerBottom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
   await inspector.getByRole("button", { name: "Закрити" }).click();
+  await expect(repeatedSelection).toBeVisible();
   await page.locator("#app-nav [data-app-view='overview']").click();
   await expect(page.locator(".verdict-cta")).toBeVisible();
 });
