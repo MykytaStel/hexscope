@@ -405,20 +405,6 @@
   }
 }
 
-.other-ways {
-  font-size: 13px;
-}
-
-.other-ways > summary {
-  padding: 8px 0;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.other-ways .btn {
-  margin: 4px 0 8px;
-}
-
 /* The one thing to do, at the bottom of a phone's screen. */
 .actionbar {
   display: none;

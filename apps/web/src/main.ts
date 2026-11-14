@@ -21,6 +21,12 @@ document.querySelector(".topbar .actions")?.prepend(languageButton());
 // Light, dark or the system's, beside Open.
 document.querySelector('[data-opens="picker"]')?.before(themeButton());
 
+// The expanded guide/sample library is a quick index on desktop; on a phone,
+// open only the topic the reader wants to scan.
+if (window.matchMedia("(max-width: 560px)").matches) {
+  document.querySelectorAll<HTMLDetailsElement>(".guide-group-details, .sample-category").forEach((group) => (group.open = false));
+}
+
 document.querySelector<HTMLAnchorElement>("[data-home-link]")?.addEventListener("click", (event) => {
   if (document.body.dataset.state === "empty") return;
   event.preventDefault();

@@ -54,20 +54,32 @@ export function createCleaner(m: FileModel, cleaning: CleanActions, revealGroup:
     button.disabled = true;
     button.textContent = "Making the copy…";
     const notes = extras && also.checked;
-    // What goes with them is struck out with the rest.
-    if (notes) {
-      for (const e of revealGroup.querySelectorAll<HTMLElement>("[data-kept]")) {
-        const kind = e.dataset.kind ?? e.nextElementSibling?.getAttribute("data-kind");
-        if (kind === "notes" || kind === "comments") delete e.dataset.kept;
-      }
-    }
     const profile = checkedProfiles.get(m.file);
-    const r = await cleaning.clean(notes);
+    let r: Awaited<ReturnType<CleanActions["clean"]>>;
+    try {
+      r = await cleaning.clean(notes);
+    } catch {
+      button.hidden = false;
+      button.disabled = false;
+      button.textContent = translateText("Try again", currentLocale());
+      box.replaceChildren(
+        el("p", "problem is-warning", translateText("Could not finish making the copy. Check your downloads before trying again.", currentLocale())),
+        button,
+      );
+      return;
+    }
     box.replaceChildren();
     if (r.error) {
       const message = r.error.startsWith("no copy was made because ") ? `${r.error}.` : `No copy was made: ${r.error}.`;
       box.append(el("p", "problem is-warning", message));
       return;
+    }
+    // What goes with them is struck out only after the copy exists.
+    if (notes) {
+      for (const e of revealGroup.querySelectorAll<HTMLElement>("[data-kept]")) {
+        const kind = e.dataset.kind ?? e.nextElementSibling?.getAttribute("data-kind");
+        if (kind === "notes" || kind === "comments") delete e.dataset.kept;
+      }
     }
     // Both the summary and crossed-out facts wait for the readback shown below.
     const comparison = beforeAfter(m, r);

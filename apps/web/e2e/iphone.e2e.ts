@@ -107,6 +107,23 @@ test("on a phone, the clean copy's actions stand one under another, the same siz
   expect(new Set(boxes.map(([, h]) => h)).size).toBe(1);
 });
 
+test("on a phone, the sticky action disappears when its underlying action is disabled", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "the sticky action is for narrow screens");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-cta")).toBeVisible();
+
+  const drawer = page.locator(".drawer-file");
+  await drawer.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect(page.locator(".actionbar")).toBeVisible();
+
+  await page.locator(".reveals .btn-clean").evaluate((button: HTMLButtonElement) => { button.disabled = true; });
+  await expect(page.locator(".actionbar")).toBeHidden();
+});
+
 test("on a phone, file sharing works when the browser has share but no canShare", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "sharing a file is a phone action");
   await page.addInitScript(() => {

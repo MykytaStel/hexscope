@@ -47,7 +47,13 @@ export class ActionBar {
   /** Follows the buttons in `root` as it is redrawn. */
   watch(root: HTMLElement): void {
     this.changes.disconnect();
-    this.changes.observe(root, { childList: true, subtree: true });
+    this.changes.observe(root, {
+      attributes: true,
+      attributeFilter: ["class", "disabled", "hidden"],
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
     this.root = root;
     this.pick();
   }
@@ -55,16 +61,25 @@ export class ActionBar {
   private root: HTMLElement | null = null;
   private cta: Element | null = null;
 
+  /** The hidden clean button is an intentional proxy for the visible verdict action. */
+  private isAvailable(button: HTMLButtonElement): boolean {
+    if (!button.isConnected || button.disabled || button.parentElement?.closest("[hidden]")) return false;
+    if (!button.hidden && button.getClientRects().length > 0) return true;
+    return button.matches(".reveals .btn-clean")
+      && button.hidden
+      && (button.closest(".cleaner")?.getClientRects().length ?? 0) > 0;
+  }
+
   private pick(): void {
     let found: HTMLElement | null = null;
     let label = "";
     for (const [sel, text] of TARGETS) {
-      const b = this.root?.querySelector<HTMLButtonElement>(sel);
-      if (b && !b.disabled) {
-        found = b;
-        label = text;
-        break;
-      }
+      const buttons = this.root?.querySelectorAll<HTMLButtonElement>(sel) ?? [];
+      const b = [...buttons].find((candidate) => this.isAvailable(candidate));
+      if (!b) continue;
+      found = b;
+      label = text;
+      break;
     }
     if (found !== this.target) {
       if (this.target) this.forget(this.target);
@@ -80,6 +95,7 @@ export class ActionBar {
       if (cta) this.visible.observe(cta);
     }
     this.button.textContent = label;
+    this.button.disabled = !found;
     // Until the observer says where a new button is, it counts as seen: no flash of the bar.
     this.show();
   }

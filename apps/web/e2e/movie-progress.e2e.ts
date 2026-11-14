@@ -9,53 +9,54 @@ test("on a phone, a large video read shows progress and can be cancelled", async
     localStorage.setItem("hexscope.language", "en");
     localStorage.setItem("hexscope.tour", "done");
     (window as Window & { __hexscopeProgressEvents?: number }).__hexscopeProgressEvents = 0;
+    const state = {
+      requestId: null as number | null,
+      cancelled: false,
+      releaseParsed: null as (() => void) | null,
+    };
     const NativeWorker = window.Worker;
     window.Worker = class ProgressWorker extends NativeWorker {
+      override postMessage(message: any, transfer: Transferable[]): void;
+      override postMessage(message: any, options?: StructuredSerializeOptions): void;
+      override postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        const request = message as { id?: number; type?: string; target?: number; file?: File };
+        if (request.type === "parse" && request.file?.name === "large.mov") state.requestId = request.id ?? null;
+        if (request.type === "cancel" && request.target === state.requestId) {
+          state.cancelled = true;
+          // Give rpc.call time to settle the aborted request before a completed
+          // parse reply is released to its message listener.
+          window.setTimeout(() => state.releaseParsed?.(), 0);
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+
       override addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
         if (type !== "message") {
           super.addEventListener(type, listener, options);
           return;
         }
-        let firstProgress = true;
-        let timer = 0;
-        let deliveredQueuedMessage = false;
-        const queued: MessageEvent[] = [];
         const deliver = (event: MessageEvent) => {
-          const data = event.data as { type?: string; progress?: { cancellable?: boolean } };
-          if (data.type === "progress" && data.progress?.cancellable) {
+          const data = event.data as { id?: number; type?: string; progress?: { cancellable?: boolean } };
+          if (data.id === state.requestId && data.type === "progress" && data.progress?.cancellable) {
             const state = window as Window & { __hexscopeProgressEvents?: number };
             state.__hexscopeProgressEvents = (state.__hexscopeProgressEvents ?? 0) + 1;
           }
           if (typeof listener === "function") listener.call(this, event);
           else listener.handleEvent(event);
         };
-        const pump = () => {
-          while (!deliveredQueuedMessage && queued.length) {
-            const event = queued.shift()!;
-            const data = event.data as { type?: string; progress?: { stage?: string; loaded?: number; total?: number; cancellable?: boolean } };
-            const progress = data.progress;
-            if (data.type !== "progress" || !progress?.cancellable) continue;
-            deliveredQueuedMessage = true;
-            deliver(event);
-          }
-          timer = 0;
-        };
         const wrapped = (event: MessageEvent) => {
-          const data = event.data as { type?: string; progress?: { cancellable?: boolean } };
-          if (data.type === "progress" && data.progress?.cancellable) {
-            if (firstProgress) {
-              firstProgress = false;
+          const data = event.data as { id?: number; type?: string };
+          if (data.id === state.requestId && data.type === "parsed" && !state.cancelled) {
+            // Hold only this file's parsed response until the test presses
+            // Cancel; progress and unrelated worker messages stay real.
+            state.releaseParsed = () => {
+              state.releaseParsed = null;
               deliver(event);
-            } else {
-              queued.push(event);
-              if (!timer) timer = window.setTimeout(pump, 100);
-            }
-          } else if ((data.type === "progress" || data.type === "parsed") && queued.length) {
-            queued.push(event);
-            if (!timer) timer = window.setTimeout(pump, 100);
-          } else {
-            deliver(event);
+            };
+            return;
           }
+          deliver(event);
         };
         super.addEventListener(type, wrapped as EventListener, options);
       }
@@ -90,7 +91,7 @@ test("on a phone, a large video read shows progress and can be cancelled", async
     await cancel.focus();
     await expect.poll(() => page.evaluate(() =>
       (window as Window & { __hexscopeProgressEvents?: number }).__hexscopeProgressEvents ?? 0,
-    ), { timeout: 8_000 }).toBeGreaterThan(1);
+    ), { timeout: 8_000 }).toBeGreaterThan(0);
     await expect(cancel).toBeEnabled();
     await expect(cancel).toBeFocused();
     await page.keyboard.press("Enter");

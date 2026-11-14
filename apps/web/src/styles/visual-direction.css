@@ -1115,34 +1115,51 @@ body[data-state="loading"] .landing-menu {
 }
 
 .footnote {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 24px;
-  margin-top: 36px;
-  padding-top: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  margin: 32px 0 0;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
+  text-align: left;
 }
 
 .footnote-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 18px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px 6px;
+  min-width: 0;
 }
 
 .footnote a,
 .footnote .link {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 7px;
   color: var(--muted);
+  font-size: inherit;
+  line-height: 1.4;
   text-decoration: none;
 }
 
 .footnote a:hover,
 .footnote .link:hover {
+  background: var(--panel);
   color: var(--text);
-  text-decoration: underline;
+  text-decoration: none;
+}
+
+.footnote-links .version {
+  color: var(--faint);
+  font: 11px var(--mono);
+  white-space: nowrap;
 }
 
 /* The analyzer keeps its real tree, bytes, findings and copy actions. */
@@ -1624,11 +1641,6 @@ body[data-state="ready"] .topbar {
     aspect-ratio: 412 / 900;
   }
 
-  .footnote,
-  .footnote-links {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 /* Give three landing cards enough room through tablet widths. */
@@ -2230,4 +2242,44 @@ body[data-state="empty"] .empty-card {
   width: min(100%, var(--landing-max));
   max-width: var(--landing-max);
   padding-inline: var(--landing-gutter);
+}
+
+@media (max-width: 900px) {
+  .footnote {
+    gap: 10px;
+    margin-top: 26px;
+    padding-top: 14px;
+  }
+
+  .footnote-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 6px;
+  }
+
+  .footnote-links [data-shortcuts],
+  .footnote-links [data-tour] {
+    display: none;
+  }
+
+  .footnote-links a,
+  .footnote-links .link {
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+  }
+
+  .footnote-links .version {
+    grid-column: 1 / -1;
+    min-height: 30px;
+    padding-inline: 0;
+    border-color: transparent;
+    background: transparent;
+    color: var(--faint);
+  }
 }

@@ -3,6 +3,13 @@
 
 type Topic = "photos" | "documents" | "email" | "files";
 
+const TOPICS: Record<Topic, string> = {
+  photos: "Photos & images",
+  documents: "Documents & Office",
+  email: "Email safety",
+  files: "Files",
+};
+
 /** Each guide's page, its title in the lists, and what it is about. */
 export const GUIDES: readonly { file: string; title: string; topic: Topic }[] = [
   { file: "exif-viewer.html", title: "EXIF viewer: what a photo's metadata says", topic: "photos" },
@@ -34,7 +41,15 @@ export const GUIDES: readonly { file: string; title: string; topic: Topic }[] = 
 export function guideList(file: string): string {
   const own = GUIDES.find((g) => g.file === file)?.topic;
   const others = GUIDES.filter((g) => g.file !== file);
-  return [...others.filter((g) => g.topic === own), ...others.filter((g) => g.topic !== own)]
-    .map((g) => `<li><a href="${g.file}">${g.title.replace(/&/g, "&amp;")}</a></li>`)
+  const ordered = [...others.filter((g) => g.topic === own), ...others.filter((g) => g.topic !== own)];
+  const topics = [...new Set(ordered.map((g) => g.topic))];
+  return topics
+    .map((topic) => {
+      const links = ordered
+        .filter((g) => g.topic === topic)
+        .map((g) => `<li><a href="${g.file}">${g.title.replace(/&/g, "&amp;")}</a></li>`)
+        .join("\n                ");
+      return `<li class="guide-more-topic"><details open><summary><span>${TOPICS[topic].replace(/&/g, "&amp;")}</span><span class="guide-more-count">${ordered.filter((g) => g.topic === topic).length}</span></summary><ul>${links}</ul></details></li>`;
+    })
     .join("\n            ");
 }
