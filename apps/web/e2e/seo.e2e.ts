@@ -52,6 +52,7 @@ test("the home page names its own address", async ({ page }) => {
 test("guides link to pages by the address the host serves, not name.html", async ({ page }) => {
   for (const path of ["./remove-location-from-photo", "./uk/remove-location-from-photo"]) {
     await page.goto(path);
+    await page.locator(".guide-more-topic > details").first().evaluate((details: HTMLDetailsElement) => { details.open = true; });
     await expect(page.locator(".guide-more a").first()).toBeVisible();
     expect(await page.locator('a[href$=".html"]').count()).toBe(0);
   }
