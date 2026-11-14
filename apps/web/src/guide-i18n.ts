@@ -2,6 +2,10 @@
 const guideEntries: [string, string][] = [
   // Shared article navigation and calls to action.
   ["More from hexscope", "Ще від hexscope"],
+  ["Photos & images", "Фото й зображення"],
+  ["Documents & Office", "Документи й офісні файли"],
+  ["Email safety", "Безпека електронної пошти"],
+  ["Files", "Файли"],
   ["Your files never leave your browser.", "Ваші файли не залишають браузер."],
   ["Tell us", "Повідомте нам"],
   ["Open source", "Відкритий код"],
@@ -621,7 +625,6 @@ const guideEntries: [string, string][] = [
 
   // Is this email real?
   ["Is this email real? — hexscope", "Цей лист справжній? — hexscope"],
-  ["Email", "Електронна пошта"],
   ["The name and address a message shows as its sender are whatever the sender typed. Its headers show where replies go, what the servers it passed through wrote down, and what its Authentication-Results header reports. The saved file cannot establish who added that header.", "Ім’я й адресу відправника можна вказати будь-які. Заголовки листа показують, куди надходитимуть відповіді, що записали поштові сервери на шляху листа та що повідомляє Authentication-Results. Зі збереженого файла неможливо встановити, хто додав цей заголовок."],
   ["reads them from the saved message, in your browser, and says what they mean.", "прочитає їх зі збереженого листа у вашому браузері й пояснить, що вони означають."],
   ["Save the message", "Збережіть лист"],

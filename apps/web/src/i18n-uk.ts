@@ -524,7 +524,7 @@ const UK: Record<string, string> = {
   "Supported formats": "Підтримувані формати",
   "See what hexscope can open. What it can inspect or change depends on the format.": "Дізнайтеся, які файли може відкрити hexscope. Можливості перевірки й очищення залежать від формату.",
   "Photos & images": "Фото й зображення",
-  "Documents & Office": "Документи й файли Office",
+  "Documents & Office": "Документи й офісні файли",
   "Email, archives & technical files": "Електронна пошта, архіви й технічні файли",
   "TIFF scans work in Film Lab.": "Плівкові скани TIFF можна обробити у Плівковій лабораторії.",
   "Includes MOV and M4V files.": "Зокрема файли MOV і M4V.",

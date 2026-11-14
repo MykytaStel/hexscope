@@ -1043,12 +1043,15 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
     const geometry = await sheet.evaluate((dialog) => {
       const dock = dialog.getBoundingClientRect();
       const nav = document.querySelector(".app-nav")!.getBoundingClientRect();
+      const bytes = document.querySelector(".pane-hex")!.getBoundingClientRect();
       return {
         left: dock.left,
         right: dock.right,
         height: dock.height,
+        top: dock.top,
         bottom: dock.bottom,
         navTop: nav.top,
+        bytesBottom: bytes.bottom,
         navVisible: getComputedStyle(document.querySelector(".app-nav")!).display !== "none",
       };
     });
@@ -1056,6 +1059,7 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
     expect(geometry.right, `${width}px dock right inset`).toBeLessThanOrEqual(width - 7);
     expect(geometry.height, `${width}px collapsed dock height`).toBeLessThanOrEqual(76);
     expect(geometry.bottom, `${width}px dock stays above navigation`).toBeLessThanOrEqual(geometry.navTop + 1);
+    expect(geometry.bytesBottom, `${width}px byte pane clears the inspector dock`).toBeLessThanOrEqual(geometry.top - 1);
     expect(geometry.navVisible, `${width}px navigation remains visible`).toBe(true);
     await expect(page.locator("html"), `${width}px no horizontal overflow`).toHaveJSProperty("scrollWidth", width);
   }
@@ -1081,6 +1085,13 @@ test("phone tree selection opens a compact, non-modal inspector while bytes rema
   await details.click();
   await expect(details).toHaveAttribute("aria-expanded", "true");
   await expect(sheet.locator(".drawer-node")).toBeVisible();
+  const expandedGeometry = await sheet.evaluate((dialog) => ({
+    top: dialog.getBoundingClientRect().top,
+    bytesBottom: document.querySelector(".pane-hex")!.getBoundingClientRect().bottom,
+  }));
+  expect(expandedGeometry.bytesBottom, "expanded inspector must keep the byte pane visible above it").toBeLessThanOrEqual(expandedGeometry.top - 1);
+  const readingHeight = await page.locator(".hex-scroller").evaluate((element) => element.clientHeight);
+  expect(readingHeight, "expanded inspector leaves several byte rows in view").toBeGreaterThanOrEqual(120);
 
   const secondRow = page.locator("#tree .tree .row").nth(1);
   await secondRow.click();

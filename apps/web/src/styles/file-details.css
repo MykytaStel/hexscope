@@ -38,8 +38,8 @@
 
 .metadata-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 0 var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 0 var(--space-5);
   margin-top: var(--space-2);
 }
 
@@ -517,7 +517,29 @@
 }
 
 .metadata-group .metadata-field-list {
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+}
+
+.metadata-group .metadata-field-list dt {
+  min-width: 0;
+  max-width: 18ch;
+  line-height: 1.4;
+}
+
+.metadata-group .metadata-field-list dd {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+/* Keep coordinates readable as a pair: wrap at the comma, not inside a
+   direction or between a measurement and its unit. */
+.metadata-group .metadata-field-list dd[data-kind="location"] .reveal-link {
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .metadata-group[data-metadata-group="additional"] {
@@ -538,6 +560,26 @@
     margin-top: 0;
     padding-top: var(--space-3);
     border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 520px) {
+  .metadata-groups {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .metadata-group .metadata-field-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .metadata-group .metadata-field-list dt:not(:first-child) {
+    margin-top: var(--space-2);
+  }
+
+  .metadata-group .metadata-field-list dd[data-kind="location"] .reveal-link {
+    font-size: 13px;
   }
 }
 

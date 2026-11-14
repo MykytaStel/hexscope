@@ -297,6 +297,20 @@
     box-shadow: none;
   }
 
+  /* The phone inspector is a dock beside the bytes, not a layer on top of
+     their status line. Reserve its height in the workspace while it is open. */
+  body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="false"]) .layout {
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) 72px;
+  }
+
+  body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="true"]) .layout {
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) calc(min(34dvh, 300px) + 4px);
+  }
+
+  body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="true"]) .inspector-sheet {
+    max-height: min(34dvh, 300px);
+  }
+
   .inspector-sheet .dialog-x {
     position: absolute;
     z-index: 2;

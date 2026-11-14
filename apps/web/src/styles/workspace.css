@@ -126,6 +126,38 @@
   text-overflow: ellipsis;
 }
 
+@media (max-width: 600px) {
+  .hex-statusbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: 2px;
+    min-height: 42px;
+    padding: 5px 10px;
+  }
+
+  .hex-statusbar .status {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .hex-statusbar-file {
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .hex-tools {
+    max-height: min(32dvh, 240px);
+  }
+
+  .hex-tools-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding-inline: 10px;
+  }
+}
+
 /* --- tree ----------------------------------------------------------------- */
 
 /* Rows are absolutely placed by the virtualised list; see tree.ts. */

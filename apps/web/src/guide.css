@@ -28,6 +28,10 @@
   overscroll-behavior: contain;
 }
 
+.guide-toc-mobile {
+  display: none;
+}
+
 .guide-toc h2 {
   margin: 0 0 12px;
   color: var(--text);
@@ -131,8 +135,93 @@
 
 @media (max-width: 900px) {
   .guide-layout {
-    display: block;
+    display: flex;
+    flex-direction: column;
     max-width: 700px;
+    padding: 20px 16px 48px;
+  }
+
+  .guide-toc-mobile {
+    display: block;
+    order: -1;
+    margin: 0 0 22px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .guide-toc-mobile > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .guide-toc-mobile > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .guide-toc-mobile > summary::after {
+    color: var(--muted);
+    content: "⌄";
+    font-size: 18px;
+    line-height: 1;
+    transition: transform 120ms ease;
+  }
+
+  .guide-toc-mobile[open] > summary {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .guide-toc-mobile[open] > summary::after {
+    transform: rotate(180deg);
+  }
+
+  .guide-toc-mobile nav {
+    max-height: min(36dvh, 280px);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .guide-toc-mobile ol {
+    display: grid;
+    margin: 0;
+    padding: 4px 12px 10px;
+    list-style: none;
+  }
+
+  .guide-toc-mobile li + li {
+    border-top: 1px solid var(--border);
+  }
+
+  .guide-toc-mobile a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 8px 2px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    text-decoration: none;
+  }
+
+  .guide-toc-mobile a[aria-current="location"] {
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  .guide-toc-mobile a:hover,
+  .guide-toc-mobile a:focus-visible {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .guide-toc {
@@ -152,7 +241,112 @@
   font-size: 14.5px;
 }
 
-.guide-more ul {
-  list-style: none;
+.guide-more > ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin: 14px 0 0;
   padding: 0;
+  list-style: none;
+}
+
+.guide-more-topic {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.guide-more-topic > details > summary {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  cursor: pointer;
+  list-style: none;
+}
+
+.guide-more-topic > details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-more-topic > details > summary::marker {
+  content: "";
+}
+
+.guide-more-topic > details > summary::after {
+  flex: none;
+  margin-left: auto;
+  color: var(--faint);
+  content: "⌄";
+  font-size: 17px;
+  transition: transform 120ms ease;
+}
+
+.guide-more-topic > details[open] > summary {
+  border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+}
+
+.guide-more-topic > details[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.guide-more-count {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+.guide-more-topic ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+
+.guide-more-topic a {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.guide-more-topic a:hover,
+.guide-more-topic a:focus-visible {
+  background: var(--row-hover);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .guide-more > ul {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .guide-more-topic > details > summary {
+    min-height: 48px;
+  }
+
+  .guide-more-topic a {
+    min-height: 44px;
+  }
 }

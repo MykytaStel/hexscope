@@ -214,6 +214,16 @@ body.story {
     font-size: 28px;
   }
 
+  .story-text h2 {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .story-text .num {
+    flex: 0 0 26px;
+    margin-top: 1px;
+  }
+
   .only-wide {
     display: none;
   }

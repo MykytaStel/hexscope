@@ -1,6 +1,6 @@
 // What every page but the app itself runs: the theme button in its top bar.
 import { themeButton } from "./theme";
-import { currentLocale, installLocale, languageButton, loadUkrainian, registerLazyTranslations, withUkrainian, writtenIn } from "./i18n";
+import { currentLocale, installLocale, languageButton, loadUkrainian, registerLazyTranslations, translateText, withUkrainian, writtenIn } from "./i18n";
 import { countVisit } from "./count";
 import { openFeedback } from "./feedback";
 import { showWays } from "./support";
@@ -52,6 +52,10 @@ if (article && !ways) {
 // assistive technology reads every guide in the language currently displayed.
 const guide = document.querySelector<HTMLElement>(".story-text");
 if (guide) {
+  if (window.matchMedia("(max-width: 560px)").matches) {
+    document.querySelectorAll<HTMLDetailsElement>(".guide-more-topic > details").forEach((topic) => (topic.open = false));
+  }
+
   const syncLanguage = () => {
     const locale = currentLocale();
     document.documentElement.lang = locale;
@@ -63,49 +67,77 @@ if (guide) {
   const layout = guide.closest<HTMLElement>(".guide-layout");
   const headings = Array.from(guide.querySelectorAll<HTMLElement>(":scope > section > h2"));
   if (layout && headings.length) {
+    const mobileToc = document.createElement("details");
+    mobileToc.className = "guide-toc-mobile";
+    const mobileSummary = document.createElement("summary");
+    const mobileNav = document.createElement("nav");
+    const mobileList = document.createElement("ol");
+    mobileNav.append(mobileList);
+    mobileToc.append(mobileSummary, mobileNav);
+
     const toc = document.createElement("nav");
     toc.className = "guide-toc";
     const title = document.createElement("h2");
-    title.textContent = "On this page";
     title.id = "guide-toc-title";
     toc.setAttribute("aria-labelledby", title.id);
+    mobileNav.setAttribute("aria-label", "On this page");
 
     const list = document.createElement("ol");
-    const links = headings.map((heading, index) => {
+    const links: HTMLAnchorElement[] = [];
+    const mobileLinks: HTMLAnchorElement[] = [];
+    headings.forEach((heading, index) => {
       heading.id = `guide-section-${index + 1}`;
       heading.tabIndex = -1;
       const link = document.createElement("a");
       link.href = `#${heading.id}`;
+      const mobileLink = document.createElement("a");
+      mobileLink.href = link.href;
       const item = document.createElement("li");
       item.append(link);
       list.append(item);
-      return link;
+      const mobileItem = document.createElement("li");
+      mobileItem.append(mobileLink);
+      mobileList.append(mobileItem);
+      links.push(link);
+      mobileLinks.push(mobileLink);
     });
 
     const syncContents = () => {
+      const contentsTitle = translateText("On this page", currentLocale());
+      title.textContent = contentsTitle;
+      mobileSummary.textContent = contentsTitle;
+      mobileNav.setAttribute("aria-label", contentsTitle);
       headings.forEach((heading, index) => {
         const label = heading.cloneNode(true) as HTMLElement;
         label.querySelector(".num")?.remove();
-        links[index].textContent = label.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        const contents = label.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        links[index].textContent = contents;
+        mobileLinks[index].textContent = contents;
       });
     };
 
     toc.append(title, list);
-    layout.append(toc);
+    layout.append(toc, mobileToc);
     syncContents();
     window.addEventListener("hexscope:locale", syncContents);
 
     const setCurrentSection = (current: number) => {
-      links.forEach((link, index) => {
-        if (index === current) link.setAttribute("aria-current", "location");
-        else link.removeAttribute("aria-current");
-      });
+      for (const group of [links, mobileLinks]) {
+        group.forEach((link, index) => {
+          if (index === current) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+        });
+      }
     };
     links.forEach((link, index) => {
       // Keep the current marker responsive even when a short last section
       // cannot scroll its heading past the normal reading-line threshold.
       link.addEventListener("click", () => setCurrentSection(index));
     });
+    mobileLinks.forEach((link, index) => link.addEventListener("click", () => {
+      setCurrentSection(index);
+      mobileToc.open = false;
+    }));
 
     let scrollFrame = 0;
     const syncCurrentSection = () => {

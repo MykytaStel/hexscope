@@ -734,7 +734,15 @@ export class Drawer {
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Repairing…";
-      const r = await this.cleaning.repair();
+      let r: Awaited<ReturnType<CleanActions["repair"]>>;
+      try {
+        r = await this.cleaning.repair();
+      } catch {
+        button.disabled = false;
+        button.textContent = translateText("Try again", currentLocale());
+        box.append(el("p", "problem is-warning", translateText("Could not finish making the copy. Check your downloads before trying again.", currentLocale())));
+        return;
+      }
       button.remove();
       if (r.error) {
         box.append(el("p", "hint", `No repaired copy: ${r.error}.`));
