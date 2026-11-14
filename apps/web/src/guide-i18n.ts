@@ -3,7 +3,7 @@ const guideEntries: [string, string][] = [
   // Shared article navigation and calls to action.
   ["More from hexscope", "Ще від hexscope"],
   ["Photos & images", "Фото й зображення"],
-  ["Documents & Office", "Документи й файли Office"],
+  ["Documents & Office", "Документи й офісні файли"],
   ["Email safety", "Безпека електронної пошти"],
   ["Files", "Файли"],
   ["Your files never leave your browser.", "Ваші файли не залишають браузер."],
