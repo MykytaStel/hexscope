@@ -86,7 +86,8 @@ status.setAttribute("aria-atomic", "true");
 let statusOffset = -1;
 const touchPointer = matchMedia("(hover: none)");
 
-const statusFile = $("statusbar-file");
+const statusSelection = $("statusbar-selection");
+const statusSize = $("statusbar-size");
 
 /** The bar under the bytes: the byte under the pointer, then the part chosen and the file's size. */
 function renderStatus(): void {
@@ -98,13 +99,14 @@ function renderStatus(): void {
       : "Hover a byte or row; click to pin";
   status.textContent = translateText(message, currentLocale());
   if (!model) {
-    statusFile.textContent = "";
+    statusSelection.textContent = "";
+    statusSize.textContent = "";
     return;
   }
-  const part = typeof selected === "number" && selected > 0
-    ? `${translateText(model.label(selected), currentLocale())} · ${translateText(`${model.len(selected).toLocaleString("en")} bytes`, currentLocale())} · `
+  statusSelection.textContent = typeof selected === "number" && selected > 0
+    ? `${translateText(model.label(selected), currentLocale())} · ${translateText(`${model.len(selected).toLocaleString("en")} bytes`, currentLocale())}`
     : "";
-  statusFile.textContent = `${part}${formatBytes(model.bytes.length)}`;
+  statusSize.textContent = formatBytes(model.bytes.length);
 }
 
 function setStatusOffset(offset: number): void {
