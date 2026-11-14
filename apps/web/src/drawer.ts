@@ -1067,7 +1067,9 @@ export class Drawer {
     }
     for (const { key } of METADATA_GROUPS) {
       const elements = groupElements.get(key)!;
-      if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
+      const fieldCount = Array.from(elements.section.querySelectorAll(".metadata-field-list"), (list) => list.children.length)
+        .reduce((sum, count) => sum + count, 0);
+      if (key !== "general" && fieldCount === 0) elements.section.remove();
     }
     const additionalFields = Array.from(
       groupElements.get("additional")!.section.querySelectorAll(".metadata-field-list"),

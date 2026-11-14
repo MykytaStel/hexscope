@@ -32,15 +32,23 @@ test("phone header and sample categories use a quiet, compact rhythm", async ({ 
   expect(rhythm.gap, "adjacent categories use a compact rhythm").toBeLessThanOrEqual(4);
 });
 
-test("phone metadata avoids a duplicate navigation block", async ({ page }, info) => {
+test("phone metadata surfaces privacy findings without repeating navigation", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "this spacing check targets the phone layout");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
-  await page.goto("./?sample=report.docx");
+  await page.goto("./?sample=redacted.pdf");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await openView(page, "metadata");
 
   await expect(page.locator("#drawer .metadata-groups")).toBeVisible();
+  const additional = page.locator("#drawer .metadata-additional-details");
+  await expect(additional).toHaveCount(1);
+  await additional.locator(":scope > summary").click();
+  await expect(additional.locator(".metadata-priority-block")).toBeVisible();
+  await expect(additional.locator(".metadata-priority-block")).toContainText("Olena Koval");
+  const secondary = additional.locator(".metadata-secondary-fields");
+  await expect(secondary.locator(":scope > summary")).toContainText("Інші поля");
+  await expect(secondary).not.toHaveAttribute("open", "");
   const index = page.locator("#drawer .metadata-summary");
   await expect(index).toHaveCount(1);
   await expect(index).toBeHidden();
