@@ -15,7 +15,9 @@ test("a LibreOffice document says who made, edited and printed it, and its clean
   await page.locator("#drawer .metadata-additional-details > summary").click();
   const secondary = page.locator("#drawer .metadata-secondary-fields");
   await expect(secondary).toHaveCount(1);
-  await secondary.locator(":scope > summary").click();
+  if (!(await secondary.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await secondary.locator(":scope > summary").click();
+  }
   const facts = page.locator(".reveal-list");
   for (const label of ["Author", "Last saved by", "Printer", "Printed", "Thumbnail", "Deleted text"]) {
     await expect(facts.locator("dt", { hasText: label }).first()).toBeVisible();
