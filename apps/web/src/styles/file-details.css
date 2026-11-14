@@ -569,13 +569,48 @@
     gap: 0;
   }
 
+  /* The headings already label every group; repeating them as chips after
+     the entire PDF creates a second navigation block at the phone's bottom. */
+  .metadata-summary {
+    display: none;
+  }
+
   .metadata-group .metadata-field-list {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
+    gap: 4px;
   }
 
   .metadata-group .metadata-field-list dt:not(:first-child) {
-    margin-top: var(--space-2);
+    margin-top: 14px;
+  }
+
+  .metadata-priority-block {
+    margin: 4px 0 12px;
+    padding-inline-start: 12px;
+    border-inline-start: 2px solid color-mix(in srgb, var(--tint-error) 65%, transparent);
+  }
+
+  .metadata-priority-fields {
+    gap: 6px;
+  }
+
+  .metadata-secondary-fields {
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .metadata-secondary-fields > summary {
+    min-height: 44px;
+    padding-block: 8px;
+    color: var(--muted);
+    font-size: var(--type-small);
+    font-weight: 600;
+  }
+
+  .metadata-secondary-count {
+    margin-left: auto;
+    color: var(--faint);
+    font: 11px var(--mono);
   }
 
   .metadata-group .metadata-field-list dd[data-kind="location"] .reveal-link {

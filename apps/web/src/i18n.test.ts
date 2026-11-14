@@ -121,6 +121,7 @@ describe("the interface language", () => {
     expect(translateText("Dates", "uk")).toBe("Дати");
     expect(translateText("Author & software", "uk")).toBe("Автор і програма");
     expect(translateText("Additional fields", "uk")).toBe("Додаткові поля");
+    expect(translateText("Other fields", "uk")).toBe("Інші поля");
   });
 
   it("translates the comparison workspace labels", () => {

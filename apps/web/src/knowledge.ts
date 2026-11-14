@@ -51,6 +51,17 @@ export const KEPT_NOTE: Record<string, string> = {
 /** Facts shown first in colour: what someone would least want to send. */
 export const STRONG = ["covered", "hiddentext", "deleted", "earlier", "photoplace", "replyto", "linkmismatch", "linkidn", "riskyfile", "opens", "launch", "qrwifi", "qrsecret", "qrtrick"];
 
+/** Keep findings that matter most to sharing ahead of secondary file properties. */
+export function partitionMetadataRows<T>(
+  rows: readonly T[],
+  kindOf: (row: T) => string | undefined,
+): { priority: T[]; secondary: T[] } {
+  const priority: T[] = [];
+  const secondary: T[] = [];
+  for (const row of rows) (STRONG.includes(kindOf(row) ?? "") ? priority : secondary).push(row);
+  return { priority, secondary };
+}
+
 /** A link that opens a place on OpenStreetMap, only when clicked. */
 export function mapLink(latitude: number, longitude: number): HTMLAnchorElement {
   const map = el("a", "map-link", "Open in OpenStreetMap ↗");

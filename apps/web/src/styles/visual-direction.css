@@ -1689,6 +1689,51 @@ body[data-state="ready"] .topbar {
   }
 }
 
+/* A phone needs the icon, language and theme controls, without four boxes
+   competing for attention in the top row. */
+@media (max-width: 480px) {
+  body[data-state="empty"] .topbar {
+    min-height: 56px;
+    gap: 8px;
+  }
+
+  body[data-state="empty"] .landing-menu {
+    margin-left: 4px;
+  }
+
+  body[data-state="empty"] .landing-menu > summary {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  body[data-state="empty"] .landing-menu > summary span {
+    display: none;
+  }
+
+  body[data-state="empty"] .landing-menu > summary svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  body[data-state="empty"] .topbar .actions {
+    gap: 0;
+    margin-left: auto;
+  }
+
+  body[data-state="empty"] .topbar .language-button,
+  body[data-state="empty"] .topbar .theme-button {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+}
+
 /* Compare reads as a paired result first, with the raw diff kept one step deeper. */
 .report.compare {
   width: min(980px, calc(100vw - 32px));

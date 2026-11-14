@@ -1140,10 +1140,39 @@ body[data-state="empty"] .layout {
 @media (max-width: 560px) {
   .sample-format-groups {
     grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .sample-category {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .sample-category:last-child {
+    border-bottom: 0;
+  }
+
+  .sample-category > summary {
+    min-height: 44px;
+    gap: 8px;
+    padding: 4px 0;
+    border-radius: 0;
+  }
+
+  .sample-category[open] > summary {
+    border-bottom: 0;
+    border-radius: 0;
+  }
+
+  .sample-category-count {
+    padding: 0 2px;
+    border: 0;
   }
 
   .sample-category-content {
-    padding: 4px 9px 8px;
+    padding: 0 0 8px;
   }
 
   .sample-format-group {
