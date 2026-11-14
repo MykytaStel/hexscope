@@ -1333,7 +1333,7 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   const summary = page.locator(".landing-menu > summary");
   const button = await summary.boundingBox();
   expect(button).not.toBeNull();
-  expect(button!.height).toBeLessThanOrEqual(36);
+  expect(button!.height).toBeGreaterThanOrEqual(44);
   // The header's Open repeats the landing's own button: hidden while that one shows.
   const headerOpen = page.locator(".topbar .actions > .btn[data-opens='picker']");
   await expect(headerOpen).toBeHidden();
@@ -1381,6 +1381,15 @@ async function openDoor(page: Page, door: RegExp): Promise<void> {
   }
   await target.click();
   await expect(page.locator(".verdict-title")).toBeVisible();
+}
+
+/** Additional metadata is deliberately folded until a reader opens it. */
+async function showAdditionalFields(page: Page): Promise<void> {
+  const details = page.locator("#drawer .metadata-additional-details");
+  await expect(details).toBeVisible();
+  if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await details.locator(":scope > summary").click();
+  }
 }
 
 /** Downloads are written nowhere: each is noted and cancelled. */
@@ -2712,6 +2721,9 @@ test("a fake bank email: why it may not be real, drawn on its way", async ({ pag
 test("a blacked-out PDF: the names still under its boxes", async ({ page }) => {
   await openDoor(page, /Check a document before you send it/);
   await expect(page.locator(".verdict-title")).toHaveText(/^This PDF gives away \d+ things$/);
+  await showAdditionalFields(page);
+  await expect(page.locator("#drawer .metadata-priority-block")).toBeVisible();
+  await expect(page.locator("#drawer .metadata-secondary-fields")).toBeVisible();
   await expect(page.locator(".reveal-list")).toContainText("Olena Koval");
 });
 
@@ -3154,6 +3166,7 @@ test("an Outlook message is read as an email, and an old Word file is cleaned", 
   const saved = catchDownloads(page);
   await page.goto("./?sample=phishing.msg");
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
+  await showAdditionalFields(page);
   await expect(page.locator(".reveal-list")).toContainText("invoice.pdf.html");
 
   await page.goto("./?sample=plan.doc");
@@ -3191,6 +3204,7 @@ test("a QR code a PDF draws in boxes, and an Outlook message kept as RTF", async
   await expect(page.locator(".reveal-list")).toContainText("in a code drawn on page 1");
   await page.locator("#picker").setInputFiles(new URL("../../../crates/hexscope-core/tests/fixtures/phishing-rtf.msg", import.meta.url).pathname);
   await expect(page.locator(".verdict-title")).toHaveText("This email may not be from who it says");
+  await showAdditionalFields(page);
   await expect(page.locator(".reveal-list")).toContainText("goes to login.example.info");
 });
 

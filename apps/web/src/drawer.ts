@@ -13,7 +13,18 @@ import { headline, noun } from "./headline";
 import { emailPath } from "./emailpath";
 import { kindOf } from "./files";
 import { el, fact, formatBytes, hasCoarsePointer, hex } from "./dom";
-import { COLOR_TYPES, FACT_LABELS, KEPT, KIND_NAMES, REPAIRABLE, STRONG, degrees, isOpenDocument, mapLink } from "./knowledge";
+import {
+  COLOR_TYPES,
+  FACT_LABELS,
+  KEPT,
+  KIND_NAMES,
+  REPAIRABLE,
+  STRONG,
+  degrees,
+  isOpenDocument,
+  mapLink,
+  partitionMetadataRows,
+} from "./knowledge";
 import { MAX_COPIED, copyBytes } from "./copybytes";
 import { copyPictureButton, isAudio, shareButton, shareFallbackHint, type CleanActions } from "./cleancard";
 import { createCleaner } from "./cleaner";
@@ -1026,12 +1037,44 @@ export class Drawer {
         term?.setAttribute("data-kept", "");
       }
     }
+    const additionalDetails = metadataGroups.querySelector<HTMLDetailsElement>(".metadata-additional-details");
+    const additionalList = groupElements.get("additional")!.list;
+    if (additionalDetails && additionalList.childElementCount > 0) {
+      const rows = Array.from(additionalList.querySelectorAll<HTMLElement>("dd"), (dd) => [
+        dd.previousElementSibling as HTMLElement,
+        dd,
+      ] as const);
+      const { priority: priorityRows, secondary: secondaryRows } = partitionMetadataRows(rows, ([, dd]) => dd.dataset.kind);
+      if (priorityRows.length > 0 && secondaryRows.length > 0) {
+        const priorityList = el("dl", "metadata-field-list metadata-priority-fields");
+        const secondaryList = el("dl", "metadata-field-list");
+        for (const [label, value] of priorityRows) priorityList.append(label, value);
+        for (const [label, value] of secondaryRows) secondaryList.append(label, value);
+
+        const secondaryDetails = el("details", "metadata-secondary-fields");
+        const secondarySummary = el("summary");
+        secondarySummary.append(
+          "Other fields",
+          el("span", "metadata-secondary-count", secondaryRows.length.toLocaleString(currentLocale())),
+        );
+        secondaryDetails.open = !window.matchMedia("(max-width: 520px)").matches;
+        secondaryDetails.append(secondarySummary, secondaryList);
+        additionalList.remove();
+        const priorityBlock = el("div", "metadata-priority-block");
+        priorityBlock.append(priorityList);
+        additionalDetails.append(priorityBlock, secondaryDetails);
+      }
+    }
     for (const { key } of METADATA_GROUPS) {
       const elements = groupElements.get(key)!;
-      if (key !== "general" && elements.list.children.length === 0) elements.section.remove();
+      const fieldCount = Array.from(elements.section.querySelectorAll(".metadata-field-list"), (list) => list.children.length)
+        .reduce((sum, count) => sum + count, 0);
+      if (key !== "general" && fieldCount === 0) elements.section.remove();
     }
-    const additionalDetails = metadataGroups.querySelector<HTMLDetailsElement>(".metadata-additional-details");
-    const additionalFields = groupElements.get("additional")!.list.childElementCount;
+    const additionalFields = Array.from(
+      groupElements.get("additional")!.section.querySelectorAll(".metadata-field-list"),
+      (list) => list.children.length / 2,
+    ).reduce((sum, count) => sum + count, 0);
     if (additionalDetails && m.file.format === "wav" && additionalFields > 0 && additionalFields <= 16) {
       additionalDetails.open = true;
     }
@@ -1041,7 +1084,8 @@ export class Drawer {
     for (const { key, title } of METADATA_GROUPS) {
       if (key === "general") continue;
       const section = groupElements.get(key)!.section;
-      const count = Math.floor((section.querySelector("dl")?.children.length ?? 0) / 2);
+      const count = Array.from(section.querySelectorAll(".metadata-field-list"), (list) => list.children.length / 2)
+        .reduce((sum, fields) => sum + fields, 0);
       if (count === 0) continue;
       const label = translateText(title, currentLocale());
       const jump = el("button", "link metadata-summary-link", `${label} · ${count.toLocaleString(currentLocale())}`);

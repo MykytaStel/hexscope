@@ -596,6 +596,7 @@ const UK: Record<string, string> = {
   "Dates": "Дати",
   "Author & software": "Автор і програма",
   "Additional fields": "Додаткові поля",
+  "Other fields": "Інші поля",
   "Dimensions": "Розміри",
   "Camera": "Фотоапарат",
   "Lens": "Об’єктив",
