@@ -933,6 +933,11 @@ body[data-state="empty"] .layout {
   content: "";
 }
 
+.guide-group::before,
+.sample-category > summary::before {
+  display: none;
+}
+
 .guide-group::after {
   flex: none;
   color: var(--faint);
