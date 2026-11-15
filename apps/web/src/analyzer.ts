@@ -6,7 +6,7 @@ import { explain } from "./explanations";
 import { Drawer, type CleanResult } from "./drawer";
 import { formatBytes } from "./dom";
 import { HexView } from "./hexview";
-import { Minimap } from "./minimap";
+import type { Minimap, MinimapState } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
 import { ActionBar } from "./actionbar";
 import { startDemo } from "./demo";
@@ -27,7 +27,6 @@ import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, sav
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { currentLocale, loadUkrainian, translateText, withUkrainian } from "./i18n";
-import { browserEntropy, DEFAULT_ENTROPY_BINS } from "./browser-entropy";
 
 // What each part of a file is, in Ukrainian, for the Structure and Bytes
 // views: it comes with the analyzer, and only for a reader in Ukrainian.
@@ -147,17 +146,54 @@ const hex = new HexView($("hex-body"), {
     });
   },
 });
-const minimap = new Minimap($("hex-body"), {
-  onJump: (offset) => hex.scrollToOffset(offset),
-  onBuild: () => {
-    const model = workspace?.model;
-    if (model) startEntropyMap(model);
+let minimapInstance: Minimap | null = null;
+let minimapLoading: Promise<Minimap> | null = null;
+let minimapModel: FileModel | null = null;
+let minimapState: MinimapState = "ready";
+let view: [number, number] = [0, 0];
+function ensureMinimap(): Promise<Minimap> {
+  if (!minimapLoading) {
+    minimapLoading = import("./minimap").then(({ Minimap }) => {
+      const instance = new Minimap($("hex-body"), {
+        onJump: (offset) => hex.scrollToOffset(offset),
+        onBuild: () => {
+          const model = workspace?.model;
+          if (model) startEntropyMap(model);
+        },
+      });
+      minimapInstance = instance;
+      instance.setModel(minimapModel ?? workspace?.model ?? null);
+      instance.setView(...view);
+      instance.setSelected(selected);
+      instance.setState(minimapState);
+      return instance;
+    });
+  }
+  return minimapLoading;
+}
+const minimap = {
+  setModel(model: FileModel | null) {
+    minimapModel = model;
+    minimapInstance?.setModel(model);
   },
-});
+  setView(start: number, end: number) {
+    view = [start, end];
+    minimapInstance?.setView(start, end);
+  },
+  setSelected(id: number) {
+    minimapInstance?.setSelected(id);
+  },
+  setState(state: MinimapState) {
+    minimapState = state;
+    minimapInstance?.setState(state);
+  },
+  refresh() {
+    minimapInstance?.refresh();
+  },
+};
 // What the bytes read as, their hashes and their entropy: a module of its
 // own, loaded the first time its panel under the bytes is opened.
 let tools: import("./bytetools").ByteTools | null = null;
-let view: [number, number] = [0, 0];
 const toolsBox = $<HTMLDetailsElement>("hex-tools");
 function toolsAreVisible(): boolean {
   return toolsBox.open && document.body.dataset.state === "ready" && document.body.dataset.view === "bytes";
@@ -392,6 +428,7 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
   if (view === "map" && details) details.open = true;
   if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
+  if (view === "structure" || view === "bytes") void ensureMinimap();
   tools?.setActive(toolsAreVisible());
   syncAppNavigation();
   if (view === "files") void showFiles();
@@ -1073,12 +1110,12 @@ function startEntropyMap(model: FileModel): void {
   minimap.setState("building");
   const isCurrent = () => entropyJob === job && workspace?.model === model;
 
-  void browserEntropy(model.bytes, DEFAULT_ENTROPY_BINS, {
+  void import("./browser-entropy").then(({ browserEntropy, DEFAULT_ENTROPY_BINS }) => browserEntropy(model.bytes, DEFAULT_ENTROPY_BINS, {
     signal: controller.signal,
     onProgress(loaded, total) {
       if (isCurrent()) showAnalysisProgress({ stage: "entropy", loaded, total, cancellable: true });
     },
-  }).then((result) => {
+  })).then((result) => {
     if (!isCurrent() || controller.signal.aborted) return;
     model.file.entropy = result.values;
     model.file.entropyWindow = result.window;
