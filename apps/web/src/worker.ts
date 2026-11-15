@@ -1,4 +1,5 @@
 import { assertInputBudget } from "./resource-budget";
+import type { AnalysisProgress, AnalysisProgressStage } from "./analysis-progress";
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
 // on demand instead of receiving millions of them up front.
@@ -185,25 +186,48 @@ const transfers = (r: ParsedFile): Transferable[] => [
 
 /** Bins the entropy minimap is drawn from; the page draws at most one per pixel row. */
 const ENTROPY_BINS = 1024;
+/** Keep file reads responsive to cancellation without issuing tiny reads. */
+const FILE_READ_CHUNK = 4 * 1024 * 1024;
 
-/** Entropy for the minimap, outside the timed parse. The window matches the core's: never under 256 bytes. */
-function addEntropy(result: ParsedFile, bytes: Uint8Array, wasm: Module): void {
-  result.entropy = wasm.entropy(bytes, ENTROPY_BINS);
-  const bins = Math.max(1, Math.min(ENTROPY_BINS, Math.floor(bytes.length / 256)));
-  result.entropyWindow = Math.ceil(bytes.length / bins);
+function reportProgress(
+  id: number,
+  stage: AnalysisProgressStage,
+  loaded = 0,
+  total = 1,
+  cancellable = false,
+  scope?: AnalysisProgress["scope"],
+): void {
+  const progress: AnalysisProgress = { stage, loaded, total, cancellable, ...(scope ? { scope } : {}) };
+  post({ id, type: "progress", progress });
 }
 
-function reportParseProgress(id: number): void {
-  post({
-    id,
-    type: "progress",
-    progress: { stage: "parse", loaded: 0, total: 1, cancellable: false },
-  });
+/** Reads a contiguous parser input while yielding between bounded file slices. */
+async function readFileBytes(
+  file: Blob,
+  signal: AbortSignal,
+  onProgress: (loaded: number, total: number) => void,
+): Promise<Uint8Array> {
+  const total = Math.max(1, file.size);
+  onProgress(0, total);
+  signal.throwIfAborted();
+  const bytes = new Uint8Array(file.size);
+  signal.throwIfAborted();
+  if (file.size === 0) onProgress(1, total);
+  for (let start = 0; start < file.size; start += FILE_READ_CHUNK) {
+    signal.throwIfAborted();
+    const end = Math.min(file.size, start + FILE_READ_CHUNK);
+    const part = new Uint8Array(await file.slice(start, end).arrayBuffer());
+    signal.throwIfAborted();
+    bytes.set(part, start);
+    onProgress(end, total);
+  }
+  return bytes;
 }
 
 /** A movie read in parts, when `file` is one large enough to need it. */
-async function largeMovie(file: Blob, options?: MovieReadOptions): Promise<Movie | null> {
+async function largeMovie(id: number, file: Blob, options?: MovieReadOptions): Promise<Movie | null> {
   if (file.size < LARGE_MOVIE) return null;
+  reportProgress(id, "load", 0, 1, true);
   const wasm = await loadMedia();
   return readMovie(file, (head, len) => wasm.isMovie(head, len), LARGE_MOVIE, options);
 }
@@ -216,16 +240,17 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
     onProgress: (progress) => post({ id: req.id, type: "progress", progress }),
   };
   try {
-    const movie = await largeMovie(req.file, options);
+    const movie = await largeMovie(req.id, req.file, options);
     controller.signal.throwIfAborted();
     if (movie) {
       const wasm = await loadMedia();
       controller.signal.throwIfAborted();
-      reportParseProgress(req.id);
+      reportProgress(req.id, "parse", 0, 1, false, "video");
       const t0 = performance.now();
       const parsed = wasm.parseMovie(movie.given, movie.gaps);
       let retained = false;
       try {
+        reportProgress(req.id, "summarize", 0, 1, false, "video");
         const result = describe(parsed);
         result.parseMs = performance.now() - t0;
         const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0], options);
@@ -241,25 +266,30 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
       return;
     }
     assertInputBudget(req.file.size);
-    const bytes = new Uint8Array(await req.file.arrayBuffer());
+    const bytes = await readFileBytes(req.file, controller.signal, (loaded, total) => {
+      reportProgress(req.id, "read", loaded, total, true);
+    });
     controller.signal.throwIfAborted();
+    reportProgress(req.id, "load", 0, 1, true);
     const wasm = await moduleFor(bytes);
     controller.signal.throwIfAborted();
+    reportProgress(req.id, "parse");
     // Timed from the call into WASM through reading every array back out, so
     // the number shown to the user is the whole cost, not the flattering part.
     const t0 = performance.now();
     const parsed = wasm.parseOwnedExternal(bytes);
     let retained = false;
     try {
+      reportProgress(req.id, "summarize");
       const result = describe(parsed);
       result.parseMs = performance.now() - t0;
-      addEntropy(result, bytes, wasm);
       controller.signal.throwIfAborted();
+      const shouldPrefetchDocuments = isMedia(bytes);
       // Source-dependent parsers keep this WASM allocation; the page receives
       // the JavaScript buffer by transfer, without another page-side copy.
       stageParsed(req.id, parsed, result, bytes, parsed.format === "zip" ? req.file : null);
       retained = true;
-      if (isMedia(bytes)) prefetchDocuments();
+      if (shouldPrefetchDocuments) prefetchDocuments();
     } finally {
       if (!retained) parsed.free();
     }
@@ -339,7 +369,7 @@ async function handle(req: OperationRequest): Promise<void> {
     return;
   }
   if (req.type === "clean") {
-    const movie = await largeMovie(req.source, { includeWhole: false });
+    const movie = await largeMovie(req.id, req.source, { includeWhole: false });
     if (movie) {
       const source = req.source;
       postCopy(req.id, (await loadMedia()).cleanMovie(movie.given, movie.gaps), (b) => assemble(b, movie, source));
@@ -575,7 +605,6 @@ async function handle(req: OperationRequest): Promise<void> {
     const parsed = wasm.parseOwned(bytes);
     const result = describe(parsed);
     result.parseMs = performance.now() - t0;
-    addEntropy(result, bytes, wasm);
     rememberParsedSource(parsed, result, req.id);
     stack.push(parsed);
     stackSources.push(null);

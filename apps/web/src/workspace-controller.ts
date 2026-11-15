@@ -1,12 +1,12 @@
 import { tooLarge } from "./files";
-import type { MovieProgress } from "./movie";
+import type { AnalysisProgress } from "./analysis-progress";
 import type { FileModel } from "./model";
 
-export type { MovieProgress } from "./movie";
+export type { AnalysisProgress } from "./analysis-progress";
 
 export interface ParseOptions {
   signal: AbortSignal;
-  onProgress(progress: MovieProgress): void;
+  onProgress(progress: AnalysisProgress): void;
 }
 
 export interface WorkspaceLevel {
@@ -23,7 +23,7 @@ export interface WorkspaceServices {
 
 export interface WorkspaceView {
   loading(name: string): void;
-  progress(progress: MovieProgress): void;
+  progress(progress: AnalysisProgress): void;
   show(model: FileModel, levels: readonly WorkspaceLevel[]): void;
   select(id: number): void;
   failed(message: string): void;

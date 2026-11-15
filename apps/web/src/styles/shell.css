@@ -12,10 +12,46 @@
 }
 
 .file-read-progress {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  padding-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-read-progress::before,
+.file-read-progress::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  content: "";
+}
+
+.file-read-progress::before {
+  right: 0;
+  background: var(--border);
+}
+
+.file-read-progress::after {
+  width: var(--read-progress, 0%);
+  background: var(--accent);
+}
+
+.file-read-progress:not([aria-valuenow])::after {
+  width: 32%;
+  animation: file-read-indeterminate 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes file-read-indeterminate {
+  from { transform: translateX(0); }
+  to { transform: translateX(210%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-read-progress:not([aria-valuenow])::after { animation: none; }
 }
 
 .fileinfo-cancel {

@@ -11,6 +11,38 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.21.0] — 2026-11-15
+
+### Changed
+
+- **See file analysis move through clear stages.** The browser reports progress
+  while it reads a file in bounded chunks, loads its format reader, analyzes its
+  structure and prepares findings. Reading can be cancelled between chunks,
+  and a pending reader load can be stopped before parsing starts. The cancel
+  control is disabled during synchronous WebAssembly work that cannot safely
+  receive a stop request. Existing file-size limits, local-only processing and
+  partial-read labels are unchanged.
+- **See findings before the byte map is ready.** For ordinary full-file inputs,
+  the parsed findings appear first while the browser builds the entropy map in
+  short idle slices. Map progress is visible, and the work can be cancelled and
+  restarted without reopening the file. Large movies retain their existing
+  range-based reader and progress stages.
+- **Keep the optional entropy inspector responsive.** Its 400-region overview
+  now computes in short background slices, preserves the previous bounded
+  samples, and exposes progress, cancel and retry. The graph can be explored
+  with keyboard arrows, Home, End and Page Up/Down, with the current byte and
+  entropy value announced to assistive technology. Closing the panel or leaving
+  Bytes stops computation; returning starts a fresh calculation.
+- **Navigate the main file map without a pointer.** The whole-file scrollbar
+  now responds to arrow keys, Page Up/Down, Home and End and announces its
+  current byte offset.
+
+### Fixed
+
+- **Warm optional document readers after opening a photo.** The worker now
+  decides whether to prefetch them before transferring the input bytes to the
+  page, so the check still sees the original file data.
+
 ## [0.20.0] — 2026-11-15
 
 ### Changed
@@ -964,7 +996,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/MykytaStel/hexscope/compare/v0.17.0...v0.18.0

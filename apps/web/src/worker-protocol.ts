@@ -1,8 +1,8 @@
 import type { PageArea, ParsedFile } from "./model";
+import type { AnalysisProgress } from "./analysis-progress";
 import type { FilmScanReport } from "./filmscan";
 import type { FilmSettings } from "./film-lab";
 import type { FilmRenderResult } from "./film-render";
-import type { MovieProgress } from "./movie";
 import type { VerificationFinding, VerificationReport, VerificationSelection } from "./verification";
 
 export type WorkerRequest =
@@ -44,7 +44,7 @@ export type OperationRequest = Exclude<WorkerRequest, { type: "cancel" | "commit
 export type WorkerResponse =
   | { id: number; type: "parsed"; result: ParsedFile; bytes: Uint8Array }
   | { id: number; type: "opened"; result: ParsedFile; bytes: Uint8Array }
-  | { id: number; type: "progress"; progress: MovieProgress }
+  | { id: number; type: "progress"; progress: AnalysisProgress }
   | { id: number; type: "policy"; result: string }
   | { id: number; type: "back" }
   | { id: number; type: "cleaned"; copy: Blob; removed: { what: string; bytes: number }[]; orientation: number; error: string; verification?: string }

@@ -16,7 +16,7 @@ import { call, onWorkerReset, playerSource } from "./rpc";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchController, BatchView, type BatchAnalysis } from "./batch";
-import { WorkspaceController, type MovieProgress, type WorkspaceLevel } from "./workspace-controller";
+import { WorkspaceController, type AnalysisProgress, type WorkspaceLevel } from "./workspace-controller";
 import { categories } from "./share";
 import { hasCleanableAudioTags } from "./audio-clean";
 import { dismissTour, maybeTour, resetTour } from "./tour";
@@ -27,6 +27,7 @@ import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, sav
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
 import { showLegend } from "./legend";
 import { currentLocale, loadUkrainian, translateText, withUkrainian } from "./i18n";
+import { browserEntropy, DEFAULT_ENTROPY_BINS } from "./browser-entropy";
 
 // What each part of a file is, in Ukrainian, for the Structure and Bytes
 // views: it comes with the analyzer, and only for a reader in Ukrainian.
@@ -34,6 +35,7 @@ withUkrainian(() => import("./docs-i18n"));
 
 let batchController: BatchController;
 let workspace: WorkspaceController;
+let entropyJob: { model: FileModel; controller: AbortController } | null = null;
 
 /** "Take the tour": on the sample photo, from the start. */
 export function startTour(): void {
@@ -69,7 +71,11 @@ readAnnouncement.setAttribute("aria-atomic", "true");
 const cancelRead = document.createElement("button");
 cancelRead.type = "button";
 cancelRead.className = "btn fileinfo-cancel";
-cancelRead.addEventListener("click", () => workspace?.cancelOpen());
+cancelRead.addEventListener("click", () => {
+  const job = entropyJob;
+  if (job && job.model === workspace?.model) job.controller.abort();
+  else workspace?.cancelOpen();
+});
 const appNavigation = $<HTMLElement>("app-nav");
 const comparePicker = $<HTMLInputElement>("compare-picker");
 const noFile = async (): Promise<CleanResult> => ({ copy: new Blob([]), name: "", saved: false, removed: [], orientation: 0, error: "no file is open" });
@@ -141,16 +147,39 @@ const hex = new HexView($("hex-body"), {
     });
   },
 });
-const minimap = new Minimap($("hex-body"), { onJump: (offset) => hex.scrollToOffset(offset) });
+const minimap = new Minimap($("hex-body"), {
+  onJump: (offset) => hex.scrollToOffset(offset),
+  onBuild: () => {
+    const model = workspace?.model;
+    if (model) startEntropyMap(model);
+  },
+});
 // What the bytes read as, their hashes and their entropy: a module of its
 // own, loaded the first time its panel under the bytes is opened.
 let tools: import("./bytetools").ByteTools | null = null;
 let view: [number, number] = [0, 0];
 const toolsBox = $<HTMLDetailsElement>("hex-tools");
+function toolsAreVisible(): boolean {
+  return toolsBox.open && document.body.dataset.state === "ready" && document.body.dataset.view === "bytes";
+}
 toolsBox.addEventListener("toggle", () => {
-  if (!toolsBox.open || tools) return;
+  if (tools) {
+    tools.setActive(toolsAreVisible());
+    return;
+  }
+  if (!toolsBox.open) return;
   void import("./bytetools").then(({ ByteTools }) => {
-    tools = new ByteTools($("hex-tools-body"), { jump: (offset) => hex.scrollToOffset(offset) });
+    if (tools) {
+      tools.setActive(toolsAreVisible());
+      return;
+    }
+    tools = new ByteTools($("hex-tools-body"), {
+      jump: (offset) => {
+        setStatusOffset(offset);
+        hex.scrollToOffset(offset);
+      },
+    });
+    tools.setActive(toolsAreVisible());
     const m = workspace.model;
     tools.setModel(m);
     tools.setView(...view);
@@ -363,6 +392,7 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
   if (view === "map" && details) details.open = true;
   if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
+  tools?.setActive(toolsAreVisible());
   syncAppNavigation();
   if (view === "files") void showFiles();
   else for (const files of filesViews.values()) files.hide();
@@ -389,6 +419,7 @@ window.addEventListener("popstate", (event: PopStateEvent) => {
   if (state?.hexscopeWorkspace && workspace?.model) {
     document.body.dataset.state = "ready";
     showFileInfo(workspace.model, workspace.levels);
+    startEntropyMap(workspace.model);
     setWorkspaceView(state.hexscopeView ?? "overview", false);
     updateProblems();
     playBtn.hidden = !canPlay();
@@ -397,6 +428,8 @@ window.addEventListener("popstate", (event: PopStateEvent) => {
   if (workspace?.model && document.body.dataset.state === "ready") {
     // The entry before the first inspected file is the landing page. Keep the
     // parsed file in memory so Forward can restore the workspace immediately.
+    stopEntropyMap();
+    tools?.setActive(false);
     document.body.dataset.state = "empty";
     $("fileinfo").replaceChildren();
     locationBtn.hidden = true;
@@ -934,9 +967,10 @@ workspace = new WorkspaceController({
     loading(name) {
       document.body.dataset.state = "loading";
       $("fileinfo").textContent = `Parsing ${name}…`;
+      readAnnouncement.dataset.key = "";
       $("load-error").hidden = true;
     },
-    progress: showMovieProgress,
+    progress: showAnalysisProgress,
     show: renderFile,
     select,
     failed: loadFailed,
@@ -946,6 +980,7 @@ workspace = new WorkspaceController({
       showFileInfo(model, levels);
       readAnnouncement.textContent = translateText("Reading was cancelled.", currentLocale());
       $("fileinfo").append(readAnnouncement);
+      startEntropyMap(model);
     },
     note: (message) => drawer.showNote(message),
     remember,
@@ -959,30 +994,53 @@ workspace = new WorkspaceController({
         }, 350);
       }
     },
-    clearPlayer: closePlayer,
+    clearPlayer() {
+      stopEntropyMap();
+      tools?.setActive(false);
+      closePlayer();
+    },
   },
 });
 
-function showMovieProgress(progress: MovieProgress): void {
+function showAnalysisProgress(progress: AnalysisProgress): void {
   const locale = currentLocale();
-  const phase = {
-    scan: "structure",
-    ranges: "metadata",
-    entropy: "byte map",
-  } as const;
+  const video = progress.scope === "video";
   const percentage = Math.min(100, Math.floor((progress.loaded / Math.max(1, progress.total)) * 100));
-  const label = progress.stage === "parse"
+  const videoPhase = progress.stage === "scan"
+    ? "structure"
+    : progress.stage === "ranges"
+      ? "metadata"
+      : progress.stage === "entropy"
+        ? "byte map"
+        : null;
+  const label = video && progress.stage === "parse"
     ? "Parsing video metadata…"
-    : `Reading video ${phase[progress.stage]}: ${percentage}%`;
+    : video && videoPhase
+      ? `Reading video ${videoPhase}: ${percentage}%`
+      : progress.stage === "read"
+        ? `Reading file: ${percentage}%`
+        : progress.stage === "load"
+          ? "Loading format reader…"
+          : progress.stage === "parse"
+            ? "Analyzing file structure…"
+            : progress.stage === "entropy"
+              ? `Building byte map: ${percentage}%`
+              : "Preparing findings…";
   const localizedLabel = translateText(label, locale);
   readProgress.textContent = localizedLabel;
-  readProgress.setAttribute("aria-label", translateText("Video read progress", locale));
+  readProgress.setAttribute("aria-label", translateText(video ? "Video read progress" : "File analysis progress", locale));
   readProgress.setAttribute("aria-valuetext", localizedLabel);
-  if (progress.stage === "parse") readProgress.removeAttribute("aria-valuenow");
-  else readProgress.setAttribute("aria-valuenow", String(percentage));
-  const announcementKey = progress.stage === "parse"
-    ? `${locale}:${progress.stage}`
-    : `${locale}:${progress.stage}:${Math.floor(percentage / 10) * 10}`;
+  const measured = progress.stage === "read" || progress.stage === "scan" || progress.stage === "ranges" || progress.stage === "entropy";
+  if (measured) {
+    readProgress.style.setProperty("--read-progress", `${percentage}%`);
+    readProgress.setAttribute("aria-valuenow", String(percentage));
+  } else {
+    readProgress.style.removeProperty("--read-progress");
+    readProgress.removeAttribute("aria-valuenow");
+  }
+  const announcementKey = measured
+    ? `${locale}:${progress.stage}:${Math.floor(percentage / 10) * 10}`
+    : `${locale}:${progress.stage}`;
   if (readAnnouncement.dataset.key !== announcementKey) {
     readAnnouncement.dataset.key = announcementKey;
     readAnnouncement.textContent = localizedLabel;
@@ -993,6 +1051,52 @@ function showMovieProgress(progress: MovieProgress): void {
   if (readProgress.parentElement !== fileinfo || readAnnouncement.parentElement !== fileinfo || cancelRead.parentElement !== fileinfo) {
     fileinfo.replaceChildren(readProgress, readAnnouncement, cancelRead);
   }
+}
+
+function stopEntropyMap(): void {
+  const job = entropyJob;
+  entropyJob = null;
+  job?.controller.abort();
+}
+
+function startEntropyMap(model: FileModel): void {
+  if (model.bytes.length === 0 || model.file.entropy.length > 0) {
+    minimap.setState("ready");
+    return;
+  }
+  if (entropyJob?.model === model) return;
+  stopEntropyMap();
+
+  const controller = new AbortController();
+  const job = { model, controller };
+  entropyJob = job;
+  minimap.setState("building");
+  const isCurrent = () => entropyJob === job && workspace?.model === model;
+
+  void browserEntropy(model.bytes, DEFAULT_ENTROPY_BINS, {
+    signal: controller.signal,
+    onProgress(loaded, total) {
+      if (isCurrent()) showAnalysisProgress({ stage: "entropy", loaded, total, cancellable: true });
+    },
+  }).then((result) => {
+    if (!isCurrent() || controller.signal.aborted) return;
+    model.file.entropy = result.values;
+    model.file.entropyWindow = result.window;
+    minimap.setState("ready");
+    minimap.refresh();
+  }).catch(() => {
+    if (!isCurrent()) return;
+    minimap.setState(controller.signal.aborted ? "cancelled" : "failed");
+  }).finally(() => {
+    if (entropyJob !== job) return;
+    entropyJob = null;
+    if (workspace?.model !== model || document.body.dataset.state !== "ready") return;
+    showFileInfo(model, workspace.levels);
+    if (controller.signal.aborted) {
+      readAnnouncement.textContent = translateText("Byte map calculation was cancelled.", currentLocale());
+      $("fileinfo").append(readAnnouncement);
+    }
+  });
 }
 
 onWorkerReset(() => {
@@ -1039,6 +1143,8 @@ function startBatch(files: File[]): void {
 function showBatch(): void {
   const items = batchController.items;
   if (!items) return;
+  stopEntropyMap();
+  tools?.setActive(false);
   closePlayer();
   document.body.dataset.state = "batch";
   $("fileinfo").textContent = `${items.length} files`;
@@ -1132,6 +1238,7 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
     },
     () => {},
   );
+  startEntropyMap(m);
 }
 
 /** QR codes, looked for once the file is on screen: its card is drawn again with what they say. */
