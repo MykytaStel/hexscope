@@ -1,11 +1,16 @@
 import { themeColors } from "./canvas";
 import { onThemeChange } from "./theme";
 import { FileModel } from "./model";
+import { currentLocale, translateText } from "./i18n";
 
 export interface MinimapCallbacks {
   /** Scroll the hex view to this byte. */
   onJump(offset: number): void;
+  /** Resume a byte map whose background calculation was cancelled or failed. */
+  onBuild?(): void;
 }
+
+export type MinimapState = "building" | "ready" | "cancelled" | "failed";
 
 /** Colour stops over 0–8 bits per byte: padding, text and structure, then compressed or encrypted. */
 const STOPS: [number, string][] = [
@@ -37,12 +42,15 @@ function rgb(hex: string): [number, number, number] {
 /**
  * The whole file in one column beside the hex view: each pixel row coloured
  * by how random its bytes are, problems marked, the part on screen outlined.
- * Clicking or dragging moves the hex view there.
+ * Clicking, dragging or keyboard scrolling moves the hex view there.
  */
 export class Minimap {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly build: HTMLButtonElement;
   private model: FileModel | null = null;
+  private state: MinimapState = "ready";
+  private requestedBuild = false;
   private view: [number, number] = [0, 0];
   private selected = -1;
   private ramp: { at: number; color: [number, number, number] }[] = [];
@@ -57,15 +65,34 @@ export class Minimap {
     this.canvas = document.createElement("canvas");
     this.canvas.className = "minimap";
     this.canvas.setAttribute("role", "scrollbar");
-    this.canvas.setAttribute("aria-label", "Whole-file map by entropy: click to jump");
+    this.canvas.setAttribute("aria-label", "Whole-file map by entropy. Use arrows, Page Up/Down, Home or End to jump.");
+    this.canvas.setAttribute("aria-orientation", "vertical");
     this.canvas.setAttribute("aria-valuemin", "0");
     this.canvas.setAttribute("aria-valuemax", "100");
     this.canvas.setAttribute("aria-valuenow", "0");
+    this.canvas.tabIndex = -1;
     host.append(this.canvas);
+    this.build = document.createElement("button");
+    this.build.type = "button";
+    this.build.className = "btn minimap-action";
+    this.build.hidden = true;
+    this.build.addEventListener("click", () => {
+      this.requestedBuild = true;
+      this.cb.onBuild?.();
+    });
+    this.build.addEventListener("blur", () => {
+      if (this.state === "ready" && this.build.disabled) this.build.hidden = true;
+    });
+    host.append(this.build);
     const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D is not available");
     this.ctx = ctx;
     this.readTheme();
+    window.addEventListener("hexscope:locale", () => {
+      this.updateBuildLabel();
+      this.updateAccessibleLabel();
+      this.updateAccessibleOffset(this.view[0]);
+    });
 
     new ResizeObserver(() => this.schedule()).observe(this.canvas);
     onThemeChange(() => {
@@ -81,6 +108,7 @@ export class Minimap {
       if (this.dragging) this.jump(e);
       this.canvas.title = this.describe(this.offsetAt(e.offsetY));
     });
+    this.canvas.addEventListener("keydown", (e) => this.onKeyDown(e));
     const stop = () => (this.dragging = false);
     this.canvas.addEventListener("pointerup", stop);
     this.canvas.addEventListener("pointercancel", stop);
@@ -88,17 +116,99 @@ export class Minimap {
 
   setModel(m: FileModel | null): void {
     this.model = m;
+    this.requestedBuild = false;
     this.selected = -1;
+    this.view = [0, 0];
     this.canvas.hidden = !m || m.bytes.length === 0;
+    this.canvas.tabIndex = m && m.bytes.length > 0 ? 0 : -1;
+    this.canvas.setAttribute("aria-disabled", String(!m || m.bytes.length === 0));
+    this.updateAccessibleLabel();
+    this.updateAccessibleOffset(0);
+    this.setState(!m || m.bytes.length === 0 || m.file.entropy.length > 0 ? "ready" : "cancelled");
+    this.schedule();
+  }
+
+  setState(state: MinimapState): void {
+    const keepFocus = this.requestedBuild && this.build === document.activeElement;
+    const restoreFocus = (state === "cancelled" && this.requestedBuild)
+      || (state === "failed" && this.build === document.activeElement);
+    this.state = state;
+    const canBuild = state === "cancelled" || state === "failed";
+    const hasModel = Boolean(this.model && this.model.bytes.length > 0 && this.cb.onBuild);
+    this.build.hidden = !hasModel || (!canBuild && !keepFocus);
+    this.build.disabled = state === "building" || (state === "ready" && keepFocus);
+    this.updateBuildLabel();
+    if (state !== "building") {
+      this.requestedBuild = false;
+      if (restoreFocus) this.build.focus();
+    }
+  }
+
+  private updateBuildLabel(): void {
+    const label = this.state === "building"
+      ? "Building byte map…"
+      : this.state === "ready"
+        ? "Byte map ready"
+        : this.state === "failed"
+          ? "Try again"
+          : "Build byte map";
+    this.build.textContent = translateText(label, currentLocale());
+  }
+
+  private updateAccessibleLabel(): void {
+    this.canvas.setAttribute(
+      "aria-label",
+      translateText("Whole-file map by entropy. Use arrows, Page Up/Down, Home or End to jump.", currentLocale()),
+    );
+  }
+
+  private updateAccessibleOffset(offset: number): void {
+    const len = this.model?.bytes.length ?? 0;
+    const at = len > 0 ? Math.min(len - 1, Math.max(0, offset)) : 0;
+    this.canvas.setAttribute("aria-valuenow", String(len > 0 ? Math.round((at / len) * 100) : 0));
+    const address = `0x${at.toString(16).toUpperCase()}`;
+    const locale = currentLocale();
+    const parts = [`${translateText("Offset", locale)} ${address}`];
+    const model = this.model;
+    if (model && model.file.entropyWindow > 0) {
+      const index = Math.floor(at / model.file.entropyWindow);
+      const value = model.file.entropy[index];
+      if (value !== undefined) {
+        parts.push(`${value.toFixed(2)} ${translateText("bits per byte", locale)}: ${translateText(entropyMeaning(value), locale)}`);
+      }
+    }
+    this.canvas.setAttribute("aria-valuetext", parts.join("; "));
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    const m = this.model;
+    if (!m || m.bytes.length === 0) return;
+    const viewport = Math.max(1, this.view[1] - this.view[0]);
+    const stride = Math.max(1, Math.ceil(viewport / 10));
+    const current = Math.min(m.bytes.length - 1, Math.max(0, this.view[0]));
+    const moves: Record<string, number> = {
+      ArrowUp: -stride,
+      ArrowDown: stride,
+      PageUp: -viewport,
+      PageDown: viewport,
+      Home: -current,
+      End: m.bytes.length - 1 - current,
+    };
+    if (!Object.prototype.hasOwnProperty.call(moves, event.key)) return;
+    event.preventDefault();
+    const target = Math.min(m.bytes.length - 1, Math.max(0, current + moves[event.key]));
+    this.updateAccessibleOffset(target);
+    this.cb.onJump(target);
+  }
+
+  refresh(): void {
     this.schedule();
   }
 
   setView(start: number, end: number): void {
     if (start === this.view[0] && end === this.view[1]) return;
     this.view = [start, end];
-    // How far into the file the bytes in view are, for a screen reader.
-    const len = this.model?.bytes.length ?? 0;
-    this.canvas.setAttribute("aria-valuenow", String(len > 0 ? Math.round((start / len) * 100) : 0));
+    this.updateAccessibleOffset(start);
     this.schedule();
   }
 
@@ -129,7 +239,9 @@ export class Minimap {
   }
 
   private jump(e: PointerEvent): void {
-    this.cb.onJump(this.offsetAt(e.offsetY));
+    const offset = this.offsetAt(e.offsetY);
+    this.updateAccessibleOffset(offset);
+    this.cb.onJump(offset);
   }
 
   /** The tooltip: where, how random, and what is there. */

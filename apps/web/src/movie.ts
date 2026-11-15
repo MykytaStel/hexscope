@@ -3,6 +3,8 @@
 // rest, and the page gets the file's length of bytes with the media left
 // to read when it is looked at. A clean copy is its changed bytes with the
 // media taken from the file as it is.
+import type { AnalysisProgress } from "./analysis-progress";
+export type { AnalysisProgress } from "./analysis-progress";
 
 /** Movies past this size are read in parts. */
 export const LARGE_MOVIE = 64 * 1024 * 1024;
@@ -13,13 +15,11 @@ const HEAD = 64 * 1024;
 const RANGE_CHUNK = 1024 * 1024;
 const ENTROPY_WORKERS = 8;
 
-export type MovieProgressStage = "scan" | "ranges" | "entropy" | "parse";
+export type MovieProgressStage = "scan" | "ranges" | "parse" | "entropy";
 
-export interface MovieProgress {
+export interface MovieProgress extends AnalysisProgress {
   stage: MovieProgressStage;
-  loaded: number;
-  total: number;
-  cancellable: boolean;
+  scope: "video";
 }
 
 export interface MovieReadOptions {
@@ -86,7 +86,7 @@ function checkCancelled(signal?: AbortSignal): void {
 }
 
 function report(options: MovieReadOptions, stage: MovieProgressStage, loaded: number, total: number): void {
-  options.onProgress?.({ stage, loaded, total, cancellable: stage !== "parse" });
+  options.onProgress?.({ stage, loaded, total, cancellable: stage !== "parse", scope: "video" });
 }
 
 /** The boxes at the top of the file, up to the first that does not fit. */

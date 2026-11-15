@@ -3236,7 +3236,7 @@ test("the bytes' tools read the bytes at the cursor, hash the file and go to an 
   await page.locator(".bytetools-hash button").first().click();
   // shasum -a 256 apps/web/public/samples/photo.jpg
   await expect(page.locator(".bytetools-hash code").first()).toHaveText("935ab93bc27586f2623d30e9fcc0dd97ce645c7654a742097113ae237be6db4a");
-  await expect(page.locator(".bytetools-entropy")).toHaveAttribute("aria-label", /Entropy along the file: \d\.\d \/ 8/);
+  await expect(page.locator(".bytetools-entropy")).toHaveAttribute("aria-valuetext", /Offset 0x[0-9A-F]+ · \d\.\d+ bits per byte:/);
   await page.locator(".search-open").click();
   await page.locator("#hex-find input").fill("@0x1F0");
   await expect(page.locator(".bytetools-values h3")).toHaveText("At 0x000001F0");

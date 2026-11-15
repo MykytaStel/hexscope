@@ -6,6 +6,8 @@
 // not pay for it.
 import { el } from "./dom";
 import { currentLocale, translateText } from "./i18n";
+import { browserEntropy } from "./browser-entropy";
+import { entropyMeaning } from "./minimap";
 import type { FileModel } from "./model";
 
 /** Rows of what the bytes at an offset read as: a name, then little- and big-endian. */
@@ -100,40 +102,109 @@ export class ByteTools {
   private part: { start: number; len: number; label: string } | null = null;
   private view: [number, number] = [0, 0];
   private levels: Float32Array | null = null;
+  private entropyWindow = 0;
+  private entropyState: "idle" | "building" | "ready" | "cancelled" | "failed" = "idle";
+  private entropyJob: { model: FileModel; controller: AbortController } | null = null;
+  private active = true;
+  private restartAfterReopen = false;
   private readonly values = el("div", "bytetools-values");
   private readonly hashes = el("div", "bytetools-hashes");
   private readonly strip = el("canvas", "bytetools-entropy");
+  private readonly entropyStatus = el("p", "bytetools-entropy-status");
+  private readonly entropyProgress = el("progress", "bytetools-entropy-progress");
+  private readonly entropyAction = el("button", "btn btn-small", "Cancel entropy calculation");
 
   constructor(host: HTMLElement, private readonly hooks: ByteToolHooks) {
     const entropyBlock = el("div", "bytetools-entropy-block");
+    const entropyControls = el("div", "bytetools-entropy-controls");
+    this.entropyStatus.setAttribute("role", "status");
+    this.entropyStatus.setAttribute("aria-live", "polite");
+    this.entropyProgress.max = 100;
+    this.entropyProgress.hidden = true;
+    this.entropyAction.type = "button";
+    this.entropyAction.hidden = true;
+    this.entropyAction.addEventListener("click", () => {
+      if (this.entropyJob) {
+        this.cancelEntropy();
+      } else {
+        this.entropyState = "idle";
+        this.startEntropy();
+      }
+    });
+    entropyControls.append(this.entropyStatus, this.entropyProgress, this.entropyAction);
+    const entropyHint = el("p", "hint", "Low where bytes repeat, high where data is compressed or encrypted. Click or use arrows, Page Up/Down, Home or End to go there.");
+    entropyHint.id = "bytetools-entropy-hint";
     entropyBlock.append(
       el("h3", undefined, "Entropy along the file"),
+      entropyControls,
       this.strip,
-      el("p", "hint", "Low where bytes repeat, high where data is compressed or encrypted. Click to go there."),
+      entropyHint,
     );
-    this.strip.setAttribute("role", "img");
+    this.strip.tabIndex = 0;
+    this.strip.setAttribute("role", "slider");
+    this.strip.setAttribute("aria-label", t("Entropy along the file"));
+    this.strip.setAttribute("aria-orientation", "horizontal");
+    this.strip.setAttribute("aria-valuemin", "0");
+    this.strip.setAttribute("aria-valuemax", "0");
+    this.strip.setAttribute("aria-valuenow", "0");
+    this.strip.setAttribute("aria-describedby", entropyHint.id);
+    this.strip.addEventListener("keydown", (e) => this.onStripKeyDown(e));
     this.strip.addEventListener("click", (e) => {
-      if (!this.model) return;
+      const m = this.model;
+      if (!m || m.missing || m.bytes.length === 0) return;
       const r = this.strip.getBoundingClientRect();
-      this.hooks.jump(Math.floor(((e.clientX - r.left) / r.width) * this.model.bytes.length));
+      const position = r.width > 0 ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0;
+      this.jump(Math.floor(position * (m.bytes.length - 1)));
+    });
+    this.strip.addEventListener("pointermove", (e) => {
+      const m = this.model;
+      const r = this.strip.getBoundingClientRect();
+      if (!m || m.missing || r.width <= 0 || m.bytes.length === 0) return;
+      const position = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      this.strip.title = this.describeOffset(Math.floor(position * (m.bytes.length - 1)));
     });
     new ResizeObserver(() => this.drawStrip()).observe(this.strip);
+    window.addEventListener("hexscope:locale", () => {
+      this.updateEntropyControls();
+      this.strip.setAttribute("aria-label", t("Entropy along the file"));
+      this.strip.title = this.offset >= 0 ? this.describeOffset(this.offset) : "";
+      this.updateStripAccessibility();
+    });
     host.append(this.values, this.hashes, entropyBlock);
   }
 
   setModel(model: FileModel | null): void {
     if (model === this.model) return;
+    this.cancelEntropy();
     this.model = model;
     this.offset = model ? 0 : -1;
     this.part = null;
     this.levels = null;
+    this.entropyWindow = 0;
+    this.entropyState = "idle";
+    this.strip.title = model && !model.missing && model.bytes.length > 0 ? this.describeOffset(0) : "";
+    this.updateEntropyControls();
     this.render();
+  }
+
+  setActive(active: boolean): void {
+    if (this.active === active) return;
+    this.active = active;
+    if (!active && this.entropyJob) {
+      this.restartAfterReopen = true;
+      this.cancelEntropy();
+    } else if (active && (this.restartAfterReopen || this.entropyState === "idle")) {
+      this.restartAfterReopen = false;
+      this.entropyState = "idle";
+      this.startEntropy();
+    }
   }
 
   setOffset(offset: number): void {
     if (offset === this.offset || offset < 0) return;
     this.offset = offset;
     this.renderValues();
+    this.drawStrip();
   }
 
   setPart(start: number, len: number, label: string): void {
@@ -207,24 +278,32 @@ export class ByteTools {
     const ctx = canvas.getContext("2d");
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    if (!ctx || !m || w === 0 || m.missing) return;
+    if (!ctx) return;
+    if (!m) {
+      if (w > 0) ctx.clearRect(0, 0, w, h);
+      this.updateStripAccessibility();
+      return;
+    }
+    this.updateStripAccessibility();
+    if (w === 0) return;
     const ratio = devicePixelRatio || 1;
     canvas.width = Math.round(w * ratio);
     canvas.height = Math.round(h * ratio);
     ctx.scale(ratio, ratio);
-    this.levels ??= entropy(m.bytes, 400);
+    ctx.clearRect(0, 0, w, h);
     const css = getComputedStyle(document.documentElement);
     const accent = css.getPropertyValue("--accent").trim() || "#2563eb";
     const muted = css.getPropertyValue("--border").trim() || "#888";
-    ctx.clearRect(0, 0, w, h);
     const levels = this.levels;
-    const bar = w / levels.length;
-    for (let i = 0; i < levels.length; i++) {
-      const level = levels[i] / 8;
-      ctx.fillStyle = level > 0.9 ? accent : muted;
-      ctx.globalAlpha = 0.35 + 0.65 * level;
-      const bh = Math.max(1, level * h);
-      ctx.fillRect(i * bar, h - bh, Math.max(1, bar), bh);
+    if (levels?.length) {
+      const bar = w / levels.length;
+      for (let i = 0; i < levels.length; i++) {
+        const level = levels[i] / 8;
+        ctx.fillStyle = level > 0.9 ? accent : muted;
+        ctx.globalAlpha = 0.35 + 0.65 * level;
+        const bh = Math.max(1, level * h);
+        ctx.fillRect(i * bar, h - bh, Math.max(1, bar), bh);
+      }
     }
     ctx.globalAlpha = 1;
     // Where the bytes on screen are.
@@ -234,8 +313,156 @@ export class ByteTools {
       const x = (start / m.bytes.length) * w;
       ctx.strokeRect(x + 0.5, 0.5, Math.max(2, ((end - start) / m.bytes.length) * w) - 1, h - 1);
     }
-    const mean = levels.reduce((a, b) => a + b, 0) / levels.length;
-    canvas.setAttribute("aria-label", `${t("Entropy along the file")}: ${mean.toFixed(1)} / 8`);
+    if (!m.missing && m.bytes.length > 0) {
+      const cursorX = Math.min(w - 1, Math.floor((Math.max(0, this.offset) / m.bytes.length) * w));
+      ctx.fillStyle = accent;
+      ctx.fillRect(cursorX, 0, 1, h);
+    }
+    if (m.missing || m.bytes.length === 0 || !levels?.length) {
+      if (this.active && !m.missing && m.bytes.length > 0 && this.entropyState === "idle") this.startEntropy();
+      return;
+    }
+    this.updateStripAccessibility();
+  }
+
+  private startEntropy(): void {
+    const model = this.model;
+    if (!this.active || !model || model.missing || model.bytes.length === 0 || this.levels || this.entropyJob) return;
+    const controller = new AbortController();
+    const job = { model, controller };
+    this.entropyJob = job;
+    this.entropyState = "building";
+    this.entropyProgress.value = 0;
+    this.updateEntropyControls();
+    this.updateStripAccessibility();
+    void browserEntropy(model.bytes, 400, {
+      signal: controller.signal,
+      minimumWindow: 1,
+      maxSampleBytes: SAMPLE,
+      onProgress: (loaded, total) => {
+        if (this.entropyJob !== job) return;
+        this.entropyProgress.value = Math.min(100, Math.floor((loaded / Math.max(1, total)) * 100));
+      },
+    }).then((result) => {
+      if (this.entropyJob !== job || this.model !== model || controller.signal.aborted) return;
+      this.levels = result.values;
+      this.entropyWindow = result.window;
+      this.entropyState = "ready";
+      this.drawStrip();
+    }).catch(() => {
+      if (this.entropyJob !== job) return;
+      this.entropyState = controller.signal.aborted ? "cancelled" : "failed";
+    }).finally(() => {
+      if (this.entropyJob !== job) return;
+      this.entropyJob = null;
+      this.updateEntropyControls();
+      this.updateStripAccessibility();
+    });
+  }
+
+  private cancelEntropy(): void {
+    const job = this.entropyJob;
+    if (!job) return;
+    this.entropyJob = null;
+    job.controller.abort();
+    this.entropyState = "cancelled";
+    this.updateEntropyControls();
+    this.updateStripAccessibility();
+  }
+
+  private updateEntropyControls(): void {
+    const model = this.model;
+    const building = this.entropyState === "building";
+    const moveFocusToGraph = this.entropyState === "ready" && this.entropyAction === document.activeElement;
+    const unavailable = !model || model.missing !== null || model.bytes.length === 0;
+    this.entropyProgress.hidden = !building;
+    this.entropyProgress.setAttribute("aria-label", t("Entropy calculation progress"));
+    this.entropyAction.hidden = unavailable
+      || this.entropyState === "idle" || this.entropyState === "ready";
+    this.entropyAction.disabled = building && !this.entropyJob;
+    this.entropyAction.textContent = t(building ? "Cancel entropy calculation" : "Try again");
+    if (moveFocusToGraph) this.strip.focus();
+    const message = this.entropyState === "building"
+      ? "Calculating entropy…"
+      : this.entropyState === "cancelled"
+        ? "Entropy calculation was cancelled."
+        : this.entropyState === "failed"
+          ? "Could not calculate entropy."
+          : model?.missing
+            ? "Entropy is unavailable for this file."
+            : "";
+    this.entropyStatus.textContent = t(message);
+    this.entropyStatus.hidden = !message;
+  }
+
+  private jump(offset: number): void {
+    const m = this.model;
+    if (!m || m.missing || m.bytes.length === 0) return;
+    const target = Math.min(m.bytes.length - 1, Math.max(0, offset));
+    this.offset = target;
+    this.renderValues();
+    this.drawStrip();
+    this.hooks.jump(target);
+  }
+
+  private onStripKeyDown(event: KeyboardEvent): void {
+    const m = this.model;
+    if (!m || m.missing || m.bytes.length === 0) return;
+    const stride = Math.max(1, Math.ceil(m.bytes.length / (this.levels?.length || 400)));
+    const current = Math.max(0, this.offset);
+    const moves: Record<string, number> = {
+      ArrowLeft: -stride,
+      ArrowRight: stride,
+      ArrowUp: -stride * 10,
+      ArrowDown: stride * 10,
+      PageUp: -stride * 40,
+      PageDown: stride * 40,
+      Home: -current,
+      End: m.bytes.length - 1 - current,
+    };
+    const move = Object.prototype.hasOwnProperty.call(moves, event.key) ? moves[event.key] : undefined;
+    if (move === undefined) return;
+    event.preventDefault();
+    this.jump(current + move);
+  }
+
+  private describeOffset(offset: number): string {
+    const m = this.model;
+    const lines = [`${t("Offset")} ${hex(offset, 8)}`];
+    if (!m || !this.levels?.length || this.entropyWindow <= 0) return lines.join(" · ");
+    const index = Math.min(this.levels.length - 1, Math.floor(offset / this.entropyWindow));
+    const h = this.levels[index];
+    if (h !== undefined) lines.push(`${h.toFixed(2)} ${t("bits per byte")}: ${t(entropyMeaning(h))}`);
+    return lines.join(" · ");
+  }
+
+  private updateStripAccessibility(): void {
+    const m = this.model;
+    if (!m) {
+      this.strip.tabIndex = -1;
+      this.strip.setAttribute("aria-disabled", "true");
+      this.strip.setAttribute("aria-valuemax", "0");
+      this.strip.setAttribute("aria-valuenow", "0");
+      this.strip.removeAttribute("aria-valuetext");
+      return;
+    }
+    const available = !m.missing && m.bytes.length > 0;
+    this.strip.tabIndex = available ? 0 : -1;
+    this.strip.setAttribute("aria-disabled", String(!available));
+    if (!available) {
+      this.strip.setAttribute("aria-valuemax", "0");
+      this.strip.setAttribute("aria-valuenow", "0");
+      this.strip.setAttribute("aria-valuetext", t("Entropy is unavailable for this file."));
+      return;
+    }
+    const maximum = Math.max(0, m.bytes.length - 1);
+    const offset = Math.min(maximum, Math.max(0, this.offset));
+    this.strip.setAttribute("aria-valuemax", String(maximum));
+    this.strip.setAttribute("aria-valuenow", String(offset));
+    const description = this.describeOffset(offset);
+    this.strip.setAttribute("aria-valuetext", this.entropyState === "building"
+      ? `${description} · ${t("Entropy calculation in progress")}`
+      : description);
   }
 }
 

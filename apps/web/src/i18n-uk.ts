@@ -1521,6 +1521,14 @@ function translateText(value: string, locale: Locale): string {
     return `${mine} ${translateRevealList(match[2])}. Перевірено в браузері за допомогою hexscope, нічого не завантажувалося: ${match[3]}`;
   }
   // Opening, the views' captions and the sentence under "What it's made of".
+  if (value === "Build byte map") return "Побудувати карту байтів";
+  if (value === "Building byte map…") return "Будуємо карту байтів…";
+  if (value === "Byte map ready") return "Карта байтів готова";
+  if (value === "File analysis progress") return "Прогрес аналізу файла";
+  if (value === "Loading format reader…") return "Завантажуємо засіб читання формату…";
+  if (value === "Analyzing file structure…") return "Аналізуємо структуру файла…";
+  if (value === "Preparing findings…") return "Готуємо знахідки…";
+  if (value === "Byte map calculation was cancelled.") return "Побудову карти байтів скасовано.";
   if (value === "Parsing video metadata…") return "Розбираємо метадані відео…";
   if (value === "Video read progress") return "Прогрес читання відео";
   if (value === "This movie has too many top-level boxes to inspect safely.") {
@@ -1533,6 +1541,10 @@ function translateText(value: string, locale: Locale): string {
     const phase = { structure: "структуру", metadata: "метадані", "byte map": "карту байтів" }[match[1]];
     return `Читаємо ${phase} відео: ${match[2]}%`;
   }
+  match = /^Reading file: (\d+)%$/.exec(value);
+  if (match) return `Читаємо файл: ${match[1]}%`;
+  match = /^Building byte map: (\d+)%$/.exec(value);
+  if (match) return `Будуємо карту байтів: ${match[1]}%`;
   if (value === "Reading was cancelled.") return "Читання скасовано.";
   match = /^(.+?) · (\d+(?:\.\d+)?) (B|KB|MB|GB)$/.exec(value);
   if (match) return `${translateText(match[1], locale)} · ${size(match[2], match[3])}`;

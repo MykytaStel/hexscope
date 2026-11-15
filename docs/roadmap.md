@@ -49,7 +49,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.18.0 | Verified WAV cleaning and deeper format inspection | shipped 2026-11-10 |
 | 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | shipped 2026-11-11 |
 | 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | shipped 2026-11-15 |
-| 0.21.0 | Faster, more responsive analysis in the browser | planned |
+| 0.21.0 | Faster, more responsive analysis in the browser | shipped 2026-11-15; physical-device and browser memory measurements remain open |
 | 0.22.0 | A focused redesign of the file results and inspectors | planned |
 | 0.23.0 | A guided, interactive file exploration workbench | planned |
 | 0.24.0 | Make learning and return visits rewarding, privately | planned |
@@ -586,7 +586,7 @@ on PNG, PDF and DOCX should precede any browser-specific performance claim and
 should also check parser outputs, errors, coverage states, worker limits and
 read-back budgets.
 
-### 0.21.0 — responsive browser analysis (planned)
+### 0.21.0 — responsive browser analysis (shipped 2026-11-15)
 
 Make large-file analysis feel active and predictable in the existing local
 browser app: show staged progress, allow cancellation where the worker can
@@ -598,6 +598,27 @@ set limits. Do not imply complete coverage before a parser finishes.
 **Done when:** desktop and available physical mobile checks have recorded
 open-to-first-finding, open-to-ready, peak memory, cancellation and recovery;
 existing size limits and explicit partial/unsupported states remain intact.
+
+The release reports reading, reader loading, parsing and
+finding-preparation stages. Whole-file reads yield between 4 MiB chunks so
+they can report byte progress and accept cancellation between reads. The
+parser and findings still arrive together, then the ordinary-file byte map
+builds in cancellable idle slices while the result is already usable. This
+also removes the separate full-input entropy call from the parser worker for
+those files. Automated desktop and emulated-phone end-to-end checks pass.
+Browser timing, peak memory and physical-device behavior were not measured
+for this release, so it makes no browser-specific performance claim; those
+measurements remain open follow-up work.
+
+The optional byte-tools panel also computes its 400-region entropy strip in
+the background, in short slices, with progress, cancel and retry. It retains
+the previous bounded sample per region. The strip now works with the keyboard
+as well as pointer input and reports the current offset and entropy to assistive
+technology. Its histogram reuses one counter buffer rather than allocating a
+new one for each region. Closing the optional panel or leaving the Bytes view
+stops its work; reopening the panel in Bytes starts a fresh calculation.
+The main whole-file map is also keyboard-operable now: arrows move through the
+file, Page Up/Down move faster, and Home/End jump to its boundaries.
 
 ### 0.22.0 — focused results redesign (planned)
 
