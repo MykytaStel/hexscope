@@ -57,7 +57,7 @@ export function pdfNavigator(
   openAttachment: (index: number) => void,
   focusPageTools: () => void,
 ): HTMLElement {
-  const section = el("section", "pdf-navigator");
+  const section = el("section", "pdf-navigator result-inspector");
   section.append(
     el("h2", undefined, tr("PDF navigator")),
     el("p", "hint pdf-nav-intro", tr("Page text, supported pictures, parser findings and their source objects are kept together. Text inspection does not include OCR.")),

@@ -48,6 +48,54 @@ const METADATA_GROUPS: { key: MetadataGroupKey; title: string }[] = [
 ];
 
 type VerdictKind = ReturnType<typeof verdict>[number]["kind"];
+type VerdictGroupKey = "action" | "personal" | "notes" | "health";
+
+const VERDICT_GROUPS: Record<VerdictGroupKey, string> = {
+  action: "Check before opening or sharing",
+  personal: "Review before sharing",
+  notes: "Coverage and format notes",
+  health: "File health",
+};
+
+const COVERAGE_DESCRIPTIONS: Record<"complete" | "partial" | "unsupported", string> = {
+  complete: "The parser read the structures this format supports.",
+  partial: "The parser could not read all supported structures; there may be more findings.",
+  unsupported: "No format-aware parser could read this file; only byte-level details and signature clues are shown.",
+};
+
+function coverageDescription(m: FileModel): string {
+  const f = m.file;
+  if (f.coverageStatus === "complete" && (f.missing.length > 0 || f.metadataComplete === false)) {
+    return "The parser read supported structures, but some file data or metadata remains unchecked.";
+  }
+  return COVERAGE_DESCRIPTIONS[f.coverageStatus];
+}
+
+function verdictGroupFor(kind: VerdictKind): VerdictGroupKey {
+  if (kind === "damage" || kind === "misnamed" || kind === "hidden") return "action";
+  if (kind === "reveals") return "personal";
+  if (kind === "healthy") return "health";
+  return "notes";
+}
+
+function makeVerdictGroup(key: VerdictGroupKey): HTMLElement {
+  const group = el("section", "verdict-group");
+  group.dataset.verdictGroup = key;
+  group.id = `verdict-group-${key}`;
+  const title = el("h3", "verdict-group-title", translateText(VERDICT_GROUPS[key], currentLocale()));
+  title.tabIndex = -1;
+  group.append(title);
+  group.append(el("ul", "verdict-lines"));
+  return group;
+}
+
+function refreshVerdictIndex(findings: HTMLElement): void {
+  void import("./result-navigation")
+    .then(({ refreshVerdictIndex: refresh }) => {
+      if (findings.isConnected) refresh(findings);
+    })
+    .catch(() => undefined);
+}
 
 function loadingStatus(className: string, message: string): HTMLElement {
   const status = el("p", `hint ${className}`, translateText(message, currentLocale()));
@@ -148,7 +196,7 @@ export class Drawer {
   constructor(
     host: HTMLElement,
     private readonly onSelect: (id: number) => void,
-    private readonly onSelectRange: (start: number, len: number) => void,
+    private readonly onSelectRange: (start: number, len: number, selectPart?: boolean) => void,
     private readonly onPlay: (entry: number) => void,
     private readonly onOpen: (entry: number) => void,
     private readonly onHover: (id: number) => void,
@@ -225,7 +273,8 @@ export class Drawer {
     answerArea.append(answer);
     // A photo, a video or a PDF always gets the card, if only to say it gives
     // nothing away; an archive only when it is a document with properties.
-    if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0) {
+    const incompleteRead = f.coverageStatus !== "complete" || f.missing.length > 0 || f.metadataComplete === false;
+    if (!["zip", "cfb", "unknown"].includes(f.format) || f.facts.length > 0 || incompleteRead) {
       flow.append(this.reveals(m));
     }
     const documentPackage = f.format === "zip" && (
@@ -256,10 +305,37 @@ export class Drawer {
       const cta = el("button", "btn btn-primary verdict-cta", "Remove it — save a clean copy");
       cta.title = clean.title;
       clean.classList.add("is-echo");
+      const cleaner = clean.closest<HTMLElement>(".cleaner");
+      let started = false;
       cta.addEventListener("click", () => {
+        if (started) return;
+        started = true;
+        cta.setAttribute("aria-disabled", "true");
+        cta.textContent = translateText("Making the copy…", currentLocale());
+        if (cleaner) {
+          const outcome = () => {
+            const retry = cleaner.querySelector<HTMLButtonElement>(".btn-clean:not([hidden])");
+            const message = cleaner.querySelector<HTMLElement>(".clean-done, .problem");
+            const target = retry ?? message;
+            if (!target) return;
+            const restoreFocus = document.activeElement === cta;
+            cta.hidden = true;
+            if (restoreFocus) {
+              if (target === message) target.tabIndex = -1;
+              target.focus({ preventScroll: true });
+            }
+            observer.disconnect();
+          };
+          const observer = new MutationObserver(outcome);
+          observer.observe(cleaner, { childList: true, subtree: true });
+          clean.click();
+          cleaner.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+          outcome();
+          return;
+        }
         clean.click();
         cta.hidden = true;
-        clean.closest(".cleaner")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        cta.closest(".cleaner")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       });
       // A picture can also go straight to a chat: copied clean, no file at all.
       const copy = copyPictureButton(m);
@@ -270,7 +346,12 @@ export class Drawer {
         otherWays.append(el("summary", undefined, "Other ways"), copy);
         row.append(otherWays);
       }
-      answer.querySelector(".verdict-lines")?.after(row);
+      const findings = answer.querySelector<HTMLElement>(".verdict-findings");
+      const actionAnchor = findings?.querySelector<HTMLElement>('.verdict-group[data-verdict-group="personal"]')
+        ?? findings?.querySelector<HTMLElement>('.verdict-group[data-verdict-group="action"]')
+        ?? findings?.querySelector<HTMLElement>(".verdict-group");
+      if (actionAnchor) actionAnchor.after(row);
+      else findings?.append(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf") {
@@ -313,7 +394,7 @@ export class Drawer {
             (page) => this.pictureState(m, page),
             (node) => this.onSelect(node),
             (entry) => this.onOpen(entry),
-            () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            () => flow.querySelector<HTMLElement>(".redactor")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }),
           ));
         })
         .catch(() => {
@@ -358,14 +439,9 @@ export class Drawer {
 
     const fileGroup = el("div", "group");
     fileGroup.append(el("h2", undefined, "File"));
-    const coverageText = {
-      complete: "The parser read the structures this format supports.",
-      partial: "The parser could not read all supported structures; there may be more findings.",
-      unsupported: "No format-aware parser could read this file; only byte-level details and signature clues are shown.",
-    }[f.coverageStatus];
-    const coverage = el("p", f.coverageStatus === "complete" ? "hint coverage-status" : "problem is-warning coverage-status", coverageText);
+    const coverage = el("p", f.coverageStatus === "complete" ? "hint coverage-status" : "problem is-warning coverage-status", translateText(coverageDescription(m), currentLocale()));
     coverage.dataset.status = f.coverageStatus;
-    coverage.setAttribute("role", "status");
+    coverage.tabIndex = -1;
     fileGroup.append(coverage);
     const grid = el("dl", "facts");
     fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
@@ -546,10 +622,21 @@ export class Drawer {
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     intro.append(title);
+    const coverage = el("p", "hint verdict-coverage", translateText(coverageDescription(m), currentLocale()));
+    coverage.id = "analysis-coverage-description";
+    coverage.dataset.status = m.file.coverageStatus === "unsupported"
+      ? "unsupported"
+      : m.file.coverageStatus !== "complete" || m.file.missing.length > 0 || m.file.metadataComplete === false
+        ? "partial"
+        : "complete";
+    coverage.tabIndex = -1;
+    intro.append(coverage);
     if (m.file.coverageStatus !== "complete" || m.file.missing.length > 0 || m.file.metadataComplete === false) {
-      intro.append(el("p", "hint verdict-unchecked", currentLocale() === "uk"
+      const unchecked = el("p", "hint verdict-unchecked", currentLocale() === "uk"
         ? "Не все перевірено: повноту читання та непрочитані частини показано в доказах нижче."
-        : "Not everything was checked: read coverage and unread parts are listed in the evidence below."));
+        : "Not everything was checked: read coverage and unread parts are listed in the evidence below.");
+      unchecked.tabIndex = -1;
+      intro.append(unchecked);
     }
     if ((m.source?.size ?? m.bytes.length) > 10 * 1024 * 1024) {
       intro.append(el("p", "hint", currentLocale() === "uk"
@@ -560,10 +647,17 @@ export class Drawer {
     if (noun(m) === "email" && head.tone === "danger") {
       intro.append(el("p", "verdict-do", "Do not reply, open its files or follow its links. If it matters, ask the sender another way — a number or address you already have."));
     }
-    const list = el("ul", "verdict-lines");
+    const grouped = new Map<VerdictGroupKey, HTMLElement>();
     for (const line of verdict(m)) {
+      const key = verdictGroupFor(line.kind);
+      let section = grouped.get(key);
+      if (!section) {
+        section = makeVerdictGroup(key);
+        grouped.set(key, section);
+      }
+      const list = section.querySelector<HTMLUListElement>(".verdict-lines")!;
       const li = el("li", `verdict-line is-${line.kind}`);
-      li.append(el("span", "verdict-kind", VERDICT_KIND_LABELS[line.kind]));
+      li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[line.kind], currentLocale())));
       li.append(el("span", "verdict-text", line.text));
       // A file not read has no part to show.
       if (line.node >= 0 && line.kind !== "unknown") {
@@ -574,7 +668,11 @@ export class Drawer {
       }
       list.append(li);
     }
-    findings.append(list);
+    for (const key of ["action", "personal", "notes", "health"] as const) {
+      const section = grouped.get(key);
+      if (section) findings.append(section);
+    }
+    refreshVerdictIndex(findings);
     group.append(intro, findings);
     // What the structure leaves over — data after the end, a gap — may be a
     // whole file of its own: say which, and open it.
@@ -1093,7 +1191,7 @@ export class Drawer {
       jump.addEventListener("click", () => {
         const details = section.querySelector<HTMLDetailsElement>("details");
         if (details) details.open = true;
-        section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        section.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
         section.querySelector<HTMLButtonElement>(".reveal-link")?.focus({ preventScroll: true });
       });
       metadataSummary.append(jump);
@@ -1204,17 +1302,28 @@ export class Drawer {
 
   /** A finding that arrives after the verdict is drawn, placed by how much it matters. */
   private addVerdict(kind: "hidden", text: string, node: number): void {
-    const list = this.file.querySelector(".verdict-lines");
+    const findings = this.file.querySelector<HTMLElement>(".verdict-findings");
+    if (!findings) return;
+    let actionGroup = findings.querySelector<HTMLElement>('.verdict-group[data-verdict-group="action"]');
+    if (!actionGroup) {
+      actionGroup = makeVerdictGroup("action");
+      const index = findings.querySelector<HTMLElement>(".verdict-index");
+      if (index) index.after(actionGroup);
+      else findings.prepend(actionGroup);
+    }
+    const list = actionGroup.querySelector<HTMLUListElement>(".verdict-lines");
     if (!list) return;
     const li = el("li", `verdict-line is-${kind}`);
+    li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[kind], currentLocale())));
     li.append(el("span", "verdict-text", text));
-    const show = el("button", "verdict-show", "Show me");
+    const show = el("button", "verdict-show", translateText("Show me", currentLocale()));
+    show.type = "button";
     show.addEventListener("click", () => this.onSelect(node));
     li.append(show);
     // As the verdict itself does: "looks healthy" only when nothing is hidden.
-    list.querySelector(".is-healthy")?.remove();
-    const after = [...list.children].find((x) => !x.matches(".is-damage, .is-hidden"));
-    list.insertBefore(li, after ?? null);
+    findings.querySelector(".is-healthy")?.closest(".verdict-group")?.remove();
+    list.prepend(li);
+    refreshVerdictIndex(findings);
   }
 
   /** Shares what kinds of thing the file gives away, and nothing of what they are. */
@@ -1409,7 +1518,7 @@ export class Drawer {
       if (!this.node.contains(traceGroup)) return;
       traceGroup.replaceWith(archiveTraceView(m, i, {
         nested: this.nested,
-        onSelectRange: this.onSelectRange,
+        onSelectRange: (start, len) => this.onSelectRange(start, len, false),
         onPlay: this.onPlay,
         onOpen: this.onOpen,
       }));

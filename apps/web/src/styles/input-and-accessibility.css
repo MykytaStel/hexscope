@@ -123,7 +123,9 @@ details[open] > summary::before {
   }
 
   .verdict-line,
+  .verdict-index-link,
   .tag,
+  .file-coverage,
   .problems,
   .location-badge,
   .door,
@@ -133,9 +135,14 @@ details[open] > summary::before {
   }
 
   .verdict-line::before,
+  .file-coverage-dot,
   .problems::before {
     forced-color-adjust: none;
     background: CanvasText;
+  }
+
+  .verdict-coverage {
+    border-inline-start-color: CanvasText;
   }
 
   /* A page drawn to black out, and a picture's boxes: black is the point. */
@@ -152,6 +159,7 @@ details[open] > summary::before {
    stay part of it. */
 @media (pointer: coarse) {
   .verdict-show,
+  .file-coverage,
   .blackout-toggle,
   .report-link,
   .compare-pick,
@@ -162,6 +170,10 @@ details[open] > summary::before {
     min-height: 32px;
     display: inline-flex;
     align-items: center;
+  }
+
+  .file-coverage {
+    min-height: 44px;
   }
 
   .drawer-file summary {
@@ -182,6 +194,7 @@ details[open] > summary::before {
   .pdf-nav-image-check,
   .pdf-nav-tools,
   .photo-property-link,
+  .verdict-index-link,
   .evidence-filter,
   .evidence-unchecked-link {
     min-height: 44px;

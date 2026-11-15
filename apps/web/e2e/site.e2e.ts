@@ -555,6 +555,73 @@ test("analyzer navigation exposes and switches between workspace views", async (
   await expect(page.locator("dialog.compare")).toBeVisible();
 });
 
+test("file coverage status returns from bytes to the first unchecked evidence", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles(new URL("./fixtures/incomplete-form.pdf", import.meta.url).pathname);
+  await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const status = page.locator(".fileinfo .file-coverage");
+  await expect(status).toHaveAttribute("data-status", "partial");
+  await expect(status).toHaveAccessibleName("Стан аналізу: перевірено частково · Частково");
+  await openBytes(page);
+  await expect(status).toBeVisible();
+  await status.click();
+
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
+  const unchecked = page.locator(".evidence-unchecked-link").first();
+  await expect(unchecked).toBeFocused();
+  await unchecked.click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  await expect(page.locator("#hex")).toBeVisible();
+});
+
+test("file coverage status distinguishes complete, partial and unsupported reads", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const status = page.locator(".fileinfo .file-coverage");
+
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(status).toHaveAttribute("data-status", "complete");
+  await expect(status).toHaveAccessibleName("Стан аналізу: прочитано повністю · Читано");
+
+  await page.goto("./?sample=broken.png");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(status).toHaveAttribute("data-status", "partial");
+
+  await home(page);
+  await page.locator("#picker-empty").setInputFiles({
+    name: "unknown.bin",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from([1, 2, 3, 4]),
+  });
+  await expect(page.locator(".verdict-title")).toBeVisible();
+  await expect(status).toHaveAttribute("data-status", "unsupported");
+  await expect(status).toHaveAccessibleName("Стан аналізу: парсера формату немає · Без парсера");
+});
+
+test("finding group index focuses the matching section", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  await page.goto("./?sample=photo.jpg");
+  await expect(page.locator(".verdict-title")).toBeVisible();
+
+  const index = page.locator(".verdict-index");
+  await expect(index).toBeVisible();
+  const personal = index.locator('[data-verdict-group="personal"]');
+  await expect(personal).toBeVisible();
+  await personal.click();
+  await expect(page.locator("#verdict-group-personal > .verdict-group-title")).toBeFocused();
+});
+
 test("desktop bytes workspace keeps structure labels readable", async ({ page }, info) => {
   test.skip(info.project.name !== "computer", "wide analyzer panes are checked on desktop");
   await page.addInitScript(() => {

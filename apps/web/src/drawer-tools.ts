@@ -12,7 +12,7 @@ export function pdfRedactorPlaceholder(
   picturesOf: (page: number) => Promise<Shown[]>,
   pictureState: (page: number) => "loading" | "loaded" | "failed",
 ): HTMLElement {
-  const group = el("div", "group redactor");
+  const group = el("div", "group redactor result-inspector");
   const status = el("p", "hint", translateText("Loading PDF tools…", currentLocale()));
   status.setAttribute("role", "status");
   group.setAttribute("aria-busy", "true");

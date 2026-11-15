@@ -39,7 +39,7 @@ export function photoInspector(m: FileModel, select: (node: number) => void): HT
   const f = m.file;
   if (!PHOTO_FORMATS.has(f.format)) return null;
 
-  const section = el("section", "photo-inspector");
+  const section = el("section", "photo-inspector result-inspector");
   section.append(el("h3", undefined, "Image properties"));
   section.append(el("p", "hint photo-inspector-hint", "Visible image properties are separate from metadata and privacy findings below."));
   const list = el("dl", "photo-property-list");

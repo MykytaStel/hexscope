@@ -565,7 +565,7 @@ body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .evidence
 /* Content is its own focused page: show what the file contains, without
    repeating the verdict, metadata table, cleanup advice, or technical map. */
 body[data-state="ready"][data-app-view="content"] .drawer-file > :not(.overview-flow),
-body[data-state="ready"][data-app-view="content"] .overview-flow > :not(.reveals),
+body[data-state="ready"][data-app-view="content"] .overview-flow > :not(.reveals, .document-map, .document-map-loading, .pdf-navigator, .pdf-navigator-loading, .film-scan-card),
 body[data-state="ready"][data-app-view="content"] .reveals > .metadata-groups,
 body[data-state="ready"][data-app-view="content"] .reveals > .cleaner,
 body[data-state="ready"][data-app-view="content"] .reveals > .blackout-open,

@@ -70,7 +70,7 @@ export function documentMap(
   const kind = packageKind(m);
   if (!kind && !["office97", "rtf"].includes(m.file.format)) return null;
 
-  const section = el("section", "document-map");
+  const section = el("section", "document-map result-inspector");
   section.append(el("h2", undefined, tr("Document map")));
   if (!kind) {
     const text = m.file.format === "office97"

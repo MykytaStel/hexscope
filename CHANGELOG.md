@@ -11,6 +11,38 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.22.0] — 2026-11-15
+
+### Changed
+
+- **See the read status beside the file name.** The header distinguishes a
+  complete supported-format read, a partial check and a file with no format
+  parser. Select the status to jump to the explanation and any unchecked
+  areas.
+- **Scan findings by what to do next.** The summary separates issues to check
+  before opening or sharing, personal information, and coverage or format
+  notes. A compact index jumps between groups. Incomplete checks open on their
+  unchecked evidence, and new asynchronous findings appear in the right group.
+  Each finding still leads to its source in the structure or bytes.
+- **Read format inspectors as one result screen.** Metadata, document maps,
+  PDF tools, photo scan clues, HEIF/AVIF maps and technical details now share
+  a card hierarchy, spacing scale and responsive layout while keeping their
+  format-specific controls.
+- **Make the Content view show file content.** PDF page navigation, office
+  document maps and visual photo-scan clues stay available in that view, and
+  navigation scrolls directly to the relevant inspector while it loads. Map
+  view similarly targets its loading or ready file map.
+- **Make evidence filtering easier to trust and use.** Category counts include
+  the file properties they represent, empty filters cannot be selected, and
+  screen readers hear how many results remain after a search or filter change.
+- **Keep byte evidence reachable on phones.** Following a finding to a byte
+  range selects its containing part as well as the range, so the mobile
+  inspector opens with the matching file context.
+- **Keep clean-copy focus on the result.** The primary action reports its
+  in-progress state, respects reduced motion, and moves keyboard focus to the
+  completed result or retry action when it finishes. Workspace navigation
+  also skips animated scrolling when reduced motion is enabled.
+
 ## [0.21.0] — 2026-11-15
 
 ### Changed
@@ -996,7 +1028,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/MykytaStel/hexscope/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...v0.19.0

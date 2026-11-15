@@ -32,7 +32,7 @@ const EDGE_LABELS: Record<FilmScanEdge, string> = {
 
 /** Render the evidence separately from metadata and avoid implying film provenance. */
 export function filmScanCard(result: FilmScanReport, model: FileModel): HTMLElement {
-  const card = el("section", "group film-scan-card");
+  const card = el("section", "group film-scan-card result-inspector");
   card.setAttribute("aria-label", "Film-scan clues");
   card.setAttribute("aria-live", "polite");
   card.dataset.state = result.availability === "inspected" ? "complete" : "unavailable";

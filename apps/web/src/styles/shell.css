@@ -151,6 +151,71 @@
   text-overflow: ellipsis;
 }
 
+.file-coverage {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: 650 12px/1 var(--font);
+  cursor: pointer;
+}
+
+.file-coverage:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.file-coverage:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.file-coverage-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.file-coverage-compact {
+  display: none;
+}
+
+.file-coverage[data-status="complete"] {
+  color: var(--ok-text);
+}
+
+.file-coverage[data-status="partial"] {
+  color: var(--warning-text);
+}
+
+.file-coverage[data-status="unsupported"] {
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .file-coverage {
+    gap: 5px;
+    padding-inline: 7px;
+    font-size: 11px;
+  }
+
+  .file-coverage-full {
+    display: none;
+  }
+
+  .file-coverage-compact {
+    display: inline;
+  }
+}
+
 .problems {
   height: 32px;
   padding: 0 12px 0 10px;
