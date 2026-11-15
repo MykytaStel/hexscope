@@ -48,7 +48,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.17.0 | Source-linked inspectors across file families, plus bounded WAV inspection | shipped 2026-11-09 |
 | 0.18.0 | Verified WAV cleaning and deeper format inspection | shipped 2026-11-10 |
 | 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | shipped 2026-11-11 |
-| 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | release preparation |
+| 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | shipped 2026-11-15 |
 | 0.21.0 | Faster, more responsive analysis in the browser | planned |
 | 0.22.0 | A focused redesign of the file results and inspectors | planned |
 | 0.23.0 | A guided, interactive file exploration workbench | planned |
