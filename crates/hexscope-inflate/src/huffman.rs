@@ -3,14 +3,24 @@ use crate::bits::BitReader;
 use crate::explain::CodeGroup;
 
 pub const MAX_BITS: usize = 15;
+const LOOKUP_BITS: usize = 9;
+const LOOKUP_SIZE: usize = 1 << LOOKUP_BITS;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct LookupEntry {
+    symbol: u16,
+    code: u16,
+    bits: u8,
+}
 
 /// A canonical Huffman code stored as symbol counts per length plus symbols in
-/// canonical order — the decode walks lengths instead of building a tree, which
-/// keeps construction cheap and allocation-free per symbol.
+/// canonical order. A 9-bit prefix table handles common short codes; longer
+/// codes use the original bounded length walk.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Huffman {
     counts: [u16; MAX_BITS + 1],
     symbols: Vec<u16>,
+    lookup: Vec<LookupEntry>,
 }
 
 impl Huffman {
@@ -50,7 +60,36 @@ impl Huffman {
             }
         }
 
-        Ok(Self { counts, symbols })
+        let mut first_code = [0u16; MAX_BITS + 1];
+        for len in 1..=MAX_BITS {
+            first_code[len] = (first_code[len - 1] + counts[len - 1]) << 1;
+        }
+        let mut next_code = first_code;
+        let mut lookup = vec![LookupEntry::default(); LOOKUP_SIZE];
+        for (symbol, &len) in lengths.iter().enumerate() {
+            let len = len as usize;
+            if len == 0 {
+                continue;
+            }
+            let code = next_code[len];
+            next_code[len] += 1;
+            if len <= LOOKUP_BITS {
+                let suffixes = 1 << (LOOKUP_BITS - len);
+                let start = (code as usize) << (LOOKUP_BITS - len);
+                let entry = LookupEntry {
+                    symbol: symbol as u16,
+                    code,
+                    bits: len as u8,
+                };
+                lookup[start..start + suffixes].fill(entry);
+            }
+        }
+
+        Ok(Self {
+            counts,
+            symbols,
+            lookup,
+        })
     }
 
     pub fn decode(&self, br: &mut BitReader) -> Result<u16, InflateError> {
@@ -60,6 +99,14 @@ impl Huffman {
     /// Like [`decode`](Self::decode), also returning the code as the loop
     /// assembled it — most significant bit first — and its length.
     pub fn decode_traced(&self, br: &mut BitReader) -> Result<(u16, u16, u8), InflateError> {
+        if let Some(prefix) = br.peek_huffman_9() {
+            let entry = self.lookup[prefix];
+            if entry.bits != 0 {
+                br.advance_huffman(entry.bits);
+                return Ok((entry.symbol, entry.code, entry.bits));
+            }
+        }
+
         // Walks lengths shortest-first: `first` is the smallest code of this
         // length, `index` the offset of that length's symbols in `symbols`.
         let mut code = 0i32;

@@ -1,9 +1,9 @@
 /// Lookup table for the reflected polynomial 0xEDB88320, built at compile
-/// time. One table step per byte instead of eight shift-and-xor rounds.
+/// time. The WebAssembly build keeps this single compact table.
 const TABLE: [u32; 256] = {
     let mut table = [0u32; 256];
     let mut i = 0;
-    while i < 256 {
+    while i < table.len() {
         let mut c = i as u32;
         let mut k = 0;
         while k < 8 {
@@ -20,13 +20,57 @@ const TABLE: [u32; 256] = {
     table
 };
 
+/// Native slicing-by-8 tables. Keeping them out of Wasm preserves its tight
+/// download budgets; there, the single-byte table below stays in use.
+#[cfg(not(target_arch = "wasm32"))]
+const TABLES: [[u32; 256]; 8] = {
+    let mut tables = [[0u32; 256]; 8];
+    tables[0] = TABLE;
+    let mut i = 0;
+    while i < TABLE.len() {
+        let mut c = TABLE[i];
+        let mut slice = 1;
+        while slice < tables.len() {
+            c = TABLE[(c & 0xFF) as usize] ^ (c >> 8);
+            tables[slice][i] = c;
+            slice += 1;
+        }
+        i += 1;
+    }
+    tables
+};
+
 /// Continues a CRC over more bytes, so a checksum can span several slices
 /// without copying them together. Start from `0xFFFF_FFFF`, finish with `!`.
 pub fn crc32_update(mut crc: u32, data: &[u8]) -> u32 {
-    for &byte in data {
-        crc = TABLE[((crc ^ byte as u32) & 0xFF) as usize] ^ (crc >> 8);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let (blocks, tail) = data.as_chunks::<8>();
+        for block in blocks {
+            let low = crc ^ u32::from_le_bytes([block[0], block[1], block[2], block[3]]);
+            let high = u32::from_le_bytes([block[4], block[5], block[6], block[7]]);
+            crc = TABLES[7][(low & 0xFF) as usize]
+                ^ TABLES[6][((low >> 8) & 0xFF) as usize]
+                ^ TABLES[5][((low >> 16) & 0xFF) as usize]
+                ^ TABLES[4][(low >> 24) as usize]
+                ^ TABLES[3][(high & 0xFF) as usize]
+                ^ TABLES[2][((high >> 8) & 0xFF) as usize]
+                ^ TABLES[1][((high >> 16) & 0xFF) as usize]
+                ^ TABLES[0][(high >> 24) as usize];
+        }
+        for &byte in tail {
+            crc = TABLE[((crc ^ byte as u32) & 0xFF) as usize] ^ (crc >> 8);
+        }
+        crc
     }
-    crc
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        for &byte in data {
+            crc = TABLE[((crc ^ byte as u32) & 0xFF) as usize] ^ (crc >> 8);
+        }
+        crc
+    }
 }
 
 /// Standard CRC-32 (IEEE 802.3, reflected, polynomial 0xEDB88320) — the one

@@ -471,11 +471,21 @@ impl<'a> Decoder<'a> {
                 }
 
                 let start = self.out.len() - distance as usize;
-                for i in 0..length as usize {
-                    // Byte-by-byte on purpose: overlapping copies are legal and
-                    // are how run-length encoding falls out of LZ77.
-                    let byte = self.out[start + i];
-                    self.out.push(byte);
+                let length = length as usize;
+                let original_len = self.out.len();
+                self.out.reserve(length);
+
+                // Copy the original distance once, then double the produced
+                // pattern in chunks. This preserves overlapping LZ77 matches
+                // while replacing one bounds-checked push per byte with a
+                // logarithmic number of bulk copies.
+                let mut copied = length.min(distance as usize);
+                self.out.extend_from_within(start..start + copied);
+                while copied < length {
+                    let chunk = (length - copied).min(copied);
+                    self.out
+                        .extend_from_within(original_len..original_len + chunk);
+                    copied += chunk;
                 }
                 Ok(InflateEvent::Match {
                     distance: distance as u16,

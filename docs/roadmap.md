@@ -47,7 +47,12 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.16.0 | Private reports, file maps, and safer photo/PDF inspection | shipped 2026-11-09 |
 | 0.17.0 | Source-linked inspectors across file families, plus bounded WAV inspection | shipped 2026-11-09 |
 | 0.18.0 | Verified WAV cleaning and deeper format inspection | shipped 2026-11-10 |
-| 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | release preparation |
+| 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | shipped 2026-11-11 |
+| 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | release preparation |
+| 0.21.0 | Faster, more responsive analysis in the browser | planned |
+| 0.22.0 | A focused redesign of the file results and inspectors | planned |
+| 0.23.0 | A guided, interactive file exploration workbench | planned |
+| 0.24.0 | Make learning and return visits rewarding, privately | planned |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -525,6 +530,115 @@ Physical iPhone/Android, screen-reader and user-comprehension checks remain
 unverified; browser emulation does not satisfy them. OCR has synthetic
 integration evidence, not a measured recall or false-positive rate on a real
 corpus. Publishing crates remains a separate decision.
+
+### 0.20.0 — measured parsing improvements
+
+**Theme:** make file analysis faster and lighter where measurements show a
+clear user benefit, while keeping the parser's findings and limits unchanged.
+
+The benchmark now separates raw DEFLATE, zlib checksum and checkpoint costs,
+complete PNG and PDF reads, ZIP directory work, ZIP extraction, and a
+high-repetition match workload. On the generated 10.3 MB PNG, the initial
+native-Core median was 305 ms. The Huffman prefix table reduced the paired
+component medians from 171 to 129 ms without trace and 198 to 140 ms with
+checkpoints; the complete PNG read measured 181 ms in the paired run (about
+41% below the initial reading). For a separate 10 MiB high-repetition DEFLATE
+stream, chunked LZ77 match copies reduced the median from 32.3 to 6.3 ms
+(86%).
+
+Against a clean 0.19.0 source with the same fixtures, the synthetic PDF with
+4 MiB of Flate-compressed XMP went from 13.0 to 6.5 ms (50%). A 10 MiB
+deflated ZIP member, including output CRC verification, went from 48.6 to
+12.5 ms (74%); its 10 MiB CRC component went from 32.9 to 6.2 ms (81%). The
+50,000-empty-entry ZIP remains a diagnostic workload; its cross-run intervals
+overlap, so no large-catalogue speedup is claimed. Benchmark setup compares
+decompressed bytes and ZIP CRC with independent expected data.
+
+A PNG filter-0 row-copy experiment measured 305 to 297 ms with overlapping
+confidence intervals (`p = 0.60`), so it was removed rather than carried as an
+unproven optimization. After long builds, host measurements drifted and had
+wide intervals; those later readings are not used to claim a regression or a
+further speedup.
+
+The native CRC path uses slicing-by-8; WebAssembly keeps the compact
+single-table CRC so the optimization does not exceed download limits. The
+production Web build and all six WebAssembly format families compile.
+Gzip-9 sizes from the final production assets are 175,434/178,000 B (media),
+227,357/229,000 B (PDF), 237,925/240,000 B (docs), 166,201/168,000 B
+(audio), and 213,507/216,000 B (raster). Chromium open-to-ready took 2.16 s
+for a 10.8 MB synthetic PNG on desktop and 4.40 s with CPU throttled 4×. A
+highly compressible PNG with the same 1900×1900 dimensions took 194 ms and
+331 ms, respectively. These are end-to-end browser timings, not isolated
+parser times; the throttled profile is an emulation, not a physical phone.
+The five largest optional WebAssembly bundles remain below their gzip budgets,
+with about 1.6–2.6 KB of headroom, so future parser growth must track bundle
+size.
+
+**Browser measurement limitation:** the local headless Chromium runner
+completed some initial file opens, then timed out on subsequent same-origin
+navigations; a fresh-browser retry completed only one 0.19.0 desktop triplet
+before the next navigation stalled. Those partial observations are excluded
+from performance claims. The memory APIs returned no usable samples; whether
+that was browser support or an API failure was not established. This release
+claims only the native synthetic benchmark improvements above, with no
+controlled browser-latency or memory claim. A stable same-browser comparison
+on PNG, PDF and DOCX should precede any browser-specific performance claim and
+should also check parser outputs, errors, coverage states, worker limits and
+read-back budgets.
+
+### 0.21.0 — responsive browser analysis (planned)
+
+Make large-file analysis feel active and predictable in the existing local
+browser app: show staged progress, allow cancellation where the worker can
+stop safely, and bring the useful first findings forward while optional
+inspectors load. Profile representative large files across formats, track
+peak memory and first-use WebAssembly costs, and use real-device results to
+set limits. Do not imply complete coverage before a parser finishes.
+
+**Done when:** desktop and available physical mobile checks have recorded
+open-to-first-finding, open-to-ready, peak memory, cancellation and recovery;
+existing size limits and explicit partial/unsupported states remain intact.
+
+### 0.22.0 — focused results redesign (planned)
+
+Give the result screen a modest but visible redesign. Put file identity and
+analysis/coverage status first, then group findings by what a person can do
+next. Make each claim lead to its evidence in the structure and bytes views;
+bring the older format inspectors into the same hierarchy, spacing and
+mobile behavior. Preserve the existing visual language and keep dense detail
+available without making it the first thing a new user sees.
+
+**Done when:** a first-time user can distinguish a finding, a not-checked
+area and a clean-copy action at a glance; keyboard, screen-reader and narrow
+phone flows complete without losing the evidence link.
+
+### 0.23.0 — interactive file exploration (planned)
+
+Make Hexscope's existing browser app the file workbench; a separate browser
+product is unnecessary. Improve the connected path from summary to inspector,
+file map, previews and bytes: selecting evidence should navigate to its source,
+and returning should preserve the user's place. Add comparison or guided
+inspection only where existing parser evidence supports it. The app should
+show which supported findings it established, which areas remain partial,
+and what it did not read.
+
+**Done when:** representative supported files have an end-to-end, keyboard-
+operable route from a plain-language finding to its source bytes and back,
+with bounded rendering for large inputs and no upload requirement.
+
+### 0.24.0 — rewarding learning and repeat visits (planned)
+
+Help curious people discover formats through short, optional challenges and
+progressive examples built from safe local samples. Offer small milestones
+such as following one finding into its bytes or comparing two structures;
+keep progress on-device, dismissible and free of accounts or user tracking.
+Let people share a sample or a value-free explanation link, never a private
+file or sensitive finding by default.
+
+**Done when:** people can start from a sample without preparing a file,
+complete a short guided discovery with keyboard or touch, skip it at any
+time, and verify exactly what a shared link contains. Evaluate whether this
+actually improves successful first analyses before expanding the mechanics.
 
 ### 0.10.0 — shipped 2026-11-02
 

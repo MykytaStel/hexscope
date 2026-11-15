@@ -11,6 +11,16 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.20.0] — 2026-11-15
+
+### Changed
+
+- **PNG, PDF and ZIP analysis spend less time on compressed data.** On local
+  native synthetic benchmarks versus 0.19.0, a 10.3 MB PNG read improved by
+  about 41%, a PDF with 4 MiB of compressed XMP by 50%, and extracting plus
+  verifying a 10 MiB ZIP member by 74%. These measurements do not establish
+  gains on physical phones or every format.
+
 ## [0.19.0] — 2026-11-11
 
 ### Added
@@ -954,7 +964,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/hexscope/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/MykytaStel/hexscope/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/hexscope/compare/v0.16.0...v0.17.0
