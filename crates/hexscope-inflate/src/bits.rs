@@ -36,6 +36,26 @@ impl<'a> BitReader<'a> {
         self.data.len() as u64 * 8 - self.bit_pos
     }
 
+    /// Reads the next nine DEFLATE code bits as a most-significant-first
+    /// lookup-table index. The stream stores each byte's bits low-first, so
+    /// reverse only the requested prefix after loading at most two bytes.
+    pub(crate) fn peek_huffman_9(&self) -> Option<usize> {
+        if self.remaining_bits() < 9 {
+            return None;
+        }
+        let byte_pos = self.byte_pos();
+        let bit_offset = (self.bit_pos % 8) as u32;
+        let word = u16::from_le_bytes([self.data[byte_pos], self.data[byte_pos + 1]]);
+        let low_first = (word >> bit_offset) & 0x01ff;
+        Some((low_first.reverse_bits() >> 7) as usize)
+    }
+
+    /// Advances by a Huffman code length after `peek_huffman_9` proved that
+    /// at least nine input bits remain.
+    pub(crate) fn advance_huffman(&mut self, bits: u8) {
+        self.bit_pos += bits as u64;
+    }
+
     pub fn bits(&mut self, n: u32) -> Result<u32, BitError> {
         if n > 32 {
             return Err(BitError::TooWide);
