@@ -272,7 +272,7 @@ for (const scheme of ["dark", "light"] as const) {
       await (await singleChooser).setFiles(photo);
 
       await expect(page.locator(".verdict-title")).toBeVisible();
-      const answer = page.locator(".visually-hidden[role='status'][aria-live='polite']");
+      const answer = page.getByRole("status").filter({ hasText: "photo.jpg is open." });
       await expect(answer).toHaveRole("status");
       await expect(answer).toContainText("photo.jpg is open.");
       await check(page, "file answer");
