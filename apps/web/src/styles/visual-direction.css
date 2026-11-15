@@ -2328,3 +2328,65 @@ body[data-state="empty"] .empty-card {
     color: var(--faint);
   }
 }
+
+/* Result inspectors share one surface, spacing scale and reading hierarchy.
+   Format-specific controls keep their own content and behavior inside it. */
+.overview-flow {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.drawer-file .overview-flow > .reveals,
+.drawer-file .overview-flow > .more-details {
+  min-width: 0;
+  margin: 0;
+}
+
+.drawer-file .overview-flow > .reveals {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.result-inspector {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--surface-radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-dialog-inset);
+}
+
+.result-inspector > h2,
+.result-inspector > h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--type-card-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+.result-inspector > p {
+  margin: 0;
+}
+
+.drawer-file .overview-flow > .more-details {
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.drawer-file .overview-flow > .result-inspector {
+  margin: 0;
+}

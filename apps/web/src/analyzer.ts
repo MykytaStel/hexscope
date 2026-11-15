@@ -436,17 +436,23 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
 
   if (!scrollToSection) return;
   const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
-  const target = view === "metadata"
-    ? $("drawer").querySelector<HTMLElement>(".reveals")
-    : view === "content"
-      ? $("drawer").querySelector<HTMLElement>(contentTargetSelector)
-      : view === "map"
-        ? makeup
-      : null;
+  let target: HTMLElement | null = null;
+  if (view === "metadata") {
+    target = $("drawer").querySelector<HTMLElement>(".reveals");
+  } else if (view === "content") {
+    target = $("drawer").querySelector<HTMLElement>(".overview-flow > .pdf-navigator, .overview-flow > .pdf-navigator-loading")
+      ?? $("drawer").querySelector<HTMLElement>(".overview-flow > .document-map, .overview-flow > .document-map-loading")
+      ?? $("drawer").querySelector<HTMLElement>(contentTargetSelector);
+  } else if (view === "map") {
+    target = makeup
+      ?? $("drawer").querySelector<HTMLElement>(".more-details > .makeup-loading")
+      ?? $("drawer").querySelector<HTMLElement>(".more-details > .heif-map");
+  }
   if (view === "overview" || view === "metadata") {
-    requestAnimationFrame(() => file?.scrollTo({ top: 0, behavior: "smooth" }));
+    requestAnimationFrame(() => file?.scrollTo({ top: 0 }));
   } else if (target) {
-    requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+    const destination = target;
+    requestAnimationFrame(() => destination.scrollIntoView({ block: "start" }));
   }
 }
 
@@ -558,10 +564,12 @@ const drawer = new Drawer(
     toBytes();
     point(id);
   },
-  (start, len) => {
-    if (len <= 0) return;
+  (start, len, selectPart = true) => {
+    const model = workspace.model;
+    if (!model || len <= 0 || start < 0 || start >= model.bytes.length) return;
     toBytes();
-    hex.setHead(start, start + len);
+    if (selectPart) point(model.nodeAt(start), start);
+    hex.setHead(start, Math.min(model.bytes.length, start + len));
     hex.focusAt(start);
     setStatusOffset(start);
   },
@@ -867,57 +875,7 @@ function nextProblem(): void {
 
 function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   const info = $("fileinfo");
-  const chips: string[] = [];
   const f = m.file;
-  if (f.format === "png" && f.ihdr) {
-    const [w, h, depth, color] = f.ihdr;
-    const names: Record<number, string> = { 0: "Grey", 2: "RGB", 3: "Palette", 4: "Grey+α", 6: "RGBA" };
-    chips.push("PNG", `${w}×${h}`, `${names[color] ?? `type ${color}`} ${depth}-bit`);
-  } else if (f.format === "png") {
-    chips.push("PNG");
-  } else if (f.format === "jpeg") {
-    chips.push("JPEG");
-    if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
-    if (f.facts.length > 0 || f.location) chips.push("EXIF");
-  } else if (f.format === "webp" || f.format === "gif") {
-    chips.push(...m.value(0).split(" · "));
-    if (f.facts.length > 0 || f.location) chips.push("Metadata");
-  } else if (f.format === "tiff") {
-    chips.push("TIFF");
-    if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
-    if (f.facts.length > 0 || f.location) chips.push("EXIF");
-  } else if (f.format === "heif") {
-    chips.push(m.value(0).split(" · ")[0]);
-    if (f.dimensions) chips.push(`${f.dimensions[0]}×${f.dimensions[1]}`);
-    if (f.facts.length > 0 || f.location) chips.push("EXIF");
-  } else if (f.format === "video") {
-    // "QuickTime · 64×48 · 1.0 s"
-    chips.push(...m.value(0).split(" · "));
-    if (f.location) chips.push("Location");
-  } else if (f.format === "pdf") {
-    // "PDF 1.7 · 12 objects · 2 revisions"
-    chips.push(...m.value(0).split(" · "));
-  } else if (f.format === "zip") {
-    // A document by what it is; an archive by what is in it.
-    const kind = kindOf(m);
-    chips.push(...(kind === "ZIP" ? ["ZIP", m.value(0)] : [kind]));
-  } else if (f.format === "rtf") {
-    chips.push("Rich Text");
-  } else if (f.format === "svg") {
-    chips.push("SVG");
-  } else if (f.format === "office97" || f.format === "cfb") {
-    chips.push(m.value(0).charAt(0).toUpperCase() + m.value(0).slice(1));
-  } else if (f.format === "eml" || f.format === "msg") {
-    chips.push(f.format === "msg" ? "Outlook message" : "Email");
-    if (f.attachments.length > 0) chips.push(f.attachments.length === 1 ? "1 attachment" : `${f.attachments.length} attachments`);
-  } else if (f.format === "wasm") {
-    // "WebAssembly · 82 functions · “hello”"
-    chips.push(...m.value(0).split(" · "));
-  } else {
-    chips.push("Unrecognised format");
-  }
-  chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
-
   // The way back up: the list of files, each archive above this document, then this one.
   // The page's heading while a file is open: its name, and the way to it.
   const name = document.createElement("h1");
@@ -956,19 +914,20 @@ function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   const full = document.createElement("span");
   full.className = "meta-full";
   // Each its own text, so each is translated on its own: "parsed in 2 ms" is not a whole line.
-  full.replaceChildren(...chips.flatMap((chip, i) => (i > 0 ? [document.createTextNode("  ·  "), chipText(chip)] : [chipText(chip)])));
   meta.append(plain, full);
   info.replaceChildren(name, meta);
+  void import("./result-navigation")
+    .then(({ coverageStatusButton, fillFileInfoChips }) => {
+      if (!name.isConnected) return;
+      fillFileInfoChips(full, m);
+      info.append(coverageStatusButton(m, appNavigation, $("drawer")));
+    }, () => {
+      // The detailed coverage explanation remains visible in the result even if this small header control cannot load.
+    });
 
   // A location is not damage, so it gets its own badge rather than joining
   // the problems count — but it is the first thing a person should see.
   locationBtn.hidden = !f.location;
-}
-
-function chipText(text: string): HTMLSpanElement {
-  const span = document.createElement("span");
-  span.textContent = text;
-  return span;
 }
 
 workspace = new WorkspaceController({

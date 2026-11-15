@@ -238,7 +238,7 @@ function sequenceView(m: FileModel, sequence: boolean): HTMLElement | null {
 export function heifMapGroup(m: FileModel, select: (id: number) => void): HTMLElement | null {
   const graph = heifGraph(m);
   if (!graph) return null;
-  const group = el("section", "group heif-map");
+  const group = el("section", "group heif-map result-inspector");
   group.append(el("h2", undefined, tr("HEIF item graph")));
   group.append(el("p", "hint", tr("Items can share properties, refer to other images, or derive one picture from several tiles.")));
 

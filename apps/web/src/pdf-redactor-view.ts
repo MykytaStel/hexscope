@@ -13,7 +13,7 @@ export function pdfRedactorView(
   picturesOf: (page: number) => Promise<Shown[]>,
   pictureState: (page: number) => "loading" | "loaded" | "failed",
 ): HTMLElement {
-  const group = el("div", "group redactor");
+  const group = el("div", "group redactor result-inspector");
   group.append(el("h2", undefined, "Black out text yourself"));
   group.append(
     el(

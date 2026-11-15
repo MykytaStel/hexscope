@@ -94,7 +94,9 @@ export function evidenceOverview(
   selectRange: (start: number, len: number) => void,
 ): HTMLElement {
   const box = el("section", "evidence-overview");
-  box.append(el("h3", "evidence-overview-title", "Findings and evidence"));
+  const title = el("h3", "evidence-overview-title", "Findings and evidence");
+  title.tabIndex = -1;
+  box.append(title);
 
   const query = el("input", "evidence-search");
   query.type = "search";
@@ -130,12 +132,16 @@ export function evidenceOverview(
       dd,
     };
   });
+  const general = fields.querySelector<HTMLElement>('.metadata-group[data-metadata-group="general"]');
+  const generalList = general?.querySelector("dl");
+  const generalChildren = generalList ? [...generalList.children] as HTMLElement[] : [];
+  const generalRows = Math.floor(generalChildren.length / 2);
   const additionalDetails = fields.querySelector<HTMLDetailsElement>(".metadata-additional-details");
 
-  let active: EvidenceFilter = factRows.length === 0 && issues.length > 0 ? "unchecked" : "all";
+  let active: EvidenceFilter = issues.length > 0 ? "unchecked" : "all";
   let filterRequested = false;
   const filters: { key: EvidenceFilter; label: string; count: number }[] = [
-    { key: "all", label: "All findings", count: factRows.length },
+    { key: "all", label: "All findings", count: factRows.length + generalRows },
     { key: "privacy", label: "Privacy", count: factRows.filter((row) => PRIVACY_KINDS.has(row.kind) && !ATTACHMENT_KINDS.has(row.kind)).length },
     { key: "metadata", label: "Metadata", count: factRows.filter((row) => !ATTACHMENT_KINDS.has(row.kind)).length },
     { key: "attachments", label: "Attachments", count: factRows.filter((row) => ATTACHMENT_KINDS.has(row.kind)).length },
@@ -145,7 +151,8 @@ export function evidenceOverview(
   for (const filter of filters) {
     const button = el("button", "evidence-filter");
     button.type = "button";
-    button.append(document.createTextNode(tr(filter.label)), el("span", "evidence-filter-count", String(filter.count)));
+    button.disabled = filter.key !== "all" && filter.count === 0;
+    button.append(document.createTextNode(tr(filter.label)), el("span", "evidence-filter-count", filter.count.toLocaleString(currentLocale())));
     button.setAttribute("aria-pressed", filter.key === active ? "true" : "false");
     button.addEventListener("click", () => {
       filterRequested = true;
@@ -156,6 +163,12 @@ export function evidenceOverview(
     toolbar.append(button);
   }
   box.append(toolbar);
+
+  const results = el("p", "evidence-results");
+  results.setAttribute("role", "status");
+  results.setAttribute("aria-live", "polite");
+  results.setAttribute("aria-atomic", "true");
+  box.append(results);
 
   const listRoot = el("div", "evidence-unchecked");
   listRoot.append(issueList);
@@ -189,14 +202,11 @@ export function evidenceOverview(
       // when the additional-fields group starts collapsed for readability.
       additionalDetails.open = true;
     }
-    const general = fields.querySelector<HTMLElement>('.metadata-group[data-metadata-group="general"]');
     let generalVisible = false;
-    const generalList = general?.querySelector("dl");
     if (generalList) {
-      const children = [...generalList.children] as HTMLElement[];
-      for (let i = 0; i + 1 < children.length; i += 2) {
-        const term = children[i];
-        const value = children[i + 1];
+      for (let i = 0; i + 1 < generalChildren.length; i += 2) {
+        const term = generalChildren[i];
+        const value = generalChildren[i + 1];
         const text = `${term.textContent ?? ""} ${value.textContent ?? ""}`.toLocaleLowerCase(currentLocale());
         const show = active === "all" && (!needle || text.includes(needle));
         term.hidden = !show;
@@ -221,6 +231,19 @@ export function evidenceOverview(
     }
     for (const [key, button] of buttons) button.setAttribute("aria-pressed", key === active ? "true" : "false");
     empty.hidden = visible > 0;
+    const resultPlural = new Intl.PluralRules(currentLocale()).select(visible);
+    const resultLabel = resultPlural === "one"
+      ? tr("matching result")
+      : resultPlural === "few"
+        ? tr("matching results few")
+        : tr("matching results");
+    results.replaceChildren();
+    if (filterRequested) {
+      results.append(
+        document.createTextNode(`${visible.toLocaleString(currentLocale())} `),
+        document.createTextNode(resultLabel),
+      );
+    }
     if (active === "unchecked" && issues.length === 0) empty.textContent = tr("The parser reported no unchecked parts.");
     else if (needle && visible === 0) empty.textContent = tr("No matching findings.");
     else empty.textContent = active === "unchecked" ? tr("The parser reported no unchecked parts.") : tr("No findings in this group.");

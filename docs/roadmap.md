@@ -50,7 +50,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.19.0 | Evidence-led publication workflows, local OCR, and responsive polish | shipped 2026-11-11 |
 | 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | shipped 2026-11-15 |
 | 0.21.0 | Faster, more responsive analysis in the browser | shipped 2026-11-15; physical-device and browser memory measurements remain open |
-| 0.22.0 | A focused redesign of the file results and inspectors | planned |
+| 0.22.0 | A focused redesign of the file results and inspectors | shipped 2026-11-15 |
 | 0.23.0 | A guided, interactive file exploration workbench | planned |
 | 0.24.0 | Make learning and return visits rewarding, privately | planned |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
@@ -620,7 +620,7 @@ stops its work; reopening the panel in Bytes starts a fresh calculation.
 The main whole-file map is also keyboard-operable now: arrows move through the
 file, Page Up/Down move faster, and Home/End jump to its boundaries.
 
-### 0.22.0 — focused results redesign (planned)
+### 0.22.0 — focused results redesign (shipped 2026-11-15)
 
 Give the result screen a modest but visible redesign. Put file identity and
 analysis/coverage status first, then group findings by what a person can do

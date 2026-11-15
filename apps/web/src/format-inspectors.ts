@@ -72,7 +72,7 @@ function factList(
 }
 
 function section(title: string, intro: string): HTMLElement {
-  const root = el("section", "format-inspector");
+  const root = el("section", "format-inspector result-inspector");
   root.append(el("h3", undefined, tr(title)), el("p", "hint format-inspector-intro", tr(intro)));
   return root;
 }
