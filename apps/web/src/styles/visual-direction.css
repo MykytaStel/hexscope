@@ -405,13 +405,13 @@ body[data-state="loading"] .landing-menu {
 
 .example-facts dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .example-facts dd {
   color: var(--text);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   text-align: right;
 }
 
@@ -1374,10 +1374,6 @@ body[data-state="ready"] .topbar {
   .example-facts {
     height: auto;
     align-content: start;
-  }
-
-  .example-facts dd {
-    font-size: 10px;
   }
 
   .example-facts > div {

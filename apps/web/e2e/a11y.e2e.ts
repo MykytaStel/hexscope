@@ -13,6 +13,13 @@ async function check(page: Page, where: string): Promise<void> {
   expect(found, where).toEqual([]);
 }
 
+async function openLandingExtras(page: Page): Promise<void> {
+  const extras = page.locator(".landing-extras");
+  if (!(await extras.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await extras.locator(":scope > summary").click();
+  }
+}
+
 for (const scheme of ["dark", "light"] as const) {
   test.describe(`${scheme} theme`, () => {
     // Checked at rest: a line fading in is measured once it is in.
@@ -39,6 +46,7 @@ for (const scheme of ["dark", "light"] as const) {
       const bounds = await chooseFile.boundingBox();
       expect(bounds?.height).toBeGreaterThanOrEqual(44);
 
+      await openLandingExtras(page);
       await page.locator("#film-roll-open").click();
       const dialog = page.locator("dialog.film-roll");
       const process = dialog.getByRole("button", { name: "Process scans" });
@@ -91,6 +99,7 @@ for (const scheme of ["dark", "light"] as const) {
     test("film roll keeps controls and actions inside the dialog at narrow widths", async ({ page }) => {
       await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
       await page.goto("./");
+      await openLandingExtras(page);
       await page.locator("#film-roll-open").click();
       const dialog = page.locator("dialog.film-roll");
       await expect(dialog).toBeVisible();
@@ -180,6 +189,7 @@ for (const scheme of ["dark", "light"] as const) {
     test("photo tools follow the theme and expose accessible controls", async ({ page }) => {
       await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
       await page.goto("./");
+      await openLandingExtras(page);
       await page.locator("#film-roll-open").click();
       const matchesTheme = () => page.locator(".photo-tool").evaluate((tool) => {
         const reference = document.createElement("div");
