@@ -505,6 +505,38 @@
 }
 
 @media (max-width: 480px) {
+  body[data-state="ready"] .topbar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  body[data-state="ready"] .actions {
+    gap: 6px;
+  }
+
+  body[data-state="ready"] .actions > .btn {
+    box-sizing: border-box;
+    min-height: 40px;
+    height: 40px;
+    padding-inline: 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  body[data-state="ready"] .actions > .language-button,
+  body[data-state="ready"] .actions > .btn-play {
+    width: 40px;
+    min-width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  body[data-state="ready"] .fileinfo {
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+  }
+
   body[data-state="ready"] .fileinfo .meta {
     display: none;
   }
