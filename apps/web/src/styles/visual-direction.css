@@ -1010,6 +1010,22 @@ body[data-state="ready"] .topbar {
   backdrop-filter: none;
 }
 
+/* Keep the file identity and every toolbar control on one center line. The
+   action row contains status pills as well as buttons, so it must align its
+   own children instead of stretching shorter pills from the top edge. */
+body[data-state="ready"] .fileinfo,
+body[data-state="ready"] .actions {
+  align-items: center;
+}
+
+body[data-state="ready"] .fileinfo > .file-coverage,
+body[data-state="ready"] .actions > .location-badge,
+body[data-state="ready"] .actions > .problems {
+  box-sizing: border-box;
+  min-height: 40px;
+  height: 40px;
+}
+
 .layout {
   background: var(--bg);
 }
