@@ -305,6 +305,35 @@
   overflow: auto;
 }
 
+.evidence-return {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 44px;
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 600 var(--type-small) var(--font);
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.evidence-return:hover {
+  color: var(--text);
+  text-decoration-color: currentColor;
+}
+
+.evidence-return:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--control-radius-compact);
+}
+
 .drawer-file {
   border-left: 1px solid var(--border);
   background: var(--panel-2);
@@ -348,6 +377,36 @@
 .crumb.is-current {
   color: var(--text);
   font-weight: 600;
+}
+
+.crumb-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.crumb-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.crumb-link:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--control-radius-compact);
+}
+
+@media (pointer: coarse) {
+  .crumb-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
 }
 
 .sep {

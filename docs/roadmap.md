@@ -51,7 +51,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | shipped 2026-11-15 |
 | 0.21.0 | Faster, more responsive analysis in the browser | shipped 2026-11-15; physical-device and browser memory measurements remain open |
 | 0.22.0 | A focused redesign of the file results and inspectors | shipped 2026-11-15 |
-| 0.23.0 | A guided, interactive file exploration workbench | planned |
+| 0.23.0 | A guided, interactive file exploration workbench | in progress 2026-11-17 |
 | 0.24.0 | Make learning and return visits rewarding, privately | planned |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
@@ -633,19 +633,38 @@ available without making it the first thing a new user sees.
 area and a clean-copy action at a glance; keyboard, screen-reader and narrow
 phone flows complete without losing the evidence link.
 
-### 0.23.0 — interactive file exploration (planned)
+### 0.23.0 — interactive file exploration (in progress)
 
 Make Hexscope's existing browser app the file workbench; a separate browser
 product is unnecessary. Improve the connected path from summary to inspector,
 file map, previews and bytes: selecting evidence should navigate to its source,
-and returning should preserve the user's place. Add comparison or guided
-inspection only where existing parser evidence supports it. The app should
-show which supported findings it established, which areas remain partial,
-and what it did not read.
+path breadcrumbs should move to parent structures, and returning should
+preserve the user's place and keyboard focus. Keep the
+workbench visually quiet: align the file header, keep actions on one spacing
+and size system, and expose only the next useful action on phones. Add
+comparison or guided inspection only where existing parser evidence supports
+it. The app should show which supported findings it established, which areas
+remain partial, and what it did not read.
+
+The work is proceeding in these slices:
+
+1. **Implemented on the development branch:** source links return to the
+   originating result, metadata, content or map section; parent path crumbs
+   select their corresponding structure node; the compression demo and byte
+   legend load only when needed. The built photo sample was
+   checked at desktop and phone widths in a local browser; more file types and
+   physical devices remain to be checked.
+2. **In progress:** correct desktop and mobile hierarchy around the header,
+   inspector and navigation, keeping touch targets and keyboard focus
+   predictable.
+3. **Next:** check the connected flow on representative file types and ensure
+   large inputs keep bounded rendering and stay local to the browser.
 
 **Done when:** representative supported files have an end-to-end, keyboard-
-operable route from a plain-language finding to its source bytes and back,
-with bounded rendering for large inputs and no upload requirement.
+operable route from a plain-language finding to its source bytes and back; the
+origin scroll and focus return correctly; the desktop header and mobile
+inspector remain aligned and uncluttered; rendering stays bounded for large
+inputs; no upload is required.
 
 ### 0.24.0 — rewarding learning and repeat visits (planned)
 

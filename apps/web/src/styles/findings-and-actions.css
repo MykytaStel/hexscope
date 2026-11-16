@@ -395,6 +395,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+@media (max-width: 600px) {
+  /* On a phone the group titles below already navigate the story. Keep the
+     optional jump links, but make them read like a quiet text index instead
+     of a second row of prominent controls. */
+  .verdict-index {
+    gap: 0 12px;
+    margin-bottom: var(--space-1);
+  }
+
+  .verdict-index-link {
+    min-height: 36px;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    color: var(--muted);
+    font-size: var(--type-caption);
+  }
+
+  .verdict-index-link:hover {
+    background: transparent;
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
 .verdict-group {
   --group-tone: var(--tint-iend);
   min-width: 0;

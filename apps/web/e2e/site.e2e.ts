@@ -589,7 +589,7 @@ test("file coverage status distinguishes complete, partial and unsupported reads
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(status).toHaveAttribute("data-status", "complete");
-  await expect(status).toHaveAccessibleName("Стан аналізу: прочитано повністю · Читано");
+  await expect(status).toHaveAccessibleName("Стан аналізу: прочитано повністю · Прочитано");
 
   await page.goto("./?sample=broken.png");
   await expect(page.locator(".verdict-title")).toBeVisible();
