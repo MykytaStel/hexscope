@@ -34,7 +34,7 @@
   --border-strong: light-dark(rgba(27, 31, 34, 0.16), rgba(230, 235, 240, 0.13));
   --text: light-dark(#1c2023, #eceef0);
   --muted: light-dark(#60686e, #a0a6ab);
-  --faint: light-dark(#646d73, #8d959b);
+  --faint: light-dark(#5c656b, #8d959b);
   --accent: light-dark(#315f91, #9bb8de);
   /* Text on the accent colour. */
   --on-accent: light-dark(#ffffff, #0d1722);
