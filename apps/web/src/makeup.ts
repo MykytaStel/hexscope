@@ -1,7 +1,5 @@
-// "What it's made of": every byte of the file as the thing itself, what is
-// about it, structure, and what the format does not account for — in one
-// sentence, a bar in file order, and a row per kind.
-import { Role, type FileModel, type Slice } from "./model";
+// "What it's made of": every byte in file order, and a count per kind.
+import { type FileModel, type Slice } from "./model";
 import { el, formatBytes } from "./dom";
 import { roleName } from "./knowledge";
 import { currentLocale, translateText } from "./i18n";
@@ -94,7 +92,10 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
   group.append(el("h2", undefined, "What it's made of"));
   const slices = m.slices();
   const total = slices.reduce((n, s) => n + s.len, 0);
-  if (total === 0) return group;
+  if (total === 0) {
+    group.append(el("p", "makeup-hint", "There are no bytes to map."));
+    return group;
+  }
 
   group.append(el("p", "makeup-hint", "Each band follows file order. Select one to inspect its source part in Bytes."));
   const bar = el("div", "makeup-bar");
@@ -158,18 +159,20 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
   const legend = el("ul", "makeup-legend");
   for (const [role, r] of [...byRole].sort((a, b) => b[1].bytes - a[1].bytes)) {
     const pct = (r.bytes / total) * 100;
+    const share = pct < 1 ? "<1%" : `${Math.round(pct)}%`;
+    const name = roleName(role, m.file.format);
+    const size = formatBytes(r.bytes);
     const li = el("li");
     const row = el("button", "makeup-row");
     row.type = "button";
     row.append(
       el("span", `makeup-swatch role-${role}`),
-      el("span", "makeup-name", roleName(role, m.file.format)),
-      el("span", "makeup-pct", pct < 1 ? "<1%" : `${Math.round(pct)}%`),
-      el("span", "makeup-size", formatBytes(r.bytes)),
+      el("span", "makeup-name", name),
+      el("span", "makeup-pct", share),
+      el("span", "makeup-size", size),
     );
     if (r.biggest.node >= 0) {
-      row.title = "Show the largest part";
-      row.setAttribute("aria-label", `${roleName(role, m.file.format)} · ${formatBytes(r.bytes)} · ${tr("Show the largest part")}`);
+      row.setAttribute("aria-label", `${name} · ${share} · ${size} · ${tr("Show the largest part")}`);
       row.addEventListener("click", () => select(r.biggest.node));
     } else {
       row.disabled = true;
@@ -177,16 +180,9 @@ export function makeupGroup(m: FileModel, select: (id: number) => void, hover: (
     li.append(row);
     legend.append(li);
   }
-  // In one sentence: the thing itself, what is about it, what is unaccounted.
-  const share = (role: number) => (byRole.get(role)?.bytes ?? 0) / total;
-  const pct = (x: number) => (x < 0.01 ? "under 1%" : `${Math.round(x * 100)}%`);
-  const about = share(Role.Metadata) + share(Role.Thumbnail);
-  const parts = [`${pct(share(Role.Content))} goes to the ${roleName(Role.Content, m.file.format).toLowerCase().replace(/^the /, "")}`];
-  if (about > 0) parts.push(`${pct(about)} to information about it`);
-  if (share(Role.Structure) >= 0.01) parts.push(`${pct(share(Role.Structure))} to the structure that holds it together`);
-  if (share(Role.Hidden) > 0) parts.push(`${pct(share(Role.Hidden))} to bytes the format does not account for`);
-  const thumb = share(Role.Thumbnail) > 0 ? " — a second, small copy of the picture among it" : "";
-  const said = `Of its ${formatBytes(total)}, ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]}${thumb}.`;
-  group.append(el("p", "makeup-said", said), bar, legend);
+  const scale = el("div", "makeup-scale");
+  scale.setAttribute("aria-hidden", "true");
+  scale.append(el("span", undefined, "0"), el("span", undefined, formatBytes(total)));
+  group.append(bar, scale, legend);
   return group;
 }

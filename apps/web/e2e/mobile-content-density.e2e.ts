@@ -13,6 +13,7 @@ test("phone header and sample categories use a quiet, compact rhythm", async ({ 
   await expect(menu.locator("span")).toBeHidden();
   expect((await menu.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
+  await page.locator(".landing-extras > summary").click();
   const more = page.locator("#guides");
   if (!(await more.evaluate((element) => (element as HTMLDetailsElement).open))) await more.locator(":scope > summary").click();
   const categories = page.locator(".sample-category");

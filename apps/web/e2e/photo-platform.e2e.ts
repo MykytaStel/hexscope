@@ -27,6 +27,7 @@ test("roll uses the shared renderer, preserves TIFF16 precision and exports a re
   const requests: string[] = []; page.on("request", (r) => requests.push(r.url()));
   await page.goto("./");
   expect(requests.some((url) => url.includes("hexscope_raster"))).toBe(false);
+  await page.locator(".landing-extras > summary").click();
   await page.locator("#film-roll-open").click();
   const roll = page.locator(".film-roll");
   await roll.getByLabel("Choose scans", { exact: true }).setInputFiles("../../crates/hexscope-raster/tests/fixtures/precision16.tif");
@@ -49,6 +50,7 @@ test("roll uses the shared renderer, preserves TIFF16 precision and exports a re
 test("roll reports source ICC profiles and browser color conversion for JPEG, PNG and WebP", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await page.goto("./");
+  await page.locator(".landing-extras > summary").click();
   await page.locator("#film-roll-open").click();
   const roll = page.locator(".film-roll");
   await roll.getByLabel("Choose scans", { exact: true }).setInputFiles(["e2e/fixtures/icc.jpg", "e2e/fixtures/icc.png", "e2e/fixtures/icc.webp"]);

@@ -219,6 +219,17 @@
   }
 }
 
+@media (max-width: 360px) {
+  .file-coverage[data-status="complete"] {
+    min-width: 32px;
+    justify-content: center;
+  }
+
+  .file-coverage[data-status="complete"] .file-coverage-compact {
+    display: none;
+  }
+}
+
 .problems {
   height: 32px;
   padding: 0 12px 0 10px;

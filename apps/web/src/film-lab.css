@@ -137,6 +137,32 @@
 .film-lab-hash code { display: block; margin-top: var(--space-2); font-size: 11px; overflow-wrap: anywhere; }
 
 @media (max-width: 600px) {
+  .film-lab-shortcuts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .film-lab-shortcuts .link {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--control-radius-compact);
+    background: var(--panel);
+    color: var(--text);
+    line-height: 1.3;
+    text-decoration: none;
+  }
+
+  .film-lab-shortcuts .link:hover {
+    border-color: var(--faint);
+    background: var(--panel-2);
+  }
+
   .film-lab-image-choice {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -162,6 +188,15 @@
   .film-lab-images[data-show="preview"] figure:first-child,
   .film-lab-images[data-show="original"] figure:last-child { display: none; }
   .film-lab fieldset, .film-lab-base { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .film-lab-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .film-lab-create, .film-lab-share, .film-lab-download { grid-column: 1 / -1; }
+  .film-lab-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .film-lab .btn {
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    height: auto;
+    padding: 10px 12px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
 }

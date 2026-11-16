@@ -1,56 +1,3 @@
-/* --- landing demonstration ----------------------------------------------------- */
-
-.demo {
-  display: grid;
-  align-items: center;
-  margin: 0;
-  border: 1px solid var(--border);
-  text-align: left;
-}
-
-.demo[hidden] {
-  display: none;
-}
-
-.demo-frame {
-  position: relative;
-  width: 100%;
-  container-type: size;
-  overflow: hidden;
-}
-
-.demo-image,
-.demo-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.demo-image {
-  display: block;
-  object-fit: cover;
-  object-position: center;
-}
-
-/* Copy changes with the image; the demo observer keeps its tallest scene in view. */
-.demo-side {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.demo-kicker {
-  margin: 0 0 var(--space-1);
-}
-
-.demo-caption {
-  margin: var(--space-2) 0 0;
-  font-size: var(--type-small);
-  line-height: 1.45;
-}
-
-
 /* --- picture ---------------------------------------------------------------------- */
 
 .picture-frame {
@@ -247,6 +194,58 @@
   margin-top: 10px;
   /* The file's links stand side by side: each keeps its own space. */
   margin-inline-end: var(--space-4);
+}
+
+.file-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  align-items: start;
+  column-gap: 24px;
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.file-tools > .report-link,
+.file-tools > .compare-pick {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 2px;
+  font-size: var(--type-small);
+  font-weight: 550;
+  line-height: 1.35;
+  text-align: left;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 120ms ease;
+}
+
+.file-tools > .report-link::after,
+.file-tools > .compare-pick::after {
+  flex: none;
+  color: var(--faint);
+  content: "→";
+}
+
+.file-tools > .report-link:hover,
+.file-tools > .compare-pick:hover {
+  color: var(--accent);
+}
+
+.file-tools > .embedded-search-status,
+.file-tools > .embedded-search-results {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .report.compare > .btn:last-child,

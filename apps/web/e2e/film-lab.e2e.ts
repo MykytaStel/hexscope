@@ -311,6 +311,7 @@ test("the landing discloses its synthetic detector illustration before opening i
     localStorage.setItem("hexscope.tour", "done");
   });
   await page.goto("./");
+  await page.locator(".landing-extras > summary").click();
   const example = page.locator(".film-synthetic-example");
   await example.locator(":scope > summary").click();
   await expect(example).toContainText("it is not a photograph");

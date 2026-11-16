@@ -41,6 +41,7 @@
           <a href="#guides">Guides</a>
           <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">GitHub</a>
           <button type="button" class="link" data-install hidden>Install the app</button>
+          <div class="landing-menu-controls" role="group" aria-label="Preferences" hidden></div>
         </nav>
       </details>
       <div class="fileinfo" id="fileinfo"></div>
@@ -146,38 +147,7 @@
             </p>
           <p class="load-error" id="load-error" role="alert" hidden></p>
         </div>
-        <!-- In the page from the start, so nothing moves when the demo begins
-             and the answer is there at first paint: the sample photo and its
-             real facts; src/demo.ts strikes them once its clean copy is checked. -->
-        <figure class="demo" id="demo" aria-label="A demonstration on a sample image">
-          <div class="demo-frame"><img class="demo-image" src="./samples/photo.jpg" alt="" aria-hidden="true" width="640" height="480" fetchpriority="high" /></div>
-          <div class="demo-side">
-            <p class="demo-kicker">Sample file · example metadata</p>
-            <dl class="demo-facts">
-              <div class="demo-fact is-shown"><dt>Location</dt><dd>48.8584° N, 2.2945° E</dd></div>
-              <div class="demo-fact is-shown"><dt>Owner</dt><dd>Sample Owner</dd></div>
-              <div class="demo-fact is-shown"><dt>Camera serial</dt><dd>HX-000042</dd></div>
-              <div class="demo-fact is-shown"><dt>Taken</dt><dd>2026-06-14 18:32</dd></div>
-            </dl>
-            <p class="demo-caption">A photo, as a camera or phone saves it. Inside it:</p>
-          </div>
-        </figure>
       </div>
-
-      <ul class="landing-proof">
-        <li class="promise">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.4c0 4.8-3.2 7.8-8 9.6-4.8-1.8-8-4.8-8-9.6V6z" /><path d="m9 12 2 2 4-4" /></svg>
-          <span><strong>Local processing.</strong> Works offline once opened.</span>
-        </li>
-        <li class="promise">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 1 1 8 0v3" /></svg>
-          <span><strong>No account.</strong> No tracking.</span>
-        </li>
-        <li class="promise">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 6-5 6 5 6M16 6l5 6-5 6M14 4l-4 16" /></svg>
-          <span><strong>Open source.</strong> <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Read the code</a> that reads your file.</span>
-        </li>
-      </ul>
 
       <h2 class="doors-title">Different files, different findings</h2>
       <p class="doors-lede">Try a photo, document or email sample to see what can be hidden inside.</p>
@@ -258,26 +228,9 @@
         </div>
       </fieldset>
 
-      <section class="deeper-section" aria-labelledby="deeper-title">
-        <div class="deeper-copy">
-          <p class="deeper-kicker">A real file, in the real analyzer</p>
-          <h2 id="deeper-title">Go deeper</h2>
-          <p class="deeper-lede">Follow one sample from a plain-language finding to the file structure and its bytes.</p>
-          <ol class="deeper-steps">
-            <li><span class="deeper-step-number">01</span><span><strong>Read the finding</strong><small>See what the file reveals, explained in plain language.</small></span></li>
-            <li><span class="deeper-step-number">02</span><span><strong>Trace the structure</strong><small>Switch views to see how the file format is built.</small></span></li>
-            <li><span class="deeper-step-number">03</span><span><strong>Inspect the bytes</strong><small>Open the raw data behind the selected part.</small></span></li>
-          </ol>
-          <button class="btn btn-primary deeper-open-sample" type="button" data-sample="samples/photo.jpg" data-name="photo.jpg">Try this sample in hexscope →</button>
-        </div>
-        <figure class="deeper-preview">
-          <figcaption><span>hexscope workspace</span><code>photo.jpg · sample analysis</code></figcaption>
-          <picture>
-            <source class="deeper-image-mobile" srcset="./analyzer-preview-mobile.png" data-src-en="./analyzer-preview-mobile.png" data-src-uk="./analyzer-preview-uk-mobile.png" media="(max-width: 560px)" />
-            <img class="deeper-image" src="./analyzer-preview.png" data-src-en="./analyzer-preview.png" data-src-uk="./analyzer-preview-uk.png" alt="hexscope analyzing a sample photo across its finding, structure and bytes" loading="lazy" />
-          </picture>
-        </figure>
-      </section>
+      <details class="landing-extras">
+        <summary>Explore more formats, tools and guides</summary>
+        <div class="landing-extras-content">
 
       <section class="film-showcase specialist-tools" aria-labelledby="film-title">
         <figure class="film-sample" aria-label="Apollo 11 film scan contact sheet">
@@ -529,8 +482,10 @@
           </section>
           </nav>
         </details>
+
+        </div>
+      </details>
         <footer class="footnote">
-          <span>Open source · no accounts · no tracking · no uploads</span>
           <span class="footnote-links">
             <a href="your-files-stay-private.html">How your files stay private</a>
             <a href="https://github.com/MykytaStel/hexscope" target="_blank" rel="noopener noreferrer">Source on GitHub</a>

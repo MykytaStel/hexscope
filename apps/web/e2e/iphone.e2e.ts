@@ -260,16 +260,19 @@ test("on a phone, an edited photo can be saved for sharing even without a file s
   await expect(page.locator(".verdict-title")).toHaveText("Nothing personal found in this picture");
 });
 
-test("on a phone, the location badge shows the place in the summary, not the bytes", async ({ page }, info) => {
+test("on a phone, location details stay in Metadata without crowding the file header", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "a computer's badge opens the bytes");
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "en");
     localStorage.setItem("hexscope.tour", "done");
   });
   await page.goto("./?sample=photo.jpg");
-  await page.locator("#location").click();
-  await expect(page.locator("body")).toHaveAttribute("data-app-view", "overview");
-  await expect(page.locator(".reveal-list dt.is-flash")).toHaveText("Coordinates");
+  await expect(page.locator(".topbar .location-badge")).toBeHidden();
+  await page.locator('#app-nav [data-app-view="metadata"]').click();
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "metadata");
+  const location = page.locator('.metadata-group[data-metadata-group="location"]');
+  await expect(location.locator("dt")).toHaveText("Coordinates");
+  await expect(location.locator(".map-link")).toBeVisible();
 });
 
 test("on a phone, several photos are cleaned with one button and shared with the next, in Ukrainian", async ({ page }, info) => {

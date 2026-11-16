@@ -2,11 +2,11 @@
 .app-nav {
   display: none;
   min-width: 0;
-  padding: 14px 10px;
+  padding: 16px 12px;
   border-right: 1px solid var(--border);
   background: var(--panel);
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   overflow: auto;
 }
 
@@ -17,10 +17,10 @@
 .app-nav button {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
-  min-height: 38px;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 9px 10px;
   border: 1px solid transparent;
   border-left-width: 2px;
   border-radius: 7px;
@@ -28,14 +28,17 @@
   color: var(--muted);
   text-align: left;
   white-space: nowrap;
-  font: inherit;
+  font: 500 14px/1.25 var(--font);
   cursor: pointer;
 }
 
 .app-nav .app-nav-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .app-nav button:hover:not(:disabled) {
@@ -64,16 +67,17 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .app-nav-heading {
-  margin: 8px 10px 2px;
+  margin: 9px 8px 3px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .app-nav-primary > .app-nav-heading {
@@ -138,6 +142,7 @@
   body[data-state="ready"][data-view="summary"]:not(.is-playing) .pane-drawer {
     grid-column: 2 / -1;
     border-left: 0;
+    background: var(--panel-2);
   }
 
   body[data-state="ready"][data-view="summary"]:not(.is-playing) .layout {
@@ -192,6 +197,25 @@
 }
 
 @media (max-width: 900px) {
+  /* One predictable touch size for actions; status pills and tab controls
+     keep their own compact shape. */
+  .btn {
+    min-height: 44px;
+    height: auto;
+  }
+
+  .btn-icon {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  body[data-state="empty"] .landing-menu > summary {
+    min-height: 44px;
+    height: 44px;
+  }
+
   .inspector-sheet {
     position: fixed;
     z-index: 49;
@@ -342,11 +366,13 @@
   }
 
   body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="true"]) .layout {
-    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) calc(min(34dvh, 300px) + 4px);
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) calc(min(36dvh, 320px) + 4px);
   }
 
+  /* The compact dock keeps several byte rows in reach. A long explanation can
+     use more of the sheet, where the reader can scroll to its remaining data. */
   body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="true"]) .inspector-sheet {
-    max-height: min(34dvh, 300px);
+    max-height: min(52dvh, 460px);
   }
 
   .inspector-sheet .dialog-x {
@@ -476,6 +502,13 @@
     display: none;
   }
 
+  /* This summary already has the Lucide ellipsis icon. Do not add the generic
+     disclosure chevron on top of it. */
+  .app-nav-more > summary::before {
+    display: none;
+    content: none;
+  }
+
   .app-nav-more[open] > summary {
     border-color: var(--border-strong);
     background: var(--panel-2);
@@ -503,7 +536,7 @@
   .app-nav-more-actions button {
     flex-direction: row;
     justify-content: flex-start;
-    min-height: 42px;
+    min-height: 44px;
     padding: 8px 10px;
     border: 1px solid transparent;
     border-radius: 7px;
@@ -533,6 +566,51 @@
 
   body[data-state="ready"][data-app-view="structure"] .pane-hex {
     display: none;
+  }
+
+  /* On a phone, the decompression player gets the work area by itself. The
+     tree and byte legend otherwise remain visible behind its controls. */
+  body.is-playing .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  body.is-playing .pane-tree,
+  body.is-playing .pane-files,
+  body.is-playing .pane-hex {
+    display: none;
+  }
+
+  body.is-playing .pane-drawer {
+    grid-column: 1;
+    grid-row: 1;
+    overflow: auto;
+    border: 0;
+  }
+
+  body.is-playing .drawer-player {
+    min-height: 100%;
+    box-sizing: border-box;
+    grid-template-rows: auto auto auto auto minmax(120px, 1fr) auto;
+    padding: 12px 14px 18px;
+  }
+
+  body.is-playing .player-bar {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  body.is-playing .player-speed {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  body.is-playing .player-speed input {
+    width: clamp(72px, 23vw, 100px);
+  }
+
+  body.is-playing .player-counter {
+    font-size: 11px;
   }
 }
 
@@ -597,7 +675,11 @@
    the picture and the actions stay on the overview. */
 body[data-state="ready"][data-app-view="metadata"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="metadata"] .overview-flow > :not(.reveals),
-body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .evidence-overview, .metadata-groups, .metadata-summary) {
+body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .evidence-tools, .metadata-groups) {
+  display: none;
+}
+
+body[data-state="ready"][data-app-view="overview"] .metadata-summary {
   display: none;
 }
 
@@ -605,6 +687,7 @@ body[data-state="ready"][data-app-view="metadata"] .reveals > :not(h2, .evidence
    repeating the verdict, metadata table, cleanup advice, or technical map. */
 body[data-state="ready"][data-app-view="content"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="content"] .overview-flow > :not(.reveals, .document-map, .document-map-loading, .pdf-navigator, .pdf-navigator-loading, .film-scan-card),
+body[data-state="ready"][data-app-view="content"] .reveals > .evidence-tools,
 body[data-state="ready"][data-app-view="content"] .reveals > .metadata-groups,
 body[data-state="ready"][data-app-view="content"] .reveals > .cleaner,
 body[data-state="ready"][data-app-view="content"] .reveals > .blackout-open,
@@ -617,7 +700,7 @@ body[data-state="ready"][data-app-view="content"] .reveals > .sharer {
 body[data-state="ready"][data-app-view="map"] .drawer-file > :not(.overview-flow),
 body[data-state="ready"][data-app-view="map"] .overview-flow > :not(.more-details),
 body[data-state="ready"][data-app-view="map"] .more-details > summary,
-body[data-state="ready"][data-app-view="map"] .more-details > :not(.makeup, .heif-map) {
+body[data-state="ready"][data-app-view="map"] .more-details > :not(.makeup, .makeup-loading, .makeup-load-error, .heif-map) {
   display: none;
 }
 
@@ -625,6 +708,7 @@ body[data-state="ready"][data-app-view="map"] .overview-flow > .more-details {
   display: grid;
   gap: var(--space-5);
   margin: 0;
+  border-top: 0;
 }
 
 body[data-state="ready"][data-app-view="map"] .more-details > .makeup,

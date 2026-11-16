@@ -73,17 +73,6 @@ body[data-state="ready"] .viewswitch {
     gap: var(--space-2) var(--space-3);
   }
 
-  /* At tablet widths, the preview and its explanation still fit on one row. */
-  .demo {
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3);
-  }
-
-  .demo-kicker {
-    font-size: var(--type-caption);
-  }
-
   body[data-state="ready"] .viewswitch {
     display: inline-flex;
     border: 1px solid var(--border);
@@ -178,7 +167,7 @@ body[data-state="ready"] .viewswitch {
     /* Block, not grid: a grid track would shrink the player to fit, where
        the drawer should scroll it. */
     display: block;
-    max-height: 62vh;
+    max-height: none;
   }
 
   .layout,
@@ -207,6 +196,8 @@ body[data-state="ready"] .viewswitch {
   .drawer-file {
     border-left: 0;
     border-top: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   .fileinfo .meta,
@@ -262,17 +253,5 @@ body[data-state="ready"] .viewswitch {
   .format-category:nth-child(2n + 1) {
     padding: 12px 0;
     border-left: 0;
-  }
-}
-
-@media (max-width: 600px) {
-  .demo {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-3);
-  }
-
-  .demo-frame {
-    width: clamp(120px, 32vw, 148px);
-    justify-self: center;
   }
 }

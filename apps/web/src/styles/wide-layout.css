@@ -76,11 +76,11 @@
    separate row per section keeps long and async findings from splitting it. */
 @media (min-width: 1100px) {
   body[data-view="summary"]:not(.is-playing) .drawer-file {
-    width: min(100%, 1360px);
-    max-width: 1360px;
+    width: 100%;
+    max-width: 1120px;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: var(--space-6);
+    gap: var(--space-5);
     padding: clamp(28px, 3vw, 48px) clamp(28px, 4vw, 64px);
   }
 
@@ -95,33 +95,6 @@
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
     gap: var(--space-5);
-  }
-
-  body[data-view="summary"]:not(.is-playing) .overview-answer > .verdict {
-    display: grid;
-    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
-    align-items: start;
-    gap: var(--space-4) clamp(28px, 4vw, 56px);
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-  }
-
-  body[data-view="summary"]:not(.is-playing) .verdict-intro,
-  body[data-view="summary"]:not(.is-playing) .verdict-findings {
-    min-width: 0;
-  }
-
-  body[data-view="summary"]:not(.is-playing) .verdict-findings {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  body[data-view="summary"]:not(.is-playing) .verdict-intro > .hint,
-  body[data-view="summary"]:not(.is-playing) .verdict-do,
-  body[data-view="summary"]:not(.is-playing) .verdict-lines {
-    max-width: 84ch;
   }
 
   body[data-view="summary"]:not(.is-playing) .overview-flow > .redactor,

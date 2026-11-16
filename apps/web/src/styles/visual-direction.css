@@ -38,6 +38,10 @@
   display: none;
 }
 
+.landing-menu-controls[hidden] {
+  display: none;
+}
+
 body[data-state="empty"] {
   grid-template-rows: 64px 1fr;
 }
@@ -72,14 +76,18 @@ body[data-state="loading"] .landing-menu {
 }
 
 .hero {
-  grid-template-columns: minmax(0, 0.86fr) minmax(440px, 1.14fr);
-  gap: clamp(28px, 4vw, 60px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: center;
+  max-width: 780px;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .hero h1 {
   max-width: 17ch;
   margin-bottom: 12px;
+  margin-inline: auto;
   font-size: clamp(34px, 3.2vw, 48px);
   line-height: 1.06;
   letter-spacing: -0.04em;
@@ -88,6 +96,7 @@ body[data-state="loading"] .landing-menu {
 .empty-card .lede {
   max-width: 44ch;
   margin-bottom: 24px;
+  margin-inline: auto;
   color: var(--muted);
   font-size: clamp(16px, 1.35vw, 18px);
   line-height: 1.55;
@@ -95,6 +104,7 @@ body[data-state="loading"] .landing-menu {
 
 .hero-actions {
   gap: 10px;
+  justify-content: center;
 }
 
 .hero-actions .btn-primary {
@@ -128,6 +138,7 @@ body[data-state="loading"] .landing-menu {
 .hero-trust {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin: 12px 0 0;
   color: var(--muted);
@@ -147,117 +158,72 @@ body[data-state="loading"] .landing-menu {
 
 .hero-other-ways > summary,
 .geek-more > summary,
-.landing-more > summary {
+.landing-more > summary,
+.landing-extras > summary {
   color: var(--muted);
   text-decoration-color: var(--border-strong);
 }
 
-.demo {
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  gap: clamp(12px, 1.6vw, 22px);
-  padding: clamp(12px, 1.6vw, 20px);
-  border-color: var(--border-strong);
-  border-radius: 14px;
-  background: var(--panel);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 20px 56px rgba(0, 0, 0, 0.22);
-}
-
-.demo-frame {
-  aspect-ratio: 0.94;
-  border-radius: 9px;
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
-
-.demo-side {
-  justify-content: center;
-  gap: 4px;
-}
-
-.demo-kicker {
-  margin-bottom: 10px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 650;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.demo-facts {
-  gap: 0;
-}
-
-.demo-fact {
-  padding-block: 9px;
-  border-bottom: 1px solid var(--border);
-}
-
-.demo-fact dt {
-  color: var(--faint);
-}
-
-.demo-fact dd {
-  color: var(--text);
-}
-
-.demo-caption {
-  margin-top: 12px;
-  color: var(--muted);
-}
-
-.landing-proof {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  margin: 36px 0 0;
-  padding: 22px 0 0;
+.landing-extras {
+  margin-top: clamp(40px, 6vw, 72px);
   border-top: 1px solid var(--border);
-  list-style: none;
 }
 
-.landing-proof > .promise {
+.landing-extras > summary {
+  position: relative;
   display: flex;
-  min-height: 54px;
-  max-width: none;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 0;
-  padding: 0 clamp(12px, 2.2vw, 32px);
+  min-height: 56px;
+  align-items: center;
+  padding: 4px 36px 4px 0;
   color: var(--muted);
-  font-size: 13px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 550;
+  list-style: none;
+  text-decoration: none;
 }
 
-.landing-proof > .promise:first-child {
-  padding-left: 0;
+.landing-extras > summary::-webkit-details-marker {
+  display: none;
 }
 
-.landing-proof > .promise + .promise {
-  border-left: 1px solid var(--border);
+.landing-extras > summary::after {
+  position: absolute;
+  right: 8px;
+  color: var(--faint);
+  content: "+";
+  font-size: 20px;
+  line-height: 1;
 }
 
-.landing-proof .promise svg {
-  width: 19px;
-  height: 19px;
-  margin-top: 1px;
-  fill: none;
-  stroke: var(--text);
-  stroke-width: 1.35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.landing-proof .promise strong {
-  display: block;
-  margin-bottom: 2px;
+.landing-extras[open] > summary {
+  border-bottom: 1px solid var(--border);
   color: var(--text);
-  font-weight: 650;
 }
 
-.landing-proof .promise a {
-  color: var(--text);
+.landing-extras[open] > summary::after {
+  content: "−";
+}
+
+.landing-extras-content {
+  display: grid;
+  gap: clamp(24px, 4vw, 40px);
+  padding-top: 24px;
+}
+
+.landing-extras-content > .format-catalog,
+.landing-extras-content > .film-showcase,
+.landing-extras-content > .privacy-cta {
+  margin-top: 0;
+}
+
+.landing-extras-content > .geek-more,
+.landing-extras-content > .landing-more {
+  padding-top: 0;
 }
 
 .doors-title {
-  margin: clamp(64px, 8vw, 112px) 0 8px;
+  margin: clamp(56px, 6vw, 80px) 0 8px;
   color: var(--text);
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 650;
@@ -439,13 +405,13 @@ body[data-state="loading"] .landing-menu {
 
 .example-facts dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .example-facts dd {
   color: var(--text);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   text-align: right;
 }
 
@@ -613,132 +579,6 @@ body[data-state="loading"] .landing-menu {
   text-align: left;
 }
 
-.deeper-section {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
-  align-items: center;
-  gap: clamp(28px, 5vw, 72px);
-  margin-top: clamp(80px, 10vw, 128px);
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
-}
-
-.deeper-kicker {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.deeper-copy h2 {
-  margin: 0 0 10px;
-  color: var(--text);
-  font-size: clamp(30px, 3.2vw, 40px);
-  font-weight: 650;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
-}
-
-.deeper-lede {
-  max-width: 42ch;
-  margin: 0 0 24px;
-  color: var(--muted);
-  font-size: 15px;
-  line-height: 1.55;
-}
-
-.deeper-steps {
-  margin: 0 0 22px;
-  padding: 0;
-  border-top: 1px solid var(--border);
-  list-style: none;
-}
-
-.deeper-steps li {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.deeper-step-number {
-  padding-top: 1px;
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.deeper-steps strong,
-.deeper-steps small {
-  display: block;
-}
-
-.deeper-steps strong {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 620;
-}
-
-.deeper-steps small {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.deeper-open-sample {
-  min-height: 42px;
-  height: auto;
-  padding-inline: 15px;
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 620;
-}
-
-.deeper-preview {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  background: var(--panel);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 18px 44px rgba(0, 0, 0, 0.24);
-}
-
-.deeper-preview figcaption {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.deeper-preview figcaption code {
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 10px;
-}
-
-.deeper-preview picture {
-  display: block;
-  overflow: hidden;
-  aspect-ratio: 8 / 5;
-}
-
-.deeper-image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: var(--bg);
-}
-
 .door-icon {
   grid-column: 1;
   grid-row: 1 / span 2;
@@ -779,7 +619,7 @@ body[data-state="loading"] .landing-menu {
 }
 
 .format-catalog {
-  margin-top: clamp(64px, 8vw, 112px);
+  margin-top: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -822,7 +662,7 @@ body[data-state="loading"] .landing-menu {
   grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
   align-items: center;
   gap: clamp(20px, 4vw, 48px);
-  margin-top: clamp(64px, 8vw, 104px);
+  margin-top: 0;
   padding: 18px;
   border-color: var(--border);
   border-radius: 14px;
@@ -989,7 +829,7 @@ body[data-state="loading"] .landing-menu {
   grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
   align-items: center;
   gap: 24px;
-  margin-top: clamp(48px, 7vw, 80px);
+  margin-top: 0;
   padding: clamp(22px, 4vw, 40px);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -1170,6 +1010,22 @@ body[data-state="ready"] .topbar {
   backdrop-filter: none;
 }
 
+/* Keep the file identity and every toolbar control on one center line. The
+   action row contains status pills as well as buttons, so it must align its
+   own children instead of stretching shorter pills from the top edge. */
+body[data-state="ready"] .fileinfo,
+body[data-state="ready"] .actions {
+  align-items: center;
+}
+
+body[data-state="ready"] .fileinfo > .file-coverage,
+body[data-state="ready"] .actions > .location-badge,
+body[data-state="ready"] .actions > .problems {
+  box-sizing: border-box;
+  min-height: 40px;
+  height: 40px;
+}
+
 .layout {
   background: var(--bg);
 }
@@ -1340,6 +1196,15 @@ body[data-state="ready"] .topbar {
     background: var(--panel-2);
   }
 
+  .landing-menu-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 8px 8px 0;
+    border-top: 1px solid var(--border);
+  }
+
   .empty-card {
     padding: 32px 24px 48px;
   }
@@ -1353,24 +1218,6 @@ body[data-state="ready"] .topbar {
     max-width: 18ch;
     font-size: clamp(36px, 7vw, 48px);
     line-height: 1.04;
-  }
-
-  .demo {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  .landing-proof {
-    margin-top: 28px;
-    padding-top: 18px;
-  }
-
-  .landing-proof > .promise {
-    padding-inline: 14px;
-  }
-
-  .doors-title,
-  .format-catalog {
-    margin-top: 64px;
   }
 
   .doors-main {
@@ -1404,7 +1251,6 @@ body[data-state="ready"] .topbar {
   .film-showcase.specialist-tools {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
-    margin-top: 56px;
   }
 
   .film-showcase .specialist-actions {
@@ -1414,12 +1260,6 @@ body[data-state="ready"] .topbar {
   .privacy-cta {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
-  }
-
-  .deeper-section {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    margin-top: 64px;
   }
 
   .format-catalog-grid {
@@ -1454,71 +1294,55 @@ body[data-state="ready"] .topbar {
   }
 
   .hero {
-    gap: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    text-align: left;
   }
 
   .hero h1 {
+    margin-inline: 0;
     font-size: clamp(34px, 10vw, 42px);
   }
 
   .empty-card .lede {
     margin-bottom: 18px;
+    margin-inline: 0;
     font-size: 16px;
   }
 
   .hero-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
     align-items: stretch;
   }
 
   .hero-actions > .btn {
-    flex: 1 1 auto;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    flex: none;
     justify-content: center;
   }
 
+  .hero-examples {
+    min-height: 40px;
+    justify-self: start;
+    padding: 4px 0;
+  }
+
   .hero-other-ways {
-    flex: 1 0 100%;
-    margin-top: 4px;
-  }
-
-  .demo {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    padding: 12px;
-  }
-
-  .demo-frame {
-    width: 100%;
-    max-width: 100%;
-    justify-self: stretch;
-    aspect-ratio: 1.15;
-  }
-
-  .demo-side {
-    min-height: 0 !important;
-    padding: 2px 2px 4px;
-  }
-
-  .landing-proof {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    margin-top: 22px;
-    padding-top: 8px;
-  }
-
-  .landing-proof > .promise,
-  .landing-proof > .promise:first-child {
-    min-height: 0;
-    padding: 12px 0;
-  }
-
-  .landing-proof > .promise + .promise {
+    margin-top: 2px;
+    padding-top: 10px;
     border-top: 1px solid var(--border);
-    border-left: 0;
   }
 
-  .doors-title,
-  .format-catalog {
-    margin-top: 52px;
+  .hero-trust {
+    justify-content: flex-start;
+  }
+
+  .doors-title {
+    margin-top: 44px;
   }
 
   .doors-title {
@@ -1551,19 +1375,21 @@ body[data-state="ready"] .topbar {
   }
 
   .example-photo-art {
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto;
     min-height: 0;
-    gap: 14px;
-    padding: 18px;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .example-file-meta span,
+  .example-facts > div:nth-child(n + 3),
+  .example-evidence-path {
+    display: none;
   }
 
   .example-facts {
     height: auto;
     align-content: start;
-  }
-
-  .example-facts dd {
-    font-size: 10px;
   }
 
   .example-facts > div {
@@ -1585,12 +1411,10 @@ body[data-state="ready"] .topbar {
   }
 
   .film-showcase.specialist-tools {
-    margin-top: 44px;
     padding: 12px;
   }
 
   .privacy-cta {
-    margin-top: 44px;
     padding: 22px 18px;
   }
 
@@ -1621,26 +1445,6 @@ body[data-state="ready"] .topbar {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .deeper-section {
-    gap: 20px;
-    margin-top: 52px;
-    padding-top: 20px;
-  }
-
-  .deeper-preview figcaption {
-    padding-inline: 10px;
-  }
-
-  .deeper-image {
-    aspect-ratio: 412 / 900;
-    transform: none;
-    object-fit: contain;
-  }
-
-  .deeper-preview picture {
-    aspect-ratio: 412 / 900;
-  }
-
 }
 
 /* Give three landing cards enough room through tablet widths. */
@@ -1665,15 +1469,12 @@ body[data-state="ready"] .topbar {
   }
 }
 
-/* On a phone the header's Open repeats the landing's own button: it shows
-   only once that one has scrolled away (main.ts marks the body). */
-@media (max-width: 640px) {
-  body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[data-opens="picker"] {
-    display: none;
-  }
+/* One Open action is enough: the header repeats it after the hero leaves view. */
+body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[data-opens="picker"] {
+  display: none;
 }
 
-/* The header's open action is repeated in the landing hero. */
+/* Keep the top row compact on the narrowest phones. */
 @media (max-width: 360px) {
   body[data-state="empty"] .topbar {
     gap: 6px;
@@ -1683,22 +1484,26 @@ body[data-state="ready"] .topbar {
   body[data-state="empty"] .topbar .actions {
     gap: 2px;
   }
-
-  body[data-state="empty"] .topbar .actions > .btn[data-opens="picker"] {
-    display: none;
-  }
 }
 
-/* A phone needs the icon, language and theme controls, without four boxes
-   competing for attention in the top row. */
+/* Language and theme stay easy to reach, inside the landing menu on phones. */
 @media (max-width: 480px) {
   body[data-state="empty"] .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(44px, 1fr) auto;
     min-height: 56px;
-    gap: 8px;
+    gap: 6px;
+    padding-inline: 12px;
+  }
+
+  body[data-state="empty"] .fileinfo {
+    display: none;
   }
 
   body[data-state="empty"] .landing-menu {
-    margin-left: 4px;
+    grid-column: 2;
+    justify-self: end;
+    margin: 0;
   }
 
   body[data-state="empty"] .landing-menu > summary {
@@ -1719,18 +1524,30 @@ body[data-state="ready"] .topbar {
   }
 
   body[data-state="empty"] .topbar .actions {
-    gap: 0;
-    margin-left: auto;
+    grid-column: 3;
+    gap: 6px;
+    justify-content: flex-end;
+    margin: 0;
   }
 
   body[data-state="empty"] .topbar .language-button,
   body[data-state="empty"] .topbar .theme-button {
+    box-sizing: border-box;
     min-width: 44px;
     min-height: 44px;
     height: 44px;
     padding: 0;
-    border-color: transparent;
-    background: transparent;
+    border-color: var(--border);
+    border-radius: 9px;
+    background: var(--panel);
+  }
+
+  body[data-state="empty"] .topbar .actions > .btn[data-opens="picker"] {
+    box-sizing: border-box;
+    min-height: 44px;
+    height: 44px;
+    padding-inline: 12px;
+    white-space: nowrap;
   }
 }
 
@@ -2274,9 +2091,7 @@ body[data-state="empty"] .topbar {
   padding-inline: max(var(--landing-gutter), calc((100% - var(--landing-max)) / 2 + var(--landing-gutter)));
 }
 
-/* A phone's top bar keeps its own narrow edges: once the hero's Open is
-   scrolled away, the header's joins the brand, the menu and the language
-   and theme buttons, and the row is all but the screen's width. */
+/* Keep the phone header aligned with the same landing gutters as the page. */
 @media (max-width: 560px) {
   body[data-state="empty"] .topbar {
     padding-inline: 8px;
@@ -2297,11 +2112,11 @@ body[data-state="empty"] .empty-card {
   }
 
   .footnote-links {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-    justify-content: stretch;
-    gap: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0 14px;
   }
 
   .footnote-links [data-shortcuts],
@@ -2311,16 +2126,18 @@ body[data-state="empty"] .empty-card {
 
   .footnote-links a,
   .footnote-links .link {
-    min-height: 44px;
-    justify-content: flex-start;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
+    min-height: 36px;
+    justify-content: center;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .footnote-links .version {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
     min-height: 30px;
     padding-inline: 0;
     border-color: transparent;

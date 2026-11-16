@@ -93,10 +93,10 @@ export function evidenceOverview(
   select: (node: number) => void,
   selectRange: (start: number, len: number) => void,
 ): HTMLElement {
-  const box = el("section", "evidence-overview");
-  const title = el("h3", "evidence-overview-title", "Findings and evidence");
-  title.tabIndex = -1;
-  box.append(title);
+  const disclosure = el("details", "evidence-tools");
+  disclosure.append(el("summary", undefined, "Findings and evidence"));
+  const box = el("div", "evidence-overview");
+  disclosure.append(box);
 
   const query = el("input", "evidence-search");
   query.type = "search";
@@ -110,6 +110,7 @@ export function evidenceOverview(
   const issueList = el("ul", "evidence-unchecked-list");
   const empty = el("p", "hint evidence-empty", "No matching findings.");
   const items = uncheckedItems(m);
+  disclosure.open = items.length > 0 || document.body.dataset.appView === "metadata";
   const issues = items.map((item) => {
     const li = el("li", "evidence-unchecked-item");
     const jump = el("button", "evidence-unchecked-link", item.label);
@@ -252,6 +253,12 @@ export function evidenceOverview(
     filterRequested = true;
     update();
   });
+  fields.addEventListener("hexscope:reveal-evidence", () => {
+    active = "all";
+    query.value = "";
+    filterRequested = false;
+    update();
+  });
   update();
-  return box;
+  return disclosure;
 }

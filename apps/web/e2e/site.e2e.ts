@@ -30,6 +30,25 @@ async function home(page: Page): Promise<void> {
   await page.waitForFunction(() => document.body.dataset.state === "empty");
 }
 
+async function openLandingExtras(page: Page): Promise<void> {
+  const extras = page.locator(".landing-extras");
+  if (!(await extras.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await extras.locator(":scope > summary").click();
+  }
+}
+
+/** On narrow phones, preferences live in the landing menu and close it after use. */
+async function switchLandingLanguage(page: Page): Promise<void> {
+  const phoneMenu = await page.evaluate(() => matchMedia("(max-width: 480px)").matches && document.body.dataset.state === "empty");
+  if (phoneMenu) {
+    const menu = page.locator(".landing-menu");
+    await menu.locator(":scope > summary").click();
+    await menu.locator(".landing-menu-controls .language-button").click();
+    return;
+  }
+  await page.locator(".topbar .actions > .language-button").click();
+}
+
 async function analyzerChunksLoaded(page: Page): Promise<string[]> {
   return page.evaluate(() =>
     performance.getEntriesByType("resource").map(({ name }) => name).filter((name) => name.includes("/assets/analyzer-") && name.endsWith(".js")),
@@ -256,7 +275,7 @@ for (const scheme of ["light", "dark"] as const) {
       hexSelectionAlpha: getComputedStyle(document.documentElement).getPropertyValue("--alpha-base").trim(),
     }));
     expect(actual).toEqual({
-      background: scheme === "light" ? "rgb(246, 246, 244)" : "rgb(9, 11, 13)",
+      background: scheme === "light" ? "rgb(245, 245, 243)" : "rgb(16, 18, 20)",
       hexSelectionAlpha: scheme === "light" ? ".1" : ".14",
     });
   });
@@ -308,6 +327,7 @@ test("the phone landing menu closes after choosing a destination", async ({ page
 
 test("Film Lab shows distinct archival frames and credits their source", async ({ page }) => {
   await home(page);
+  await openLandingExtras(page);
 
   const film = page.locator(".film-showcase");
   await expect(film.getByRole("heading", { name: "Film scans" })).toBeVisible();
@@ -335,8 +355,6 @@ test("Film Lab shows distinct archival frames and credits their source", async (
 test("the landing shows the camera sample once and keeps its real metadata in the photo choice", async ({ page }) => {
   await home(page);
 
-  const heroPhoto = page.locator(".demo img.demo-image");
-  await expect.poll(() => heroPhoto.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
   const photoChoice = page.locator('#examples [data-example-panel="photo"]');
   await expect(photoChoice.locator("img")).toHaveCount(0);
   await expect(photoChoice.locator(".example-file-name")).toHaveText("photo.jpg");
@@ -347,7 +365,7 @@ test("the landing shows the camera sample once and keeps its real metadata in th
   await expect(photoChoice.locator(".example-evidence-path")).toContainText("GPS IFD");
 });
 
-test("the phone photo example has no dead space between its findings and file path", async ({ page }) => {
+test("the phone photo example keeps its compact facts inside the preview", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await home(page);
 
@@ -355,16 +373,20 @@ test("the phone photo example has no dead space between its findings and file pa
   const art = photo.locator(".example-photo-art");
   const facts = photo.locator(".example-facts");
   const path = photo.locator(".example-evidence-path");
-  const [artBox, factsBox, pathBox] = await Promise.all([art.boundingBox(), facts.boundingBox(), path.boundingBox()]);
+  const [artBox, factsBox] = await Promise.all([art.boundingBox(), facts.boundingBox()]);
   expect(artBox).not.toBeNull();
   expect(factsBox).not.toBeNull();
-  expect(pathBox).not.toBeNull();
-  expect(pathBox!.y - (factsBox!.y + factsBox!.height)).toBeLessThanOrEqual(24);
-  expect(artBox!.y + artBox!.height - (pathBox!.y + pathBox!.height)).toBeLessThanOrEqual(24);
+  await expect(path).toBeHidden();
+  expect(factsBox!.y).toBeGreaterThanOrEqual(artBox!.y);
+  expect(factsBox!.y + factsBox!.height).toBeLessThanOrEqual(artBox!.y + artBox!.height);
+  const factSize = await facts.locator("dd").first().evaluate((value) => parseFloat(getComputedStyle(value).fontSize));
+  expect(factSize).toBeGreaterThanOrEqual(12);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });
 
 test("the film showcase preserves frame proportions and readable actions in narrow layouts", async ({ page }) => {
   await home(page);
+  await openLandingExtras(page);
   const actions = page.locator(".film-showcase .specialist-actions");
   const frames = page.locator(".film-showcase .film-frame img");
 
@@ -381,11 +403,10 @@ test("the film showcase preserves frame proportions and readable actions in narr
 
 test("the analyzer preview displays its full-resolution source without enlargement", async ({ page }, info) => {
   await home(page);
-  const preview = page.locator(".deeper-preview .deeper-image");
-  const minWidth = info.project.name === "phone" ? 300 : 1200;
-  await preview.scrollIntoViewIfNeeded();
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(minWidth);
-  await expect(preview).toHaveCSS("transform", "none");
+  test.skip(info.project.name !== "phone", "the compact sample is measured by the phone layout checks");
+  await expect(page.locator("#examples .example-preview")).toBeVisible();
+  await expect(page.locator(".deeper-preview, .deeper-section")).toHaveCount(0);
+  await expect(page.locator("#examples .example-panel:visible img")).toHaveCount(0);
 });
 
 test("the three example choices update one preview and open their matching sample", async ({ page }) => {
@@ -415,6 +436,7 @@ test("the three example choices update one preview and open their matching sampl
 
 test("the landing ends its main story with a local privacy action", async ({ page }) => {
   await home(page);
+  await openLandingExtras(page);
 
   const privacy = page.locator(".privacy-cta");
   await privacy.scrollIntoViewIfNeeded();
@@ -425,7 +447,7 @@ test("the landing ends its main story with a local privacy action", async ({ pag
   await expect(advanced).toBeAttached();
 });
 
-test("landing hero has a concise headline, one primary action, and a real photo preview", async ({ page }) => {
+test("landing hero has a concise headline, one primary action, and a sample preview", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
@@ -436,58 +458,33 @@ test("landing hero has a concise headline, one primary action, and a real photo 
   await expect(page.locator(".hero-actions > .btn")).toHaveCount(1);
   await expect(page.locator('.hero-actions a[href="#examples"]')).toBeVisible();
 
-  const preview = page.locator(".demo img.demo-image");
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
+  await expect(page.locator('#examples [data-example-panel="photo"] .example-photo-art')).toBeVisible();
+  await expect(page.locator('#examples [data-example-panel="photo"] .example-facts')).toContainText("Sample Camera X1");
 });
 
-test("landing connects its examples to the real file analyzer", async ({ page }) => {
+test("the Formats link opens the collapsed library at its destination", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
 
-  const deeper = page.locator(".deeper-section");
-  await expect(deeper).toBeVisible();
-  const order = await page.evaluate(() => {
-    const examples = document.querySelector("#examples")!.getBoundingClientRect();
-    const deeper = document.querySelector(".deeper-section")!.getBoundingClientRect();
-    const formats = document.querySelector("#formats")!.getBoundingClientRect();
-    return { examplesBottom: examples.bottom, deeperTop: deeper.top, deeperBottom: deeper.bottom, formatsTop: formats.top };
-  });
-  expect(order.deeperTop).toBeGreaterThan(order.examplesBottom);
-  expect(order.deeperBottom).toBeLessThan(order.formatsTop);
-  await expect(deeper.getByRole("heading", { name: "Go deeper" })).toBeVisible();
-  await deeper.scrollIntoViewIfNeeded();
-
-  const preview = page.locator(".deeper-preview img");
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
-  if ((page.viewportSize()?.width ?? 0) > 560) {
-    const magnification = await preview.evaluate((image) => image.getBoundingClientRect().width / image.parentElement!.getBoundingClientRect().width);
-    expect(magnification).toBeLessThanOrEqual(1.01);
-  }
-  if ((page.viewportSize()?.width ?? 0) <= 560) {
-    expect(await preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).toContain("analyzer-preview-mobile.png");
-  }
-
-  await page.locator(".deeper-open-sample").click();
-  await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
-  await expect(page.locator(".verdict-title")).toBeVisible();
-  await openView(page, "bytes");
-  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
-  await expect(page.locator("#hex")).toBeVisible();
+  const extras = page.locator(".landing-extras");
+  await expect(extras).not.toHaveAttribute("open", "");
+  const menu = page.locator(".landing-menu");
+  if (await menu.isVisible()) await menu.locator(":scope > summary").click();
+  await page.getByRole("link", { name: "Formats", exact: true }).first().click();
+  await expect(extras).toHaveAttribute("open", "");
+  await expect(page.locator("#formats")).toBeInViewport();
 });
 
-test("the analyzer preview follows the selected site language", async ({ page }) => {
+test("the sample story follows the selected site language", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
-  await page.locator(".deeper-section").scrollIntoViewIfNeeded();
+  await switchLandingLanguage(page);
+  const sampleHeading = page.locator(".empty-card > .doors-title");
+  await expect(sampleHeading).toHaveText("Різні файли — різні знахідки");
+  await expect(page.locator(".example-kicker").first()).toHaveText("JPEG");
 
-  const preview = page.locator(".deeper-preview img");
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(300);
-  const language = page.locator(".topbar .language-button");
-  await language.click();
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).toContain("analyzer-preview-uk");
-
-  await language.click();
-  await expect.poll(() => preview.evaluate((image) => (image as HTMLImageElement).currentSrc)).not.toContain("analyzer-preview-uk");
+  await switchLandingLanguage(page);
+  await expect(sampleHeading).toHaveText("Different files, different findings");
 });
 
 test("analyzer navigation exposes and switches between workspace views", async ({ page }) => {
@@ -606,7 +603,7 @@ test("file coverage status distinguishes complete, partial and unsupported reads
   await expect(status).toHaveAccessibleName("Стан аналізу: парсера формату немає · Без парсера");
 });
 
-test("finding group index focuses the matching section", async ({ page }) => {
+test("an overview finding focuses its evidence even when a search hid it", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
     localStorage.setItem("hexscope.tour", "done");
@@ -614,12 +611,12 @@ test("finding group index focuses the matching section", async ({ page }) => {
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
 
-  const index = page.locator(".verdict-index");
-  await expect(index).toBeVisible();
-  const personal = index.locator('[data-verdict-group="personal"]');
-  await expect(personal).toBeVisible();
-  await personal.click();
-  await expect(page.locator("#verdict-group-personal > .verdict-group-title")).toBeFocused();
+  await page.locator(".evidence-tools > summary").click();
+  await page.locator(".evidence-search").fill("data-that-is-not-present");
+  const evidence = page.locator('.reveal-list dd[data-kind="location"] .reveal-link');
+  await expect(evidence).toBeHidden();
+  await page.locator('.verdict-data-link[data-kind="location"]').click();
+  await expect(evidence).toBeFocused();
 });
 
 test("desktop bytes workspace keeps structure labels readable", async ({ page }, info) => {
@@ -957,7 +954,7 @@ test("map view opens the file anatomy and its regions lead to bytes", async ({ p
   });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='map']").click();
+  await openView(page, "map");
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "map");
   await expect(page.locator(".makeup")).toBeVisible();
   await expect(page.locator(".makeup-bar")).toHaveAttribute("aria-label", "Частини файла в порядку байтів");
@@ -966,7 +963,7 @@ test("map view opens the file anatomy and its regions lead to bytes", async ({ p
   await firstBand.press("Enter");
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
   await expect(page.locator("#hex")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='map']").click();
+  await openView(page, "map");
   await page.locator(".makeup-bar").click({ position: { x: 3, y: 5 } });
   await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
 });
@@ -978,7 +975,7 @@ test("HEIF map loads its item relationships on demand", async ({ page }) => {
   });
   await page.goto("./?sample=photo.heic");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.locator("#app-nav [data-app-view='map']").click();
+  await openView(page, "map");
   await expect(page.locator(".heif-map h2")).toHaveText("Граф елементів HEIF");
   await expect(page.locator(".heif-items .heif-item").first()).toBeVisible();
 });
@@ -1371,25 +1368,18 @@ test("desktop analyzer compression navigation toggles the existing player", asyn
   await expect(page.locator(".drawer-player")).toBeHidden();
 });
 
-test("pairs each landing promise with a consistent outline icon", async ({ page }) => {
+test("the privacy promise uses a clear, consistent outline icon", async ({ page }) => {
   await home(page);
 
-  const icons = page.locator('.landing-proof .promise > svg[aria-hidden="true"]');
-  await expect(icons).toHaveCount(3);
-  const firstBox = await icons.first().boundingBox();
-  expect(firstBox).not.toBeNull();
-
-  for (const icon of await icons.all()) {
-    await expect(icon).toHaveCSS("fill", "none");
-    await expect(icon).toHaveCSS("stroke-linecap", "round");
-    await expect(icon).toHaveCSS("stroke-linejoin", "round");
-    expect(await icon.evaluate((element) => getComputedStyle(element).stroke)).not.toBe("none");
-    const box = await icon.boundingBox();
-    expect(box?.width).toBeGreaterThanOrEqual(18);
-    expect(box?.height).toBeGreaterThanOrEqual(18);
-    expect(box?.width).toBe(firstBox!.width);
-    expect(box?.height).toBe(firstBox!.height);
-  }
+  const icon = page.locator('.hero-trust > svg[aria-hidden="true"]');
+  await expect(icon).toHaveCount(1);
+  await expect(icon).toHaveCSS("fill", "none");
+  await expect(icon).toHaveCSS("stroke-linecap", "round");
+  await expect(icon).toHaveCSS("stroke-linejoin", "round");
+  expect(await icon.evaluate((element) => getComputedStyle(element).stroke)).not.toBe("none");
+  const box = await icon.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(18);
+  expect(box?.height).toBeGreaterThanOrEqual(18);
 });
 
 test("keeps the mobile landing menu compact and aligned below the header", async ({ page }) => {
@@ -1423,7 +1413,7 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(382);
   // Scrolled past the landing's button, the header's Open is at hand, inside the screen.
   await summary.click();
-  await page.locator("#examples, .landing-proof").first().scrollIntoViewIfNeeded();
+  await page.locator("#examples").scrollIntoViewIfNeeded();
   await page.mouse.wheel(0, 900);
   await expect(headerOpen).toBeVisible();
   const open = await headerOpen.boundingBox();
@@ -1443,7 +1433,11 @@ async function openDoor(page: Page, door: RegExp): Promise<void> {
   }
   let target = page.getByRole("button", { name: door });
   if ((await target.count()) === 0) {
-    await page.locator(".geek-more > summary").click();
+    await openLandingExtras(page);
+    const advanced = page.locator(".geek-more");
+    if (!(await advanced.evaluate((element) => (element as HTMLDetailsElement).open))) {
+      await advanced.locator(":scope > summary").click();
+    }
     target = page.getByRole("button", { name: door });
   }
   await target.click();
@@ -1524,117 +1518,86 @@ test("shows local film-border patterns as clues, not proof of a film original", 
   await expect(card.locator(".film-scan-evidence").first()).toContainText("Repeated high-contrast openings");
   await expect(card).toContainText("do not prove that the picture came from film");
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await page.locator(".language-button").click();
   await expect(card).toContainText("Ознаки сканування плівкового фото");
   await expect(card.locator(".film-scan-evidence").first()).toContainText("Повторювані контрастні отвори");
 });
 
-test("the landing page holds still while its demonstration plays", async ({ page }) => {
+test("the landing example stays stable after it starts", async ({ page }) => {
   await page.goto("./");
-  await expect(page.locator(".demo")).toBeVisible();
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await expect(page.locator("#examples .example-panel:visible")).toBeVisible();
   const below = page.locator(".doors-title").first();
   const tops: number[] = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 6; i++) {
     tops.push((await below.boundingBox())!.y);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(250);
   }
-  // A few pixels once, while the first scene settles; never the jumps of a card resizing.
-  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(12);
-  await expect(page.locator(".demo-facts.is-clean")).toBeVisible();
-  await page.waitForTimeout(4500);
-  await expect(page.locator(".demo-kicker")).toHaveText("Sample file · example metadata");
-  await expect(page.locator(".demo-bytes")).toHaveCount(0);
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
 });
 
-test("the phone demo keeps its copy readable in both languages", async ({ page }) => {
+test("phone example copy remains readable in both languages", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
   await home(page);
-  await expect(page.locator(".demo-caption")).toBeVisible();
-  await expect(page.locator(".demo-kicker")).toHaveText("Sample file · example metadata");
-  await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
-  await expect(page.locator(".demo-bytes")).toBeHidden();
-  await expect(page.locator(".demo-caption")).toHaveText(/Same photo\./);
-  const photoVisible = await page.locator(".demo-image").evaluate((image) => {
-    const photo = image as HTMLImageElement;
-    return photo.complete && photo.naturalWidth > 0 && photo.naturalHeight > 0;
-  });
-  expect(photoVisible).toBe(true);
 
-  const check = async (language: string) => {
-    for (const width of [360, 390]) {
+  for (const language of ["en", "uk"] as const) {
+    await page.evaluate((locale) => localStorage.setItem("hexscope.language", locale), language);
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.state === "empty");
+    for (const width of [320, 360, 390]) {
       await page.setViewportSize({ width, height: 844 });
-      const measurement = await page.evaluate(() => {
-        const side = document.querySelector(".demo-side")!;
-        const caption = document.querySelector(".demo-caption")!;
-        const demo = document.querySelector(".demo")!;
-        const frame = document.querySelector(".demo-frame")!;
-        const sideBox = side.getBoundingClientRect();
-        const captionBox = caption.getBoundingClientRect();
+      const layout = await page.evaluate(() => {
+        const panel = document.querySelector<HTMLElement>('#examples [data-example-panel="photo"]')!;
+        const art = panel.querySelector<HTMLElement>(".example-art")!;
+        const copy = panel.querySelector<HTMLElement>(".example-copy")!;
+        const facts = panel.querySelector<HTMLElement>(".example-facts")!;
+        const bounds = (element: Element) => element.getBoundingClientRect();
         return {
-          frameWidthRatio: frame.getBoundingClientRect().width / demo.getBoundingClientRect().width,
-          captionSize: parseFloat(getComputedStyle(caption).fontSize),
-          kickerSize: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
-          left: captionBox.left - sideBox.left,
-          right: sideBox.right - captionBox.right,
+          artBottom: bounds(art).bottom,
+          copyTop: bounds(copy).top,
+          titleSize: parseFloat(getComputedStyle(copy.querySelector("h3")!).fontSize),
+          bodySize: parseFloat(getComputedStyle(copy.querySelector("p:not(.example-kicker)")!).fontSize),
+          labelSize: parseFloat(getComputedStyle(facts.querySelector("dt")!).fontSize),
+          valueSize: parseFloat(getComputedStyle(facts.querySelector("dd")!).fontSize),
+          actionHeight: bounds(copy.querySelector("button")!).height,
           overflow: document.documentElement.scrollWidth - innerWidth,
         };
       });
-      expect(measurement.frameWidthRatio, `${language} image fills the phone demo at ${width}px`).toBeGreaterThan(0.85);
-      expect(measurement.captionSize, `${language} caption at ${width}px`).toBeGreaterThanOrEqual(14);
-      expect(measurement.kickerSize, `${language} label at ${width}px`).toBeGreaterThanOrEqual(12);
-      expect(measurement.left, `${language} caption left edge at ${width}px`).toBeGreaterThanOrEqual(-1);
-      expect(measurement.right, `${language} caption right edge at ${width}px`).toBeGreaterThanOrEqual(-1);
-      expect(measurement.overflow, `${language} page overflow at ${width}px`).toBeLessThanOrEqual(0);
+      expect(layout.copyTop, `${language} art and copy at ${width}px`).toBeGreaterThanOrEqual(layout.artBottom - 1);
+      expect(layout.titleSize, `${language} sample title at ${width}px`).toBeGreaterThanOrEqual(22);
+      expect(layout.bodySize, `${language} sample description at ${width}px`).toBeGreaterThanOrEqual(14);
+      expect(layout.labelSize, `${language} fact labels at ${width}px`).toBeGreaterThanOrEqual(12);
+      expect(layout.valueSize, `${language} fact values at ${width}px`).toBeGreaterThanOrEqual(12);
+      expect(layout.actionHeight, `${language} sample action at ${width}px`).toBeGreaterThanOrEqual(44);
+      expect(layout.overflow, `${language} page at ${width}px`).toBeLessThanOrEqual(0);
     }
-  };
-
-  await check("English");
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  await expect(page.locator(".demo-caption")).toBeVisible();
-  await check("Ukrainian");
-  const caption = page.locator(".demo-caption");
-  await caption.evaluate((element) => {
-    element.textContent = "Same photo. Camera details removed in your browser.";
-  });
-  await expect(caption).toHaveText("Те саме фото. Дані камери видалено у вашому браузері.");
-  await caption.evaluate((element) => {
-    element.textContent = "Same photo. 24 bytes removed in your browser.";
-  });
-  await expect(caption).toHaveText("Те саме фото. У вашому браузері видалено 24 байти.");
+  }
 });
 
-test("the short demo scene reserves no disproportionate empty band", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
+test("the compact photo preview keeps facts close to its edges on phone and tablet", async ({ page }) => {
   await home(page);
-  await expect(page.locator(".demo-caption")).toBeVisible();
-
   for (const width of [360, 390, 645, 768]) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.waitForTimeout(60);
-    const spacing = await page.locator(".demo-side").evaluate((side) => {
-      const sideBox = side.getBoundingClientRect();
-      const children = [...side.children]
-        .filter((child) => getComputedStyle(child).display !== "none" && child.getBoundingClientRect().height > 0)
-        .map((child) => child.getBoundingClientRect());
-      const contentTop = Math.min(...children.map((box) => box.top));
-      const contentBottom = Math.max(...children.map((box) => box.bottom));
+    await page.setViewportSize({ width, height: 900 });
+    const spacing = await page.locator('#examples [data-example-panel="photo"] .example-art').evaluate((art) => {
+      const panel = art.closest(".example-panel")!;
+      const facts = art.querySelector(".example-facts")!;
+      const artBox = art.getBoundingClientRect();
+      const factsBox = facts.getBoundingClientRect();
       return {
-        above: contentTop - sideBox.top,
-        below: sideBox.bottom - contentBottom,
+        bottomGap: artBox.bottom - factsBox.bottom,
+        panelColumns: getComputedStyle(panel).gridTemplateColumns.trim().split(/\s+/).length,
         overflow: document.documentElement.scrollWidth - innerWidth,
       };
     });
-    expect(spacing.above, `demo content above at ${width}px`).toBeGreaterThanOrEqual(-1);
-    expect(spacing.below, `demo content below at ${width}px`).toBeGreaterThanOrEqual(-1);
-    expect(spacing.above + spacing.below, `unused demo space at ${width}px`).toBeLessThanOrEqual(80);
-    expect(spacing.overflow, `page overflow at ${width}px`).toBeLessThanOrEqual(0);
+    expect(spacing.bottomGap, `${width}px preview has no empty band`).toBeLessThanOrEqual(80);
+    expect(spacing.overflow, `${width}px page`).toBeLessThanOrEqual(0);
+    if (width <= 768) expect(spacing.panelColumns, `${width}px stacks art and copy`).toBe(1);
   }
 });
 
 test("the example tabs share one aligned preview on desktop", async ({ page }, info) => {
-  test.skip(info.project.name !== "computer", "the desktop arrangement is checked at desktop widths");
+  test.skip(info.project.name !== "computer", "desktop alignment is measured on the computer project");
   await home(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   const grid = page.locator(".doors-main");
   await expect(grid).toHaveCount(1);
   const choices = grid.locator(".example-tabs .door");
@@ -1646,159 +1609,113 @@ test("the example tabs share one aligned preview on desktop", async ({ page }, i
 });
 
 test("the desktop example tabs line up their labels and file types", async ({ page }, info) => {
-  test.skip(info.project.name !== "computer", "the card row is checked in its desktop arrangement");
+  test.skip(info.project.name !== "computer", "desktop tab alignment is checked on the computer project");
   await home(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   const rows = await page.locator(".example-tabs .door").evaluateAll((tabs) =>
     [".door-title", ".example-tab-type"].map((selector) =>
-      tabs.map((tab) => Math.round(tab.querySelector(selector)!.getBoundingClientRect().top)),
+      tabs.map((tab) => {
+        const bounds = tab.querySelector(selector)!.getBoundingClientRect();
+        return `${Math.round(bounds.y)}:${Math.round(bounds.height)}`;
+      }),
     ),
   );
   for (const row of rows) expect(new Set(row).size).toBe(1);
 });
 
 test("the landing page uses the available desktop canvas", async ({ page }, info) => {
-  test.skip(info.project.name !== "computer", "wide-canvas composition is desktop-only");
+  test.skip(info.project.name !== "computer", "desktop canvas is measured on the computer project");
   await home(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   const width = await page.locator(".empty-card").evaluate((e) => e.getBoundingClientRect().width);
   expect(width).toBeGreaterThanOrEqual(1080);
 });
 
 test("the desktop landing keeps the example beside the words", async ({ page }, info) => {
-  test.skip(info.project.name !== "computer", "desktop demo composition is checked at desktop widths");
+  test.skip(info.project.name !== "computer", "desktop composition is checked at desktop widths");
   await home(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.locator(".demo-frame")).toBeVisible();
-  const composition = await page.evaluate(() => ({
-    frame: document.querySelector(".demo-frame")!.getBoundingClientRect().toJSON(),
-    side: document.querySelector(".demo-side")!.getBoundingClientRect().toJSON(),
-    heroHeight: document.querySelector(".hero")!.getBoundingClientRect().height,
-  }));
-  expect(
-    Math.abs(
-      composition.frame.y + composition.frame.height / 2 - (composition.side.y + composition.side.height / 2),
-    ),
-  ).toBeLessThanOrEqual(1);
-  expect(composition.frame.x).toBeLessThan(composition.side.x);
-  expect(composition.heroHeight).toBeLessThanOrEqual(380);
-});
-
-test("the desktop demo gives photo facts room to wrap as words", async ({ page }, info) => {
-  test.skip(info.project.name !== "computer", "desktop fact wrapping is checked across desktop widths");
-  await home(page);
-  await expect(page.locator(".demo-fact.is-shown")).toHaveCount(4);
-
-  for (const width of [901, 1024, 1280, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    const layout = await page.locator(".demo-side").evaluate((side) => {
-      const labelLines = [...side.querySelectorAll(".demo-fact dt")].map((label) => {
-        const range = document.createRange();
-        range.selectNodeContents(label);
-        return range.getClientRects().length;
-      });
-      const valueLines = [...side.querySelectorAll(".demo-fact dd")].map((value) => {
-        const range = document.createRange();
-        range.selectNodeContents(value);
-        return range.getClientRects().length;
-      });
-      return { width: side.getBoundingClientRect().width, labelLines, valueLines };
-    });
-    expect(layout.width, `photo facts column at ${width}px`).toBeGreaterThanOrEqual(220);
-    expect(Math.max(...layout.labelLines), `longest photo label at ${width}px`).toBeLessThanOrEqual(1);
-    expect(Math.max(...layout.valueLines), `longest photo value at ${width}px`).toBeLessThanOrEqual(2);
-  }
-
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
-  for (const width of [901, 1024, 1280, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    const layout = await page.locator(".demo-side").evaluate((side) => {
-      const lines = (selector: string) => [...side.querySelectorAll(selector)].map((item) => {
-        const range = document.createRange();
-        range.selectNodeContents(item);
-        return range.getClientRects().length;
-      });
-      return { labelLines: lines(".demo-fact dt"), valueLines: lines(".demo-fact dd") };
-    });
-    expect(Math.max(...layout.labelLines), `Ukrainian photo label at ${width}px`).toBeLessThanOrEqual(2);
-    expect(Math.max(...layout.valueLines), `Ukrainian photo value at ${width}px`).toBeLessThanOrEqual(2);
-  }
-});
-
-test("the tablet landing centers short demo scenes in their reserved height", async ({ page }) => {
-  await page.setViewportSize({ width: 645, height: 800 });
-  await home(page);
-  await expect(page.locator(".demo-side")).toBeVisible();
-  const spacing = await page.locator(".demo-side").evaluate((side) => {
-    const sideBox = side.getBoundingClientRect();
-    const visible = [...side.children].filter((child) => getComputedStyle(child).display !== "none");
-    const contentTop = Math.min(...visible.map((child) => child.getBoundingClientRect().top));
-    const contentBottom = Math.max(...visible.map((child) => child.getBoundingClientRect().bottom));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const composition = await page.locator('#examples [data-example-panel="photo"]').evaluate((panel) => {
+    const art = panel.querySelector(".example-art")!.getBoundingClientRect();
+    const copy = panel.querySelector(".example-copy")!.getBoundingClientRect();
     return {
-      above: contentTop - sideBox.top,
-      below: sideBox.bottom - contentBottom,
-      overflow: document.documentElement.scrollWidth - innerWidth,
+      columns: getComputedStyle(panel).gridTemplateColumns.trim().split(/\s+/).length,
+      aligned: Math.abs(art.y - copy.y),
+      separation: copy.left - art.right,
+      panelHeight: panel.getBoundingClientRect().height,
     };
   });
-  expect(Math.abs(spacing.above - spacing.below)).toBeLessThanOrEqual(24);
-  expect(spacing.overflow).toBeLessThanOrEqual(0);
+  expect(composition.columns).toBe(2);
+  expect(composition.aligned).toBeLessThanOrEqual(1);
+  expect(composition.separation).toBeGreaterThanOrEqual(0);
+  expect(composition.panelHeight).toBeLessThanOrEqual(360);
 });
 
-test("the landing page keeps its type readable on a phone", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
+test("desktop sample facts fit inside the example across widths", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "the desktop example is measured on the computer project");
+  await home(page);
+  for (const width of [901, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.locator('#examples [data-example-panel="photo"] .example-facts').evaluate((facts) => {
+      const box = facts.getBoundingClientRect();
+      const rows = [...facts.children].map((row) => {
+        const label = row.querySelector("dt")!.getBoundingClientRect();
+        const value = row.querySelector("dd")!.getBoundingClientRect();
+        return { labelRight: label.right, valueLeft: value.left, valueRight: value.right, rowRight: row.getBoundingClientRect().right };
+      });
+      return { left: box.left, right: box.right, rows, overflow: document.documentElement.scrollWidth - innerWidth };
+    });
+    expect(layout.overflow, `${width}px page`).toBeLessThanOrEqual(0);
+    for (const row of layout.rows) {
+      expect(row.valueRight, `${width}px value stays in row`).toBeLessThanOrEqual(row.rowRight + 1);
+      expect(row.labelRight, `${width}px label does not collide with value`).toBeLessThanOrEqual(row.valueLeft + 1);
+    }
+  }
+});
+
+test("the tablet landing stacks the sample art before its explanation", async ({ page }) => {
+  await home(page);
+  await page.setViewportSize({ width: 768, height: 900 });
+  const layout = await page.locator('#examples [data-example-panel="photo"]').evaluate((panel) => {
+    const art = panel.querySelector(".example-art")!.getBoundingClientRect();
+    const copy = panel.querySelector(".example-copy")!.getBoundingClientRect();
+    return { columns: getComputedStyle(panel).gridTemplateColumns.trim().split(/\s+/).length, artBottom: art.bottom, copyTop: copy.top };
+  });
+  expect(layout.columns).toBe(1);
+  expect(layout.copyTop).toBeGreaterThanOrEqual(layout.artBottom - 1);
+});
+
+test("the landing page keeps type and actions readable on a phone", async ({ page }) => {
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".demo-fact").first()).toBeAttached();
-  const light = await page.evaluate(() => ({
-    page: getComputedStyle(document.body).backgroundColor,
-    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
-  }));
-  expect(light).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
-  await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
-  const dark = await page.evaluate(() => ({
-    page: getComputedStyle(document.body).backgroundColor,
-    demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
-  }));
-  expect(dark).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
   const type = await page.evaluate(() => ({
-    title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
-    introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),
-    example: parseFloat(getComputedStyle(document.querySelector(".example-copy > p:not(.example-kicker)")!).fontSize),
-    demoLabel: parseFloat(getComputedStyle(document.querySelector(".demo-kicker")!).fontSize),
-    demoCaption: parseFloat(getComputedStyle(document.querySelector(".demo-caption")!).fontSize),
-    demoFact: parseFloat(getComputedStyle(document.querySelector(".demo-fact")!).fontSize),
-    demoFactValue: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
-    primaryActionHeight: Math.min(
-      ...[...document.querySelectorAll<HTMLButtonElement>(".hero-actions .btn-big")].map((button) =>
-        button.getBoundingClientRect().height,
-      ),
-    ),
+    title: parseFloat(getComputedStyle(document.querySelector("h1")!).fontSize),
+    introduction: parseFloat(getComputedStyle(document.querySelector(".lede")!).fontSize),
+    exampleTitle: parseFloat(getComputedStyle(document.querySelector('#examples .example-copy h3')!).fontSize),
+    exampleBody: parseFloat(getComputedStyle(document.querySelector('#examples .example-copy > p:not(.example-kicker)')!).fontSize),
+    primaryActionHeight: document.querySelector<HTMLElement>(".hero-actions > .btn")!.getBoundingClientRect().height,
+    exampleActionHeight: document.querySelector<HTMLElement>("#examples .example-copy .btn")!.getBoundingClientRect().height,
     bodyFont: getComputedStyle(document.body).fontFamily,
-    codeFont: getComputedStyle(document.documentElement).getPropertyValue("--mono"),
+    codeFont: getComputedStyle(document.querySelector("code")!).fontFamily,
   }));
   expect(type.title).toBeGreaterThanOrEqual(30);
   expect(type.introduction).toBeGreaterThanOrEqual(16);
-  expect(type.example).toBeGreaterThanOrEqual(14);
-  expect(type.demoLabel).toBeGreaterThanOrEqual(12);
-  expect.soft(type.demoCaption).toBeGreaterThanOrEqual(14);
-  expect.soft(type.demoFact).toBeGreaterThanOrEqual(14);
-  expect.soft(type.demoFactValue).toBeGreaterThanOrEqual(14);
+  expect(type.exampleTitle).toBeGreaterThanOrEqual(22);
+  expect(type.exampleBody).toBeGreaterThanOrEqual(14);
   expect(type.primaryActionHeight).toBeGreaterThanOrEqual(44);
+  expect(type.exampleActionHeight).toBeGreaterThanOrEqual(44);
   expect(type.bodyFont).toContain("system-ui");
   expect(type.codeFont).toContain("monospace");
 });
 
-test("the tablet demo keeps photo facts at reading size", async ({ page }) => {
+test("the tablet sample facts stay at a readable size", async ({ page }) => {
   await home(page);
   await page.setViewportSize({ width: 768, height: 900 });
-  await expect(page.locator(".demo-fact").first()).toBeAttached();
-  const type = await page.evaluate(() => ({
-    label: parseFloat(getComputedStyle(document.querySelector(".demo-fact dt")!).fontSize),
-    value: parseFloat(getComputedStyle(document.querySelector(".demo-fact dd")!).fontSize),
+  const type = await page.locator('#examples [data-example-panel="photo"] .example-facts').evaluate((facts) => ({
+    label: parseFloat(getComputedStyle(facts.querySelector("dt")!).fontSize),
+    value: parseFloat(getComputedStyle(facts.querySelector("dd")!).fontSize),
     overflow: document.documentElement.scrollWidth - innerWidth,
   }));
-  expect(type.label).toBeGreaterThanOrEqual(14);
-  expect(type.value).toBeGreaterThanOrEqual(14);
+  expect(type.label).toBeGreaterThanOrEqual(12);
+  expect(type.value).toBeGreaterThanOrEqual(12);
   expect(type.overflow).toBeLessThanOrEqual(0);
 });
 
@@ -1826,6 +1743,7 @@ test("shared routes only request their current stylesheets", async ({ page }) =>
 test("supported file types stay grouped in the mobile catalog", async ({ page }) => {
   await home(page);
   await page.setViewportSize({ width: 390, height: 844 });
+  await openLandingExtras(page);
   const formats = page.locator(".format-catalog");
   await expect(formats).toBeVisible();
   await expect(formats.getByRole("heading", { name: "Supported formats" })).toBeVisible();
@@ -1837,8 +1755,8 @@ test("supported file types stay grouped in the mobile catalog", async ({ page })
 });
 
 test("the phone brings the main actions before supporting detail", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
   await home(page);
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   for (const width of [320, 360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     const actions = await page.locator(".hero-actions").boundingBox();
@@ -1847,7 +1765,7 @@ test("the phone brings the main actions before supporting detail", async ({ page
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
   }
   const doors = await page.locator(".doors-main").boundingBox();
-  const proof = await page.locator(".landing-proof").boundingBox();
+  const proof = await page.locator(".hero-trust").boundingBox();
   const actions = await page.locator(".hero-actions").boundingBox();
   expect(doors).not.toBeNull();
   expect(proof).not.toBeNull();
@@ -1896,7 +1814,9 @@ test("the example selector and preview stay inside the content grid across width
 });
 
 test("the landing groups film scans and local multi-photo actions with their right sections", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
+  await openLandingExtras(page);
   const tools = page.locator(".film-showcase");
   const privacy = page.locator(".privacy-cta");
   await expect(tools).toBeVisible();
@@ -1907,13 +1827,13 @@ test("the landing groups film scans and local multi-photo actions with their rig
   await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
   await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await switchLandingLanguage(page);
   await expect(tools.getByRole("heading", { name: "Плівкові скани" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Обробити плівкові скани · JPEG / TIFF" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Відкрити кадр AS11-40-5903 у hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
 
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await switchLandingLanguage(page);
   const fileChooserEvent = page.waitForEvent("filechooser");
   await privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" }).click();
   const fileChooser = await fileChooserEvent;
@@ -1999,8 +1919,9 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
       };
     });
     expect(layout.columns, `${width}px: one page-wide reading flow`).toBe(1);
-    expect(layout.verdictColumns, `${width}px: the answer is balanced inside its card`).toBe(2);
-    expect(layout.findingsX, `${width}px: findings follow the verdict summary`).toBeGreaterThan(layout.introX);
+    expect(layout.verdictColumns, `${width}px: the findings follow the answer in one column`).toBe(1);
+    expect(layout.findingsX, `${width}px: findings share the report's left edge`).toBeCloseTo(layout.answerX, 0);
+    expect(layout.introX, `${width}px: the heading sits inside the summary surface`).toBeGreaterThan(layout.findingsX);
     expect(layout.flowX, `${width}px: evidence aligns under the answer`).toBeCloseTo(layout.answerX, 0);
     expect(layout.flowTop, `${width}px: evidence follows the answer`).toBeGreaterThan(layout.answerBottom);
     expect(layout.flowWidth, `${width}px: sections share a width`).toBeCloseTo(layout.answerWidth, 0);
@@ -2008,17 +1929,18 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
   }
 });
 
-test("a phone goes without the tour, and a computer's tour rings the part it is about", async ({ page }, info) => {
+test("the tour waits for a computer reader to request it", async ({ page }, info) => {
   await page.addInitScript(() => localStorage.removeItem("hexscope.tour"));
-  await page.goto("./?sample=photo.jpg");
-  await expect(page.locator(".verdict-title")).toBeVisible();
+  await home(page);
+  await expect(page.locator(".tour")).toHaveCount(0);
   if (info.project.name === "phone") {
-    // The first result is not covered by a note: the answer explains itself.
-    await page.waitForTimeout(400);
-    await expect(page.locator(".tour")).toHaveCount(0);
     await expect(page.locator(".footnote-links [data-tour]")).toBeHidden();
     return;
   }
+  const launchTour = page.locator(".footnote-links [data-tour]");
+  await expect(launchTour).toBeVisible();
+  await launchTour.click();
+  await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.locator(".tour")).toBeVisible();
   const ring = await page.locator(".tour-lit").evaluate((e) => ({ radius: getComputedStyle(e).borderRadius, offset: getComputedStyle(e).outlineOffset }));
   expect(ring.radius).not.toBe("0px");
@@ -2148,10 +2070,10 @@ test("a cancelled phone touch cannot select a replacement file later", async ({ 
 
 test("the phone can inspect a photo in Ukrainian and return to its clean-copy action", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the narrow inspection flow is phone-specific");
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await openView(page, "bytes");
   await page.waitForTimeout(400);
   await expect(page.locator(".tour")).toHaveCount(0);
@@ -2231,20 +2153,24 @@ test("the pinned byte label remains readable", async ({ page }, info) => {
 
 test("the landing page has a clear primary action, three sample choices, and a remembered Ukrainian choice", async ({ page }) => {
   await home(page);
+  if (await page.locator("html").getAttribute("lang") !== "en") {
+    await switchLandingLanguage(page);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  }
   await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
   await expect(page.locator('.hero-actions a[href="#examples"]')).toHaveText("See examples");
   await expect(page.locator(".doors-main .door")).toHaveCount(3);
   expect(await page.locator(".geek-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
   expect(await page.locator(".landing-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await switchLandingLanguage(page);
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".format-catalog h2")).toHaveText("Підтримувані формати");
   await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас");
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await switchLandingLanguage(page);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("h1")).toHaveText("See what your file reveals about you");
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await switchLandingLanguage(page);
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await page.reload();
   await page.waitForFunction(() => document.body.dataset.state === "empty");
@@ -2253,7 +2179,7 @@ test("the landing page has a clear primary action, three sample choices, and a r
   await page.locator('label[for="example-photo"]').click();
   await page.locator('#examples [data-example-panel="photo"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toContainText("Фото розкриває");
-  await expect(page.locator(".verdict-lines .is-reveals")).toContainText("Розкриває місце зйомки");
+  await expect(page.locator('.verdict-data-link[data-kind="location"]')).toHaveText("Місце зйомки");
   await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити");
   await expect(page.locator(".advice")).toContainText("Серійний номер є в кожному фото з цього фотоапарата.");
   await expect(page.locator(".advice")).toContainText("Ім’я власника береться з налаштувань фотоапарата.");
@@ -2261,7 +2187,8 @@ test("the landing page has a clear primary action, three sample choices, and a r
 
 test("a guide changes its full article and language metadata with the shared control", async ({ page }) => {
   await page.goto("./is-this-email-real.html");
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  const language = page.locator(".topbar .actions > .language-button");
+  await language.click();
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".guide-language-note")).toHaveCount(0);
   await expect(page.locator("article.story-text h1")).toHaveText("Цей лист справжній?");
@@ -2272,7 +2199,7 @@ test("a guide changes its full article and language metadata with the shared con
   await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "Цей лист справжній?");
   await expect(page.locator("meta[property='og:description']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
   await expect(page.getByRole("link", { name: "Відкрити файл" })).toBeVisible();
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await language.click();
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
   await expect(page.locator("article.story-text h1")).toHaveText("Is this email real?");
   await expect(page.locator("article.story-text")).toContainText("SPF, DKIM and DMARC results in this header are claims in the saved message");
@@ -2304,7 +2231,7 @@ test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
   await expect(page.locator(".verdict-title")).toBeVisible();
   const toolbar = page.locator(".topbar .actions");
   await expect(toolbar).toBeVisible();
-  await expect(page.locator(".topbar .location-badge")).toBeVisible();
+  await expect(page.locator(".topbar .location-badge")).toBeHidden();
   await expect(page.locator(".topbar .viewswitch")).toBeHidden();
   // The bytes are a tap away, under More.
   await expect(page.locator("#app-nav .app-nav-more > summary")).toBeVisible();
@@ -2502,7 +2429,7 @@ test("loads the file report and JSON export modules when requested", async ({ pa
   expect(scripts.some((url) => url.includes("/export-"))).toBe(true);
 });
 
-test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }, info) => {
+test("a photo: the answer, where it was taken, and an evidence-based clean-copy result", async ({ page }) => {
   const saved = catchDownloads(page);
   await openDoor(page, /Check a photo/);
   await expect(page.locator(".verdict-title")).toHaveText(/^This photo gives away \d+ things$/);
@@ -2511,8 +2438,7 @@ test("a photo: the answer, where it was taken, and an evidence-based clean-copy 
   await expect(page.locator(".sharer")).toBeHidden();
   await expect(page.locator(".cleaner .btn-clean")).toBeHidden();
   await expect(page.locator(".verdict-actions .verdict-cta")).toBeVisible();
-  // A phone goes without the tour.
-  if (info.project.name !== "phone") await expect(page.locator(".tour")).toContainText("fact in the summary");
+  await expect(page.locator(".tour")).toHaveCount(0);
   // Where the keyboard starts: the answer.
   await expect(page.locator(".verdict-title")).toBeFocused();
   await expect(page.locator(".place-map svg")).toBeVisible();
