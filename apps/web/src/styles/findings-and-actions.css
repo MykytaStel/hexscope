@@ -654,8 +654,7 @@ body[data-state="empty"] .layout {
 /* The opening: what it does and the way in on the left, it doing it on the right. */
 .hero {
   display: grid;
-  /* Top, not centred: the demonstration grows as it plays, and the words
-     beside it should not move. */
+  /* One clear first step, with samples kept in their own section below. */
   margin-bottom: 0;
 }
 
@@ -784,35 +783,6 @@ body[data-state="empty"] .layout {
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.landing-proof > * {
-  min-width: 0;
-}
-
-.empty-card .promise {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-  min-width: 0;
-  max-width: 700px;
-  margin: 0;
-  font-size: var(--type-small);
-  line-height: 1.5;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-.promise svg {
-  flex: none;
-  width: 15px;
-  height: 15px;
-  margin-top: 2px;
-  fill: var(--tint-sig);
-}
-
-.promise strong {
-  color: var(--text);
 }
 
 .format-catalog {
@@ -1299,8 +1269,7 @@ body[data-state="empty"] .layout {
   text-decoration-color: currentColor;
 }
 
-.more-links a,
-.empty-card .promise a {
+.more-links a {
   color: var(--accent);
 }
 

@@ -118,6 +118,14 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     if (dialog.open) dialog.close();
     restore();
   };
+  // This dock belongs to the file workspace. In particular, Back returns to
+  // the landing page while preserving the parsed file; close the dock with the
+  // workspace so it cannot float over the landing page or sample list.
+  new MutationObserver(() => {
+    if (document.body.dataset.state === "ready") return;
+    dismiss();
+    close();
+  }).observe(document.body, { attributes: true, attributeFilter: ["data-state"] });
   dialog.addEventListener("close", restore);
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || !dialog.open || document.querySelector("dialog:modal")) return;

@@ -1,4 +1,4 @@
-// The home page: the landing, its demo, and every way a file comes in. The
+// The home page: the landing and every way a file comes in. The
 // analyzer that shows an open file (analyzer.ts) is a module of its own,
 // loaded when a file or a sample is asked for; browsing the landing does not
 // parse the file viewer before it is needed.
@@ -8,7 +8,6 @@ import { themeButton } from "./theme";
 import { wireInstall } from "./install";
 import { wireInputs } from "./inputs";
 import { openShortcuts } from "./shortcuts";
-import { startDemo } from "./demo";
 import { siteUrl } from "./files";
 import { countVisit } from "./count";
 import { announce } from "./announce";
@@ -17,9 +16,42 @@ import { announce } from "./announce";
 // and only a reader in Ukrainian, so they come with the dictionary.
 withUkrainian(() => import("./analysis-i18n"));
 installLocale();
-document.querySelector(".topbar .actions")?.prepend(languageButton());
-// Light, dark or the system's, beside Open.
-document.querySelector('[data-opens="picker"]')?.before(themeButton());
+const languageControl = languageButton();
+document.querySelector(".topbar .actions")?.prepend(languageControl);
+const themeControl = themeButton();
+document.querySelector('[data-opens="picker"]')?.before(themeControl);
+
+// On a phone, keep the landing header to the brand and one menu. Preferences
+// stay available in that menu; an open workspace brings them back beside Open.
+const landingPreferences = document.querySelector<HTMLElement>(".landing-menu-controls");
+const phoneLanding = matchMedia("(max-width: 480px)");
+function placeLandingPreferences(): void {
+  landingPreferences?.setAttribute("aria-label", currentLocale() === "uk" ? "Налаштування" : "Preferences");
+  const inMenu = phoneLanding.matches && document.body.dataset.state === "empty";
+  const menu = document.querySelector<HTMLElement>(".landing-menu");
+  const actions = document.querySelector<HTMLElement>(".topbar .actions");
+  const picker = document.querySelector('[data-opens="picker"]');
+  if (inMenu && landingPreferences) {
+    landingPreferences.append(languageControl, themeControl);
+    landingPreferences.hidden = false;
+    return;
+  }
+  landingPreferences?.setAttribute("hidden", "");
+  actions?.prepend(languageControl);
+  picker?.before(themeControl);
+  menu?.removeAttribute("open");
+}
+window.addEventListener("hexscope:locale", () => {
+  landingPreferences?.setAttribute("aria-label", currentLocale() === "uk" ? "Налаштування" : "Preferences");
+});
+for (const control of [languageControl, themeControl]) {
+  control.addEventListener("click", () => document.querySelector(".landing-menu")?.removeAttribute("open"));
+}
+phoneLanding.addEventListener("change", placeLandingPreferences);
+new MutationObserver(placeLandingPreferences).observe(document.body, {
+  attributes: true,
+  attributeFilter: ["data-state"],
+});
 
 // The expanded guide/sample library is a quick index on desktop; on a phone,
 // open only the topic the reader wants to scan.
@@ -139,16 +171,16 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 
 document.body.dataset.state = "empty";
+document.body.dataset.heroButton = "shown";
+placeLandingPreferences();
 const asked = new URLSearchParams(location.search);
 if (asked.has("home")) history.replaceState(null, "", location.pathname);
 // What a link asked to open goes first: a sample by name, or a file shared to the app.
 const linked = asked.get("sample");
 if (linked && [...document.querySelectorAll<HTMLElement>("[data-sample]")].some((b) => b.dataset.name === linked)) {
-  // Loading from now, so the demo does not start under it while the analyzer comes.
+  // Load only the file the link asked for.
   document.body.dataset.state = "loading";
   withApp((a) => a.openLinkedSample());
 } else if (linked) history.replaceState(null, "", location.pathname);
 if (asked.has("shared") || asked.has("share-error")) withApp((a) => void a.openShared());
-// Only a page still empty shows the demo.
-setTimeout(() => void startDemo(document.getElementById("demo")!), 0);
 countVisit();

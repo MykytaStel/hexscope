@@ -38,6 +38,10 @@
   display: none;
 }
 
+.landing-menu-controls[hidden] {
+  display: none;
+}
+
 body[data-state="empty"] {
   grid-template-rows: 64px 1fr;
 }
@@ -72,14 +76,18 @@ body[data-state="loading"] .landing-menu {
 }
 
 .hero {
-  grid-template-columns: minmax(0, 0.86fr) minmax(440px, 1.14fr);
-  gap: clamp(28px, 4vw, 60px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: center;
+  max-width: 780px;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .hero h1 {
   max-width: 17ch;
   margin-bottom: 12px;
+  margin-inline: auto;
   font-size: clamp(34px, 3.2vw, 48px);
   line-height: 1.06;
   letter-spacing: -0.04em;
@@ -88,6 +96,7 @@ body[data-state="loading"] .landing-menu {
 .empty-card .lede {
   max-width: 44ch;
   margin-bottom: 24px;
+  margin-inline: auto;
   color: var(--muted);
   font-size: clamp(16px, 1.35vw, 18px);
   line-height: 1.55;
@@ -95,6 +104,7 @@ body[data-state="loading"] .landing-menu {
 
 .hero-actions {
   gap: 10px;
+  justify-content: center;
 }
 
 .hero-actions .btn-primary {
@@ -128,6 +138,7 @@ body[data-state="loading"] .landing-menu {
 .hero-trust {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin: 12px 0 0;
   color: var(--muted);
@@ -150,110 +161,6 @@ body[data-state="loading"] .landing-menu {
 .landing-more > summary {
   color: var(--muted);
   text-decoration-color: var(--border-strong);
-}
-
-.demo {
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  gap: clamp(12px, 1.6vw, 22px);
-  padding: clamp(12px, 1.6vw, 20px);
-  border-color: var(--border-strong);
-  border-radius: 14px;
-  background: var(--panel);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 20px 56px rgba(0, 0, 0, 0.22);
-}
-
-.demo-frame {
-  aspect-ratio: 0.94;
-  border-radius: 9px;
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
-
-.demo-side {
-  justify-content: center;
-  gap: 4px;
-}
-
-.demo-kicker {
-  margin-bottom: 10px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 650;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.demo-facts {
-  gap: 0;
-}
-
-.demo-fact {
-  padding-block: 9px;
-  border-bottom: 1px solid var(--border);
-}
-
-.demo-fact dt {
-  color: var(--faint);
-}
-
-.demo-fact dd {
-  color: var(--text);
-}
-
-.demo-caption {
-  margin-top: 12px;
-  color: var(--muted);
-}
-
-.landing-proof {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  margin: 36px 0 0;
-  padding: 22px 0 0;
-  border-top: 1px solid var(--border);
-  list-style: none;
-}
-
-.landing-proof > .promise {
-  display: flex;
-  min-height: 54px;
-  max-width: none;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 0;
-  padding: 0 clamp(12px, 2.2vw, 32px);
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.landing-proof > .promise:first-child {
-  padding-left: 0;
-}
-
-.landing-proof > .promise + .promise {
-  border-left: 1px solid var(--border);
-}
-
-.landing-proof .promise svg {
-  width: 19px;
-  height: 19px;
-  margin-top: 1px;
-  fill: none;
-  stroke: var(--text);
-  stroke-width: 1.35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.landing-proof .promise strong {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--text);
-  font-weight: 650;
-}
-
-.landing-proof .promise a {
-  color: var(--text);
 }
 
 .doors-title {
@@ -1340,6 +1247,15 @@ body[data-state="ready"] .topbar {
     background: var(--panel-2);
   }
 
+  .landing-menu-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 8px 8px 0;
+    border-top: 1px solid var(--border);
+  }
+
   .empty-card {
     padding: 32px 24px 48px;
   }
@@ -1353,19 +1269,6 @@ body[data-state="ready"] .topbar {
     max-width: 18ch;
     font-size: clamp(36px, 7vw, 48px);
     line-height: 1.04;
-  }
-
-  .demo {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  .landing-proof {
-    margin-top: 28px;
-    padding-top: 18px;
-  }
-
-  .landing-proof > .promise {
-    padding-inline: 14px;
   }
 
   .doors-title,
@@ -1454,66 +1357,51 @@ body[data-state="ready"] .topbar {
   }
 
   .hero {
-    gap: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    text-align: left;
   }
 
   .hero h1 {
+    margin-inline: 0;
     font-size: clamp(34px, 10vw, 42px);
   }
 
   .empty-card .lede {
     margin-bottom: 18px;
+    margin-inline: 0;
     font-size: 16px;
   }
 
   .hero-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
     align-items: stretch;
   }
 
   .hero-actions > .btn {
-    flex: 1 1 auto;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    flex: none;
     justify-content: center;
   }
 
+  .hero-examples {
+    min-height: 40px;
+    justify-self: start;
+    padding: 4px 0;
+  }
+
   .hero-other-ways {
-    flex: 1 0 100%;
-    margin-top: 4px;
-  }
-
-  .demo {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    padding: 12px;
-  }
-
-  .demo-frame {
-    width: 100%;
-    max-width: 100%;
-    justify-self: stretch;
-    aspect-ratio: 1.15;
-  }
-
-  .demo-side {
-    min-height: 0 !important;
-    padding: 2px 2px 4px;
-  }
-
-  .landing-proof {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    margin-top: 22px;
-    padding-top: 8px;
-  }
-
-  .landing-proof > .promise,
-  .landing-proof > .promise:first-child {
-    min-height: 0;
-    padding: 12px 0;
-  }
-
-  .landing-proof > .promise + .promise {
+    margin-top: 2px;
+    padding-top: 10px;
     border-top: 1px solid var(--border);
-    border-left: 0;
+  }
+
+  .hero-trust {
+    justify-content: flex-start;
   }
 
   .doors-title,
@@ -1665,15 +1553,12 @@ body[data-state="ready"] .topbar {
   }
 }
 
-/* On a phone the header's Open repeats the landing's own button: it shows
-   only once that one has scrolled away (main.ts marks the body). */
-@media (max-width: 640px) {
-  body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[data-opens="picker"] {
-    display: none;
-  }
+/* One Open action is enough: the header repeats it after the hero leaves view. */
+body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[data-opens="picker"] {
+  display: none;
 }
 
-/* The header's open action is repeated in the landing hero. */
+/* Keep the top row compact on the narrowest phones. */
 @media (max-width: 360px) {
   body[data-state="empty"] .topbar {
     gap: 6px;
@@ -1683,14 +1568,9 @@ body[data-state="ready"] .topbar {
   body[data-state="empty"] .topbar .actions {
     gap: 2px;
   }
-
-  body[data-state="empty"] .topbar .actions > .btn[data-opens="picker"] {
-    display: none;
-  }
 }
 
-/* A phone needs the icon, language and theme controls, without four boxes
-   competing for attention in the top row. */
+/* Language and theme stay easy to reach, inside the landing menu on phones. */
 @media (max-width: 480px) {
   body[data-state="empty"] .topbar {
     display: grid;
@@ -2295,9 +2175,7 @@ body[data-state="empty"] .topbar {
   padding-inline: max(var(--landing-gutter), calc((100% - var(--landing-max)) / 2 + var(--landing-gutter)));
 }
 
-/* A phone's top bar keeps its own narrow edges: once the hero's Open is
-   scrolled away, the header's joins the brand, the menu and the language
-   and theme buttons, and the row is all but the screen's width. */
+/* Keep the phone header aligned with the same landing gutters as the page. */
 @media (max-width: 560px) {
   body[data-state="empty"] .topbar {
     padding-inline: 8px;

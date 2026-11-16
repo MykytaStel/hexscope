@@ -9,7 +9,6 @@ import { HexView } from "./hexview";
 import type { Minimap, MinimapState } from "./minimap";
 import { Concern, FileModel, Kind } from "./model";
 import { ActionBar } from "./actionbar";
-import { startDemo } from "./demo";
 import { PictureView } from "./pixels";
 import { TreeView } from "./tree";
 import { call, onWorkerReset, playerSource } from "./rpc";
@@ -478,12 +477,13 @@ window.addEventListener("popstate", (event: PopStateEvent) => {
     stopEntropyMap();
     tools?.setActive(false);
     document.body.dataset.state = "empty";
+    document.querySelector<HTMLElement>(".empty")!.scrollTop = 0;
+    document.body.dataset.heroButton = "shown";
     $("fileinfo").replaceChildren();
     locationBtn.hidden = true;
     problemsBtn.hidden = true;
     playBtn.hidden = true;
     syncAppNavigation();
-    void startDemo($("demo"));
   }
 });
 
@@ -1284,8 +1284,8 @@ function openEntry(entry: number): void {
 }
 
 export async function loadSample(path: string, name: string): Promise<void> {
-  // Loading from the moment it is asked for: the landing demo shares the
-  // worker, and must not parse its own file over this one.
+  // Load only the sample the person chose; opening the landing page itself
+  // does not start file parsing.
   document.body.dataset.state = "loading";
   $("fileinfo").textContent = `Opening ${name}…`;
   let res: Response | null = null;
@@ -1328,8 +1328,6 @@ export function loadFailed(message: string): void {
   const landing = $("load-error");
   landing.textContent = message;
   landing.hidden = !!model;
-  // An empty page shows the demo again.
-  if (!model) setTimeout(() => void startDemo($("demo")), 0);
 }
 
 /** Opens the sample a button names. */
