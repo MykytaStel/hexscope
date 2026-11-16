@@ -34,7 +34,7 @@
   --border-strong: light-dark(rgba(27, 31, 34, 0.16), rgba(230, 235, 240, 0.13));
   --text: light-dark(#1c2023, #eceef0);
   --muted: light-dark(#60686e, #a0a6ab);
-  --faint: light-dark(#737b81, #8d959b);
+  --faint: light-dark(#646d73, #8d959b);
   --accent: light-dark(#315f91, #9bb8de);
   /* Text on the accent colour. */
   --on-accent: light-dark(#ffffff, #0d1722);
@@ -54,7 +54,7 @@
   --tint-iend: light-dark(#747b82, #858b91);
   --tint-text: light-dark(#356d73, #91aeb1);
   --tint-anc: light-dark(#59636c, #7c8790);
-  --tint-gps: light-dark(#b53c48, #d96767);
+  --tint-gps: light-dark(#b53c48, #e07878);
   --tint-warning: light-dark(#a97712, #d6a84f);
   --warning-text: light-dark(#855f00, #e0bb6d);
   --ok-text: light-dark(#15803d, #75d796);

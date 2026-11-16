@@ -1,6 +1,6 @@
 import { preflightLauncher } from "./preflight-loader";
 import { canBlackOut, openBlackPicture } from "./blackpicture-loader";
-import { findEmbedded, type Embedded, type EmbeddedSearchProgress, type EmbeddedSearchResult } from "./embedded";
+import type { Embedded, EmbeddedSearchProgress, EmbeddedSearchResult } from "./embedded";
 import { blackoutFigure } from "./blackout";
 import { advice } from "./advice";
 import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
@@ -478,6 +478,7 @@ export class Drawer {
       inside.textContent = translateText("Cancel search", currentLocale());
       const allRanges: [number, number][] = [[0, m.bytes.length]];
       void (async () => {
+        const { findEmbedded } = await import("./embedded");
         await loadEmbeddedSearchBytes(m, 256 * 1024 * 1024, controller.signal, (loaded, total) => {
           status.bar.value = total > 0 ? Math.min(1, loaded / total) : 1;
           status.detail.textContent = `${translateText("Loading media data…", currentLocale())} · ${formatBytes(loaded)} / ${formatBytes(total)}`;
@@ -683,11 +684,12 @@ export class Drawer {
       const controller = this.beginEmbeddedSearch();
       const status = this.searchProgress("Checking hidden data for file signatures…", () => controller.abort());
       findings.append(status.box);
-      void findEmbedded(m.bytes, hiddenRanges, [], {
-        signal: controller.signal,
-        maxBytes: AUTOMATIC_EMBEDDED_SEARCH_BYTES,
-        onProgress: (progress) => this.updateSearchProgress(status, progress),
-      })
+      void import("./embedded")
+        .then(({ findEmbedded }) => findEmbedded(m.bytes, hiddenRanges, [], {
+          signal: controller.signal,
+          maxBytes: AUTOMATIC_EMBEDDED_SEARCH_BYTES,
+          onProgress: (progress) => this.updateSearchProgress(status, progress),
+        }))
         .then((result) => {
           if (!status.box.isConnected) return;
           const skipped = hasUnreadBytes(m, hiddenParts);
