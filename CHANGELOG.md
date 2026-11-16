@@ -11,7 +11,7 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
-## [0.23.0] — 2026-11-16
+## [0.23.0] — 2026-11-17
 
 ### Added
 
@@ -21,6 +21,8 @@ file per change; `node scripts/changelog.mjs` shows how it will read here.
   available in the compact inspector row without opening its full details.
 - **Move to a parent part from the selected path.** File-path crumbs now
   select the parent in the structure and byte views, with touch-sized targets.
+- **Load analyzer extras on demand.** The compression demo loads when opened;
+  the byte legend loads only when someone opens the byte view.
 
 ### Fixed
 

@@ -51,7 +51,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.20.0 | Faster PNG, ZIP and shared decompression/checksum paths | shipped 2026-11-15 |
 | 0.21.0 | Faster, more responsive analysis in the browser | shipped 2026-11-15; physical-device and browser memory measurements remain open |
 | 0.22.0 | A focused redesign of the file results and inspectors | shipped 2026-11-15 |
-| 0.23.0 | A guided, interactive file exploration workbench | in progress 2026-11-16 |
+| 0.23.0 | A guided, interactive file exploration workbench | in progress 2026-11-17 |
 | 0.24.0 | Make learning and return visits rewarding, privately | planned |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
@@ -650,7 +650,8 @@ The work is proceeding in these slices:
 
 1. **Implemented on the development branch:** source links return to the
    originating result, metadata, content or map section; parent path crumbs
-   select their corresponding structure node. The built photo sample was
+   select their corresponding structure node; the compression demo and byte
+   legend load only when needed. The built photo sample was
    checked at desktop and phone widths in a local browser; more file types and
    physical devices remain to be checked.
 2. **In progress:** correct desktop and mobile hierarchy around the header,
