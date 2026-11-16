@@ -508,10 +508,8 @@
   body.is-playing .layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
-    padding-bottom: 0;
   }
 
-  body.is-playing .app-nav:not([hidden]),
   body.is-playing .pane-tree,
   body.is-playing .pane-files,
   body.is-playing .pane-hex {
