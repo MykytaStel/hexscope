@@ -2231,7 +2231,7 @@ test("the Ukrainian photo toolbar fits a 320px viewport", async ({ page }) => {
   await expect(page.locator(".verdict-title")).toBeVisible();
   const toolbar = page.locator(".topbar .actions");
   await expect(toolbar).toBeVisible();
-  await expect(page.locator(".topbar .location-badge")).toBeVisible();
+  await expect(page.locator(".topbar .location-badge")).toBeHidden();
   await expect(page.locator(".topbar .viewswitch")).toBeHidden();
   // The bytes are a tap away, under More.
   await expect(page.locator("#app-nav .app-nav-more > summary")).toBeVisible();
