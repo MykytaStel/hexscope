@@ -357,6 +357,13 @@
     text-align: center;
     white-space: normal;
   }
+
+  .redact-presets > .link {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+    text-align: left;
+  }
 }
 
 /* The one thing to do, at the bottom of a phone's screen. */
