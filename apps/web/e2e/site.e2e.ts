@@ -466,11 +466,12 @@ test("the sample story follows the selected site language", async ({ page }) => 
   await home(page);
   const language = page.locator(".topbar .language-button");
   await language.click();
-  await expect(page.locator(".doors-title")).toHaveText("Різні файли — різні знахідки");
+  const sampleHeading = page.locator(".empty > .doors-title");
+  await expect(sampleHeading).toHaveText("Різні файли — різні знахідки");
   await expect(page.locator(".example-kicker").first()).toHaveText("JPEG");
 
   await language.click();
-  await expect(page.locator(".doors-title")).toHaveText("Different files, different findings");
+  await expect(sampleHeading).toHaveText("Different files, different findings");
 });
 
 test("analyzer navigation exposes and switches between workspace views", async ({ page }) => {
@@ -1598,12 +1599,14 @@ test("the desktop example tabs line up their labels and file types", async ({ pa
   test.skip(info.project.name !== "computer", "desktop tab alignment is checked on the computer project");
   await home(page);
   const rows = await page.locator(".example-tabs .door").evaluateAll((tabs) =>
-    tabs.map((tab) => [".door-title", ".example-tab-type"].map((selector) => {
-      const bounds = tab.querySelector(selector)!.getBoundingClientRect();
-      return [Math.round(bounds.y), Math.round(bounds.height)];
-    })),
+    [".door-title", ".example-tab-type"].map((selector) =>
+      tabs.map((tab) => {
+        const bounds = tab.querySelector(selector)!.getBoundingClientRect();
+        return `${Math.round(bounds.y)}:${Math.round(bounds.height)}`;
+      }),
+    ),
   );
-  for (const row of rows) expect(new Set(row.map((box) => box.join(":"))).size).toBe(1);
+  for (const row of rows) expect(new Set(row).size).toBe(1);
 });
 
 test("the landing page uses the available desktop canvas", async ({ page }, info) => {
@@ -1914,8 +1917,7 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
 
 test("the tour waits for a computer reader to request it", async ({ page }, info) => {
   await page.addInitScript(() => localStorage.removeItem("hexscope.tour"));
-  await page.goto("./?sample=photo.jpg");
-  await expect(page.locator(".verdict-title")).toBeVisible();
+  await home(page);
   await expect(page.locator(".tour")).toHaveCount(0);
   if (info.project.name === "phone") {
     await expect(page.locator(".footnote-links [data-tour]")).toBeHidden();
@@ -1924,6 +1926,7 @@ test("the tour waits for a computer reader to request it", async ({ page }, info
   const launchTour = page.locator(".footnote-links [data-tour]");
   await expect(launchTour).toBeVisible();
   await launchTour.click();
+  await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.locator(".tour")).toBeVisible();
   const ring = await page.locator(".tour-lit").evaluate((e) => ({ radius: getComputedStyle(e).borderRadius, offset: getComputedStyle(e).outlineOffset }));
   expect(ring.radius).not.toBe("0px");
