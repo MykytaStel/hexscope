@@ -1311,7 +1311,7 @@ body[data-state="ready"] .topbar {
 
   .landing-menu nav {
     position: absolute;
-    top: calc(100% + 12px);
+    top: calc(100% + 21px);
     right: 0;
     left: auto;
     z-index: 30;
