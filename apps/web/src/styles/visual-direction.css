@@ -1706,7 +1706,7 @@ body[data-state="ready"] .topbar {
 
   body[data-state="empty"] .landing-menu {
     grid-column: 2;
-    justify-self: start;
+    justify-self: end;
     margin: 0;
   }
 
