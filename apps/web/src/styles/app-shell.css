@@ -519,10 +519,8 @@
   }
 
   body.is-playing .pane-drawer {
-    display: block;
     grid-column: 1;
     grid-row: 1;
-    max-height: none;
     overflow: auto;
     border: 0;
   }

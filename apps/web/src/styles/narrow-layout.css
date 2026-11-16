@@ -178,7 +178,7 @@ body[data-state="ready"] .viewswitch {
     /* Block, not grid: a grid track would shrink the player to fit, where
        the drawer should scroll it. */
     display: block;
-    max-height: 62vh;
+    max-height: none;
   }
 
   .layout,
