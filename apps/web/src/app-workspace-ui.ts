@@ -34,6 +34,7 @@ function createInspectorSummary(): {
   element: HTMLDivElement;
   label: HTMLElement;
   range: HTMLSpanElement;
+  back: HTMLButtonElement;
   details: HTMLButtonElement;
 } {
   const element = document.createElement("div");
@@ -44,7 +45,11 @@ function createInspectorSummary(): {
   label.className = "inspector-summary-label";
   const range = document.createElement("span");
   range.className = "inspector-summary-range";
-  copy.append(label, range);
+  const back = document.createElement("button");
+  back.type = "button";
+  back.className = "inspector-return";
+  back.hidden = true;
+  copy.append(label, range, back);
 
   const details = document.createElement("button");
   details.type = "button";
@@ -53,7 +58,7 @@ function createInspectorSummary(): {
   details.setAttribute("aria-controls", "inspector-details");
   details.textContent = "Details";
   element.append(copy, details);
-  return { element, label, range, details };
+  return { element, label, range, back, details };
 }
 
 function inspectorFact(node: HTMLElement, name: string): string {
@@ -64,7 +69,7 @@ function inspectorFact(node: HTMLElement, name: string): string {
   return "";
 }
 
-function updateInspectorSummary(node: HTMLElement, label: HTMLElement, range: HTMLElement): void {
+function updateInspectorSummary(node: HTMLElement, label: HTMLElement, range: HTMLElement, back: HTMLButtonElement): void {
   const selectedLabel = node.querySelector<HTMLElement>(".crumb.is-current")?.textContent?.trim();
   label.textContent = selectedLabel || node.querySelector<HTMLElement>(".node-label")?.textContent?.trim() || "Selected part";
   const offset = inspectorFact(node, "Offset");
@@ -76,6 +81,14 @@ function updateInspectorSummary(node: HTMLElement, label: HTMLElement, range: HT
     .filter(Boolean)
     .join(" · ");
   range.setAttribute("aria-label", range.textContent);
+  const sourceReturn = node.querySelector<HTMLButtonElement>(".evidence-return");
+  back.hidden = !sourceReturn;
+  if (sourceReturn) {
+    back.textContent = sourceReturn.textContent;
+    back.onclick = () => node.querySelector<HTMLButtonElement>(".evidence-return")?.click();
+  } else {
+    back.onclick = null;
+  }
 }
 
 /** A selected part stays available beside the tree and bytes on phones. */
@@ -85,7 +98,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
   dialog.className = "inspector-sheet";
   dialog.dataset.expanded = "false";
 
-  const { element: summary, label, range, details } = createInspectorSummary();
+  const { element: summary, label, range, back, details } = createInspectorSummary();
   dialog.append(summary);
 
   const phone = matchMedia("(max-width: 900px)");
@@ -132,7 +145,7 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     new MutationObserver(() => {
       const selected = dockNode();
       if (!dialog.open || !selected) return;
-      updateInspectorSummary(selected, label, range);
+      updateInspectorSummary(selected, label, range, back);
       setExpanded(document.body.dataset.appView === "files", selected);
     }).observe(node, { childList: true });
   }
@@ -144,11 +157,15 @@ export function createMobileInspector(drawer: HTMLElement, requests: HTMLElement
     if (!selected) return;
     dialog.setAttribute("aria-label", selected.querySelector<HTMLElement>(".node-label")?.textContent?.trim() || "Selected part");
     selected.id = "inspector-details";
-    updateInspectorSummary(selected, label, range);
+    updateInspectorSummary(selected, label, range, back);
     dialog.append(selected);
     setExpanded(document.body.dataset.appView === "files", selected);
     dialog.show();
   };
+  window.addEventListener("hexscope:locale", () => {
+    const selected = dockNode();
+    if (dialog.open && selected) updateInspectorSummary(selected, label, range, back);
+  });
   const update = () => {
     requested = requests.dataset.inspectorRequested === "true";
     if (requested) open();

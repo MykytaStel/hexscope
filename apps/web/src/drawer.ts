@@ -190,6 +190,7 @@ export class Drawer {
   private readonly node: HTMLElement;
   private readonly file: HTMLElement;
   private readonly embeddedSearches = new Set<AbortController>();
+  private evidenceReturn: { label: string; action: () => void } | null = null;
   /** How many archives the document on screen sits inside. */
   nested = 0;
 
@@ -657,7 +658,11 @@ export class Drawer {
       }
       const list = section.querySelector<HTMLUListElement>(".verdict-lines")!;
       const li = el("li", `verdict-line is-${line.kind}`);
-      li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[line.kind], currentLocale())));
+      // The health section already names this single finding; repeating its
+      // label adds a second heading without helping people scan the result.
+      if (line.kind !== "healthy") {
+        li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[line.kind], currentLocale())));
+      }
       li.append(el("span", "verdict-text", line.text));
       // A file not read has no part to show.
       if (line.node >= 0 && line.kind !== "unknown") {
@@ -1381,7 +1386,36 @@ export class Drawer {
   /** A message in place of node details, such as why something did not open. */
   showNote(text: string): void {
     this.note = text;
-    this.node.replaceChildren(el("p", "problem is-error", text));
+    this.node.replaceChildren();
+    this.appendEvidenceReturn();
+    this.node.append(el("p", "problem is-error", text));
+  }
+
+  /** A temporary way back to the exact overview from which source bytes opened. */
+  setEvidenceReturn(label: string | null, action?: () => void): void {
+    this.evidenceReturn = label && action ? { label, action } : null;
+    const back = this.node.querySelector<HTMLButtonElement>(".evidence-return");
+    if (back && this.evidenceReturn) {
+      back.textContent = this.evidenceReturn.label;
+      return;
+    }
+    if (this.shown) this.showNode(...this.shown);
+  }
+
+  /** Moves keyboard focus into the inspector after following a source link. */
+  focusEvidenceReturn(): void {
+    const mobileReturn = document.querySelector<HTMLButtonElement>(
+      ".inspector-sheet[open] .inspector-return:not([hidden])",
+    );
+    (mobileReturn ?? this.node.querySelector<HTMLButtonElement>(".evidence-return"))?.focus({ preventScroll: true });
+  }
+
+  private appendEvidenceReturn(): void {
+    if (!this.evidenceReturn) return;
+    const back = el("button", "evidence-return", this.evidenceReturn.label);
+    back.type = "button";
+    back.addEventListener("click", () => this.evidenceReturn?.action());
+    this.node.append(back);
   }
 
   /** Draws the part shown again: its sentence has arrived (explanations.ts). */
@@ -1395,6 +1429,7 @@ export class Drawer {
     this.note = null;
     this.shown = [m, id, pinned];
     this.node.replaceChildren();
+    this.appendEvidenceReturn();
     if (!m) return;
     if (id < 0) {
       if (document.body.dataset.appView === "files") {
@@ -1419,11 +1454,20 @@ export class Drawer {
     if (filesView && entry >= 0) this.node.append(this.entry(m, entry));
 
     const crumbs = el("nav", "crumbs");
+    crumbs.setAttribute("aria-label", translateText("File path", currentLocale()));
     this.node.append(el("p", "node-label", "Selected part"));
     const path = m.path(id);
     path.forEach((p, i) => {
       if (i > 0) crumbs.append(el("span", "sep", "›"));
-      crumbs.append(el("span", i === path.length - 1 ? "crumb is-current" : "crumb", m.label(p)));
+      if (i < path.length - 1) {
+        const parent = el("button", "crumb crumb-link", m.label(p));
+        parent.type = "button";
+        parent.title = translateText("Select this part", currentLocale());
+        parent.addEventListener("click", () => this.onSelect(p));
+        crumbs.append(parent);
+      } else {
+        crumbs.append(el("span", "crumb is-current", m.label(p)));
+      }
     });
     if (pinned) crumbs.append(el("span", "pin", "pinned"));
     this.node.append(crumbs);

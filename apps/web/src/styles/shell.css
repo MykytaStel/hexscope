@@ -2,11 +2,12 @@
 
 .fileinfo {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   min-width: 0;
   flex: 1;
   color: var(--muted);
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -139,6 +140,7 @@
 .filename {
   margin: 0;
   font-size: inherit;
+  line-height: 1.25;
   color: var(--text);
   font-weight: 600;
   overflow: hidden;
@@ -147,6 +149,7 @@
 
 .meta {
   font-size: 12.5px;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
 }

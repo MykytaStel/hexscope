@@ -289,6 +289,30 @@ function setView(view: "summary" | "bytes" | "files"): void {
 }
 
 type WorkspaceView = "overview" | "metadata" | "content" | "map" | "files" | "structure" | "bytes";
+type EvidenceOriginView = "overview" | "metadata" | "content" | "map";
+
+interface EvidenceReturnContext {
+  model: FileModel;
+  view: EvidenceOriginView;
+  scrollTop: number;
+  pageScrollTop: number;
+  focusTarget: HTMLElement | null;
+}
+
+let evidenceReturnContext: EvidenceReturnContext | null = null;
+
+function isEvidenceOriginView(view: string): view is EvidenceOriginView {
+  return view === "overview" || view === "metadata" || view === "content" || view === "map";
+}
+
+function evidenceReturnLabel(view: EvidenceOriginView): string {
+  switch (view) {
+    case "overview": return "Back to overview";
+    case "metadata": return "Back to metadata";
+    case "content": return "Back to content";
+    case "map": return "Back to file map";
+  }
+}
 
 /** A ZIP that is only an archive: Office documents, books and apps have their own views. */
 const archives = new WeakMap<FileModel, boolean>();
@@ -421,6 +445,12 @@ function writeWorkspaceHistory(view: WorkspaceView, replace = false): void {
 }
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHistory = false): void {
+  const returning = evidenceReturnContext?.model === workspace?.model && evidenceReturnContext.view === view
+    ? evidenceReturnContext
+    : null;
+  if (returning) {
+    clearEvidenceReturnContext();
+  }
   document.body.dataset.appView = view;
   if (recordHistory) writeWorkspaceHistory(view, true);
   const makeup = $("drawer").querySelector<HTMLElement>(".more-details > .makeup");
@@ -433,6 +463,16 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
   syncAppNavigation();
   if (view === "files") void showFiles();
   else for (const files of filesViews.values()) files.hide();
+
+  if (returning) {
+    requestAnimationFrame(() => {
+      const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
+      file?.scrollTo({ top: returning.scrollTop });
+      window.scrollTo({ top: returning.pageScrollTop });
+      if (returning.focusTarget?.isConnected) returning.focusTarget.focus({ preventScroll: true });
+    });
+    return;
+  }
 
   if (!scrollToSection) return;
   const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
@@ -472,6 +512,7 @@ window.addEventListener("popstate", (event: PopStateEvent) => {
     // The entry before the first inspected file is the landing page. Keep the
     // parsed file in memory so Forward can restore the workspace immediately.
     stopEntropyMap();
+    clearEvidenceReturnContext();
     tools?.setActive(false);
     document.body.dataset.state = "empty";
     $("fileinfo").replaceChildren();
@@ -560,18 +601,19 @@ setView("summary");
 
 const drawer = new Drawer(
   $("drawer"),
-  (id) => {
-    toBytes();
-    point(id);
-  },
+  (id) => followEvidenceSource(id),
   (start, len, selectPart = true) => {
     const model = workspace.model;
     if (!model || len <= 0 || start < 0 || start >= model.bytes.length) return;
+    rememberEvidenceOrigin();
     toBytes();
     if (selectPart) point(model.nodeAt(start), start);
     hex.setHead(start, Math.min(model.bytes.length, start + len));
     hex.focusAt(start);
     setStatusOffset(start);
+    if (selectPart && evidenceReturnContext?.model === model) {
+      requestAnimationFrame(() => drawer.focusEvidenceReturn());
+    }
   },
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
@@ -596,6 +638,59 @@ const drawer = new Drawer(
   },
   (m) => picture.element(m),
 );
+
+/** Removes a temporary return route when its file or workspace has changed. */
+function clearEvidenceReturnContext(): void {
+  evidenceReturnContext = null;
+  drawer.setEvidenceReturn(null);
+  delete appNavigation.dataset.inspectorRequested;
+}
+
+/** Stores the place and focus before a plain-language source link opens bytes. */
+function rememberEvidenceOrigin(): void {
+  const model = workspace?.model;
+  const view = document.body.dataset.appView ?? "";
+  if (!model || !isEvidenceOriginView(view)) return;
+  const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
+  if (!file) return;
+  const active = document.activeElement;
+  const focusTarget = active instanceof HTMLElement && file.contains(active) ? active : null;
+  const context: EvidenceReturnContext = {
+    model,
+    view,
+    scrollTop: file.scrollTop,
+    pageScrollTop: window.scrollY,
+    focusTarget,
+  };
+  evidenceReturnContext = context;
+  updateEvidenceReturnLabel();
+}
+
+/** Keeps the temporary return action in the currently selected language. */
+function updateEvidenceReturnLabel(): void {
+  const context = evidenceReturnContext;
+  if (!context || workspace?.model !== context.model) return;
+  drawer.setEvidenceReturn(
+    translateText(evidenceReturnLabel(context.view), currentLocale()),
+    () => {
+      if (evidenceReturnContext !== context || workspace.model !== context.model) return;
+      setWorkspaceView(context.view, false, true);
+    },
+  );
+}
+
+window.addEventListener("hexscope:locale", updateEvidenceReturnLabel);
+
+/** Opens the selected finding in Bytes and exposes its one-step route back. */
+function followEvidenceSource(id: number): void {
+  const model = workspace?.model;
+  rememberEvidenceOrigin();
+  toBytes();
+  point(id);
+  if (model && evidenceReturnContext?.model === model) {
+    requestAnimationFrame(() => drawer.focusEvidenceReturn());
+  }
+}
 
 /** Compares the file on screen with another, parsed aside. */
 async function compareWith(other: File): Promise<void> {
@@ -1139,6 +1234,7 @@ function startBatch(files: File[]): void {
 function showBatch(): void {
   const items = batchController.items;
   if (!items) return;
+  clearEvidenceReturnContext();
   stopEntropyMap();
   tools?.setActive(false);
   closePlayer();
@@ -1192,6 +1288,9 @@ async function analyzeBatchFile(file: File, signal: AbortSignal, profile?: Publi
 
 /** Puts a document on screen, with nothing selected. */
 function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
+  if (evidenceReturnContext && evidenceReturnContext.model !== m) {
+    clearEvidenceReturnContext();
+  }
   clearPlayerLoadError();
   hover = -1;
   selected = -1;

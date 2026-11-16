@@ -11,6 +11,33 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.23.0] — 2026-11-16
+
+### Added
+
+- **Return from a source byte to the result you followed.** The workbench keeps
+  the originating section, scroll position and keyboard focus, with a single
+  return action in the selected-part inspector. On phones, that action stays
+  available in the compact inspector row without opening its full details.
+- **Move to a parent part from the selected path.** File-path crumbs now
+  select the parent in the structure and byte views, with touch-sized targets.
+
+### Fixed
+
+- **Align the open-file header.** The filename, file type and read status now
+  share a centered line, matching the logo and controls on desktop and mobile.
+- **Quiet the phone navigation.** View and tool choices use clear text labels
+  without decorative icons, so the compact controls share one alignment.
+- **Reduce duplicate finding navigation on phones.** Category jumps stay
+  available as compact text links instead of wrapping into another row of
+  pill-shaped controls.
+- **Remove a repeated file-health label.** The section heading now names its
+  health finding once instead of repeating it on the next line.
+- **Remove a repeated phone-inspector heading.** The compact row already names
+  the selected part, so expanded details start directly with its file path.
+- **Correct the Ukrainian file status.** “Read” now says «Прочитано» in the
+  header.
+
 ## [0.22.0] — 2026-11-15
 
 ### Changed
@@ -1028,7 +1055,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/MykytaStel/hexscope/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/MykytaStel/hexscope/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/hexscope/compare/v0.19.0...v0.20.0
