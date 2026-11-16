@@ -426,6 +426,10 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
   const makeup = $("drawer").querySelector<HTMLElement>(".more-details > .makeup");
   const details = $("drawer").querySelector<HTMLDetailsElement>(".more-details");
   if (view === "map" && details) details.open = true;
+  if (view === "metadata") {
+    const evidence = $("drawer").querySelector<HTMLDetailsElement>(".evidence-tools");
+    if (evidence) evidence.open = true;
+  }
   if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
   if (view === "structure" || view === "bytes") void ensureMinimap();

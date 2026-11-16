@@ -94,7 +94,7 @@
   padding-left: 22px;
 }
 
-.story-text li + li {
+.story-text > section li + li {
   margin-top: 6px;
 }
 
@@ -282,11 +282,15 @@
 }
 
 .guide-more-topic > details > summary::after {
+  width: 7px;
+  height: 7px;
   flex: none;
   margin-left: auto;
   color: var(--faint);
-  content: "⌄";
-  font-size: 17px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg) translateY(-2px);
   transition: transform 120ms ease;
 }
 
@@ -296,7 +300,7 @@
 }
 
 .guide-more-topic > details[open] > summary::after {
-  transform: rotate(180deg);
+  transform: rotate(225deg) translateY(-2px);
 }
 
 .guide-more-count {

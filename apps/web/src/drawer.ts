@@ -7,6 +7,7 @@ import { checkThumbnail, decodePicture, drawn } from "./thumbnail";
 import { categories, share } from "./share";
 import { Concern, FileModel, Kind, Role } from "./model";
 import { verdict } from "./verdict";
+import { CATEGORIES } from "./finding-kinds";
 import { done } from "./announce";
 import { recentFiles } from "./recent";
 import { headline, noun } from "./headline";
@@ -82,19 +83,10 @@ function makeVerdictGroup(key: VerdictGroupKey): HTMLElement {
   const group = el("section", "verdict-group");
   group.dataset.verdictGroup = key;
   group.id = `verdict-group-${key}`;
-  const title = el("h3", "verdict-group-title", translateText(VERDICT_GROUPS[key], currentLocale()));
-  title.tabIndex = -1;
+  const title = el("h3", "visually-hidden", translateText(VERDICT_GROUPS[key], currentLocale()));
   group.append(title);
   group.append(el("ul", "verdict-lines"));
   return group;
-}
-
-function refreshVerdictIndex(findings: HTMLElement): void {
-  void import("./result-navigation")
-    .then(({ refreshVerdictIndex: refresh }) => {
-      if (findings.isConnected) refresh(findings);
-    })
-    .catch(() => undefined);
 }
 
 function loadingStatus(className: string, message: string): HTMLElement {
@@ -163,7 +155,7 @@ const VERDICT_KIND_LABELS: Record<VerdictKind, string> = {
   misnamed: "Name mismatch",
   hidden: "Hidden content",
   warning: "Partial check",
-  reveals: "Personal information",
+  reveals: "Data found",
   oddity: "Format note",
   healthy: "File health",
   unknown: "File type",
@@ -302,7 +294,7 @@ export class Drawer {
     // copy's own button, further down, where the result is said.
     const clean = this.file.querySelector<HTMLButtonElement>(".reveals .btn-clean");
     if (clean) {
-      const cta = el("button", "btn btn-primary verdict-cta", "Remove it — save a clean copy");
+      const cta = el("button", "btn btn-primary verdict-cta", "Save a clean copy");
       cta.title = clean.title;
       clean.classList.add("is-echo");
       const cleaner = clean.closest<HTMLElement>(".cleaner");
@@ -346,12 +338,9 @@ export class Drawer {
         otherWays.append(el("summary", undefined, "Other ways"), copy);
         row.append(otherWays);
       }
-      const findings = answer.querySelector<HTMLElement>(".verdict-findings");
-      const actionAnchor = findings?.querySelector<HTMLElement>('.verdict-group[data-verdict-group="personal"]')
-        ?? findings?.querySelector<HTMLElement>('.verdict-group[data-verdict-group="action"]')
-        ?? findings?.querySelector<HTMLElement>(".verdict-group");
-      if (actionAnchor) actionAnchor.after(row);
-      else findings?.append(row);
+      const header = answer.querySelector<HTMLElement>(".verdict-header");
+      if (header) header.append(row);
+      else answer.append(row);
     }
     // A PDF: black out what you choose, not only what the file already hides.
     if (f.format === "pdf") {
@@ -419,7 +408,7 @@ export class Drawer {
           if (makeupSlot.isConnected) makeupSlot.replaceWith(makeupGroup(m, (id) => this.onSelect(id), (id) => this.onHover(id)));
         })
         .catch(() => {
-          if (makeupSlot.isConnected) makeupSlot.replaceWith(el("p", "hint", "The file map could not be loaded. The structure and bytes are still available."));
+          if (makeupSlot.isConnected) makeupSlot.replaceWith(el("p", "hint makeup-load-error", "The file map could not be loaded. The structure and bytes are still available."));
         });
     });
     if (f.format === "heif") {
@@ -524,7 +513,8 @@ export class Drawer {
           inside.disabled = false;
         });
     });
-    fileGroup.append(report, save, inside);
+    const tools = el("div", "file-tools");
+    tools.append(report, save, inside);
     // Another file beside this one: what one gives away that the other does not.
     const pick = el("button", "link compare-pick", "Compare with another file…");
     const input = el("input");
@@ -536,8 +526,8 @@ export class Drawer {
       if (f) this.cleaning.compare(f);
     });
     pick.addEventListener("click", () => input.click());
-    fileGroup.append(input);
-    fileGroup.append(pick);
+    tools.append(input, pick);
+    fileGroup.append(tools);
     later(fileGroup);
     const share = this.file.querySelector<HTMLElement>(".reveals .sharer");
     if (share) more.append(share);
@@ -615,10 +605,10 @@ export class Drawer {
   /** The answer to the question people arrive with: is it all right, and what does it say? */
   private verdict(m: FileModel): HTMLElement {
     const group = el("div", "group verdict");
+    const header = el("div", "verdict-header");
     const intro = el("div", "verdict-intro");
     const findings = el("div", "verdict-findings");
     const head = headline(m);
-    intro.append(el("p", "verdict-label", "The short answer"));
     const title = el("h2", `verdict-title is-${head.tone}`, head.text);
     title.tabIndex = -1;
     intro.append(title);
@@ -630,13 +620,17 @@ export class Drawer {
         ? "partial"
         : "complete";
     coverage.tabIndex = -1;
-    intro.append(coverage);
-    if (m.file.coverageStatus !== "complete" || m.file.missing.length > 0 || m.file.metadataComplete === false) {
-      const unchecked = el("p", "hint verdict-unchecked", currentLocale() === "uk"
+    const scope = el("details", "verdict-scope");
+    scope.append(el("summary", undefined, "Analysis scope"));
+    if (coverage.dataset.status === "complete") {
+      scope.append(coverage);
+    } else {
+      intro.append(coverage, el("p", "hint verdict-unchecked", currentLocale() === "uk"
         ? "Не все перевірено: повноту читання та непрочитані частини показано в доказах нижче."
-        : "Not everything was checked: read coverage and unread parts are listed in the evidence below.");
-      unchecked.tabIndex = -1;
-      intro.append(unchecked);
+        : "Not everything was checked: read coverage and unread parts are listed in the evidence below."));
+    }
+    if (m.file.format !== "unknown") {
+      scope.append(el("p", "hint", translateText("Found by reading the file's structure. It is not a virus scan.", currentLocale())));
     }
     if ((m.source?.size ?? m.bytes.length) > 10 * 1024 * 1024) {
       intro.append(el("p", "hint", currentLocale() === "uk"
@@ -657,10 +651,16 @@ export class Drawer {
       }
       const list = section.querySelector<HTMLUListElement>(".verdict-lines")!;
       const li = el("li", `verdict-line is-${line.kind}`);
-      li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[line.kind], currentLocale())));
-      li.append(el("span", "verdict-text", line.text));
+      const copy = el("div", "verdict-copy");
+      const kindLabel = VERDICT_KIND_LABELS[line.kind];
+      if (line.kind !== "healthy") {
+        copy.append(el("span", "verdict-kind", translateText(kindLabel, currentLocale())));
+      }
+      const dataLinks = line.kind === "reveals" ? this.verdictDataLinks(m) : null;
+      copy.append(dataLinks ?? el("span", "verdict-text", line.text));
+      li.append(copy);
       // A file not read has no part to show.
-      if (line.node >= 0 && line.kind !== "unknown") {
+      if (!dataLinks && line.node >= 0 && line.kind !== "unknown") {
         const show = el("button", "verdict-show", "Find in file");
         show.title = "Go to this finding in the file";
         show.addEventListener("click", () => this.showLine(line.node));
@@ -672,8 +672,9 @@ export class Drawer {
       const section = grouped.get(key);
       if (section) findings.append(section);
     }
-    refreshVerdictIndex(findings);
-    group.append(intro, findings);
+    header.append(intro);
+    group.append(header, findings);
+    if (scope.childElementCount > 1) group.append(scope);
     // What the structure leaves over — data after the end, a gap — may be a
     // whole file of its own: say which, and open it.
     const hiddenParts = m.slices().filter((sl) => sl.role === Role.Hidden).map((sl): [number, number] => [sl.start, sl.start + sl.len]);
@@ -689,7 +690,14 @@ export class Drawer {
       })
         .then((result) => {
           if (!status.box.isConnected) return;
-          status.box.replaceWith(this.embeddedSearchResults(m, result, "Hidden in it", hasUnreadBytes(m, hiddenParts), true));
+          const skipped = hasUnreadBytes(m, hiddenParts);
+          const report = this.embeddedSearchResults(m, result, "Hidden in it", skipped, true);
+          if (result.matches.length === 0 && !result.limited && !skipped && scope.isConnected) {
+            status.box.remove();
+            scope.append(report);
+          } else {
+            status.box.replaceWith(report);
+          }
         })
         .catch(() => {
           if (!status.box.isConnected) return;
@@ -697,25 +705,70 @@ export class Drawer {
         })
         .finally(() => this.embeddedSearches.delete(controller));
     }
-    if (m.file.format !== "unknown") intro.append(el("p", "hint", translateText("Found by reading the file's structure. It is not a virus scan.", currentLocale())));
     if (REPAIRABLE.includes(m.file.format) && verdict(m).some((l) => l.kind === "damage")) findings.append(this.repairer());
     return group;
+  }
+
+  private verdictDataLinks(m: FileModel): HTMLElement | null {
+    const nodes = new Map<string, number>();
+    if (m.file.location) nodes.set("location", m.file.location.node);
+    for (const fact of m.file.facts) {
+      if (!nodes.has(fact.kind)) nodes.set(fact.kind, fact.node);
+    }
+    const entries = CATEGORIES.filter(([kind]) => nodes.has(kind));
+    if (entries.length === 0) return null;
+
+    const list = (entries: readonly [string, string][]) => {
+      const items = el("ul", "verdict-data-list");
+      for (const [kind, category] of entries) {
+        const node = nodes.get(kind)!;
+        const shortLabel = FACT_LABELS[kind];
+        const label = translateText(shortLabel && shortLabel !== "QR code" ? shortLabel : category, currentLocale());
+        const item = el("li");
+        if (node >= 0) {
+          const button = el("button", "link verdict-data-link", label);
+          button.type = "button";
+          button.dataset.kind = kind;
+          button.addEventListener("click", () => this.showLine(node, kind));
+          item.append(button);
+        } else {
+          item.textContent = label;
+        }
+        items.append(item);
+      }
+      return items;
+    };
+
+    const data = el("div", "verdict-data");
+    data.append(list(entries.slice(0, 6)));
+    if (entries.length > 6) {
+      const more = el("details", "verdict-data-more");
+      more.append(el("summary", undefined, "More findings"), list(entries.slice(6)));
+      data.append(more);
+    }
+    return data;
   }
 
   /**
    * Where a verdict line points: in the summary, the fact it names, brought
    * into view; otherwise, or for a part with no fact, its bytes.
    */
-  private showLine(node: number): void {
-    if (document.body.dataset.view === "bytes" || !this.showFact(node)) this.onSelect(node);
+  private showLine(node: number, kind?: string): void {
+    if (document.body.dataset.view === "bytes" || !this.showFact(node, kind)) this.onSelect(node);
   }
 
   /** Brings the summary's fact for a part into view, if it has one; says whether it did. */
-  showFact(node: number): boolean {
-    const row = this.file.querySelector<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
+  showFact(node: number, kind?: string): boolean {
+    const rows = this.file.querySelectorAll<HTMLElement>(`.reveal-list dd[data-node="${node}"]`);
+    const row = kind ? [...rows].find((candidate) => candidate.dataset.kind === kind) : rows[0];
     const label = row?.previousElementSibling as HTMLElement | null;
     if (!row || !label) return false;
-    row.closest<HTMLDetailsElement>("details")?.setAttribute("open", "");
+    if (row.closest("[hidden]")) {
+      row.dispatchEvent(new Event("hexscope:reveal-evidence", { bubbles: true }));
+    }
+    for (let detail = row.closest("details"); detail; detail = detail.parentElement?.closest("details") ?? null) {
+      detail.open = true;
+    }
     label.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     row.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     for (const e of [label, row]) {
@@ -905,9 +958,12 @@ export class Drawer {
       const path = emailPath(m, (id) => this.onSelect(id));
       if (path) group.append(path);
     }
+    const videoWithLocation = f.format === "video" && f.location ? el("div", "video-overview") : null;
+    if (videoWithLocation) group.append(videoWithLocation);
+    const media = videoWithLocation ?? group;
     if (["video", "mp3", "flac", "ogg", "wav", "rifx", "rf64", "bw64", "svg", "eml", "msg", "wasm", "unknown"].includes(f.format)) {
       const slot = loadingStatus("format-inspector-loading", "Loading format summary…");
-      group.append(slot);
+      media.append(slot);
       void import("./format-inspectors")
         .then(({ formatInspector }) => {
           if (!slot.isConnected) return;
@@ -923,8 +979,8 @@ export class Drawer {
     // numbers below mean, before reading them.
     const pictured = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
     if (pictured || f.location) {
-      const hero = el("div", f.location ? "reveal-hero has-map" : "reveal-hero");
-      group.append(hero);
+      const hero = el("div", ["reveal-hero", f.location && "has-map", f.location && pictured && "has-picture-map"].filter(Boolean).join(" "));
+      media.append(hero);
       if (pictured) {
         const frame = el("div", "reveal-picture-frame");
         hero.append(frame);
@@ -951,8 +1007,10 @@ export class Drawer {
             // A tab open across a new release may not find the map's code:
             // the coordinates below still say where.
             if (!mod) {
-              place.remove();
-              hero.classList.remove("has-map");
+              if (pictured) {
+                place.remove();
+                hero.classList.remove("has-map", "has-picture-map");
+              } else hero.remove();
               return;
             }
             const where = `${degrees(latitude, "N", "S")}, ${degrees(longitude, "E", "W")}`;
@@ -1307,15 +1365,14 @@ export class Drawer {
     let actionGroup = findings.querySelector<HTMLElement>('.verdict-group[data-verdict-group="action"]');
     if (!actionGroup) {
       actionGroup = makeVerdictGroup("action");
-      const index = findings.querySelector<HTMLElement>(".verdict-index");
-      if (index) index.after(actionGroup);
-      else findings.prepend(actionGroup);
+      findings.prepend(actionGroup);
     }
     const list = actionGroup.querySelector<HTMLUListElement>(".verdict-lines");
     if (!list) return;
     const li = el("li", `verdict-line is-${kind}`);
-    li.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[kind], currentLocale())));
-    li.append(el("span", "verdict-text", text));
+    const copy = el("div", "verdict-copy");
+    copy.append(el("span", "verdict-kind", translateText(VERDICT_KIND_LABELS[kind], currentLocale())), el("span", "verdict-text", text));
+    li.append(copy);
     const show = el("button", "verdict-show", translateText("Show me", currentLocale()));
     show.type = "button";
     show.addEventListener("click", () => this.onSelect(node));
@@ -1323,7 +1380,6 @@ export class Drawer {
     // As the verdict itself does: "looks healthy" only when nothing is hidden.
     findings.querySelector(".is-healthy")?.closest(".verdict-group")?.remove();
     list.prepend(li);
-    refreshVerdictIndex(findings);
   }
 
   /** Shares what kinds of thing the file gives away, and nothing of what they are. */
@@ -1434,7 +1490,19 @@ export class Drawer {
     if (kind >= Kind.Warning) {
       const tone =
         doc?.concern === Concern.Hidden ? "is-hidden" : doc?.concern === Concern.Oddity ? "is-warning" : "is-error";
-      this.node.append(el("p", `problem ${tone}`, doc?.text || "These bytes break a rule of the format."));
+      const message = doc?.text || "These bytes break a rule of the format.";
+      if (message.length > 120) {
+        const explanation = el("details", `node-explanation ${tone}`);
+        explanation.open = !matchMedia("(max-width: 900px)").matches;
+        // Keep the complete source string in one text node so lazy localization
+        // can translate it. CSS shows a short preview on phones until expanded.
+        const summary = el("summary");
+        summary.append(el("span", "node-explanation-preview", message));
+        explanation.append(summary);
+        this.node.append(explanation);
+      } else {
+        this.node.append(el("p", `problem ${tone}`, message));
+      }
     } else if (doc?.text) {
       this.node.append(el("p", "explain", doc.text));
     }

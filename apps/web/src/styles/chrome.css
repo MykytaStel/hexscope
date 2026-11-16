@@ -14,6 +14,7 @@ button,
 input,
 select,
 textarea {
+  color-scheme: inherit;
   accent-color: var(--accent);
 }
 
@@ -79,7 +80,7 @@ textarea {
   align-items: center;
   min-height: var(--control-height-compact);
   height: var(--control-height-compact);
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: var(--control-radius-compact);
   background: var(--panel);
@@ -90,14 +91,14 @@ textarea {
 }
 
 .btn-icon {
-  width: 32px;
+  width: var(--control-height-compact);
   padding: 0;
   justify-content: center;
 }
 
 .btn-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .btn:hover {
@@ -108,6 +109,7 @@ textarea {
 .btn-primary {
   min-height: var(--control-height);
   height: auto;
+  border-radius: var(--control-radius);
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);

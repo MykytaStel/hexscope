@@ -606,7 +606,7 @@ test("file coverage status distinguishes complete, partial and unsupported reads
   await expect(status).toHaveAccessibleName("Стан аналізу: парсера формату немає · Без парсера");
 });
 
-test("finding group index focuses the matching section", async ({ page }) => {
+test("an overview finding focuses its evidence even when a search hid it", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexscope.language", "uk");
     localStorage.setItem("hexscope.tour", "done");
@@ -614,12 +614,12 @@ test("finding group index focuses the matching section", async ({ page }) => {
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
 
-  const index = page.locator(".verdict-index");
-  await expect(index).toBeVisible();
-  const personal = index.locator('[data-verdict-group="personal"]');
-  await expect(personal).toBeVisible();
-  await personal.click();
-  await expect(page.locator("#verdict-group-personal > .verdict-group-title")).toBeFocused();
+  await page.locator(".evidence-tools > summary").click();
+  await page.locator(".evidence-search").fill("data-that-is-not-present");
+  const evidence = page.locator('.reveal-list dd[data-kind="location"] .reveal-link');
+  await expect(evidence).toBeHidden();
+  await page.locator('.verdict-data-link[data-kind="location"]').click();
+  await expect(evidence).toBeFocused();
 });
 
 test("desktop bytes workspace keeps structure labels readable", async ({ page }, info) => {
@@ -1999,8 +1999,9 @@ test("the desktop summary reads as one full-width flow at every desktop size", a
       };
     });
     expect(layout.columns, `${width}px: one page-wide reading flow`).toBe(1);
-    expect(layout.verdictColumns, `${width}px: the answer is balanced inside its card`).toBe(2);
-    expect(layout.findingsX, `${width}px: findings follow the verdict summary`).toBeGreaterThan(layout.introX);
+    expect(layout.verdictColumns, `${width}px: the findings follow the answer in one column`).toBe(1);
+    expect(layout.findingsX, `${width}px: findings share the report's left edge`).toBeCloseTo(layout.answerX, 0);
+    expect(layout.introX, `${width}px: the heading sits inside the summary surface`).toBeGreaterThan(layout.findingsX);
     expect(layout.flowX, `${width}px: evidence aligns under the answer`).toBeCloseTo(layout.answerX, 0);
     expect(layout.flowTop, `${width}px: evidence follows the answer`).toBeGreaterThan(layout.answerBottom);
     expect(layout.flowWidth, `${width}px: sections share a width`).toBeCloseTo(layout.answerWidth, 0);
@@ -2253,7 +2254,7 @@ test("the landing page has a clear primary action, three sample choices, and a r
   await page.locator('label[for="example-photo"]').click();
   await page.locator('#examples [data-example-panel="photo"] button[data-sample]').click();
   await expect(page.locator(".verdict-title")).toContainText("Фото розкриває");
-  await expect(page.locator(".verdict-lines .is-reveals")).toContainText("Розкриває місце зйомки");
+  await expect(page.locator('.verdict-data-link[data-kind="location"]')).toHaveText("Місце зйомки");
   await expect(page.locator("#location")).toHaveAttribute("title", "У фото записано місце зйомки — натисніть, щоб побачити");
   await expect(page.locator(".advice")).toContainText("Серійний номер є в кожному фото з цього фотоапарата.");
   await expect(page.locator(".advice")).toContainText("Ім’я власника береться з налаштувань фотоапарата.");

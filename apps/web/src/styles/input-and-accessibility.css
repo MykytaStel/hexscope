@@ -123,7 +123,6 @@ details[open] > summary::before {
   }
 
   .verdict-line,
-  .verdict-index-link,
   .tag,
   .file-coverage,
   .problems,
@@ -194,7 +193,6 @@ details[open] > summary::before {
   .pdf-nav-image-check,
   .pdf-nav-tools,
   .photo-property-link,
-  .verdict-index-link,
   .evidence-filter,
   .evidence-unchecked-link {
     min-height: 44px;

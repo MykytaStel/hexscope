@@ -1,6 +1,6 @@
 import type { FileModel } from "./model";
 import { currentLocale, translateText } from "./i18n";
-import { el, formatBytes } from "./dom";
+import { formatBytes } from "./dom";
 import { kindOf } from "./files";
 
 export type CoverageState = "complete" | "partial" | "unsupported";
@@ -64,46 +64,6 @@ export function fillFileInfoChips(host: HTMLElement, m: FileModel): void {
   }));
 }
 
-/** Keeps the result's category index adjacent to the categories it moves through. */
-export function refreshVerdictIndex(findings: HTMLElement): void {
-  const previous = findings.querySelector<HTMLElement>(".verdict-index");
-  const activeKey = previous?.contains(document.activeElement)
-    ? document.activeElement?.closest<HTMLElement>(".verdict-index-link")?.dataset.verdictGroup
-    : undefined;
-  const sections = (["action", "personal", "notes", "health"] as const)
-    .map((key) => findings.querySelector<HTMLElement>(`.verdict-group[data-verdict-group="${key}"]`))
-    .filter((section): section is HTMLElement => !!section);
-  if (sections.length < 2) {
-    previous?.remove();
-    return;
-  }
-
-  const nav = el("nav", "verdict-index");
-  nav.setAttribute("aria-label", translateText("Finding groups", currentLocale()));
-  for (const section of sections) {
-    const title = section.querySelector<HTMLElement>(".verdict-group-title");
-    if (!title) continue;
-    const count = section.querySelectorAll(".verdict-line").length;
-    const button = el("button", "verdict-index-link");
-    button.type = "button";
-    button.dataset.verdictGroup = section.dataset.verdictGroup;
-    button.setAttribute("aria-controls", section.id);
-    button.title = translateText("Jump to this group", currentLocale());
-    button.append(
-      el("span", "verdict-index-name", title.textContent ?? ""),
-      el("span", "verdict-index-count", count.toLocaleString(currentLocale())),
-    );
-    button.addEventListener("click", () => {
-      section.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-      title.focus({ preventScroll: true });
-    });
-    nav.append(button);
-  }
-  if (previous) previous.replaceWith(nav);
-  else findings.prepend(nav);
-  if (activeKey) nav.querySelector<HTMLButtonElement>(`.verdict-index-link[data-verdict-group="${activeKey}"]`)?.focus({ preventScroll: true });
-}
-
 /** Small header control for the read-coverage explanation on the result page. */
 export function coverageStatusButton(
   m: FileModel,
@@ -146,6 +106,8 @@ export function coverageStatusButton(
       ? drawer.querySelector<HTMLElement>(".evidence-unchecked-link") ?? drawer.querySelector<HTMLElement>(".verdict-coverage")
       : drawer.querySelector<HTMLElement>(".verdict-coverage");
     if (!target) return;
+    const disclosure = target.closest("details");
+    if (disclosure) disclosure.open = true;
     target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     target.focus({ preventScroll: true });
   });

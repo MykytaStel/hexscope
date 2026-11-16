@@ -31,8 +31,8 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
   await expect(page.locator(".verdict-title")).toBeVisible();
   await expect(page.locator(".place-map-svg")).toBeVisible();
   await expect(page.locator(".reveal-picture")).toBeVisible();
-  await expect(page.locator(".verdict-kind").first()).toHaveText("Особисті дані");
-  await expect(page.locator(".verdict-show")).toHaveText("Знайти у файлі");
+  await expect(page.locator(".verdict-kind").first()).toHaveText("Що є у файлі");
+  await expect(page.locator('.verdict-data-link[data-kind="location"]')).toHaveText("Місце зйомки");
 
   for (const width of [320, 360, 390, 414, 520, 640, 768, 900, 901, 1024, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -71,7 +71,7 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
       const canvas = document.querySelector<HTMLElement>(".reveal-picture")!;
       const map = document.querySelector<HTMLElement>(".place-map-svg")!;
       const hero = document.querySelector<HTMLElement>(".reveal-hero")!;
-      const show = document.querySelector<HTMLElement>(".verdict-show")!;
+      const show = document.querySelector<HTMLElement>('.verdict-data-link[data-kind="location"]')!;
       const findings = document.querySelector<HTMLElement>(".verdict-findings");
       const pictureBounds = picture.getBoundingClientRect();
       const canvasBounds = canvas.getBoundingClientRect();
@@ -95,7 +95,6 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
         mapShadow: getComputedStyle(map).boxShadow,
         findingsDivider: findings ? Number.parseFloat(getComputedStyle(findings).borderLeftWidth) : 0,
         showBackground: showStyle.backgroundColor,
-        showDecoration: showStyle.textDecorationLine,
         showHeight: show.getBoundingClientRect().height,
       };
     });
@@ -115,10 +114,8 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
     expect(surfaces.pictureWidthGap, `the photo uses its column width at ${width}px`).toBeLessThanOrEqual(1);
     expect(surfaces.mapShadow, `the map is not boxed in at ${width}px`).toBe("none");
     expect(surfaces.findingsDivider, `desktop findings are not separated by another frame at ${width}px`).toBe(0);
-    // "Find in file" goes somewhere: it reads as a link, leaving the clean copy the one button.
-    expect(surfaces.showBackground, `the file action is not dressed as a button at ${width}px`).toBe("rgba(0, 0, 0, 0)");
-    expect(surfaces.showDecoration, `the file action reads as a link at ${width}px`).toBe("underline");
-    expect(surfaces.showHeight, `the file action is easy to hit at ${width}px`).toBeGreaterThanOrEqual(30);
+    expect(surfaces.showBackground, `the data row shares the page background at ${width}px`).toBe("rgba(0, 0, 0, 0)");
+    expect(surfaces.showHeight, `the data row is easy to hit at ${width}px`).toBeGreaterThanOrEqual(44);
   }
 
   for (const view of ["content", "metadata", "map"] as const) {
@@ -142,6 +139,6 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("#app-nav [data-app-view='overview']").click();
-  await page.locator(".verdict-show").click();
+  await page.locator('.verdict-data-link[data-kind="location"]').click();
   await expect(page.locator('.reveal-list dt[data-kind="location"]')).toHaveClass(/is-flash/);
 });
