@@ -256,7 +256,7 @@ for (const scheme of ["light", "dark"] as const) {
       hexSelectionAlpha: getComputedStyle(document.documentElement).getPropertyValue("--alpha-base").trim(),
     }));
     expect(actual).toEqual({
-      background: scheme === "light" ? "rgb(246, 246, 244)" : "rgb(9, 11, 13)",
+      background: scheme === "light" ? "rgb(245, 245, 243)" : "rgb(16, 18, 20)",
       hexSelectionAlpha: scheme === "light" ? ".1" : ".14",
     });
   });
@@ -1753,13 +1753,13 @@ test("the landing page keeps its type readable on a phone", async ({ page }) => 
     page: getComputedStyle(document.body).backgroundColor,
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
-  expect(light).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
+  expect(light).toEqual({ page: "rgb(16, 18, 20)", demo: "rgb(21, 24, 27)" });
   await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
   const dark = await page.evaluate(() => ({
     page: getComputedStyle(document.body).backgroundColor,
     demo: getComputedStyle(document.querySelector(".demo")!).backgroundColor,
   }));
-  expect(dark).toEqual({ page: "rgb(9, 11, 13)", demo: "rgb(14, 17, 20)" });
+  expect(dark).toEqual(light);
   const type = await page.evaluate(() => ({
     title: parseFloat(getComputedStyle(document.querySelector(".hero h1")!).fontSize),
     introduction: parseFloat(getComputedStyle(document.querySelector(".hero .lede")!).fontSize),

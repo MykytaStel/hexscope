@@ -739,6 +739,7 @@ async function openPlayer(entry = selectedEntry(), step?: number): Promise<Defla
   if (!model) return null;
   const isZip = model.file.format === "zip";
   if (isZip ? entry < 0 || !model.entry(entry).playable : !model.playable) return null;
+  dismissTour();
   clearPlayerLoadError();
   if (isZip) closePlayer();
   const request = ++playerRequest;
@@ -990,7 +991,7 @@ workspace = new WorkspaceController({
       // Only a standalone file gets the first-open tour; nested entries do not.
       if (model.source) {
         setTimeout(() => {
-          if (!tourDismissedByNavigation && document.body.dataset.view === "summary") maybeTour();
+          if (!tourDismissedByNavigation && !playerPending && !player?.isOpen && document.body.dataset.view === "summary") maybeTour();
         }, 350);
       }
     },
