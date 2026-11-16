@@ -274,6 +274,32 @@
     white-space: nowrap;
   }
 
+  .inspector-return {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 44px;
+    align-items: center;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font: 600 12px/1.25 var(--font);
+    text-align: start;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  .inspector-return[hidden] {
+    display: none;
+  }
+
+  .inspector-return:focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent);
+    outline-offset: var(--focus-ring-offset);
+    border-radius: var(--control-radius-compact);
+  }
+
   .inspector-details-toggle {
     min-height: 38px;
     padding: 6px 10px;
@@ -321,10 +347,22 @@
     box-shadow: none;
   }
 
+  .inspector-sheet .drawer-node > .node-label {
+    display: none;
+  }
+
+  .inspector-sheet .drawer-node .evidence-return {
+    display: none;
+  }
+
   /* The phone inspector is a dock beside the bytes, not a layer on top of
      their status line. Reserve its height in the workspace while it is open. */
   body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="false"]) .layout {
     grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) 72px;
+  }
+
+  body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="false"] .inspector-return:not([hidden])) .layout {
+    grid-template-rows: clamp(112px, 18vh, 168px) minmax(0, 1fr) 104px;
   }
 
   body[data-state="ready"]:has(.inspector-sheet[open][data-expanded="true"]) .layout {
@@ -391,23 +429,24 @@
     gap: 3px;
     width: auto;
     min-width: 0;
-    min-height: 50px;
-    padding: 4px 1px 3px;
+    min-height: 48px;
+    padding: 4px 2px 3px;
     border: 1px solid transparent;
     border-bottom-width: 2px;
     border-radius: 7px;
     color: var(--muted);
     text-align: center;
-    font-size: clamp(9px, 2.65vw, 11px);
+    font-size: clamp(11px, 3.1vw, 12px);
     line-height: 1.15;
     white-space: nowrap;
     cursor: pointer;
   }
 
   .app-nav .app-nav-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
+    display: none;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
   }
 
   .app-nav-group {

@@ -24,7 +24,7 @@ import { announce } from "./announce";
 import { recentFiles, remember } from "./recent";
 import { MAX_FILE, cleanName, kindOf, kindWord, phoneCanShare, repairedName, saveAs, siteUrl, tooLarge } from "./files";
 import { cleanCopy, redactCopy, repairCopy } from "./copies";
-import { showLegend } from "./legend";
+import { createEvidenceNavigation } from "./evidence-navigation";
 import { currentLocale, loadUkrainian, translateText, withUkrainian } from "./i18n";
 
 // What each part of a file is, in Ukrainian, for the Structure and Bytes
@@ -34,6 +34,12 @@ withUkrainian(() => import("./docs-i18n"));
 let batchController: BatchController;
 let workspace: WorkspaceController;
 let entropyJob: { model: FileModel; controller: AbortController } | null = null;
+
+function showByteLegend(model: FileModel): void {
+  void import("./legend").then(({ showLegend }) => {
+    if (workspace?.model === model) showLegend($("hex-legend"), model, point);
+  });
+}
 
 /** "Take the tour": reopen the sample, then start its notes on request. */
 export async function startTour(): Promise<void> {
@@ -297,6 +303,9 @@ function setView(view: "summary" | "bytes" | "files"): void {
 }
 
 type WorkspaceView = "overview" | "metadata" | "content" | "map" | "files" | "structure" | "bytes";
+type EvidenceNavigation = import("./evidence-navigation").EvidenceNavigation;
+type EvidenceReturnPosition = import("./evidence-navigation").EvidenceReturnPosition;
+let evidenceNavigation: EvidenceNavigation | null = null;
 
 /** A ZIP that is only an archive: Office documents, books and apps have their own views. */
 const archives = new WeakMap<FileModel, boolean>();
@@ -429,6 +438,7 @@ function writeWorkspaceHistory(view: WorkspaceView, replace = false): void {
 }
 
 function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHistory = false): void {
+  const returning: EvidenceReturnPosition | null = evidenceNavigation?.takeReturn(workspace?.model ?? null, view) ?? null;
   document.body.dataset.appView = view;
   if (recordHistory) writeWorkspaceHistory(view, true);
   const makeup = $("drawer").querySelector<HTMLElement>(".more-details > .makeup");
@@ -440,11 +450,23 @@ function setWorkspaceView(view: WorkspaceView, scrollToSection = true, recordHis
   }
   if (selected < 0 && workspace.model) drawer.showNode(workspace.model, selected, false);
   setView(view === "structure" || view === "bytes" ? "bytes" : view === "files" ? "files" : "summary");
-  if (view === "structure" || view === "bytes") void ensureMinimap();
+  if (view === "structure" || view === "bytes") {
+    void ensureMinimap();
+    if (workspace?.model) showByteLegend(workspace.model);
+  }
   tools?.setActive(toolsAreVisible());
   syncAppNavigation();
   if (view === "files") void showFiles();
   else for (const files of filesViews.values()) files.hide();
+
+  if (returning) {
+    requestAnimationFrame(() => {
+      const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
+      file?.scrollTo({ top: returning.scrollTop });
+      if (returning.focusTarget?.isConnected) returning.focusTarget.focus({ preventScroll: true });
+    });
+    return;
+  }
 
   if (!scrollToSection) return;
   const file = $("drawer").querySelector<HTMLElement>(".drawer-file");
@@ -484,6 +506,7 @@ window.addEventListener("popstate", (event: PopStateEvent) => {
     // The entry before the first inspected file is the landing page. Keep the
     // parsed file in memory so Forward can restore the workspace immediately.
     stopEntropyMap();
+    clearEvidenceReturnContext();
     tools?.setActive(false);
     document.body.dataset.state = "empty";
     document.querySelector<HTMLElement>(".empty")!.scrollTop = 0;
@@ -569,18 +592,17 @@ setView("summary");
 
 const drawer = new Drawer(
   $("drawer"),
-  (id) => {
-    toBytes();
-    point(id);
-  },
+  (id) => followEvidenceSource(id),
   (start, len, selectPart = true) => {
     const model = workspace.model;
     if (!model || len <= 0 || start < 0 || start >= model.bytes.length) return;
+    evidenceNavigation?.remember(model);
     toBytes();
     if (selectPart) point(model.nodeAt(start), start);
     hex.setHead(start, Math.min(model.bytes.length, start + len));
     hex.focusAt(start);
     setStatusOffset(start);
+    if (selectPart) requestAnimationFrame(() => drawer.focusEvidenceReturn());
   },
   (entry) => void openPlayer(entry),
   (entry) => void openEntry(entry),
@@ -605,6 +627,28 @@ const drawer = new Drawer(
   },
   (m) => picture.element(m),
 );
+
+evidenceNavigation = createEvidenceNavigation(
+  drawer,
+  $("drawer"),
+  appNavigation,
+  () => workspace?.model ?? null,
+  () => document.body.dataset.appView ?? "",
+  (view, scroll, history) => setWorkspaceView(view, scroll, history),
+  toBytes,
+  point,
+);
+
+/** Removes a temporary return route when its file or workspace has changed. */
+function clearEvidenceReturnContext(): void {
+  evidenceNavigation?.clear();
+  delete appNavigation.dataset.inspectorRequested;
+}
+
+/** Opens the selected finding in Bytes and exposes its one-step route back. */
+function followEvidenceSource(id: number): void {
+  evidenceNavigation?.followSource(id, workspace?.model ?? null);
+}
 
 /** Compares the file on screen with another, parsed aside. */
 async function compareWith(other: File): Promise<void> {
@@ -1144,6 +1188,7 @@ function startBatch(files: File[]): void {
 function showBatch(): void {
   const items = batchController.items;
   if (!items) return;
+  clearEvidenceReturnContext();
   stopEntropyMap();
   tools?.setActive(false);
   closePlayer();
@@ -1197,6 +1242,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal, profile?: Publi
 
 /** Puts a document on screen, with nothing selected. */
 function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
+  clearEvidenceReturnContext();
   clearPlayerLoadError();
   hover = -1;
   selected = -1;
@@ -1214,7 +1260,6 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
 
   hex.setModel(m);
   tools?.setModel(m);
-  showLegend($("hex-legend"), m, point);
   search.reset();
   minimap.setModel(m);
   tree.setModel(m);
