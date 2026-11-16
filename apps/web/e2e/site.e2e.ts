@@ -456,6 +456,8 @@ test("the Formats link opens the collapsed library at its destination", async ({
 
   const extras = page.locator(".landing-extras");
   await expect(extras).not.toHaveAttribute("open", "");
+  const menu = page.locator(".landing-menu");
+  if (await menu.isVisible()) await menu.locator(":scope > summary").click();
   await page.getByRole("link", { name: "Formats", exact: true }).first().click();
   await expect(extras).toHaveAttribute("open", "");
   await expect(page.locator("#formats")).toBeInViewport();
@@ -1505,7 +1507,7 @@ test("shows local film-border patterns as clues, not proof of a film original", 
   await expect(card.locator(".film-scan-evidence").first()).toContainText("Repeated high-contrast openings");
   await expect(card).toContainText("do not prove that the picture came from film");
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await page.locator(".language-button").click();
   await expect(card).toContainText("Ознаки сканування плівкового фото");
   await expect(card.locator(".film-scan-evidence").first()).toContainText("Повторювані контрастні отвори");
 });
@@ -1742,8 +1744,8 @@ test("supported file types stay grouped in the mobile catalog", async ({ page })
 });
 
 test("the phone brings the main actions before supporting detail", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
   await home(page);
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   for (const width of [320, 360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     const actions = await page.locator(".hero-actions").boundingBox();
@@ -1801,8 +1803,10 @@ test("the example selector and preview stay inside the content grid across width
 });
 
 test("the landing groups film scans and local multi-photo actions with their right sections", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
   await openLandingExtras(page);
+  const language = page.locator(".language-button");
   const tools = page.locator(".film-showcase");
   const privacy = page.locator(".privacy-cta");
   await expect(tools).toBeVisible();
@@ -1813,13 +1817,13 @@ test("the landing groups film scans and local multi-photo actions with their rig
   await expect(page.locator(".doors-main #film-roll-open")).toHaveCount(0);
   await expect(page.locator(".doors-main [data-name='film-negative.png']")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await language.click();
   await expect(tools.getByRole("heading", { name: "Плівкові скани" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Обробити плівкові скани · JPEG / TIFF" })).toBeVisible();
   await expect(tools.getByRole("button", { name: "Відкрити кадр AS11-40-5903 у hexscope →" })).toBeVisible();
   await expect(privacy.getByRole("button", { name: "Вибрати кілька фото для мозаїки приватності →" })).toHaveAttribute("data-opens", "picker-empty");
 
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await language.click();
   const fileChooserEvent = page.waitForEvent("filechooser");
   await privacy.getByRole("button", { name: "Choose multiple photos for a privacy mosaic →" }).click();
   const fileChooser = await fileChooserEvent;
@@ -2056,10 +2060,10 @@ test("a cancelled phone touch cannot select a replacement file later", async ({ 
 
 test("the phone can inspect a photo in Ukrainian and return to its clean-copy action", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "the narrow inspection flow is phone-specific");
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "uk"));
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
   await openView(page, "bytes");
   await page.waitForTimeout(400);
   await expect(page.locator(".tour")).toHaveCount(0);
@@ -2138,21 +2142,23 @@ test("the pinned byte label remains readable", async ({ page }, info) => {
 });
 
 test("the landing page has a clear primary action, three sample choices, and a remembered Ukrainian choice", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await home(page);
+  const language = page.locator(".language-button");
   await expect(page.getByRole("button", { name: "Choose a file" })).toBeVisible();
   await expect(page.locator('.hero-actions a[href="#examples"]')).toHaveText("See examples");
   await expect(page.locator(".doors-main .door")).toHaveCount(3);
   expect(await page.locator(".geek-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
   expect(await page.locator(".landing-more").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
 
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await language.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".format-catalog h2")).toHaveText("Підтримувані формати");
   await expect(page.locator("h1")).toHaveText("Дізнайтеся, що файл розкриває про вас");
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await language.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("h1")).toHaveText("See what your file reveals about you");
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await language.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "uk");
   await page.reload();
   await page.waitForFunction(() => document.body.dataset.state === "empty");
@@ -2168,8 +2174,9 @@ test("the landing page has a clear primary action, three sample choices, and a r
 });
 
 test("a guide changes its full article and language metadata with the shared control", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("hexscope.language", "en"));
   await page.goto("./is-this-email-real.html");
-  await page.getByRole("button", { name: "Перемкнути мову на українську" }).click();
+  await page.locator(".language-button").click();
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "uk");
   await expect(page.locator(".guide-language-note")).toHaveCount(0);
   await expect(page.locator("article.story-text h1")).toHaveText("Цей лист справжній?");
@@ -2180,7 +2187,7 @@ test("a guide changes its full article and language metadata with the shared con
   await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "Цей лист справжній?");
   await expect(page.locator("meta[property='og:description']")).toHaveAttribute("content", /[А-Яа-яІіЇїЄєҐґ]/);
   await expect(page.getByRole("link", { name: "Відкрити файл" })).toBeVisible();
-  await page.getByRole("button", { name: "Switch language to English" }).click();
+  await page.locator(".language-button").click();
   await expect(page.locator("article.story-text")).toHaveAttribute("lang", "en");
   await expect(page.locator("article.story-text h1")).toHaveText("Is this email real?");
   await expect(page.locator("article.story-text")).toContainText("SPF, DKIM and DMARC results in this header are claims in the saved message");
