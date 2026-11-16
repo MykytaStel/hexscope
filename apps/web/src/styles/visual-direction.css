@@ -1204,10 +1204,6 @@ body[data-state="ready"] .topbar {
     line-height: 1.04;
   }
 
-  .doors-title {
-    margin-top: 56px;
-  }
-
   .doors-main {
     grid-template-columns: minmax(0, 1fr);
   }
