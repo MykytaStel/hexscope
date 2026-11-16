@@ -1,8 +1,5 @@
-// The first time a file is open on a computer, four short notes point at
-// what to read first: the verdict, what the file gives away and how to
-// remove it, the bytes behind every finding, and the keys. Once seen — or
-// skipped — they do not come back; "Take the tour" in the footer brings them
-// back.
+// An optional desktop walkthrough points at the verdict, the findings, the
+// bytes behind them and the keyboard controls. Opening a file never starts it.
 
 const SEEN = "hexscope.tour";
 /**
@@ -83,7 +80,7 @@ function visible(el: Element | null): el is HTMLElement {
   return r.width > 0 && r.height > 0;
 }
 
-/** Starts the tour if it has not been seen; call once a file is on screen. */
+/** Starts the tour if it has not been seen; call only after an explicit request. */
 export function maybeTour(): void {
   if (seen() || matchMedia(PHONE).matches || document.querySelector(".tour, .film-lab-entry[open]")) return;
   // Each target is a list tried in order: the first that is on screen.

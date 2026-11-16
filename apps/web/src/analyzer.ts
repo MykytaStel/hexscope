@@ -35,11 +35,12 @@ let batchController: BatchController;
 let workspace: WorkspaceController;
 let entropyJob: { model: FileModel; controller: AbortController } | null = null;
 
-/** "Take the tour": on the sample photo, from the start. */
-export function startTour(): void {
+/** "Take the tour": reopen the sample, then start its notes on request. */
+export async function startTour(): Promise<void> {
   resetTour();
   batchController.clear();
-  void loadSample("samples/photo.jpg", "photo.jpg");
+  await loadSample("samples/photo.jpg", "photo.jpg");
+  maybeTour();
 }
 
 // On a phone, what to do about the file stays at hand.
@@ -260,14 +261,22 @@ const picture = new PictureView({
 // tap away, and anything that points into the bytes goes there.
 const narrow = matchMedia("(max-width: 900px)");
 
-// File views stay at the top level. Technical inspection is grouped with
-// tools on a phone and gets its own section on wider screens.
+// The everyday views stay at the top level. The map and byte-level views live
+// under More on a phone, and in their own Inspect group on a wider screen.
 const expertGroup = appNavigation.querySelector<HTMLElement>(".app-nav-inspection")!;
 const moreViews = appNavigation.querySelector<HTMLElement>(".app-nav-more-actions")!;
 const moreMenu = appNavigation.querySelector<HTMLDetailsElement>(".app-nav-more")!;
+const primaryViews = appNavigation.querySelector<HTMLElement>(".app-nav-primary")!;
+const mapView = primaryViews.querySelector<HTMLElement>('[data-app-view="map"]')!;
+const filesView = primaryViews.querySelector<HTMLElement>('[data-app-view="files"]')!;
 function placeExpertViews(): void {
-  if (narrow.matches) moreViews.prepend(expertGroup);
-  else appNavigation.insertBefore(expertGroup, moreMenu);
+  if (narrow.matches) {
+    expertGroup.prepend(mapView);
+    moreViews.prepend(expertGroup);
+  } else {
+    primaryViews.insertBefore(mapView, filesView);
+    appNavigation.insertBefore(expertGroup, moreMenu);
+  }
 }
 placeExpertViews();
 narrow.addEventListener("change", placeExpertViews);
@@ -501,7 +510,6 @@ appNavigation.addEventListener("click", (event) => {
     const sameView = nextView === document.body.dataset.appView;
     const playerOpen = playerPending || document.body.classList.contains("is-playing");
     if (playerOpen) closePlayer();
-    tourDismissedByNavigation = true;
     dismissTour();
     // Close an open player, but don't reapply the active page's layout or scroll.
     if (sameView) return;
@@ -511,7 +519,6 @@ appNavigation.addEventListener("click", (event) => {
     setWorkspaceView(nextView, true, true);
     return;
   }
-  tourDismissedByNavigation = true;
   dismissTour();
   if (button.dataset.appAction === "compression") {
     if (playerPending || player?.isOpen) closePlayer();
@@ -535,7 +542,6 @@ comparePicker.addEventListener("change", () => {
   }
 });
 
-let tourDismissedByNavigation = false;
 /** The view a file opens on: a phone always starts on the summary. */
 function openingView(): "summary" | "bytes" {
   return narrow.matches ? "summary" : wideView();
@@ -546,7 +552,6 @@ function toBytes(): void {
 for (const b of document.querySelectorAll<HTMLButtonElement>("#viewswitch button")) {
   b.addEventListener("click", () => {
     const view = b.dataset.view === "bytes" ? "bytes" : "summary";
-    tourDismissedByNavigation = true;
     dismissTour();
     setWorkspaceView(view === "bytes" ? "bytes" : "overview", false);
     // On a wide screen the choice is remembered for the next file.
@@ -988,12 +993,7 @@ workspace = new WorkspaceController({
     afterOpen(model) {
       arrive();
       if (followLink(model)) return;
-      // Only a standalone file gets the first-open tour; nested entries do not.
-      if (model.source) {
-        setTimeout(() => {
-          if (!tourDismissedByNavigation && !playerPending && !player?.isOpen && document.body.dataset.view === "summary") maybeTour();
-        }, 350);
-      }
+      // Opening a file shows its result directly; the tour is an explicit choice in the footer.
     },
     clearPlayer() {
       stopEntropyMap();
@@ -1201,7 +1201,6 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   hover = -1;
   selected = -1;
   problemCursor = -1;
-  tourDismissedByNavigation = false;
   setStatusOffset(-1);
   document.body.dataset.state = "ready";
   drawer.nested = levels.length;
@@ -1351,7 +1350,6 @@ function followLink(model: FileModel): boolean {
   if (!asked || (!asked.view && !asked.part)) return false;
   const part = asked.part?.toLowerCase();
   const id = part ? model.file.labels.findIndex((label) => label.toLowerCase() === part) : -1;
-  tourDismissedByNavigation = true;
   setWorkspaceView(asked.view ?? (id > 0 ? "bytes" : "overview"));
   if (id > 0) select(id);
   return true;

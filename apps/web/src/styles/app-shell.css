@@ -19,7 +19,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 10px;
   border: 1px solid transparent;
   border-left-width: 2px;
@@ -197,6 +197,25 @@
 }
 
 @media (max-width: 900px) {
+  /* One predictable touch size for actions; status pills and tab controls
+     keep their own compact shape. */
+  .btn {
+    min-height: 44px;
+    height: auto;
+  }
+
+  .btn-icon {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  body[data-state="empty"] .landing-menu > summary {
+    min-height: 44px;
+    height: 44px;
+  }
+
   .inspector-sheet {
     position: fixed;
     z-index: 49;
@@ -386,9 +405,9 @@
   }
 
   .app-nav .app-nav-icon {
-    width: 17px;
-    height: 17px;
-    flex: 0 0 17px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
   }
 
   .app-nav-group {
@@ -471,7 +490,7 @@
   .app-nav-more-actions button {
     flex-direction: row;
     justify-content: flex-start;
-    min-height: 42px;
+    min-height: 44px;
     padding: 8px 10px;
     border: 1px solid transparent;
     border-radius: 7px;

@@ -67,20 +67,6 @@ document.querySelector<HTMLAnchorElement>("[data-home-link]")?.addEventListener(
   location.assign(`${location.pathname}?home=1`);
 });
 
-function syncAnalyzerPreviewLocale(): void {
-  const image = document.querySelector<HTMLImageElement>(".deeper-image");
-  if (!image) return;
-  const suffix = currentLocale() === "uk" ? "Uk" : "En";
-  const imageSource = image.dataset[`src${suffix}`];
-  const mobileSource = document.querySelector<HTMLSourceElement>(".deeper-image-mobile")?.dataset[`src${suffix}`];
-  if (imageSource && image.getAttribute("src") !== imageSource) image.src = imageSource;
-  const mobile = document.querySelector<HTMLSourceElement>(".deeper-image-mobile");
-  if (mobile && mobileSource && mobile.getAttribute("srcset") !== mobileSource) mobile.srcset = mobileSource;
-}
-
-syncAnalyzerPreviewLocale();
-window.addEventListener("hexscope:locale", syncAnalyzerPreviewLocale);
-
 type Analyzer = typeof import("./analyzer");
 let analyzer: Promise<Analyzer> | undefined;
 
@@ -122,7 +108,17 @@ document.getElementById("film-roll-open")?.addEventListener("click", () => {
 // The file pickers: buttons that open hidden inputs — wherever they are,
 // the summary's own included, drawn after the page loaded.
 document.addEventListener("click", (e) => {
-  if ((e.target as Element).closest(".landing-menu a")) document.querySelector(".landing-menu")?.removeAttribute("open");
+  const target = e.target as Element;
+  const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
+  if (anchor) {
+    const id = decodeURIComponent(anchor.hash.slice(1));
+    const destination = id ? document.getElementById(id) : null;
+    if (destination instanceof HTMLDetailsElement) destination.open = true;
+    for (let parent = destination?.parentElement; parent; parent = parent.parentElement) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    }
+    document.querySelector(".landing-menu")?.removeAttribute("open");
+  }
   const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>("button[data-opens]");
   if (button) {
     if (button.dataset.opens?.startsWith("picker")) void app().catch(() => undefined);
