@@ -64,6 +64,12 @@
   display: none;
 }
 
+.redact-list:empty,
+.redact-preview:empty,
+.redactor > .cleaner:empty {
+  display: none;
+}
+
 .redact-term {
   margin: 0 0 10px;
   font-size: 13px;
@@ -332,6 +338,25 @@
   .redactor {
     padding: var(--space-4);
   }
+
+  .redact-presets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .redact-preset {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    height: auto;
+    padding: 8px 10px;
+    justify-content: center;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+  }
 }
 
 /* The one thing to do, at the bottom of a phone's screen. */
@@ -431,6 +456,12 @@
     flex: none;
     margin-left: 0;
   }
+
+  /* The file overview already offers its location finding and map view; keep
+     the compact phone header for the file, status, language and open action. */
+  body[data-state="ready"] .topbar .location-badge {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -450,6 +481,12 @@
     padding-inline: 10px;
     border-radius: 8px;
     white-space: nowrap;
+  }
+
+  body[data-state="ready"] .fileinfo .file-coverage {
+    box-sizing: border-box;
+    min-height: 40px;
+    height: 40px;
   }
 
   body[data-state="ready"] .actions > .language-button,

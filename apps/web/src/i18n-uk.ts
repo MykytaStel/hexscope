@@ -379,7 +379,7 @@ const UK: Record<string, string> = {
   "Analysis status: Fully read": "Стан аналізу: прочитано повністю",
   "Analysis status: Partly checked": "Стан аналізу: перевірено частково",
   "Analysis status: No format parser": "Стан аналізу: парсера формату немає",
-  "Read": "Читано",
+  "Read": "Прочитано",
   "Partial read": "Частково",
   "No parser": "Без парсера",
   "Fully read": "Прочитано повністю",

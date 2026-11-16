@@ -463,6 +463,13 @@
     display: none;
   }
 
+  /* This summary already has the Lucide ellipsis icon. Do not add the generic
+     disclosure chevron on top of it. */
+  .app-nav-more > summary::before {
+    display: none;
+    content: none;
+  }
+
   .app-nav-more[open] > summary {
     border-color: var(--border-strong);
     background: var(--panel-2);
