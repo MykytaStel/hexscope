@@ -332,7 +332,11 @@ impl<'a> Tiff<'a> {
             9 => self.u32(r).map(|v| v as i32 as f64),
             5 | 10 => {
                 let (n, d) = self.read_fraction(r, typ)?;
-                Some(if d == 0 { f64::NAN } else { n as f64 / d as f64 })
+                Some(if d == 0 {
+                    f64::NAN
+                } else {
+                    n as f64 / d as f64
+                })
             }
             11 => self.u32(r).map(|v| f32::from_bits(v) as f64),
             12 => {
@@ -1338,12 +1342,23 @@ mod value_tests {
         for order in [ByteOrder::Little, ByteOrder::Big] {
             for typ in [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
                 let data = [0x81, 2, 3, 4, 5, 6, 7, 8];
-                let t = Tiff { data: &data, base: 0, order };
-                let e = Entry {
-                    tag: 0, typ, count: 1, value_off: 0,
-                    size: type_size(typ).unwrap(), inline: false,
+                let t = Tiff {
+                    data: &data,
+                    base: 0,
+                    order,
                 };
-                assert_eq!(t.first_number(&e).map(f64::to_bits), t.numbers(&e, 1).first().map(|v| v.to_bits()));
+                let e = Entry {
+                    tag: 0,
+                    typ,
+                    count: 1,
+                    value_off: 0,
+                    size: type_size(typ).unwrap(),
+                    inline: false,
+                };
+                assert_eq!(
+                    t.first_number(&e).map(f64::to_bits),
+                    t.numbers(&e, 1).first().map(|v| v.to_bits())
+                );
                 let empty = Entry { count: 0, ..e };
                 assert!(t.first_number(&empty).is_none());
                 let outside = Entry { value_off: 8, ..e };
@@ -1358,8 +1373,19 @@ mod value_tests {
     #[test]
     fn signed_fraction_and_zero_denominator_keep_their_meaning() {
         let data = [0xff, 0xff, 0xff, 0xfe, 0, 0, 0, 4];
-        let t = Tiff { data: &data, base: 0, order: ByteOrder::Big };
-        let e = Entry { tag: 0, typ: 10, count: 1, value_off: 0, size: 8, inline: false };
+        let t = Tiff {
+            data: &data,
+            base: 0,
+            order: ByteOrder::Big,
+        };
+        let e = Entry {
+            tag: 0,
+            typ: 10,
+            count: 1,
+            value_off: 0,
+            size: 8,
+            inline: false,
+        };
         assert_eq!(t.first_fraction(&e), Some((-2, 4)));
         assert_eq!(t.first_number(&e), Some(-0.5));
         let zero = [0; 8];
