@@ -5,6 +5,7 @@
 // media taken from the file as it is.
 import type { AnalysisProgress } from "./analysis-progress";
 import { MAX_INPUT_BYTES } from "./resource-budget";
+import { CompactByteSource } from "./compact-byte-source";
 export type { AnalysisProgress } from "./analysis-progress";
 
 /** Movies past this size are read in parts. */
@@ -43,6 +44,8 @@ export interface Movie {
   joins: { at: number; start: number; len: number }[];
   /** Full-offset byte view; restored in place after the parser consumes `given`. */
   restoreWhole(): Uint8Array | null;
+  /** Known non-media bytes at their original file offsets, even in compact mode. */
+  knownBytes?(start: number, end: number): Uint8Array | undefined;
   /** The media in the file, as `[start, len, …]`. */
   missing: Float64Array;
 }
@@ -246,6 +249,7 @@ export async function readMovie(
   const given = whole ? compactMovieBytes(whole, joins, givenAt) : compact!;
 
   let restored = false;
+  const known = new CompactByteSource(file.size, given, joins);
 
   return {
     given,
@@ -257,6 +261,10 @@ export async function readMovie(
         restored = true;
       }
       return whole;
+    },
+    knownBytes(start, end) {
+      if (restored && whole) return known.hasRange(start, end) ? whole.subarray(start, end) : undefined;
+      return known.view(start, end);
     },
     missing: Float64Array.from(missing),
   };
@@ -306,7 +314,7 @@ function movieEntropySamples(
   const samples: EntropySample[] = [];
   let mediaIndex = 0;
   for (let i = 0; i < n; i++) {
-    const start = i * window;
+    const start = Math.min(size, i * window);
     const end = Math.min(size, start + window);
     const media = mediaForEntropySample(missing, mediaIndex, start, end);
     mediaIndex = media.index;
@@ -328,7 +336,7 @@ export async function movieEntropy(
   options: MovieReadOptions = {},
 ): Promise<{ values: Float32Array; window: number }> {
   checkCancelled(options.signal);
-  const whole = wholeMovieBytes(movie);
+  const whole = movie.knownBytes ? null : wholeMovieBytes(movie);
   const { samples, window } = movieEntropySamples(file.size, movie, bins);
   const n = samples.length;
   const values = new Float32Array(n);
@@ -342,7 +350,10 @@ export async function movieEntropy(
       if (i >= n) return;
       const { start, end, mediaAt } = samples[i];
       try {
-        const bytes = mediaAt === null ? whole.subarray(start, end) : await bytesOf(file, start, end);
+        const bytes = mediaAt === null
+          ? (movie.knownBytes ? movie.knownBytes(start, end) : whole!.subarray(start, end))
+          : await bytesOf(file, start, end);
+        if (!bytes || bytes.length !== end - start) throw new Error("The movie could not be read completely.");
         checkCancelled(options.signal);
         values[i] = entropy(bytes);
         done++;

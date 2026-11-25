@@ -87,7 +87,7 @@ export interface Comparison {
 }
 
 /** Whether any of `[start, start + len)` is media the page has not read. */
-const unread = (m: FileModel, start: number, len: number) => m.missing !== null && m.missing.wanted(start, start + len).length > 0;
+const unread = (m: FileModel, start: number, len: number) => m.missing !== null && m.missing.hasUnread(start, start + len);
 
 /** The first offset below `n` where the bytes differ, a large movie's media aside; `n` when there is none. */
 function diffAt(a: FileModel, b: FileModel, n: number): number {
@@ -192,10 +192,11 @@ function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
       const bytes = el("span", "compare-hex");
       const text = el("span", "compare-ascii");
       for (let i = row; i < row + ROW; i++) {
-        const v = i < m.bytes.length ? m.bytes[i] : -1;
-        const differs = i >= at && v !== (i < o.bytes.length ? o.bytes[i] : -1);
-        const cell = el(differs ? "mark" : "span", undefined, v < 0 ? "  " : hex(v));
-        const ch = el(differs ? "mark" : "span", undefined, v < 0 ? " " : v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : "·");
+        const v = i >= m.bytes.length ? -1 : m.missing && !m.missing.has(i) ? -2 : m.bytes[i];
+        const other = i >= o.bytes.length ? -1 : o.missing && !o.missing.has(i) ? -2 : o.bytes[i];
+        const differs = i >= at && v !== -2 && other !== -2 && v !== other;
+        const cell = el(differs ? "mark" : "span", undefined, v === -2 ? "··" : v < 0 ? "  " : hex(v));
+        const ch = el(differs ? "mark" : "span", undefined, v === -2 ? "·" : v < 0 ? " " : v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : "·");
         bytes.append(cell);
         text.append(ch);
       }

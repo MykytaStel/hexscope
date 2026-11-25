@@ -78,3 +78,12 @@ remain proposed and can be refined using findings from earlier phases.
 - Use the same gzip size measurement locally and in CI; keep all budgets fixed.
 - Remaining: true sparse byte views, worker lifetime/high-water memory,
   per-format code-size reductions, physical-device peak-memory measurements.
+
+### Compact range migration
+
+- Map known compact movie bytes to original offsets without materializing media.
+- Entropy works even with no full-offset buffer; the current hex viewer still
+  uses a full logical backing array. Migrate view, comparison, export and
+  search consumers explicitly before switching the worker protocol.
+- Avoid allocating an array of all missing chunks merely to answer a boolean
+  comparison query; never display unread bytes as literal zeroes.
