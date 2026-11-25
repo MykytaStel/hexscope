@@ -317,9 +317,41 @@ impl<'a> Tiff<'a> {
         let mut r = self.value(e)?;
         let raw = r.bytes(e.size.min(MAX_TEXT) as usize).ok()?;
         let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
-        let mut rest = Reader::new(raw);
-        let bytes = rest.bytes(end).ok()?;
-        Some(String::from_utf8_lossy(bytes).trim().to_string())
+        Some(String::from_utf8_lossy(&raw[..end]).trim().to_string())
+    }
+
+    /// Read one numeric value, sharing the decoder with bounded lists.
+    #[inline(never)]
+    fn read_number(&self, r: &mut Reader, typ: u16) -> Option<f64> {
+        match typ {
+            1 | 7 => r.u8().ok().map(|v| v as f64),
+            6 => r.u8().ok().map(|v| v as i8 as f64),
+            3 => self.u16(r).map(|v| v as f64),
+            8 => self.u16(r).map(|v| v as i16 as f64),
+            4 | 13 => self.u32(r).map(|v| v as f64),
+            9 => self.u32(r).map(|v| v as i32 as f64),
+            5 | 10 => {
+                let (n, d) = self.read_fraction(r, typ)?;
+                Some(if d == 0 { f64::NAN } else { n as f64 / d as f64 })
+            }
+            11 => self.u32(r).map(|v| f32::from_bits(v) as f64),
+            12 => {
+                let (a, b) = (self.u32(r)?, self.u32(r)?);
+                let bits = match self.order {
+                    ByteOrder::Big => ((a as u64) << 32) | b as u64,
+                    ByteOrder::Little => ((b as u64) << 32) | a as u64,
+                };
+                Some(f64::from_bits(bits))
+            }
+            _ => None,
+        }
+    }
+
+    fn first_number(&self, e: &Entry) -> Option<f64> {
+        if e.count == 0 {
+            return None;
+        }
+        self.read_number(&mut self.value(e)?, e.typ)
     }
 
     /// Up to `max` values as numbers; rationals divided out. Empty for types
@@ -331,69 +363,36 @@ impl<'a> Tiff<'a> {
         let n = (e.count as usize).min(max);
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            let v = match e.typ {
-                1 | 7 => r.u8().ok().map(|v| v as f64),
-                6 => r.u8().ok().map(|v| v as i8 as f64),
-                3 => self.u16(&mut r).map(|v| v as f64),
-                8 => self.u16(&mut r).map(|v| v as i16 as f64),
-                4 | 13 => self.u32(&mut r).map(|v| v as f64),
-                9 => self.u32(&mut r).map(|v| v as i32 as f64),
-                5 => self.rational(&mut r, false),
-                10 => self.rational(&mut r, true),
-                11 => self.u32(&mut r).map(|v| f32::from_bits(v) as f64),
-                12 => {
-                    let (a, b) = (self.u32(&mut r), self.u32(&mut r));
-                    a.zip(b).map(|(a, b)| {
-                        let bits = match self.order {
-                            ByteOrder::Big => ((a as u64) << 32) | b as u64,
-                            ByteOrder::Little => ((b as u64) << 32) | a as u64,
-                        };
-                        f64::from_bits(bits)
-                    })
-                }
-                _ => None,
-            };
-            match v {
-                Some(v) => out.push(v),
-                None => break,
-            }
-        }
-        out
-    }
-
-    fn rational(&self, r: &mut Reader, signed: bool) -> Option<f64> {
-        let n = self.u32(r)?;
-        let d = self.u32(r)?;
-        let (n, d) = if signed {
-            (n as i32 as f64, d as i32 as f64)
-        } else {
-            (n as f64, d as f64)
-        };
-        Some(if d == 0.0 { f64::NAN } else { n / d })
-    }
-
-    /// Rationals as their numerator and denominator, for display.
-    fn fractions(&self, e: &Entry, max: usize) -> Vec<(i64, i64)> {
-        let Some(mut r) = self.value(e) else {
-            return Vec::new();
-        };
-        let mut out = Vec::new();
-        for _ in 0..(e.count as usize).min(max) {
-            let (Some(n), Some(d)) = (self.u32(&mut r), self.u32(&mut r)) else {
+            let Some(v) = self.read_number(&mut r, e.typ) else {
                 break;
             };
-            out.push(if e.typ == 10 {
-                (n as i32 as i64, d as i32 as i64)
-            } else {
-                (n as i64, d as i64)
-            });
+            out.push(v);
         }
         out
     }
 
-    fn raw(&self, e: &Entry, max: u64) -> Vec<u8> {
+    fn read_fraction(&self, r: &mut Reader, typ: u16) -> Option<(i64, i64)> {
+        let n = self.u32(r)?;
+        let d = self.u32(r)?;
+        Some(if typ == 10 {
+            (n as i32 as i64, d as i32 as i64)
+        } else {
+            (n as i64, d as i64)
+        })
+    }
+
+    fn first_fraction(&self, e: &Entry) -> Option<(i64, i64)> {
+        if e.count == 0 {
+            return None;
+        }
+        self.read_fraction(&mut self.value(e)?, e.typ)
+    }
+
+    /// Borrow the bytes rather than allocating a new buffer. The full
+    /// declared value must still fit, even when only a prefix is requested.
+    fn raw(&self, e: &Entry, max: u64) -> &'a [u8] {
         self.value(e)
-            .and_then(|mut r| r.bytes(e.size.min(max) as usize).ok().map(<[u8]>::to_vec))
+            .and_then(|mut r| r.bytes(e.size.min(max) as usize).ok())
             .unwrap_or_default()
     }
 }
@@ -626,6 +625,7 @@ impl Found {
 }
 
 /// Human rendering of an entry's value.
+#[inline(never)]
 fn render(t: &Tiff, ifd: Ifd, e: &Entry) -> String {
     let gps = ifd == Ifd::Gps;
     match e.typ {
@@ -665,8 +665,8 @@ fn render(t: &Tiff, ifd: Ifd, e: &Entry) -> String {
             if gps && matches!(e.tag, 0x02 | 0x04 | 0x14 | 0x16) {
                 return render_dms(&values);
             }
-            match (ifd, e.tag, values.as_slice(), t.fractions(e, 1).first()) {
-                (_, 0x829A, [v], Some(&(n, d))) if *v > 0.0 && *v < 1.0 => {
+            match (ifd, e.tag, values.as_slice(), t.first_fraction(e)) {
+                (_, 0x829A, [v], Some((n, d))) if *v > 0.0 && *v < 1.0 => {
                     if n == 1 {
                         format!("1/{d} s")
                     } else {
@@ -677,7 +677,7 @@ fn render(t: &Tiff, ifd: Ifd, e: &Entry) -> String {
                 (_, 0x829D, [v], _) => format!("f/{}", num(*v)),
                 (_, 0x920A, [v], _) => format!("{} mm", num(*v)),
                 (Ifd::Gps, 0x06, [v], _) => format!("{} m", num(*v)),
-                (_, _, [v], Some(&(n, d))) if d != 0 && v.fract() != 0.0 => {
+                (_, _, [v], Some((n, d))) if d != 0 && v.fract() != 0.0 => {
                     format!("{n}/{d} ({})", num(*v))
                 }
                 _ => list(&values, e.count),
@@ -846,6 +846,7 @@ struct Walk<'w, 'a> {
 }
 
 impl Walk<'_, '_> {
+    #[inline(never)]
     fn run(&mut self) {
         let mut visited: Vec<u64> = Vec::new();
         let mut i = 0;
@@ -869,6 +870,7 @@ impl Walk<'_, '_> {
         }
     }
 
+    #[inline(never)]
     fn ifd(&mut self, at: Pending) {
         let Pending { off, kind, pointer } = at;
         let (tree, t, parent, depth) = (&mut *self.tree, &self.t, self.parent, self.depth);
@@ -993,7 +995,7 @@ impl Walk<'_, '_> {
             }
 
             let value_field = t.range(eoff + 8, 4);
-            let target = || t.numbers(&e, 1).first().map(|v| *v as u64);
+            let target = || t.first_number(&e).map(|v| v as u64);
             match (kind, e.tag) {
                 (Ifd::Zero, 0x8769) => {
                     if let Some(o) = target() {
@@ -1029,9 +1031,9 @@ impl Walk<'_, '_> {
                 (Ifd::Gps, 0x03) => found.lon_ref = t.text(&e),
                 (Ifd::Gps, 0x04) => found.lon = Some(t.numbers(&e, 3)),
                 (Ifd::Gps, 0x05) => found.alt_below = t.raw(&e, 1).first() == Some(&1),
-                (Ifd::Gps, 0x06) => found.alt = t.numbers(&e, 1).first().copied(),
+                (Ifd::Gps, 0x06) => found.alt = t.first_number(&e),
                 (Ifd::Zero, 0x0112) => {
-                    found.orientation = t.numbers(&e, 1).first().map(|&v| v as u16);
+                    found.orientation = t.first_number(&e).map(|v| v as u16);
                 }
                 // A character set's 8-byte name, then the comment.
                 (Ifd::Exif, 0x9286) => {
@@ -1324,5 +1326,46 @@ mod tests {
             }
             let _ = parse(&data);
         }
+    }
+}
+
+#[cfg(test)]
+mod value_tests {
+    use super::*;
+
+    #[test]
+    fn scalar_reads_match_lists_in_both_byte_orders() {
+        for order in [ByteOrder::Little, ByteOrder::Big] {
+            for typ in [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
+                let data = [0x81, 2, 3, 4, 5, 6, 7, 8];
+                let t = Tiff { data: &data, base: 0, order };
+                let e = Entry {
+                    tag: 0, typ, count: 1, value_off: 0,
+                    size: type_size(typ).unwrap(), inline: false,
+                };
+                assert_eq!(t.first_number(&e).map(f64::to_bits), t.numbers(&e, 1).first().map(|v| v.to_bits()));
+                let empty = Entry { count: 0, ..e };
+                assert!(t.first_number(&empty).is_none());
+                let outside = Entry { value_off: 8, ..e };
+                assert!(t.first_number(&outside).is_none());
+                assert!(t.raw(&outside, 1).is_empty());
+                assert_eq!(t.raw(&e, 1), &data[..1]);
+                assert_eq!(t.raw(&e, 1).as_ptr(), data.as_ptr());
+            }
+        }
+    }
+
+    #[test]
+    fn signed_fraction_and_zero_denominator_keep_their_meaning() {
+        let data = [0xff, 0xff, 0xff, 0xfe, 0, 0, 0, 4];
+        let t = Tiff { data: &data, base: 0, order: ByteOrder::Big };
+        let e = Entry { tag: 0, typ: 10, count: 1, value_off: 0, size: 8, inline: false };
+        assert_eq!(t.first_fraction(&e), Some((-2, 4)));
+        assert_eq!(t.first_number(&e), Some(-0.5));
+        let zero = [0; 8];
+        let t = Tiff { data: &zero, ..t };
+        assert!(t.first_number(&e).unwrap().is_nan());
+        assert_eq!(t.first_fraction(&e), Some((0, 0)));
+        assert!(t.first_fraction(&Entry { count: 0, ..e }).is_none());
     }
 }

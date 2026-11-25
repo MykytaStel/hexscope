@@ -37,3 +37,7 @@ The former full logical movie buffer and 256 MiB search prefix have since been r
 Maintainer macOS production profile: PDF 564355 raw / 228317 gzip, code payload 485674, data payload 73228, 2289 defined functions. Documents 585797 raw / 238709 gzip, code payload 496651, data payload 84556, 2008 defined functions. Named diagnostic code payloads match production. Largest PDF bodies: parse_with 32380, clean_pdf_with 18468, exif::parse_tiff_at 14799, page::walk_stream 11120. These are raw body sizes, not marginal gzip contributions.
 
 First candidate: PDF writer direct decimal encoding and in-output JPEG metadata blanking. Existing PDF output, redaction and verification tests must pass. Measure all five production gzip sizes and compare Node WASM latency on the same environment before claiming a saving. The 683-byte PDF headroom is not increased. This candidate does not address parse_with yet.
+
+## Shared EXIF value decoding candidate
+
+The named PDF and Docs profiles both identified exif::parse_tiff_at at 14799 raw body bytes. Borrow raw value slices, avoid allocating vectors for scalar lookups, share numeric and fraction decoding, and isolate IFD traversal/rendering from the TIFF entry point. No change to supported tags, value text, full-value bounds or thumbnail parsing. Inlining changes are a size experiment, not measured savings: compare all five compressed binaries and named profiles, and revert boundaries that increase size or harm latency. Existing parser/cleaner/independent evidence tests remain mandatory.
