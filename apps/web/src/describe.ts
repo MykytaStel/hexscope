@@ -14,6 +14,7 @@ function coverageStatus(code: number): CoverageStatus {
 
 /** Reads everything the page needs out of a parsed document. */
 export function describe(parsed: Parsed): ParsedFile {
+  const attachments = parsed.attachments;
   const result: ParsedFile = {
     starts: parsed.starts,
     lens: parsed.lens,
@@ -43,7 +44,7 @@ export function describe(parsed: Parsed): ParsedFile {
     facts: [],
     location: null,
     blackouts: [],
-    attachments: parsed.attachments ? parsed.attachments.split(SEPARATOR) : [],
+    attachments: attachments ? attachments.split(SEPARATOR) : [],
     parseMs: 0,
     preview: null,
     rowFilters: parsed.rowFilters,
@@ -54,7 +55,8 @@ export function describe(parsed: Parsed): ParsedFile {
   }
   const dims = Array.from(parsed.dimensions);
   result.dimensions = dims.length === 2 ? [dims[0], dims[1]] : null;
-  const facts = parsed.facts ? parsed.facts.split(SEPARATOR) : [];
+  const packedFacts = parsed.facts;
+  const facts = packedFacts ? packedFacts.split(SEPARATOR) : [];
   for (let i = 0; i + 2 < facts.length; i += 3) {
     result.facts.push({ kind: facts[i], text: facts[i + 1], node: Number(facts[i + 2]) });
   }

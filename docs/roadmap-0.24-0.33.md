@@ -66,3 +66,15 @@ remain proposed and can be refined using findings from earlier phases.
 - Phase B first slice: checked ranges and embedded offsets, ZIP extraction bounds,
   BMFF field limits and text preservation, HEIF item-table limits and partial
   inspection messages. Phase B remains open until broader audit and CI evidence.
+
+### Performance and memory slice
+
+- Release WASM presentation data once the page owns the flattened arrays;
+  preserve verification snapshots, nested archive navigation and playback.
+- Move cleaned output out of WASM once, avoiding repeated full-copy getters.
+- Avoid writing to untouched media pages in the sparse movie byte view;
+  reject over-budget non-media data before allocation.
+- Prefetch documents only on reported fast connections with sufficient RAM.
+- Use the same gzip size measurement locally and in CI; keep all budgets fixed.
+- Remaining: true sparse byte views, worker lifetime/high-water memory,
+  per-format code-size reductions, physical-device peak-memory measurements.

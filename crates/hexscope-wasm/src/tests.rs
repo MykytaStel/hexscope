@@ -52,6 +52,26 @@ fn every_array_describes_every_node() {
 }
 
 #[test]
+fn releasing_presentation_keeps_archive_navigation_and_verification() {
+    let bytes = zip_fixture();
+    let mut parsed = parse_owned(bytes.clone());
+    let entry = parsed.extract_entry(0);
+    let policy = parsed.evaluate_policy("", true);
+    let verification = parsed.verify_copy(&bytes);
+    assert!(!parsed.starts.is_empty());
+    assert!(!entry.is_empty());
+
+    parsed.release_presentation();
+    parsed.release_presentation();
+    assert_eq!(parsed.starts.capacity(), 0);
+    assert_eq!(parsed.composition.capacity(), 0);
+    assert_eq!(parsed.labels.capacity(), 0);
+    assert_eq!(parsed.extract_entry(0), entry);
+    assert_eq!(parsed.evaluate_policy("", true), policy);
+    assert_eq!(parsed.verify_copy(&bytes), verification);
+}
+
+#[test]
 fn retaining_owned_source_reuses_its_allocation() {
     let source = vec![0xA5; 1024 * 1024];
     let allocation = source.as_ptr();
