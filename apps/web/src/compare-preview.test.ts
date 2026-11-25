@@ -3,7 +3,7 @@ import type { FileModel } from "./model";
 import { canCompareVisual } from "./compare";
 
 function image(format: string, bytes: number, width: number, height: number): FileModel {
-  return { bytes: new Uint8Array(bytes), file: { format, dimensions: [width, height] } } as unknown as FileModel;
+  return { size: bytes, bytes: new Uint8Array(bytes), file: { format, dimensions: [width, height] } } as unknown as FileModel;
 }
 
 it("allows an in-budget pair of browser-decodable images", () => {
