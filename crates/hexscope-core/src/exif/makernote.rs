@@ -224,11 +224,10 @@ pub(super) fn parse(
         let label =
             tag_name(maker, e.tag).map_or_else(|| format!("tag 0x{:04X}", e.tag), str::to_string);
         let special = match (maker, e.tag) {
-            (Maker::Apple, 0x0003) => uptime(&m.raw(&e, 4096)),
+            (Maker::Apple, 0x0003) => uptime(m.raw(&e, 4096)),
             (Maker::Nikon, 0x00A7) => m
-                .numbers(&e, 1)
-                .first()
-                .map(|&v| format!("{} photos", thousands(v as u64))),
+                .first_number(&e)
+                .map(|v| format!("{} photos", thousands(v as u64))),
             _ => None,
         };
         let rendered = special
