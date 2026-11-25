@@ -18,7 +18,7 @@ export interface CallOptions {
   onProgress?: (progress: Extract<WorkerResponse, { type: "progress" }>["progress"]) => void;
 }
 
-/** Runs after a timed-out verification stops the parser worker. */
+/** Runs after an unexpected worker loss, not a deliberate idle recycle. */
 export function onWorkerReset(listener: () => void): () => void {
   workerResetListeners.add(listener);
   return () => workerResetListeners.delete(listener);
@@ -31,6 +31,29 @@ function notifyWorkerReset(): void {
 function failWaiting(message: string): void {
   for (const [id, pending] of waiting) pending.finish({ id, type: "error", message });
   waiting.clear();
+}
+
+/** Terminate the actual realm, including cached WASM instances. */
+function stopReader(target: Worker, message: string, unexpected: boolean): void {
+  if (worker !== target) return;
+  worker = null;
+  for (const [id, entry] of abandoned) {
+    if (entry.worker !== target) continue;
+    clearTimeout(entry.timer);
+    abandoned.delete(id);
+  }
+  target.terminate();
+  failWaiting(message);
+  if (unexpected) notifyWorkerReset();
+}
+
+/** Only a caller that no longer needs the committed document may use this.
+ * Refuse to interrupt an in-flight request or abandoned synchronous parse.
+ */
+export function recycleIdleReader(): boolean {
+  if (!worker || waiting.size || abandoned.size) return false;
+  stopReader(worker, "the reader was released", false);
+  return true;
 }
 
 /**
@@ -47,6 +70,11 @@ function start(): Worker {
       clearTimeout(cancelled.timer); abandoned.delete(e.data.id);
     }
     const pending = waiting.get(e.data.id);
+    if (e.data.type === "error" && e.data.fatal) {
+      pending?.finish(e.data);
+      stopReader(w, e.data.message, true);
+      return;
+    }
     if (!pending) return;
     if (e.data.type === "progress") {
       pending.onProgress?.(e.data.progress);
@@ -73,10 +101,7 @@ function start(): Worker {
     const message = navigator.onLine
       ? "the reader stopped, most likely for lack of memory. Close other tabs and try again, or use the command line tool"
       : "the reader could not start: you are offline, and it has not been saved for offline use yet";
-    failWaiting(message);
-    w.terminate();
-    if (worker === w) worker = null;
-    notifyWorkerReset();
+    stopReader(w, message, true);
   };
   w.addEventListener("error", died);
   w.addEventListener("messageerror", died);
@@ -119,10 +144,7 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
           // WebAssembly work is synchronous, so a cancel message could sit
           // behind the timed-out request. Terminating the worker is the only
           // way to stop it before it blocks the reader any longer.
-          worker = null;
-          target.terminate();
-          failWaiting("the reader stopped after an operation timed out; reopen the file to continue");
-          notifyWorkerReset();
+          stopReader(target, "the reader stopped after an operation timed out; reopen the file to continue", true);
         },
         timeoutMs,
       );
@@ -145,10 +167,7 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
             // A resumed batch/new file owns its own deadline. An abandoned
             // request must not terminate the worker underneath that newer work.
             if (worker !== target || waiting.size > 0) return;
-            worker = null;
-            target.terminate();
-            failWaiting("the reader stopped after reading was cancelled; reopen the file to continue");
-            notifyWorkerReset();
+            stopReader(target, "the reader stopped after reading was cancelled; reopen the file to continue", true);
           }, 500);
           abandoned.set(id, { worker: target, timer });
         }

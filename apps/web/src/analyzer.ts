@@ -11,7 +11,8 @@ import { Concern, FileModel, Kind } from "./model";
 import { ActionBar } from "./actionbar";
 import { PictureView } from "./pixels";
 import { TreeView } from "./tree";
-import { call, onWorkerReset, playerSource } from "./rpc";
+import { call, onWorkerReset, playerSource, recycleIdleReader } from "./rpc";
+import { BATCH_READER_RECYCLE_BYTES, BATCH_READER_RECYCLE_FILES } from "./resource-budget";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchController, BatchView, type BatchAnalysis } from "./batch";
@@ -1180,11 +1181,23 @@ batchController = new BatchController(batchView, {
   saveClean: (items, keepNames, includeCopyFingerprints, output, isCurrent) =>
     import("./batchclean").then((m) => m.cleanCopies(items, keepNames, output, isCurrent, includeCopyFingerprints)),
   announce,
+  idle: releaseBatchReader,
 });
+
+let batchFilesSinceRecycle = 0;
+let batchBytesSinceRecycle = 0;
+function releaseBatchReader(): void {
+  // The open document (including nested history and verification tokens) is
+  // never discarded while a user is inspecting it.
+  if (document.body.dataset.state !== "batch" || workspace.model || workspace.isOpeningFile) return;
+  if (recycleIdleReader()) {
+    batchFilesSinceRecycle = 0;
+    batchBytesSinceRecycle = 0;
+  }
+}
 
 /** Starts reading many files, and lists them. */
 function startBatch(files: File[]): void {
-  workspace.clear();
   batchController.start(files);
   showBatch();
 }
@@ -1193,11 +1206,13 @@ function startBatch(files: File[]): void {
 function showBatch(): void {
   const items = batchController.items;
   if (!items) return;
+  workspace.clear();
   clearEvidenceReturnContext();
   stopEntropyMap();
   tools?.setActive(false);
   closePlayer();
   document.body.dataset.state = "batch";
+  releaseBatchReader();
   $("fileinfo").textContent = `${items.length} files`;
   $("load-error").hidden = true;
   locationBtn.hidden = true;
@@ -1209,6 +1224,18 @@ function showBatch(): void {
 
 /** Reads and summarizes one file for the batch list. */
 async function analyzeBatchFile(file: File, signal: AbortSignal, profile?: PublicationProfile): Promise<BatchAnalysis> {
+  try {
+    return await summarizeBatchFile(file, signal, profile);
+  } finally {
+    batchFilesSinceRecycle++;
+    batchBytesSinceRecycle += file.size;
+    if (batchFilesSinceRecycle >= BATCH_READER_RECYCLE_FILES || batchBytesSinceRecycle >= BATCH_READER_RECYCLE_BYTES) {
+      releaseBatchReader();
+    }
+  }
+}
+
+async function summarizeBatchFile(file: File, signal: AbortSignal, profile?: PublicationProfile): Promise<BatchAnalysis> {
   if (file.size > MAX_FILE) throw new Error(tooLarge(file));
   const response = await call({ type: "parse", file }, undefined, { signal });
   if (response.type !== "parsed") throw new Error(response.type === "error" ? response.message : "unexpected reply");

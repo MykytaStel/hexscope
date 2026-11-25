@@ -15,6 +15,8 @@ export interface BatchControllerHooks {
   openFile(file: File): void;
   saveClean(items: BatchItem[], keepNames: boolean, includeCopyFingerprints: boolean, output: BatchViewPort, isCurrent: () => boolean): Promise<void>;
   announce(message: string): void;
+  /** Called only after the current queue has stopped using its parse state. */
+  idle?(): void;
 }
 
 /** Owns the queue while BatchView only draws its current state. */
@@ -187,6 +189,7 @@ export class BatchController {
       void this.run(items, generation);
       return;
     }
+    this.hooks.idle?.();
     if (!this.paused && this.announced !== generation && items.every((item) => item.state === "done" || item.state === "failed")) {
       this.announced = generation;
       const revealing = items.filter((item) => item.reveals.length > 0).length;

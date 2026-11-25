@@ -153,6 +153,50 @@ describe("worker RPC timeouts", () => {
     await expect(next).resolves.toMatchObject({ message: "fixture complete" });
   });
 
+  it("replaces a poisoned realm, fails pending requests and clears abandoned timers", async () => {
+    const rpc = await import("./rpc");
+    const reset = vi.fn();
+    rpc.onWorkerReset(reset);
+    const worker = FakeWorker.instances[0];
+    const controller = new AbortController();
+    const cancelled = rpc.call({ type: "parse", file: new File(["a"], "a.bin") }, undefined, { signal: controller.signal });
+    const cancelledId = worker.sent[0].id;
+    controller.abort();
+    await cancelled;
+    const pending = rpc.call({ type: "steps", from: 0, count: 1 });
+    worker.respond({ id: cancelledId, type: "error", fatal: true, message: "out of memory" });
+    await expect(pending).resolves.toMatchObject({ type: "error", message: "out of memory" });
+    expect(worker.terminated).toBe(true);
+    expect(reset).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+    const next = rpc.call({ type: "parse", file: new File(["b"], "b.bin") });
+    const replacement = FakeWorker.instances[1];
+    const id = replacement.sent[0].id;
+    worker.respond({ id, type: "error", fatal: true, message: "stale" });
+    replacement.respond({ id, type: "error", message: "fixture" });
+    await expect(next).resolves.toMatchObject({ message: "fixture" });
+    expect(reset).toHaveBeenCalledOnce();
+  });
+
+  it("recycles only idle readers without notifying unexpected-reset listeners", async () => {
+    const rpc = await import("./rpc");
+    const reset = vi.fn();
+    rpc.onWorkerReset(reset);
+    const worker = FakeWorker.instances[0];
+    const pending = rpc.call({ type: "steps", from: 0, count: 1 });
+    expect(rpc.recycleIdleReader()).toBe(false);
+    expect(worker.terminated).toBe(false);
+    worker.respond({ id: worker.sent[0].id, type: "steps", steps: new Float64Array(0) });
+    await pending;
+    expect(rpc.recycleIdleReader()).toBe(true);
+    expect(worker.terminated).toBe(true);
+    expect(reset).not.toHaveBeenCalled();
+    const next = rpc.call({ type: "steps", from: 0, count: 1 });
+    const replacement = FakeWorker.instances[1];
+    replacement.respond({ id: replacement.sent[0].id, type: "steps", steps: new Float64Array(0) });
+    await expect(next).resolves.toMatchObject({ type: "steps" });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
