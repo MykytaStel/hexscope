@@ -2,6 +2,7 @@
 //! demand: opening an archive decompresses nothing.
 
 use super::ZipEntry;
+use std::borrow::Cow;
 use crate::crc32::crc32;
 use crate::inflate::{InflateError, NoTrace, inflate};
 #[cfg(any(feature = "zip-bzip2", feature = "zip-zstd"))]
@@ -34,6 +35,16 @@ pub enum ExtractError {
 
 /// Decompresses `entry` from `data`, the whole file it was parsed from.
 pub fn extract(data: &[u8], entry: &ZipEntry, limit: u64) -> Result<Vec<u8>, ExtractError> {
+    extract_view(data, entry, limit).map(Cow::into_owned)
+}
+
+/// Internal read-only consumers can borrow stored entries. All admission,
+/// size and CRC checks are identical to the owned extraction API.
+pub(super) fn extract_view<'a>(
+    data: &'a [u8],
+    entry: &ZipEntry,
+    limit: u64,
+) -> Result<Cow<'a, [u8]>, ExtractError> {
     if entry.is_encrypted() {
         return Err(ExtractError::Encrypted);
     }
@@ -45,7 +56,7 @@ pub fn extract(data: &[u8], entry: &ZipEntry, limit: u64) -> Result<Vec<u8>, Ext
     let end = usize::try_from(end).map_err(|_| ExtractError::OutOfRange)?;
     let bytes = data.get(start..end).ok_or(ExtractError::OutOfRange)?;
 
-    extract_compressed(bytes, entry, limit)
+    extract_compressed_view(bytes, entry, limit)
 }
 
 /// Decompresses one entry from exactly its compressed bytes, read separately
@@ -56,6 +67,14 @@ pub fn extract_compressed(
     entry: &ZipEntry,
     limit: u64,
 ) -> Result<Vec<u8>, ExtractError> {
+    extract_compressed_view(bytes, entry, limit).map(Cow::into_owned)
+}
+
+fn extract_compressed_view<'a>(
+    bytes: &'a [u8],
+    entry: &ZipEntry,
+    limit: u64,
+) -> Result<Cow<'a, [u8]>, ExtractError> {
     if entry.is_encrypted() {
         return Err(ExtractError::Encrypted);
     }
@@ -73,15 +92,15 @@ pub fn extract_compressed(
 
     let out = match entry.method {
         0 if bytes.len() as u64 > limit => return Err(ExtractError::TooLarge),
-        0 => bytes.to_vec(),
-        8 => inflate(bytes, limit, &mut NoTrace).map_err(|e| match e {
+        0 => Cow::Borrowed(bytes),
+        8 => Cow::Owned(inflate(bytes, limit, &mut NoTrace).map_err(|e| match e {
             InflateError::OutputTooLarge => ExtractError::TooLarge,
             e => ExtractError::Inflate(e),
-        })?,
+        })?),
         #[cfg(feature = "zip-bzip2")]
-        12 => inflate_bzip2(bytes, limit)?,
+        12 => Cow::Owned(inflate_bzip2(bytes, limit)?),
         #[cfg(feature = "zip-zstd")]
-        93 => inflate_zstd(bytes, limit)?,
+        93 => Cow::Owned(inflate_zstd(bytes, limit)?),
         m => return Err(ExtractError::Unsupported(m)),
     };
     let actual_size = out.len() as u64;
@@ -219,6 +238,46 @@ mod tests {
             ],
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn borrowed_and_owned_extraction_share_validation() {
+        let a = archive();
+        let mut b = build(&a);
+        let doc = parse_zip(&b.bytes);
+        let stored = &doc.entries[0];
+        let compressed = &doc.entries[1];
+        let view = extract_view(&b.bytes, stored, u64::MAX).unwrap();
+        assert!(matches!(view, Cow::Borrowed(_)));
+        assert_eq!(
+            view.as_ptr(),
+            b.bytes[stored.data.start as usize..].as_ptr()
+        );
+        assert_eq!(view.as_ref(), a.entries[0].data.as_slice());
+        let view = extract_view(&b.bytes, compressed, u64::MAX).unwrap();
+        assert!(matches!(view, Cow::Owned(_)));
+        assert_eq!(view.as_ref(), a.entries[1].data.as_slice());
+        assert_eq!(
+            extract_view(&b.bytes, stored, 1),
+            Err(ExtractError::TooLarge)
+        );
+        let mut invalid = stored.clone();
+        invalid.uncompressed += 1;
+        assert!(matches!(
+            extract_view(&b.bytes, &invalid, u64::MAX),
+            Err(ExtractError::SizeMismatch { .. })
+        ));
+        invalid = stored.clone();
+        invalid.flags |= 1;
+        assert_eq!(
+            extract_view(&b.bytes, &invalid, u64::MAX),
+            Err(ExtractError::Encrypted)
+        );
+        b.bytes[stored.data.start as usize] ^= 1;
+        assert!(matches!(
+            extract_view(&b.bytes, stored, u64::MAX),
+            Err(ExtractError::Crc { .. })
+        ));
     }
 
     #[test]

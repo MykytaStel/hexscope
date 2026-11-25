@@ -687,7 +687,7 @@ pub(super) fn photo_facts(
         .filter(|e| placed(&e.name) && e.uncompressed <= MAX_PART)
         .take(MAX_PHOTOS);
     for e in photos {
-        let Ok(bytes) = extract(data, e, MAX_PART) else {
+        let Ok(bytes) = super::extract::extract_view(data, e, MAX_PART) else {
             continue;
         };
         let facts = if bytes.starts_with(&[0xFF, 0xD8]) {
