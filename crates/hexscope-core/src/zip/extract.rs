@@ -62,6 +62,14 @@ pub fn extract_compressed(
         return Err(ExtractError::OutOfRange);
     }
 
+    // A claimed output larger than the caller's budget cannot produce a
+    // valid result within that budget. Reject it before allocating or decoding.
+    // The decoder's own limit and the final size check still protect against
+    // understated or otherwise false directory sizes.
+    if entry.uncompressed > limit {
+        return Err(ExtractError::TooLarge);
+    }
+
     let out = match entry.method {
         0 if bytes.len() as u64 > limit => return Err(ExtractError::TooLarge),
         0 => bytes.to_vec(),
@@ -303,6 +311,24 @@ mod tests {
         let doc = parse_zip(cut);
         let e = doc.entries.iter().find(|e| e.name == "b.txt").unwrap();
         assert_eq!(extract(cut, e, u64::MAX), Err(ExtractError::OutOfRange));
+    }
+
+    #[test]
+    fn rejects_over_budget_declared_size_before_decoding() {
+        let archive = Archive {
+            entries: vec![Entry::new("payload.bin", b"payload", 8)],
+            ..Default::default()
+        };
+        let bytes = build(&archive).bytes;
+        let doc = parse_zip(&bytes);
+        let mut entry = doc.entries[0].clone();
+        entry.uncompressed = 1024;
+        // A deliberately invalid DEFLATE block: the budget check must win.
+        let invalid = vec![0xFF; entry.compressed as usize];
+        assert_eq!(
+            extract_compressed(&invalid, &entry, 32),
+            Err(ExtractError::TooLarge)
+        );
     }
 
     #[test]

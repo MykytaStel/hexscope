@@ -96,7 +96,10 @@ pub(crate) fn decode(data: &[u8], max_output: u64) -> Result<DecodedGzip, GzipEr
         .checked_add(deflate_len)
         .ok_or(GzipError::Truncated)?;
     let trailer_end = deflate_end.checked_add(8).ok_or(GzipError::Truncated)?;
-    if trailer_end != data.len() {
+    if trailer_end > data.len() {
+        return Err(GzipError::Truncated);
+    }
+    if trailer_end < data.len() {
         return Err(GzipError::TrailingData);
     }
     let trailer = data
@@ -191,6 +194,24 @@ mod tests {
         let last = bad_crc.len() - 8;
         bad_crc[last] ^= 1;
         assert!(matches!(decode(&bad_crc, 32), Err(GzipError::Checksum)));
+    }
+
+    #[test]
+    fn distinguishes_a_truncated_trailer_from_extra_bytes() {
+        let member = reference(b"payload");
+        for missing in 1..=8 {
+            assert!(matches!(
+                decode(&member[..member.len() - missing], 1024),
+                Err(GzipError::Truncated)
+            ));
+        }
+
+        let mut trailing = member;
+        trailing.push(0);
+        assert!(matches!(
+            decode(&trailing, 1024),
+            Err(GzipError::TrailingData)
+        ));
     }
 
     #[test]
