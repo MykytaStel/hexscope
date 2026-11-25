@@ -106,5 +106,8 @@ export function headline(m: FileModel): Headline {
   if (m.file.format === "pdf" && m.file.facts.some((fact) => fact.kind === "form-incomplete")) {
     return { tone: "warning", text: "PDF not fully checked" };
   }
+  if (m.file.coverageStatus !== "complete" || m.file.metadataComplete === false) {
+    return { tone: "warning", text: "File not fully inspected" };
+  }
   return { tone: "ok", text: `Nothing personal found in this ${n}` };
 }

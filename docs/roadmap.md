@@ -58,7 +58,7 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.23.0 | A guided, interactive file exploration workbench | in progress 2026-11-17 |
 | 0.24.0 | Core hardening | planned |
 | 0.25.0–0.33.0 | See the core-first roadmap above | proposed |
-| 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
+| 1.0.0 | Optional stability milestone | no target date; continuous quality and accessibility take precedence |
 
 ### 0.9.0 — shipped 2026-10-30
 
