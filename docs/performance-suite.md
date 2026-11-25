@@ -30,3 +30,7 @@ The comparator uses medians, rejects mismatched environments, case IDs, input ha
 - Asset transfer sizes remain `pnpm perf:size --check`. Core native latency remains `cargo bench -p hexscope-core --bench parse`.
 
 Next: measure streamed search and navigation, large real PDF/ZIP/Office fixtures, physical-device memory and CPU profiles. Use the initial reports as evidence before binary-size refactoring. Do not compare a Node WASM run with a browser report.
+
+## Binary size attribution
+
+Run `pnpm perf:profile` after a production build. The report records raw section sizes, compressed artifact size, function body sizes, exported names and hashes. Run `pnpm perf:profile:named pdf` or `pnpm perf:profile:named docs` for an isolated diagnostic build retaining the optional function-name section. See [wasm-binary-profiling.md](wasm-binary-profiling.md). No performance improvement is inferred from these observations alone.

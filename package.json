@@ -16,7 +16,9 @@
     "perf:browser": "pnpm --filter web exec playwright test --config=playwright.perf.config.ts",
     "perf:wasm": "node scripts/perf-wasm.mjs",
     "perf:compare": "node scripts/perf-compare.mjs",
-    "perf:test": "node --test scripts/perf-report.test.mjs",
+    "perf:test": "node --test scripts/perf-report.test.mjs scripts/wasm-profile.test.mjs",
+    "perf:profile": "node scripts/wasm-profile.mjs",
+    "perf:profile:named": "node scripts/wasm-profile-build.mjs",
     "stats": "node scripts/stats.mjs",
     "feedback": "node scripts/feedback.mjs"
   },
