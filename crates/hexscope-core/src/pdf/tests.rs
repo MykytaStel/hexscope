@@ -1692,3 +1692,39 @@ fn a_copy_drops_carried_files_and_notes_but_keeps_what_is_drawn_and_an_e_invoice
             .any(|(k, _)| *k == "attachments")
     );
 }
+
+#[test]
+fn page_context_matches_full_inspection_for_real_and_encrypted_pdfs() {
+    for name in [
+        "report.pdf",
+        "compact.pdf",
+        "redacted.pdf",
+        "chrome-highlight.pdf",
+        "encrypted-aes-128.pdf",
+        "encrypted-aes-256.pdf",
+        "encrypted-password.pdf",
+        "encrypted-rc4-128.pdf",
+        "encrypted-rc4-40.pdf",
+    ] {
+        let data = fixture(name);
+        let (_, full) = parse_with(&data);
+        let quick = page_context(&data);
+        assert_eq!(quick.objects.len(), full.objects.len(), "{name}");
+        assert_eq!(quick.crypt.is_some(), full.crypt.is_some(), "{name}");
+        assert_eq!(
+            redact::page_texts(&data, &quick),
+            redact::page_texts(&data, &full),
+            "{name}"
+        );
+        assert_eq!(
+            redact::pictures_by_page(&data, &quick, 0, 3),
+            redact::pictures_by_page(&data, &full, 0, 3),
+            "{name}"
+        );
+        assert_eq!(
+            redact::shapes_by_page(&data, &quick, 3),
+            redact::shapes_by_page(&data, &full, 3),
+            "{name}"
+        );
+    }
+}
