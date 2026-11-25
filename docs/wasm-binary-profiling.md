@@ -32,3 +32,5 @@ Report: `.perf/wasm-profile-diagnostic.json`. Separate Cargo target and wasm-bin
 5. Require measured compressed savings without a material latency or correctness regression. No automatic budget increases.
 
 Raw body bytes are not independent gzip contributions. Initial memory limits are not measured process RSS. This is not a call graph, disassembler, or heap profiler. The profiler currently supports the core Wasm v1 encodings used by these builds; unsupported import/reference/memory encodings fail rather than guessing.
+
+CI also collects the production profile after the existing size gate and uploads the JSON as `wasm-binary-profile`. The structural parser is exercised against the actual deployable binaries on every web build. Diagnostic names remain opt-in locally; the CI profile is for production artifacts only.
