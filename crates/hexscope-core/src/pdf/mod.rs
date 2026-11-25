@@ -74,7 +74,7 @@ pub fn attachment_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, &'static s
 /// `%PDF-` within the first kilobyte.
 /// Every page's visible text, glyph by glyph, where each lands.
 pub fn page_texts(data: &[u8]) -> Vec<PageText> {
-    let (_, ctx) = parse_with(data);
+    let ctx = page_context(data);
     redact::page_texts(data, &ctx)
 }
 
@@ -95,7 +95,7 @@ pub struct JpegUnder {
 /// bottom, right, top]` in its points — cover part of: the ones
 /// [`crate::clean::redact`] needs painted copies of.
 pub fn jpegs_under(data: &[u8], areas: &[(u32, [f64; 4])]) -> Vec<JpegUnder> {
-    let (_, ctx) = parse_with(data);
+    let ctx = page_context(data);
     let rewrites = redact::rewrites(data, &ctx, areas);
     rewrites
         .cuts
@@ -140,7 +140,7 @@ pub struct PagePicture {
 
 /// The pictures page `number`, counted from 1, draws, in the order drawn.
 pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
-    let (_, ctx) = parse_with(data);
+    let ctx = page_context(data);
     redact::page_pictures(data, &ctx, number)
         .into_iter()
         .filter_map(|(num, matrix)| picture(data, &ctx, num, matrix))
@@ -150,7 +150,7 @@ pub fn page_pictures(data: &[u8], number: u32) -> Vec<PagePicture> {
 /// The pictures the first `pages` pages draw, each once, with the page it
 /// is first on: to look through for what a picture holds, such as a QR code.
 pub fn pictures(data: &[u8], pages: u32) -> Vec<(u32, PagePicture)> {
-    let (_, ctx) = parse_with(data);
+    let ctx = page_context(data);
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     for (page, num, matrix) in redact::pictures_by_page(data, &ctx, 0, pages) {
@@ -167,7 +167,7 @@ pub fn pictures(data: &[u8], pages: u32) -> Vec<(u32, PagePicture)> {
 /// The dark boxes the first `pages` pages fill, with each page's number and
 /// media box: to look for a QR code drawn in boxes rather than as a picture.
 pub fn shapes(data: &[u8], pages: u32) -> Vec<(u32, [f64; 4], Vec<[f64; 4]>)> {
-    let (_, ctx) = parse_with(data);
+    let ctx = page_context(data);
     redact::shapes_by_page(data, &ctx, pages)
 }
 
@@ -411,8 +411,27 @@ pub fn parse_pdf(data: &[u8]) -> PdfDocument {
     parse_with(data).0
 }
 
-/// The document, and what the scan found on the way, for the clean copy.
-pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
+/// The structure scan and its revision/encryption evidence. Kept private so
+/// a page-only caller cannot accidentally publish an incomplete PdfDocument.
+struct Structure {
+    tree: ParseTree,
+    root: NodeId,
+    version: Option<String>,
+    revisions: usize,
+    edits: usize,
+    edit_node: Option<NodeId>,
+    encrypted: bool,
+    lock: Option<(crypt::Lock, NodeId)>,
+}
+
+/// Page views need the same indexed objects and decryption state, but not
+/// the metadata findings, historical-text walk or whole-document blackouts.
+fn page_context(data: &[u8]) -> Ctx {
+    scan_structure(data).1
+}
+
+#[inline(never)]
+fn scan_structure(data: &[u8]) -> (Structure, Ctx) {
     let mut tree = ParseTree::new();
     let len = data.len();
     let root = tree.add(
@@ -555,6 +574,33 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
     let original = if linearized { 2 } else { 1 };
     let edits = ends.len().saturating_sub(original);
     ctx.index();
+    let structure = Structure {
+        tree,
+        root,
+        version,
+        revisions: ends.len(),
+        edits,
+        edit_node: revs.nodes.get(original).copied(),
+        encrypted,
+        lock,
+    };
+    (structure, ctx)
+}
+
+/// The document, and what the scan found on the way, for the clean copy.
+/// Full findings and redaction checks always run on this path.
+pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
+    let (structure, ctx) = scan_structure(data);
+    let Structure {
+        mut tree,
+        root,
+        version,
+        revisions,
+        edits,
+        edit_node,
+        encrypted,
+        lock,
+    } = structure;
     let (mut facts, metadata_complete) = facts::collect(data, &mut tree, &ctx, encrypted);
     let mut attachments = Vec::new();
     let blackouts = if !encrypted || ctx.crypt.is_some() {
@@ -585,7 +631,7 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         );
     }
     if edits > 0
-        && let Some(&node) = revs.nodes.get(original)
+        && let Some(node) = edit_node
     {
         let text = if edits == 1 {
             "once after it was first saved; the earlier version is still inside".to_string()
@@ -611,15 +657,15 @@ pub(crate) fn parse_with(data: &[u8]) -> (PdfDocument, Ctx) {
         " · {n} {}",
         if n == 1 { "object" } else { "objects" }
     ));
-    if ends.len() > 1 {
-        summary.push_str(&format!(" · {} revisions", ends.len()));
+    if revisions > 1 {
+        summary.push_str(&format!(" · {revisions} revisions"));
     }
     tree.set_value(root, Some(Value::Text(summary)));
 
     let doc = PdfDocument {
         tree,
         version,
-        revisions: ends.len(),
+        revisions,
         edits,
         encrypted,
         metadata_complete,
