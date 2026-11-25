@@ -220,12 +220,12 @@ group("a movie read in parts", () => {
     result.missing = movie.missing;
     result.compactSize = file.size;
     const model = new FileModel(result, movie.given, "long.mov", file);
-    const [start, len] = model.missing!.ranges[0];
+    const [start, end] = model.missing!.ranges[0];
     expect(model.size).toBe(bytes.length);
     expect(model.bytes.byteLength).toBeLessThan(2000);
     expect(model.byteAt(start)).toBeUndefined();
-    expect(model.byteAt(len)).toBe(bytes[len]);
-    expect(model.byteRange(len, len + 8)).toEqual(bytes.subarray(len, len + 8));
+    expect(model.byteAt(end)).toBe(bytes[end]);
+    expect(model.byteRange(end, end + 8)).toEqual(bytes.subarray(end, end + 8));
     expect(await model.loadByteRange(start, start + 8)).toBe(true);
     expect(model.byteRange(start, start + 8)).toEqual(bytes.subarray(start, start + 8));
     expect(model.byteAt(bytes.length)).toBeUndefined();

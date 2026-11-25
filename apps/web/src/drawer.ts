@@ -483,9 +483,19 @@ export class Drawer {
         if (m.compact && m.source) {
           // A deliberate, temporary search buffer; never add media to the viewer cache.
           const end = Math.min(m.size, 256 * 1024 * 1024);
-          const data = new Uint8Array(await m.source.slice(0, end).arrayBuffer());
-          if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
-          if (data.length !== end) throw new Error("Could not read the file's media bytes.");
+          const data = new Uint8Array(end);
+          for (let from = 0; from < end; from += EMBEDDED_MEDIA_READ_CHUNK) {
+            if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+            const to = Math.min(end, from + EMBEDDED_MEDIA_READ_CHUNK);
+            const part = new Uint8Array(await m.source.slice(from, to).arrayBuffer());
+            if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+            if (part.length !== to - from) throw new Error("Could not read the file's media bytes.");
+            data.set(part, from);
+            status.bar.value = to / end;
+            status.detail.textContent = `${translateText("Loading media data…", currentLocale())} · ${formatBytes(to)} / ${formatBytes(end)}`;
+          }
+          status.bar.value = 0;
+          status.detail.textContent = translateText("Searching file signatures…", currentLocale());
           return findEmbedded(data, [[0, end]], [], {
             signal: controller.signal,
             onProgress: (progress) => this.updateSearchProgress(status, progress),

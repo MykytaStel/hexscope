@@ -150,7 +150,7 @@ const hex = new HexView($("hex-body"), {
     void m.loadByteRange(start, end).then((read) => {
       if (read && m === workspace.model) {
         hex.redraw();
-        if (statusOffset >= 0) tools?.setOffset(statusOffset);
+        if (statusOffset >= 0) tools?.setOffset(statusOffset, true);
       }
     });
   },

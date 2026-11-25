@@ -200,8 +200,8 @@ export class ByteTools {
     }
   }
 
-  setOffset(offset: number): void {
-    if (offset === this.offset || offset < 0) return;
+  setOffset(offset: number, refresh = false): void {
+    if ((!refresh && offset === this.offset) || offset < 0) return;
     this.offset = offset;
     this.renderValues();
     this.drawStrip();

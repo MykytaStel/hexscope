@@ -306,14 +306,14 @@ export class FileModel {
 
   /** Undefined means not read, not a zero byte. */
   byteAt(offset: number): number | undefined {
-    if (offset < 0 || offset >= this.size) return undefined;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset >= this.size) return undefined;
     if (this.compact) return this.compact.byteAt(offset) ?? this.pages?.byteAt(offset);
     return this.missing && !this.missing.has(offset) ? undefined : this.bytes[offset];
   }
 
   /** A known range; only small callers may assemble across cached pages. */
   byteRange(start: number, end: number): Uint8Array | undefined {
-    if (start < 0 || end < start || end > this.size) return undefined;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end > this.size) return undefined;
     if (!this.compact) {
       return this.missing?.hasUnread(start, end) ? undefined : this.bytes.subarray(start, end);
     }
