@@ -664,9 +664,9 @@ export class HexView {
         ctx.lineWidth = 2;
         ctx.strokeRect(x0 + 1, y + 2, x1 - x0 - 2, ROW_H - 4);
         for (let i = a; i <= b; i++) {
-          const byte = bytes[base + i];
-          ctx.fillStyle = p.text;
-          ctx.fillText(HEX[byte], this.hexX(i), cy);
+          const byte = m.byteAt(base + i);
+          ctx.fillStyle = byte === undefined ? p.zero : p.text;
+          ctx.fillText(byte === undefined ? "··" : HEX[byte], this.hexX(i), cy);
         }
       }
 
