@@ -11,7 +11,6 @@ import {
   LARGE_MOVIE,
   movieEntropy,
   readMovie,
-  wholeMovieBytes,
   type Movie,
   type MovieReadOptions,
 } from "./movie";
@@ -248,7 +247,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
     onProgress: (progress) => post({ id: req.id, type: "progress", progress }),
   };
   try {
-    const movie = await largeMovie(req.id, req.file, options);
+    const movie = await largeMovie(req.id, req.file, { ...options, includeWhole: false });
     controller.signal.throwIfAborted();
     if (movie) {
       const wasm = await loadMedia();
@@ -266,8 +265,9 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
         result.entropy = e.values;
         result.entropyWindow = e.window;
         result.missing = movie.missing;
+        result.compactSize = req.file.size;
         controller.signal.throwIfAborted();
-        stageParsed(req.id, parsed, result, wholeMovieBytes(movie), null);
+        stageParsed(req.id, parsed, result, movie.given, null);
         retained = true;
       } finally {
         if (!retained) parsed.free();

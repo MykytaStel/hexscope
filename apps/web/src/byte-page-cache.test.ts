@@ -12,7 +12,7 @@ describe("bounded media cache", () => {
         expect(end - start).toBeLessThanOrEqual(BYTE_PAGE_SIZE);
         return new Blob([new Uint8Array(end - start).fill(7)]);
       },
-    } as Blob;
+    } as unknown as Blob;
     const cache = new BytePageCache(source);
     expect(cache.byteAt(size - 1)).toBeUndefined();
     await Promise.all([cache.load(size - 2, size), cache.load(size - 1, size)]);

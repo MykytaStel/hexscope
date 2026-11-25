@@ -94,7 +94,17 @@ function diffAt(a: FileModel, b: FileModel, n: number): number {
   const media = [...(a.missing?.ranges ?? []), ...(b.missing?.ranges ?? [])].sort((x, y) => x[0] - y[0]);
   let i = 0;
   for (const [from, to] of [...media, [n, n]]) {
-    for (const stop = Math.min(from, n); i < stop; i++) if (a.byteAt(i) !== b.byteAt(i)) return i;
+    const stop = Math.min(from, n);
+    if (i < stop) {
+      const av = a.byteRange(i, stop);
+      const bv = b.byteRange(i, stop);
+      if (av && bv) {
+        for (let j = 0; j < av.length; j++) if (av[j] !== bv[j]) return i + j;
+      } else {
+        for (let j = i; j < stop; j++) if (a.byteAt(j) !== b.byteAt(j)) return j;
+      }
+      i = stop;
+    }
     i = Math.max(i, to);
   }
   return n;

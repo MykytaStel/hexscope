@@ -148,7 +148,10 @@ const hex = new HexView($("hex-body"), {
     const m = workspace.model;
     if (!m?.missing || !m.source) return;
     void m.loadByteRange(start, end).then((read) => {
-      if (read && m === workspace.model) hex.redraw();
+      if (read && m === workspace.model) {
+        hex.redraw();
+        if (statusOffset >= 0) tools?.setOffset(statusOffset);
+      }
     });
   },
 });

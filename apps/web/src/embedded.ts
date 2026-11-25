@@ -36,6 +36,8 @@ export interface EmbeddedSearchOptions {
   onProgress?: (progress: EmbeddedSearchProgress) => void;
   /** A lower per-search cap, used for background discovery. */
   maxBytes?: number;
+  /** Original offset of this buffer, for a bounded range view. */
+  baseOffset?: number;
 }
 
 /** Files listed, at most. */
@@ -234,7 +236,7 @@ export async function findEmbedded(
       for (const s of candidates) {
         if (skipped.has(s.ext)) continue;
         const start = i - (s.at ?? 0);
-        if (start <= 0 || start < from || (open && start <= open.start)) continue;
+        if (start < from || start + (options.baseOffset ?? 0) <= 0 || (open && start <= open.start)) continue;
         let k = 0;
         while (k < s.magic.length && i + k < limit && bytes[i + k] === s.magic[k]) k++;
         if (k < s.magic.length || (s.ok && !s.ok(bytes, start))) continue;
@@ -260,4 +262,36 @@ export async function findEmbedded(
 
   const matchLimitReached = out.length >= MAX_FOUND;
   return { matches: out, searched, available, limited: searched < available || matchLimitReached, matchLimitReached };
+}
+
+/** Inspect available original-offset views independently, never joining across a gap. */
+export async function findEmbeddedRanges(
+  ranges: readonly [number, number][],
+  view: (start: number, end: number) => Uint8Array | undefined,
+  options: EmbeddedSearchOptions = {},
+): Promise<EmbeddedSearchResult> {
+  const available = ranges.reduce((n, [a, b]) => n + Math.max(0, b - a), 0);
+  const total = Math.min(available, Math.max(0, Math.min(MAX_SEARCHED, options.maxBytes ?? MAX_SEARCHED)));
+  const matches: Embedded[] = [];
+  let searched = 0;
+  for (const [start, end] of ranges) {
+    if (options.signal?.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+    if (searched >= total || matches.length >= MAX_FOUND) break;
+    const bytes = view(start, Math.min(end, start + total - searched));
+    if (!bytes?.length) continue;
+    const result = await findEmbedded(bytes, [[0, bytes.length]], [], {
+      ...options,
+      baseOffset: start,
+      maxBytes: total - searched,
+      onProgress: (p) => options.onProgress?.({ searched: searched + p.searched, total, matches: Math.min(MAX_FOUND, matches.length + p.matches) }),
+    });
+    for (const match of result.matches) {
+      if (matches.length >= MAX_FOUND) break;
+      matches.push({ ...match, start: start + match.start, end: start + match.end });
+    }
+    searched += result.searched;
+    if (result.matchLimitReached) break;
+  }
+  const matchLimitReached = matches.length >= MAX_FOUND;
+  return { matches, searched, available, limited: searched < available || matchLimitReached, matchLimitReached };
 }
