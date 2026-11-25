@@ -66,6 +66,9 @@ impl Fields<'_, '_> {
     }
 
     pub(crate) fn num(&mut self, label: &str, n: usize) -> Option<u64> {
+        if n > 8 {
+            return None;
+        }
         let start = self.take(n as u64)?;
         let v = be(self.data, start, n)?;
         self.tree.add(
@@ -76,6 +79,19 @@ impl Fields<'_, '_> {
             Some(Value::U64(v)),
         );
         Some(v)
+    }
+
+    /// Record a fixed-width opaque field without truncating it into a u64.
+    pub(crate) fn opaque(&mut self, label: &str, n: u64) -> Option<()> {
+        let start = self.take(n)?;
+        self.tree.add(
+            Some(self.parent),
+            label,
+            ByteRange::new(start, n),
+            NodeKind::Field,
+            Some(Value::Bytes(n)),
+        );
+        Some(())
     }
 
     /// An n-byte number that may be 0 bytes wide, as `iloc`'s are.
@@ -275,6 +291,32 @@ mod tests {
             assert_eq!(fields.cstr("name").as_deref(), Some(expected));
             assert_eq!(fields.at, data.len() as u64);
         }
+    }
+
+    #[test]
+    fn wide_fields_are_opaque_and_keep_their_full_range() {
+        let mut tree = ParseTree::new();
+        let root = tree.add(
+            None,
+            "box",
+            ByteRange::new(0, 40),
+            NodeKind::Container,
+            None,
+        );
+        let mut fields = Fields {
+            tree: &mut tree,
+            parent: root,
+            data: &[0; 40],
+            at: 0,
+            end: 40,
+        };
+        assert_eq!(fields.num("matrix", 36), None);
+        assert_eq!(fields.at, 0);
+        assert_eq!(fields.opaque("matrix", 36), Some(()));
+        assert_eq!(fields.num("width", 4), Some(0));
+        assert_eq!(fields.tree.get(1).range, ByteRange::new(0, 36));
+        assert_eq!(fields.tree.get(1).value, Some(Value::Bytes(36)));
+        assert_eq!(fields.at, 40);
     }
 
     #[test]

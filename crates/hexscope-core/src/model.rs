@@ -393,7 +393,13 @@ mod tests {
             NodeKind::Container,
             None,
         );
-        inner.add(Some(root), "field", ByteRange::new(8, 2), NodeKind::Field, None);
+        inner.add(
+            Some(root),
+            "field",
+            ByteRange::new(8, 2),
+            NodeKind::Field,
+            None,
+        );
         let mut outer = ParseTree::new();
         let root = outer.add(
             None,

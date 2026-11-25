@@ -380,6 +380,7 @@ const entries: [string, string][] = [
   ["One frame of the animation, with where it goes and how long it shows.", "Один кадр анімації: де він і як довго показується."],
   ["The frame's own picture chunks.", "Власні фрагменти картинки кадру."],
   ["A text note like tEXt, compressed to save space.", "Текстова нотатка, як tEXt, стиснена для економії місця."],
+  ["A box is too short to hold what its type says it holds.", "Блок закороткий, щоб містити всі поля, передбачені його типом."],
   ["A compound file: a small file system inside one file, its parts kept in sectors that a table chains together. Word, Excel and PowerPoint 97–2003 files and Outlook's saved messages are compound files.", "Складений файл: невелика файлова система в одному файлі, її частини лежать у секторах, які таблиця з’єднує в ланцюжки. Файли Word, Excel і PowerPoint 97–2003 та збережені листи Outlook — складені файли."],
   ["The header: the format's signature and version, the sector size, and where the table, the directory and the mini stream's table start.", "Заголовок: підпис і версія формату, розмір сектора і де починаються таблиця, каталог і таблиця міні-потоку."],
   ["The signature every compound file starts with: D0 CF 11 E0 A1 B1 1A E1.", "Підпис, з якого починається кожен складений файл: D0 CF 11 E0 A1 B1 1A E1."],

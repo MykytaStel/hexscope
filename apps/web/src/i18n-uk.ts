@@ -902,6 +902,7 @@ const READS_UK = "він читає фото, відео, малюнки SVG, PD
 
 /** Kinds of file hexscope does not read, as the verdict names them by their first bytes. */
 const OTHER_UK: Record<string, string> = {
+  "a compound file": "складений файл",
   "an MP3 recording": "аудіозапис MP3",
   "a WAV recording": "аудіозапис WAV",
   "an Ogg recording": "аудіозапис Ogg",
