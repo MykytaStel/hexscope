@@ -27,3 +27,7 @@ Reported by the maintainer after passing tests on macOS, using `pnpm perf:size -
 | raster | 213401 | 2599 |
 
 Do not treat cross-platform differences as measured binary-size savings. PDF has the smallest margin. The next compact-range slice is TypeScript-only; retest the web bundle and existing gzip gates.
+
+## Reproducible benchmark suite (after #213)
+
+The former full logical movie buffer and 256 MiB search prefix have since been replaced by compact transfers and bounded read windows. The previous size table remains historical evidence, not a current memory baseline. See [performance-suite.md](performance-suite.md) for collection, comparison and limitations. Do not infer RSS from transfer size or WASM linear capacity.

@@ -58,3 +58,6 @@ apps/web/public/ocr-v7-data1/
 
 # Optional local pnpm store
 /.pnpm-store/
+
+# Local performance evidence (can be compared across worktrees)
+.perf/

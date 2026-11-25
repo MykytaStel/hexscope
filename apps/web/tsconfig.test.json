@@ -11,7 +11,9 @@
     "server",
     "functions",
     "e2e",
+    "perf",
     "playwright.config.ts",
+    "playwright.perf.config.ts",
     "seo.ts",
     "guides.ts"
   ],
