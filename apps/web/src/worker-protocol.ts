@@ -61,7 +61,7 @@ export type WorkerResponse =
   | { id: number; type: "explain"; parts: Float64Array; tables: Float64Array | null }
   | { id: number; type: "stream"; playable: boolean; trace: number[] | null; segments: Float64Array; idatBytes: number }
   | { id: number; type: "codes"; codes: { text: string; where: string; box: [number, number, number, number] }[]; filmScan?: FilmScanReport }
-  | { id: number; type: "error"; message: string };
+  | { id: number; type: "error"; message: string; fatal?: true };
 
 /** One page's visible glyphs: where each lands, four numbers each, and its text. */
 export interface PageGlyphs {

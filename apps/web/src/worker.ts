@@ -1,4 +1,4 @@
-import { allowDocumentPrefetch, assertInputBudget } from "./resource-budget";
+import { allowDocumentPrefetch, assertInputBudget, isFatalReaderError } from "./resource-budget";
 import type { AnalysisProgress, AnalysisProgressStage } from "./analysis-progress";
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
@@ -450,7 +450,8 @@ async function handle(req: OperationRequest): Promise<void> {
             const fact = meaning(text);
             return { kind: fact.kind, text: where ? `${fact.text} (in ${where})` : fact.text };
           });
-        } catch {
+        } catch (error) {
+          if (isFatalReaderError(error)) throw error;
           // The copy can still be checked for parser-backed findings; QR facts
           // without a second scan remain unchecked by the capability table.
         }
@@ -514,7 +515,8 @@ async function handle(req: OperationRequest): Promise<void> {
         unchecked: visibleReports.flatMap((part) => part.unchecked),
       };
       post({ id: req.id, type: "verification", report });
-    } catch {
+    } catch (error) {
+      if (isFatalReaderError(error)) throw error;
       post({
         id: req.id,
         type: "verification",
@@ -532,36 +534,42 @@ async function handle(req: OperationRequest): Promise<void> {
 
   if (req.type === "pageTexts") {
     const t = (await loadPdf()).pageTexts(req.bytes);
-    const pages: PageGlyphs[] = [];
-    for (let i = 0; i < t.count; i++) {
-      const texts = t.texts(i);
-      pages.push({ page: i + 1, object: t.object(i), media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], complete: t.complete(i), boxes: t.boxes(i) });
+    try {
+      const pages: PageGlyphs[] = [];
+      for (let i = 0; i < t.count; i++) {
+        const texts = t.texts(i);
+        pages.push({ page: i + 1, object: t.object(i), media: Array.from(t.media(i)) as PageArea, areas: t.areas(i), texts: texts ? texts.split(SEPARATOR) : [], complete: t.complete(i), boxes: t.boxes(i) });
+      }
+      post({ id: req.id, type: "pageTexts", pages });
+    } finally {
+      t.free();
     }
-    t.free();
-    post({ id: req.id, type: "pageTexts", pages });
     return;
   }
 
   if (req.type === "pagePictures") {
     const t = (await loadPdf()).pagePictures(req.bytes, req.page);
-    const pictures: PagePicture[] = [];
-    const moved: ArrayBuffer[] = [];
-    for (let i = 0; i < t.count; i++) {
-      const matrix = Array.from(t.matrix(i));
-      const at = t.jpeg(i);
-      if (at.length === 2) {
-        const jpeg = req.bytes.slice(at[0], at[0] + at[1]);
-        moved.push(jpeg.buffer);
-        pictures.push({ matrix, jpeg });
-        continue;
+    try {
+      const pictures: PagePicture[] = [];
+      const moved: ArrayBuffer[] = [];
+      for (let i = 0; i < t.count; i++) {
+        const matrix = Array.from(t.matrix(i));
+        const at = t.jpeg(i);
+        if (at.length === 2) {
+          const jpeg = req.bytes.slice(at[0], at[0] + at[1]);
+          moved.push(jpeg.buffer);
+          pictures.push({ matrix, jpeg });
+          continue;
+        }
+        const [width, height] = t.size(i);
+        const rgba = new Uint8ClampedArray(t.rgba(i).buffer);
+        moved.push(rgba.buffer as ArrayBuffer);
+        pictures.push({ matrix, width, height, rgba });
       }
-      const [width, height] = t.size(i);
-      const rgba = new Uint8ClampedArray(t.rgba(i).buffer);
-      moved.push(rgba.buffer as ArrayBuffer);
-      pictures.push({ matrix, width, height, rgba });
+      post({ id: req.id, type: "pagePictures", pictures }, moved);
+    } finally {
+      t.free();
     }
-    t.free();
-    post({ id: req.id, type: "pagePictures", pictures }, moved);
     return;
   }
 
@@ -575,9 +583,12 @@ async function handle(req: OperationRequest): Promise<void> {
 
   if (req.type === "repair") {
     const r = (await moduleFor(req.bytes)).repairCopy(req.bytes);
-    const bytes = r.bytes;
-    post({ id: req.id, type: "repaired", bytes, fixed: r.fixed ? r.fixed.split(SEPARATOR) : [], error: r.error }, [bytes.buffer]);
-    r.free();
+    try {
+      const bytes = r.bytes;
+      post({ id: req.id, type: "repaired", bytes, fixed: r.fixed ? r.fixed.split(SEPARATOR) : [], error: r.error }, [bytes.buffer]);
+    } finally {
+      r.free();
+    }
     return;
   }
 
@@ -617,14 +628,25 @@ async function handle(req: OperationRequest): Promise<void> {
       throw new Error("the file changed while its archive entry was being read");
     }
     const t0 = performance.now();
+    if (stack[stack.length - 1] !== current) throw new Error("the file changed while its archive entry was being read");
+    assertInputBudget(bytes.length);
     const parsed = wasm.parseOwned(bytes);
-    const result = describe(parsed);
-    parsed.releasePresentation();
-    result.parseMs = performance.now() - t0;
-    rememberParsedSource(parsed, result, req.id);
-    stack.push(parsed);
-    stackSources.push(null);
-    post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
+    let retained = false;
+    try {
+      const result = describe(parsed);
+      parsed.releasePresentation();
+      result.parseMs = performance.now() - t0;
+      rememberParsedSource(parsed, result, req.id);
+      post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
+      stack.push(parsed);
+      stackSources.push(null);
+      retained = true;
+    } finally {
+      if (!retained) {
+        releaseParsedSource(parsed);
+        parsed.free();
+      }
+    }
     return;
   }
   if (req.type === "back") {
@@ -666,33 +688,31 @@ async function handle(req: OperationRequest): Promise<void> {
   }
 }
 
+let readerPoisoned = false;
 function answer(req: OperationRequest): Promise<void> {
+  if (readerPoisoned) return Promise.resolve();
   return handle(req).catch((err: unknown) => {
     // Out of memory, the WebAssembly stops for good: start the next file
     // on a fresh one, and say what happened in words.
     const text = err instanceof Error ? err.message : String(err);
-    const crashed = err instanceof WebAssembly.RuntimeError || /memory|allocation|array buffer/i.test(text);
-    if (crashed) {
-      for (const family of Object.keys(loaded) as Family[]) delete loaded[family];
-      for (const controller of activeOperations.values()) controller.abort();
-      activeOperations.clear();
-      pendingParses.clear();
-      pendingSources.clear();
-      verificationSources.clear();
-      stack = [];
-      stackSources = [];
-    }
+    const crashed = isFatalReaderError(err);
+    if (crashed) readerPoisoned = true;
     post({
       id: req.id,
       type: "error",
       message: crashed ? "it needs more memory than this browser tab has. Close other tabs and try again, or use the command line tool" : text,
+      ...(crashed ? { fatal: true as const } : {}),
     });
+    // Removing entries from the JS module map cannot unload a WASM instance.
+    // Stop accepting work until the owning page terminates this worker.
+    if (crashed) self.close();
   });
 }
 const filmQueue = createFilmQueue((req) => answer(req), (req) => {
   post({ id: req.id, type: "error", message: "A newer film lab request replaced this preview." });
 });
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  if (readerPoisoned) return;
   if (event.data.type === "cancel") {
     activeOperations.get(event.data.target)?.abort();
     discardPendingParse(event.data.target);
