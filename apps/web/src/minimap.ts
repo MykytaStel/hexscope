@@ -119,12 +119,12 @@ export class Minimap {
     this.requestedBuild = false;
     this.selected = -1;
     this.view = [0, 0];
-    this.canvas.hidden = !m || m.bytes.length === 0;
-    this.canvas.tabIndex = m && m.bytes.length > 0 ? 0 : -1;
-    this.canvas.setAttribute("aria-disabled", String(!m || m.bytes.length === 0));
+    this.canvas.hidden = !m || m.size === 0;
+    this.canvas.tabIndex = m && m.size > 0 ? 0 : -1;
+    this.canvas.setAttribute("aria-disabled", String(!m || m.size === 0));
     this.updateAccessibleLabel();
     this.updateAccessibleOffset(0);
-    this.setState(!m || m.bytes.length === 0 || m.file.entropy.length > 0 ? "ready" : "cancelled");
+    this.setState(!m || m.size === 0 || m.file.entropy.length > 0 ? "ready" : "cancelled");
     this.schedule();
   }
 
@@ -134,7 +134,7 @@ export class Minimap {
       || (state === "failed" && this.build === document.activeElement);
     this.state = state;
     const canBuild = state === "cancelled" || state === "failed";
-    const hasModel = Boolean(this.model && this.model.bytes.length > 0 && this.cb.onBuild);
+    const hasModel = Boolean(this.model && this.model.size > 0 && this.cb.onBuild);
     this.build.hidden = !hasModel || (!canBuild && !keepFocus);
     this.build.disabled = state === "building" || (state === "ready" && keepFocus);
     this.updateBuildLabel();
@@ -163,7 +163,7 @@ export class Minimap {
   }
 
   private updateAccessibleOffset(offset: number): void {
-    const len = this.model?.bytes.length ?? 0;
+    const len = this.model?.size ?? 0;
     const at = len > 0 ? Math.min(len - 1, Math.max(0, offset)) : 0;
     this.canvas.setAttribute("aria-valuenow", String(len > 0 ? Math.round((at / len) * 100) : 0));
     const address = `0x${at.toString(16).toUpperCase()}`;
@@ -182,21 +182,21 @@ export class Minimap {
 
   private onKeyDown(event: KeyboardEvent): void {
     const m = this.model;
-    if (!m || m.bytes.length === 0) return;
+    if (!m || m.size === 0) return;
     const viewport = Math.max(1, this.view[1] - this.view[0]);
     const stride = Math.max(1, Math.ceil(viewport / 10));
-    const current = Math.min(m.bytes.length - 1, Math.max(0, this.view[0]));
+    const current = Math.min(m.size - 1, Math.max(0, this.view[0]));
     const moves: Record<string, number> = {
       ArrowUp: -stride,
       ArrowDown: stride,
       PageUp: -viewport,
       PageDown: viewport,
       Home: -current,
-      End: m.bytes.length - 1 - current,
+      End: m.size - 1 - current,
     };
     if (!Object.prototype.hasOwnProperty.call(moves, event.key)) return;
     event.preventDefault();
-    const target = Math.min(m.bytes.length - 1, Math.max(0, current + moves[event.key]));
+    const target = Math.min(m.size - 1, Math.max(0, current + moves[event.key]));
     this.updateAccessibleOffset(target);
     this.cb.onJump(target);
   }
@@ -235,7 +235,7 @@ export class Minimap {
     const m = this.model;
     if (!m) return 0;
     const h = this.canvas.clientHeight || 1;
-    return Math.min(m.bytes.length - 1, Math.max(0, Math.floor((y / h) * m.bytes.length)));
+    return Math.min(m.size - 1, Math.max(0, Math.floor((y / h) * m.size)));
   }
 
   private jump(e: PointerEvent): void {
@@ -283,7 +283,7 @@ export class Minimap {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const len = m.bytes.length;
+    const len = m.size;
     const bins = m.file.entropy;
     const win = m.file.entropyWindow;
     const y = (offset: number) => (offset / len) * h;

@@ -44,7 +44,7 @@ export function structureReport(m: FileModel): string {
   const lines = [
     "hexscope structure report — the file's layout, none of its content",
     `hexscope ${typeof __VERSION__ === "string" ? __VERSION__ : "dev"}, build ${typeof __BUILD__ === "string" ? __BUILD__ : "dev"}`,
-    `format ${f.format} · ${m.bytes.length.toLocaleString("en")} bytes · parsed in ${f.parseMs.toFixed(1)} ms`,
+    `format ${f.format} · ${m.size.toLocaleString("en")} bytes · parsed in ${f.parseMs.toFixed(1)} ms`,
     "",
   ];
   const kinds: Record<number, string> = { [Kind.Warning]: "warning", [Kind.Error]: "error" };

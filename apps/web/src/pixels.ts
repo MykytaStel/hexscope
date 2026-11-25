@@ -310,7 +310,7 @@ export class PictureView {
         const s = await this.hooks.locate(0, p.start + p.row * p.height - 1);
         if (s.length !== 7) return `${what}.`;
         const [, end] = m.bitsToFile(s[4], s[5]);
-        return `${what}, ${pct(end / m.bytes.length)} of the file.`;
+        return `${what}, ${pct(end / m.size)} of the file.`;
       },
     });
   }

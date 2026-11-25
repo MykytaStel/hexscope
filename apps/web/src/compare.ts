@@ -67,7 +67,7 @@ function digest(m: FileModel, id: number): number {
   const len = m.len(id);
   const step = len > MAX_HASHED ? Math.ceil(len / MAX_HASHED) : 1;
   let h = 0x811c9dc5 ^ len;
-  for (let i = 0; i < len; i += step) h = Math.imul(h ^ m.bytes[start + i], 0x01000193);
+  for (let i = 0; i < len; i += step) h = Math.imul(h ^ (m.byteAt(start + i) ?? 0), 0x01000193);
   return h >>> 0;
 }
 
@@ -94,7 +94,7 @@ function diffAt(a: FileModel, b: FileModel, n: number): number {
   const media = [...(a.missing?.ranges ?? []), ...(b.missing?.ranges ?? [])].sort((x, y) => x[0] - y[0]);
   let i = 0;
   for (const [from, to] of [...media, [n, n]]) {
-    for (const stop = Math.min(from, n); i < stop; i++) if (a.bytes[i] !== b.bytes[i]) return i;
+    for (const stop = Math.min(from, n); i < stop; i++) if (a.byteAt(i) !== b.byteAt(i)) return i;
     i = Math.max(i, to);
   }
   return n;
@@ -144,9 +144,9 @@ export function compare(a: FileModel, b: FileModel): Comparison {
     out.counts.onlyB++;
     if (out.onlyB.length < MAX_LISTED) out.onlyB.push(path);
   }
-  const n = Math.min(a.bytes.length, b.bytes.length);
+  const n = Math.min(a.size, b.size);
   const i = diffAt(a, b, n);
-  out.firstDiff = i === n && a.bytes.length === b.bytes.length ? -1 : i;
+  out.firstDiff = i === n && a.size === b.size ? -1 : i;
   return out;
 }
 
@@ -183,7 +183,7 @@ function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
   grid.setAttribute("role", "img");
   grid.setAttribute("aria-label", `Bytes of both files from offset 0x${at.toString(16).toUpperCase()}, the differing ones marked`);
   const from = Math.max(0, Math.floor(at / ROW) * ROW - ROW);
-  const to = Math.min(Math.max(a.bytes.length, b.bytes.length), from + 4 * ROW);
+  const to = Math.min(Math.max(a.size, b.size), from + 4 * ROW);
   const hex = (n: number) => n.toString(16).toUpperCase().padStart(2, "0");
   for (let row = from; row < to; row += ROW) {
     for (const [side, m, o] of [["A", a, b], ["B", b, a]] as const) {
@@ -192,8 +192,8 @@ function firstDifference(a: FileModel, b: FileModel, at: number): HTMLElement {
       const bytes = el("span", "compare-hex");
       const text = el("span", "compare-ascii");
       for (let i = row; i < row + ROW; i++) {
-        const v = i >= m.bytes.length ? -1 : m.missing && !m.missing.has(i) ? -2 : m.bytes[i];
-        const other = i >= o.bytes.length ? -1 : o.missing && !o.missing.has(i) ? -2 : o.bytes[i];
+        const v = i >= m.size ? -1 : m.byteAt(i) ?? -2;
+        const other = i >= o.size ? -1 : o.byteAt(i) ?? -2;
         const differs = i >= at && v !== -2 && other !== -2 && v !== other;
         const cell = el(differs ? "mark" : "span", undefined, v === -2 ? "··" : v < 0 ? "  " : hex(v));
         const ch = el(differs ? "mark" : "span", undefined, v === -2 ? "·" : v < 0 ? " " : v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : "·");
@@ -217,7 +217,7 @@ function section(title: string, className: string): HTMLElement {
 function canPreview(model: FileModel, maxPixels = PREVIEW_PIXELS): boolean {
   const { format, dimensions } = model.file;
   return ["jpeg", "png", "heif", "webp", "gif"].includes(format) &&
-    model.bytes.length <= PREVIEW_BYTES &&
+    model.size <= PREVIEW_BYTES &&
     dimensions !== undefined && dimensions !== null &&
     dimensions[0] > 0 && dimensions[1] > 0 &&
     dimensions[0] * dimensions[1] <= maxPixels;
@@ -271,7 +271,7 @@ function fileCard(model: FileModel, side: "a" | "b", mediaUrls: string[], showPr
   card.append(
     el("strong", "compare-file-name", model.name),
     el("span", "compare-file-format", format.toUpperCase()),
-    el("span", "compare-file-size", `${model.bytes.length.toLocaleString("en")} bytes`),
+    el("span", "compare-file-size", `${model.size.toLocaleString("en")} bytes`),
     el("span", "compare-file-fields", `${tr("Metadata fields")}: ${number(model.file.facts.length + Number(Boolean(model.file.location)))}`),
   );
   return card;

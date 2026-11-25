@@ -151,17 +151,17 @@ export class ByteTools {
     this.strip.addEventListener("keydown", (e) => this.onStripKeyDown(e));
     this.strip.addEventListener("click", (e) => {
       const m = this.model;
-      if (!m || m.missing || m.bytes.length === 0) return;
+      if (!m || m.missing || m.size === 0) return;
       const r = this.strip.getBoundingClientRect();
       const position = r.width > 0 ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0;
-      this.jump(Math.floor(position * (m.bytes.length - 1)));
+      this.jump(Math.floor(position * (m.size - 1)));
     });
     this.strip.addEventListener("pointermove", (e) => {
       const m = this.model;
       const r = this.strip.getBoundingClientRect();
-      if (!m || m.missing || r.width <= 0 || m.bytes.length === 0) return;
+      if (!m || m.missing || r.width <= 0 || m.size === 0) return;
       const position = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-      this.strip.title = this.describeOffset(Math.floor(position * (m.bytes.length - 1)));
+      this.strip.title = this.describeOffset(Math.floor(position * (m.size - 1)));
     });
     new ResizeObserver(() => this.drawStrip()).observe(this.strip);
     window.addEventListener("hexscope:locale", () => {
@@ -182,7 +182,7 @@ export class ByteTools {
     this.levels = null;
     this.entropyWindow = 0;
     this.entropyState = "idle";
-    this.strip.title = model && !model.missing && model.bytes.length > 0 ? this.describeOffset(0) : "";
+    this.strip.title = model && !model.missing && model.size > 0 ? this.describeOffset(0) : "";
     this.updateEntropyControls();
     this.render();
   }
@@ -232,7 +232,10 @@ export class ByteTools {
     const head = el("tr");
     head.append(el("th"), el("th", undefined, t("little-endian")), el("th", undefined, t("big-endian")));
     table.append(head);
-    for (const [name, little, big] of valuesAt(m.bytes, this.offset)) {
+    let end = Math.min(m.size, this.offset + 8);
+    let bytes = m.byteRange(this.offset, end);
+    while (!bytes && end > this.offset) bytes = m.byteRange(this.offset, --end);
+    for (const [name, little, big] of valuesAt(bytes ?? new Uint8Array(0), 0)) {
       const row = el("tr");
       const value = el("td", "mono", little);
       row.append(el("th", undefined, t(name)), value);
@@ -266,7 +269,7 @@ export class ByteTools {
     };
     row(t("The whole file"), () => m.bytes);
     const part = this.part;
-    if (part && !(part.start === 0 && part.len === m.bytes.length)) {
+    if (part && !(part.start === 0 && part.len === m.size)) {
       row(`${t(part.label)} · ${t(`${part.len.toLocaleString("en")} bytes`)}`, () => m.bytes.subarray(part.start, part.start + part.len));
     }
     if (missing) this.hashes.append(el("p", "hint", "A large movie's media is read only where it is shown, so it has no hash here."));
@@ -310,16 +313,16 @@ export class ByteTools {
     const [start, end] = this.view;
     if (end > start) {
       ctx.strokeStyle = css.getPropertyValue("--text").trim() || "#000";
-      const x = (start / m.bytes.length) * w;
-      ctx.strokeRect(x + 0.5, 0.5, Math.max(2, ((end - start) / m.bytes.length) * w) - 1, h - 1);
+      const x = (start / m.size) * w;
+      ctx.strokeRect(x + 0.5, 0.5, Math.max(2, ((end - start) / m.size) * w) - 1, h - 1);
     }
-    if (!m.missing && m.bytes.length > 0) {
-      const cursorX = Math.min(w - 1, Math.floor((Math.max(0, this.offset) / m.bytes.length) * w));
+    if (!m.missing && m.size > 0) {
+      const cursorX = Math.min(w - 1, Math.floor((Math.max(0, this.offset) / m.size) * w));
       ctx.fillStyle = accent;
       ctx.fillRect(cursorX, 0, 1, h);
     }
-    if (m.missing || m.bytes.length === 0 || !levels?.length) {
-      if (this.active && !m.missing && m.bytes.length > 0 && this.entropyState === "idle") this.startEntropy();
+    if (m.missing || m.size === 0 || !levels?.length) {
+      if (this.active && !m.missing && m.size > 0 && this.entropyState === "idle") this.startEntropy();
       return;
     }
     this.updateStripAccessibility();
@@ -327,7 +330,7 @@ export class ByteTools {
 
   private startEntropy(): void {
     const model = this.model;
-    if (!this.active || !model || model.missing || model.bytes.length === 0 || this.levels || this.entropyJob) return;
+    if (!this.active || !model || model.missing || model.size === 0 || this.levels || this.entropyJob) return;
     const controller = new AbortController();
     const job = { model, controller };
     this.entropyJob = job;
@@ -374,7 +377,7 @@ export class ByteTools {
     const model = this.model;
     const building = this.entropyState === "building";
     const moveFocusToGraph = this.entropyState === "ready" && this.entropyAction === document.activeElement;
-    const unavailable = !model || model.missing !== null || model.bytes.length === 0;
+    const unavailable = !model || model.missing !== null || model.size === 0;
     this.entropyProgress.hidden = !building;
     this.entropyProgress.setAttribute("aria-label", t("Entropy calculation progress"));
     this.entropyAction.hidden = unavailable
@@ -397,8 +400,8 @@ export class ByteTools {
 
   private jump(offset: number): void {
     const m = this.model;
-    if (!m || m.missing || m.bytes.length === 0) return;
-    const target = Math.min(m.bytes.length - 1, Math.max(0, offset));
+    if (!m || m.missing || m.size === 0) return;
+    const target = Math.min(m.size - 1, Math.max(0, offset));
     this.offset = target;
     this.renderValues();
     this.drawStrip();
@@ -407,8 +410,8 @@ export class ByteTools {
 
   private onStripKeyDown(event: KeyboardEvent): void {
     const m = this.model;
-    if (!m || m.missing || m.bytes.length === 0) return;
-    const stride = Math.max(1, Math.ceil(m.bytes.length / (this.levels?.length || 400)));
+    if (!m || m.missing || m.size === 0) return;
+    const stride = Math.max(1, Math.ceil(m.size / (this.levels?.length || 400)));
     const current = Math.max(0, this.offset);
     const moves: Record<string, number> = {
       ArrowLeft: -stride,
@@ -418,7 +421,7 @@ export class ByteTools {
       PageUp: -stride * 40,
       PageDown: stride * 40,
       Home: -current,
-      End: m.bytes.length - 1 - current,
+      End: m.size - 1 - current,
     };
     const move = Object.prototype.hasOwnProperty.call(moves, event.key) ? moves[event.key] : undefined;
     if (move === undefined) return;
@@ -446,7 +449,7 @@ export class ByteTools {
       this.strip.removeAttribute("aria-valuetext");
       return;
     }
-    const available = !m.missing && m.bytes.length > 0;
+    const available = !m.missing && m.size > 0;
     this.strip.tabIndex = available ? 0 : -1;
     this.strip.setAttribute("aria-disabled", String(!available));
     if (!available) {
@@ -455,7 +458,7 @@ export class ByteTools {
       this.strip.setAttribute("aria-valuetext", t("Entropy is unavailable for this file."));
       return;
     }
-    const maximum = Math.max(0, m.bytes.length - 1);
+    const maximum = Math.max(0, m.size - 1);
     const offset = Math.min(maximum, Math.max(0, this.offset));
     this.strip.setAttribute("aria-valuemax", String(maximum));
     this.strip.setAttribute("aria-valuenow", String(offset));

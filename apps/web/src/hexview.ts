@@ -222,7 +222,7 @@ export class HexView {
     this.keyboardActive = false;
     this.reportedView = null;
     this.head = [-1, -1];
-    this.offsetDigits = Math.max(6, (model?.bytes.length ?? 0).toString(16).length);
+    this.offsetDigits = Math.max(6, (model?.size ?? 0).toString(16).length);
     this.scroller.scrollTop = 0;
     this.resize();
   }
@@ -241,7 +241,7 @@ export class HexView {
 
   /** Focus a byte range chosen by another control without changing its selection. */
   focusAt(offset: number): void {
-    if (!this.model || offset < 0 || offset >= this.model.bytes.length) return;
+    if (!this.model || offset < 0 || offset >= this.model.size) return;
     this.focusOffset = offset;
     this.keyboardActive = true;
     this.scroller.focus({ preventScroll: true });
@@ -302,7 +302,7 @@ export class HexView {
     const top = this.contentTop();
     const first = Math.max(0, Math.floor((top - PAD_Y) / ROW_H));
     const last = Math.max(first, Math.ceil((top + this.viewH - PAD_Y) / ROW_H));
-    return [Math.min(first * this.perRow, m.bytes.length), Math.min(last * this.perRow, m.bytes.length)];
+    return [Math.min(first * this.perRow, m.size), Math.min(last * this.perRow, m.size)];
   }
 
   /** Scrolls so that byte `offset` sits a third of the way down the view. */
@@ -315,7 +315,7 @@ export class HexView {
   // --- geometry ---------------------------------------------------------
 
   private get rows(): number {
-    return this.model ? Math.ceil(this.model.bytes.length / this.perRow) : 0;
+    return this.model ? Math.ceil(this.model.size / this.perRow) : 0;
   }
 
   private get contentH(): number {
@@ -431,7 +431,7 @@ export class HexView {
       }
     } else {
       if (this.focusOffset >= 0) this.focusOffset = -1;
-      this.cb.onHover(id, offset < m.bytes.length ? offset : -1);
+      this.cb.onHover(id, offset < m.size ? offset : -1);
     }
     if (hadKeyboardCursor) this.schedule();
   }
@@ -490,7 +490,7 @@ export class HexView {
 
   private keydown(e: KeyboardEvent): void {
     const m = this.model;
-    if (!m || m.bytes.length === 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!m || m.size === 0 || e.altKey || e.ctrlKey || e.metaKey) return;
     const current = this.focusOffset >= 0 ? this.focusOffset : this.selected >= 0 ? m.start(this.selected) : 0;
     let next: number | null = null;
     switch (e.key) {
@@ -510,7 +510,7 @@ export class HexView {
         next = Math.floor(current / this.perRow) * this.perRow;
         break;
       case "End":
-        next = Math.min(m.bytes.length - 1, Math.floor(current / this.perRow) * this.perRow + this.perRow - 1);
+        next = Math.min(m.size - 1, Math.floor(current / this.perRow) * this.perRow + this.perRow - 1);
         break;
       case "Enter":
       case " ": {
@@ -526,7 +526,7 @@ export class HexView {
     e.preventDefault();
     e.stopPropagation();
     this.keyboardActive = true;
-    this.focusOffset = Math.max(0, Math.min(m.bytes.length - 1, next));
+    this.focusOffset = Math.max(0, Math.min(m.size - 1, next));
     this.cb.onHover(m.nodeAt(this.focusOffset), this.focusOffset, true);
     this.revealOffset(this.focusOffset, true);
     this.schedule();
@@ -555,7 +555,6 @@ export class HexView {
     ctx.font = `${this.fontPx}px ${MONO}`;
     ctx.textBaseline = "middle";
 
-    const bytes = m.bytes;
     const top = this.contentTop();
     const firstRow = Math.max(0, Math.floor((top - PAD_Y) / ROW_H));
     const yBase = PAD_Y + firstRow * ROW_H - top;
@@ -568,7 +567,6 @@ export class HexView {
 
     const ids = new Int32Array(this.perRow);
     const levels = new Uint8Array(this.perRow);
-    const missing = m.missing;
     let needFrom = -1;
     let needTo = -1;
 
@@ -578,7 +576,7 @@ export class HexView {
       const y = yBase + r * ROW_H;
       const cy = y + ROW_H / 2;
       const base = row * this.perRow;
-      const count = Math.min(this.perRow, bytes.length - base);
+      const count = Math.min(this.perRow, m.size - base);
 
       ctx.fillStyle = p.offset;
       ctx.fillText(base.toString(16).padStart(this.offsetDigits, "0").toUpperCase(), this.left + this.padX, cy);
@@ -603,9 +601,9 @@ export class HexView {
 
       // Pass 3: glyphs, with a mark under any byte a problem node owns.
       for (let i = 0; i < count; i++) {
-        const b = bytes[base + i];
+        const b = m.byteAt(base + i);
         const hx = this.hexX(i);
-        if (missing && !missing.has(base + i)) {
+        if (b === undefined) {
           if (needFrom < 0) needFrom = base + i;
           needTo = base + i + 1;
           ctx.fillStyle = p.zero;

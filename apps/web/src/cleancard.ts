@@ -189,7 +189,7 @@ export function beforeAfter(m: FileModel, r: CleanResult): HTMLElement {
     String(before),
     tr(before === 1 ? "thing it gave away" : "things it gave away"),
     base,
-    m.bytes.length,
+    m.size,
   );
   const [now] = side("is-after", "Clean copy", "—", tr("Checking the copy…"), r.name, r.copy.size);
   card.append(was, el("span", "ba-arrow", "→"), now);

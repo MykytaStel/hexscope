@@ -26,6 +26,11 @@ export class CompactByteSource {
     return at >= 0 && at + end - start <= this.bytes.length ? at : undefined;
   }
 
+  byteAt(offset: number): number | undefined {
+    const at = this.offset(offset, offset + 1);
+    return at === undefined ? undefined : this.bytes[at];
+  }
+
   hasRange(start: number, end: number): boolean {
     return this.offset(start, end) !== undefined;
   }

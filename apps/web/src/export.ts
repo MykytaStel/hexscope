@@ -35,7 +35,7 @@ export function structureJson(m: FileModel): string {
     {
       file: m.name,
       format: f.format,
-      size: m.bytes.length,
+      size: m.size,
       reveals: [
         ...(f.location ? [{ kind: "location", text: `${f.location.latitude}, ${f.location.longitude}` }] : []),
         ...f.facts.map((x) => ({ kind: x.kind, text: x.text })),
