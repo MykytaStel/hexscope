@@ -36,8 +36,12 @@ pub fn zlib_decompress(
         .ok_or(InflateError::BadZlibHeader)?;
     let (cmf, flg) = (data[0], data[1]);
 
-    // Low nibble 8 means DEFLATE; the two header bytes must be a multiple of 31.
-    if cmf & 0x0F != 8 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
+    // CM must be DEFLATE, CINFO must describe a window no larger than 32 KiB,
+    // and the two header bytes must be a multiple of 31 (RFC 1950).
+    if cmf & 0x0F != 8
+        || cmf >> 4 > 7
+        || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31)
+    {
         return Err(InflateError::BadZlibHeader);
     }
     // A preset dictionary is legal zlib but never appears in PNG.
@@ -103,6 +107,18 @@ mod tests {
         let bad = [0x79, 0x10, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(
             zlib_decompress(&bad, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn rejects_oversized_window_even_with_valid_header_checksum() {
+        let mut stream = zlib(b"payload");
+        // CM=8, CINFO=8 (invalid), FCHECK=28, FDICT=0.
+        stream[..2].copy_from_slice(&[0x88, 0x1C]);
+        assert_eq!(0x881Cu16 % 31, 0);
+        assert_eq!(
+            zlib_decompress(&stream, u64::MAX, &mut NoTrace),
             Err(InflateError::BadZlibHeader)
         );
     }

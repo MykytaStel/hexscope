@@ -17,6 +17,10 @@ that gate. No release version is published by this change.
 
 This is the project's shared product and engineering roadmap. It describes priorities and decision gates, not release dates. Work moves forward in small, reviewable slices; a feature is not considered complete until the user-facing behavior, CLI/core parity where applicable, tests, and hosted state agree.
 
+## Next engineering releases
+
+See [the core-first 0.24–0.33 roadmap](roadmap-0.24-0.33.md) for the next ten proposed releases and acceptance gates. This supersedes the earlier 0.24 learning-first priority; guided learning remains planned for 0.32.
+
 ## Versions — what we do and when
 
 Each version is a short list with a target date and a plain test of done.
@@ -52,7 +56,8 @@ how a version is made is in [releasing.md](releasing.md).
 | 0.21.0 | Faster, more responsive analysis in the browser | shipped 2026-11-15; physical-device and browser memory measurements remain open |
 | 0.22.0 | A focused redesign of the file results and inspectors | shipped 2026-11-15 |
 | 0.23.0 | A guided, interactive file exploration workbench | in progress 2026-11-17 |
-| 0.24.0 | Make learning and return visits rewarding, privately | planned |
+| 0.24.0 | Core hardening | planned |
+| 0.25.0–0.33.0 | See the core-first roadmap above | proposed |
 | 1.0.0 | Stable | when its criteria hold, not before 2026-11-30 |
 
 ### 0.9.0 — shipped 2026-10-30
@@ -666,7 +671,7 @@ origin scroll and focus return correctly; the desktop header and mobile
 inspector remain aligned and uncluttered; rendering stays bounded for large
 inputs; no upload is required.
 
-### 0.24.0 — rewarding learning and repeat visits (planned)
+### 0.32.0 — rewarding learning and repeat visits (planned; previously 0.24)
 
 Help curious people discover formats through short, optional challenges and
 progressive examples built from safe local samples. Offer small milestones
