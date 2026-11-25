@@ -7,6 +7,7 @@ import { cleanCopy, cleanMovie, entropy, initSync, isMovie, parse, parseMovie } 
 import { describe } from "./describe";
 import { assemble, movieEntropy, readMovie } from "./movie";
 import { Missing } from "./missing";
+import { FileModel } from "./model";
 import { StoredZip } from "./zipwrite";
 
 beforeAll(() => {
@@ -208,6 +209,27 @@ group("a movie read in parts", () => {
     const whole = cleanCopy(bytes, false).bytes;
     expect(copy.length).toBe(whole.length);
     expect(Buffer.compare(copy, whole)).toBe(0);
+  });
+
+  it("uses compact bytes and lazily reads real media at original offsets", async () => {
+    const { file, bytes } = longVideo(4 << 20);
+    const movie = (await readMovie(file, isMovie, 0, { includeWhole: false }))!;
+    const parsed = parseMovie(movie.given, movie.gaps);
+    const result = describe(parsed);
+    parsed.free();
+    result.missing = movie.missing;
+    result.compactSize = file.size;
+    const model = new FileModel(result, movie.given, "long.mov", file);
+    const [start, end] = model.missing!.ranges[0];
+    expect(model.size).toBe(bytes.length);
+    expect(model.bytes.byteLength).toBeLessThan(2000);
+    expect(model.byteAt(start)).toBeUndefined();
+    expect(model.byteAt(end)).toBe(bytes[end]);
+    expect(model.byteRange(end, end + 8)).toEqual(bytes.subarray(end, end + 8));
+    expect(await model.loadByteRange(start, start + 8)).toBe(true);
+    expect(model.byteRange(start, start + 8)).toEqual(bytes.subarray(start, start + 8));
+    expect(model.byteAt(bytes.length)).toBeUndefined();
+    expect(movie.restoreWhole()).toBeNull();
   });
 
   it("samples compact-only movies without restoring a full-offset buffer", async () => {

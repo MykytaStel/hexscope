@@ -7,6 +7,8 @@ const MAX_MATCHES = 10_000;
 
 export interface SearchHooks {
   bytes(): Uint8Array | null;
+  size?(): number;
+  view?(start: number, end: number): Uint8Array | undefined;
   /** The parts of the bytes there are to search, when not all of them: a large movie without its media. */
   parts?(): [number, number][] | null;
   /** Shows one match; `-1` clears. */
@@ -143,10 +145,11 @@ export class SearchBar {
 
   private run(): void {
     const bytes = this.hooks.bytes();
+    const size = this.hooks.size?.() ?? bytes?.length ?? 0;
     const to = parseOffset(this.input.value);
     if (bytes && to !== null) {
       this.matches = [];
-      if (to >= bytes.length) {
+      if (to >= size) {
         this.count.textContent = "past the end of the file";
         this.hooks.show(-1, -1);
       } else {
@@ -164,8 +167,13 @@ export class SearchBar {
     }
     const parts = this.hooks.parts?.() ?? null;
     this.matches = [];
-    for (const [a, b] of parts ?? [[0, bytes.length]]) {
-      for (const i of findAll(bytes.subarray(a, b), q.bytes, !q.hex)) this.matches.push(a + i);
+    for (const [a, b] of parts ?? [[0, size]]) {
+      const view = this.hooks.view ? this.hooks.view(a, b) : bytes.subarray(a, b);
+      if (!view) continue;
+      for (const i of findAll(view, q.bytes, !q.hex)) {
+        this.matches.push(a + i);
+        if (this.matches.length >= MAX_MATCHES) break;
+      }
       if (this.matches.length >= MAX_MATCHES) break;
     }
     this.length = q.bytes.length;

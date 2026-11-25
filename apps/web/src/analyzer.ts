@@ -117,7 +117,7 @@ function renderStatus(): void {
   statusSelection.textContent = typeof selected === "number" && selected > 0
     ? `${translateText(model.label(selected), currentLocale())} · ${translateText(`${model.len(selected).toLocaleString("en")} bytes`, currentLocale())}`
     : "";
-  statusSize.textContent = formatBytes(model.bytes.length);
+  statusSize.textContent = formatBytes(model.size);
 }
 
 function setStatusOffset(offset: number): void {
@@ -147,8 +147,11 @@ const hex = new HexView($("hex-body"), {
   onNeed: (start, end) => {
     const m = workspace.model;
     if (!m?.missing || !m.source) return;
-    void m.missing.fill(m.bytes, m.source, start, end).then((read) => {
-      if (read && m === workspace.model) hex.redraw();
+    void m.loadByteRange(start, end).then((read) => {
+      if (read && m === workspace.model) {
+        hex.redraw();
+        if (statusOffset >= 0) tools?.setOffset(statusOffset, true);
+      }
     });
   },
 });
@@ -595,11 +598,11 @@ const drawer = new Drawer(
   (id) => followEvidenceSource(id),
   (start, len, selectPart = true) => {
     const model = workspace.model;
-    if (!model || len <= 0 || start < 0 || start >= model.bytes.length) return;
+    if (!model || len <= 0 || start < 0 || start >= model.size) return;
     evidenceNavigation?.remember(model);
     toBytes();
     if (selectPart) point(model.nodeAt(start), start);
-    hex.setHead(start, Math.min(model.bytes.length, start + len));
+    hex.setHead(start, Math.min(model.size, start + len));
     hex.focusAt(start);
     setStatusOffset(start);
     if (selectPart) requestAnimationFrame(() => drawer.focusEvidenceReturn());
@@ -871,7 +874,9 @@ function selectInPlace(id: number, inspect = true): void {
 // Find in the file: each match marked in the bytes, its part selected.
 const search = new SearchBar($("hex-find"), {
   bytes: () => workspace.model?.bytes ?? null,
-  parts: () => (workspace.model?.missing ? workspace.model.missing.read(workspace.model.bytes.length) : null),
+  size: () => workspace.model?.size ?? 0,
+  view: (start, end) => workspace.model?.byteRange(start, end),
+  parts: () => (workspace.model?.missing ? workspace.model.missing.read(workspace.model.size) : null),
   show: (start, end) => {
     hex.setHead(start, end);
     const model = workspace.model;
@@ -964,7 +969,7 @@ function showFileInfo(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   const plain = document.createElement("span");
   plain.className = "meta-plain";
   // Each its own text, so each is translated on its own.
-  plain.replaceChildren(kindWord(m), "  ·  ", formatBytes(m.bytes.length));
+  plain.replaceChildren(kindWord(m), "  ·  ", formatBytes(m.size));
   const full = document.createElement("span");
   full.className = "meta-full";
   // Each its own text, so each is translated on its own: "parsed in 2 ms" is not a whole line.
@@ -1105,7 +1110,7 @@ function stopEntropyMap(): void {
 }
 
 function startEntropyMap(model: FileModel): void {
-  if (model.bytes.length === 0 || model.file.entropy.length > 0) {
+  if (model.size === 0 || model.file.entropy.length > 0) {
     minimap.setState("ready");
     return;
   }

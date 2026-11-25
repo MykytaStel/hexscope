@@ -107,7 +107,7 @@ async function loadEmbeddedSearchBytes(
   onProgress: (loaded: number, total: number) => void,
 ): Promise<void> {
   if (!m.missing || !m.source) return;
-  const limit = Math.min(m.bytes.length, maxBytes);
+  const limit = Math.min(m.size, maxBytes);
   const total = m.missing.wanted(0, limit).reduce((n, [from, to]) => n + to - from, 0);
   onProgress(0, total);
 
@@ -133,7 +133,7 @@ async function loadEmbeddedSearchBytes(
 
 /** Keeps signature searches away from media bytes the parser has not loaded. */
 function readableRanges(m: FileModel, ranges: readonly [number, number][]): [number, number][] {
-  const available = m.missing ? m.missing.available(m.bytes.length) : [[0, m.bytes.length] as [number, number]];
+  const available = m.missing ? m.missing.available(m.size) : [[0, m.size] as [number, number]];
   const out: [number, number][] = [];
   for (const [from, to] of ranges) {
     for (const [readFrom, readTo] of available) {
@@ -147,7 +147,7 @@ function readableRanges(m: FileModel, ranges: readonly [number, number][]): [num
 
 /** Whether this search actually skipped chunks that are still unloaded. */
 function hasUnreadBytes(m: FileModel, ranges: readonly [number, number][]): boolean {
-  return Boolean(m.missing && ranges.some(([from, to]) => m.missing!.wanted(from, to).length > 0));
+  return Boolean(m.missing && ranges.some(([from, to]) => m.missing!.hasUnread(from, to)));
 }
 
 const VERDICT_KIND_LABELS: Record<VerdictKind, string> = {
@@ -434,7 +434,7 @@ export class Drawer {
     coverage.tabIndex = -1;
     fileGroup.append(coverage);
     const grid = el("dl", "facts");
-    fact(grid, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
+    fact(grid, "Size", `${formatBytes(m.size)} · ${m.size.toLocaleString("en")} bytes`);
     if (!f.ihdr && f.dimensions) fact(grid, "Image", `${f.dimensions[0]} × ${f.dimensions[1]}`);
     if (f.ihdr) {
       const [w, h, depth, color, interlace] = f.ihdr;
@@ -477,9 +477,30 @@ export class Drawer {
       status.box.append(el("p", "hint", translateText("Media data are read locally in small pieces, up to the first 256 MiB of this file; nothing is uploaded.", currentLocale())));
       inside.after(status.box);
       inside.textContent = translateText("Cancel search", currentLocale());
-      const allRanges: [number, number][] = [[0, m.bytes.length]];
+      const allRanges: [number, number][] = [[0, m.size]];
       void (async () => {
         const { findEmbedded } = await import("./embedded");
+        if (m.compact && m.source) {
+          // A deliberate, temporary search buffer; never add media to the viewer cache.
+          const end = Math.min(m.size, 256 * 1024 * 1024);
+          const data = new Uint8Array(end);
+          for (let from = 0; from < end; from += EMBEDDED_MEDIA_READ_CHUNK) {
+            if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+            const to = Math.min(end, from + EMBEDDED_MEDIA_READ_CHUNK);
+            const part = new Uint8Array(await m.source.slice(from, to).arrayBuffer());
+            if (controller.signal.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
+            if (part.length !== to - from) throw new Error("Could not read the file's media bytes.");
+            data.set(part, from);
+            status.bar.value = to / end;
+            status.detail.textContent = `${translateText("Loading media data…", currentLocale())} · ${formatBytes(to)} / ${formatBytes(end)}`;
+          }
+          status.bar.value = 0;
+          status.detail.textContent = translateText("Searching file signatures…", currentLocale());
+          return findEmbedded(data, [[0, end]], [], {
+            signal: controller.signal,
+            onProgress: (progress) => this.updateSearchProgress(status, progress),
+          });
+        }
         await loadEmbeddedSearchBytes(m, 256 * 1024 * 1024, controller.signal, (loaded, total) => {
           status.bar.value = total > 0 ? Math.min(1, loaded / total) : 1;
           status.detail.textContent = `${translateText("Loading media data…", currentLocale())} · ${formatBytes(loaded)} / ${formatBytes(total)}`;
@@ -496,7 +517,7 @@ export class Drawer {
       })()
         .then((result) => {
           if (!status.box.isConnected) return;
-          status.box.replaceWith(this.embeddedSearchResults(m, result, "Possible embedded files", hasUnreadBytes(m, allRanges)));
+          status.box.replaceWith(this.embeddedSearchResults(m, result, "Possible embedded files", m.compact ? result.searched < m.size : hasUnreadBytes(m, allRanges)));
           inside.textContent = translateText("Search for embedded files", currentLocale());
         })
         .catch((error: unknown) => {
@@ -634,7 +655,7 @@ export class Drawer {
     if (m.file.format !== "unknown") {
       scope.append(el("p", "hint", translateText("Found by reading the file's structure. It is not a virus scan.", currentLocale())));
     }
-    if ((m.source?.size ?? m.bytes.length) > 10 * 1024 * 1024) {
+    if ((m.source?.size ?? m.size) > 10 * 1024 * 1024) {
       intro.append(el("p", "hint", currentLocale() === "uk"
         ? "Джерело понад 10 MiB: повторну перевірку копії у цій вкладці можуть пропустити."
         : "Source over 10 MiB: copy read-back may be skipped in this tab."));
@@ -686,11 +707,16 @@ export class Drawer {
       const status = this.searchProgress("Checking hidden data for file signatures…", () => controller.abort());
       findings.append(status.box);
       void import("./embedded")
-        .then(({ findEmbedded }) => findEmbedded(m.bytes, hiddenRanges, [], {
-          signal: controller.signal,
-          maxBytes: AUTOMATIC_EMBEDDED_SEARCH_BYTES,
-          onProgress: (progress) => this.updateSearchProgress(status, progress),
-        }))
+        .then(({ findEmbedded, findEmbeddedRanges }) => {
+          const options = {
+            signal: controller.signal,
+            maxBytes: AUTOMATIC_EMBEDDED_SEARCH_BYTES,
+            onProgress: (progress: EmbeddedSearchProgress) => this.updateSearchProgress(status, progress),
+          };
+          return m.compact
+            ? findEmbeddedRanges(hiddenRanges, (start, end) => m.byteRange(start, end), options)
+            : findEmbedded(m.bytes, hiddenRanges, [], options);
+        })
         .then((result) => {
           if (!status.box.isConnected) return;
           const skipped = hasUnreadBytes(m, hiddenParts);
@@ -797,14 +823,34 @@ export class Drawer {
     for (const e of found) {
       const li = el("li");
       const name = `${stem}-at-${e.start.toString(16).toUpperCase()}.${e.ext}`;
-      const bytes = () => m.bytes.subarray(e.start, e.end);
+      const bytes = () => m.byteRange(e.start, e.end);
       const at = el("button", "link inside-at", `0x${e.start.toString(16).toUpperCase()}`);
       at.title = "Show where it starts";
       at.addEventListener("click", () => this.onSelect(m.nodeAt(e.start)));
       const open = el("button", "btn", "Open");
-      open.addEventListener("click", () => this.cleaning.openInside(bytes(), name));
+      open.addEventListener("click", async () => {
+        try {
+          if (e.end - e.start > 128 * 1024 * 1024) {
+            this.showNote("This file exceeds the 128 MiB browser reading limit. Use the command line tool for larger files. Large supported movies are read in slices.");
+            return;
+          }
+          const data = m.compact && m.source
+            ? new Uint8Array(await m.source.slice(e.start, e.end).arrayBuffer())
+            : bytes();
+          if (!data || data.length !== e.end - e.start) throw new Error("Could not read the file's media bytes.");
+          this.cleaning.openInside(data, name);
+        } catch {
+          this.showNote("Could not read the file's media bytes.");
+        }
+      });
       const save = el("button", "btn", "Save");
-      save.addEventListener("click", () => this.cleaning.save(name, bytes().slice()));
+      save.addEventListener("click", () => {
+        if (m.compact && m.source) this.cleaning.save(name, m.source.slice(e.start, e.end));
+        else {
+          const data = bytes();
+          if (data) this.cleaning.save(name, data.slice());
+        }
+      });
       // What it is, where, and how big on one line; what to do with it on the next.
       const actions = el("span", "inside-actions");
       actions.append(open, save);
@@ -1108,7 +1154,7 @@ export class Drawer {
     }
     const generalList = groupElements.get("general")!.list;
     fact(generalList, "File type", f.format === "unknown" ? "Not a format hexscope reads" : kindOf(m));
-    fact(generalList, "Size", `${formatBytes(m.bytes.length)} · ${m.bytes.length.toLocaleString("en")} bytes`);
+    fact(generalList, "Size", `${formatBytes(m.size)} · ${m.size.toLocaleString("en")} bytes`);
     const dimensions = f.ihdr ? [f.ihdr[0], f.ihdr[1]] : f.dimensions;
     const isPicture = ["jpeg", "png", "heif", "webp", "gif", "tiff"].includes(f.format);
     if (dimensions && !isPicture) fact(generalList, "Dimensions", `${dimensions[0]} × ${dimensions[1]}`);
@@ -1597,9 +1643,9 @@ export class Drawer {
       grid.append(el("dt", undefined, "Spec"), dd);
     }
     technical.append(grid);
-    const here = !m.missing || m.missing.wanted(start, start + len).length === 0;
-    if (len > 0 && len <= MAX_COPIED && here) {
-      technical.append(copyBytes(m.bytes.subarray(start, start + len), m.label(id)));
+    if (len > 0 && len <= MAX_COPIED) {
+      const bytes = m.byteRange(start, start + len);
+      if (bytes) technical.append(copyBytes(bytes, m.label(id)));
     }
     this.node.append(technical);
 

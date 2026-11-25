@@ -1,5 +1,7 @@
 import { explanation } from "./explanations";
 import { Missing } from "./missing";
+import { CompactByteSource } from "./compact-byte-source";
+import { BytePageCache } from "./byte-page-cache";
 import type { FilmScanReport } from "./filmscan";
 
 export type CoverageStatus = "complete" | "partial" | "unsupported";
@@ -41,6 +43,8 @@ export interface ParsedFile {
   entropyWindow: number;
   /** A large movie's media, not read with the rest: `[start, len, …]`. */
   missing: Float64Array;
+  /** Logical file size when the transferred bytes omit the media ranges. */
+  compactSize?: number;
   format: "png" | "jpeg" | "heif" | "webp" | "gif" | "tiff" | "video" | "mp3" | "flac" | "ogg" | "wav" | "rifx" | "rf64" | "bw64" | "pdf" | "zip" | "wasm" | "eml" | "msg" | "office97" | "cfb" | "rtf" | "svg" | "unknown";
   /** False when supported metadata could not be completely read. */
   metadataComplete?: boolean;
@@ -293,6 +297,42 @@ export class FileModel {
 
   /** A large movie's media, read when looked at; null when every byte is here. */
   readonly missing: Missing | null;
+  readonly compact: CompactByteSource | null;
+  private readonly pages: BytePageCache | null;
+
+  get size(): number {
+    return this.compact?.size ?? this.bytes.length;
+  }
+
+  /** Undefined means not read, not a zero byte. */
+  byteAt(offset: number): number | undefined {
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset >= this.size) return undefined;
+    if (this.compact) return this.compact.byteAt(offset) ?? this.pages?.byteAt(offset);
+    return this.missing && !this.missing.has(offset) ? undefined : this.bytes[offset];
+  }
+
+  /** A known range; only small callers may assemble across cached pages. */
+  byteRange(start: number, end: number): Uint8Array | undefined {
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end > this.size) return undefined;
+    if (!this.compact) {
+      return this.missing?.hasUnread(start, end) ? undefined : this.bytes.subarray(start, end);
+    }
+    const known = this.compact.view(start, end);
+    if (known) return known;
+    if (end - start > 1024 * 1024) return undefined;
+    const out = new Uint8Array(end - start);
+    for (let i = start; i < end; i++) {
+      const byte = this.byteAt(i);
+      if (byte === undefined) return undefined;
+      out[i - start] = byte;
+    }
+    return out;
+  }
+
+  async loadByteRange(start: number, end: number): Promise<boolean> {
+    if (this.pages) return this.pages.load(start, end);
+    return this.missing && this.source ? this.missing.fill(this.bytes, this.source, start, end) : false;
+  }
   /** Where QR codes are in the picture, `[left, top, right, bottom]` as shares of its size: what to black out. */
   readonly codeBoxes: [number, number, number, number][] = [];
 
@@ -308,6 +348,23 @@ export class FileModel {
     readonly source: Blob | null = null,
   ) {
     this.missing = file.missing.length > 0 ? new Missing(file.missing) : null;
+    if (file.compactSize !== undefined && this.missing && source) {
+      let omitted = 0;
+      const gaps = this.missing.ranges.map(([start, end]) => {
+        const gap = { start, at: start - omitted, len: end - start };
+        omitted += gap.len;
+        return gap;
+      });
+      if (file.compactSize !== source.size || bytes.length + omitted !== file.compactSize) {
+        throw new Error("The movie's compact byte ranges did not align.");
+      }
+      this.compact = new CompactByteSource(file.compactSize, bytes, gaps);
+      this.pages = new BytePageCache(source);
+    } else {
+      if (file.compactSize !== undefined) throw new Error("The movie's compact byte ranges did not align.");
+      this.compact = null;
+      this.pages = null;
+    }
     const { parents, kinds, starts, lens } = file;
     const n = parents.length;
     this.count = n;
@@ -580,7 +637,7 @@ export class FileModel {
   /** Deepest node whose range contains `offset`, or -1 outside the file. */
   nodeAt(offset: number): number {
     const { starts, lens } = this.file;
-    if (offset < 0 || offset >= this.bytes.length) return -1;
+    if (offset < 0 || offset >= this.size) return -1;
 
     let node = 0;
     for (;;) {

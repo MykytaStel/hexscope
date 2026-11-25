@@ -52,7 +52,7 @@ export function fileInfoChips(m: FileModel): string[] {
   } else {
     chips.push("Unrecognised format");
   }
-  chips.push(formatBytes(m.bytes.length), `parsed in ${f.parseMs.toFixed(1)} ms`);
+  chips.push(formatBytes(m.size), `parsed in ${f.parseMs.toFixed(1)} ms`);
   return chips;
 }
 
