@@ -31,3 +31,9 @@ Do not treat cross-platform differences as measured binary-size savings. PDF has
 ## Reproducible benchmark suite (after #213)
 
 The former full logical movie buffer and 256 MiB search prefix have since been replaced by compact transfers and bounded read windows. The previous size table remains historical evidence, not a current memory baseline. See [performance-suite.md](performance-suite.md) for collection, comparison and limitations. Do not infer RSS from transfer size or WASM linear capacity.
+
+## Local named-profile evidence, PR #215
+
+Maintainer macOS production profile: PDF 564355 raw / 228317 gzip, code payload 485674, data payload 73228, 2289 defined functions. Documents 585797 raw / 238709 gzip, code payload 496651, data payload 84556, 2008 defined functions. Named diagnostic code payloads match production. Largest PDF bodies: parse_with 32380, clean_pdf_with 18468, exif::parse_tiff_at 14799, page::walk_stream 11120. These are raw body sizes, not marginal gzip contributions.
+
+First candidate: PDF writer direct decimal encoding and in-output JPEG metadata blanking. Existing PDF output, redaction and verification tests must pass. Measure all five production gzip sizes and compare Node WASM latency on the same environment before claiming a saving. The 683-byte PDF headroom is not increased. This candidate does not address parse_with yet.
