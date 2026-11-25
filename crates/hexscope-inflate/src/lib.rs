@@ -31,7 +31,7 @@ pub enum InflateError {
     BadDistance,
     /// Symbol outside the defined alphabet.
     BadSymbol,
-    /// zlib CMF/FLG bytes are not a DEFLATE stream.
+    /// Invalid zlib header or framing around the DEFLATE stream.
     BadZlibHeader,
     /// Adler-32 over the output does not match the stored value.
     ChecksumMismatch,

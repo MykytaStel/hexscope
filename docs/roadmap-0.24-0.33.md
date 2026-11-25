@@ -43,3 +43,16 @@ when they do not block correctness. Do not bump the version until its gate holds
   budget before invoking a decoder; keep actual output and CRC verification.
 - Run focused regressions and existing CI before merge. This slice is not the
   complete 0.24 release.
+
+## 0.24 execution phases
+
+| Phase | Work | Exit gate |
+| --- | --- | --- |
+| 0.24-A | Compressed framing and extraction budgets (this first slice) | Regression tests for zlib, gzip and ZIP; branch-push CI passes |
+| 0.24-B | Audit checked arithmetic, offsets, lengths and allocation boundaries | Boundary fixtures for each confirmed defect; no panic or silent clipping |
+| 0.24-C | Audit parser completion and error propagation across CLI and WASM | Truncated and malformed fixtures never report unsupported or unread evidence as complete |
+| 0.24-D | Expand regression corpus and verify release readiness | Full CI, independent checks, native/browser evidence, documented remaining limitations |
+
+Close each phase only with its recorded evidence. Keep the release version at
+0.23.0 until the 0.24 release gate is satisfied. The later roadmap entries
+remain proposed and can be refined using findings from earlier phases.

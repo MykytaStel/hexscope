@@ -7,3 +7,5 @@
 - **Reject over-budget ZIP entries before decoding.** Entries declaring an
   expanded size above the caller's budget no longer start decompression.
   Actual expanded length and CRC checks remain in place.
+- **Validate the entire zlib frame.** Reject extra bytes before the Adler-32
+  trailer and back-references exceeding the declared window.

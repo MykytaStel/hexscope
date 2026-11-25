@@ -1,5 +1,5 @@
 use crate::InflateError;
-use crate::engine::{EventSink, inflate};
+use crate::engine::{Decoder, EventSink, InflateEvent};
 
 const ADLER_MOD: u32 = 65521;
 
@@ -38,10 +38,7 @@ pub fn zlib_decompress(
 
     // CM must be DEFLATE, CINFO must describe a window no larger than 32 KiB,
     // and the two header bytes must be a multiple of 31 (RFC 1950).
-    if cmf & 0x0F != 8
-        || cmf >> 4 > 7
-        || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31)
-    {
+    if cmf & 0x0F != 8 || cmf >> 4 > 7 || !(((cmf as u16) << 8) | flg as u16).is_multiple_of(31) {
         return Err(InflateError::BadZlibHeader);
     }
     // A preset dictionary is legal zlib but never appears in PNG.
@@ -53,7 +50,23 @@ pub fn zlib_decompress(
     let t = &data[2 + body_len..];
     let stored = u32::from_be_bytes([t[0], t[1], t[2], t[3]]);
 
-    let out = inflate(body, max_output, sink)?;
+    let window = 1u32 << (u32::from(cmf >> 4) + 8);
+    let mut decoder = Decoder::new(body, max_output);
+    while let Some(step) = decoder.step() {
+        let step = step?;
+        if let InflateEvent::Match { distance, .. } = step.event
+            && u32::from(distance) > window
+        {
+            return Err(InflateError::BadDistance);
+        }
+        sink.emit(&step);
+    }
+    // The final block may end partway through a byte, but complete bytes
+    // between that block and the Adler-32 trailer are not part of this stream.
+    if decoder.bit_pos().div_ceil(8) != body.len() as u64 {
+        return Err(InflateError::BadZlibHeader);
+    }
+    let out = decoder.into_output();
     if adler32(&out) != stored {
         return Err(InflateError::ChecksumMismatch);
     }
@@ -121,6 +134,36 @@ mod tests {
             zlib_decompress(&stream, u64::MAX, &mut NoTrace),
             Err(InflateError::BadZlibHeader)
         );
+    }
+
+    #[test]
+    fn rejects_bytes_between_deflate_and_adler_trailer() {
+        let mut stream = zlib(b"payload");
+        let trailer = stream.len() - 4;
+        stream.insert(trailer, 0);
+        assert_eq!(
+            zlib_decompress(&stream, u64::MAX, &mut NoTrace),
+            Err(InflateError::BadZlibHeader)
+        );
+    }
+
+    #[test]
+    fn checks_back_references_against_the_declared_window() {
+        // A non-final stored block of 257 bytes, followed by a final fixed
+        // block containing a length-three, distance-257 match and EOB.
+        let mut stream = vec![0x08, 0x1D, 0x00, 0x01, 0x01, 0xFE, 0xFE];
+        stream.extend_from_slice(&[b'a'; 257]);
+        stream.extend_from_slice(&[0x03, 0x06, 0x00, 0x00]);
+        let expected = vec![b'a'; 260];
+        stream.extend_from_slice(&adler32(&expected).to_be_bytes());
+
+        // Both headers have valid FCHECK. Only the second window fits.
+        assert_eq!(
+            zlib_decompress(&stream, 1024, &mut NoTrace),
+            Err(InflateError::BadDistance)
+        );
+        stream[..2].copy_from_slice(&[0x18, 0x19]);
+        assert_eq!(zlib_decompress(&stream, 1024, &mut NoTrace), Ok(expected));
     }
 
     #[test]
