@@ -5,3 +5,7 @@ The worker transfers the compact movie bytes, omitted ranges and logical size. F
 Search continues to search non-media bytes, comparisons explicitly skip omitted media, and embedded signature checks inspect original-offset ranges. An explicit embedded-file search may still allocate a temporary prefix of up to 256 MiB (the existing search ceiling); it does not populate the viewer cache. Saving a found range uses a Blob slice; opening one is bounded to 128 MiB. This explicit search buffer remains a separate optimization target.
 
 The 4 MiB limit is a cache payload limit, not a measured total browser RSS. Compact metadata, parse trees, WASM linear memory, temporary search buffers and browser-managed Blob storage are additional costs. Multiple models each own a cache. The overall browser admission limit and WASM download budgets are unchanged. Run browser end-to-end tests and measure memory on actual devices before claiming a physical RAM saving or a new supported file-size limit.
+
+## Streaming signature discovery
+
+Explicit search in a compact movie now uses a single bounded 1 MiB read window instead of allocating the 256 MiB prefix. Header and end-marker searches share the contiguous scanner; lookahead and lookbehind work across read boundaries. The existing 256 MiB logical scan budget, 100-result ceiling, cancellation and original offsets remain. The cache payload ceiling is not a measurement of RSS, and an in-flight Blob read can temporarily retain additional browser-managed memory. Opening an extracted file still requires a separate bounded allocation.
