@@ -34,13 +34,20 @@ export function leavesFolder(path: string): boolean {
 }
 
 interface Folder {
-  folders: Set<string>;
+  segment: string;
+  parent: Folder | null;
+  folders: Map<string, Folder>;
   entries: number[];
   /** Entries in it and every folder under it. */
   total: number;
-  /** Sorted paths and row view are compact; they do not retain an object per entry. */
-  orderedFolders?: string[];
   rows?: ArchiveRows;
+}
+
+/** Full paths are constructed only for rows the caller actually requests. */
+function folderPath(folder: Folder): string {
+  const parts: string[] = [];
+  for (let at: Folder | null = folder; at?.parent; at = at.parent) parts.push(at.segment);
+  return parts.reverse().join("/") + (parts.length ? "/" : "");
 }
 
 const parentOf = (folder: string): string => folder.slice(0, folder.slice(0, -1).lastIndexOf("/") + 1);
@@ -48,9 +55,9 @@ const nameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
 class RowView implements ArchiveRows {
   constructor(
-    private readonly folderPaths: readonly string[],
+    private readonly folderPaths: readonly Folder[],
     private readonly entryIndexes: ArrayLike<number>,
-    private readonly folderRow: (path: string) => ArchiveRow,
+    private readonly folderRow: (folder: Folder) => ArchiveRow,
     private readonly entryRow: (index: number) => ArchiveRow,
   ) {}
 
@@ -73,8 +80,8 @@ class RowView implements ArchiveRows {
   }
 
   findFolder(path: string): number {
-    const index = this.folderPaths.indexOf(path);
-    return index;
+    const segment = nameOf(path.slice(0, -1));
+    return this.folderPaths.findIndex((folder) => folder.segment === segment && folderPath(folder) === path);
   }
 
   *[Symbol.iterator](): Iterator<ArchiveRow> {
@@ -92,54 +99,58 @@ const sortNumbersIfNeeded = (values: number[], compare: (a: number, b: number) =
 };
 
 export function archiveIndex(names: readonly string[]): ArchiveIndex {
-  const folders = new Map<string, Folder>([["", { folders: new Set(), entries: [], total: 0 }]]);
-  /** The folder at `path`, made with every folder above it. */
-  const folderAt = (path: string): Folder => {
-    const missing: string[] = [];
-    let at = path;
-    while (!folders.has(at)) {
-      missing.push(at);
-      at = parentOf(at);
+  const root: Folder = { segment: "", parent: null, folders: new Map(), entries: [], total: 0 };
+  const folders = [root];
+  /** Walk each slash-delimited segment once, retaining no full-path prefixes. */
+  const folderAt = (path: string, create: boolean): Folder | undefined => {
+    let at = root;
+    let start = 0;
+    while (start < path.length) {
+      const slash = path.indexOf("/", start);
+      if (slash < 0) return undefined;
+      const segment = path.slice(start, slash);
+      let child = at.folders.get(segment);
+      if (!child) {
+        if (!create) return undefined;
+        child = { segment, parent: at, folders: new Map(), entries: [], total: 0 };
+        at.folders.set(segment, child);
+        folders.push(child);
+      }
+      at = child;
+      start = slash + 1;
     }
-    for (let i = missing.length - 1; i >= 0; i--) {
-      const child = missing[i];
-      folders.set(child, { folders: new Set(), entries: [], total: 0 });
-      folders.get(parentOf(child))!.folders.add(child);
-    }
-    return folders.get(path)!;
+    return at;
   };
   let entries = 0;
   names.forEach((name, i) => {
     if (name.endsWith("/")) {
-      folderAt(name);
+      folderAt(name, true);
       return;
     }
     const at = name.slice(0, name.lastIndexOf("/") + 1);
-    folderAt(at).entries.push(i);
+    folderAt(at, true)!.entries.push(i);
     entries++;
   });
   // Each folder's count, deepest first: a folder holds its own entries and its folders' counts.
-  for (const path of [...folders.keys()].sort((a, b) => b.length - a.length)) {
-    const folder = folders.get(path)!;
+  // Creation order always puts parents before children.
+  for (let i = folders.length - 1; i >= 0; i--) {
+    const folder = folders[i];
     folder.total += folder.entries.length;
-    if (path) folders.get(parentOf(path))!.total += folder.total;
+    if (folder.parent) folder.parent.total += folder.total;
   }
 
   const entryRow = (i: number): ArchiveRow => ({ kind: "entry", index: i, name: nameOf(names[i]), path: names[i], leaves: leavesFolder(names[i]) });
-  const folderRow = (path: string): ArchiveRow => ({
+  const folderRow = (folder: Folder): ArchiveRow => ({
     kind: "folder",
-    path,
-    name: nameOf(path.slice(0, -1)) || "/",
-    entries: folders.get(path)!.total,
+    path: folderPath(folder),
+    name: folder.segment || "/",
+    entries: folder.total,
   });
-  const folderPaths = (folder: Folder): string[] => {
-    folder.orderedFolders ??= [...folder.folders].sort((a, b) => {
-      const left = nameOf(a.slice(0, -1)) || "/";
-      const right = nameOf(b.slice(0, -1)) || "/";
-      return left < right ? -1 : left > right ? 1 : 0;
-    });
-    return folder.orderedFolders;
-  };
+  const folderPaths = (folder: Folder): Folder[] => [...folder.folders.values()].sort((a, b) => {
+    const left = a.segment || "/";
+    const right = b.segment || "/";
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
   const entryNameOrder = (a: number, b: number): number => {
     const left = nameOf(names[a]);
     const right = nameOf(names[b]);
@@ -148,9 +159,9 @@ export function archiveIndex(names: readonly string[]): ArchiveIndex {
   let lower: string[] | null = null;
   return {
     entries,
-    folders: folders.size - 1,
+    folders: folders.length - 1,
     list(path) {
-      const folder = folders.get(path);
+      const folder = folderAt(path, false);
       if (!folder) return new RowView([], [], folderRow, entryRow);
       if (!folder.rows) {
         sortNumbersIfNeeded(folder.entries, entryNameOrder);

@@ -176,7 +176,12 @@ describe("every sentence a reader meets about a real file", () => {
       const build = { media: mediaBuild, pdf: pdfBuild, docs: docsBuild, audio: audioBuild }[familyOf(bytes)];
       let m: FileModel;
       try {
-        m = new FileModel(describeParsed(build.parse(bytes)), bytes, name);
+        const parsed = build.parse(bytes);
+        try {
+          m = new FileModel(describeParsed(parsed), bytes, name);
+        } finally {
+          parsed.free();
+        }
       } catch {
         continue;
       }
@@ -195,7 +200,11 @@ describe("every sentence a reader meets about a real file", () => {
         }
       }
       const copy = build.cleanCopy(bytes, false);
-      if (!copy.error) said.push(...removedLines(copy.removed));
+      try {
+        if (!copy.error) said.push(...removedLines(copy.removed));
+      } finally {
+        copy.free();
+      }
       for (const s of said) {
         if (prose(s) && english(translateText(s, "uk")) && !missing.has(s)) missing.set(s, name);
       }
@@ -203,5 +212,5 @@ describe("every sentence a reader meets about a real file", () => {
     expect([...missing].map(([s, name]) => `${name}: ${s}`)).toEqual([]);
     // The sentences came: a part without one would pass unread.
     expect(explained).toBeGreaterThan(1000);
-  });
+  }, 30_000); // Whole corpus across four WASM builds, not a single-file latency test.
 });
