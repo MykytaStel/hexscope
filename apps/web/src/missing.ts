@@ -46,19 +46,33 @@ export class Missing {
   /** What to read for `[start, end)` to be here: whole chunks, within the missing ranges. */
   wanted(start: number, end: number): [number, number][] {
     const out: [number, number][] = [];
-    for (let c = Math.floor(start / CHUNK); c * CHUNK < end; c++) {
-      if (this.loaded.has(c)) continue;
-      const chunkStart = c * CHUNK;
-      const chunkEnd = chunkStart + CHUNK;
-      for (let i = this.firstEndingAfter(chunkStart); i < this.ranges.length; i++) {
-        const [a, b] = this.ranges[i];
-        if (a >= chunkEnd) break;
+    if (start >= end) return out;
+    const first = Math.floor(start / CHUNK) * CHUNK;
+    const last = Math.ceil(end / CHUNK) * CHUNK;
+    for (let i = this.firstEndingAfter(first); i < this.ranges.length; i++) {
+      const [a, b] = this.ranges[i];
+      if (a >= last) break;
+      for (let c = Math.floor(Math.max(a, first) / CHUNK); c * CHUNK < Math.min(b, last); c++) {
+        if (this.loaded.has(c)) continue;
         const from = Math.max(a, c * CHUNK);
-        const to = Math.min(b, chunkEnd);
+        const to = Math.min(b, (c + 1) * CHUNK);
         if (from < to) out.push([from, to]);
       }
     }
     return out;
+  }
+
+  /** A predicate for comparisons: no giant array of wanted ranges. */
+  hasUnread(start: number, end: number): boolean {
+    if (start >= end) return false;
+    for (let i = this.firstEndingAfter(start); i < this.ranges.length; i++) {
+      const [a, b] = this.ranges[i];
+      if (a >= end) break;
+      for (let c = Math.floor(Math.max(a, start) / CHUNK); c * CHUNK < Math.min(b, end); c++) {
+        if (!this.loaded.has(c)) return true;
+      }
+    }
+    return false;
   }
 
   /** Marks the chunks read by [`wanted`]'s ranges as here. */
@@ -76,7 +90,11 @@ export class Missing {
     if (wanted.length === 0 || this.reading) return false;
     this.reading = true;
     try {
-      for (const [a, b] of wanted) bytes.set(new Uint8Array(await source.slice(a, b).arrayBuffer()), a);
+      for (const [a, b] of wanted) {
+        const part = new Uint8Array(await source.slice(a, b).arrayBuffer());
+        if (part.length !== b - a) return false;
+        bytes.set(part, a);
+      }
       this.filled(wanted);
       return true;
     } catch {
@@ -109,13 +127,17 @@ export class Missing {
       if (previous && previous[1] >= from) previous[1] = Math.max(previous[1], to);
       else out.push([from, to]);
     };
+    const chunks = [...this.loaded].sort((a, b) => a - b);
+    let cursor = 0;
     let at = 0;
     for (const [a, b] of this.ranges) {
       const start = Math.max(0, Math.min(length, a));
       const end = Math.max(start, Math.min(length, b));
       add(at, start);
-      for (let chunk = Math.floor(start / CHUNK); chunk * CHUNK < end; chunk++) {
-        if (this.loaded.has(chunk)) add(Math.max(start, chunk * CHUNK), Math.min(end, (chunk + 1) * CHUNK));
+      while (cursor < chunks.length && (chunks[cursor] + 1) * CHUNK <= start) cursor++;
+      for (let j = cursor; j < chunks.length && chunks[j] * CHUNK < end; j++) {
+        const chunk = chunks[j];
+        add(Math.max(start, chunk * CHUNK), Math.min(end, (chunk + 1) * CHUNK));
       }
       at = Math.max(at, end);
     }

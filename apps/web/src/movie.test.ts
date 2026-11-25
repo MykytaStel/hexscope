@@ -210,6 +210,21 @@ group("a movie read in parts", () => {
     expect(Buffer.compare(copy, whole)).toBe(0);
   });
 
+  it("samples compact-only movies without restoring a full-offset buffer", async () => {
+    const { file } = longVideo(4 << 20);
+    const movie = (await readMovie(file, isMovie, 0, { includeWhole: false }))!;
+    const full = (await readMovie(file, isMovie, 0))!;
+    const calc = (b: Uint8Array) => entropy(b, 1)[0];
+    const compact = await movieEntropy(file, movie, 1024, calc);
+    const original = await movieEntropy(file, full, 1024, calc);
+    expect(compact).toEqual(original);
+    expect(movie.restoreWhole()).toBeNull();
+    const restored = full.restoreWhole()!;
+    expect(full.knownBytes!(0, 16)).toEqual(restored.subarray(0, 16));
+    expect(full.knownBytes!(file.size - 16, file.size)).toEqual(restored.subarray(file.size - 16));
+    expect(await movieEntropy(file, full, 1024, calc)).toEqual(original);
+  });
+
   it("maps its media by samples of it", async () => {
     const { file } = longVideo(4 << 20);
     const movie = (await readMovie(file, isMovie, 0))!;
