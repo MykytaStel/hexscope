@@ -399,6 +399,8 @@ const UK: Record<string, string> = {
   "File health": "Справність файла",
   "File type": "Тип файла",
   "Reveals where it was taken, the camera, the camera's serial number and the owner's name.": "Розкриває місце зйомки, фотоапарат, його серійний номер та ім’я власника.",
+  "File not fully inspected": "Файл перевірено не повністю",
+  "This file was not fully inspected. Some information may be missing.": "Файл перевірено не повністю. Частина інформації може бути відсутня.",
   "The file itself is fine: nothing in it is damaged.": "Файл справний: пошкоджень не знайдено.",
   "The file is fine: nothing in it is damaged or out of place.": "Файл справний: пошкоджень і невідповідностей не знайдено.",
   "Findings come from file structure and supported checks. This is not a virus scan.": "Знахідки визначено за структурою файла й підтримуваними перевірками. Це не антивірусна перевірка.",
@@ -900,6 +902,7 @@ const READS_UK = "він читає фото, відео, малюнки SVG, PD
 
 /** Kinds of file hexscope does not read, as the verdict names them by their first bytes. */
 const OTHER_UK: Record<string, string> = {
+  "a compound file": "складений файл",
   "an MP3 recording": "аудіозапис MP3",
   "a WAV recording": "аудіозапис WAV",
   "an Ogg recording": "аудіозапис Ogg",

@@ -21,6 +21,9 @@ pub(crate) trait BoxBody {
 }
 
 pub(crate) fn be(data: &[u8], at: u64, n: usize) -> Option<u64> {
+    if n > 8 || at > data.len() as u64 {
+        return None;
+    }
     let mut r = Reader::new(data);
     r.seek(at);
     let b = r.bytes(n).ok()?;
@@ -55,7 +58,7 @@ pub(crate) struct Fields<'t, 'd> {
 impl Fields<'_, '_> {
     pub(crate) fn take(&mut self, n: u64) -> Option<u64> {
         let start = self.at;
-        if start.checked_add(n)? > self.end {
+        if start.checked_add(n)? > self.end.min(self.data.len() as u64) {
             return None;
         }
         self.at += n;
@@ -63,6 +66,9 @@ impl Fields<'_, '_> {
     }
 
     pub(crate) fn num(&mut self, label: &str, n: usize) -> Option<u64> {
+        if n > 8 {
+            return None;
+        }
         let start = self.take(n as u64)?;
         let v = be(self.data, start, n)?;
         self.tree.add(
@@ -73,6 +79,19 @@ impl Fields<'_, '_> {
             Some(Value::U64(v)),
         );
         Some(v)
+    }
+
+    /// Record a fixed-width opaque field without truncating it into a u64.
+    pub(crate) fn opaque(&mut self, label: &str, n: u64) -> Option<()> {
+        let start = self.take(n)?;
+        self.tree.add(
+            Some(self.parent),
+            label,
+            ByteRange::new(start, n),
+            NodeKind::Field,
+            Some(Value::Bytes(n)),
+        );
+        Some(())
     }
 
     /// An n-byte number that may be 0 bytes wide, as `iloc`'s are.
@@ -99,14 +118,17 @@ impl Fields<'_, '_> {
 
     /// A NUL-terminated string, or the rest of the box when it has no NUL.
     pub(crate) fn cstr(&mut self, label: &str) -> Option<String> {
-        let rest = self.data.get(self.at as usize..self.end as usize)?;
-        let n = rest
-            .iter()
-            .position(|&b| b == 0)
-            .map_or(rest.len(), |p| p + 1);
+        let start = usize::try_from(self.at).ok()?;
+        let end = usize::try_from(self.end).ok()?;
+        let rest = self.data.get(start..end)?;
+        let text_len = rest.iter().position(|&b| b == 0).unwrap_or(rest.len());
+        let n = if text_len < rest.len() {
+            text_len + 1
+        } else {
+            text_len
+        };
         let start = self.take(n as u64)?;
-        let text: String =
-            String::from_utf8_lossy(&rest[..n.saturating_sub(1).min(512)]).into_owned();
+        let text = String::from_utf8_lossy(&rest[..text_len.min(512)]).into_owned();
         self.tree.add(
             Some(self.parent),
             label,
@@ -149,6 +171,14 @@ pub(crate) fn walk<B: BoxBody + ?Sized>(
     depth: u32,
     body: &mut B,
 ) {
+    if start > end || end > data.len() as u64 {
+        tree.error(
+            parent,
+            "box container range is outside the source",
+            ByteRange::new(start.min(data.len() as u64), 0),
+        );
+        return;
+    }
     let mut pos = start;
     while pos < end {
         if end - pos < 8 {
@@ -221,5 +251,85 @@ pub(crate) fn walk<B: BoxBody + ?Sized>(
             );
         }
         pos += size;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_integer_reads_that_do_not_fit() {
+        assert_eq!(be(&[0; 9], 0, 9), None);
+        assert_eq!(be(&[0; 9], u64::MAX, 0), None);
+        assert_eq!(be(&[1, 2], 0, 2), Some(258));
+    }
+
+    #[test]
+    fn box_strings_keep_the_last_byte_without_a_terminator() {
+        for (data, expected) in [
+            (&b"abc"[..], "abc"),
+            (&b"abc\0"[..], "abc"),
+            (&b"\0"[..], ""),
+            (&b""[..], ""),
+        ] {
+            let mut tree = ParseTree::new();
+            let root = tree.add(
+                None,
+                "box",
+                ByteRange::new(0, data.len() as u64),
+                NodeKind::Container,
+                None,
+            );
+            let mut fields = Fields {
+                tree: &mut tree,
+                parent: root,
+                data,
+                at: 0,
+                end: data.len() as u64,
+            };
+            assert_eq!(fields.cstr("name").as_deref(), Some(expected));
+            assert_eq!(fields.at, data.len() as u64);
+        }
+    }
+
+    #[test]
+    fn wide_fields_are_opaque_and_keep_their_full_range() {
+        let mut tree = ParseTree::new();
+        let root = tree.add(
+            None,
+            "box",
+            ByteRange::new(0, 40),
+            NodeKind::Container,
+            None,
+        );
+        let mut fields = Fields {
+            tree: &mut tree,
+            parent: root,
+            data: &[0; 40],
+            at: 0,
+            end: 40,
+        };
+        assert_eq!(fields.num("matrix", 36), None);
+        assert_eq!(fields.at, 0);
+        assert_eq!(fields.opaque("matrix", 36), Some(()));
+        assert_eq!(fields.num("width", 4), Some(0));
+        assert_eq!(fields.tree.get(1).range, ByteRange::new(0, 36));
+        assert_eq!(fields.tree.get(1).value, Some(Value::Bytes(36)));
+        assert_eq!(fields.at, 40);
+    }
+
+    #[test]
+    fn fields_cannot_advance_past_the_source() {
+        let mut tree = ParseTree::new();
+        let mut fields = Fields {
+            tree: &mut tree,
+            parent: 0,
+            data: &[1, 2],
+            at: 1,
+            end: 10,
+        };
+        assert_eq!(fields.take(2), None);
+        assert_eq!(fields.at, 1);
     }
 }

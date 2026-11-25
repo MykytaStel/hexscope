@@ -13,8 +13,15 @@ impl ByteRange {
         Self { start, len }
     }
 
+    /// The exclusive end, or None if the range cannot be represented.
+    pub fn checked_end(&self) -> Option<u64> {
+        self.start.checked_add(self.len)
+    }
+
+    /// A saturating endpoint for display and ordering. Use checked_end
+    /// before validating or reading an untrusted range.
     pub fn end(&self) -> u64 {
-        self.start + self.len
+        self.start.saturating_add(self.len)
     }
 }
 
@@ -248,13 +255,26 @@ impl ParseTree {
             .collect();
         while let Some((id, into)) = stack.pop() {
             let n = other.get(id);
-            let copy = self.add(
-                Some(into),
-                n.label.clone(),
-                ByteRange::new(n.range.start + offset, n.range.len),
-                n.kind,
-                n.value.clone(),
-            );
+            let shifted = n
+                .range
+                .start
+                .checked_add(offset)
+                .and_then(|start| start.checked_add(n.range.len).map(|_| start));
+            let copy = if let Some(start) = shifted {
+                self.add(
+                    Some(into),
+                    n.label.clone(),
+                    ByteRange::new(start, n.range.len),
+                    n.kind,
+                    n.value.clone(),
+                )
+            } else {
+                self.error(
+                    into,
+                    "embedded byte range cannot be represented",
+                    ByteRange::new(offset, 0),
+                )
+            };
             if let Some(mapping) = mapping.as_mut() {
                 mapping[id as usize] = copy;
             }
@@ -353,6 +373,43 @@ mod tests {
         let length = &outer.nodes()[3];
         assert_eq!(length.range, ByteRange::new(104, 2));
         assert_eq!(outer.get(length.parent.unwrap()).label, "APP0");
+    }
+
+    #[test]
+    fn overflowing_range_has_no_checked_end() {
+        let range = ByteRange::new(u64::MAX - 1, 3);
+        assert_eq!(range.checked_end(), None);
+        assert_eq!(range.end(), u64::MAX);
+        assert_eq!(ByteRange::new(u64::MAX, 0).checked_end(), Some(u64::MAX));
+    }
+
+    #[test]
+    fn graft_reports_an_unrepresentable_shift() {
+        let mut inner = ParseTree::new();
+        let root = inner.add(
+            None,
+            "inner",
+            ByteRange::new(0, 10),
+            NodeKind::Container,
+            None,
+        );
+        inner.add(
+            Some(root),
+            "field",
+            ByteRange::new(8, 2),
+            NodeKind::Field,
+            None,
+        );
+        let mut outer = ParseTree::new();
+        let root = outer.add(
+            None,
+            "outer",
+            ByteRange::new(0, 10),
+            NodeKind::Container,
+            None,
+        );
+        let ids = outer.graft_with_ids(root, &inner, u64::MAX - 5);
+        assert_eq!(outer.get(ids[1]).kind, NodeKind::Error);
     }
 
     #[test]

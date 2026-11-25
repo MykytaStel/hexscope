@@ -504,6 +504,9 @@ fn decode(
 
 fn iloc(f: &mut Fields, ctx: &mut Ctx) -> Option<()> {
     let v = f.full_box()?;
+    if v > 2 {
+        return None;
+    }
     let sizes = f.num("offsetSize·lengthSize", 1)? as u8;
     let more = f.num("baseOffsetSize·indexSize", 1)? as u8;
     let (off_size, len_size, base_size) = (sizes >> 4, sizes & 15, more >> 4);
@@ -514,7 +517,10 @@ fn iloc(f: &mut Fields, ctx: &mut Ctx) -> Option<()> {
     }
     let count = f.num("itemCount", if v < 2 { 2 } else { 4 })?;
     let outer = f.parent;
-    for _ in 0..count.min(MAX_ITEMS as u64) {
+    if count > MAX_ITEMS as u64 {
+        return None;
+    }
+    for _ in 0..count {
         let start = f.at;
         let node = f.tree.add(
             Some(outer),
@@ -535,8 +541,11 @@ fn iloc(f: &mut Fields, ctx: &mut Ctx) -> Option<()> {
             let data_reference_index = f.num("dataReferenceIndex", 2)? as u16;
             let base = f.var("baseOffset", base_size)?;
             let n = f.num("extentCount", 2)?;
+            if n > MAX_ITEMS as u64 {
+                return None;
+            }
             let mut extents = Vec::new();
-            for _ in 0..n.min(MAX_ITEMS as u64) {
+            for _ in 0..n {
                 let index = if index_size > 0 {
                     f.var("extentIndex", index_size)?
                 } else {

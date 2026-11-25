@@ -394,7 +394,7 @@ impl BoxBody for Ctx {
                     _ => {}
                 }
                 if f.at + 12 <= end {
-                    f.num("reserved", 12)?;
+                    f.opaque("reserved", 12)?;
                 }
                 f.cstr("name");
             }
@@ -577,8 +577,8 @@ impl BoxBody for Ctx {
                 self.free(f.tree, node, "loci");
             }
             "uuid" => {
-                let id = data.get(body as usize..body as usize + 16)?;
-                f.num("userType", 16)?;
+                f.opaque("userType", 16)?;
+                let id = data.get(body as usize..f.at as usize)?;
                 f.rest("body");
                 // Adobe's XMP packet: BE7ACFCB-97A9-42E8-9C71-999491E3AFAC.
                 if id == b"\xBE\x7A\xCF\xCB\x97\xA9\x42\xE8\x9C\x71\x99\x94\x91\xE3\xAF\xAC" {
@@ -603,8 +603,8 @@ impl BoxBody for Ctx {
                 f.num("trackId", 4)?;
                 f.num("reserved", 4)?;
                 f.num("duration", if v == 1 { 8 } else { 4 })?;
-                f.num("layout", 16)?;
-                f.num("matrix", 36)?;
+                f.opaque("layout", 16)?;
+                f.opaque("matrix", 36)?;
                 let w = f.num("width", 4)? >> 16;
                 let h = f.num("height", 4)? >> 16;
                 if w * h > self.width as u64 * self.height as u64 {

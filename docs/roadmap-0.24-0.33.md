@@ -1,7 +1,9 @@
 # Engineering roadmap: 0.24.0–0.33.0
 
 Baseline: workspace 0.23.0, main commit `d115b9698d4dd77b6f4fd51150eae0f065a2be8b`.
-This is a proposed core-first sequence, not a release announcement or schedule.
+This is a flexible engineering sequence, not a release schedule or a race to 1.0.
+Quality, accessibility, plain-language explanations and local privacy are
+ongoing work in every phase, not a final milestone.
 It complements the historical [roadmap](roadmap.md). The earlier private
 learning milestone moves to 0.32; small learning/UX fixes can land sooner
 when they do not block correctness. Do not bump the version until its gate holds.
@@ -17,7 +19,7 @@ when they do not block correctness. Do not bump the version until its gate holds
 | 0.30.0 | Verification engine 2: shared typed evidence, source/copy fingerprints, bounded readback beyond current browser cap where measured | Independent verification; no verified claim for unread data; CLI/WASM parity, versioned receipt compatibility |
 | 0.31.0 | Recovery lab: conservative recovery of damaged PNG/JPEG/ZIP, explain changes and losses, expand only with evidence | Synthetic damage matrix, independent readback, original never overwritten by default |
 | 0.32.0 | Workbench: semantic comparison, local policies, private guided learning, evidence navigation and accessible UI | Keyboard/touch journeys, EN/UK parity, no private values in sample links, screenshots and E2E |
-| 0.33.0 | Production readiness: API/CLI/WASM contracts, performance regression gates, physical-device matrix and release process | All release gates; recorded device/memory measurements; remaining unsupported cases documented; 1.0 go/no-go review |
+| 0.33.0 | Production readiness: API/CLI/WASM contracts, performance regression gates, physical-device matrix and release process | All release gates; recorded device/memory measurements; remaining unsupported cases documented; ongoing quality and accessibility review |
 
 ## Release discipline
 
@@ -56,3 +58,11 @@ when they do not block correctness. Do not bump the version until its gate holds
 Close each phase only with its recorded evidence. Keep the release version at
 0.23.0 until the 0.24 release gate is satisfied. The later roadmap entries
 remain proposed and can be refined using findings from earlier phases.
+
+### Continuous improvement
+
+- Treat version numbers as labels, not delivery targets. Bring accessibility,
+  keyboard navigation, understandable coverage and Ukrainian parity into each slice.
+- Phase B first slice: checked ranges and embedded offsets, ZIP extraction bounds,
+  BMFF field limits and text preservation, HEIF item-table limits and partial
+  inspection messages. Phase B remains open until broader audit and CI evidence.

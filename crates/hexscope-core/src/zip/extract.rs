@@ -41,7 +41,8 @@ pub fn extract(data: &[u8], entry: &ZipEntry, limit: u64) -> Result<Vec<u8>, Ext
         return Err(ExtractError::OutOfRange);
     }
     let start = usize::try_from(entry.data.start).map_err(|_| ExtractError::OutOfRange)?;
-    let end = usize::try_from(entry.data.end()).map_err(|_| ExtractError::OutOfRange)?;
+    let end = entry.data.checked_end().ok_or(ExtractError::OutOfRange)?;
+    let end = usize::try_from(end).map_err(|_| ExtractError::OutOfRange)?;
     let bytes = data.get(start..end).ok_or(ExtractError::OutOfRange)?;
 
     extract_compressed(bytes, entry, limit)
@@ -255,6 +256,18 @@ mod tests {
                 entry.name
             );
         }
+    }
+
+    #[test]
+    fn refuses_an_overflowing_source_range() {
+        let b = build(&archive());
+        let doc = parse_zip(&b.bytes);
+        let mut entry = doc.entries[0].clone();
+        entry.data.start = u64::MAX;
+        assert_eq!(
+            extract(&b.bytes, &entry, u64::MAX),
+            Err(ExtractError::OutOfRange)
+        );
     }
 
     #[test]

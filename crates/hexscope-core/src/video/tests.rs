@@ -49,6 +49,21 @@ fn an_iphone_video_says_where_and_with_what() {
 }
 
 #[test]
+fn movie_track_matrices_are_full_width_opaque_fields() {
+    let doc = parse_video(&fixture("iphone.mov"));
+    assert_eq!(problems(&doc.tree), Vec::<String>::new());
+    let matrix = doc
+        .tree
+        .nodes()
+        .iter()
+        .find(|n| n.label == "matrix")
+        .unwrap();
+    assert_eq!(matrix.range.len, 36);
+    assert_eq!(matrix.value, Some(Value::Bytes(36)));
+    assert_eq!((doc.width, doc.height), (Some(64), Some(48)));
+}
+
+#[test]
 fn an_android_video_and_a_3gpp_one_say_where() {
     for (name, box_label) in [("android.mp4", "©xyz"), ("loci.mp4", "loci")] {
         let doc = parse_video(&fixture(name));

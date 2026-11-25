@@ -55,6 +55,10 @@ const NAMES: Record<string, [string, string]> = {
   office97: ["a Word, Excel or PowerPoint 97–2003 file", ".doc"],
   rtf: ["a Rich Text document", ".rtf"],
   svg: ["an SVG drawing", ".svg"],
+  mp3: ["an MP3 recording", ".mp3"],
+  flac: ["a FLAC recording", ".flac"],
+  ogg: ["an Ogg recording", ".ogg"],
+  cfb: ["a compound file", ".cfb"],
   wav: ["a WAV audio file", ".wav"],
   rifx: ["a big-endian RIFX/WAVE audio file", ".wav"],
   rf64: ["an RF64 WAVE audio file", ".wav"],
@@ -275,7 +279,15 @@ export function verdict(m: FileModel): VerdictLine[] {
       node: odd[0],
     });
   }
-  if (damage.length === 0 && hidden.length === 0 && odd.length === 0 && !incompleteForm) {
+  const incomplete = f.coverageStatus !== "complete" || f.metadataComplete === false;
+  if (incomplete && !lines.some((line) => line.kind === "warning") && damage.length === 0) {
+    lines.push({
+      kind: "warning",
+      text: "This file was not fully inspected. Some information may be missing.",
+      node: m.problems[0] ?? (m.count > 0 ? 0 : -1),
+    });
+  }
+  if (damage.length === 0 && hidden.length === 0 && odd.length === 0 && !incompleteForm && !incomplete) {
     // What it gives away is why someone opened it: health comes after that.
     if (lines.some((l) => l.kind === "reveals")) {
       lines.push({ kind: "healthy", text: "The file itself is fine: nothing in it is damaged.", node: -1 });

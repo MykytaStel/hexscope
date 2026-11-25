@@ -99,6 +99,19 @@ group("an Outlook message and an old Word file", () => {
   });
 });
 
+group("partial inspection", () => {
+  it("never reports a healthy verdict for a partial picture", () => {
+    const bytes = new Uint8Array(readFileSync(here("../public/samples/sample.png")));
+    const file = describe(parse(bytes));
+    file.coverageStatus = "partial";
+    const m = new FileModel(file, bytes, "sample.png");
+    expect(verdict(m).some((line) => line.kind === "healthy")).toBe(false);
+    expect(verdict(m)).toContainEqual(expect.objectContaining({ kind: "warning" }));
+    expect(headline(m)).toEqual({ tone: "warning", text: "File not fully inspected" });
+    expect(translateText("File not fully inspected", "uk")).toBe("Файл перевірено не повністю");
+  });
+});
+
 group("the headline", () => {
   it("puts an incomplete audio read before the empty or reassuring result", () => {
     const payload = [3, ...new TextEncoder().encode("custom\0value")];
