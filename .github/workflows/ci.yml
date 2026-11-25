@@ -235,23 +235,7 @@ jobs:
       # Shared publication plans/policies and tree admission add bounded code to each family.
       # Measured locally: media 177 KB, PDF 228 KB, docs 239 KB, audio 167 KB gzip.
       - name: WebAssembly size budget
-        run: |
-          size() { gzip -9c apps/web/dist/assets/"$1"_bg-*.wasm | wc -c; }
-          media=$(size hexscope_media); pdf=$(size hexscope_pdf); docs=$(size hexscope_docs); audio=$(size hexscope_audio)
-          echo "::notice::WebAssembly: $media bytes gzipped for pictures, movies and drawings with Ultra HDR (budget 178000), $pdf with PDF (budget 229000), $docs with Office, email and WebAssembly (budget 240000), $audio with MP3, FLAC and Ogg tags (budget 168000)."
-          test "$media" -le 178000
-          test "$pdf" -le 229000
-          test "$docs" -le 240000
-          test "$audio" -le 168000
-          # What each part is, fetched after the answer: one file per build.
-          for f in apps/web/dist/assets/explain-*.js; do
-            n=$(gzip -9c "$f" | wc -c)
-            echo "::notice::$(basename "$f"): $n bytes gzipped (budget 34000)."
-            test "$n" -le 34000
-          done
-          raster=$(gzip -9c apps/web/dist/assets/hexscope_raster*.wasm | wc -c)
-          echo "::notice::Optional roll/TIFF WebAssembly: $raster bytes gzipped (budget 216000)."
-          test "$raster" -le 216000
+        run: pnpm perf:size --check
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexscope-site

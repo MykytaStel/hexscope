@@ -130,6 +130,14 @@ group("a movie read in parts", () => {
     expect(movie!.given.buffer === sparseBytes!.buffer).toBe(true);
   });
 
+  it("rejects excess non-media bytes before allocating the movie view", async () => {
+    const { file } = longVideo(2 << 20);
+    await expect(readMovie(file, isMovie, 0, { maxCompactBytes: 16 }))
+      .rejects.toThrow("too much non-media data");
+    await expect(readMovie(file, isMovie, 0, { includeWhole: false, maxCompactBytes: 16 }))
+      .rejects.toThrow("too much non-media data");
+  });
+
   it("reads only compact bytes when a movie is being cleaned", async () => {
     const { file, bytes } = longVideo(2 << 20);
     const movie = await readMovie(file, isMovie, 0, { includeWhole: false });

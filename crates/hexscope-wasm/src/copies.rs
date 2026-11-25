@@ -20,6 +20,12 @@ impl CleanCopy {
         self.bytes.clone()
     }
 
+    /// Moves the result out once instead of cloning the complete output.
+    #[wasm_bindgen(js_name = takeBytes)]
+    pub fn take_bytes(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.bytes)
+    }
+
     /// What was removed, as `what, bytes` pairs joined by U+001F.
     #[wasm_bindgen(getter)]
     pub fn removed(&self) -> String {

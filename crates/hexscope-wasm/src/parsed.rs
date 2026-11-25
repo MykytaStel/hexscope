@@ -8,6 +8,23 @@ use crate::tables::{extract_message, openable, playable};
 
 #[wasm_bindgen]
 impl Parsed {
+    /// The worker has transferred the presentation arrays to the page.
+    /// Keep source bytes, archive entries, stream state and verification only.
+    #[wasm_bindgen(js_name = releasePresentation)]
+    pub fn release_presentation(&mut self) {
+        self.starts = Vec::new();
+        self.lens = Vec::new();
+        self.parents = Vec::new();
+        self.kinds = Vec::new();
+        self.labels = String::new();
+        self.values = String::new();
+        self.docs = DocTables::default();
+        self.composition = Vec::new();
+        self.preview = None;
+        self.blackouts = Vec::new();
+        self.blackout_texts = Vec::new();
+    }
+
     /// Byte offset where each node begins.
     #[wasm_bindgen(getter)]
     pub fn starts(&self) -> Vec<f64> {

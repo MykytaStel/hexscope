@@ -1,4 +1,4 @@
-import { assertInputBudget } from "./resource-budget";
+import { allowDocumentPrefetch, assertInputBudget } from "./resource-budget";
 import type { AnalysisProgress, AnalysisProgressStage } from "./analysis-progress";
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
@@ -74,14 +74,22 @@ let prefetched = false;
 function prefetchDocuments(): void {
   if (prefetched || loaded.pdf || loaded.docs) return;
   prefetched = true;
-  const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
-  if (saveData || !navigator.onLine) return;
+  const network = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+    deviceMemory?: number;
+  };
+  const eligible = () => navigator.onLine && allowDocumentPrefetch(network.connection, network.deviceMemory);
+  if (!eligible()) return;
   setTimeout(() => {
-    for (const family of ["pdf", "docs"] as const) {
-      if (!loaded[family]) void PARSER_BUILDS[family]().catch(() => {});
+    if (!eligible()) return;
+    if (!loaded.pdf) {
+      void PARSER_BUILDS.pdf().catch(() => {});
+      void fetch(new URL("./wasm-pdf/hexscope_pdf_bg.wasm", import.meta.url)).catch(() => {});
     }
-    void fetch(new URL("./wasm-pdf/hexscope_pdf_bg.wasm", import.meta.url)).catch(() => {});
-    void fetch(new URL("./wasm-docs/hexscope_docs_bg.wasm", import.meta.url)).catch(() => {});
+    if (!loaded.docs) {
+      void PARSER_BUILDS.docs().catch(() => {});
+      void fetch(new URL("./wasm-docs/hexscope_docs_bg.wasm", import.meta.url)).catch(() => {});
+    }
   }, 10_000);
 }
 /** The file, then each entry opened inside it; the last one is on screen. */
@@ -252,6 +260,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
       try {
         reportProgress(req.id, "summarize", 0, 1, false, "video");
         const result = describe(parsed);
+        parsed.releasePresentation();
         result.parseMs = performance.now() - t0;
         const e = await movieEntropy(req.file, movie, ENTROPY_BINS, (b) => wasm.entropy(b, 1)[0], options);
         result.entropy = e.values;
@@ -282,6 +291,7 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
     try {
       reportProgress(req.id, "summarize");
       const result = describe(parsed);
+      parsed.releasePresentation();
       result.parseMs = performance.now() - t0;
       controller.signal.throwIfAborted();
       const shouldPrefetchDocuments = isMedia(bytes);
@@ -299,13 +309,19 @@ async function parseFile(req: Extract<OperationRequest, { type: "parse" }>): Pro
 }
 
 /** Answers with a copy the parser made, as a file made by `wrap`. */
-function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, verification?: string): void {
-  const parts = c.removed ? c.removed.split(SEPARATOR) : [];
-  const removed = [];
-  for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
-  const copy = c.error ? new Blob([]) : wrap(c.bytes);
-  post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error: c.error, ...(verification ? { verification } : {}) });
-  c.free();
+function postCopy(id: number, c: CleanCopy, wrap: (bytes: Uint8Array) => Blob, verify?: (bytes: Uint8Array) => string | undefined): void {
+  try {
+    const parts = c.removed.split(SEPARATOR);
+    const removed = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) removed.push({ what: parts[i], bytes: Number(parts[i + 1]) });
+    const error = c.error;
+    const bytes = error ? new Uint8Array(0) : c.takeBytes();
+    const verification = error ? undefined : verify?.(bytes);
+    const copy = error ? new Blob([]) : wrap(bytes);
+    post({ id, type: "cleaned", copy, removed, orientation: c.orientationKept, error, ...(verification ? { verification } : {}) });
+  } finally {
+    c.free();
+  }
 }
 
 /** Does not touch WASM-backed stream state after the selected file has been freed. */
@@ -390,12 +406,11 @@ async function handle(req: OperationRequest): Promise<void> {
       }
     }
     c ??= wasm.cleanCopy(bytes, req.notes ?? false);
-    let verification: string | undefined;
-    if (req.verify && !c.error && bytes.length <= MAX_VERIFY_BYTES && c.bytes.length <= MAX_VERIFY_BYTES) {
+    postCopy(req.id, c, (b) => new Blob([b as BlobPart]), (copy) => {
+      if (!req.verify || bytes.length > MAX_VERIFY_BYTES || copy.length > MAX_VERIFY_BYTES) return undefined;
       const parsed = wasm.parseOwned(bytes);
-      try { verification = parsed.verifyCopy(c.bytes); } finally { parsed.free(); }
-    }
-    postCopy(req.id, c, (b) => new Blob([b as BlobPart]), verification);
+      try { return parsed.verifyCopy(copy); } finally { parsed.free(); }
+    });
     return;
   }
 
@@ -604,6 +619,7 @@ async function handle(req: OperationRequest): Promise<void> {
     const t0 = performance.now();
     const parsed = wasm.parseOwned(bytes);
     const result = describe(parsed);
+    parsed.releasePresentation();
     result.parseMs = performance.now() - t0;
     rememberParsedSource(parsed, result, req.id);
     stack.push(parsed);

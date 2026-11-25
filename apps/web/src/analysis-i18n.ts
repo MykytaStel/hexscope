@@ -6,6 +6,8 @@ import { registerLazyTranslations } from "./i18n";
 registerLazyTranslations({
   "Before sharing: plan and tools": "Перед надсиланням: план та інструменти",
   "Reading took too long; try a smaller file or use the command line tool": "Читання триває надто довго; спробуйте менший файл або командний рядок",
+  "This movie has too much non-media data to inspect in the browser. Use the command line tool.": "У відео забагато даних поза медіапотоком для перевірки в браузері. Скористайтеся командним рядком.",
+  "The movie could not be read completely.": "Не вдалося повністю прочитати відео.",
   "This file exceeds the 128 MiB browser reading limit. Use the command line tool for larger files. Large supported movies are read in slices.": "Файл перевищує браузерний ліміт читання 128 MiB. Для більших файлів скористайтеся командним рядком. Підтримувані великі відео читаються частинами.",
   "No supported WAV metadata chunks are available to clean. Audio is not decoded or played.": "Немає підтримуваних блоків метаданих WAV для очищення. Аудіо не декодується й не відтворюється.",
   "This WAV file has unread or unsupported chunks, so Hexscope cannot safely make a clean copy. Audio is not decoded or played.": "У цьому WAV є непрочитані або непідтримувані блоки, тому Hexscope не може безпечно створити очищену копію. Аудіо не декодується й не відтворюється.",

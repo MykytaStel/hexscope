@@ -4,6 +4,7 @@
 // to read when it is looked at. A clean copy is its changed bytes with the
 // media taken from the file as it is.
 import type { AnalysisProgress } from "./analysis-progress";
+import { MAX_INPUT_BYTES } from "./resource-budget";
 export type { AnalysisProgress } from "./analysis-progress";
 
 /** Movies past this size are read in parts. */
@@ -29,6 +30,8 @@ export interface MovieReadOptions {
   maxTopLevelBoxes?: number;
   /** Omit the full-offset byte view when the caller only needs to make a clean copy. */
   includeWhole?: boolean;
+  /** A lower metadata allocation ceiling for constrained callers. */
+  maxCompactBytes?: number;
 }
 
 export interface Movie {
@@ -155,7 +158,12 @@ function restoreMovieBytes(whole: Uint8Array, joins: Movie["joins"], compactLeng
   for (let i = joins.length - 1; i >= 0; i--) {
     const join = joins[i];
     whole.copyWithin(join.start + join.len, join.at, sourceEnd);
-    whole.fill(0, join.start, join.start + join.len);
+    // Only compaction can have written into an omitted media range, and
+    // compaction writes exclusively below compactLength. Avoid touching
+    // untouched zero-filled pages for potentially gigabytes of media.
+    if (join.start < compactLength) {
+      whole.fill(0, join.start, Math.min(join.start + join.len, compactLength));
+    }
     sourceEnd = join.at;
   }
 }
@@ -180,6 +188,7 @@ async function readMovieRanges(
       const next = Math.min(end, at + RANGE_CHUNK);
       const b = await bytesOf(file, at, next);
       checkCancelled(options.signal);
+      if (b.length !== next - at) throw new Error("The movie could not be read completely.");
       (whole ?? compact!).set(b, whole ? at : givenAt);
       at += b.length;
       givenAt += b.length;
@@ -222,6 +231,13 @@ export async function readMovie(
 
   const omitted = media.reduce((n, box) => n + box.size - box.header, 0);
   const compactLength = file.size - omitted;
+  const requestedBytes = options.maxCompactBytes;
+  const maxCompactBytes = typeof requestedBytes === "number" && Number.isSafeInteger(requestedBytes) && requestedBytes >= 0
+    ? Math.min(MAX_INPUT_BYTES, requestedBytes)
+    : MAX_INPUT_BYTES;
+  if (compactLength > maxCompactBytes) {
+    throw new Error("This movie has too much non-media data to inspect in the browser. Use the command line tool.");
+  }
   const whole = options.includeWhole === false ? null : new Uint8Array(file.size);
   const compact = whole ? null : new Uint8Array(compactLength);
   const { givenAt, gaps, joins, missing } = await readMovieRanges(
@@ -344,5 +360,5 @@ export async function movieEntropy(
   let failure: unknown;
   await Promise.all(Array.from({ length: Math.min(ENTROPY_WORKERS, n) }, sample));
   if (failed) throw failure;
-  return { values: Float32Array.from(values), window };
+  return { values, window };
 }
