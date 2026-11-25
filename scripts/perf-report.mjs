@@ -34,6 +34,7 @@ export function compareReports(baseline, candidate, { maxRegressionPct = 20 } = 
     if (keys.join(",") !== Object.keys(next.metrics[0]).sort().join(",")) throw new Error("Different metrics: " + old.id);
     for (const metric of keys) {
       const before = old.metrics.map(m => m[metric]), after = next.metrics.map(m => m[metric]);
+      if (metric === "cleanProduced" && (new Set([...before,...after]).size !== 1 || ![0,1].includes(before[0]))) throw new Error("Different or unstable cleaner outcome: " + old.id);
       if (before.some(v => v === null) || after.some(v => v === null)) {
         rows.push({ id: old.id, metric, baseline: null, candidate: null, deltaPct: null, regression: false });
         continue;
@@ -41,7 +42,7 @@ export function compareReports(baseline, candidate, { maxRegressionPct = 20 } = 
       const b = median(before), c = median(after);
       const deltaPct = b === 0 ? (c === 0 ? 0 : null) : (c-b)/b*100;
       // Counts of worker generations are diagnostic, not universally lower-is-better.
-      const diagnostic = ["workerCount","terminatedWorkers"].includes(metric);
+      const diagnostic = ["workerCount","terminatedWorkers","cleanProduced","copyBytes"].includes(metric);
       const regression = !diagnostic && (deltaPct === null ? c > b : deltaPct > maxRegressionPct);
       rows.push({ id: old.id, metric, baseline: b, candidate: c, deltaPct, regression });
     }

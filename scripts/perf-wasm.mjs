@@ -36,14 +36,16 @@ if (process.argv[2] === "--child") {
   const cold = parse(), warm = parse();
   const cleanStart = performance.now();
   const copy = module.cleanCopy(bytes,false);
-  let copyBytes, cleanMs, memoryAfterClean;
+  let copyBytes, cleanMs, memoryAfterClean, cleanProduced;
   try {
-    if (copy.error) throw new Error("Fixture clean failed: "+copy.error);
-    copyBytes = copy.bytes.length;
+    // A public sample may intentionally have nothing to remove. Keep the
+    // refusal explicit, rather than aborting the entire benchmark.
+    cleanProduced = copy.error ? 0 : 1;
+    copyBytes = cleanProduced ? copy.takeBytes().length : null;
     cleanMs = performance.now()-cleanStart;
     memoryAfterClean = memory();
   } finally { copy.free(); }
-  console.log(JSON.stringify({ initMs, coldParseMs:cold.ms, warmParseMs:warm.ms, cleanMs, copyBytes, memoryAfterInit, memoryAfterCold:cold.memory, memoryAfterWarm:warm.memory, memoryAfterClean, memoryAfterFree:memory() }));
+  console.log(JSON.stringify({ initMs, coldParseMs:cold.ms, warmParseMs:warm.ms, cleanMs, cleanProduced, copyBytes, memoryAfterInit, memoryAfterCold:cold.memory, memoryAfterWarm:warm.memory, memoryAfterClean, memoryAfterFree:memory() }));
 } else {
   const repeats = Number(process.env.HEXSCOPE_PERF_REPEATS ?? 5);
   if (!Number.isInteger(repeats) || repeats < 1 || repeats > 20) throw new Error("Repeat count must be 1–20");

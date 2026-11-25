@@ -32,3 +32,13 @@ test("zero baselines and unavailable measurements remain explicit", () => {
   assert.equal(compareReports(report([0]),report([5])).regressions,1);
   assert.equal(compareReports(report([null]),report([5])).rows[0].deltaPct,null);
 });
+
+test("rejects changed cleaner outcomes but treats copy size as descriptive", () => {
+  const a = report([1,2]);
+  a.cases[0].metrics = [{cleanProduced:1,copyBytes:2},{cleanProduced:1,copyBytes:2}];
+  const b = structuredClone(a);
+  b.cases[0].metrics.forEach(m => m.copyBytes = 5);
+  assert.equal(compareReports(a,b).regressions,0);
+  b.cases[0].metrics.forEach(m => m.cleanProduced = 0);
+  assert.throws(() => compareReports(a,b), /cleaner outcome/);
+});

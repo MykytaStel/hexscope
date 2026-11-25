@@ -71,8 +71,8 @@ async function setup(context: BrowserContext): Promise<void> {
         for (const entry of list.getEntries()) probe.longTasks.push(entry.duration);
       }).observe({ type: "longtask", buffered: true });
     }
-    new MutationObserver(() => {
-      if (document.body?.dataset.state === "ready") probe.readyAt = performance.now();
+    new MutationObserver((records) => {
+      if (records.some(record => record.target === document.body) && document.body?.dataset.state === "ready") probe.readyAt = performance.now();
     }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-state"] });
   });
 }
@@ -100,6 +100,7 @@ async function open(page: Page, context: BrowserContext, path: string, first: bo
   const parsed = after.parses.at(-1)!;
   expect(parsed.inputBytes).toBe(statSync(path).size);
   expect(parsed.parseMs).toBeGreaterThanOrEqual(0);
+  expect(after.readyAt).toBeGreaterThanOrEqual(start);
   if (parsed.inputBytes >= 64 * 1024 * 1024) {
     expect(parsed.compact).toBe(true);
     expect(parsed.transferBytes).toBeLessThan(1024 * 1024);
@@ -125,7 +126,7 @@ test("collect reproducible browser evidence", async ({ browser }, info) => {
   const samples = [
     ["jpeg", "photo.jpg"], ["pdf", "report.pdf"], ["office", "report.docx"],
     ["zip", "deflate-demo.zip"], ["audio", "sample.mp3"],
-  ].map(([id, name]) => ({ id, path: join(root, "apps/web/public/samples", name), warm: join(directory, name) }));
+  ].map(([id, name]) => ({ id, path: join(root, "apps/web/public/samples", name), warm: join(directory, "warm-" + name) }));
   const cases = [...samples, { id: "sparse-movie-64m", path: large, warm: largeWarm }];
   const observations: { id: string; inputBytes: number; inputSha256: string; metrics: Metrics[] }[] = [];
   try {
