@@ -190,6 +190,41 @@ fn people_and_files(current: &mut Current, root: u32) -> (bool, bool) {
     (notes, files)
 }
 
+/// Append an unsigned decimal with a minimum width, without an intermediate
+/// String allocation or a separate formatting instantiation at each call.
+#[inline(never)]
+fn decimal(out: &mut Vec<u8>, mut value: u64, width: usize) {
+    let mut digits = [b'0'; 20];
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    debug_assert!(width <= digits.len());
+    start = start.min(digits.len() - width);
+    out.extend_from_slice(&digits[start..]);
+}
+
+#[inline(never)]
+fn object_header(out: &mut Vec<u8>, number: u32, generation: u16) {
+    decimal(out, u64::from(number), 0);
+    out.push(b' ');
+    decimal(out, u64::from(generation), 0);
+    out.extend_from_slice(b" obj\n");
+}
+
+#[inline(never)]
+fn xref_entry(out: &mut Vec<u8>, offset: usize, generation: u16) {
+    decimal(out, offset as u64, 10);
+    out.push(b' ');
+    decimal(out, u64::from(generation), 5);
+    out.extend_from_slice(b" n\r\n");
+}
+
 pub(crate) fn clean_pdf(data: &[u8]) -> Result<Cleaned, CleanError> {
     clean_pdf_with(data, &[], &[])
 }
@@ -335,7 +370,9 @@ pub(crate) fn clean_pdf_with(
     }
 
     let version = doc.version.as_deref().unwrap_or("1.7");
-    let mut out = format!("%PDF-{version}\n%").into_bytes();
+    let mut out = b"%PDF-".to_vec();
+    out.extend_from_slice(version.as_bytes());
+    out.extend_from_slice(b"\n%");
     out.extend_from_slice(&[0xE2, 0xE3, 0xCF, 0xD3, b'\n']);
     let mut offsets: Vec<(u32, u16, usize)> = Vec::new();
     let mut xmp_bytes = 0u64;
@@ -352,7 +389,9 @@ pub(crate) fn clean_pdf_with(
         // A redaction applied: its mark is retired, a hidden empty annotation
         // in its place so the page's list of annotations still holds.
         if applied.contains(&n) {
-            out.extend_from_slice(format!("{n} 0 obj\n<< /Type /Annot /Subtype /Link /Rect [0 0 0 0] /Border [0 0 0] /F 2 >>\nendobj\n").as_bytes());
+            object_header(&mut out, n, 0);
+            out.extend_from_slice(RETIRED);
+            out.extend_from_slice(b"\nendobj\n");
             offsets.push((n, 0, at));
             continue;
         }
@@ -360,14 +399,14 @@ pub(crate) fn clean_pdf_with(
             Source::Rewritten {
                 body, generation, ..
             } => {
-                out.extend_from_slice(format!("{n} {generation} obj\n").as_bytes());
+                object_header(&mut out, n, *generation);
                 out.extend_from_slice(body);
                 out.extend_from_slice(b"\nendobj\n");
                 offsets.push((n, *generation, at));
             }
             Source::Top(rec) => {
                 let gen_ = rec.gen_;
-                out.extend_from_slice(format!("{n} {gen_} obj\n").as_bytes());
+                object_header(&mut out, n, gen_);
                 let is_xmp = rec.value.get("Type").and_then(Obj::name) == Some("Metadata");
                 // A picture rewritten for the copy, found here and not in a
                 // match guard: `if let` guards need a newer compiler than
@@ -379,13 +418,9 @@ pub(crate) fn clean_pdf_with(
                 match (rec.stream, picture) {
                     (Some((range, _)), _) if is_xmp => {
                         xmp_bytes += range.len;
-                        out.extend_from_slice(
-                            format!(
-                                "<< /Type /Metadata /Subtype /XML /Length {} >>\nstream\n",
-                                EMPTY_XMP.len()
-                            )
-                            .as_bytes(),
-                        );
+                        out.extend_from_slice(b"<< /Type /Metadata /Subtype /XML /Length ");
+                        decimal(&mut out, EMPTY_XMP.len() as u64, 0);
+                        out.extend_from_slice(b" >>\nstream\n");
                         out.extend_from_slice(EMPTY_XMP);
                         out.extend_from_slice(b"\nendstream");
                     }
@@ -398,12 +433,12 @@ pub(crate) fn clean_pdf_with(
                     (Some((range, _)), None) => {
                         out.extend_from_slice(slice(data, rec.value_range));
                         out.extend_from_slice(b"\nstream\n");
+                        let start = out.len();
+                        out.extend_from_slice(slice(data, range));
                         if is_photo(rec) {
-                            let mut jpeg = slice(data, range).to_vec();
-                            photo_bytes += blank_photo(&mut jpeg);
-                            out.extend_from_slice(&jpeg);
-                        } else {
-                            out.extend_from_slice(slice(data, range));
+                            // The output owns these bytes already. Blank metadata
+                            // there rather than allocating a second full JPEG.
+                            photo_bytes += blank_photo(&mut out[start..]);
                         }
                         out.extend_from_slice(b"\nendstream");
                     }
@@ -413,7 +448,7 @@ pub(crate) fn clean_pdf_with(
                 offsets.push((n, gen_, at));
             }
             Source::Packed(text, _) => {
-                out.extend_from_slice(format!("{n} 0 obj\n").as_bytes());
+                object_header(&mut out, n, 0);
                 out.extend_from_slice(text);
                 out.extend_from_slice(b"\nendobj\n");
                 offsets.push((n, 0, at));
@@ -427,22 +462,32 @@ pub(crate) fn clean_pdf_with(
     let mut i = 0;
     while i < offsets.len() {
         let mut j = i + 1;
-        while j < offsets.len() && offsets[j].0 == offsets[j - 1].0 + 1 {
+        while j < offsets.len() && offsets[j - 1].0.checked_add(1) == Some(offsets[j].0) {
             j += 1;
         }
-        out.extend_from_slice(format!("{} {}\n", offsets[i].0, j - i).as_bytes());
+        decimal(&mut out, u64::from(offsets[i].0), 0);
+        out.push(b' ');
+        decimal(&mut out, (j - i) as u64, 0);
+        out.push(b'\n');
         for &(_, gen_, at) in &offsets[i..j] {
-            out.extend_from_slice(format!("{at:010} {gen_:05} n\r\n").as_bytes());
+            // Classic xref entries have exactly ten offset digits.
+            if at as u64 > 9_999_999_999 {
+                return Err(CleanError::Damaged);
+            }
+            xref_entry(&mut out, at, gen_);
         }
         i = j;
     }
-    let size = offsets.last().map_or(1, |&(n, ..)| n + 1);
-    out.extend_from_slice(
-        format!(
-            "trailer\n<< /Size {size} /Root {root} {root_gen} R >>\nstartxref\n{xref_at}\n%%EOF\n"
-        )
-        .as_bytes(),
-    );
+    let size = offsets.last().map_or(1, |&(n, ..)| u64::from(n) + 1);
+    out.extend_from_slice(b"trailer\n<< /Size ");
+    decimal(&mut out, size, 0);
+    out.extend_from_slice(b" /Root ");
+    decimal(&mut out, u64::from(root), 0);
+    out.push(b' ');
+    decimal(&mut out, u64::from(root_gen), 0);
+    out.extend_from_slice(b" R >>\nstartxref\n");
+    decimal(&mut out, xref_at as u64, 0);
+    out.extend_from_slice(b"\n%%EOF\n");
 
     // What went, in words.
     let mut removed = Vec::new();
@@ -626,5 +671,59 @@ fn refs(obj: &Obj, out: &mut Vec<u32>) {
         Obj::Array(items) => items.iter().for_each(|i| refs(&i.obj, out)),
         Obj::Dict(entries) => entries.iter().for_each(|e| refs(&e.value.obj, out)),
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod writer_tests {
+    use super::*;
+
+    #[test]
+    fn decimal_matches_standard_formatting_at_boundaries() {
+        for value in [
+            0,
+            1,
+            9,
+            10,
+            99,
+            100,
+            65_535,
+            u32::MAX as u64,
+            9_999_999_999,
+            u64::MAX,
+        ] {
+            for width in [0, 1, 5, 10, 20] {
+                let mut out = Vec::new();
+                decimal(&mut out, value, width);
+                assert_eq!(out, format!("{value:0width$}").as_bytes());
+            }
+        }
+    }
+
+    #[test]
+    fn object_and_xref_fields_keep_exact_wire_bytes() {
+        let mut out = Vec::new();
+        object_header(&mut out, u32::MAX, u16::MAX);
+        assert_eq!(out, b"4294967295 65535 obj\n");
+        out.clear();
+        xref_entry(&mut out, 42, 7);
+        assert_eq!(out, b"0000000042 00007 n\r\n");
+        out.clear();
+        xref_entry(&mut out, 0, u16::MAX);
+        assert_eq!(out, b"0000000000 65535 n\r\n");
+    }
+
+    #[test]
+    fn blanking_jpeg_in_output_leaves_prefix_and_picture_unchanged() {
+        let jpeg = [0xff, 0xd8, 0xff, 0xe1, 0, 4, 1, 2, 0xff, 0xda, 9, 8];
+        let mut expected = jpeg;
+        let expected_removed = blank_photo(&mut expected);
+        let mut out = b"stream\n".to_vec();
+        let start = out.len();
+        out.extend_from_slice(&jpeg);
+        assert_eq!(blank_photo(&mut out[start..]), expected_removed);
+        assert_eq!(&out[..start], b"stream\n");
+        assert_eq!(&out[start..], &expected);
+        assert_eq!(expected_removed, 2);
     }
 }

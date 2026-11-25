@@ -669,6 +669,9 @@ body[data-state="empty"] .layout {
 }
 
 .empty {
+  /* The landing page scrolls vertically, never sideways. Horizontal scrolling
+     can leave its section headings clipped against the viewport edge. */
+  overflow-x: hidden;
   overflow-y: auto;
   place-items: start center;
   align-content: start;
@@ -676,6 +679,11 @@ body[data-state="empty"] .layout {
 
 .empty-card {
   margin-inline: auto;
+}
+
+.empty-card > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* The opening: what it does and the way in on the left, it doing it on the right. */
