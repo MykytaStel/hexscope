@@ -48,3 +48,16 @@ it("indexes a deeply nested path without exhausting the call stack", () => {
   expect(index.list("").at(0)).toMatchObject({ kind: "folder", entries: 1 });
   expect(index.list(path).at(0)).toMatchObject({ kind: "entry", name: "file.txt" });
 });
+
+it("counts shared deep prefixes and preserves empty path segments", () => {
+  const prefix = "a/".repeat(12_000);
+  const index = archiveIndex([`${prefix}x`, `${prefix}y`, `${prefix}/z`, `${prefix}empty/`]);
+  expect(index.folders).toBe(12_002);
+  expect(index.entries).toBe(3);
+  const rows = index.list(prefix);
+  expect(rows.at(0)).toMatchObject({ kind: "folder", path: prefix + "/", entries: 1 });
+  expect(rows.findFolder(prefix + "/")).toBe(0);
+  expect(rows.findFolder("other/")).toBe(-1);
+  expect(index.list(prefix + "/").at(0)).toMatchObject({ kind: "entry", name: "z" });
+  expect(index.list("").at(0)).toMatchObject({ kind: "folder", entries: 3 });
+});

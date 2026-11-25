@@ -46,6 +46,61 @@ const MAX_FOUND = 100;
 const MAX_SEARCHED = 256 * 1024 * 1024;
 /** Bound uninterrupted work so a large file cannot monopolize the UI thread. */
 const YIELD_EVERY = 256 * 1024;
+/** One read window plus a small look-behind/look-ahead at each edge. */
+export const EMBEDDED_READ_BYTES = 1024 * 1024;
+const LOOK_AROUND = 32;
+
+interface ScanBytes {
+  readonly length: number;
+  at(offset: number): number;
+  covers(start: number, end: number): boolean;
+  load(start: number, end: number): Promise<void>;
+  setRange(from: number, limit: number): void;
+}
+
+function contiguous(bytes: Uint8Array): ScanBytes {
+  return {
+    length: bytes.length,
+    at: (offset) => bytes[offset],
+    covers: () => true,
+    load: async () => {},
+    setRange: () => {},
+  };
+}
+
+/** A single reusable read window; never materialize the entire search prefix. */
+function paged(source: Blob, signal?: AbortSignal): ScanBytes {
+  let start = 0;
+  let data = new Uint8Array(0);
+  let rangeFrom = 0;
+  let rangeLimit = source.size;
+  return {
+    length: source.size,
+    at: (offset) => offset >= rangeFrom && offset < rangeLimit ? data[offset - start] : NaN,
+    setRange(from, limit) {
+      rangeFrom = from;
+      rangeLimit = limit;
+      data = new Uint8Array(0);
+    },
+    covers: (from, to) => from >= start && to <= start + data.length,
+    async load(from, to) {
+      signal?.throwIfAborted();
+      const next = Math.max(rangeFrom, from - LOOK_AROUND);
+      const end = Math.min(rangeLimit, Math.max(to, next + EMBEDDED_READ_BYTES));
+      // Release the previous window before issuing the next read.
+      data = new Uint8Array(0);
+      const bytes = new Uint8Array(await source.slice(next, end).arrayBuffer());
+      signal?.throwIfAborted();
+      if (bytes.length !== end - next) throw new Error("Could not read the file's media bytes.");
+      start = next;
+      data = bytes;
+    },
+  };
+}
+
+function covered(b: ScanBytes, start: number, end: number, from: number, limit: number): boolean {
+  return b.covers(Math.max(from, start), Math.min(limit, end));
+}
 
 const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 type Checkpoint = (offset: number) => Promise<void>;
@@ -57,22 +112,25 @@ interface Signature {
   what: string;
   ext: string;
   /** More than the magic that must hold, so noise is not taken for a file. */
-  ok?: (b: Uint8Array, i: number) => boolean;
+  ok?: (b: ScanBytes, i: number) => boolean;
+  /** Minimum available header bytes for the validator. */
+  headerBytes?: number;
   /** Where the file ends, when its format says; otherwise it runs to the next one found. */
-  end?: (b: Uint8Array, i: number, limit: number, checkpoint: Checkpoint) => Promise<number>;
+  end?: (b: ScanBytes, i: number, limit: number, checkpoint: Checkpoint) => Promise<number>;
 }
 
-const be32 = (b: Uint8Array, i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
-const le16 = (b: Uint8Array, i: number) => b[i] | (b[i + 1] << 8);
+const be32 = (b: ScanBytes, i: number) => ((b.at(i) << 24) | (b.at(i + 1) << 16) | (b.at(i + 2) << 8) | b.at(i + 3)) >>> 0;
+const le16 = (b: ScanBytes, i: number) => b.at(i) | (b.at(i + 1) << 8);
 
-async function indexOf(b: Uint8Array, needle: Uint8Array, from: number, limit: number, checkpoint: Checkpoint): Promise<number> {
+async function indexOf(b: ScanBytes, needle: Uint8Array, from: number, limit: number, checkpoint: Checkpoint): Promise<number> {
   let nextYield = from + YIELD_EVERY;
   outer: for (let i = from; i + needle.length <= limit; i++) {
     if (i >= nextYield) {
       await checkpoint(i);
       nextYield = i + YIELD_EVERY;
     }
-    for (let k = 0; k < needle.length; k++) if (b[i + k] !== needle[k]) continue outer;
+    if (!b.covers(i, i + needle.length)) await b.load(i, Math.min(limit, i + needle.length));
+    for (let k = 0; k < needle.length; k++) if (b.at(i + k) !== needle[k]) continue outer;
     return i;
   }
   return -1;
@@ -96,31 +154,35 @@ const SIGNATURES: Signature[] = [
     magic: Uint8Array.of(0xff, 0xd8, 0xff),
     what: "a JPEG picture",
     ext: "jpg",
-    ok: (b, i) => (b[i + 3] >= 0xe0 && b[i + 3] <= 0xef) || b[i + 3] === 0xdb || b[i + 3] === 0xc0 || b[i + 3] === 0xc4 || b[i + 3] === 0xfe,
+    headerBytes: 4,
+    ok: (b, i) => (b.at(i + 3) >= 0xe0 && b.at(i + 3) <= 0xef) || b.at(i + 3) === 0xdb || b.at(i + 3) === 0xc0 || b.at(i + 3) === 0xc4 || b.at(i + 3) === 0xfe,
     // Segment by segment to the first scan — a thumbnail inside is skipped
     // whole — then to the end marker, which scan data never holds.
     end: async (b, i, limit, checkpoint) => {
       let k = i + 2;
       let checkpointAt = i + YIELD_EVERY;
-      while (k + 4 <= limit && b[k] === 0xff) {
+      while (k + 4 <= limit) {
+        if (!b.covers(k, k + 4)) await b.load(k, k + 4);
+        if (b.at(k) !== 0xff) break;
         if (k >= checkpointAt) {
           await checkpoint(k);
           checkpointAt = k + YIELD_EVERY;
         }
-        const marker = b[k + 1];
+        const marker = b.at(k + 1);
         if (marker === 0xda) break;
         if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01 || marker === 0xff) {
           k += marker === 0xff ? 1 : 2;
           continue;
         }
-        k += 2 + ((b[k + 2] << 8) | b[k + 3]);
+        k += 2 + ((b.at(k + 2) << 8) | b.at(k + 3));
       }
       for (; k + 1 < limit; k++) {
         if (k >= checkpointAt) {
           await checkpoint(k);
           checkpointAt = k + YIELD_EVERY;
         }
-        if (b[k] === 0xff && b[k + 1] === 0xd9) return k + 2;
+        if (!b.covers(k, k + 2)) await b.load(k, k + 2);
+        if (b.at(k) === 0xff && b.at(k + 1) === 0xd9) return k + 2;
       }
       return -1;
     },
@@ -131,20 +193,23 @@ const SIGNATURES: Signature[] = [
     magic: ascii("RIFF"),
     what: "a WebP picture",
     ext: "webp",
-    ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x45 && b[i + 10] === 0x42 && b[i + 11] === 0x50,
-    end: async (b, i, limit) => Math.min(limit, i + 8 + (b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24))),
+    headerBytes: 12,
+    ok: (b, i) => b.at(i + 8) === 0x57 && b.at(i + 9) === 0x45 && b.at(i + 10) === 0x42 && b.at(i + 11) === 0x50,
+    end: async (b, i, limit) => Math.min(limit, i + 8 + (b.at(i + 4) | (b.at(i + 5) << 8) | (b.at(i + 6) << 16) | (b.at(i + 7) << 24))),
   },
-  { magic: ascii("RIFF"), what: "a WAV recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
-  { magic: ascii("RIFX"), what: "a big-endian RIFX/WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
-  { magic: ascii("RF64"), what: "an RF64 WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
-  { magic: ascii("BW64"), what: "a BW64 WAVE recording", ext: "wav", ok: (b, i) => b[i + 8] === 0x57 && b[i + 9] === 0x41 && b[i + 10] === 0x56 && b[i + 11] === 0x45 },
+  { magic: ascii("RIFF"), what: "a WAV recording", ext: "wav", headerBytes: 12, ok: (b, i) => b.at(i + 8) === 0x57 && b.at(i + 9) === 0x41 && b.at(i + 10) === 0x56 && b.at(i + 11) === 0x45 },
+  { magic: ascii("RIFX"), what: "a big-endian RIFX/WAVE recording", ext: "wav", headerBytes: 12, ok: (b, i) => b.at(i + 8) === 0x57 && b.at(i + 9) === 0x41 && b.at(i + 10) === 0x56 && b.at(i + 11) === 0x45 },
+  { magic: ascii("RF64"), what: "an RF64 WAVE recording", ext: "wav", headerBytes: 12, ok: (b, i) => b.at(i + 8) === 0x57 && b.at(i + 9) === 0x41 && b.at(i + 10) === 0x56 && b.at(i + 11) === 0x45 },
+  { magic: ascii("BW64"), what: "a BW64 WAVE recording", ext: "wav", headerBytes: 12, ok: (b, i) => b.at(i + 8) === 0x57 && b.at(i + 9) === 0x41 && b.at(i + 10) === 0x56 && b.at(i + 11) === 0x45 },
   {
     magic: Uint8Array.of(0x50, 0x4b, 0x03, 0x04),
     what: "a ZIP archive",
     ext: "zip",
     end: async (b, i, limit, checkpoint) => {
       const at = await indexOf(b, EOCD, i + 4, limit, checkpoint);
-      return at < 0 || at + 22 > limit ? -1 : Math.min(limit, at + 22 + le16(b, at + 20));
+      if (at < 0 || at + 22 > limit) return -1;
+      if (!b.covers(at, at + 22)) await b.load(at, at + 22);
+      return Math.min(limit, at + 22 + le16(b, at + 20));
     },
   },
   {
@@ -163,18 +228,19 @@ const SIGNATURES: Signature[] = [
     at: 4,
     what: "an MP4, HEIC or QuickTime file",
     ext: "mp4",
+    headerBytes: 12,
     ok: (b, i) => {
       const size = be32(b, i);
-      return size >= 16 && size <= 256 && /^[\x20-\x7e]{4}$/.test(String.fromCharCode(b[i + 8], b[i + 9], b[i + 10], b[i + 11]));
+      return size >= 16 && size <= 256 && /^[\x20-\x7e]{4}$/.test(String.fromCharCode(b.at(i + 8), b.at(i + 9), b.at(i + 10), b.at(i + 11)));
     },
   },
   { magic: Uint8Array.of(0x1f, 0x8b, 0x08), what: "a gzip archive", ext: "gz" },
   { magic: Uint8Array.of(0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c), what: "a 7-Zip archive", ext: "7z" },
   { magic: ascii("Rar!\x1a\x07"), what: "a RAR archive", ext: "rar" },
   { magic: Uint8Array.of(0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00), what: "a WebAssembly module", ext: "wasm" },
-  { magic: Uint8Array.of(0x7f, 0x45, 0x4c, 0x46), what: "an ELF program", ext: "elf", ok: (b, i) => b[i + 4] === 1 || b[i + 4] === 2 },
+  { magic: Uint8Array.of(0x7f, 0x45, 0x4c, 0x46), what: "an ELF program", ext: "elf", headerBytes: 5, ok: (b, i) => b.at(i + 4) === 1 || b.at(i + 4) === 2 },
   { magic: ascii("OggS\x00"), what: "an Ogg audio or video file", ext: "ogg" },
-  { magic: ascii("ID3"), what: "an MP3 file", ext: "mp3", ok: (b, i) => b[i + 3] >= 2 && b[i + 3] <= 4 && b[i + 5] < 0x80 },
+  { magic: ascii("ID3"), what: "an MP3 file", ext: "mp3", headerBytes: 6, ok: (b, i) => b.at(i + 3) >= 2 && b.at(i + 3) <= 4 && b.at(i + 5) < 0x80 },
 ];
 
 /** Signatures by first byte, for a single pass. */
@@ -189,11 +255,30 @@ for (const s of SIGNATURES) {
  * at short intervals and can be cancelled. `maxBytes` is a total budget over
  * all ranges, not a fresh allowance for each range.
  */
-export async function findEmbedded(
+export function findEmbedded(
   bytes: Uint8Array,
   ranges: readonly [number, number][],
   skip: readonly string[] = [],
   options: EmbeddedSearchOptions = {},
+): Promise<EmbeddedSearchResult> {
+  return scanEmbedded(contiguous(bytes), ranges, skip, options);
+}
+
+/** Scan the same signatures directly from a Blob, without allocating its prefix. */
+export function findEmbeddedInBlob(
+  source: Blob,
+  ranges: readonly [number, number][],
+  skip: readonly string[] = [],
+  options: EmbeddedSearchOptions = {},
+): Promise<EmbeddedSearchResult> {
+  return scanEmbedded(paged(source, options.signal), ranges, skip, options);
+}
+
+async function scanEmbedded(
+  bytes: ScanBytes,
+  ranges: readonly [number, number][],
+  skip: readonly string[],
+  options: EmbeddedSearchOptions,
 ): Promise<EmbeddedSearchResult> {
   const normalized = ranges
     .map(([from, to]): [number, number] => [Math.max(0, Math.min(bytes.length, Math.trunc(from))), Math.max(0, Math.min(bytes.length, Math.trunc(to)))])
@@ -222,6 +307,7 @@ export async function findEmbedded(
     const remaining = budget - searched;
     if (remaining <= 0 || out.length >= MAX_FOUND) break;
     const limit = Math.min(to, from + remaining);
+    bytes.setRange(from, limit);
     activeRangeFrom = from;
     rangeSearched = 0;
     nextYield = from + YIELD_EVERY;
@@ -231,15 +317,18 @@ export async function findEmbedded(
       if (options.signal?.aborted) throw new DOMException("Embedded file search cancelled", "AbortError");
       if (i >= nextYield) await checkpoint(i);
       rangeSearched = Math.max(rangeSearched, i - from + 1);
-      const candidates = BY_FIRST.get(bytes[i]);
+      if (!covered(bytes, i - 4, i + 16, from, limit)) {
+        await bytes.load(Math.max(from, i - 4), Math.min(limit, i + 16));
+      }
+      const candidates = BY_FIRST.get(bytes.at(i));
       if (!candidates) continue;
       for (const s of candidates) {
         if (skipped.has(s.ext)) continue;
         const start = i - (s.at ?? 0);
         if (start < from || start + (options.baseOffset ?? 0) <= 0 || (open && start <= open.start)) continue;
         let k = 0;
-        while (k < s.magic.length && i + k < limit && bytes[i + k] === s.magic[k]) k++;
-        if (k < s.magic.length || (s.ok && !s.ok(bytes, start))) continue;
+        while (k < s.magic.length && i + k < limit && bytes.at(i + k) === s.magic[k]) k++;
+        if (k < s.magic.length || start + (s.headerBytes ?? 0) > limit || (s.ok && !s.ok(bytes, start))) continue;
         if (open) open.end = start;
         const end = s.end ? await s.end(bytes, start, limit, checkpoint) : -1;
         const found: Embedded = { start, end: end > start ? end : limit, what: s.what, ext: s.ext };

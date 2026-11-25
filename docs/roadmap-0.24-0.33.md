@@ -87,3 +87,9 @@ remain proposed and can be refined using findings from earlier phases.
   search consumers explicitly before switching the worker protocol.
 - Avoid allocating an array of all missing chunks merely to answer a boolean
   comparison query; never display unread bytes as literal zeroes.
+
+### Streaming embedded discovery
+
+- Replace the sparse movie's explicit prefix allocation with bounded Blob windows.
+- Keep one signature engine for contiguous and streamed inputs; preserve original offsets, marker search, cancellation and coverage reporting.
+- Validate parity and physical read bounds before moving on to actual WASM binary profiling and browser memory benchmarks.

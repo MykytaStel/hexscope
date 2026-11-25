@@ -114,16 +114,17 @@ function drawn(name: string, scale: number, turn: number): { lum: Uint8Array; wi
 }
 
 describe("a picture", () => {
-  it("finds codes of every size, upright and turned", () => {
-    for (const name of ["L-17.png", "M-78.png", "L-271.png", "Q-425.png", "L-1003.png", "H-1273.png"]) {
+  it.each(["L-17.png", "M-78.png", "L-271.png", "Q-425.png", "L-1003.png", "H-1273.png"])(
+    "finds %s upright and turned",
+    (name) => {
       const n = Number(name.slice(2, -4));
       for (const turn of [0, 0.3, 1.2, Math.PI]) {
         const { lum, width, height } = drawn(name, 4, turn);
         const found = findCodes(lum, width, height);
         expect(found.map((c) => c.text), `${name} turned ${turn}`).toEqual([expected(n)]);
       }
-    }
-  });
+    },
+  );
 
   it("reads codes as a camera sees them: tilted, blurred, on a background", () => {
     const text = (name: string) => {
