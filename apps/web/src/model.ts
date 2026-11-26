@@ -2,6 +2,7 @@ import { explanation } from "./explanations";
 import { Missing } from "./missing";
 import { CompactByteSource } from "./compact-byte-source";
 import { BytePageCache } from "./byte-page-cache";
+import { browserRetentionBudget } from "./resource-budget";
 import type { FilmScanReport } from "./filmscan";
 
 export type CoverageStatus = "complete" | "partial" | "unsupported";
@@ -359,7 +360,8 @@ export class FileModel {
         throw new Error("The movie's compact byte ranges did not align.");
       }
       this.compact = new CompactByteSource(file.compactSize, bytes, gaps);
-      this.pages = new BytePageCache(source);
+      const budget = browserRetentionBudget();
+      this.pages = new BytePageCache(source, budget.pageCount, budget.pendingPages);
     } else {
       if (file.compactSize !== undefined) throw new Error("The movie's compact byte ranges did not align.");
       this.compact = null;

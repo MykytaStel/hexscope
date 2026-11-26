@@ -34,3 +34,27 @@ describe("bounded media cache", () => {
     expect(cache.retainedBytes).toBe(0);
   });
 });
+
+describe("adaptive cache limits", () => {
+  it("retains only the requested number of pages and preserves recency", async () => {
+    const source = new Blob([new Uint8Array(5 * BYTE_PAGE_SIZE).fill(9)]);
+    const cache = new BytePageCache(source, 2, 1);
+    await cache.load(0, BYTE_PAGE_SIZE * 3);
+    expect(cache.retainedBytes).toBe(BYTE_PAGE_SIZE);
+    expect(cache.byteAt(BYTE_PAGE_SIZE)).toBeUndefined();
+    await cache.load(BYTE_PAGE_SIZE, BYTE_PAGE_SIZE + 1);
+    expect(cache.byteAt(0)).toBe(9);
+    expect(cache.byteAt(1)).toBe(9);
+    await cache.load(2 * BYTE_PAGE_SIZE, 2 * BYTE_PAGE_SIZE + 1);
+    expect(cache.retainedBytes).toBe(2 * BYTE_PAGE_SIZE);
+    expect(cache.byteAt(BYTE_PAGE_SIZE)).toBeUndefined();
+    expect(cache.byteAt(0)).toBe(9);
+  });
+
+  it("rejects invalid budgets", () => {
+    const source = new Blob();
+    expect(() => new BytePageCache(source, 0, 1)).toThrow();
+    expect(() => new BytePageCache(source, 2, 3)).toThrow();
+    expect(() => new BytePageCache(source, 65, 1)).toThrow();
+  });
+});
