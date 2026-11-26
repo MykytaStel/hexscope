@@ -64,17 +64,26 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
         NodeKind::Container,
         None,
     );
-    let riff = le32(data, 4).unwrap_or(0) as usize;
-    field(&mut tree, header, "size", 4, 4, Value::U64(riff as u64));
-    // The RIFF size counts from after itself.
-    let end = (8 + riff).min(len);
-    if 8 + riff > len {
-        tree.warning(
+    // Calculate declared lengths in u64, including on wasm32.
+    let riff = u64::from(le32(data, 4).unwrap_or(0));
+    if len >= 8 {
+        field(&mut tree, header, "size", 4, 4, Value::U64(riff));
+    }
+    let declared_end = 8 + riff;
+    let end = declared_end.min(len as u64) as usize;
+    if len < 12 || riff < 4 {
+        tree.error(
+            header,
+            "incomplete RIFF WebP header",
+            ByteRange::new(0, len.min(12) as u64),
+        );
+    } else if declared_end > len as u64 {
+        tree.error(
             header,
             "the file is shorter than its header says",
             ByteRange::new(len as u64, 0),
         );
-    } else if 8 + riff < len {
+    } else if declared_end < len as u64 {
         tree.warning(
             root,
             "data after the end of the image",
@@ -84,13 +93,15 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
 
     let mut at = 12;
     let mut count = 0;
-    while at + 8 <= end && count < MAX_CHUNKS {
+    while end.saturating_sub(at) >= 8 && count < MAX_CHUNKS {
         count += 1;
         let fourcc = data.get(at..at + 4).unwrap_or(b"????");
-        let size = le32(data, at + 4).unwrap_or(0) as usize;
+        let size = u64::from(le32(data, at + 4).unwrap_or(0));
         let body = at + 8;
-        // Chunks are padded to an even length.
+        // Check the payload and its padding against the RIFF boundary, not
+        // the physical file length. Bytes after RIFF are not chunk data.
         let padded = size + (size & 1);
+        let remaining = (end - body) as u64;
         let label: String = String::from_utf8_lossy(fourcc).trim_end().to_string();
         let label = if label.chars().all(|c| c.is_ascii_graphic()) && !label.is_empty() {
             label
@@ -100,7 +111,7 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
                 u32::from_be_bytes([fourcc[0], fourcc[1], fourcc[2], fourcc[3]])
             )
         };
-        let stop = (body + padded).min(len);
+        let stop = body + padded.min(remaining) as usize;
         let node = tree.add(
             Some(root),
             label.clone(),
@@ -108,19 +119,32 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
             NodeKind::Container,
             None,
         );
-        field(&mut tree, node, "size", at + 4, 4, Value::U64(size as u64));
-        if body + size > len {
+        field(&mut tree, node, "size", at + 4, 4, Value::U64(size));
+        if padded > remaining {
             tree.error(
                 node,
-                "chunk runs past the end of the file",
-                ByteRange::new(len as u64, 0),
+                if size > remaining {
+                    "chunk runs past the end of RIFF"
+                } else {
+                    "chunk is missing its RIFF padding byte"
+                },
+                ByteRange::new(end as u64, 0),
             );
+            at = end;
             break;
         }
-        let payload = data.get(body..body + size).unwrap_or(&[]);
+        let size = size as usize;
+        let payload = &data[body..body + size];
         match label.as_str() {
+            "VP8X" if payload.len() != 10 => {
+                tree.error(
+                    node,
+                    "VP8X chunk must contain exactly 10 bytes",
+                    ByteRange::new(body as u64, size as u64),
+                );
+            }
             "VP8X" => {
-                let flags = payload.first().copied().unwrap_or(0);
+                let flags = payload[0];
                 let names: Vec<&str> = [
                     (0x20, "colour profile"),
                     (0x10, "transparency"),
@@ -145,7 +169,7 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
                         names.join(", ")
                     }),
                 );
-                if let (Some(w), Some(h)) = (le24(data, body + 4), le24(data, body + 7)) {
+                if let (Some(w), Some(h)) = (le24(payload, 4), le24(payload, 7)) {
                     width = Some(w + 1);
                     height = Some(h + 1);
                     field(
@@ -272,7 +296,19 @@ pub fn parse_webp(data: &[u8]) -> WebpDocument {
             ),
             _ => field(&mut tree, node, "data", body, size, Value::U64(size as u64)),
         }
-        at = body + padded;
+        at = stop;
+    }
+
+    if at < end {
+        tree.error(
+            root,
+            if count == MAX_CHUNKS {
+                "WebP chunk count exceeds the inspection limit"
+            } else {
+                "incomplete RIFF chunk header"
+            },
+            ByteRange::new(at as u64, (end - at) as u64),
+        );
     }
 
     let mut summary = String::from("WebP");
@@ -360,6 +396,68 @@ mod tests {
         ] {
             assert!(!parse_webp(data).tree.is_empty());
         }
+    }
+
+    #[test]
+    fn riff_boundary_excludes_trailing_chunk_data_and_padding() {
+        for declared_size in [12u32, 13] {
+            let mut file = webp(&[(b"XMP ", b"x")]);
+            file[4..8].copy_from_slice(&declared_size.to_le_bytes());
+            let doc = parse_webp(&file);
+            assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+            assert!(!doc.tree.nodes().iter().any(|n| n.label == "packet"));
+        }
+    }
+
+    #[test]
+    fn oversized_riff_and_chunk_lengths_are_errors() {
+        let mut file = webp(&[(b"JUNK", b"")]);
+        file[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
+        file[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        let doc = parse_webp(&file);
+        assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .all(|n| n.range.start + n.range.len <= file.len() as u64)
+        );
+    }
+
+    #[test]
+    fn truncated_riff_and_partial_chunk_header_are_errors() {
+        for extra in 1..8 {
+            let mut file = webp(&[]);
+            file.extend_from_slice(&[0; 7][..extra]);
+            let riff_size = (file.len() - 8) as u32;
+            file[4..8].copy_from_slice(&riff_size.to_le_bytes());
+            assert!(parse_webp(&file).tree.nodes().iter().any(|n| {
+                n.kind == NodeKind::Error && n.label == "incomplete RIFF chunk header"
+            }));
+        }
+        let mut file = webp(&[]);
+        file[4..8].copy_from_slice(&6u32.to_le_bytes());
+        assert!(parse_webp(&file).tree.nodes().iter().any(|n| {
+            n.kind == NodeKind::Error && n.label == "the file is shorter than its header says"
+        }));
+    }
+
+    #[test]
+    fn short_vp8x_does_not_borrow_dimensions_from_the_next_chunk() {
+        let file = webp(&[(b"VP8X", &[0; 4]), (b"JUNK", &[0; 10])]);
+        let doc = parse_webp(&file);
+        assert_eq!((doc.width, doc.height), (None, None));
+        assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+        assert!(doc.tree.nodes().iter().any(|n| n.label == "JUNK"));
+    }
+
+    #[test]
+    fn chunk_limit_marks_unread_riff_bytes() {
+        let chunks = vec![(b"JUNK", b"".as_slice()); MAX_CHUNKS + 1];
+        let file = webp(&chunks);
+        assert!(parse_webp(&file).tree.nodes().iter().any(|n| {
+            n.kind == NodeKind::Error && n.label == "WebP chunk count exceeds the inspection limit"
+        }));
     }
 
     #[test]
