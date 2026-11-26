@@ -44,7 +44,11 @@ function reference(nodes: N[], size: number) {
     if (offset < 0 || offset >= size) return -1;
     let node = 0;
     for (;;) {
-      const hit = spatial[node].findLast(k => nodes[k].start <= offset);
+      let hit: number | undefined;
+      for (const k of spatial[node]) {
+        if (nodes[k].start > offset) break;
+        hit = k;
+      }
       if (hit === undefined || offset >= nodes[hit].start + nodes[hit].len) return node;
       node = hit;
     }
