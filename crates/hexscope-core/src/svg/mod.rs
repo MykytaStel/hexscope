@@ -141,37 +141,51 @@ struct Attr<'a> {
 
 /// The attributes of a start tag, read from `i`, just past its name, to
 /// `end`, its `>` (or the `/` before it).
-fn attributes(data: &[u8], mut i: usize, end: usize) -> Vec<Attr<'_>> {
+fn attributes(data: &[u8], mut i: usize, end: usize) -> (Vec<Attr<'_>>, bool) {
     let mut out = Vec::new();
+    let mut names = std::collections::HashSet::new();
     while i < end {
         let space = i;
         while i < end && data[i].is_ascii_whitespace() {
             i += 1;
+        }
+        if i == end {
+            break;
+        }
+        if i == space {
+            return (out, false);
         }
         let name_at = i;
         while i < end && !data[i].is_ascii_whitespace() && !matches!(data[i], b'=' | b'/' | b'>') {
             i += 1;
         }
         if i == name_at {
-            i += 1;
-            continue;
+            return (out, false);
         }
-        let name = std::str::from_utf8(&data[name_at..i]).unwrap_or("");
+        let Ok(name) = std::str::from_utf8(&data[name_at..i]) else {
+            return (out, false);
+        };
+        if !names.insert(name) {
+            return (out, false);
+        }
         while i < end && data[i].is_ascii_whitespace() {
             i += 1;
         }
-        if data.get(i) != Some(&b'=') {
-            continue;
+        if i == end || data.get(i) != Some(&b'=') {
+            return (out, false);
         }
         i += 1;
         while i < end && data[i].is_ascii_whitespace() {
             i += 1;
         }
+        if i == end {
+            return (out, false);
+        }
         let Some(&quote) = data.get(i).filter(|q| matches!(q, b'"' | b'\'')) else {
-            continue;
+            return (out, false);
         };
         let Some(close) = data[i + 1..end].iter().position(|&c| c == quote) else {
-            break;
+            return (out, false);
         };
         let value = (i + 1, i + 1 + close);
         i = value.1 + 1;
@@ -181,7 +195,7 @@ fn attributes(data: &[u8], mut i: usize, end: usize) -> Vec<Attr<'_>> {
             value,
         });
     }
-    out
+    (out, true)
 }
 
 /// Where a tag that opens at `at` closes: its `>`, outside quoted values.
@@ -303,6 +317,9 @@ pub fn parse_svg(data: &[u8]) -> SvgDocument {
     };
 
     while let Some(lt) = find(data, i, b"<") {
+        if open.is_empty() && data[i..lt].iter().any(|b| !b.is_ascii_whitespace()) {
+            damaged = true;
+        }
         // The nearest open element that is a node, or the file outside the drawing.
         let parent = open.iter().rev().find_map(|o| o.node).unwrap_or(root);
         let rest = &data[lt..];
@@ -339,7 +356,14 @@ pub fn parse_svg(data: &[u8]) -> SvgDocument {
             continue;
         }
         if rest.starts_with(b"<![CDATA[") {
-            i = find(data, lt, b"]]>").map_or(data.len(), |e| e + 3);
+            if open.is_empty() {
+                damaged = true;
+            }
+            let Some(end) = find(data, lt + 9, b"]]>").map(|e| e + 3) else {
+                damaged = true;
+                break;
+            };
+            i = end;
             continue;
         }
         if rest.starts_with(b"<?") || rest.starts_with(b"<!") {
@@ -399,7 +423,13 @@ pub fn parse_svg(data: &[u8]) -> SvgDocument {
             .unwrap_or(gt);
         let name = std::str::from_utf8(&data[lt + 1..name_end]).unwrap_or("");
         let empty = data[gt - 1] == b'/';
-        let attrs = attributes(data, name_end, if empty { gt - 1 } else { gt });
+        let (attrs, complete) = attributes(data, name_end, if empty { gt - 1 } else { gt });
+        if !complete || name.is_empty() {
+            damaged = true;
+        }
+        if open.is_empty() && (svg_node.is_some() || local(name) != "svg") {
+            damaged = true;
+        }
         let in_metadata = open.iter().any(|o| local(o.name) == "metadata");
         let range = ByteRange::new(lt as u64, (gt + 1 - lt) as u64);
 
@@ -525,6 +555,9 @@ pub fn parse_svg(data: &[u8]) -> SvgDocument {
         }
     }
 
+    if open.is_empty() && data[i..].iter().any(|b| !b.is_ascii_whitespace()) {
+        damaged = true;
+    }
     // What a metadata block says, read from the text of its elements.
     metadata(data, &tree, &mut said);
     if scripts + handlers > 0 {
