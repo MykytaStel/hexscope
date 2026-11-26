@@ -3,16 +3,11 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wasmFamilies, artifactPattern } from "./wasm-build-manifest.mjs";
 
 const dir = fileURLToPath(new URL("../apps/web/dist/assets/", import.meta.url));
 const assets = readdirSync(dir).sort();
-const groups = [
-  ["media", /^hexscope_media_bg-.*\.wasm$/, 178000],
-  ["pdf", /^hexscope_pdf_bg-.*\.wasm$/, 229000],
-  ["docs", /^hexscope_docs_bg-.*\.wasm$/, 240000],
-  ["audio", /^hexscope_audio_bg-.*\.wasm$/, 168000],
-  ["raster", /^hexscope_raster.*\.wasm$/, 216000],
-];
+const groups = Object.entries(wasmFamilies).map(([name, spec]) => [name, artifactPattern(name), spec.budget]);
 function measure(name, file, budget) {
   const path = join(dir, file);
   const gzipBytes = execFileSync("gzip", ["-9c", path], { maxBuffer: 16 * 1024 * 1024 }).length;
