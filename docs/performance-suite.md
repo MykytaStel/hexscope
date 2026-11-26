@@ -20,7 +20,7 @@ pnpm perf:compare .perf/base-wasm.json .perf/candidate-wasm.json
 pnpm perf:compare .perf/base-desktop.json .perf/candidate-desktop.json --json
 ```
 
-The comparator uses medians, rejects mismatched environments, case IDs, input hashes, sizes and metric sets. Default relative regression signal 20%; `--threshold=...` overrides, `--check` opts into nonzero exit. A signal is not proof of a slowdown: inspect raw samples and repeat. Zero baseline and unavailable metrics are explicit. Worker counts and copy sizes are descriptive, not lower-is-better. A changed or unstable cleaner success/refusal outcome makes a comparison invalid; no-copy cases have null output size. Avoid gating noisy shared-runner timing until stable baselines exist.
+The comparator uses medians, rejects mismatched environments, case IDs, input hashes, sizes and metric sets. Default relative regression signal 20%; `--threshold=...` overrides, `--check` opts into nonzero exit. A signal is not proof of a slowdown: inspect raw samples and repeat. Zero baseline and unavailable metrics are explicit. The comparator reports the number of missing samples per metric; a change in availability fails `--check` even when there is no numeric regression. Equal missing counts remain descriptive and produce no median (including intentionally unavailable copy sizes). The gate does not certify metrics missing on both sides. Worker counts and copy sizes are descriptive, not lower-is-better. A changed or unstable cleaner success/refusal outcome makes a comparison invalid; no-copy cases have null output size. Avoid gating noisy shared-runner timing until stable baselines exist.
 
 ## What is actually measured
 
