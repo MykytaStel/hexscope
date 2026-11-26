@@ -1,0 +1,3 @@
+# Reader resource accounting
+
+The main-thread RPC ledger distinguishes pending calls from cancelled operations still awaiting terminal responses. The latter prevent premature idle recycling. Cancelled scans never force a reader reset; parse grace retains its prior reset policy, but a grace period with newer work no longer removes the outstanding record. Terminal responses and actual realm termination clear the ledger. A lost terminal response can conservatively defer idle recycling until realm termination; this is preferable to marking work idle while it may be running. No additional timeout, memory measurement or global scheduling guarantee is implied. The snapshot counts requests only and contains no file data.
