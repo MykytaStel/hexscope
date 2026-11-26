@@ -1,0 +1,3 @@
+# Logical large-file stress contracts
+
+The ordinary web unit suite now exercises a virtual 8 GiB extended-size ISO movie with a small leading header, one media gap and a metadata tail. No huge file is created or materialized. Exact compact backing length, original offsets beyond 32 bits, missing bytes, bounded entropy sampling, concurrent reads and page-cache retention are checked against deterministic counters. A compact allocation refusal is tested before the range-read phase. These are structural resource invariants, not wall-clock benchmarks or physical 8 GiB browser admission tests. The public picker still applies its existing file size policy. Fake Blob reads simulate correct byte ranges, not browser I/O, RSS or native decoder behavior.
