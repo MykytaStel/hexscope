@@ -289,7 +289,8 @@ export class FileModel {
   private readonly childOffsets: Uint32Array;
   private readonly childIds: Int32Array;
   /** Children with a non-empty range, sorted by start: the descent index. */
-  private readonly spatial: Int32Array[];
+  private readonly spatialOffsets: Uint32Array;
+  private readonly spatialIds: Int32Array;
   /** Offset of each IDAT segment within the reassembled zlib stream. */
   private segmentStreamStart: number[] = [];
   /** Entry index by entry node, for finding the entry a node sits in. */
@@ -383,29 +384,46 @@ export class FileModel {
     const counts = new Uint32Array(n + 1);
     for (let i = 1; i < n; i++) counts[parents[i] + 1]++;
     for (let i = 0; i < n; i++) counts[i + 1] += counts[i];
-    this.childOffsets = counts.slice();
+    this.childOffsets = counts;
     this.childIds = new Int32Array(Math.max(0, n - 1));
     const cursor = counts.slice();
     for (let i = 1; i < n; i++) this.childIds[cursor[parents[i]]++] = i;
 
-    this.spatial = new Array(n);
+    // One flat arena for the spatial index too. The number of indexed
+    // edges cannot exceed the number of tree edges. Leaves need no arrays.
+    this.spatialOffsets = new Uint32Array(n + 1);
+    this.spatialIds = new Int32Array(this.childIds.length);
+    let written = 0;
+    const kids: number[] = [];
     for (let i = 0; i < n; i++) {
-      const kids = Array.from(this.children(i)).filter((c) => lens[c] > 0);
+      this.spatialOffsets[i] = written;
+      const from = counts[i];
+      const to = counts[i + 1];
+      if (from === to) continue;
+      if (to === from + 1) {
+        const child = this.childIds[from];
+        if (lens[child] > 0) this.spatialIds[written++] = child;
+        continue;
+      }
+      kids.length = 0;
+      for (let j = from; j < to; j++) {
+        const child = this.childIds[j];
+        if (lens[child] > 0) kids.push(child);
+      }
       // Ties on start: problems sort last, so a warning on the very byte a
       // field decodes wins the hover — that byte's most important fact.
       kids.sort((a, b) => starts[a] - starts[b] || kinds[a] - kinds[b]);
-      // The descent assumes siblings do not partially overlap. A node that
-      // straddles its neighbours would win the search for some of their bytes
-      // and lose it for others; leave it out of the index instead. It stays in
-      // the tree, and selecting it still outlines its whole range.
-      const disjoint: number[] = [];
+      // Preserve the previous overlap policy and stable ordering. A skipped
+      // sibling stays selectable through the ordinary tree.
       for (const k of kids) {
-        const prev = disjoint[disjoint.length - 1];
+        const prev = written === this.spatialOffsets[i] ? undefined : this.spatialIds[written - 1];
         const sameRange = prev !== undefined && starts[k] === starts[prev] && lens[k] === lens[prev];
-        if (prev === undefined || sameRange || starts[k] >= starts[prev] + lens[prev]) disjoint.push(k);
+        if (prev === undefined || sameRange || starts[k] >= starts[prev] + lens[prev]) {
+          this.spatialIds[written++] = k;
+        }
       }
-      this.spatial[i] = Int32Array.from(disjoint);
     }
+    this.spatialOffsets[n] = written;
 
     this.problems = [];
     for (let i = 0; i < n; i++) if (kinds[i] >= Kind.Warning) this.problems.push(i);
@@ -641,14 +659,13 @@ export class FileModel {
 
     let node = 0;
     for (;;) {
-      const kids = this.spatial[node];
-      // Last child starting at or before `offset`.
-      let lo = 0;
-      let hi = kids.length - 1;
+      // Last indexed child starting at or before `offset`.
+      let lo = this.spatialOffsets[node];
+      let hi = this.spatialOffsets[node + 1] - 1;
       let hit = -1;
       while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (starts[kids[mid]] <= offset) {
+        const mid = lo + Math.floor((hi - lo) / 2);
+        if (starts[this.spatialIds[mid]] <= offset) {
           hit = mid;
           lo = mid + 1;
         } else {
@@ -656,7 +673,7 @@ export class FileModel {
         }
       }
       if (hit < 0) return node;
-      const kid = kids[hit];
+      const kid = this.spatialIds[hit];
       if (offset >= starts[kid] + lens[kid]) return node;
       node = kid;
     }
