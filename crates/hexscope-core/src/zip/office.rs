@@ -1544,7 +1544,8 @@ mod tests {
             facts,
             [(
                 "hiddencells",
-                "3 hidden columns; hidden column ranges could not be counted completely".to_string()
+                "3 hidden columns; hidden column ranges could not be counted completely"
+                    .to_string()
             )]
         );
     }
