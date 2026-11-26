@@ -35,7 +35,7 @@ function entropyOf(counts: Uint32Array, total: number): number {
 function yieldToBrowser(signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     let idle: number | undefined;
-    let timer: number | undefined;
+    let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
     const host = globalThis;
     const cleanup = () => {
       signal.removeEventListener("abort", aborted);

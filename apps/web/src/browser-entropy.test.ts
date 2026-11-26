@@ -34,7 +34,7 @@ describe("cooperative entropy", () => {
     const controller = new AbortController();
     // Advance the slice clock per observation, independent of host speed.
     let now = 0;
-    const clock = vi.spyOn(performance, "now").mockImplementation(() => now += 10);
+    vi.stubGlobal("performance", { now: () => now += 10 });
     try {
       const progress = vi.fn((loaded: number) => {
         if (progress.mock.calls.length === 2) {
@@ -46,7 +46,7 @@ describe("cooperative entropy", () => {
         signal: controller.signal, onProgress: progress,
       })).rejects.toMatchObject({ name: "AbortError" });
       expect(progress).toHaveBeenCalledTimes(2);
-    } finally { clock.mockRestore(); }
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it("uses a conservative slice for unknown or low concurrency", () => {
