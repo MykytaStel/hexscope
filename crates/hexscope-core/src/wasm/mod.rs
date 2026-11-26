@@ -1013,6 +1013,25 @@ fn contents(ctx: &mut Ctx, node: NodeId, id: u8, r: &mut Reader) -> R<Option<Str
     }))
 }
 
+/// Find the next home-directory prefix in one forward scan. Searching
+/// each prefix independently rescans the entire remaining input for absent
+/// prefixes on every match, even when all matches are the same placeholder.
+fn next_home(bytes: &[u8], from: usize) -> Option<(usize, usize)> {
+    const HOMES: [&[u8]; 4] = [b"/Users/", b"/home/", b"C:\\Users\\", b"C:/Users/"];
+    for (offset, &byte) in bytes.get(from..)?.iter().enumerate() {
+        if byte != b'/' && byte != b'C' {
+            continue;
+        }
+        let at = from + offset;
+        for prefix in HOMES {
+            if bytes[at..].starts_with(prefix) {
+                return Some((at, prefix.len()));
+            }
+        }
+    }
+    None
+}
+
 impl Ctx<'_> {
     fn function_name(&self, idx: u32) -> String {
         let f = &self.names.functions;
@@ -1025,50 +1044,40 @@ impl Ctx<'_> {
     /// Looks for home directories in `data[from..to]` — /Users/…, /home/…,
     /// C:\Users\… — and keeps each user name once.
     fn find_users(&mut self, from: usize, to: usize, node: NodeId) {
-        const HOMES: [&[u8]; 4] = [b"/Users/", b"/home/", b"C:\\Users\\", b"C:/Users/"];
         let bytes = &self.data[from..to];
         let mut i = 0;
         while i < bytes.len() && self.users.len() < 8 {
-            let Some((home, at)) = HOMES
-                .iter()
-                .filter_map(|h| {
-                    bytes[i..]
-                        .windows(h.len())
-                        .position(|w| w == *h)
-                        .map(|p| (h, i + p))
-                })
-                .min_by_key(|&(_, p)| p)
-            else {
+            let Some((at, prefix_len)) = next_home(bytes, i) else {
                 break;
             };
-            let name_start = at + home.len();
+            let name_start = at + prefix_len;
             let name_end = bytes[name_start..]
                 .iter()
                 .position(|&b| !(b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-')))
                 .map_or(bytes.len(), |p| name_start + p);
-            let user = String::from_utf8_lossy(&bytes[name_start..name_end]).into_owned();
             // A home directory is followed by a separator; "Shared" and
-            // placeholders are not anyone's.
+            // placeholders are not anyone's. Reject long names before any
+            // allocation; the accepted name alphabet above is ASCII.
             let separated = matches!(bytes.get(name_end), Some(b'/' | b'\\'));
-            if separated
-                && !user.is_empty()
-                && user.len() <= 32
-                && !matches!(
-                    user.as_str(),
-                    "Shared" | "runner" | "user" | "USER" | "username"
-                )
-                && !self.users.iter().any(|u| u.0 == user)
-            {
-                let path_end = bytes[at..]
+            let name = &bytes[name_start..name_end];
+            if separated && !name.is_empty() && name.len() <= 32 {
+                let user = std::str::from_utf8(name).expect("ASCII name");
+                if matches!(user, "Shared" | "runner" | "user" | "USER" | "username")
+                    || self.users.iter().any(|u| u.0 == user)
+                {
+                    i = name_end.max(at + 1);
+                    continue;
+                }
+                let limit = bytes.len().min(at.saturating_add(60));
+                let path_end = bytes[at..limit]
                     .iter()
                     .position(|&b| !(0x20..0x7F).contains(&b) || b == b'"' || b == b'\'')
-                    .map_or(bytes.len(), |p| at + p)
-                    .min(at + 60);
+                    .map_or(limit, |p| at + p);
                 let mut path = String::from_utf8_lossy(&bytes[at..path_end]).into_owned();
                 if path_end - at == 60 {
                     path.push('…');
                 }
-                self.users.push((user, path, node));
+                self.users.push((user.to_owned(), path, node));
             }
             i = name_end.max(at + 1);
         }

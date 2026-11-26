@@ -336,3 +336,44 @@ fn dwarf_and_home_directories_in_it_are_found() {
     );
     assert!(!paths.contains("Shared"));
 }
+
+#[test]
+fn home_prefix_search_preserves_order_and_offsets() {
+    let bytes = b"noise C:/Users/alice/src /home/bob/src C:\\Users\\carol\\src /Users/dan/src";
+    let prefixes: [&[u8]; 4] = [b"C:/Users/", b"/home/", b"C:\\Users\\", b"/Users/"];
+    let mut from = 0;
+    for prefix in prefixes {
+        let (at, len) = next_home(bytes, from).unwrap();
+        assert_eq!(&bytes[at..at + len], prefix);
+        // Advance beyond this prefix, not into an overlapping /Users/.
+        from = at + len;
+    }
+    assert_eq!(next_home(bytes, from), None);
+    assert_eq!(next_home(bytes, bytes.len() + 1), None);
+}
+
+#[test]
+fn repeated_placeholders_and_long_names_do_not_hide_real_paths() {
+    let mut payload = b"/home/runner/src\0".repeat(100_000);
+    payload.extend_from_slice(b"/home/");
+    payload.extend(std::iter::repeat_n(b'x', 100_000));
+    payload.extend_from_slice(b"/src\0C:/Users/alice/src\0/home/bob/lib\0/Users/alice/again");
+    let data = module(&[custom(".debug_str", &payload)]);
+    let doc = parse_wasm(&data);
+    let path = doc.facts.iter().find(|f| f.kind == "paths").unwrap();
+    assert_eq!(
+        path.text,
+        "alice, in paths like C:/Users/alice/src (also bob)"
+    );
+}
+
+#[test]
+fn path_preview_remains_capped_at_sixty_bytes() {
+    let mut payload = b"/home/alice/".to_vec();
+    payload.extend(std::iter::repeat_n(b'x', 100_000));
+    let data = module(&[custom(".debug_str", &payload)]);
+    let doc = parse_wasm(&data);
+    let path = doc.facts.iter().find(|f| f.kind == "paths").unwrap();
+    let expected = format!("alice, in paths like /home/alice/{}…", "x".repeat(48));
+    assert_eq!(path.text, expected);
+}
