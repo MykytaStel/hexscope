@@ -41,22 +41,25 @@ fn field(tree: &mut ParseTree, parent: NodeId, label: &str, at: usize, len: usiz
 }
 
 /// The sub-blocks from `at`: each a length byte and that many bytes, until a
-/// zero. Returns their bytes joined and where they end, or `None` when the
-/// file ends first.
-fn sub_blocks(data: &[u8], mut at: usize) -> (Vec<u8>, usize, bool) {
-    let mut out = Vec::new();
+/// zero. Returns the payload length, end offset and termination status.
+/// Only metadata callers need the joined payload bytes.
+fn sub_blocks(data: &[u8], mut at: usize, mut out: Option<&mut Vec<u8>>) -> (usize, usize, bool) {
+    let mut total = 0;
     loop {
         let Some(&n) = data.get(at) else {
-            return (out, data.len(), false);
+            return (total, data.len(), false);
         };
         at += 1;
         if n == 0 {
-            return (out, at, true);
+            return (total, at, true);
         }
         let Some(chunk) = data.get(at..at + n as usize) else {
-            return (out, data.len(), false);
+            return (total, data.len(), false);
         };
-        out.extend_from_slice(chunk);
+        total += chunk.len();
+        if let Some(bytes) = out.as_deref_mut() {
+            bytes.extend_from_slice(chunk);
+        }
         at += n as usize;
     }
 }
@@ -87,7 +90,7 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
     let screen = tree.add(
         Some(root),
         "logical screen descriptor",
-        ByteRange::new(6, (len.min(13).saturating_sub(6)) as u64),
+        ByteRange::new(6.min(len) as u64, (len.min(13).saturating_sub(6)) as u64),
         NodeKind::Container,
         None,
     );
@@ -101,7 +104,14 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
             ByteRange::new(len as u64, 0),
         );
     }
-    let mut at = 13;
+    if len < 13 {
+        tree.error(
+            screen,
+            "incomplete logical screen descriptor",
+            ByteRange::new(len as u64, 0),
+        );
+    }
+    let mut at = 13.min(len);
     // A colour table follows when its flag is set: 3 bytes per colour.
     let table =
         |at: usize, packed: u8, tree: &mut ParseTree, parent: NodeId, label: &str| -> usize {
@@ -118,7 +128,14 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
                 end - start,
                 Value::U64((size / 3) as u64),
             );
-            at + size
+            if end - start != size {
+                tree.error(
+                    parent,
+                    format!("incomplete {label}"),
+                    ByteRange::new(end as u64, 0),
+                );
+            }
+            end
         };
     at = table(at, packed, &mut tree, root, "global colour table");
 
@@ -147,7 +164,8 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
                 } else {
                     None
                 };
-                let (bytes, end, closed) = sub_blocks(data, body_at);
+                let mut bytes = Vec::new();
+                let (_, end, closed) = sub_blocks(data, body_at, Some(&mut bytes));
                 let name = match &app {
                     Some(a) => format!("application · {}", a.trim_end_matches('\0')),
                     None => label.to_string(),
@@ -268,18 +286,26 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
                     4,
                     Value::Text(format!("{w}×{h}")),
                 );
-                let mut k = table(at + 10, p, &mut tree, node, "local colour table");
-                // The LZW code size, then the pixels in sub-blocks.
-                let lzw = k;
-                k += 1;
-                let (bytes, end, closed) = sub_blocks(data, k);
+                let lzw = table(at + 10, p, &mut tree, node, "local colour table");
+                // Never manufacture a pixel range when the colour table or
+                // the minimum LZW code-size byte is missing.
+                if lzw == len {
+                    tree.set_range(node, ByteRange::new(start as u64, (len - start) as u64));
+                    tree.error(
+                        node,
+                        "missing GIF LZW code size",
+                        ByteRange::new(len as u64, 0),
+                    );
+                    break;
+                }
+                let (bytes, end, closed) = sub_blocks(data, lzw + 1, None);
                 field(
                     &mut tree,
                     node,
                     "pixels",
                     lzw,
                     end.saturating_sub(lzw),
-                    Value::U64(bytes.len() as u64),
+                    Value::U64(bytes as u64),
                 );
                 tree.set_range(
                     node,
@@ -328,7 +354,11 @@ pub fn parse_gif(data: &[u8]) -> GifDocument {
     } else if !ended && !tree.nodes().iter().any(|n| n.kind == NodeKind::Error) {
         tree.error(
             root,
-            "no trailer: the file was cut short",
+            if count == MAX_BLOCKS && at < len {
+                "GIF block count exceeds the inspection limit"
+            } else {
+                "no trailer: the file was cut short"
+            },
             ByteRange::new(len as u64, 0),
         );
     }
@@ -412,6 +442,35 @@ mod tests {
         ] {
             assert!(!parse_gif(data).tree.is_empty());
         }
+    }
+
+    #[test]
+    fn every_truncated_prefix_has_in_file_ranges() {
+        let mut file = gif(b"test");
+        let frame = file.iter().position(|&b| b == 0x2c).unwrap();
+        file[frame + 9] = 0x80;
+        file.splice(frame + 10..frame + 10, [0; 6]);
+        for len in 0..file.len() {
+            let doc = parse_gif(&file[..len]);
+            assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+            assert!(
+                doc.tree
+                    .nodes()
+                    .iter()
+                    .all(|n| n.range.start + n.range.len <= len as u64),
+                "prefix {len}"
+            );
+        }
+    }
+
+    #[test]
+    fn pixel_sub_blocks_count_without_collecting() {
+        let data = [2, 1, 2, 1, 3, 0];
+        let mut bytes = Vec::new();
+        assert_eq!(sub_blocks(&data, 0, None), (3, 6, true));
+        assert_eq!(sub_blocks(&data, 0, Some(&mut bytes)), (3, 6, true));
+        assert_eq!(bytes, [1, 2, 3]);
+        assert_eq!(sub_blocks(&data[..5], 0, None), (3, 5, false));
     }
 
     #[test]
