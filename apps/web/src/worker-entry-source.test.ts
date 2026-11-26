@@ -162,3 +162,18 @@ describe("external ZIP source ranges", () => {
     expect(parsed.selectEntryFrom).toHaveBeenCalledWith(1, new Uint8Array([22]));
   });
 });
+
+it("does not inflate an external entry when cancellation arrives during its Blob read", async () => {
+  const source = delayedSource();
+  const parsed = {
+    entryDataRange: () => new Float64Array([0, 3]),
+    extractEntry: vi.fn(() => new Uint8Array()),
+    extractEntryFrom: vi.fn(() => new Uint8Array([1])),
+  } as unknown as Parsed;
+  const controller = new AbortController();
+  const pending = readEntry(parsed, source.blob, 0, () => true, controller.signal);
+  controller.abort();
+  source.resolve(0, [1, 2, 3]);
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  expect(parsed.extractEntryFrom).not.toHaveBeenCalled();
+});
