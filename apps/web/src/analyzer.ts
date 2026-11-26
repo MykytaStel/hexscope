@@ -1040,7 +1040,12 @@ workspace = new WorkspaceController({
       startEntropyMap(model);
       void lookForCodes(model);
     },
-    note: (message) => drawer.showNote(message),
+    note(message) {
+      drawer.showNote(message);
+      // A failed nested open/back leaves the original document visible.
+      // Its background scan was stopped at the start of that navigation.
+      if (workspace.model) void lookForCodes(workspace.model);
+    },
     remember,
     afterOpen(model) {
       arrive();
