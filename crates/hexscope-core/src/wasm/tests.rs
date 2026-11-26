@@ -377,3 +377,66 @@ fn path_preview_remains_capped_at_sixty_bytes() {
     let expected = format!("alice, in paths like /home/alice/{}…", "x".repeat(48));
     assert_eq!(path.text, expected);
 }
+
+#[test]
+fn leb_values_enforce_width_and_byte_count_without_requiring_canonical_encoding() {
+    fn unsigned(bytes: &[u8], bits: u32) -> Option<u64> {
+        Reader {
+            data: bytes,
+            pos: 0,
+            end: bytes.len(),
+        }
+        .leb(bits)
+        .ok()
+    }
+    assert_eq!(
+        unsigned(&[0xff, 0xff, 0xff, 0xff, 0x0f], 32),
+        Some(u32::MAX as u64)
+    );
+    assert_eq!(unsigned(&[0x80, 0x80, 0x80, 0x80, 0], 32), Some(0));
+    assert_eq!(unsigned(&[0x80, 0x80, 0x80, 0x80, 0x10], 32), None);
+    assert_eq!(unsigned(&[0x80, 0x80, 0x80, 0x80, 0x80, 0], 32), None);
+    assert_eq!(unsigned(&[0x80], 32), None);
+    assert_eq!(unsigned(&leb(u64::MAX), 64), Some(u64::MAX));
+    let mut too_wide = leb(u64::MAX);
+    too_wide[9] = 2;
+    assert_eq!(unsigned(&too_wide, 64), None);
+    too_wide[9] = 0x80;
+    too_wide.push(0);
+    assert_eq!(unsigned(&too_wide, 64), None);
+}
+
+#[test]
+fn signed_leb_preserves_negative_constants_and_rejects_bad_extension() {
+    fn valid(bytes: &[u8], bits: u32) -> bool {
+        Reader {
+            data: bytes,
+            pos: 0,
+            end: bytes.len(),
+        }
+        .signed_leb(bits)
+        .is_ok()
+    }
+    assert!(valid(&[0x7f], 32));
+    assert!(valid(&[0x80, 0x80, 0x80, 0x80, 0x78], 32));
+    assert!(valid(&[0xff, 0xff, 0xff, 0xff, 0x07], 32));
+    assert!(!valid(&[0x80, 0x80, 0x80, 0x80, 0x08], 32));
+    assert!(!valid(&[0x80, 0x80, 0x80, 0x80, 0x80, 0], 32));
+    assert!(valid(&[0xff, 0xff, 0xff, 0xff, 0x0f], 33));
+    let mut negative = [0x80; 10];
+    negative[9] = 0x7f;
+    assert!(valid(&negative, 64));
+    negative[9] = 1;
+    assert!(!valid(&negative, 64));
+}
+
+#[test]
+fn malformed_section_length_is_reported_instead_of_wrapping_to_zero() {
+    let data = module(&[vec![1, 0x80, 0x80, 0x80, 0x80, 0x10]]);
+    let doc = parse_wasm(&data);
+    assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+    assert!(matches!(
+        crate::clean::clean(&data),
+        Err(crate::clean::CleanError::Damaged)
+    ));
+}
