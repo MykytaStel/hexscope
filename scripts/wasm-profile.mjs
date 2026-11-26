@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname, basename } from "node:path";
 import { profileWasm } from "./wasm-profile-core.mjs";
+import { wasmFamilies, artifactPattern } from "./wasm-build-manifest.mjs";
 
 const root=fileURLToPath(new URL("../",import.meta.url));
 const args=process.argv.slice(2);
@@ -13,11 +14,13 @@ const dir=resolve(root,option("dir","apps/web/dist/assets"));
 const kind=option("kind","production");
 if(!["production","diagnostic"].includes(kind)) throw new Error("Unknown profile kind");
 const top=Number(option("top","30"));
-const files=readdirSync(dir).filter(f=>/^hexscope_(media|pdf|docs|audio|raster).*\.wasm$/.test(f)).sort();
+const known=Object.keys(wasmFamilies);
+const familyFor=file=>known.find(f=>artifactPattern(f,kind==="diagnostic").test(file));
+const files=readdirSync(dir).filter(f=>familyFor(f)).sort();
 if(!files.length) throw new Error("No Hexscope WASM artifacts found; run pnpm build first");
 const families=new Set();
 const modules=files.map(file=>{
-  const family=/^hexscope_(media|pdf|docs|audio|raster)/.exec(file)[1];
+  const family=familyFor(file);
   if(families.has(family)) throw new Error("Duplicate WASM artifact for "+family);
   families.add(family);
   const path=resolve(dir,file), bytes=readFileSync(path);
@@ -25,7 +28,7 @@ const modules=files.map(file=>{
   const gzipBytes=execFileSync("gzip",["-9c",path],{maxBuffer:16*1024*1024}).length;
   return {family,file:basename(file),sha256:createHash("sha256").update(bytes).digest("hex"),gzipBytes,...profileWasm(bytes,{top})};
 });
-if(kind==="production"&&families.size!==5) throw new Error("Expected all five production families");
+if(kind==="production"&&families.size!==known.length) throw new Error("Expected all five production families");
 const report={schema:"hexscope.wasm-profile",version:1,kind,revision:execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).trim(),node:process.version,modules};
 const output=resolve(root,option("output",".perf/wasm-profile-"+kind+".json"));
 mkdirSync(dirname(output),{recursive:true});
