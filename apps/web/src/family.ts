@@ -51,7 +51,10 @@ function isDocument(b: Uint8Array): boolean {
 
 /** Whether the audio-only build can inspect the bytes without decoding audio. */
 function isAudio(b: Uint8Array): boolean {
-  if (starts(b, [0x52, 0x49, 0x46, 0x46]) && starts(b.subarray(8), [0x57, 0x41, 0x56, 0x45])) return true;
+  // Match all four WAVE containers recognized by the Rust audio parser.
+  if (starts(b.subarray(8), [0x57, 0x41, 0x56, 0x45]) &&
+      (starts(b, [0x52, 0x49, 0x46, 0x46]) || starts(b, [0x52, 0x49, 0x46, 0x58]) ||
+       starts(b, [0x52, 0x46, 0x36, 0x34]) || starts(b, [0x42, 0x57, 0x36, 0x34]))) return true;
   if (starts(b, [0x49, 0x44, 0x33]) || starts(b, [0x66, 0x4c, 0x61, 0x43])) return true;
   if (isOggAudio(b)) return true;
   if (b.length < 4 || b[0] !== 0xff || (b[1] & 0xe0) !== 0xe0) return false;
@@ -82,10 +85,22 @@ function isOggAudio(b: Uint8Array): boolean {
   return vorbis || opus;
 }
 
-/** The build that reads these bytes, asked in the order the core asks: pictures and movies, a WebAssembly module, a PDF, the documents' formats, then everything else. */
+/** QuickTime can start with a box other than ftyp. Match starts_a_video
+ * after audio detection, including its size check. */
+function isQuickTime(b: Uint8Array): boolean {
+  if (b.length < 8) return false;
+  const size = b[0] * 0x1000000 + b[1] * 0x10000 + b[2] * 0x100 + b[3];
+  if (size !== 1 && (size < 8 || size > b.length)) return false;
+  const type = String.fromCharCode(b[4], b[5], b[6], b[7]);
+  return type === "moov" || type === "mdat" || type === "wide" ||
+    type === "free" || type === "skip" || type === "pnot";
+}
+
+/** The build that reads these bytes, in parser priority order. */
 export function familyOf(b: Uint8Array): Family {
   if (isMedia(b)) return "media";
   if (isAudio(b)) return "audio";
+  if (isQuickTime(b)) return "media";
   const wasm = starts(b, [0x00, 0x61, 0x73, 0x6d]);
   if (!wasm && isPdf(b)) return "pdf";
   if (isDocument(b)) return "docs";
