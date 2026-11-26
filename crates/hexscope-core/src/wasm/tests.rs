@@ -361,7 +361,10 @@ fn repeated_placeholders_and_long_names_do_not_hide_real_paths() {
     let data = module(&[custom(".debug_str", &payload)]);
     let doc = parse_wasm(&data);
     let path = doc.facts.iter().find(|f| f.kind == "paths").unwrap();
-    assert_eq!(path.text, "alice, in paths like C:/Users/alice/src (also bob)");
+    assert_eq!(
+        path.text,
+        "alice, in paths like C:/Users/alice/src (also bob)"
+    );
 }
 
 #[test]
