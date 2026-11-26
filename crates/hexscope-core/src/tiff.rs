@@ -87,6 +87,8 @@ struct Table<'a> {
 /// One 12-byte entry: its tag, and where its value lies.
 struct Entry {
     tag: u16,
+    typ: u16,
+    count: usize,
     /// Value bytes: inline in the entry, or elsewhere in the file.
     value: (usize, usize),
 }
@@ -100,7 +102,7 @@ impl<'a> Table<'a> {
     }
 
     fn u16(&self, at: usize) -> Option<u16> {
-        let b = self.data.get(at..at + 2)?;
+        let b = self.data.get(at..at.checked_add(2)?)?;
         Some(if self.big {
             u16::from_be_bytes([b[0], b[1]])
         } else {
@@ -109,7 +111,7 @@ impl<'a> Table<'a> {
     }
 
     fn u32(&self, at: usize) -> Option<u32> {
-        let b = self.data.get(at..at + 4)?;
+        let b = self.data.get(at..at.checked_add(4)?)?;
         Some(if self.big {
             u32::from_be_bytes([b[0], b[1], b[2], b[3]])
         } else {
@@ -133,19 +135,28 @@ impl<'a> Table<'a> {
         for i in 0..count {
             let e = at + 2 + 12 * i;
             let (tag, typ, n) = (self.u16(e)?, self.u16(e + 2)?, self.u32(e + 4)? as usize);
-            let size = match typ {
+            let unit: usize = match typ {
                 1 | 2 | 6 | 7 => 1,
                 3 | 8 => 2,
                 4 | 9 | 11 | 13 => 4,
                 5 | 10 | 12 => 8,
                 _ => 0,
-            } * n;
+            };
+            let size = unit.checked_mul(n)?;
             let value = if size <= 4 {
                 (e + 8, size)
             } else {
                 (self.u32(e + 8)? as usize, size)
             };
-            out.push(Entry { tag, value });
+            // Reject a declared value outside the loaded file before any
+            // caller walks offsets or derives an image dimension from it.
+            self.data.get(value.0..value.0.checked_add(value.1)?)?;
+            out.push(Entry {
+                tag,
+                typ,
+                count: n,
+                value,
+            });
         }
         Some((out, end))
     }
@@ -154,9 +165,9 @@ impl<'a> Table<'a> {
     fn number(&self, at: usize, tag: u16) -> Option<u32> {
         let (entries, _) = self.entries(at)?;
         let e = entries.iter().find(|e| e.tag == tag)?;
-        match e.value.1 {
-            2 => self.u16(e.value.0).map(u32::from),
-            4 => self.u32(e.value.0),
+        match (e.typ, e.count) {
+            (3, 1) => self.u16(e.value.0).map(u32::from),
+            (4, 1) => self.u32(e.value.0),
             _ => None,
         }
     }
@@ -164,7 +175,10 @@ impl<'a> Table<'a> {
     /// Offsets an entry's value holds: a pointer to an IFD, or several.
     fn offsets(&self, e: &Entry) -> Vec<usize> {
         (0..e.value.1 / 4)
-            .filter_map(|i| self.u32(e.value.0 + 4 * i).map(|o| o as usize))
+            .filter_map(|i| {
+                let at = e.value.0.checked_add(i.checked_mul(4)?)?;
+                self.u32(at).map(|o| o as usize)
+            })
             .collect()
     }
 }
@@ -195,9 +209,7 @@ pub(crate) fn clean_tiff(data: &[u8], doc: &TiffDocument) -> Result<Cleaned, Cle
             continue;
         }
         seen.push(at);
-        let Some((entries, end)) = t.entries(at) else {
-            continue;
-        };
+        let (entries, end) = t.entries(at).ok_or(CleanError::Damaged)?;
         for e in &entries {
             if SAYS.iter().any(|(tag, _)| *tag == e.tag) || WINDOWS.contains(&e.tag) {
                 said += blank(&mut out, e.value.0, e.value.1);
@@ -301,6 +313,42 @@ mod tests {
             clean_tiff(&copy.bytes, &parse_tiff_file(&copy.bytes)),
             Err(CleanError::NothingToRemove) | Ok(_)
         ));
+    }
+
+    fn single_entry(typ: u16, count: u32, value: u32) -> Vec<u8> {
+        let mut data = b"II\\x2A\\x00\\x08\\x00\\x00\\x00\\x01\\x00".to_vec();
+        data.extend_from_slice(&0x0100u16.to_le_bytes());
+        data.extend_from_slice(&typ.to_le_bytes());
+        data.extend_from_slice(&count.to_le_bytes());
+        data.extend_from_slice(&value.to_le_bytes());
+        data.extend_from_slice(&[0; 4]);
+        data
+    }
+
+    #[test]
+    fn table_rejects_unrepresentable_or_out_of_file_values() {
+        for (typ, count, value) in [(12, u32::MAX, 8), (4, 2, u32::MAX)] {
+            let data = single_entry(typ, count, value);
+            let table = Table::new(&data).unwrap();
+            assert!(table.entries(8).is_none());
+            assert!(table.u16(usize::MAX).is_none());
+            assert!(table.u32(usize::MAX).is_none());
+        }
+    }
+
+    #[test]
+    fn dimensions_require_one_unsigned_short_or_long() {
+        for (typ, count, expected) in [
+            (3, 1, Some(80)),
+            (4, 1, Some(80)),
+            (3, 2, None),
+            (1, 4, None),
+            (9, 1, None),
+        ] {
+            let data = single_entry(typ, count, 80);
+            let table = Table::new(&data).unwrap();
+            assert_eq!(table.number(8, 0x0100), expected);
+        }
     }
 
     #[test]
