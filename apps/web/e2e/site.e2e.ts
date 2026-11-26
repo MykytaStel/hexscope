@@ -3148,9 +3148,57 @@ function longVideo(path: string, size: number): string {
 
 test("a long video: read without its picture and sound, and cleaned all the same", async ({ page }, info) => {
   const path = longVideo(info.outputPath("long-video.mov"), 80 << 20);
+  // Observe the real worker reply without modifying its bytes or delivery.
+  // A logical-size transfer would regress the sparse reader even if the
+  // same verdict and clean copy still passed.
+  await page.addInitScript(() => {
+    type TransferEvidence = { inputBytes: number; compactSize: number | null; transferBytes: number; backingBytes: number };
+    const evidence: TransferEvidence[] = [];
+    (window as Window & { __movieTransferEvidence?: TransferEvidence[] }).__movieTransferEvidence = evidence;
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      private readonly movieRequests = new Map<number, number>();
+
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        super.addEventListener("message", (event: MessageEvent) => {
+          const reply = event.data;
+          const inputBytes = this.movieRequests.get(reply?.id);
+          if (inputBytes === undefined || reply.type === "progress") return;
+          this.movieRequests.delete(reply.id);
+          if (reply.type !== "parsed") return;
+          evidence.push({
+            inputBytes,
+            compactSize: reply.result.compactSize ?? null,
+            transferBytes: reply.bytes.byteLength,
+            backingBytes: reply.bytes.buffer.byteLength,
+          });
+        });
+      }
+
+      override postMessage(message: any, transfer: Transferable[]): void;
+      override postMessage(message: any, options?: StructuredSerializeOptions): void;
+      override postMessage(message: any, transferOrOptions?: Transferable[] | StructuredSerializeOptions): void {
+        if (message?.type === "parse" && message.file instanceof File && message.file.name === "long-video.mov") {
+          this.movieRequests.set(message.id, message.file.size);
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
+    };
+  });
   await home(page);
   await page.locator("#picker-empty").setInputFiles(path);
   await expect(page.locator(".verdict-title")).toHaveText(/^This video gives away \d+ things$/);
+  const evidence = await page.evaluate(() => (window as Window & {
+    __movieTransferEvidence?: { inputBytes: number; compactSize: number | null; transferBytes: number; backingBytes: number }[];
+  }).__movieTransferEvidence ?? []);
+  expect(evidence).toHaveLength(1);
+  expect(evidence[0].inputBytes).toBe(statSync(path).size);
+  expect(evidence[0].compactSize).toBe(statSync(path).size);
+  expect(evidence[0].transferBytes).toBeGreaterThan(0);
+  expect(evidence[0].transferBytes).toBeLessThan(1024 * 1024);
+  expect(evidence[0].backingBytes).toBe(evidence[0].transferBytes);
   await expect(page.locator("dt", { hasText: "Read" }).locator("+ dd")).toContainText("All but the picture and sound");
 
   const download = page.waitForEvent("download").catch(() => null);
