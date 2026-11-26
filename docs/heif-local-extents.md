@@ -1,0 +1,3 @@
+# HEIF local extent reliability
+
+Construction method 1 is relative to idat and must not run into a following box even when the whole file is longer. Method 0 remains file-relative. Checked additions and a single-extent rule for implicit lengths preserve bounded reads; external data references are not interpreted as local data. Invalid direct extents record an error, without claiming metadata from those bytes. Method 2 source ranges using method 1 also must stay in idat, not a later mdat. Existing unsupported method 2 cases are otherwise unchanged. Tests cover local bounds, implicit lengths, overflow and external item exclusion. No expansion of supported HEIF construction methods.

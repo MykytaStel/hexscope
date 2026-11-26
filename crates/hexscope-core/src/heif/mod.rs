@@ -603,16 +603,23 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
         let Some(item) = ctx.items.iter().find(|i| i.id == loc.id) else {
             continue;
         };
+        if loc.data_reference_index != 0 {
+            doc.tree.error(
+                loc.node,
+                "external item data reference was not read",
+                doc.tree.get(loc.node).range,
+            );
+            continue;
+        }
         for (k, extent) in loc.extents.iter().enumerate() {
             let range = match loc.method {
-                0 => loc
-                    .base
-                    .checked_add(extent.offset)
-                    .map(|start| (start, extent.length)),
-                1 => ctx
-                    .idat
-                    .and_then(|(s, _, _)| s.checked_add(loc.base)?.checked_add(extent.offset))
-                    .map(|start| (start, extent.length)),
+                0 | 1 => match local_extent(ctx, loc, extent, len) {
+                    Ok(range) => Some((range.start, range.len)),
+                    Err(reason) => {
+                        doc.tree.error(loc.node, reason, doc.tree.get(loc.node).range);
+                        None
+                    }
+                },
                 2 => match method2_extent(ctx, loc, extent, len) {
                     Ok(range) => Some((range.start, range.len)),
                     Err(reason) => {
@@ -637,13 +644,9 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
                     None
                 }
             };
-            let Some((start, mut n)) = range else {
+            let Some((start, n)) = range else {
                 continue;
             };
-            // A zero length means "to the end", which only a lone extent can say.
-            if n == 0 {
-                n = len.saturating_sub(start);
-            }
             if start.checked_add(n).is_none_or(|e| e > len) {
                 doc.tree.error(
                     loc.node,
@@ -724,6 +727,43 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
     }
 }
 
+/// A direct local extent must stay within its own address space. Method 1
+/// offsets are relative to idat, not the enclosing file.
+fn local_extent(
+    ctx: &Ctx,
+    loc: &Loc,
+    extent: &Extent,
+    file_len: u64,
+) -> Result<ByteRange, &'static str> {
+    let (base, limit) = match loc.method {
+        0 => (0, file_len),
+        1 => {
+            let (start, _, range) = ctx.idat.ok_or("item data box is missing")?;
+            (start, range.checked_end().ok_or("item data box overflows")?)
+        }
+        _ => return Err("item is not stored directly in this file"),
+    };
+    let start = base
+        .checked_add(loc.base)
+        .and_then(|n| n.checked_add(extent.offset))
+        .ok_or("item data offset overflows")?;
+    if limit > file_len || start > limit {
+        return Err("item data lies outside its storage range");
+    }
+    let length = if extent.length == 0 {
+        if loc.extents.len() != 1 {
+            return Err("implicit item extent length is ambiguous");
+        }
+        limit - start
+    } else {
+        extent.length
+    };
+    if start.checked_add(length).is_none_or(|end| end > limit) {
+        return Err("item data lies outside its storage range");
+    }
+    Ok(ByteRange::new(start, length))
+}
+
 /// Resolves an item-offset extent when its requested bytes fit within one
 /// explicit, local extent of the referenced item. Item data is the
 /// concatenation of its extents, but a range crossing a source-extent boundary
@@ -792,13 +832,15 @@ fn method2_extent(
         let source_end = source_start
             .checked_add(source_extent.length)
             .ok_or("the referenced item's length overflows")?;
-        let in_item_data = ctx
-            .mdat
-            .iter()
-            .any(|(r, _)| source_start >= r.start && source_end <= r.end())
-            || ctx
-                .idat
-                .is_some_and(|(_, _, r)| source_start >= r.start && source_end <= r.end());
+        let in_idat = ctx
+            .idat
+            .is_some_and(|(_, _, r)| source_start >= r.start && source_end <= r.end());
+        let in_item_data = in_idat
+            || (source.method == 0
+                && ctx
+                    .mdat
+                    .iter()
+                    .any(|(r, _)| source_start >= r.start && source_end <= r.end()));
         if source_end > file_len || !in_item_data {
             return Err("the referenced item's extent is outside bounded item data");
         }
@@ -1037,6 +1079,84 @@ mod tests {
             ctx.mdat.push((ByteRange::new(0, 64), 0));
         }
         (ctx, item)
+    }
+
+    #[test]
+    fn direct_idat_extent_cannot_read_following_file_bytes() {
+        let (ctx, _) = method2_context(
+            1,
+            vec![Extent {
+                index: 1,
+                offset: 35,
+                length: 6,
+            }],
+        );
+        let loc = &ctx.locs[0];
+        assert!(local_extent(&ctx, loc, &loc.extents[0], 200).is_err());
+        let extent = Extent {
+            index: 1,
+            offset: 35,
+            length: 0,
+        };
+        assert_eq!(
+            local_extent(&ctx, loc, &extent, 200),
+            Ok(ByteRange::new(135, 5))
+        );
+    }
+
+    #[test]
+    fn direct_extent_rejects_overflow_and_ambiguous_implicit_length() {
+        let (ctx, _) = method2_context(
+            0,
+            vec![
+                Extent {
+                    index: 1,
+                    offset: u64::MAX,
+                    length: 1,
+                },
+                Extent {
+                    index: 1,
+                    offset: 4,
+                    length: 0,
+                },
+            ],
+        );
+        let loc = &ctx.locs[0];
+        for extent in &loc.extents {
+            assert!(local_extent(&ctx, loc, extent, 64).is_err());
+        }
+    }
+
+    #[test]
+    fn external_item_is_not_interpreted_as_local_metadata() {
+        let data = [0u8; 64];
+        let mut doc = parse_heif(&data);
+        let root = doc.tree.root().unwrap();
+        let ctx = Ctx {
+            items: vec![Item {
+                id: 7,
+                typ: "Exif".into(),
+                content_type: String::new(),
+            }],
+            locs: vec![Loc {
+                id: 7,
+                method: 0,
+                data_reference_index: 1,
+                base: 0,
+                extents: vec![Extent {
+                    index: 0,
+                    offset: 8,
+                    length: 16,
+                }],
+                node: root,
+            }],
+            ..Ctx::default()
+        };
+        place_items(&mut doc, &data, &ctx, root, 0);
+        assert!(doc.exif.is_none());
+        assert!(doc.tree.nodes().iter().any(|n| {
+            n.kind == NodeKind::Error && n.label == "external item data reference was not read"
+        }));
     }
 
     #[test]
