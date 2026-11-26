@@ -1,0 +1,3 @@
+# Cooperative entropy scheduling
+
+Entropy computation already yielded between windows, but a single large window could still monopolize the main thread. Accumulate histograms in at-most-16 KiB chunks, preserving the counts until the original window completes. Each task slice targets 3 ms on unknown/low concurrency and 6 ms otherwise; these are scheduling targets, not hard deadlines. Progress continues to report complete windows. The same window boundaries, sampling option and Shannon reduction are retained. Tests compare Float32 results with an independent reference and abort inside a large window. No parser coverage or WASM change.
