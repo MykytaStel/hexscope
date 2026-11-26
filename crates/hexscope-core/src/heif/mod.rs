@@ -616,7 +616,8 @@ fn place_items(doc: &mut HeifDocument, data: &[u8], ctx: &Ctx, root: NodeId, dep
                 0 | 1 => match local_extent(ctx, loc, extent, len) {
                     Ok(range) => Some((range.start, range.len)),
                     Err(reason) => {
-                        doc.tree.error(loc.node, reason, doc.tree.get(loc.node).range);
+                        doc.tree
+                            .error(loc.node, reason, doc.tree.get(loc.node).range);
                         None
                     }
                 },
