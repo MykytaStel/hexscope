@@ -261,6 +261,9 @@ export class WorkspaceController {
         opened.releaseDeferredBytes();
         return;
       }
+      // Parent evidence and selection stay available; sparse byte pages are
+      // reloadable on Back and need not accumulate across nested levels.
+      parent.releaseDeferredBytes();
       this.history = [...this.history, { model: parent, selected }];
       this.current = opened;
       this.options.view.show(this.current, this.history);
@@ -284,6 +287,9 @@ export class WorkspaceController {
         opened.releaseDeferredBytes();
         return;
       }
+      // Parent evidence and selection stay available; sparse byte pages are
+      // reloadable on Back and need not accumulate across nested levels.
+      parent.releaseDeferredBytes();
       this.history = [...this.history, { model: parent, selected }];
       this.current = opened;
       this.options.view.show(this.current, this.history);

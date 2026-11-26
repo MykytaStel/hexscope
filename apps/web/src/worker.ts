@@ -1,4 +1,4 @@
-import { allowDocumentPrefetch, assertInputBudget, isFatalReaderError } from "./resource-budget";
+import { allowDocumentPrefetch, assertInputBudget, assertNestedInputBudget, isFatalReaderError } from "./resource-budget";
 import { SerialScanQueue } from "./scan-queue";
 import type { AnalysisProgress, AnalysisProgressStage } from "./analysis-progress";
 // Parsing runs here so a large file never freezes the page. The parsed
@@ -96,6 +96,10 @@ function prefetchDocuments(): void {
 let stack: Parsed[] = [];
 /** Source Blobs parallel to `stack`; nested files keep their ZIP bytes in WASM. */
 let stackSources: (Blob | null)[] = [];
+/** Decoded input sizes for nested documents only. Root size is excluded:
+ * a deferred movie can have a huge logical size without a full input buffer.
+ */
+let nestedInputSizes: number[] = [];
 /** Active asynchronous parser and QR operations, cancellable by request ID. */
 const activeOperations = new Map<number, AbortController>();
 /** Parsed files wait here until the page accepts the result and commits it. */
@@ -127,6 +131,7 @@ function clearParsedStack(): void {
   }
   stack = [];
   stackSources = [];
+  nestedInputSizes = [];
 }
 
 function discardPendingParse(id: number): void {
@@ -626,6 +631,8 @@ async function handle(req: OperationRequest): Promise<void> {
       throw new Error("the file changed while its archive entry was being read");
     }
     if (bytes.length === 0) throw new Error(`This entry cannot be opened: ${current.extractError}.`);
+    // Before loading another module, check what would be retained for Back.
+    assertNestedInputBudget(nestedInputSizes, bytes.length);
     // Its own build: a ZIP behind a photo needs the one that reads archives.
     const wasm = await moduleFor(bytes);
     if (req.type === "open" && stack[stack.length - 1] !== current) {
@@ -633,7 +640,9 @@ async function handle(req: OperationRequest): Promise<void> {
     }
     const t0 = performance.now();
     if (stack[stack.length - 1] !== current) throw new Error("the file changed while its archive entry was being read");
-    assertInputBudget(bytes.length);
+    // Recheck after the async module load, before another full WASM input.
+    assertNestedInputBudget(nestedInputSizes, bytes.length);
+    const inputSize = bytes.length;
     const parsed = wasm.parseOwned(bytes);
     let retained = false;
     try {
@@ -644,6 +653,7 @@ async function handle(req: OperationRequest): Promise<void> {
       post({ id: req.id, type: "opened", result, bytes }, [...transfers(result), bytes.buffer]);
       stack.push(parsed);
       stackSources.push(null);
+      nestedInputSizes.push(inputSize);
       retained = true;
     } finally {
       if (!retained) {
@@ -660,6 +670,7 @@ async function handle(req: OperationRequest): Promise<void> {
       releaseParsedSource(parsed);
       parsed.free();
       stackSources.pop();
+      nestedInputSizes.pop();
     }
     post({ id: req.id, type: "back" });
     return;

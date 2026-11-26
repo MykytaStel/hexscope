@@ -1,0 +1,5 @@
+# Nested workspace resource budget
+
+The reader tracks decoded input sizes for nested documents (not the root). The existing 128 MiB single-input limit and depth limit remain. The added 256 MiB aggregate cap is a conservative policy for retaining several decoded inputs for Back. It is checked after entry extraction and before module loading, and again after module loading before the nested parse. Sizes are recorded only on a successful nested open and removed on Back or root replacement. A refusal leaves the current document and selection intact. This is a new restriction on combinations of individually admissible nested files; use Back or the CLI when it is reached. It does not cap peak extraction memory, JS copies, WASM capacity, parser tree sizes or full resident memory.
+
+On the page, successful nested opens drop the parent's reloadable sparse pages; returning reloads pages on demand. Parent evidence and history remain. Failure preserves active pages. Tests cover exact cap, invalid sizes, successful nested navigation, refusal, and Back. No new global heap claim.

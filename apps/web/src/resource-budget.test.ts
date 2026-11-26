@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowDocumentPrefetch, assertInputBudget, MAX_INPUT_BYTES, retentionBudget } from "./resource-budget";
+import { allowDocumentPrefetch, assertInputBudget, assertNestedInputBudget, MAX_INPUT_BYTES, retentionBudget } from "./resource-budget";
 
 describe("whole-input admission", () => {
   it("rejects oversized or invalid inputs before allocating their buffers", () => {
@@ -27,6 +27,21 @@ describe("adaptive retention budgets", () => {
     expect(retentionBudget(8)).toEqual({ pageCount: 64, pendingPages: 4, batchFiles: 8, batchBytes: 32 * 1024 * 1024 });
     for (const hint of [undefined, NaN, Infinity, -1, 0, 4]) {
       expect(retentionBudget(hint)).toEqual({ pageCount: 32, pendingPages: 3, batchFiles: 4, batchBytes: 16 * 1024 * 1024 });
+    }
+  });
+});
+
+describe("nested input admission", () => {
+  it("accepts the exact combined ceiling and refuses an additional byte", () => {
+    expect(() => assertNestedInputBudget([MAX_INPUT_BYTES], MAX_INPUT_BYTES)).not.toThrow();
+    expect(() => assertNestedInputBudget([MAX_INPUT_BYTES, MAX_INPUT_BYTES], 1)).toThrow("256 MiB");
+    expect(() => assertNestedInputBudget([MAX_INPUT_BYTES - 1, MAX_INPUT_BYTES], 1)).not.toThrow();
+    expect(() => assertNestedInputBudget([], MAX_INPUT_BYTES + 1)).toThrow("128 MiB");
+  });
+  it("rejects invalid accounting inputs", () => {
+    for (const invalid of [NaN, Infinity, -1, 0.5]) {
+      expect(() => assertNestedInputBudget([invalid], 1)).toThrow();
+      expect(() => assertNestedInputBudget([], invalid)).toThrow();
     }
   });
 });
