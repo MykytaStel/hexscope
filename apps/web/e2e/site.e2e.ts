@@ -1411,13 +1411,26 @@ test("keeps the mobile landing menu compact and aligned below the header", async
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height + 4);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(382);
-  // Scrolled past the landing's button, the header's Open is at hand, inside the screen.
+  // The landing owns a fixed scroll container; the body and header do not
+  // scroll. Wheel input at the menu button would target the header instead.
   await summary.click();
-  await page.locator("#examples").scrollIntoViewIfNeeded();
-  await page.mouse.wheel(0, 900);
+  await expect(menu).toBeHidden();
+  const landing = page.locator(".empty");
+  const heroOpen = landing.locator(".hero-actions .btn-primary");
+  await expect(heroOpen).toBeInViewport();
+  // Scroll the actual container, and establish the geometry independently
+  // of the header's visibility. Do not wait for an arbitrary wheel distance.
+  await landing.evaluate(el => el.scrollTo({ top: el.scrollHeight, behavior: "instant" }));
+  await expect(heroOpen).not.toBeInViewport();
   await expect(headerOpen).toBeVisible();
   const open = await headerOpen.boundingBox();
+  expect(open).not.toBeNull();
+  expect(open!.x).toBeGreaterThanOrEqual(0);
   expect(open!.x + open!.width).toBeLessThanOrEqual(390);
+
+  await landing.evaluate(el => el.scrollTo({ top: 0, behavior: "instant" }));
+  await expect(heroOpen).toBeInViewport();
+  await expect(headerOpen).toBeHidden();
 });
 
 /** Opens a sample from its door on the landing page. */
