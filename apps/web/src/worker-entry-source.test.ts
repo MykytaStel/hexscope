@@ -177,3 +177,74 @@ it("does not inflate an external entry when cancellation arrives during its Blob
   await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   expect(parsed.extractEntryFrom).not.toHaveBeenCalled();
 });
+
+
+it("rejects invalid ranges without falling back to a different source", async () => {
+  const slice = vi.fn();
+  const source = { size: 20, slice } as unknown as Blob;
+  const parsed = {
+    entryDataRange: vi.fn(),
+    extractEntry: vi.fn(),
+    extractEntryFrom: vi.fn(),
+    selectEntry: vi.fn(),
+    selectEntryFrom: vi.fn(),
+  } as unknown as Parsed;
+  for (const range of [[-1, 2], [1, -1], [19, 2], [1.5, 2], [0, Infinity], [0], [0, 1, 2]]) {
+    vi.mocked(parsed.entryDataRange).mockReturnValue(new Float64Array(range));
+    await expect(readEntry(parsed, source, 0)).rejects.toThrow("Invalid archive entry byte range");
+    await expect(selectEntry(parsed, source, 0)).rejects.toThrow("Invalid archive entry byte range");
+  }
+  expect(slice).not.toHaveBeenCalled();
+  expect(parsed.extractEntry).not.toHaveBeenCalled();
+  expect(parsed.selectEntry).not.toHaveBeenCalled();
+});
+
+it("rejects short compressed reads before extraction or player selection", async () => {
+  const source = {
+    size: 10,
+    slice: () => ({ arrayBuffer: async () => new Uint8Array(2).buffer }),
+  } as unknown as Blob;
+  const parsed = {
+    entryDataRange: () => new Float64Array([0, 3]),
+    extractEntryFrom: vi.fn(),
+    selectEntryFrom: vi.fn(),
+  } as unknown as Parsed;
+  await expect(readEntry(parsed, source, 0)).rejects.toThrow("not read completely");
+  await expect(selectEntry(parsed, source, 0)).rejects.toThrow("not read completely");
+  expect(parsed.extractEntryFrom).not.toHaveBeenCalled();
+  expect(parsed.selectEntryFrom).not.toHaveBeenCalled();
+});
+
+it("shares a compressed-read budget across extraction and selection, releasing on rejection", async () => {
+  const MiB = 1024 * 1024;
+  let resolve!: (value: ArrayBuffer) => void;
+  const slice = vi.fn((_start: number, _end: number) => ({
+    arrayBuffer: () => new Promise<ArrayBuffer>(done => { resolve = done; }),
+  }));
+  const source = { size: 128 * MiB, slice } as unknown as Blob;
+  const parsed = {
+    entryDataRange: (index: number) => new Float64Array([0, index === 0 ? 96 * MiB : 64 * MiB]),
+    extractEntryFrom: vi.fn(),
+    selectEntryFrom: vi.fn(),
+  } as unknown as Parsed;
+  const first = readEntry(parsed, source, 0);
+  await expect(selectEntry(parsed, source, 1)).rejects.toThrow("compressed-byte budget");
+  expect(slice).toHaveBeenCalledTimes(1);
+  resolve(new ArrayBuffer(0));
+  await expect(first).rejects.toThrow("not read completely");
+  const next = selectEntry(parsed, source, 1);
+  expect(slice).toHaveBeenCalledTimes(2);
+  resolve(new ArrayBuffer(0));
+  await expect(next).rejects.toThrow("not read completely");
+});
+
+it("retains the documented empty-range fallback", async () => {
+  const parsed = {
+    entryDataRange: () => new Float64Array(),
+    extractEntry: vi.fn(() => new Uint8Array([7])),
+    selectEntry: vi.fn(() => true),
+  } as unknown as Parsed;
+  const source = new Blob(["archive"]);
+  await expect(readEntry(parsed, source, 0)).resolves.toEqual(new Uint8Array([7]));
+  await expect(selectEntry(parsed, source, 0)).resolves.toBe(true);
+});
