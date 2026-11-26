@@ -84,6 +84,7 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
     let mut idat: Vec<u8> = Vec::new();
     let mut idat_ranges: Vec<ByteRange> = Vec::new();
     let mut idat_nodes: Vec<NodeId> = Vec::new();
+    let mut saw_ihdr = false;
     let mut saw_iend = false;
     let mut notes: Vec<TextNote> = Vec::new();
     let mut exif = PhotoFacts::default();
@@ -165,7 +166,17 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
         }
 
         match &chunk.kind {
-            b"IHDR" => ihdr = decode_ihdr(&chunk, &mut tree, node),
+            b"IHDR" => {
+                if saw_ihdr {
+                    tree.error(node, "duplicate IHDR chunk", chunk.range);
+                } else {
+                    saw_ihdr = true;
+                    if chunk.range.start != 8 {
+                        tree.error(node, "IHDR is not the first chunk", chunk.range);
+                    }
+                    ihdr = decode_ihdr(&chunk, &mut tree, node);
+                }
+            }
             b"PLTE" => decode_plte(&chunk, &mut tree, node),
             b"tEXt" => notes.extend(decode_text(&chunk, &mut tree, node)),
             b"zTXt" => notes.extend(decode_ztxt(&chunk, &mut tree, node)),
@@ -189,9 +200,18 @@ pub fn parse_png(data: &[u8]) -> PngDocument {
                 idat_ranges.push(chunk.data_range);
                 idat_nodes.push(node);
             }
-            b"IEND" => saw_iend = true,
+            b"IEND" => {
+                if !chunk.data.is_empty() {
+                    tree.error(node, "IEND must have an empty payload", chunk.data_range);
+                }
+                saw_iend = true;
+            }
             _ => {}
         }
+    }
+
+    if !saw_ihdr {
+        tree.error(root, "missing IHDR chunk", ByteRange::new(8, 0));
     }
 
     // A PNG without image data, or without a terminator, parses cleanly chunk
@@ -389,4 +409,47 @@ fn text_facts(notes: &[TextNote]) -> PhotoFacts {
         }
     }
     f
+}
+
+#[cfg(test)]
+mod framing_tests {
+    use super::*;
+
+    const SAMPLE: &[u8] = include_bytes!("../../tests/fixtures/pngsuite/basn2c08.png");
+
+    fn assert_partial(data: &[u8], label: &str) {
+        let doc = parse_png(data);
+        assert!(
+            doc.tree
+                .nodes()
+                .iter()
+                .any(|n| n.kind == NodeKind::Error && n.label == label)
+        );
+        assert!(!crate::summary::summarize(data).complete);
+    }
+
+    #[test]
+    fn missing_and_duplicate_headers_are_not_complete_images() {
+        assert_eq!(&SAMPLE[12..16], b"IHDR");
+        let mut duplicate = SAMPLE.to_vec();
+        duplicate.splice(33..33, SAMPLE[8..33].iter().copied());
+        assert_partial(&duplicate, "duplicate IHDR chunk");
+
+        let mut missing = SAMPLE.to_vec();
+        missing.drain(8..33);
+        assert_partial(&missing, "missing IHDR chunk");
+    }
+
+    #[test]
+    fn a_nonempty_iend_is_damage_even_with_a_valid_crc() {
+        let at = SAMPLE.len() - 12;
+        assert_eq!(&SAMPLE[at + 4..at + 8], b"IEND");
+        let mut data = SAMPLE[..at].to_vec();
+        data.extend_from_slice(&1u32.to_be_bytes());
+        let body = b"IENDx";
+        data.extend_from_slice(body);
+        let crc = !crate::crc32::crc32_update(0xFFFF_FFFF, body);
+        data.extend_from_slice(&crc.to_be_bytes());
+        assert_partial(&data, "IEND must have an empty payload");
+    }
 }
