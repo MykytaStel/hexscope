@@ -11,7 +11,13 @@ interface PendingRequest {
 }
 const waiting = new Map<number, PendingRequest>();
 const workerResetListeners = new Set<() => void>();
-const abandoned = new Map<number, { worker: Worker; timer: ReturnType<typeof setTimeout> }>();
+// A caller can stop waiting before the worker has actually released resources.
+const abandoned = new Map<number, { worker: Worker; timer?: ReturnType<typeof setTimeout> }>();
+
+/** Counts requests, not bytes or resident memory. No file data is exposed. */
+export function readerActivity(): { pending: number; cancelling: number; running: boolean } {
+  return { pending: waiting.size, cancelling: abandoned.size, running: worker !== null };
+}
 
 export interface CallOptions {
   signal?: AbortSignal;
@@ -129,6 +135,10 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
       resolve(response);
     };
     waiting.set(id, { finish, onProgress: options?.onProgress });
+    if (options?.signal?.aborted) {
+      finish({ id, type: "error", message: "Reading cancelled" });
+      return;
+    }
     let target: Worker;
     try {
       target = worker ??= start();
@@ -149,10 +159,6 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
         timeoutMs,
       );
     }
-    if (options?.signal?.aborted) {
-      finish({ id, type: "error", message: "Reading cancelled" });
-      return;
-    }
     if (options?.signal) {
       abort = () => {
         try {
@@ -161,15 +167,18 @@ export function call(req: Req, timeoutMs?: number, options?: CallOptions): Promi
           // The request still resolves as canceled if the worker has died.
         }
         finish({ id, type: "error", message: "Reading cancelled" });
-        if (req.type === "parse" && worker === target) {
-          const timer = setTimeout(() => {
-            abandoned.delete(id);
-            // A resumed batch/new file owns its own deadline. An abandoned
-            // request must not terminate the worker underneath that newer work.
-            if (worker !== target || waiting.size > 0) return;
-            stopReader(target, "the reader stopped after reading was cancelled; reopen the file to continue", true);
-          }, 500);
-          abandoned.set(id, { worker: target, timer });
+        if ((req.type === "parse" || req.type === "codes") && worker === target) {
+          // Both operation types send a terminal response after their cleanup.
+          // Keep a tombstone even after the parse grace period if newer work
+          // is active. A cancelled code scan must not reset an open document.
+          const entry: { worker: Worker; timer?: ReturnType<typeof setTimeout> } = { worker: target };
+          if (req.type === "parse") {
+            entry.timer = setTimeout(() => {
+              if (worker !== target || waiting.size > 0) return;
+              stopReader(target, "the reader stopped after reading was cancelled; reopen the file to continue", true);
+            }, 500);
+          }
+          abandoned.set(id, entry);
         }
       };
       options.signal.addEventListener("abort", abort, { once: true });

@@ -197,6 +197,56 @@ describe("worker RPC timeouts", () => {
     await expect(next).resolves.toMatchObject({ type: "steps" });
   });
 
+  it("counts cancelled scans until terminal cleanup and does not recycle them early", async () => {
+    const rpc = await import("./rpc");
+    const worker = FakeWorker.instances[0];
+    const controller = new AbortController();
+    const result = rpc.call({ type: "codes", picture: new Blob(["image"]) }, undefined, { signal: controller.signal });
+    const id = worker.sent[0].id;
+    expect(rpc.readerActivity()).toEqual({ pending: 1, cancelling: 0, running: true });
+    controller.abort();
+    await result;
+    expect(rpc.readerActivity()).toEqual({ pending: 0, cancelling: 1, running: true });
+    expect(rpc.recycleIdleReader()).toBe(false);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(worker.terminated).toBe(false);
+    worker.respond({ id, type: "progress", progress: {} });
+    expect(rpc.readerActivity().cancelling).toBe(1);
+    worker.respond({ id, type: "error", message: "cancelled" });
+    expect(rpc.readerActivity().cancelling).toBe(0);
+    expect(rpc.recycleIdleReader()).toBe(true);
+    expect(rpc.readerActivity().running).toBe(false);
+  });
+
+  it("keeps cancelled parse accounting beyond grace while a newer operation is active", async () => {
+    const rpc = await import("./rpc");
+    const worker = FakeWorker.instances[0];
+    const controller = new AbortController();
+    const previous = rpc.call({ type: "parse", file: new File(["old"], "old.bin") }, undefined, { signal: controller.signal });
+    const oldId = worker.sent[0].id;
+    controller.abort();
+    await previous;
+    const newer = rpc.call({ type: "steps", from: 0, count: 1 });
+    const newId = worker.sent.at(-1)!.id;
+    await vi.advanceTimersByTimeAsync(500);
+    worker.respond({ id: newId, type: "steps", steps: new Float64Array() });
+    await newer;
+    expect(rpc.readerActivity().cancelling).toBe(1);
+    expect(rpc.recycleIdleReader()).toBe(false);
+    worker.respond({ id: oldId, type: "error", message: "cancelled" });
+    expect(rpc.recycleIdleReader()).toBe(true);
+  });
+
+  it("does not restart a recycled worker for an already aborted operation", async () => {
+    const rpc = await import("./rpc");
+    expect(rpc.recycleIdleReader()).toBe(true);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(rpc.call({ type: "codes" }, undefined, { signal: controller.signal })).resolves.toMatchObject({ type: "error" });
+    expect(FakeWorker.instances).toHaveLength(1);
+    expect(rpc.readerActivity()).toEqual({ pending: 0, cancelling: 0, running: false });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
