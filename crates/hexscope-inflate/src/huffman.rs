@@ -75,13 +75,17 @@ impl Huffman {
             next_code[len] += 1;
             if len <= LOOKUP_BITS {
                 let suffixes = 1 << (LOOKUP_BITS - len);
-                let start = (code as usize) << (LOOKUP_BITS - len);
+                let prefix = (code.reverse_bits() >> (16 - len)) as usize;
                 let entry = LookupEntry {
                     symbol: symbol as u16,
                     code,
                     bits: len as u8,
                 };
-                lookup[start..start + suffixes].fill(entry);
+                // The canonical code is MSB-first; only reverse when building
+                // the table. Each suffix fills one low-first lookup slot.
+                for suffix in 0..suffixes {
+                    lookup[prefix | (suffix << len)] = entry;
+                }
             }
         }
 
@@ -266,5 +270,27 @@ mod tests {
         let data = [];
         let mut br = BitReader::new(&data);
         assert_eq!(h.decode(&mut br), Err(InflateError::Bits));
+    }
+}
+
+#[cfg(test)]
+mod lookup_parity_tests {
+    use super::*;
+
+    #[test]
+    fn every_nine_bit_prefix_matches_canonical_walk() {
+        let fast = Huffman::from_lengths(&crate::tables::fixed_literal_lengths()).unwrap();
+        let mut slow = fast.clone();
+        slow.lookup.fill(LookupEntry::default());
+        for prefix in 0..512u16 {
+            for offset in 0..8 {
+                let data = (u32::from(prefix) << offset).to_le_bytes();
+                let mut a = BitReader::new(&data);
+                a.seek_bits(offset);
+                let mut b = a.clone();
+                assert_eq!(fast.decode_traced(&mut a), slow.decode_traced(&mut b));
+                assert_eq!(a.bit_pos(), b.bit_pos());
+            }
+        }
     }
 }
