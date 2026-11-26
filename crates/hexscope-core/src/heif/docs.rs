@@ -19,6 +19,9 @@ const fn bmff(text: &'static str) -> Doc {
 const fn damage(text: &'static str) -> Doc {
     Doc::new(text).concern(Concern::Damage)
 }
+const fn oddity(text: &'static str) -> Doc {
+    Doc::new(text).concern(Concern::Oddity)
+}
 
 const TABLE: Table = &[
     (
@@ -320,6 +323,30 @@ const TABLE: Table = &[
     (
         "the EXIF header offset points past the item",
         damage("The EXIF item's offset points outside it, so its metadata cannot be read."),
+    ),
+    (
+        // Outside its storage range, an offset that overflows, or an item
+        // data box that is missing or overflows.
+        "item data *",
+        damage(
+            "An item's bytes are said to lie where they cannot be read: outside the box or file that stores them.",
+        ),
+    ),
+    (
+        "implicit item extent length is ambiguous",
+        damage(
+            "An item made of several pieces leaves a piece's length unstated, so where it ends is unknown.",
+        ),
+    ),
+    (
+        "*item is not stored directly in this file",
+        oddity("The item's bytes are not kept here as they are, so this view does not read them."),
+    ),
+    (
+        "external item data reference was not read",
+        oddity(
+            "An item's bytes are said to be in another file; this tool reads only the file it was given.",
+        ),
     ),
 ];
 
