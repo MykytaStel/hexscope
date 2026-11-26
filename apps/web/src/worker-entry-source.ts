@@ -1,4 +1,28 @@
 import type { Parsed } from "./wasm-pdf/hexscope_pdf.js";
+import { MAX_INPUT_BYTES } from "./resource-budget";
+
+/** Bound the sum of external compressed ranges in flight, not WASM heap. */
+let reservedCompressedBytes = 0;
+
+async function withCompressedRange<T>(
+  source: Blob,
+  start: number,
+  end: number,
+  use: (bytes: Uint8Array) => T,
+): Promise<T> {
+  const length = end - start;
+  if (length > MAX_INPUT_BYTES - reservedCompressedBytes) {
+    throw new Error("Archive entry reading exceeds the browser's compressed-byte budget. Try again after the other reads finish.");
+  }
+  reservedCompressedBytes += length;
+  try {
+    const bytes = new Uint8Array(await source.slice(start, end).arrayBuffer());
+    if (bytes.length !== length) throw new Error("The archive entry's compressed byte range was not read completely.");
+    return use(bytes);
+  } finally {
+    reservedCompressedBytes -= length;
+  }
+}
 
 type EntrySource = Pick<Parsed, "entryDataRange" | "extractEntry" | "extractEntryFrom" | "selectEntry" | "selectEntryFrom">;
 type IsCurrent = () => boolean;
@@ -11,7 +35,9 @@ function fileChanged(): Error {
 
 function compressedRange(parsed: EntrySource, source: Blob, index: number): [number, number] | null {
   const range = parsed.entryDataRange(index);
-  if (range.length !== 2) return null;
+  // An empty range is the documented WASM fallback for an unavailable range.
+  if (range.length === 0) return null;
+  if (range.length !== 2) throw new Error("Invalid archive entry byte range.");
 
   const [start, length] = range;
   const end = start + length;
@@ -23,7 +49,7 @@ function compressedRange(parsed: EntrySource, source: Blob, index: number): [num
     !Number.isSafeInteger(end) ||
     end > source.size
   ) {
-    return null;
+    throw new Error("Invalid archive entry byte range.");
   }
   return [start, end];
 }
@@ -41,10 +67,11 @@ export async function readEntry(
   if (!source) return parsed.extractEntry(index);
   const range = compressedRange(parsed, source, index);
   if (!range) return parsed.extractEntry(index);
-  const compressed = new Uint8Array(await source.slice(range[0], range[1]).arrayBuffer());
-  signal?.throwIfAborted();
-  if (!isCurrent()) throw fileChanged();
-  return parsed.extractEntryFrom(index, compressed);
+  return withCompressedRange(source, range[0], range[1], compressed => {
+    signal?.throwIfAborted();
+    if (!isCurrent()) throw fileChanged();
+    return parsed.extractEntryFrom(index, compressed);
+  });
 }
 
 /** Selects a ZIP entry for the DEFLATE player, reading only its compressed range when needed. */
@@ -62,7 +89,8 @@ export async function selectEntry(
   if (!source) return parsed.selectEntry(index);
   const range = compressedRange(parsed, source, index);
   if (!range) return parsed.selectEntry(index);
-  const compressed = new Uint8Array(await source.slice(range[0], range[1]).arrayBuffer());
-  if (!isCurrent() || !isLatest()) return false;
-  return parsed.selectEntryFrom(index, compressed);
+  return withCompressedRange(source, range[0], range[1], compressed => {
+    if (!isCurrent() || !isLatest()) return false;
+    return parsed.selectEntryFrom(index, compressed);
+  });
 }
