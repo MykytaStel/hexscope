@@ -65,3 +65,33 @@ test("desktop metadata keeps its section index available", async ({ page }, info
   await expect(page.locator("#drawer .metadata-summary")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("narrowing the landing never lets the header outrun the screen before its controls move", async ({ page }, info) => {
+  test.skip(info.project.name !== "computer", "starts wide and narrows, as a desktop window does");
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "uk");
+    // A busy machine: media query change events arrive long after a resize.
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) => {
+      const list = matchMedia(query);
+      const listen = list.addEventListener.bind(list);
+      list.addEventListener = ((type: string, listener: EventListener, options?: AddEventListenerOptions) =>
+        listen(type, (event: Event) => setTimeout(() => listener(event), 1_000), options)) as typeof list.addEventListener;
+      return list;
+    };
+  });
+  await page.goto("./");
+  await page.waitForFunction(() => document.body.dataset.state === "empty");
+  await expect(page.locator(".topbar .actions > .language-button")).toBeVisible();
+  // With the hero's Open button out of view, the header shows its own: the
+  // fullest the top row gets.
+  await page.locator(".landing-extras > summary").click();
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForFunction(() => document.body.dataset.heroButton === "away");
+  await expect(page.locator('.topbar .actions > .btn[data-opens="picker"]')).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 820 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth), "the header fits before main.ts moves its controls").toBeLessThanOrEqual(320);
+  await expect(page.locator(".landing-menu-controls .language-button")).toBeAttached();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth), "and after").toBeLessThanOrEqual(320);
+});

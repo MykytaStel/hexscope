@@ -1530,6 +1530,14 @@ body[data-state="empty"]:not([data-hero-button="away"]) .topbar .actions > .btn[
     margin: 0;
   }
 
+  /* main.ts moves them into the menu on the media query's change event,
+     which arrives a frame or more after the resize. Until then they would
+     push the top row past a narrow screen's edge. */
+  body[data-state="empty"] .topbar .actions > .language-button,
+  body[data-state="empty"] .topbar .actions > .theme-button {
+    display: none;
+  }
+
   body[data-state="empty"] .topbar .language-button,
   body[data-state="empty"] .topbar .theme-button {
     box-sizing: border-box;
