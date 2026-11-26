@@ -162,14 +162,16 @@ impl Fields<'_, '_> {
 
 /// Reads the boxes in `[start, end)` under `parent`: each box's header as
 /// fields, then its body through `body`. Damage ends the walk at that box.
-pub(crate) fn walk<B: BoxBody + ?Sized>(
+/// `body` is `dyn` so HEIF and movies share one copy of the walk in the
+/// browser modules.
+pub(crate) fn walk(
     tree: &mut ParseTree,
     parent: NodeId,
     data: &[u8],
     start: u64,
     end: u64,
     depth: u32,
-    body: &mut B,
+    body: &mut dyn BoxBody,
 ) {
     if start > end || end > data.len() as u64 {
         tree.error(

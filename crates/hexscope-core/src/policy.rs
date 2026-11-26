@@ -40,16 +40,18 @@ impl Policy {
         kinds: impl Iterator<Item = &'a str>,
     ) -> PolicyResult {
         let observed: Vec<_> = kinds.collect();
+        // Sorted as `&str`, the instantiation the browser build already
+        // links, rather than a second copy of the sort for `String`.
         let mut blocked_kinds = self
             .blocked_kinds
             .iter()
-            .filter(|kind| observed.contains(&kind.as_str()))
-            .cloned()
+            .map(String::as_str)
+            .filter(|kind| observed.contains(kind))
             .collect::<Vec<_>>();
         blocked_kinds.sort_unstable();
         blocked_kinds.dedup();
         PolicyResult {
-            blocked_kinds,
+            blocked_kinds: blocked_kinds.into_iter().map(str::to_owned).collect(),
             unchecked: self.blocked_kinds.iter().any(|kind| {
                 kind.starts_with("qr") || crate::finding_kinds::by_code(kind).is_none()
             }) || self.require_complete && (!complete || format == "unknown"),
