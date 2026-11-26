@@ -3215,11 +3215,23 @@ test("the bytes have a bar of their own: nothing sits on them", async ({ page },
   test.skip(info.project.name !== "computer", "the bytes are a tab of their own on a phone");
   await openDoor(page, /Check a photo/);
   await openBytes(page);
-  const bytes = (await page.locator(".hex-scroller").boundingBox())!;
-  for (const part of [".hex-legend", ".search-open"]) {
-    const box = (await page.locator(part).boundingBox())!;
-    expect(box.y + box.height, part).toBeLessThanOrEqual(bytes.y);
-  }
+  // The legend is lazy-loaded. Measuring the scroller before it mounts
+  // and the legend afterwards can compare two different toolbar heights.
+  await expect(page.locator(".hex-legend")).toBeVisible();
+  await expect(page.locator(".search-open")).toBeVisible();
+  await expect(page.locator(".hex-scroller")).toBeVisible();
+  // Read all rectangles in one synchronous DOM evaluation, and require
+  // the actual controls to fit above the bytes (no overlap tolerance).
+  const geometry = await page.evaluate(() => {
+    const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+    return {
+      bytesTop: rect(".hex-scroller").top,
+      legendBottom: rect(".hex-legend").bottom,
+      searchBottom: rect(".search-open").bottom,
+    };
+  });
+  expect(geometry.legendBottom, ".hex-legend").toBeLessThanOrEqual(geometry.bytesTop);
+  expect(geometry.searchBottom, ".search-open").toBeLessThanOrEqual(geometry.bytesTop);
   await page.keyboard.press("/");
   await page.keyboard.type("hexscope");
   await expect(page.locator(".search-count")).toHaveText(/^1 of \d+$/);

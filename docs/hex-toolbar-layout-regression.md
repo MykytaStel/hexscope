@@ -1,0 +1,3 @@
+# Hex toolbar layout regression
+
+A local full E2E run reported the legend bottom at 98 px against the scroller top at 94 px. The legend mounts through an asynchronous import, so sequential boundingBox calls can compare a scroller measured before mounting with controls measured after mounting. This is a suspected measurement race, not a confirmed CSS diagnosis. Wait for all three visible elements and measure their rectangles together in a synchronous DOM evaluation. Keep the zero-overlap assertion and keyboard search check. No CSS, timeout, retry or skip changes. If the focused repeat still fails, inspect the trace and fix the real layout rather than adding tolerance.
