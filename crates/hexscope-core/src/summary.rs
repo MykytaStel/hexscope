@@ -101,6 +101,19 @@ fn unread(p: &Problem) -> bool {
                 || l.ends_with("nothing points at")))
 }
 
+// The ZIP reader deliberately leaves these conditions visible without
+// classifying them as damage. They still prevent a complete inspection.
+fn zip_directory_complete(tree: &crate::model::ParseTree) -> bool {
+    !tree.nodes().iter().any(|n| {
+        let label = n.label.as_str();
+        (n.kind == NodeKind::Field && label.starts_with("spanned over several disks:"))
+            || (n.kind == NodeKind::Warning
+                && ((label.starts_with("stopped after ") && label.ends_with(" entries"))
+                    || (label.starts_with("counts ")
+                        && label.contains(" entries; the central directory holds "))))
+    })
+}
+
 pub fn summarize(data: &[u8]) -> Summary {
     summary_of(&parse(data))
 }
@@ -167,7 +180,7 @@ pub fn summary_of(doc: &Document) -> Summary {
         }
         Document::Zip(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
-            ("zip", true)
+            ("zip", zip_directory_complete(&d.tree))
         }
         Document::Wasm(d) => {
             facts.extend(d.facts.iter().map(|f| (f.kind, f.text.clone())));
@@ -229,6 +242,69 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap()
+    }
+
+    #[test]
+    fn zip_directory_limits_are_not_complete_inspections() {
+        use crate::model::{ByteRange, ParseTree};
+
+        for (kind, label) in [
+            (
+                NodeKind::Field,
+                "spanned over several disks: only the last one's records are here",
+            ),
+            (NodeKind::Warning, "stopped after 100000 entries"),
+            (
+                NodeKind::Warning,
+                "counts 3 entries; the central directory holds 2",
+            ),
+        ] {
+            let mut tree = ParseTree::new();
+            tree.add(None, label, ByteRange::new(0, 0), kind, None);
+            assert!(!zip_directory_complete(&tree), "{label}");
+        }
+        let mut tree = ParseTree::new();
+        tree.add(
+            None,
+            "counts 3 entries; the central directory holds 2",
+            ByteRange::new(0, 0),
+            NodeKind::Container,
+            None,
+        );
+        assert!(zip_directory_complete(&tree));
+    }
+
+    #[cfg(feature = "office")]
+    #[test]
+    fn zip_directory_status_reaches_the_shared_summary() {
+        use crate::coverage::CoverageStatus;
+        use crate::zip::testing::{Archive, Entry, build};
+
+        let archive = Archive {
+            entries: vec![Entry::new("example.txt", b"sample", 0)],
+            ..Default::default()
+        };
+        let built = build(&archive);
+        assert_eq!(
+            summarize(&built.bytes).inspection_status(),
+            CoverageStatus::Complete
+        );
+
+        let mut split = built.bytes.clone();
+        let eocd = built.eocd as usize;
+        split[eocd + 4..eocd + 6].copy_from_slice(&1u16.to_le_bytes());
+        assert_eq!(
+            summarize(&split).inspection_status(),
+            CoverageStatus::Partial
+        );
+
+        let mut wrong_count = built.bytes;
+        wrong_count[eocd + 8..eocd + 10].copy_from_slice(&2u16.to_le_bytes());
+        wrong_count[eocd + 10..eocd + 12].copy_from_slice(&2u16.to_le_bytes());
+        assert_eq!(
+            summarize(&wrong_count).inspection_status(),
+            CoverageStatus::Partial
+        );
     }
 
     #[test]
