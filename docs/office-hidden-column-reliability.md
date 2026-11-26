@@ -1,0 +1,3 @@
+# Hidden column range reliability
+
+An XLSX hidden column range must contain one-based ordered bounds in 1..=16384. The parser previously used usize subtraction/addition and sums from untrusted XML, which could wrap or panic on malformed inputs. Validate bounds before computing lengths and check aggregate additions. Keep valid counts, retain an explicit hidden-column finding for invalid ranges, and attach an error to the worksheet's archive entry so inspection cannot be presented as complete. Valid ranges preserve the existing count semantics (overlapping ranges still count separately). This is a narrow range/count fix, not a full XML validator or a new worksheet size limit.
