@@ -468,6 +468,22 @@ const TABLE: Table = &[
         ),
     ),
     (
+        "missing IHDR chunk",
+        damage("The image header does not come first, so the image's size and colours are unknown."),
+    ),
+    (
+        "duplicate IHDR chunk",
+        damage("The file has a second image header; a PNG has exactly one, so viewers may refuse it."),
+    ),
+    (
+        "IHDR is not the first chunk",
+        damage("The image header is not the first chunk, where every PNG must put it."),
+    ),
+    (
+        "IEND must have an empty payload",
+        damage("The end marker carries bytes, but it must be empty: the file's ending is damaged."),
+    ),
+    (
         "gAMA truncated",
         damage("The gamma chunk is too short to hold its value."),
     ),

@@ -143,7 +143,6 @@ struct Attr<'a> {
 /// `end`, its `>` (or the `/` before it).
 fn attributes(data: &[u8], mut i: usize, end: usize) -> (Vec<Attr<'_>>, bool) {
     let mut out = Vec::new();
-    let mut names = std::collections::HashSet::new();
     while i < end {
         let space = i;
         while i < end && data[i].is_ascii_whitespace() {
@@ -165,9 +164,6 @@ fn attributes(data: &[u8], mut i: usize, end: usize) -> (Vec<Attr<'_>>, bool) {
         let Ok(name) = std::str::from_utf8(&data[name_at..i]) else {
             return (out, false);
         };
-        if !names.insert(name) {
-            return (out, false);
-        }
         while i < end && data[i].is_ascii_whitespace() {
             i += 1;
         }
@@ -195,7 +191,12 @@ fn attributes(data: &[u8], mut i: usize, end: usize) -> (Vec<Attr<'_>>, bool) {
             value,
         });
     }
-    (out, true)
+    // A name given twice makes the tag malformed. Sorting the names reuses
+    // the module's existing `&str` sort instead of linking a string hasher.
+    let mut names: Vec<&str> = out.iter().map(|a| a.name).collect();
+    names.sort_unstable();
+    let unique = names.windows(2).all(|w| w[0] != w[1]);
+    (out, unique)
 }
 
 /// Where a tag that opens at `at` closes: its `>`, outside quoted values.

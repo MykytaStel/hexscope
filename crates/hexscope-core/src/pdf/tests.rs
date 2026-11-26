@@ -1745,7 +1745,8 @@ fn xref_subsection_outside_object_index_space_is_incomplete() {
 
 #[test]
 fn xref_generation_above_u16_is_not_a_valid_entry() {
-    let data = b"%PDF-1.4\nxref\n0 1\n0000000000 65536 f\ntrailer\n<< /Size 1 >>\nstartxref\n9\n%%EOF\n";
+    let data =
+        b"%PDF-1.4\nxref\n0 1\n0000000000 65536 f\ntrailer\n<< /Size 1 >>\nstartxref\n9\n%%EOF\n";
     let doc = parse_pdf(data);
     assert!(doc.tree.nodes().iter().any(|n| {
         n.kind == NodeKind::Error && n.label == "cross-reference entry 0 cannot be read"
