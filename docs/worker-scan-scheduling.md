@@ -1,0 +1,5 @@
+# Worker scan scheduling
+
+QR scan operations can await image decoding and imports, so multiple asynchronous requests could overlap large temporary raster buffers. The shared scan lane runs one job at a time, including film export readback. Pending jobs are FIFO; a cancelled queued job is removed immediately. Running work keeps the lane until its actual cleanup, even when its caller has cancelled. Source and document identity are captured at admission. Archive reads check cancellation again before extraction.
+
+Task-boundary yields give cancellation and foreground requests a chance to be processed before bitmap analysis, QR detection and PDF scans. This is cooperative scheduling, not preemptive: one synchronous PDF scan or QR detector call cannot be interrupted halfway. The queue does not limit unrelated parsing or film rendering, and is not a global RAM bound. No image count or recognition-quality limit changed. Tests cover queue order, cancellation, rejection recovery and external-entry cancellation.

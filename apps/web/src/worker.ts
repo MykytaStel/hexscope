@@ -1,4 +1,5 @@
 import { allowDocumentPrefetch, assertInputBudget, isFatalReaderError } from "./resource-budget";
+import { SerialScanQueue } from "./scan-queue";
 import type { AnalysisProgress, AnalysisProgressStage } from "./analysis-progress";
 // Parsing runs here so a large file never freezes the page. The parsed
 // document stays alive in the worker so the DEFLATE player can ask for steps
@@ -338,17 +339,20 @@ function postSelectedStream(id: number, current: Parsed, playable: boolean, isAc
   ]);
 }
 
-/** Keeps QR and embedded-image scanning outside the parser's central request router. */
-function codes(req: Extract<OperationRequest, { type: "codes" }>, signal?: AbortSignal): ReturnType<typeof scanCodes> {
+const scanQueue = new SerialScanQueue();
+
+/** Capture the source at admission, not when a queued scan eventually runs. */
+function codes(req: Extract<OperationRequest, { type: "codes" }>, signal = new AbortController().signal): ReturnType<typeof scanCodes> {
   const current = stack[stack.length - 1] ?? null;
-  return scanCodes(
+  const source = stackSources[stackSources.length - 1] ?? null;
+  return scanQueue.run(signal, () => scanCodes(
     req,
-    signal ?? new AbortController().signal,
+    signal,
     current,
     loadPdf,
-    stackSources[stackSources.length - 1] ?? null,
+    source,
     () => current === null || stack[stack.length - 1] === current,
-  );
+  ));
 }
 
 const filmServices: FilmWorkerServices = { moduleFor, loadMedia, describe, codes, post };

@@ -34,12 +34,15 @@ export async function readEntry(
   source: Blob | null,
   index: number,
   isCurrent: IsCurrent = () => true,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
+  signal?.throwIfAborted();
   if (!isCurrent()) throw fileChanged();
   if (!source) return parsed.extractEntry(index);
   const range = compressedRange(parsed, source, index);
   if (!range) return parsed.extractEntry(index);
   const compressed = new Uint8Array(await source.slice(range[0], range[1]).arrayBuffer());
+  signal?.throwIfAborted();
   if (!isCurrent()) throw fileChanged();
   return parsed.extractEntryFrom(index, compressed);
 }

@@ -61,6 +61,15 @@ async function brightness(
   } finally { bitmap?.close(); }
 }
 
+/** Let already queued worker messages (including cancellation) run before
+ * beginning another expensive synchronous phase. Not an execution deadline.
+ */
+async function scanTurn(signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  signal.throwIfAborted();
+}
+
 /** Scans a picture, PDF, or a document's embedded pictures; honors the owning worker request's cancellation. */
 export async function scanCodes(
   req: CodeRequest,
@@ -77,7 +86,7 @@ export async function scanCodes(
   const seen = new Set<string>();
   let filmScan: FilmScanReport | undefined;
   const look = async (image: Blob | ImageData, where: string, dimensions?: readonly [number, number]) => {
-    signal.throwIfAborted();
+    await scanTurn(signal);
     const p = await brightness(image, bitmapResizeOptions(dimensions, CODE_SCAN), luminance, signal);
     signal.throwIfAborted();
     if (req.inspectFilmScan) {
@@ -99,6 +108,7 @@ export async function scanCodes(
       }
     }
     if (!p) return;
+    await scanTurn(signal);
     for (const c of findCodes(p.lum, p.width, p.height)) {
       signal.throwIfAborted();
       rememberCode(found, seen, c, where, p.width, p.height);
@@ -107,7 +117,7 @@ export async function scanCodes(
   if (req.picture) await look(req.picture, "", req.pictureDimensions);
   if (req.pdf) {
     const pdf = await loadPdf();
-    signal.throwIfAborted();
+    await scanTurn(signal);
     await withWorkerResource(pdf.pdfPictures(req.pdf, PDF_PAGES), async (pictures) => {
       for (let i = 0; i < pictures.count; i++) {
         signal.throwIfAborted();
@@ -121,7 +131,7 @@ export async function scanCodes(
         }
       }
     });
-    signal.throwIfAborted();
+    await scanTurn(signal);
     // A code drawn in boxes on a page, as label and invoice makers do.
     await withWorkerResource(pdf.pdfShapes(req.pdf, PDF_PAGES), async (pages) => {
       for (let i = 0; i < pages.count; i++) {
@@ -146,8 +156,8 @@ export async function scanCodes(
     });
   }
   for (const e of req.entries ?? []) {
-    signal.throwIfAborted();
-    const bytes = current ? await readEntry(current, source, e.index, isCurrent) : undefined;
+    await scanTurn(signal);
+    const bytes = current ? await readEntry(current, source, e.index, isCurrent, signal) : undefined;
     if (bytes && bytes.length > 0) await look(new Blob([bytes as BlobPart]), e.name, imageDimensions(bytes));
   }
   return { codes: found, ...(filmScan ? { filmScan } : {}) };
