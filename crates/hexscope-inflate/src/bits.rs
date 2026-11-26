@@ -36,9 +36,8 @@ impl<'a> BitReader<'a> {
         self.data.len() as u64 * 8 - self.bit_pos
     }
 
-    /// Reads the next nine DEFLATE code bits as a most-significant-first
-    /// lookup-table index. The stream stores each byte's bits low-first, so
-    /// reverse only the requested prefix after loading at most two bytes.
+    /// Reads the next nine stream bits in their low-first storage order.
+    /// The Huffman lookup table uses this order directly.
     pub(crate) fn peek_huffman_9(&self) -> Option<usize> {
         if self.remaining_bits() < 9 {
             return None;
@@ -46,8 +45,7 @@ impl<'a> BitReader<'a> {
         let byte_pos = self.byte_pos();
         let bit_offset = (self.bit_pos % 8) as u32;
         let word = u16::from_le_bytes([self.data[byte_pos], self.data[byte_pos + 1]]);
-        let low_first = (word >> bit_offset) & 0x01ff;
-        Some((low_first.reverse_bits() >> 7) as usize)
+        Some(((word >> bit_offset) & 0x01ff) as usize)
     }
 
     /// Advances by a Huffman code length after `peek_huffman_9` proved that
@@ -66,17 +64,21 @@ impl<'a> BitReader<'a> {
         if self.remaining_bits() < n as u64 {
             return Err(BitError::Eof);
         }
-        let mut out = 0u32;
-        for i in 0..n {
-            let byte = self
-                .data
-                .get((self.bit_pos / 8) as usize)
-                .ok_or(BitError::Eof)?;
-            let bit = (byte >> (self.bit_pos % 8)) & 1;
-            out |= (bit as u32) << i;
-            self.bit_pos += 1;
+        if n == 0 {
+            return Ok(0);
         }
-        Ok(out)
+        let start = self.byte_pos();
+        let offset = (self.bit_pos % 8) as u32;
+        let count = (offset + n).div_ceil(8) as usize;
+        // At most five bytes are needed, even for a misaligned 32-bit read.
+        // Use a 64-bit accumulator to avoid shifting a u32 by 32.
+        let mut word = 0u64;
+        for (i, &byte) in self.data[start..start + count].iter().enumerate() {
+            word |= u64::from(byte) << (8 * i);
+        }
+        let mask = (1u64 << n) - 1;
+        self.bit_pos += u64::from(n);
+        Ok(((word >> offset) & mask) as u32)
     }
 
     /// Discards bits up to the next byte boundary (used before stored blocks).
@@ -196,5 +198,46 @@ mod tests {
         let data = [0x01];
         let mut br = BitReader::new(&data);
         assert_eq!(br.bits(9), Err(BitError::Eof));
+    }
+}
+
+#[cfg(test)]
+mod wide_read_tests {
+    use super::*;
+
+    #[test]
+    fn bytewise_reads_match_bit_reference_at_every_offset_and_width() {
+        let data = [0x81, 0x42, 0xf3, 0x14, 0xa5, 0x66, 0xd7, 0x28];
+        for start in 0..=data.len() as u64 * 8 {
+            for width in 0..=32 {
+                let mut reader = BitReader::new(&data);
+                reader.seek_bits(start);
+                if start + u64::from(width) > data.len() as u64 * 8 {
+                    assert_eq!(reader.bits(width), Err(BitError::Eof));
+                    assert_eq!(reader.bit_pos(), start);
+                    continue;
+                }
+                let mut expected = 0u32;
+                for i in 0..width {
+                    let pos = start + u64::from(i);
+                    let bit = (data[(pos / 8) as usize] >> (pos % 8)) & 1;
+                    expected |= u32::from(bit) << i;
+                }
+                assert_eq!(reader.bits(width), Ok(expected), "{start}/{width}");
+                assert_eq!(reader.bit_pos(), start + u64::from(width));
+            }
+        }
+    }
+
+    #[test]
+    fn nine_bit_prefix_matches_low_first_read_without_consuming() {
+        let data = [0x81, 0x42, 0xf3, 0x14];
+        for start in 0..=32 {
+            let mut reader = BitReader::new(&data);
+            reader.seek_bits(start);
+            let prefix = reader.peek_huffman_9();
+            assert_eq!(reader.bit_pos(), start);
+            assert_eq!(prefix, reader.bits(9).ok().map(|v| v as usize));
+        }
     }
 }

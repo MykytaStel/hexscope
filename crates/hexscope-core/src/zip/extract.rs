@@ -2,9 +2,9 @@
 //! demand: opening an archive decompresses nothing.
 
 use super::ZipEntry;
-use std::borrow::Cow;
 use crate::crc32::crc32;
 use crate::inflate::{InflateError, NoTrace, inflate};
+use std::borrow::Cow;
 #[cfg(any(feature = "zip-bzip2", feature = "zip-zstd"))]
 use std::io::Read;
 

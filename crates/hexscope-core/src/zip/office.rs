@@ -1541,7 +1541,13 @@ mod performance_tests {
     fn counted_tags_match_list_on_large_and_malformed_xml() {
         let xml = "<row/><rowExtra/><row hidden='1'>x</row>".repeat(100_000);
         assert_eq!(count_tags(&xml, "row"), 200_000);
-        for xml in ["", "<row", "<rowx/><row>", "<row/><row a='b'", "<row/> <row />"] {
+        for xml in [
+            "",
+            "<row",
+            "<rowx/><row>",
+            "<row/><row a='b'",
+            "<row/> <row />",
+        ] {
             assert_eq!(count_tags(xml, "row"), tags(xml, "row").len());
         }
     }
