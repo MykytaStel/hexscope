@@ -331,6 +331,11 @@ export class FileModel {
     return out;
   }
 
+  /** Release only reloadable sparse media bytes, never parser evidence. */
+  releaseDeferredBytes(): void {
+    this.pages?.clear();
+  }
+
   async loadByteRange(start: number, end: number): Promise<boolean> {
     if (this.pages) return this.pages.load(start, end);
     return this.missing && this.source ? this.missing.fill(this.bytes, this.source, start, end) : false;

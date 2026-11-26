@@ -10,6 +10,16 @@ export class BytePageCache {
   private readonly pending = new Map<number, Promise<boolean>>();
 
   private newest = -1;
+  private generation = 0;
+
+  /** Drop optional bytes; outstanding Blob reads cannot publish old pages.
+   * Keep them counted until completion, so clearing never bypasses the cap.
+   */
+  clear(): void {
+    this.generation++;
+    this.pages.clear();
+    this.newest = -1;
+  }
 
   constructor(
     private readonly source: Blob,
@@ -49,9 +59,11 @@ export class BytePageCache {
     if (this.pending.size >= this.maxPending) return Promise.resolve(false);
     const start = index * BYTE_PAGE_SIZE;
     const end = Math.min(this.source.size, start + BYTE_PAGE_SIZE);
+    const generation = this.generation;
     const work = Promise.resolve().then(async () => {
+      if (generation !== this.generation) return false;
       const page = new Uint8Array(await this.source.slice(start, end).arrayBuffer());
-      if (page.length !== end - start) return false;
+      if (generation !== this.generation || page.length !== end - start) return false;
       this.pages.set(index, page);
       this.newest = index;
       while (this.pages.size > this.pageCount) {

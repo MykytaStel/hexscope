@@ -9,6 +9,7 @@ import {
 function model(name: string): FileModel {
   const value = Object.create(Object.prototype) as FileModel;
   Object.defineProperty(value, "name", { value: name, enumerable: true });
+  value.releaseDeferredBytes = vi.fn();
   return value;
 }
 
@@ -421,4 +422,33 @@ describe("WorkspaceController", () => {
     expect(openBytes.mock.calls[0][0]).not.toBe(bytes);
     expect(controller.model).toBe(embedded);
   });
+});
+
+it("releases abandoned sparse caches without releasing the retained parent", async () => {
+  const { controller } = rig();
+  await controller.openFile(file("parent.zip"));
+  const parent = controller.model!;
+  await controller.openEntry(1, "child");
+  const child = controller.model!;
+  expect(parent.releaseDeferredBytes).not.toHaveBeenCalled();
+  await controller.back(0);
+  expect(child.releaseDeferredBytes).toHaveBeenCalledOnce();
+  expect(parent.releaseDeferredBytes).not.toHaveBeenCalled();
+  await controller.openFile(file("new.bin"));
+  expect(parent.releaseDeferredBytes).toHaveBeenCalledOnce();
+  const newest = controller.model!;
+  controller.clear();
+  expect(newest.releaseDeferredBytes).toHaveBeenCalledOnce();
+});
+
+it("retires a late parse after the workspace is cleared", async () => {
+  const late = deferred<FileModel>();
+  const { controller } = rig({ parse: () => late.promise });
+  const open = controller.openFile(file("slow.bin"));
+  controller.clear();
+  const retired = model("slow.bin");
+  late.resolve(retired);
+  await open;
+  expect(retired.releaseDeferredBytes).toHaveBeenCalledOnce();
+  expect(controller.model).toBeNull();
 });

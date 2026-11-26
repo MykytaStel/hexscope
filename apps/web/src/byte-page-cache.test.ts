@@ -58,3 +58,33 @@ describe("adaptive cache limits", () => {
     expect(() => new BytePageCache(source, 65, 1)).toThrow();
   });
 });
+
+it("clears retained pages and prevents late reads from repopulating them", async () => {
+  let finish!: (value: ArrayBuffer) => void;
+  let slow = false;
+  const source = {
+    size: 2 * BYTE_PAGE_SIZE,
+    slice(start: number, end: number) {
+      return {
+        arrayBuffer: () => slow
+          ? new Promise<ArrayBuffer>(resolve => { finish = resolve; })
+          : Promise.resolve(new Uint8Array(end - start).fill(7).buffer),
+      };
+    },
+  } as unknown as Blob;
+  const cache = new BytePageCache(source, 2, 1);
+  await cache.load(0, 1);
+  expect(cache.retainedBytes).toBe(BYTE_PAGE_SIZE);
+  slow = true;
+  const pending = cache.load(BYTE_PAGE_SIZE, BYTE_PAGE_SIZE + 1);
+  await Promise.resolve();
+  cache.clear();
+  expect(cache.retainedBytes).toBe(0);
+  expect(await cache.load(0, 1)).toBe(false);
+  finish(new Uint8Array(BYTE_PAGE_SIZE).fill(8).buffer);
+  expect(await pending).toBe(false);
+  expect(cache.byteAt(BYTE_PAGE_SIZE)).toBeUndefined();
+  slow = false;
+  expect(await cache.load(BYTE_PAGE_SIZE, BYTE_PAGE_SIZE + 1)).toBe(true);
+  expect(cache.byteAt(BYTE_PAGE_SIZE)).toBe(7);
+});
