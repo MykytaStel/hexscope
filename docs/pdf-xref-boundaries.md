@@ -1,0 +1,3 @@
+# PDF cross-reference range reliability
+
+The PDF object's header and reference parser represent object indices as u32 and generations as u16. Validate the declared classic xref subsection's full inclusive object-number range before assigning labels to entries. Invalid ranges record an error, consume readable entry framing as before, but do not publish those entries as valid object index nodes. Generation fields must also fit u16. Tests exercise oversized first indices, ranges crossing the boundary, and oversized generations. This aligns classic table inspection with the existing index representation; it is not full xref-stream, trailer or offset-target validation. Existing xref node and parser budgets remain unchanged.

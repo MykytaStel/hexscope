@@ -1158,10 +1158,20 @@ fn xref_table(
             lx.pos = sub_start;
             break;
         }
-        let label = match count {
-            0 => format!("objects from {first}, none"),
-            1 => format!("object {first}"),
-            _ => format!("objects {first}–{}", first.saturating_add(count - 1)),
+        // Object headers and indirect references use u32 indices. Check
+        // the entire declared subsection, not just the entries that fit.
+        let valid_range = first <= u32::MAX as u64
+            && first
+                .checked_add(count.saturating_sub(1))
+                .is_some_and(|last| last <= u32::MAX as u64);
+        let label = if !valid_range {
+            "invalid cross-reference object range".into()
+        } else {
+            match count {
+                0 => format!("objects from {first}, none"),
+                1 => format!("object {first}"),
+                _ => format!("objects {first}–{}", first + count - 1),
+            }
         };
         let sub = tree.add(
             Some(node),
@@ -1173,6 +1183,13 @@ fn xref_table(
                 if count == 1 { "entry" } else { "entries" }
             ))),
         );
+        if !valid_range {
+            tree.error(
+                sub,
+                "cross-reference object range exceeds the supported 32-bit index space",
+                span(sub_start, lx.pos),
+            );
+        }
         let mut read = 0u64;
         while read < count {
             lx.skip_ws();
@@ -1180,7 +1197,7 @@ fn xref_table(
             let entry = (|| {
                 let offset = lx.uint()?;
                 lx.skip_ws();
-                let _generation = lx.uint()?;
+                let _generation = u16::try_from(lx.uint()?).ok()?;
                 lx.skip_ws();
                 match lx.word() {
                     b"n" => Some(Some(offset)),
@@ -1203,7 +1220,7 @@ fn xref_table(
                 extend(tree, sub, lx.pos);
                 break 'sections;
             };
-            if ctx.xref_nodes < MAX_XREF_NODES {
+            if valid_range && ctx.xref_nodes < MAX_XREF_NODES {
                 ctx.xref_nodes += 1;
                 tree.add(
                     Some(sub),
