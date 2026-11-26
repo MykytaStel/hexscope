@@ -316,7 +316,7 @@ mod tests {
     }
 
     fn single_entry(typ: u16, count: u32, value: u32) -> Vec<u8> {
-        let mut data = b"II\\x2A\\x00\\x08\\x00\\x00\\x00\\x01\\x00".to_vec();
+        let mut data = b"II\x2A\x00\x08\x00\x00\x00\x01\x00".to_vec();
         data.extend_from_slice(&0x0100u16.to_le_bytes());
         data.extend_from_slice(&typ.to_le_bytes());
         data.extend_from_slice(&count.to_le_bytes());

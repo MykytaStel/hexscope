@@ -466,7 +466,7 @@ mod tests {
         let file = webp(&[
             (b"VP8X", &vp8x),
             (b"VP8L", &[0x2F, 0, 0, 0, 0]),
-            (b"EXIF", b"MM\0*\0\0\0\x08\0\0"),
+            (b"EXIF", b"MM\0*\0\0\0\x08\0\0\0\0\0\0"),
             (b"XMP ", b"<x/>"),
         ]);
         let c = crate::clean::clean(&file).unwrap();
