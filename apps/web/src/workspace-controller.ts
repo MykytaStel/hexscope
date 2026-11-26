@@ -90,10 +90,19 @@ export class WorkspaceController {
     await this.reopenCurrent();
   }
 
+  /** Retire only models that are no longer reachable through navigation. */
+  private releaseExcept(keep: FileModel | null = null, levels: readonly WorkspaceLevel[] = []): void {
+    const retained = new Set([keep, ...levels.map(level => level.model)]);
+    for (const model of [this.current, ...this.history.map(level => level.model)]) {
+      if (model && !retained.has(model)) model.releaseDeferredBytes();
+    }
+  }
+
   /** Clears the open workspace when the app changes to a different flow. */
   clear(): void {
     this.request++;
     this.stopPendingOpen();
+    this.releaseExcept();
     this.current = null;
     this.history = [];
     this.options.view.clearPlayer();
@@ -153,8 +162,12 @@ export class WorkspaceController {
       return;
     }
 
-    if (request !== this.request) return;
+    if (request !== this.request) {
+      parsed.releaseDeferredBytes();
+      return;
+    }
     if (this.pendingOpen === pending) this.pendingOpen = null;
+    this.releaseExcept(parsed);
     this.current = parsed;
     this.history = [];
     this.options.view.remember(file);
@@ -202,7 +215,11 @@ export class WorkspaceController {
       result = await this.tryParse(file, pending);
     }
     if (!result.ok) return result.error instanceof Error ? result.error.message : String(result.error);
-    if (pending.request !== this.request) return null;
+    if (pending.request !== this.request) {
+      result.model.releaseDeferredBytes();
+      return null;
+    }
+    this.releaseExcept(result.model);
     this.current = result.model;
     this.history = [];
     this.options.view.remember(file);
@@ -240,7 +257,10 @@ export class WorkspaceController {
     this.options.view.clearPlayer();
     try {
       const opened = await this.options.services.openEntry(index, name);
-      if (request !== this.request || this.current !== parent) return;
+      if (request !== this.request || this.current !== parent) {
+        opened.releaseDeferredBytes();
+        return;
+      }
       this.history = [...this.history, { model: parent, selected }];
       this.current = opened;
       this.options.view.show(this.current, this.history);
@@ -260,7 +280,10 @@ export class WorkspaceController {
     this.options.view.clearPlayer();
     try {
       const opened = await this.options.services.openBytes(bytes.slice(), name);
-      if (request !== this.request || this.current !== parent) return;
+      if (request !== this.request || this.current !== parent) {
+        opened.releaseDeferredBytes();
+        return;
+      }
       this.history = [...this.history, { model: parent, selected }];
       this.current = opened;
       this.options.view.show(this.current, this.history);
@@ -286,8 +309,10 @@ export class WorkspaceController {
       return;
     }
     if (request !== this.request) return;
+    const levels = this.history.slice(0, depth);
+    this.releaseExcept(target.model, levels);
     this.current = target.model;
-    this.history = this.history.slice(0, depth);
+    this.history = levels;
     this.options.view.show(this.current, this.history);
     this.options.view.select(target.selected);
   }
