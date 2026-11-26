@@ -65,3 +65,22 @@ describe("the build a file loads", () => {
     expect(familyOf(bytes("OggS"))).toBe("media");
   });
 });
+
+describe("additional core format routing", () => {
+  it.each(["RIFF", "RIFX", "RF64", "BW64"])("routes %s WAVE to the audio build", signature => {
+    expect(familyOf(bytes(signature, [0, 0, 0, 0], "WAVE"))).toBe("audio");
+    expect(familyOf(bytes(signature, [0, 0, 0, 0], "AVI "))).toBe("media");
+    expect(familyOf(bytes(signature, [0, 0, 0, 0], "WAV"))).toBe("media");
+  });
+
+  it.each(["moov", "mdat", "wide", "free", "skip", "pnot"])("preserves QuickTime %s priority over incidental PDF or ZIP signatures", type => {
+    const payload = bytes([0, 0, 0, 8], type, "%PDF-1.7", "PK", [5, 6], new Array(18).fill(0));
+    expect(familyOf(payload)).toBe("media");
+    payload[3] = 1;
+    expect(familyOf(payload)).toBe("media");
+    payload[3] = 7;
+    expect(familyOf(payload)).toBe("pdf");
+    payload[3] = 255;
+    expect(familyOf(payload)).toBe("pdf");
+  });
+});
