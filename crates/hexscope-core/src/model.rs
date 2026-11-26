@@ -160,6 +160,9 @@ impl ParseTree {
     /// Renames a node and sets its range, for a container whose extent is
     /// known only once its fields are read. An id not from this tree is ignored.
     pub fn relabel(&mut self, id: NodeId, label: impl Into<String>, range: ByteRange) {
+        if self.limit_node == Some(id) {
+            return;
+        }
         if let Some(n) = self.nodes.get_mut(id as usize) {
             n.label = label.into();
             n.range = range;
@@ -168,6 +171,9 @@ impl ParseTree {
 
     /// Sets a node's range after the fact. An id not from this tree is ignored.
     pub fn set_range(&mut self, id: NodeId, range: ByteRange) {
+        if self.limit_node == Some(id) {
+            return;
+        }
         if let Some(n) = self.nodes.get_mut(id as usize) {
             n.range = range;
         }
@@ -184,6 +190,9 @@ impl ParseTree {
     /// Sets a node's value after the fact, for a summary known only once its
     /// children are read. An id not from this tree is ignored.
     pub fn set_value(&mut self, id: NodeId, value: Option<Value>) {
+        if self.limit_node == Some(id) {
+            return;
+        }
         if let Some(n) = self.nodes.get_mut(id as usize) {
             n.value = value;
         }
@@ -245,6 +254,14 @@ impl ParseTree {
         let Some(root) = other.root() else {
             return Vec::new();
         };
+        if let Some(id) = self.limit_node {
+            if return_mapping {
+                let mut mapping = vec![id; other.nodes.len()];
+                mapping[root as usize] = 0;
+                return mapping;
+            }
+            return Vec::new();
+        }
         let mut mapping = return_mapping.then(|| vec![0; other.nodes.len()]);
         let mut stack: Vec<(NodeId, NodeId)> = other
             .get(root)
@@ -277,6 +294,9 @@ impl ParseTree {
             };
             if let Some(mapping) = mapping.as_mut() {
                 mapping[id as usize] = copy;
+            }
+            if self.limit_node.is_some() && !return_mapping {
+                break;
             }
             stack.extend(n.children.iter().rev().map(|&c| (c, copy)));
         }
@@ -410,6 +430,84 @@ mod tests {
         );
         let ids = outer.graft_with_ids(root, &inner, u64::MAX - 5);
         assert_eq!(outer.get(ids[1]).kind, NodeKind::Error);
+    }
+
+    #[test]
+    fn limit_node_cannot_be_overwritten_by_post_add_updates() {
+        let mut tree = ParseTree::with_node_limit(1);
+        let root = tree.add(
+            None,
+            "root",
+            ByteRange::new(0, 20),
+            NodeKind::Container,
+            None,
+        );
+        let limit = tree.add(
+            Some(root),
+            "child",
+            ByteRange::new(4, 2),
+            NodeKind::Field,
+            None,
+        );
+        let original = tree.get(limit).clone();
+        let reused = tree.add(
+            Some(limit),
+            "other",
+            ByteRange::new(10, 1),
+            NodeKind::Field,
+            None,
+        );
+        assert_eq!(reused, limit);
+        tree.relabel(reused, "rewritten", ByteRange::new(11, 1));
+        tree.set_range(reused, ByteRange::new(12, 1));
+        tree.set_value(reused, Some(Value::U64(42)));
+        assert_eq!(tree.get(limit), &original);
+        assert_eq!(tree.get(limit).kind, NodeKind::Error);
+        assert_eq!(tree.get(root).children, [limit]);
+        assert_eq!(tree.len(), 2);
+        tree.set_value(root, Some(Value::U64(7)));
+        assert_eq!(tree.get(root).value, Some(Value::U64(7)));
+    }
+
+    #[test]
+    fn exhausted_graft_preserves_limit_node_and_mapping_contract() {
+        let mut inner = ParseTree::new();
+        let root = inner.add(
+            None,
+            "inner",
+            ByteRange::new(0, 4),
+            NodeKind::Container,
+            None,
+        );
+        let child = inner.add(
+            Some(root),
+            "child",
+            ByteRange::new(0, 2),
+            NodeKind::Container,
+            None,
+        );
+        inner.add(
+            Some(child),
+            "value",
+            ByteRange::new(1, 1),
+            NodeKind::Field,
+            None,
+        );
+        let mut outer = ParseTree::with_node_limit(1);
+        let root = outer.add(
+            None,
+            "outer",
+            ByteRange::new(0, 4),
+            NodeKind::Container,
+            None,
+        );
+        outer.graft(root, &inner, 0);
+        let limit = outer.get(root).children[0];
+        let original = outer.get(limit).clone();
+        assert_eq!(outer.graft_with_ids(root, &inner, 0), [0, limit, limit]);
+        outer.graft(root, &inner, 0);
+        assert_eq!(outer.get(limit), &original);
+        assert_eq!(outer.len(), 2);
     }
 
     #[test]
