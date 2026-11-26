@@ -317,3 +317,39 @@ fn any_cut_or_odd_bytes_are_read_without_a_panic() {
         }
     }
 }
+
+#[test]
+fn malformed_document_framing_is_incomplete_and_cannot_be_cleaned() {
+    for data in [
+        &b"<svg/><svg/>"[..],
+        b"<svg/>extra",
+        b"<svg/> <![CDATA[unterminated",
+        b"<svg/> <![CDATA[closed]]>",
+        b"<svg a/>",
+        b"<svg a=1/>",
+        b"<svg a='1'a='2'/>",
+        b"<svg a='1' a='2'/>",
+    ] {
+        let doc = parse_svg(data);
+        assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+        assert!(!summarize(data).complete);
+        assert_eq!(clean_svg(data, &doc).unwrap_err(), CleanError::Damaged);
+    }
+}
+
+#[test]
+fn valid_document_framing_preserves_comments_cdata_and_nested_svg() {
+    let data = b"<?xml version='1.0'?><!-- before --><svg a='1' ><svg/><text><![CDATA[a < b]]></text></svg><!-- after -->";
+    let doc = parse_svg(data);
+    assert!(!doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+    assert!(summarize(data).complete);
+}
+
+#[test]
+fn compressed_svg_with_extra_root_is_incomplete() {
+    let data = svgz(b"<svg/><svg/>");
+    let doc = parse_svgz(&data).unwrap();
+    assert!(doc.tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+    assert!(!summarize(&data).complete);
+    assert_eq!(clean_svgz(&doc).unwrap_err(), CleanError::Damaged);
+}
