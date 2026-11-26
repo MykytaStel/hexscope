@@ -2,6 +2,22 @@
 export const MAX_INPUT_BYTES = 128 * 1024 * 1024;
 export const PARSE_DEADLINE_MS = 60_000;
 
+// Additional decoded inputs retained for nested navigation, excluding the
+// root document. This is an input-byte ledger, not a WASM heap measurement.
+export const MAX_NESTED_INPUT_BYTES = 2 * MAX_INPUT_BYTES;
+
+export function assertNestedInputBudget(retained: readonly number[], next: number): void {
+  assertInputBudget(next);
+  let remaining = MAX_NESTED_INPUT_BYTES - next;
+  for (const size of retained) {
+    assertInputBudget(size);
+    if (size > remaining) {
+      throw new Error("The open nested files exceed the 256 MiB browser navigation budget. Return to an outer file or use the command line tool.");
+    }
+    remaining -= size;
+  }
+}
+
 /** Batch-only heuristic, not a measurement of live WASM memory. */
 export const BATCH_READER_RECYCLE_FILES = 8;
 export const BATCH_READER_RECYCLE_BYTES = 32 * 1024 * 1024;

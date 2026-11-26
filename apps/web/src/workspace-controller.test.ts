@@ -430,12 +430,12 @@ it("releases abandoned sparse caches without releasing the retained parent", asy
   const parent = controller.model!;
   await controller.openEntry(1, "child");
   const child = controller.model!;
-  expect(parent.releaseDeferredBytes).not.toHaveBeenCalled();
+  expect(parent.releaseDeferredBytes).toHaveBeenCalledOnce();
   await controller.back(0);
   expect(child.releaseDeferredBytes).toHaveBeenCalledOnce();
-  expect(parent.releaseDeferredBytes).not.toHaveBeenCalled();
-  await controller.openFile(file("new.bin"));
   expect(parent.releaseDeferredBytes).toHaveBeenCalledOnce();
+  await controller.openFile(file("new.bin"));
+  expect(parent.releaseDeferredBytes).toHaveBeenCalledTimes(2);
   const newest = controller.model!;
   controller.clear();
   expect(newest.releaseDeferredBytes).toHaveBeenCalledOnce();
@@ -451,4 +451,29 @@ it("retires a late parse after the workspace is cleared", async () => {
   await open;
   expect(retired.releaseDeferredBytes).toHaveBeenCalledOnce();
   expect(controller.model).toBeNull();
+});
+
+it("drops only reloadable parent pages on successful nested navigation", async () => {
+  const { controller } = rig();
+  await controller.openFile(file("outer.zip"));
+  const outer = controller.model!;
+  await controller.openInside(new Uint8Array([1]), "inside.zip");
+  const inner = controller.model!;
+  expect(outer.releaseDeferredBytes).toHaveBeenCalledOnce();
+  await controller.openEntry(0, "entry.bin");
+  expect(inner.releaseDeferredBytes).toHaveBeenCalledOnce();
+  expect(controller.levels.map(level => level.model)).toEqual([outer, inner]);
+  await controller.back(0);
+  expect(controller.model).toBe(outer);
+  expect(controller.levels).toEqual([]);
+});
+
+it("preserves the active cache when a nested open is refused", async () => {
+  const { controller, view } = rig({ openEntry: async () => { throw new Error("budget"); } });
+  await controller.openFile(file("outer.zip"));
+  const outer = controller.model!;
+  await controller.openEntry(0, "entry.bin");
+  expect(controller.model).toBe(outer);
+  expect(outer.releaseDeferredBytes).not.toHaveBeenCalled();
+  expect(view.note).toHaveBeenCalledWith("budget");
 });
