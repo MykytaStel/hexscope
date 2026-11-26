@@ -357,6 +357,7 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
                             segment: segment_range,
                         });
                     } else {
+                        doc.metadata_complete = false;
                         tree.warning(
                             node,
                             "ICC APP2 fragment count exceeds the inspection limit",
@@ -387,7 +388,7 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
         }
     }
 
-    inspect_icc_fragments(&mut tree, root, data, &icc_fragments);
+    doc.metadata_complete &= inspect_icc_fragments(&mut tree, root, data, &icc_fragments);
 
     if !saw_eoi {
         tree.warning(
@@ -420,11 +421,18 @@ fn parse_jpeg_inner(data: &[u8], depth: u8, _inspect_gain_maps: bool) -> JpegDoc
 
 /// JPEG ICC profiles are split among ordered APP2 segments. Reassemble only
 /// a complete, consistent set, while keeping each fragment's source range.
-fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts: &[IccFragment]) {
-    let Some(first) = parts.first() else { return };
+fn inspect_icc_fragments(
+    tree: &mut ParseTree,
+    root: NodeId,
+    file: &[u8],
+    parts: &[IccFragment],
+) -> bool {
+    let Some(first) = parts.first() else {
+        return true;
+    };
     let total = first.total as usize;
     if total == 0 || total > MAX_ICC_FRAGMENTS {
-        return;
+        return false;
     }
     let mut ordered = vec![None; total];
     let mut invalid = false;
@@ -466,7 +474,7 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
             "ICC profile is incomplete or has conflicting APP2 fragments",
             ByteRange::new(start, end.saturating_sub(start)),
         );
-        return;
+        return false;
     }
 
     let ordered: Vec<IccFragment> = ordered.into_iter().flatten().collect();
@@ -475,7 +483,7 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
             .ok()
             .and_then(|len| n.checked_add(len))
     }) else {
-        return;
+        return false;
     };
     if total_bytes > crate::icc::MAX_PROFILE_BYTES {
         let start = ordered.iter().map(|p| p.segment.start).min().unwrap_or(0);
@@ -491,7 +499,7 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
             NodeKind::Field,
             Some(Value::U64(total_bytes as u64)),
         );
-        return;
+        return false;
     }
 
     let mut profile = Vec::with_capacity(total_bytes);
@@ -499,14 +507,14 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
     let mut profile_at = 0u64;
     for part in &ordered {
         let Ok(start) = usize::try_from(part.data.start) else {
-            return;
+            return false;
         };
         let Ok(end) = usize::try_from(part.data.end()) else {
-            return;
+            return false;
         };
         let Some(bytes) = file.get(start..end) else {
             tree.error(part.node, "ICC APP2 fragment runs past the file", part.data);
-            return;
+            return false;
         };
         pieces.push((profile_at, profile_at + bytes.len() as u64, part.data));
         profile.extend_from_slice(bytes);
@@ -556,6 +564,7 @@ fn inspect_icc_fragments(tree: &mut ParseTree, root: NodeId, file: &[u8], parts:
             ByteRange::new(file_start, file_end.saturating_sub(file_start))
         }
     });
+    true
 }
 
 /// A gain map is a JPEG of its own. Read its metadata too, below the indexed
@@ -961,6 +970,30 @@ mod tests {
         com.extend_from_slice(text);
         out.splice(2..2, com);
         out
+    }
+
+    #[test]
+    fn incomplete_icc_fragments_leave_metadata_coverage_partial() {
+        for sequences in [&[1u8][..], &[1, 1], &[1, 2, 2]] {
+            let mut data = jpeg_with_exif(None);
+            for &sequence in sequences {
+                let mut payload = b"ICC_PROFILE\0".to_vec();
+                payload.extend_from_slice(&[sequence, 2, 1, 2, 3]);
+                let mut segment = vec![0xff, 0xe2];
+                segment.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+                segment.extend_from_slice(&payload);
+                data.splice(2..2, segment);
+            }
+            let doc = parse_jpeg(&data);
+            assert!(!doc.metadata_complete);
+            assert!(!crate::summary::summarize(&data).complete);
+            assert!(
+                doc.tree
+                    .nodes()
+                    .iter()
+                    .any(|n| n.label.contains("ICC profile is incomplete"))
+            );
+        }
     }
 
     #[test]
