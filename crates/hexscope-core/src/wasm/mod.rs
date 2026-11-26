@@ -92,20 +92,41 @@ impl Reader<'_> {
 
     /// An unsigned LEB128 number of at most `bits` bits (§5.2.2).
     fn leb(&mut self, bits: u32) -> R<u64> {
+        self.leb_bits(bits, false)
+    }
+
+    /// Signed constants and heap types are skipped, not interpreted. Their
+    /// final byte may contain sign-extension bits, unlike unsigned lengths.
+    fn signed_leb(&mut self, bits: u32) -> R<()> {
+        self.leb_bits(bits, true).map(|_| ())
+    }
+
+    fn leb_bits(&mut self, bits: u32, signed: bool) -> R<u64> {
         let mut v = 0u64;
         let mut shift = 0;
         loop {
             let b = self.byte()?;
-            if shift < 64 {
-                v |= ((b & 0x7F) as u64) << shift;
+            let payload = b & 0x7F;
+            let remaining = bits - shift;
+            if remaining < 7 {
+                let high_mask = 0x7F_u8 << remaining & 0x7F;
+                let expected = if signed && payload & (1 << (remaining - 1)) != 0 {
+                    high_mask
+                } else {
+                    0
+                };
+                if payload & high_mask != expected {
+                    return Err(Short);
+                }
             }
-            shift += 7;
+            v |= (payload as u64) << shift;
             if b & 0x80 == 0 {
                 return Ok(v);
             }
-            if shift >= bits + 7 {
+            if remaining <= 7 {
                 return Err(Short);
             }
+            shift += 7;
         }
     }
 
@@ -142,7 +163,7 @@ impl Reader<'_> {
             0x69 => "exnref",
             // Typed references (function references and GC proposals).
             0x63 | 0x64 => {
-                self.leb(33)?;
+                self.signed_leb(33)?;
                 "ref"
             }
             0x6A..=0x74 => "ref",
@@ -169,10 +190,10 @@ impl Reader<'_> {
             match self.byte()? {
                 0x0B => return Ok(()),
                 0x41 => {
-                    self.leb(32)?;
+                    self.signed_leb(32)?;
                 }
                 0x42 => {
-                    self.leb(64)?;
+                    self.signed_leb(64)?;
                 }
                 0x43 => self.skip(4)?,
                 0x44 => self.skip(8)?,
@@ -180,7 +201,7 @@ impl Reader<'_> {
                     self.u32()?;
                 }
                 0xD0 => {
-                    self.leb(33)?;
+                    self.signed_leb(33)?;
                 }
                 // Extended constant expressions: add, sub, mul.
                 0x6A..=0x6C | 0x7C..=0x7E => {}
@@ -696,7 +717,17 @@ pub fn parse_wasm(data: &[u8]) -> WasmDocument {
         }
     }
 
-    let functions = ctx.imported_functions + ctx.defined_functions;
+    let functions = match ctx.imported_functions.checked_add(ctx.defined_functions) {
+        Some(n) => n,
+        None => {
+            ctx.tree.error(
+                root,
+                "the function index space exceeds its 32-bit limit",
+                ByteRange::new(0, len as u64),
+            );
+            u32::MAX
+        }
+    };
     let mut summary = if doc.component {
         "WebAssembly component".to_string()
     } else {
@@ -806,7 +837,8 @@ fn contents(ctx: &mut Ctx, node: NodeId, id: u8, r: &mut Reader) -> R<Option<Str
                 let name = r.name()?;
                 let what = match r.byte()? {
                     0 => {
-                        ctx.imported_functions += 1;
+                        ctx.imported_functions =
+                            ctx.imported_functions.checked_add(1).ok_or(Short)?;
                         if ctx.imports.len() < MAX_ENTRIES as usize {
                             ctx.imports.push((module.clone(), name.clone()));
                         }
@@ -965,7 +997,7 @@ fn contents(ctx: &mut Ctx, node: NodeId, id: u8, r: &mut Reader) -> R<Option<Str
             let n = entries(ctx, node, r, |ctx, r, i| {
                 let size = r.u32()? as usize;
                 r.skip(size)?;
-                let idx = first + i;
+                let idx = first.checked_add(i).ok_or(Short)?;
                 Ok((
                     format!("function {}", ctx.function_name(idx)),
                     Some(Value::Bytes(size as u64)),

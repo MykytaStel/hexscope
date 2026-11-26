@@ -1,0 +1,3 @@
+# WASM integer decoding reliability
+
+Unsigned LEB128 lengths and indices now enforce the maximum byte count and unused final payload bits for the requested width. Padded encodings within the specification remain accepted. Signed constant and heap-type operands use a separate sign-extension check (the values are skipped, not evaluated). This prevents a malformed length from being truncated to a valid u32 or an overlong representation from being accepted. Function index arithmetic also uses checked additions; an impossible total records an error. Tests exercise 32-, 33- and 64-bit boundaries and malformed section framing. This is not full WebAssembly validation; opcode and type validation remain outside the existing inspection contract.
