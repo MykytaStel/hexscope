@@ -363,7 +363,7 @@ pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
     let mut r = Reader::new(chunk.data);
 
     let Some(keyword_bytes) = r.bytes_until(0) else {
-        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        tree.error(parent, "missing keyword separator", chunk.data_range);
         return None;
     };
     let text_bytes = r.rest();
@@ -397,7 +397,7 @@ pub fn decode_text(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 pub fn decode_ztxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<TextNote> {
     let mut r = Reader::new(chunk.data);
     let Some(keyword_bytes) = r.bytes_until(0) else {
-        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        tree.error(parent, "missing keyword separator", chunk.data_range);
         return None;
     };
     let keyword = latin1(keyword_bytes);
@@ -435,7 +435,7 @@ pub fn decode_ztxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
 pub fn decode_itxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Option<TextNote> {
     let mut r = Reader::new(chunk.data);
     let Some(keyword_bytes) = r.bytes_until(0) else {
-        tree.warning(parent, "missing keyword separator", chunk.data_range);
+        tree.error(parent, "missing keyword separator", chunk.data_range);
         return None;
     };
     let keyword = latin1(keyword_bytes);
@@ -472,6 +472,14 @@ pub fn decode_itxt(chunk: &Chunk, tree: &mut ParseTree, parent: NodeId) -> Optio
         1,
         Value::U64(method as u64),
     );
+    if flag > 1 {
+        tree.error(
+            parent,
+            "invalid iTXt compression flag",
+            ByteRange::new(chunk.data_range.start + at, 1),
+        );
+        return None;
+    }
     at += 2;
     for label in ["language tag", "translated keyword"] {
         let Some(bytes) = r.bytes_until(0) else {
@@ -521,7 +529,7 @@ fn inflated_text(
 ) -> Option<(String, NodeId)> {
     let len = compressed.len() as u64;
     if method != 0 {
-        tree.warning(
+        tree.error(
             parent,
             "unknown text compression method",
             ByteRange::new(chunk.data_range.start + at, len),
@@ -783,8 +791,46 @@ mod tests {
         decode_text(&chunk, &mut tree, root);
 
         let child = tree.get(tree.get(root).children[0]);
-        assert_eq!(child.kind, NodeKind::Warning);
+        assert_eq!(child.kind, NodeKind::Error);
         assert_eq!(child.label, "missing keyword separator");
+    }
+
+    #[test]
+    fn unread_compressed_text_is_an_error_not_a_complete_read() {
+        for (kind, bytes, expected) in [
+            (
+                b"zTXt",
+                b"Author\0\x01text".as_slice(),
+                "unknown text compression method",
+            ),
+            (
+                b"iTXt",
+                b"Author\0\x01\x01\0\0text",
+                "unknown text compression method",
+            ),
+            (
+                b"iTXt",
+                b"Author\0\x02\0\0\0text",
+                "invalid iTXt compression flag",
+            ),
+            (b"zTXt", b"no-null", "missing keyword separator"),
+            (b"iTXt", b"no-null", "missing keyword separator"),
+        ] {
+            let chunk = fake_chunk(kind, bytes);
+            let mut tree = ParseTree::new();
+            let root = tree.add(None, "text", chunk.range, NodeKind::Container, None);
+            let note = if kind == b"zTXt" {
+                decode_ztxt(&chunk, &mut tree, root)
+            } else {
+                decode_itxt(&chunk, &mut tree, root)
+            };
+            assert!(note.is_none());
+            assert!(
+                tree.nodes()
+                    .iter()
+                    .any(|n| n.kind == NodeKind::Error && n.label == expected)
+            );
+        }
     }
 
     #[test]
