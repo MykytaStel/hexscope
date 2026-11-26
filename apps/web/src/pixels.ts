@@ -193,12 +193,21 @@ export class PictureView {
     this.jpeg = new BlockView(hooks);
   }
 
-  /** The panel for this file, or null when it has no picture to show. */
-  element(m: FileModel): HTMLElement | null {
+  /** Detach both formats and discard work queued for a previous panel. */
+  reset(): void {
     this.m = null;
+    this.g = null;
     this.overlay = null;
+    this.caption = null;
+    this.next = null;
     this.pinned = null;
     this.shown = "";
+    this.jpeg.reset();
+  }
+
+  /** The panel for this file, or null when it has no picture to show. */
+  element(m: FileModel): HTMLElement | null {
+    this.reset();
     const f = m.file;
     if (f.format === "jpeg") return this.jpeg.element(m);
     if (f.format !== "png" || !f.ihdr) return null;

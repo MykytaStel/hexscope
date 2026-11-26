@@ -1213,6 +1213,26 @@ function showBatch(): void {
   tools?.setActive(false);
   closePlayer();
   document.body.dataset.state = "batch";
+  // Hidden panels are still live objects. Detach the old file from every
+  // long-lived viewer rather than waiting for another file to replace it.
+  for (const files of filesViews.values()) files.dispose();
+  filesViews.clear();
+  $("files").replaceChildren();
+  $("hex-legend").replaceChildren();
+  hover = -1;
+  selected = -1;
+  problemCursor = -1;
+  setStatusOffset(-1);
+  search.close();
+  search.reset();
+  hex.setModel(null);
+  minimap.setModel(null);
+  tree.setModel(null);
+  tools?.setModel(null);
+  drawer.nested = 0;
+  drawer.showFile(null);
+  drawer.showNode(null, -1, false);
+  picture.reset();
   releaseBatchReader();
   $("fileinfo").textContent = `${items.length} files`;
   $("load-error").hidden = true;
