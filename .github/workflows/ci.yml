@@ -185,6 +185,8 @@ jobs:
         run: pnpm --filter web test
       - name: Performance report contract
         run: pnpm perf:test
+      - name: WASM family capability contract
+        run: node --test scripts/wasm-family-contract.test.mjs
       # The page's own script, before any parser: what every visitor waits for —
       # the home page's script and the chunks it preloads, as index.html names
       # them. The analyzer that shows an open file is loaded once the page is
