@@ -43,3 +43,39 @@ describe("QR scan requests", () => {
     );
   });
 });
+
+it("does not publish a cancelled scan and allows the same model to be retried", async () => {
+  const model = {
+    file: { format: "jpeg", facts: [] },
+    source: new Blob(["photo"]),
+    bytes: new Uint8Array([1]),
+    codeBoxes: [],
+  } as unknown as FileModel;
+  const controller = new AbortController();
+  let resolve!: (value: unknown) => void;
+  call.mockReset().mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  const old = addCodeFacts(model, true, controller.signal);
+  controller.abort();
+  resolve({ type: "error", message: "Reading cancelled" });
+  await expect(old).rejects.toMatchObject({ name: "AbortError" });
+  expect(model.file.filmScan).toBeUndefined();
+  call.mockResolvedValueOnce({ type: "codes", codes: [] });
+  await expect(addCodeFacts(model, true)).resolves.toBe(false);
+  expect(call).toHaveBeenCalledTimes(2);
+  await addCodeFacts(model, true);
+  expect(call).toHaveBeenCalledTimes(2);
+});
+
+it("limits archive candidate discovery to the first thirty eligible pictures", async () => {
+  const entry = vi.fn((i: number) => ({ node: i, openable: true }));
+  const model = {
+    file: { format: "zip", facts: [] },
+    entryCount: 100_000,
+    entry,
+    label: (node: number) => `picture-${node}.png`,
+  } as unknown as FileModel;
+  call.mockReset().mockResolvedValue({ type: "codes", codes: [] });
+  await addCodeFacts(model);
+  expect(entry).toHaveBeenCalledTimes(30);
+  expect(call.mock.calls[0][0].entries).toHaveLength(30);
+});

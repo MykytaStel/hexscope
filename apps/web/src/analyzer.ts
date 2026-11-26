@@ -35,6 +35,7 @@ withUkrainian(() => import("./docs-i18n"));
 let batchController: BatchController;
 let workspace: WorkspaceController;
 let entropyJob: { model: FileModel; controller: AbortController } | null = null;
+let codeJob: { model: FileModel; controller: AbortController } | null = null;
 
 function showByteLegend(model: FileModel): void {
   void import("./legend").then(({ showLegend }) => {
@@ -1037,6 +1038,7 @@ workspace = new WorkspaceController({
       readAnnouncement.textContent = translateText("Reading was cancelled.", currentLocale());
       $("fileinfo").append(readAnnouncement);
       startEntropyMap(model);
+      void lookForCodes(model);
     },
     note: (message) => drawer.showNote(message),
     remember,
@@ -1046,6 +1048,7 @@ workspace = new WorkspaceController({
       // Opening a file shows its result directly; the tour is an explicit choice in the footer.
     },
     clearPlayer() {
+      stopCodeScan();
       stopEntropyMap();
       tools?.setActive(false);
       closePlayer();
@@ -1339,19 +1342,44 @@ function renderFile(m: FileModel, levels: readonly WorkspaceLevel[]): void {
   startEntropyMap(m);
 }
 
-/** QR codes, looked for once the file is on screen: its card is drawn again with what they say. */
+/** Stop obsolete background scans before navigation changes the worker's document. */
+function stopCodeScan(): void {
+  const job = codeJob;
+  codeJob = null;
+  job?.controller.abort();
+}
+
+/** Publish only for the current navigation generation. A cancelled scan can
+ * be retried on returning to a retained parent or cancelling a file open.
+ */
 async function lookForCodes(m: FileModel): Promise<void> {
-  const { addCodeFacts, placeFilmScanCard } = await import("./qrfacts");
-  const update = await addCodeFacts(m, true);
-  if (!update || m !== workspace.model) return;
-  // A clean copy made meanwhile keeps its card; local image analysis refreshes it when ready.
-  const drawerEl = $("drawer");
-  const redraw = update === "codes" && !drawerEl.querySelector(".before-after, .clean-list");
-  const focused = drawerEl.contains(document.activeElement);
-  if (redraw) drawer.showFile(m);
-  await placeFilmScanCard(drawerEl, m);
-  syncAppNavigation();
-  if (redraw && focused) drawer.focusVerdict();
+  if (m !== workspace.model || document.body.dataset.state !== "ready" || codeJob?.model === m) return;
+  stopCodeScan();
+  const controller = new AbortController();
+  const job = { model: m, controller };
+  codeJob = job;
+  const current = () => codeJob === job && !controller.signal.aborted &&
+    workspace.model === m && document.body.dataset.state === "ready";
+  try {
+    const { addCodeFacts, placeFilmScanCard } = await import("./qrfacts");
+    if (!current()) return;
+    const update = await addCodeFacts(m, true, controller.signal);
+    if (!current()) return;
+    const drawerEl = $("drawer");
+    if (!update && (!m.file.filmScan || drawerEl.querySelector(".film-lab-entry"))) return;
+    // A clean copy made meanwhile keeps its card.
+    const redraw = update === "codes" && !drawerEl.querySelector(".before-after, .clean-list");
+    const focused = drawerEl.contains(document.activeElement);
+    if (redraw) drawer.showFile(m);
+    await placeFilmScanCard(drawerEl, m, controller.signal);
+    if (!current()) return;
+    syncAppNavigation();
+    if (redraw && focused) drawer.focusVerdict();
+  } catch {
+    // Optional analysis must never prevent the primary file from opening.
+  } finally {
+    if (codeJob === job) codeJob = null;
+  }
 }
 
 /** Opens on the answer to the question the person came with: a damaged file
@@ -1419,6 +1447,7 @@ export function loadFailed(message: string): void {
     return;
   }
   document.body.dataset.state = model ? "ready" : "empty";
+  if (model) void lookForCodes(model);
   syncAppNavigation();
   $("fileinfo").textContent = message;
   // On the landing page the top bar is out of the way: say it by the button.
