@@ -42,3 +42,22 @@ test("rejects changed cleaner outcomes but treats copy size as descriptive", () 
   b.cases[0].metrics.forEach(m => m.cleanProduced = 0);
   assert.throws(() => compareReports(a,b), /cleaner outcome/);
 });
+
+test("availability changes cannot silently pass an evidence gate", () => {
+  const lost = compareReports(report([10, 11, 12]), report([10, null, 12]));
+  assert.equal(lost.regressions, 0);
+  assert.deepEqual(lost.availabilityChanges, [{ id: "movie", metric: "readyMs", baselineMissing: 0, candidateMissing: 1, repeats: 3 }]);
+  const gained = compareReports(report([null]), report([5]));
+  assert.equal(gained.availabilityChanges.length, 1);
+  const unchanged = compareReports(report([null]), report([null]));
+  assert.equal(unchanged.availabilityChanges.length, 0);
+  assert.equal(unchanged.unavailable.length, 1);
+});
+
+test("partial samples are not represented as comparable medians", () => {
+  const result = compareReports(report([1, null, 3]), report([2, 3, null]));
+  assert.equal(result.availabilityChanges.length, 0);
+  assert.equal(result.unavailable.length, 1);
+  assert.equal(result.rows[0].baseline, null);
+  assert.equal(result.rows[0].candidate, null);
+});

@@ -27,6 +27,8 @@ export function compareReports(baseline, candidate, { maxRegressionPct = 20 } = 
   const current = new Map(candidate.cases.map(c => [c.id, c]));
   if (current.size !== baseline.cases.length) throw new Error("Different benchmark cases");
   const rows = [];
+  const unavailable = [];
+  const availabilityChanges = [];
   for (const old of baseline.cases) {
     const next = current.get(old.id);
     if (!next || old.inputBytes !== next.inputBytes || old.inputSha256 !== next.inputSha256) throw new Error("Different workload: " + old.id);
@@ -35,8 +37,15 @@ export function compareReports(baseline, candidate, { maxRegressionPct = 20 } = 
     for (const metric of keys) {
       const before = old.metrics.map(m => m[metric]), after = next.metrics.map(m => m[metric]);
       if (metric === "cleanProduced" && (new Set([...before,...after]).size !== 1 || ![0,1].includes(before[0]))) throw new Error("Different or unstable cleaner outcome: " + old.id);
-      if (before.some(v => v === null) || after.some(v => v === null)) {
-        rows.push({ id: old.id, metric, baseline: null, candidate: null, deltaPct: null, regression: false });
+      const baselineMissing = before.filter(v => v === null).length;
+      const candidateMissing = after.filter(v => v === null).length;
+      if (baselineMissing || candidateMissing) {
+        const detail = { id: old.id, metric, baselineMissing, candidateMissing, repeats: before.length };
+        unavailable.push(detail);
+        // Even a change from partial to complete evidence is a contract
+        // change; collect a new baseline rather than comparing unlike samples.
+        if (baselineMissing !== candidateMissing) availabilityChanges.push(detail);
+        rows.push({ id: old.id, metric, baseline: null, candidate: null, deltaPct: null, regression: false, ...detail });
         continue;
       }
       const b = median(before), c = median(after);
@@ -47,5 +56,5 @@ export function compareReports(baseline, candidate, { maxRegressionPct = 20 } = 
       rows.push({ id: old.id, metric, baseline: b, candidate: c, deltaPct, regression });
     }
   }
-  return { rows, regressions: rows.filter(r => r.regression).length };
+  return { rows, regressions: rows.filter(r => r.regression).length, unavailable, availabilityChanges };
 }

@@ -12,4 +12,10 @@ else {
   console.table(result.rows.map(r => ({ case:r.id, metric:r.metric, baseline:r.baseline, candidate:r.candidate, delta:r.deltaPct === null ? "n/a" : r.deltaPct.toFixed(1)+"%", regression:r.regression })));
   console.log(result.regressions + " regression signals (threshold " + threshold + "%; inspect variance before drawing conclusions)");
 }
-if (args.includes("--check") && result.regressions) process.exitCode = 1;
+if (!args.includes("--json")) {
+  for (const row of result.unavailable) {
+    console.log(`Unavailable evidence: ${row.id}/${row.metric} (missing baseline ${row.baselineMissing}/${row.repeats}, candidate ${row.candidateMissing}/${row.repeats})`);
+  }
+  if (result.availabilityChanges.length) console.log("Availability changed; collect a comparable baseline before accepting these measurements.");
+}
+if (args.includes("--check") && (result.regressions || result.availabilityChanges.length)) process.exitCode = 1;
