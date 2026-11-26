@@ -100,8 +100,8 @@ pub fn is_zip(data: &[u8]) -> bool {
 
 /// Parses a ZIP archive. Never fails: damage is recorded as nodes.
 pub fn parse_zip(data: &[u8]) -> ZipDocument {
-    let (tree, entries) = read_entries(data);
-    let mut facts = office::document_facts(data, &entries);
+    let (mut tree, entries) = read_entries(data);
+    let mut facts = office::document_facts(data, &entries, &mut tree);
     let odf = odf::is_odf(data, &entries);
     if odf {
         facts.extend(odf::odf_facts(data, &entries));

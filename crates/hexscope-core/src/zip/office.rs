@@ -12,7 +12,7 @@ use super::{ZipEntry, extract};
 use crate::exif::PhotoFacts;
 pub use crate::facts::DocumentFact;
 use crate::fixed::fixed;
-use crate::model::NodeId;
+use crate::model::{NodeId, ParseTree};
 
 /// Property files larger than this are not read. Real ones are a few KB.
 const MAX_PROPS: u64 = 1024 * 1024;
@@ -44,7 +44,11 @@ fn read_xml(data: &[u8], entries: &[ZipEntry], name: &str, limit: u64) -> Option
     Some((xml_string(bytes), e.node))
 }
 
-pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
+pub(super) fn document_facts(
+    data: &[u8],
+    entries: &[ZipEntry],
+    tree: &mut ParseTree,
+) -> Vec<DocumentFact> {
     let read = |name: &str| read_xml(data, entries, name, MAX_PROPS);
     let mut facts = Vec::new();
     let mut push = |kind, text: Option<String>, node| {
@@ -140,7 +144,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
             links = word_links(&rels, &xml, node);
         }
     }
-    sheets_and_slides(data, entries, &mut facts);
+    sheets_and_slides(data, entries, &mut facts, tree);
     facts.extend(photo_facts(data, entries, is_media));
     facts.extend(embedded_facts(data, entries));
     facts.extend(links);
@@ -467,7 +471,12 @@ fn number(name: &str) -> String {
 /// What an Excel workbook or a PowerPoint deck keeps out of sight: hidden
 /// sheets, rows, columns and slides; comments and their authors; links to
 /// files on the author's computer; the speaker's notes.
-fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<DocumentFact>) {
+fn sheets_and_slides(
+    data: &[u8],
+    entries: &[ZipEntry],
+    facts: &mut Vec<DocumentFact>,
+    tree: &mut ParseTree,
+) {
     let read = |e: &ZipEntry| {
         (e.uncompressed <= MAX_PART)
             .then(|| extract(data, e, MAX_PART).ok())
@@ -511,28 +520,50 @@ fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<Document
         }
     }
     let (mut rows, mut cols, mut node) = (0usize, 0usize, None);
+    let mut invalid_columns = false;
     for e in parts("xl/worksheets/") {
         let Some(xml) = read(e) else { continue };
         let hidden = |t: &&&str| attribute(t, "hidden").is_some_and(|h| h == "1" || h == "true");
         let r = tags(&xml, "row").iter().filter(hidden).count();
-        let c: usize = tags(&xml, "col")
-            .iter()
-            .filter(hidden)
-            .map(|t| {
-                let n = |k| attribute(t, k).and_then(|v| v.parse::<usize>().ok());
-                n("max")
-                    .zip(n("min"))
-                    .map_or(1, |(max, min)| max.saturating_sub(min) + 1)
-            })
-            .sum();
-        if r + c > 0 {
+        let mut c = 0usize;
+        let mut invalid = false;
+        for tag in tags(&xml, "col").iter().filter(hidden) {
+            // XLSX column indices are one-based and at most XFD (16384).
+            // Validate before subtracting or adding untrusted integers.
+            let n = |k| attribute(tag, k).and_then(|v| v.parse::<usize>().ok());
+            match n("min").zip(n("max")) {
+                Some((min, max)) if min >= 1 && min <= max && max <= 16_384 => {
+                    if let Some(next) = c.checked_add(max - min + 1) {
+                        c = next;
+                    } else {
+                        invalid = true;
+                    }
+                }
+                _ => invalid = true,
+            }
+        }
+        match (rows.checked_add(r), cols.checked_add(c)) {
+            (Some(next_rows), Some(next_cols)) => {
+                rows = next_rows;
+                cols = next_cols;
+            }
+            _ => invalid = true,
+        }
+        if invalid {
+            invalid_columns = true;
+            tree.error(
+                e.node,
+                "hidden column ranges could not be counted completely",
+                e.data,
+            );
+        }
+        if r > 0 || c > 0 || invalid {
             node.get_or_insert(e.node);
         }
-        rows += r;
-        cols += c;
     }
     if let Some(node) = node {
-        let what = match (rows, cols) {
+        let mut what = match (rows, cols) {
+            (0, 0) => String::new(),
             (r, 0) => plural(r, "hidden row", "hidden rows"),
             (0, c) => plural(c, "hidden column", "hidden columns"),
             (r, c) => format!(
@@ -541,6 +572,12 @@ fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<Document
                 plural(c, "hidden column", "hidden columns")
             ),
         };
+        if invalid_columns {
+            if !what.is_empty() {
+                what.push_str("; ");
+            }
+            what.push_str("hidden column ranges could not be counted completely");
+        }
         push("hiddencells", what, node);
     }
 
@@ -1489,6 +1526,27 @@ mod tests {
                     "“file:///C:/Users/olena/Documents/budget.xlsx”".to_string()
                 ),
             ]
+        );
+    }
+
+    #[test]
+    fn malformed_hidden_column_ranges_keep_evidence_without_overflow() {
+        let xml = br#"<worksheet><cols>
+            <col min="0" max="4294967295" hidden="1"/>
+            <col min="0" max="18446744073709551615" hidden="1"/>
+            <col min="9" max="3" hidden="1"/>
+            <col min="1" max="16385" hidden="true"/>
+            <col min="3" hidden="1"/>
+            <col min="3" max="5" hidden="1"/>
+        </cols></worksheet>"#;
+        let facts = facts_of(vec![Entry::new("xl/worksheets/sheet1.xml", xml, 0)]);
+        assert_eq!(
+            facts,
+            [(
+                "hiddencells",
+                "3 hidden columns; hidden column ranges could not be counted completely"
+                    .to_string()
+            )]
         );
     }
 
