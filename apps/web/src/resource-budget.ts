@@ -6,6 +6,30 @@ export const PARSE_DEADLINE_MS = 60_000;
 export const BATCH_READER_RECYCLE_FILES = 8;
 export const BATCH_READER_RECYCLE_BYTES = 32 * 1024 * 1024;
 
+/** Optional retention only; this never reduces the supported input limit
+ * or omits findings. deviceMemory is a coarse browser hint, not free RAM.
+ */
+export interface RetentionBudget {
+  pageCount: number;
+  pendingPages: number;
+  batchFiles: number;
+  batchBytes: number;
+}
+
+export function retentionBudget(deviceMemory?: number): RetentionBudget {
+  if (typeof deviceMemory === "number" && Number.isFinite(deviceMemory) && deviceMemory > 0) {
+    if (deviceMemory <= 2) return { pageCount: 16, pendingPages: 2, batchFiles: 2, batchBytes: 8 * 1024 * 1024 };
+    if (deviceMemory > 4) return { pageCount: 64, pendingPages: 4, batchFiles: BATCH_READER_RECYCLE_FILES, batchBytes: BATCH_READER_RECYCLE_BYTES };
+  }
+  // Includes Safari/Firefox or other browsers without the device-memory API.
+  return { pageCount: 32, pendingPages: 3, batchFiles: 4, batchBytes: 16 * 1024 * 1024 };
+}
+
+export function browserRetentionBudget(): RetentionBudget {
+  const memory = typeof navigator === "undefined" ? undefined : (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  return retentionBudget(memory);
+}
+
 /** Do not mistake ordinary resource admission errors for a poisoned WASM realm. */
 export function isFatalReaderError(error: unknown): boolean {
   if (error instanceof WebAssembly.RuntimeError) return true;

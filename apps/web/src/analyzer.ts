@@ -12,7 +12,7 @@ import { ActionBar } from "./actionbar";
 import { PictureView } from "./pixels";
 import { TreeView } from "./tree";
 import { call, onWorkerReset, playerSource, recycleIdleReader } from "./rpc";
-import { BATCH_READER_RECYCLE_BYTES, BATCH_READER_RECYCLE_FILES } from "./resource-budget";
+import { browserRetentionBudget } from "./resource-budget";
 import { verdict } from "./verdict";
 import { headline } from "./headline";
 import { BatchController, BatchView, type BatchAnalysis } from "./batch";
@@ -1184,6 +1184,7 @@ batchController = new BatchController(batchView, {
   idle: releaseBatchReader,
 });
 
+const batchRetention = browserRetentionBudget();
 let batchFilesSinceRecycle = 0;
 let batchBytesSinceRecycle = 0;
 function releaseBatchReader(): void {
@@ -1229,7 +1230,7 @@ async function analyzeBatchFile(file: File, signal: AbortSignal, profile?: Publi
   } finally {
     batchFilesSinceRecycle++;
     batchBytesSinceRecycle += file.size;
-    if (batchFilesSinceRecycle >= BATCH_READER_RECYCLE_FILES || batchBytesSinceRecycle >= BATCH_READER_RECYCLE_BYTES) {
+    if (batchFilesSinceRecycle >= batchRetention.batchFiles || batchBytesSinceRecycle >= batchRetention.batchBytes) {
       releaseBatchReader();
     }
   }
