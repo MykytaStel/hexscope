@@ -10,13 +10,14 @@ const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|heic|avif)$/i;
 /** Pictures inside a document or message looked through, at most. */
 const MAX_INSIDE = 30;
 
-export async function placeFilmScanCard(target: ParentNode, model: FileModel): Promise<void> {
+export async function placeFilmScanCard(target: ParentNode, model: FileModel, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return;
   const file = model.file;
   if (!file.filmScan) return;
   const reveals = target.querySelector(".reveals");
   if (!reveals) return;
   const { filmScanCard, filmLabEntry } = await import("./filmscan-card");
-  if (!reveals.isConnected) return;
+  if (signal?.aborted || !reveals.isConnected) return;
   // Only a picture with clues of film says so — "no clues" under every photo
   // is noise; the film lab stays at hand among the details.
   if (file.filmScan.availability === "inspected" && file.filmScan.evidenceStrength !== "none") {
@@ -57,15 +58,18 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
   if (f.format === "pdf") return { pdf: m.bytes.slice() };
   const inside: { index: number; name: string; node: number }[] = [];
   if (f.format === "eml" || f.format === "msg") {
-    f.attachments.forEach((name, index) => IMAGE_NAME.test(name) && inside.push({ index, name, node: 0 }));
+    for (let index = 0; index < f.attachments.length && inside.length < MAX_INSIDE; index++) {
+      const name = f.attachments[index];
+      if (IMAGE_NAME.test(name)) inside.push({ index, name, node: 0 });
+    }
   } else if (f.format === "zip") {
-    for (let i = 0; i < m.entryCount; i++) {
+    for (let i = 0; i < m.entryCount && inside.length < MAX_INSIDE; i++) {
       const e = m.entry(i);
       const name = m.label(e.node);
       if (IMAGE_NAME.test(name) && e.openable) inside.push({ index: i, name, node: e.node });
     }
   }
-  return inside.length ? { entries: inside.slice(0, MAX_INSIDE) } : null;
+  return inside.length ? { entries: inside } : null;
 }
 
 /**
@@ -75,12 +79,20 @@ function request(m: FileModel, inspectFilmScan: boolean): Look | null {
 const looked = new WeakSet<FileModel>();
 type CodeFactUpdate = false | "film-scan" | "codes";
 export async function addCodeFacts(m: FileModel, inspectFilmScan = false, signal?: AbortSignal): Promise<CodeFactUpdate> {
+  signal?.throwIfAborted();
   if (looked.has(m)) return false;
-  looked.add(m);
   const what = request(m, inspectFilmScan);
-  if (!what) return false;
+  if (!what) {
+    looked.add(m);
+    return false;
+  }
   const req = { type: "codes" as const, ...what };
   const r = await (signal ? call(req, undefined, { signal }) : call(req));
+  // A cancelled RPC resolves with an error reply; do not confuse that with
+  // a completed inspection or publish an unavailable film scan.
+  signal?.throwIfAborted();
+  if (looked.has(m)) return false;
+  looked.add(m);
   const filmScanRequested = "picture" in what && what.inspectFilmScan === true;
   if (r.type !== "codes") {
     if (filmScanRequested) {
