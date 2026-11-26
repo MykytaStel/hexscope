@@ -922,6 +922,13 @@ impl Walk<'_, '_> {
                 format!("claims {declared} entries, only {count} fit in the EXIF data"),
                 t.range(off, 2),
             );
+        } else if !has_next {
+            let next_at = off + 2 + 12 * count;
+            tree.error(
+                node,
+                "the next IFD offset is cut short",
+                t.range(next_at, t.len() - next_at),
+            );
         }
 
         for n in 0..count {
@@ -1284,6 +1291,25 @@ mod tests {
                 .iter()
                 .any(|n| n.kind == NodeKind::Error && n.label.contains("runs past the end"))
         );
+    }
+
+    #[test]
+    fn missing_next_ifd_offset_is_damage_even_when_every_entry_fits() {
+        for header in [b"II\x2a\0\x08\0\0\0".as_slice(), b"MM\0\x2a\0\0\0\x08"] {
+            let mut data = header.to_vec();
+            data.extend_from_slice(&[0, 0]); // empty IFD0
+            data.extend_from_slice(&[0, 0, 0, 0]); // no following IFD
+            let (tree, _) = parse(&data);
+            assert!(!tree.nodes().iter().any(|n| n.kind == NodeKind::Error));
+            for missing in 1..=4 {
+                let (tree, _) = parse(&data[..data.len() - missing]);
+                assert!(tree.nodes().iter().any(|n| {
+                    n.kind == NodeKind::Error
+                        && n.label == "the next IFD offset is cut short"
+                        && n.range.len == (4 - missing) as u64
+                }));
+            }
+        }
     }
 
     #[test]
