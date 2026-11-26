@@ -508,8 +508,29 @@ fn read_zip64(loc: &mut Tail, data: &[u8], loc_at: u64, end: &mut End) -> Option
         return None;
     };
 
+    // The fixed record must fit entirely before its locator. Do not read
+    // fields out of the locator or trust a saturated length.
+    let available = loc_at.saturating_sub(at);
+    if available < ZIP64_EOCD_LEN {
+        loc.tree.error(
+            loc.root,
+            "ZIP64 end record truncated or outside its boundary",
+            ByteRange::new(pointer_at, 8),
+        );
+        return None;
+    }
     let size = reader_at(data, at + 4).u64_le().ok()?;
-    let len = size.saturating_add(12).min(loc_at.saturating_sub(at));
+    let Some(len) = size
+        .checked_add(12)
+        .filter(|&n| n >= ZIP64_EOCD_LEN && n == available)
+    else {
+        loc.tree.error(
+            loc.root,
+            "ZIP64 end record size disagrees with its boundary",
+            ByteRange::new(at + 4, 8),
+        );
+        return None;
+    };
     let mut t = Tail::new("ZIP64 end of central directory", ByteRange::new(at, len));
     let mut f = t.fields(data, at);
     f.signature()?;
@@ -708,7 +729,10 @@ fn find_local(data: &[u8], recorded: u64, shift: u64) -> Option<u64> {
     [recorded.checked_add(shift), Some(recorded)]
         .into_iter()
         .flatten()
-        .find(|&at| at + LOCAL_LEN <= len && u32_at(data, at) == Some(LOCAL_SIG))
+        .find(|&at| {
+            at.checked_add(LOCAL_LEN).is_some_and(|end| end <= len)
+                && u32_at(data, at) == Some(LOCAL_SIG)
+        })
 }
 
 /// Adds an entry's local header, data and descriptor, comparing the local
@@ -895,6 +919,13 @@ fn add_entry(
         );
     }
 
+    if c.flags & (1 << 3) != 0 && data_end <= boundary_at && descriptor == 0 {
+        tree.error(
+            node,
+            "missing or truncated ZIP data descriptor",
+            ByteRange::new(clipped, 0),
+        );
+    }
     if descriptor > 0 {
         let parent = if detail {
             tree.add(
@@ -1228,6 +1259,45 @@ mod tests {
             ) as u64;
             assert_eq!(record_local, doc.tree.get(entry.node).range.start);
         }
+    }
+
+    #[test]
+    fn zip64_local_offsets_do_not_overflow() {
+        assert_eq!(find_local(b"", u64::MAX, 0), None);
+        assert_eq!(find_local(b"", u64::MAX - 1, 1), None);
+    }
+
+    #[test]
+    fn zip64_end_record_size_must_fit_before_locator() {
+        let mut archive = two();
+        archive.zip64_eocd = true;
+        let built = build(&archive);
+        let record = built.eocd as usize - 20 - 56;
+        for size in [0u64, 43, 45, u64::MAX] {
+            let mut bytes = built.bytes.clone();
+            bytes[record + 4..record + 12].copy_from_slice(&size.to_le_bytes());
+            let doc = parse_zip(&bytes);
+            assert!(doc.tree.nodes().iter().any(|n| {
+                n.kind == NodeKind::Error
+                    && n.label == "ZIP64 end record size disagrees with its boundary"
+            }));
+            assert!(!crate::summary::summarize(&bytes).complete);
+        }
+    }
+
+    #[test]
+    fn deferred_entry_requires_a_descriptor_before_next_header() {
+        let built = build(&two());
+        let mut bytes = built.bytes;
+        for at in [built.local[0] + 6, built.central[0] + 8] {
+            let at = at as usize;
+            bytes[at] |= 1 << 3;
+        }
+        let doc = parse_zip(&bytes);
+        assert!(doc.tree.nodes().iter().any(|n| {
+            n.kind == NodeKind::Error && n.label == "missing or truncated ZIP data descriptor"
+        }));
+        assert!(!crate::summary::summarize(&bytes).complete);
     }
 
     #[test]
