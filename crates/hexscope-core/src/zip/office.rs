@@ -25,14 +25,27 @@ const MAX_TEXT: usize = 512;
 /// Authors named in a line, at most; the rest are counted.
 const MAX_NAMES: usize = 4;
 
+/// Reuse the decompressed buffer for valid UTF-8, preserving the same
+/// replacement-character behavior for malformed UTF-8.
+#[inline(never)]
+fn xml_string(bytes: Vec<u8>) -> String {
+    match String::from_utf8(bytes) {
+        Ok(xml) => xml,
+        Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
+    }
+}
+
+#[inline(never)]
+fn read_xml(data: &[u8], entries: &[ZipEntry], name: &str, limit: u64) -> Option<(String, NodeId)> {
+    let e = entries
+        .iter()
+        .find(|e| e.name == name && e.uncompressed <= limit)?;
+    let bytes = extract(data, e, limit).ok()?;
+    Some((xml_string(bytes), e.node))
+}
+
 pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
-    let read = |name: &str| {
-        let e = entries
-            .iter()
-            .find(|e| e.name == name && e.uncompressed <= MAX_PROPS)?;
-        let bytes = extract(data, e, MAX_PROPS).ok()?;
-        Some((String::from_utf8_lossy(&bytes).into_owned(), e.node))
-    };
+    let read = |name: &str| read_xml(data, entries, name, MAX_PROPS);
     let mut facts = Vec::new();
     let mut push = |kind, text: Option<String>, node| {
         if let Some(text) = text {
@@ -80,13 +93,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         push("custom", others, node);
     }
 
-    let read_part = |name: &str| {
-        let e = entries
-            .iter()
-            .find(|e| e.name == name && e.uncompressed <= MAX_PART)?;
-        let bytes = extract(data, e, MAX_PART).ok()?;
-        Some((String::from_utf8_lossy(&bytes).into_owned(), e.node))
-    };
+    let read_part = |name: &str| read_xml(data, entries, name, MAX_PART);
     if let Some((xml, node)) = read_part("word/comments.xml") {
         let mut authors = Vec::new();
         let mut n = 0;
@@ -101,6 +108,7 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
             push("comments", Some(by(what, &authors)), node);
         }
     }
+    let mut links = Vec::new();
     if let Some((xml, node)) = read_part("word/document.xml") {
         let mut authors = Vec::new();
         let (mut ins, mut del) = (0, 0);
@@ -126,11 +134,16 @@ pub(super) fn document_facts(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentF
         push("tracked", tracked, node);
         push("deleted", deleted_text(&xml), node);
         push("hiddentext", unseen_text(&xml), node);
+        // The body was already checked and decompressed for tracked changes.
+        // Compute links now, but append them in their original finding order.
+        if let Some((rels, _)) = read_part("word/_rels/document.xml.rels") {
+            links = word_links(&rels, &xml, node);
+        }
     }
     sheets_and_slides(data, entries, &mut facts);
     facts.extend(photo_facts(data, entries, is_media));
     facts.extend(embedded_facts(data, entries));
-    facts.extend(word_links(data, entries));
+    facts.extend(links);
     facts.extend(super::traces::trace_facts(data, entries));
     facts
 }
@@ -143,23 +156,10 @@ const MAX_SITES: usize = 4;
 /// site than it goes to — the heart of a phishing document — and an address
 /// in lookalike letters are named on their own, as in an email or a PDF.
 #[inline(never)]
-fn word_links(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
+fn word_links(rels: &str, body: &str, node: NodeId) -> Vec<DocumentFact> {
     use crate::eml::links::{host, says_elsewhere, shown, unpunycode};
-    let read = |name: &str| {
-        let e = entries
-            .iter()
-            .find(|e| e.name == name && e.uncompressed <= MAX_PART)?;
-        let b = extract(data, e, MAX_PART).ok()?;
-        Some((String::from_utf8_lossy(&b).into_owned(), e.node))
-    };
-    let (Some((rels, _)), Some((body, node))) = (
-        read("word/_rels/document.xml.rels"),
-        read("word/document.xml"),
-    ) else {
-        return Vec::new();
-    };
     // Relationship id → outside address.
-    let targets: Vec<(String, String)> = tags(&rels, "Relationship")
+    let targets: Vec<(String, String)> = tags(rels, "Relationship")
         .into_iter()
         .filter(|t| attribute(t, "TargetMode").as_deref() == Some("External"))
         .filter_map(|t| Some((attribute(t, "Id")?, attribute(t, "Target")?)))
@@ -171,7 +171,7 @@ fn word_links(data: &[u8], entries: &[ZipEntry]) -> Vec<DocumentFact> {
         Vec::<String>::new(),
     );
     let mut from = 0;
-    while let Some((start, open)) = find_tag(&body, from, "w:hyperlink") {
+    while let Some((start, open)) = find_tag(body, from, "w:hyperlink") {
         from = open;
         let tag = &body[start..open];
         let Some(id) = attribute(tag, "r:id") else {
@@ -472,7 +472,7 @@ fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<Document
         (e.uncompressed <= MAX_PART)
             .then(|| extract(data, e, MAX_PART).ok())
             .flatten()
-            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .map(xml_string)
     };
     let parts = |prefix: &'static str| {
         entries.iter().filter(move |e| {
@@ -569,7 +569,7 @@ fn sheets_and_slides(data: &[u8], entries: &[ZipEntry], facts: &mut Vec<Document
     ] {
         for e in parts(prefix) {
             let Some(xml) = read(e) else { continue };
-            let n = tags(&xml, tag).len();
+            let n = count_tags(&xml, tag);
             if n > 0 {
                 node.get_or_insert(e.node);
                 comments += n;
@@ -826,10 +826,13 @@ pub(super) fn plural(n: usize, one: &str, many: &str) -> String {
 /// Where the next `<name …>` tag starts, and where its body starts, after
 /// its `>`. Lookalikes with a longer name, such as `<w:delText>` for
 /// `<w:del>`, are passed over.
-pub(super) fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize, usize)> {
-    let open = format!("<{name}");
+pub(super) fn find_tag(xml: &str, from: usize, name: &str) -> Option<(usize, usize)> {
+    find_tag_open(xml, from, &format!("<{name}"))
+}
+
+fn find_tag_open(xml: &str, mut from: usize, open: &str) -> Option<(usize, usize)> {
     loop {
-        let at = from + xml[from..].find(&open)?;
+        let at = from + xml[from..].find(open)?;
         let after = at + open.len();
         match xml[after..].chars().next()? {
             '>' | ' ' | '\t' | '\r' | '\n' | '/' => {
@@ -848,11 +851,25 @@ pub(super) fn find_tag(xml: &str, mut from: usize, name: &str) -> Option<(usize,
 pub(super) fn tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     let mut out = Vec::new();
     let mut from = 0;
-    while let Some((start, end)) = find_tag(xml, from, name) {
+    let open = format!("<{name}");
+    while let Some((start, end)) = find_tag_open(xml, from, &open) {
         from = end;
         out.push(&xml[start..end]);
     }
     out
+}
+
+/// Count tags without retaining a pointer for each matching element.
+#[inline(never)]
+fn count_tags(xml: &str, name: &str) -> usize {
+    let open = format!("<{name}");
+    let mut from = 0;
+    let mut count = 0;
+    while let Some((_, end)) = find_tag_open(xml, from, &open) {
+        from = end;
+        count += 1;
+    }
+    count
 }
 
 /// The value of `name="…"` or `name='…'` in a tag, decoded.
@@ -1501,5 +1518,31 @@ mod tests {
                 ("hiddenslides", "slides 2, 10".to_string()),
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod performance_tests {
+    use super::*;
+
+    #[test]
+    fn xml_conversion_reuses_valid_utf8_and_preserves_lossy_decoding() {
+        let bytes = b"<w:t>text</w:t>".to_vec();
+        let ptr = bytes.as_ptr();
+        let xml = xml_string(bytes);
+        assert_eq!(xml.as_ptr(), ptr);
+        assert_eq!(xml, "<w:t>text</w:t>");
+        let bytes = vec![b'a', 0xff, b'b', 0xe2, 0x82];
+        let expected = String::from_utf8_lossy(&bytes).into_owned();
+        assert_eq!(xml_string(bytes), expected);
+    }
+
+    #[test]
+    fn counted_tags_match_list_on_large_and_malformed_xml() {
+        let xml = "<row/><rowExtra/><row hidden='1'>x</row>".repeat(100_000);
+        assert_eq!(count_tags(&xml, "row"), 200_000);
+        for xml in ["", "<row", "<rowx/><row>", "<row/><row a='b'", "<row/> <row />"] {
+            assert_eq!(count_tags(xml, "row"), tags(xml, "row").len());
+        }
     }
 }
