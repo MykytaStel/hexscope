@@ -195,14 +195,22 @@ export class BlockView {
   /** Scans drawn, and the drawing in flight and the one waiting. */
   private drawn = 0;
   private drawingFor: FileModel | null = null;
+  private generation = 0;
   private wanted = 0;
 
   constructor(private readonly hooks: BlockHooks) {}
 
-  /** The panel for a JPEG, or null for anything else. */
-  element(m: FileModel): HTMLElement | null {
+  /** Detach the previous panel, invalidating outstanding asynchronous draws. */
+  reset(): void {
+    this.generation++;
     this.m = null;
     this.b = null;
+    this.frame = null;
+    this.image = null;
+    this.heat = null;
+    this.mark = null;
+    this.caption = null;
+    this.drawingFor = null;
     this.heatOn = false;
     this.note = "";
     this.pinned = null;
@@ -210,6 +218,12 @@ export class BlockView {
     this.scan = 0;
     this.drawn = 0;
     this.wanted = 0;
+  }
+
+  /** The panel for a JPEG, or null for anything else. */
+  element(m: FileModel): HTMLElement | null {
+    this.reset();
+    const generation = this.generation;
     const f = m.file;
     if (f.format !== "jpeg" || !f.dimensions) return null;
     const [w, h] = f.dimensions;
@@ -263,7 +277,7 @@ export class BlockView {
 
     void this.draw(m, 0);
     void this.hooks.blocks().then(({ map, note }) => {
-      if (this.m !== m || !this.caption) return;
+      if (this.generation !== generation || this.m !== m || !this.caption) return;
       this.b = readBlocks(map);
       if (!this.b) {
         const why = note || "its blocks could not be found";
@@ -361,22 +375,29 @@ export class BlockView {
    * being drawn.
    */
   private async draw(m: FileModel, end: number): Promise<void> {
+    if (this.m !== m) return;
+    const generation = this.generation;
     this.wanted = end;
     if (this.drawingFor === m) return;
     this.drawingFor = m;
     try {
-      while (this.m === m && this.drawn !== this.wanted + 1) {
+      while (this.generation === generation && this.m === m && this.drawn !== this.wanted + 1) {
         const upto = this.wanted;
         const bytes = upto ? asStored(m.bytes, upto) : asStored(m.bytes);
         let bitmap: ImageBitmap;
         try {
           bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
         } catch {
-          if (this.m === m && !upto) {
+          if (this.generation !== generation || this.m !== m) return;
+          if (!upto) {
             this.caption?.before(el("p", "hint", "This browser could not draw the picture; its blocks are still shown."));
           }
           this.drawn = upto + 1;
           continue;
+        }
+        if (this.generation !== generation || this.m !== m) {
+          bitmap.close();
+          return;
         }
         const image = this.image;
         const ctx = image?.getContext("2d");
@@ -392,7 +413,7 @@ export class BlockView {
         this.drawn = upto + 1;
       }
     } finally {
-      if (this.drawingFor === m) this.drawingFor = null;
+      if (this.generation === generation && this.drawingFor === m) this.drawingFor = null;
     }
   }
 

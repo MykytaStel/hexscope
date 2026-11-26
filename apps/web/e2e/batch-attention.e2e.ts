@@ -519,3 +519,31 @@ test("a batch profile distinguishes blocked, passed and unchecked files", async 
   await expect(batch.locator(".batch-row")).toHaveCount(2);
   await expect(batch.locator(".batch-row", { hasText: "unknown.bin" })).toContainText("Unchecked");
 });
+
+
+test("returning to a batch detaches the previous document panels", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexscope.language", "en");
+    localStorage.setItem("hexscope.tour", "done");
+  });
+  const photo = readFileSync(new URL("../../../crates/hexscope-core/tests/fixtures/photo.jpg", import.meta.url));
+  await page.goto("./");
+  await page.locator("#picker-empty").setInputFiles([
+    { name: "first.jpg", mimeType: "image/jpeg", buffer: photo },
+    { name: "second.jpg", mimeType: "image/jpeg", buffer: photo },
+  ]);
+  const batch = page.locator("#batch");
+  const first = batch.locator(".batch-row", { hasText: "first.jpg" });
+  await expect(first).toBeVisible();
+  await first.click();
+  await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+  await expect(page.locator(".drawer-file .verdict")).toHaveCount(1);
+  await page.locator("#fileinfo .crumb-back").first().click();
+  await expect(page.locator("body")).toHaveAttribute("data-state", "batch");
+  await expect(page.locator(".drawer-file > *")).toHaveCount(0);
+  await expect(page.locator("#files > *")).toHaveCount(0);
+  await expect(page.locator("#hex-legend > *")).toHaveCount(0);
+  await first.click();
+  await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+  await expect(page.locator(".drawer-file .verdict")).toHaveCount(1);
+});
