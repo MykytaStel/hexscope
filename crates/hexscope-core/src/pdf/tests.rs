@@ -1728,3 +1728,26 @@ fn page_context_matches_full_inspection_for_real_and_encrypted_pdfs() {
         );
     }
 }
+
+#[test]
+fn xref_subsection_outside_object_index_space_is_incomplete() {
+    for header in ["4294967296 1", "4294967295 2", "9999999999999999999 2"] {
+        let data = format!(
+            "%PDF-1.4\nxref\n{header}\n0000000000 65535 f\n0000000000 65535 f\ntrailer\n<< /Size 2 >>\nstartxref\n9\n%%EOF\n"
+        );
+        let doc = parse_pdf(data.as_bytes());
+        assert!(doc.tree.nodes().iter().any(|n| {
+            n.kind == NodeKind::Error && n.label.contains("cross-reference object range exceeds")
+        }));
+        assert!(!crate::summary::summarize(data.as_bytes()).complete);
+    }
+}
+
+#[test]
+fn xref_generation_above_u16_is_not_a_valid_entry() {
+    let data = b"%PDF-1.4\nxref\n0 1\n0000000000 65536 f\ntrailer\n<< /Size 1 >>\nstartxref\n9\n%%EOF\n";
+    let doc = parse_pdf(data);
+    assert!(doc.tree.nodes().iter().any(|n| {
+        n.kind == NodeKind::Error && n.label == "cross-reference entry 0 cannot be read"
+    }));
+}
