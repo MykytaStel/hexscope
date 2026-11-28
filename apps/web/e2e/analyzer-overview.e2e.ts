@@ -95,6 +95,7 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
         mapShadow: getComputedStyle(map).boxShadow,
         findingsDivider: findings ? Number.parseFloat(getComputedStyle(findings).borderLeftWidth) : 0,
         showBackground: showStyle.backgroundColor,
+        showMinHeight: Number.parseFloat(showStyle.minHeight),
         showHeight: show.getBoundingClientRect().height,
       };
     });
@@ -115,7 +116,10 @@ test("mobile analyzer overview keeps its header and result surfaces composed acr
     expect(surfaces.mapShadow, `the map is not boxed in at ${width}px`).toBe("none");
     expect(surfaces.findingsDivider, `desktop findings are not separated by another frame at ${width}px`).toBe(0);
     expect(surfaces.showBackground, `the data row shares the page background at ${width}px`).toBe("rgba(0, 0, 0, 0)");
-    expect(surfaces.showHeight, `the data row is easy to hit at ${width}px`).toBeGreaterThanOrEqual(44);
+    expect(surfaces.showMinHeight, `the data row declares a 44px touch target at ${width}px`).toBeGreaterThanOrEqual(44);
+    // DOMRect can round a 44px CSS box to 43.999969px. Allow only
+    // a hundredth of a CSS pixel, not a genuinely smaller target.
+    expect(surfaces.showHeight, `the data row is easy to hit at ${width}px`).toBeGreaterThanOrEqual(43.99);
   }
 
   for (const view of ["content", "metadata", "map"] as const) {

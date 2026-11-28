@@ -109,28 +109,28 @@ impl ParseTree {
             return id;
         }
         if self.nodes.len() >= self.node_limit {
-            let id = self.nodes.len() as NodeId;
-            self.nodes.push(Node {
-                id,
-                parent: self.root(),
-                label: "parse tree node limit reached; remaining structures were not inspected"
-                    .into(),
-                range,
-                value: None,
-                kind: NodeKind::Error,
-                children: Vec::new(),
-            });
-            if id > 0 {
-                self.nodes[0].children.push(id);
-            }
-            self.limit_node = Some(id);
-            return id;
+            return self.record_node_limit(range);
         }
+        self.push_node(parent, label.into(), range, kind, value)
+    }
+
+    // Keep the arena insertion shared between label types and call sites in
+    // size-optimized browser builds, rather than duplicating the allocation
+    // and parent-link logic in every parser.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn push_node(
+        &mut self,
+        parent: Option<NodeId>,
+        label: String,
+        range: ByteRange,
+        kind: NodeKind,
+        value: Option<Value>,
+    ) -> NodeId {
         let id = self.nodes.len() as NodeId;
         self.nodes.push(Node {
             id,
             parent,
-            label: label.into(),
+            label,
             range,
             value,
             kind,
@@ -139,6 +139,19 @@ impl ParseTree {
         if let Some(p) = parent {
             self.nodes[p as usize].children.push(id);
         }
+        id
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn record_node_limit(&mut self, range: ByteRange) -> NodeId {
+        let id = self.push_node(
+            self.root(),
+            "parse tree node limit reached; remaining structures were not inspected".into(),
+            range,
+            NodeKind::Error,
+            None,
+        );
+        self.limit_node = Some(id);
         id
     }
 
@@ -430,6 +443,29 @@ mod tests {
         );
         let ids = outer.graft_with_ids(root, &inner, u64::MAX - 5);
         assert_eq!(outer.get(ids[1]).kind, NodeKind::Error);
+    }
+
+    #[test]
+    fn exhausted_tree_does_not_convert_discarded_labels() {
+        struct UnusedLabel;
+
+        impl From<UnusedLabel> for String {
+            fn from(_: UnusedLabel) -> Self {
+                panic!("discarded labels must not be converted")
+            }
+        }
+
+        let mut tree = ParseTree::with_node_limit(1);
+        let range = ByteRange::new(0, 1);
+        let root = tree.add(None, "root", range, NodeKind::Container, None);
+        let limit = tree.add(Some(root), UnusedLabel, range, NodeKind::Field, None);
+        assert_eq!(
+            tree.add(Some(root), UnusedLabel, range, NodeKind::Field, None),
+            limit
+        );
+        assert_eq!(tree.len(), 2);
+        assert_eq!(tree.get(root).children, vec![limit]);
+        assert_eq!(tree.get(limit).kind, NodeKind::Error);
     }
 
     #[test]

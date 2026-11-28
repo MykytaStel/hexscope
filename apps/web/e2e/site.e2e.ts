@@ -1970,28 +1970,52 @@ test("the phone bytes view reserves room for reading the bytes", async ({ page }
   expect(treeHeight).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) * 0.2);
 });
 
+/** Wait for the actual touch target after the responsive workspace transition.
+ * Raw CDP input does not get Playwright's actionability checks automatically. */
+async function firstByteTouchPoint(page: Page): Promise<{ x: number; y: number }> {
+  await expect(page.locator("body")).toHaveAttribute("data-app-view", "bytes");
+  const canvas = page.locator(".hex-canvas");
+  await expect(canvas).toBeVisible();
+  await page.evaluate(async () => { await document.fonts.ready; });
+  await canvas.click({ trial: true, position: { x: 85, y: 24 } });
+  await canvas.evaluate((element) => {
+    element.closest(".hex-scroller")!.scrollTop = 0;
+  });
+  await expect.poll(() => canvas.evaluate((element) => {
+    const c = element as HTMLCanvasElement;
+    const rect = c.getBoundingClientRect();
+    return c.width > 0 && c.height > 0
+      && element.closest(".hex-scroller")!.scrollTop === 0
+      && document.elementFromPoint(rect.left + 85, rect.top + 24) === element;
+  }), { message: "the first byte touch point must hit the visible, unscrolled canvas" }).toBe(true);
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("The byte canvas is not visible");
+  return { x: box.x + 85, y: box.y + 24 };
+}
+
 test("a phone long-press peeks at a byte without pinning a selection", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "long-press is a touch interaction");
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await openView(page, "bytes");
-  const canvas = page.locator(".hex-canvas");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("The byte canvas is not visible");
-  const point = { x: box.x + 85, y: box.y + 24 };
+  const point = await firstByteTouchPoint(page);
 
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchStart",
     touchPoints: [{ x: point.x, y: point.y }],
   });
-  await page.waitForTimeout(550);
-  await expect(page.locator("#status")).toContainText("0x00000000");
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
+  try {
+    // Keep the finger down until the real peek is observable. Do not
+    // depend on a fixed wait ending immediately after the app's timer.
+    await expect(page.locator("#status")).toContainText("0x00000000");
+  } finally {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  }
 
   await expect(page.getByRole("dialog", { name: "Selected part" })).toHaveCount(0);
   await expect(page.locator("#status")).toContainText("0x00000000");
@@ -2003,10 +2027,7 @@ test("a phone byte peek cancels after the touch moves", async ({ page }, info) =
   await page.goto("./?sample=photo.jpg");
   await expect(page.locator(".verdict-title")).toBeVisible();
   await openView(page, "bytes");
-  const canvas = page.locator(".hex-canvas");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("The byte canvas is not visible");
-  const point = { x: box.x + 85, y: box.y + 24 };
+  const point = await firstByteTouchPoint(page);
   const before = await page.locator("#status").textContent();
 
   const cdp = await page.context().newCDPSession(page);
