@@ -1499,10 +1499,8 @@ fn unsupported_files_fail_the_default_incomplete_check() {
 
 #[test]
 fn damaged_format_status_reaches_cli_check_and_coverage() {
-    let dir = std::env::temp_dir().join(format!(
-        "hexscope-inspection-parity-{}",
-        std::process::id()
-    ));
+    let dir =
+        std::env::temp_dir().join(format!("hexscope-inspection-parity-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let mut split_zip = [0u8; 22];
