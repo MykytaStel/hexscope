@@ -98,7 +98,7 @@ file per change; `node scripts/changelog.mjs` shows how it will read here.
 - Report split ZIP archives, incomplete directory reads at the entry limit and inconsistent directory counts as partial inspections instead of complete, without relabeling unsupported conditions as corruption.
 - Reject ZIP64 end records with inconsistent lengths and missing or truncated ZIP data descriptors; guard local-header offset arithmetic against overflow.
 - Explain the new PNG header, terminator and HEIF item-storage errors instead of falling back to a generic sentence.
-- Keep every browser module within its existing compressed size budget after the parser reliability fixes: SVG duplicate attributes and policy kinds now reuse the sort the module already links instead of adding a string hasher and a second sort.
+- Avoid growing the PDF module for SVG validation: duplicate attributes and policy kinds reuse the sort the module already links instead of adding a string hasher and a second sort.
 - Report extra SVG roots, text or CDATA outside the document element, unterminated CDATA and malformed attribute framing as damaged, including in compressed SVGZ drawings.
 - Check TIFF table value sizes and offsets before use, including on wasm32, and accept image dimensions only from single unsigned SHORT or LONG values.
 - Bound GIF colour tables and pixel ranges to the loaded file, report missing LZW framing and avoid copying compressed frame payloads just to count them.

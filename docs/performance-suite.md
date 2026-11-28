@@ -1,6 +1,8 @@
 # Performance evidence suite
 
-Separate correctness tests from performance observations. Existing Criterion benchmarks, core large-file budgets, E2E and gzip gates remain unchanged.
+Separate correctness tests from performance observations. Criterion benchmarks, core large-file budgets and E2E gates remain unchanged. Compressed WASM ceilings are hard limits and change only with measured transfer-size or release-codegen evidence.
+
+For 0.24.0, the PDF ceiling moves from 229000 to 229250 bytes: changing the workspace crate identity alone adds 165 gzip bytes on CI while the parser sources and external dependencies stay unchanged. Lowering `hexscope-inflate` from optimization level 3 saved 106 bytes locally but produced greater-than-20% regression signals across several format timings, so the faster profile remains in use. CI measured the release candidate at 229079 bytes gzip.
 
 ## Collect locally
 

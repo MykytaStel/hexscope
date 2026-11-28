@@ -30,7 +30,10 @@ requests then never conflict in [`CHANGELOG.md`](../CHANGELOG.md);
    0.11.0`. It writes everything in `changes/` into `CHANGELOG.md` under that
    version, newest first, adds its compare link at the bottom and removes the
    files. Read it through once.
-4. Open a pull request; CI checks that the changelog has the new version.
+4. Run `pnpm build && pnpm perf:size --check` after the version bump, then
+   open a pull request. Cargo package versions can change the generated WASM
+   even when parser sources are identical. CI checks both the size of the
+   rebuilt assets and that the changelog has the new version.
 5. Once it is merged and deployed, tag it and publish the release notes:
 
    ```sh

@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { wasmFamilies, familyNames, buildArguments, artifactPattern } from "./wasm-build-manifest.mjs";
 
-test("production features and compressed budgets are the existing five contracts", () => {
+test("production features and compressed budgets are the five contracts", () => {
   assert.deepEqual(Object.entries(wasmFamilies).map(([family, spec]) => [family, spec.features, spec.budget]), [
-    ["media", "hdr,svg,strings", 178000], ["pdf", "pdf", 229000], ["docs", "office,mail,module", 240000],
+    ["media", "hdr,svg,strings", 178000], ["pdf", "pdf", 229250], ["docs", "office,mail,module", 240000],
     ["audio", "audio", 168000], ["raster", "web", 216000],
   ]);
   for (const family of Object.keys(wasmFamilies)) {
