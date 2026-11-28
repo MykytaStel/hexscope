@@ -812,15 +812,21 @@ fn every_node_carries_its_explanation() {
         .map(str::to_string)
         .collect();
     let ihdr = labels.iter().position(|l| l == "IHDR").unwrap();
-    // The page reads the sentence by its key, from what `every` lists.
-    let sentence = |key: u32| {
-        hexscope_core::docs::every()
-            .into_iter()
-            .find(|(_, d)| d.key == key)
-            .map(|(_, d)| d.text)
-    };
-    let header = sentence(keys[ids[ihdr] as usize]).unwrap();
-    assert!(header.starts_with("The image header"), "{header}");
+    // The page reads the sentence by its key, from what `every` lists. The
+    // browser's reduced builds omit the sentence and keep only the stable key.
+    let key = keys[ids[ihdr] as usize];
+    let header = hexscope_core::docs::every()
+        .into_iter()
+        .find(|(_, d)| d.key == key)
+        .expect("the page can look up the node's explanation")
+        .1;
+    assert_eq!(header.key, key);
+    #[cfg(feature = "explain")]
+    assert!(
+        header.text.starts_with("The image header"),
+        "{}",
+        header.text
+    );
     assert!(ids.iter().all(|&i| i >= 0), "every PNG node is explained");
     // A palette of 256 colours is 256 nodes and one explanation.
     let palette = parse(&fixture("basn3p08.png"));

@@ -241,7 +241,11 @@ jobs:
       # containers; this shared support adds about 10 KB to each independently
       # loaded parser. Keep the increase bounded and visible in this budget.
       # Shared publication plans/policies and tree admission add bounded code to each family.
-      # Measured locally: media 177 KB, PDF 228 KB, docs 239 KB, audio 167 KB gzip.
+      # Measured locally on the 0.23.0 package identity: media 177 KB,
+      # PDF 228 KB, docs 239 KB, audio 167 KB gzip.
+      # The PDF ceiling is 229250: the 0.24.0 crate identity alone adds 165
+      # gzip bytes to codegen output. A lower inflater optimization level
+      # produced slowdown signals in local benchmarks, so level 3 stays.
       - name: WebAssembly size budget
         run: pnpm perf:size --check
       - name: Profile production WASM

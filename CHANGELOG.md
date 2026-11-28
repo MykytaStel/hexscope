@@ -11,6 +11,126 @@ change what the CLI's JSON says. How a version is made: [docs/releasing.md](docs
 What is merged but not released yet is in [`changes/`](changes/), with one
 file per change; `node scripts/changelog.mjs` shows how it will read here.
 
+## [0.24.0] — 2026-11-28
+
+### Added
+
+- Enforce the compact movie transfer contract in the existing browser long-video workflow, including actual backing-buffer size and logical-size preservation.
+- Deterministic 8 GiB logical movie stress cases covering compact metadata, original offsets, entropy read limits, concurrent page loads and retained-cache ceilings without allocating the logical media.
+- CI capability checks against actual generated WASM modules, including enabled/disabled family dispatch, shared parser ABI, raster isolation, and flattened tree consistency.
+- Structural WASM binary profiling for all production families with section accounting, largest bodies, optional names, memory declarations and exact gzip transfer measurements.
+- Isolated named diagnostic builds without overwriting the deployed assets.
+- Regression tests for binary boundaries, imported function indices and anonymous symbol reporting.
+- Separate reproducible browser and Node WASM performance runners with versioned JSON evidence.
+- Median-based comparison with explicit environment and workload compatibility checks.
+- Sparse movie transfer invariant, repeated opens, batch reader observations and direct WASM linear memory snapshots.
+
+### Changed
+
+- Report missing benchmark samples explicitly and fail the opt-in regression gate when evidence availability changes between baseline and candidate.
+- Keep intentionally unavailable measurements descriptive, never compare partial medians as complete evidence.
+- Centralize the existing five WASM build specifications and compressed budgets, sharing them across production and diagnostic tooling.
+- Use locked Cargo resolution for production WASM builds; preserve feature sets, output names and size limits.
+- Limit the sum of additional decoded inputs retained by nested browser navigation to 256 MiB, excluding the root; preserve the existing individual limit and nesting depth.
+- Drop reloadable parent byte pages after a successful nested open while retaining parser evidence and selection history.
+- Validate external archive ranges and exact read lengths before handing compressed bytes to WASM.
+- Share a 128 MiB in-flight compressed-read budget across extraction and player selection; release the reservation on success, cancellation or failure.
+- Track cancelled parse and image scan requests until the reader acknowledges their completion; do not confuse cancelled promises with idle workers.
+- Avoid restarting a recycled worker for a request that was already cancelled.
+- Serialize QR/image-analysis jobs in the reader, including film export readback.
+- Allow queued cancellation to release work immediately and yield between expensive scan phases.
+- Check scan cancellation after an external compressed entry read, before inflating it.
+- Yield during large individual entropy windows rather than only between windows.
+- Preserve histogram state across bounded chunks and choose conservative CPU time slices from coarse concurrency hints.
+- Retain exact entropy values, sampling policy and cancellation semantics.
+- Cancel obsolete interactive QR and film-clue analysis on workspace transitions and retry interrupted scans on return.
+- Guard asynchronous findings and film-card publication by the owning navigation request.
+- Stop archive image candidate discovery at the existing 30-picture limit.
+- Detach hidden viewer models and dispose cached archive views when returning to the batch list.
+- Release picture panel references and invalidate stale JPEG rendering results, including when the same model is revisited.
+- Exercise batch return and reopen in browser regression tests.
+- Release deferred media caches when files are replaced, removed from nested navigation or abandoned by stale parse results.
+- Prevent pending Blob reads from repopulating retired caches without bypassing concurrent-read limits.
+- Keep retained parent documents and parser evidence intact.
+- Flatten the per-node spatial index into two typed arrays with no per-leaf index allocation.
+- Reuse child offsets and temporary sibling storage; preserve exact byte ownership and overlap behavior.
+- Adapt optional sparse media cache and batch reader retention to coarse device-memory hints, conservatively treating unknown memory as a middle profile.
+- Avoid redundant LRU map mutations for consecutive bytes on the most recently used page.
+- Keep input admission, findings, verification and all format limits unchanged.
+- Scan WASM data/debug paths once in forward order rather than rescanning for absent home-directory prefixes after each candidate.
+- Reject oversized usernames before allocating and bound path-preview scanning to the displayed 60 bytes.
+- Preserve existing path findings, ordering, placeholder exclusions and preview text.
+- Read DEFLATE extra bits in byte-sized chunks instead of bit-by-bit iteration.
+- Index the Huffman prefix table in the stream's low-first bit order, moving bit reversal from decoding to table construction.
+- Preserve exact traced code values, bit offsets, output budgets and malformed-stream errors.
+- Reuse valid UTF-8 decompression buffers for Office XML metadata and reuse the Word document body for link and tracked-change analysis.
+- Count comment tags without retaining a vector of every matching tag, and reuse the tag search prefix within list scans.
+- Borrow validated stored ZIP entries for embedded Office and OpenDocument photo inspection instead of allocating an additional full entry buffer.
+- Preserve the owned extraction API and all CRC, encryption, declared-size and range checks; compressed entries still decode into owned storage.
+- Reuse the same indexed PDF structure and decryption path for page text, page pictures, QR picture/shape discovery and JPEG redaction previews without repeating the full-document findings walk.
+- Keep full metadata, historical text and blackout checks on the primary parser, attachment lookup and cleaner paths.
+- Borrow bounded EXIF value bytes and decode scalar numbers without temporary vectors.
+- Share numeric and rational decoding across metadata display and fact collection.
+- Separate TIFF traversal and rendering for measurable code-size attribution; preserve full-value range checks.
+- Write PDF object headers and cross-reference fields directly into the output with a shared decimal encoder, avoiding temporary formatting strings.
+- Blank JPEG metadata in the already-owned PDF output rather than copying the entire JPEG into a separate temporary buffer.
+- Reject offsets that cannot fit a classic cross-reference entry and avoid object-number arithmetic overflow.
+- Stream embedded signature searches in large movies using bounded 1 MiB windows instead of a full prefix allocation.
+- Share header and end-marker validation across contiguous and Blob-backed sources.
+- Preserve original offsets, scan limits, and cancellation; reject short reads and truncated signature headers.
+- Terminate and replace the actual WASM worker on fatal parser errors, instead of clearing its module cache.
+- Release idle batch readers at queue boundaries and after bounded work.
+- Ensure temporary parser objects are freed on exceptional paths.
+- Large movie inspection now transfers compact metadata instead of allocating a full logical file buffer.
+- The hex viewer loads deferred media through a bounded page cache; unknown bytes remain visibly unknown.
+- Search, comparison, byte inspection, size reporting and signature discovery use original offsets.
+- Map known movie ranges directly from compact metadata for entropy analysis.
+- Avoid allocating a list of every unread chunk in comparison queries.
+- Distinguish unread bytes from zeroes in comparison previews.
+- Reduce repeated full-buffer copies during cleaning and release redundant WASM presentation arrays after transfer.
+- Avoid writing through omitted movie media pages; bound non-media allocation before inspection.
+- Avoid speculative document downloads on slow, memory-constrained or unknown devices.
+- Provide a local gzip size report using the unchanged CI budgets.
+
+### Fixed
+
+- Keep the landing header within narrow screens while a window is being narrowed: the language and theme controls no longer push it past the edge in the moment before they move into the menu.
+- Report split ZIP archives, incomplete directory reads at the entry limit and inconsistent directory counts as partial inspections instead of complete, without relabeling unsupported conditions as corruption.
+- Reject ZIP64 end records with inconsistent lengths and missing or truncated ZIP data descriptors; guard local-header offset arithmetic against overflow.
+- Explain the new PNG header, terminator and HEIF item-storage errors instead of falling back to a generic sentence.
+- Avoid growing the PDF module for SVG validation: duplicate attributes and policy kinds reuse the sort the module already links instead of adding a string hasher and a second sort.
+- Report extra SVG roots, text or CDATA outside the document element, unterminated CDATA and malformed attribute framing as damaged, including in compressed SVGZ drawings.
+- Check TIFF table value sizes and offsets before use, including on wasm32, and accept image dimensions only from single unsigned SHORT or LONG values.
+- Bound GIF colour tables and pixel ranges to the loaded file, report missing LZW framing and avoid copying compressed frame payloads just to count them.
+- Keep WebP chunk payloads, padding and extended-header fields within their declared RIFF boundaries; report truncated framing and unread chunks as errors instead of silently accepting them.
+- Detect missing, duplicate or misplaced PNG IHDR chunks and nonempty IEND payloads; preserve the first header instead of silently replacing it.
+- Mark JPEG metadata inspection partial when ICC APP2 fragments cannot be assembled or exceed the existing inspection limit.
+- Report unread PNG text metadata as damage when its keyword separator, compression method or iTXt flag prevents interpretation.
+- Reject out-of-width PDF cross-reference subsection indices and generation numbers, retaining incomplete inspection evidence.
+- Refuse external HEIF data references, overflowing offsets and direct item extents outside their storage range rather than interpreting unrelated local bytes as metadata.
+- Report a missing or truncated EXIF/TIFF next-IFD pointer even when every declared entry fits.
+- Reject out-of-width and overlong WASM LEB128 encodings while preserving valid padded unsigned and signed operands.
+- Check function-index arithmetic and retain damaged-section reporting.
+- Validate XLSX hidden column bounds and checked aggregate counts; preserve hidden-column evidence and mark incomplete inspection on malformed ranges instead of overflowing or reporting invented exact counts.
+- Preserve the parse tree node-limit error through later label, range and value updates.
+- Avoid traversing a subtree when grafting without a mapping after the tree budget is exhausted.
+- Route RF64, BW64 and big-endian RIFX WAVE to the existing audio WASM build.
+- Respect QuickTime's non-ftyp first-box signatures before PDF or ZIP detection, matching core format priority.
+- Reject overflowing ZIP ranges and unrepresentable embedded offsets.
+- Preserve the last byte of unterminated media box strings and validate box boundaries.
+- Stop on unsupported HEIF location versions and oversized location tables rather than silently clipping them.
+- Show an explicit partial-inspection warning instead of a healthy verdict when checks are incomplete.
+- Name MP3, FLAC and Ogg correctly when their extensions do not match.
+- **Reject malformed zlib window declarations.** A header with an invalid
+  window size is rejected even if its header checksum is correct.
+- **Distinguish truncated gzip trailers from extra data.** The gzip reader
+  now reports the correct framing failure internally.
+- **Reject over-budget ZIP entries before decoding.** Entries declaring an
+  expanded size above the caller's budget no longer start decompression.
+  Actual expanded length and CRC checks remain in place.
+- **Validate the entire zlib frame.** Reject extra bytes before the Adler-32
+  trailer and back-references exceeding the declared window.
+
 ## [0.23.0] — 2026-11-17
 
 ### Added
@@ -1057,7 +1177,8 @@ photos, videos, PDFs, Office documents, emails, archives and WebAssembly in
 the browser; says what each gives away; makes clean, redacted and repaired
 copies; and a CLI and GitHub Action for the same checks in CI.
 
-[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/hexscope/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/MykytaStel/hexscope/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/MykytaStel/hexscope/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/MykytaStel/hexscope/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/hexscope/compare/v0.20.0...v0.21.0
