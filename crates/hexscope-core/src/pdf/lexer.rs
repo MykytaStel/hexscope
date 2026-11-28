@@ -44,6 +44,7 @@ impl Obj {
     }
 
     /// The value of `key`, when this is a dictionary that has it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, key: &str) -> Option<&Obj> {
         self.entries()
             .iter()
@@ -140,16 +141,25 @@ impl<'a> Lexer<'a> {
     }
 
     /// A non-negative integer, or nothing (and the cursor unmoved).
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn uint(&mut self) -> Option<u64> {
         let save = self.pos;
         let w = self.word();
-        let n = (!w.is_empty() && w.len() <= 19 && w.iter().all(u8::is_ascii_digit))
-            .then(|| std::str::from_utf8(w).ok()?.parse().ok())
-            .flatten();
-        if n.is_none() {
-            self.pos = save;
+        if !w.is_empty() && w.len() <= 19 {
+            // Nineteen decimal digits always fit in u64. Decode ASCII
+            // directly, preserving the existing length and token rules.
+            let mut n = 0u64;
+            for &b in w {
+                if !b.is_ascii_digit() {
+                    self.pos = save;
+                    return None;
+                }
+                n = n * 10 + u64::from(b - b'0');
+            }
+            return Some(n);
         }
-        n
+        self.pos = save;
+        None
     }
 
     /// `N G obj`, returning the object number and generation.
@@ -435,6 +445,42 @@ mod tests {
         }
         let deep = "[".repeat(100);
         assert_eq!(read(deep.as_bytes()), None);
+    }
+
+    #[test]
+    fn unsigned_tokens_preserve_the_length_and_cursor_contract() {
+        for (bytes, expected) in [
+            (&b"0 "[..], Some(0)),
+            (&b"00042/"[..], Some(42)),
+            (
+                &b"9999999999999999999 "[..],
+                Some(9_999_999_999_999_999_999),
+            ),
+            (&b"18446744073709551615 "[..], None),
+            (&b"00000000000000000000 "[..], None),
+            (&b"12abc "[..], None),
+            (&b"+1 "[..], None),
+            (&b"-1 "[..], None),
+            (&b" "[..], None),
+            (&b"\xff "[..], None),
+        ] {
+            let mut lexer = Lexer::new(bytes, 0);
+            assert_eq!(lexer.uint(), expected, "{bytes:?}");
+            let end = if expected.is_some() {
+                bytes.len() - 1
+            } else {
+                0
+            };
+            assert_eq!(lexer.pos, end, "{bytes:?}");
+        }
+    }
+
+    #[test]
+    fn duplicate_dictionary_keys_still_resolve_to_the_last_value() {
+        let dict = read(b"<< /N 1 /N 2 >>").unwrap();
+        assert_eq!(dict.get("N"), Some(&Obj::Int(2)));
+        assert_eq!(dict.get("Missing"), None);
+        assert_eq!(Obj::Null.get("N"), None);
     }
 
     #[test]
