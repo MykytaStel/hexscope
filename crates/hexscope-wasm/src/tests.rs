@@ -386,6 +386,41 @@ fn coverage_status_matches_the_core_for_complete_partial_and_unknown_files() {
 }
 
 #[test]
+fn damaged_format_status_matches_core_across_the_bridge() {
+    use hexscope_core::coverage::CoverageStatus;
+    use hexscope_core::summary::summarize;
+
+    let mut split_zip = [0u8; 22];
+    split_zip[..4].copy_from_slice(b"PK\x05\x06");
+    split_zip[4] = 1;
+    let cases: &[(&str, &[u8], CoverageStatus)] = &[
+        ("png", b"\x89PNG\r\n\x1a\n", CoverageStatus::Partial),
+        ("jpeg", b"\xff\xd8\xff", CoverageStatus::Partial),
+        ("gif", b"GIF89a", CoverageStatus::Partial),
+        ("webp", b"RIFF\x06\x00\x00\x00WEBP", CoverageStatus::Partial),
+        #[cfg(feature = "office")]
+        ("zip", &split_zip, CoverageStatus::Partial),
+        #[cfg(not(feature = "office"))]
+        ("unknown", &split_zip, CoverageStatus::Unsupported),
+        #[cfg(feature = "svg")]
+        ("svg", b"<svg/><svg/>", CoverageStatus::Partial),
+        #[cfg(not(feature = "svg"))]
+        ("unknown", b"<svg/><svg/>", CoverageStatus::Unsupported),
+        ("unknown", b"\x00\x01\x02\x03", CoverageStatus::Unsupported),
+    ];
+
+    for &(format, bytes, expected) in cases {
+        let core = summarize(bytes);
+        let parsed = parse(bytes);
+        assert_eq!(core.format, format);
+        assert_eq!(core.inspection_status(), expected, "{format}");
+        assert_eq!(parsed.format(), format);
+        assert_eq!(parsed.coverage_status(), expected.code(), "{format}");
+        assert_eq!(parsed.metadata_complete(), core.complete, "{format}");
+    }
+}
+
+#[test]
 fn a_pixel_leads_to_the_step_that_wrote_it_and_back() {
     let parsed = parse(&fixture("basn2c08.png"));
     assert_eq!(parsed.preview_size(), vec![32, 32]);

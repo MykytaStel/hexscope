@@ -1498,6 +1498,49 @@ fn unsupported_files_fail_the_default_incomplete_check() {
 }
 
 #[test]
+fn damaged_format_status_reaches_cli_check_and_coverage() {
+    let dir = std::env::temp_dir().join(format!(
+        "hexscope-inspection-parity-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut split_zip = [0u8; 22];
+    split_zip[..4].copy_from_slice(b"PK\x05\x06");
+    split_zip[4] = 1;
+    let cases: &[(&str, &str, &[u8])] = &[
+        ("broken.png", "png", b"\x89PNG\r\n\x1a\n"),
+        ("broken.jpg", "jpeg", b"\xff\xd8\xff"),
+        ("broken.gif", "gif", b"GIF89a"),
+        ("broken.webp", "webp", b"RIFF\x06\x00\x00\x00WEBP"),
+        ("split.zip", "zip", &split_zip),
+        ("broken.svg", "svg", b"<svg/><svg/>"),
+    ];
+    for &(name, format, bytes) in cases {
+        let path = dir.join(name);
+        std::fs::write(&path, bytes).unwrap();
+        let (code, out, err) = run(&["check", "--all", "--json", path.to_str().unwrap()]);
+        assert_eq!(code, 1, "{name}: {out}{err}");
+        let row: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        assert_eq!(row["format"], format, "{name}");
+        assert_eq!(row["complete"], false, "{name}");
+    }
+
+    let (code, out, err) = run(&["coverage", "--json", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}{err}");
+    let report: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(report["files"], cases.len() as u64);
+    let rows = report["formats"].as_array().unwrap();
+    for &(_, format, _) in cases {
+        let row = rows.iter().find(|row| row["format"] == format).unwrap();
+        assert_eq!(row["partial"], 1, "{format}");
+        assert_eq!(row["complete"], 0, "{format}");
+        assert_eq!(row["unsupported"], 0, "{format}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn coverage_json_is_value_free_and_distinguishes_partial_and_unsupported_files() {
     let dir = std::env::temp_dir().join(format!("hexscope-coverage-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
